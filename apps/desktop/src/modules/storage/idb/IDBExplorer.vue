@@ -18,11 +18,9 @@ const { data, isLoading, isError, error, refetch } = useRecords(dbName, storeNam
 function prevPage() {
   if (page.value > 0) page.value--;
 }
-
 function nextPage() {
   if (data.value?.hasMore) page.value++;
 }
-
 function handlePageSizeChange(size: number) {
   pageSize.value = size;
   page.value = 0;
@@ -30,8 +28,14 @@ function handlePageSizeChange(size: number) {
 </script>
 
 <template>
-  <div class="idb-explorer">
-    <div v-if="!dbName || !storeName" class="empty">Select a store from the sidebar</div>
+  <div class="flex h-full flex-col overflow-hidden">
+    <!-- No selection -->
+    <div
+      v-if="!dbName || !storeName"
+      class="flex flex-1 items-center justify-center text-[12px] text-muted-foreground/40"
+    >
+      Select a store from the sidebar
+    </div>
 
     <template v-else>
       <IDBTableToolbar
@@ -48,36 +52,15 @@ function handlePageSizeChange(size: number) {
         @page-size-change="handlePageSizeChange"
       />
 
-      <div v-if="isError" class="error-msg">{{ error?.message }}</div>
+      <!-- Error banner -->
+      <div
+        v-if="isError"
+        class="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-status-error"
+      >
+        {{ error?.message }}
+      </div>
 
       <IDBTable :records="data?.records ?? []" :is-loading="isLoading" />
     </template>
   </div>
 </template>
-
-<style scoped>
-.idb-explorer {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.error-msg {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--status-error);
-  background-color: rgba(240, 64, 64, 0.08);
-  border-bottom: 1px solid var(--border-default);
-  flex-shrink: 0;
-}
-</style>

@@ -1,74 +1,27 @@
 <script setup lang="ts">
-// Slots: left (device), center (target URL), right (CDP status)
-// Wired in T12
+import { Circle, Wifi, HardDrive, Activity } from "lucide-vue-next";
 </script>
 
 <template>
-  <footer class="status-bar">
-    <div class="status-bar-left">
-      <slot name="left">
-        <span class="status-placeholder">No device</span>
-      </slot>
-    </div>
-    <div class="status-bar-center">
-      <slot name="center" />
-    </div>
-    <div class="status-bar-right">
-      <slot name="right">
-        <span class="status-dot disconnected" title="Not connected" />
-      </slot>
-    </div>
+  <footer
+    class="h-[22px] bg-surface-0 border-t border-border/30 flex items-center px-3 text-2xs font-mono text-muted-foreground shrink-0 gap-4 select-none"
+  >
+    <span class="flex items-center gap-1.5">
+      <Circle class="w-[5px] h-[5px] fill-success text-success" />
+      Connected
+    </span>
+    <span class="flex items-center gap-1.5">
+      <Wifi class="w-2.5 h-2.5" />
+      USB 3.0
+    </span>
+    <span class="flex items-center gap-1.5">
+      <Activity class="w-2.5 h-2.5" />
+      12 req/s
+    </span>
+    <span class="flex items-center gap-1.5">
+      <HardDrive class="w-2.5 h-2.5" />
+      14.2 MB / 2.4 GB
+    </span>
+    <span class="ml-auto text-dimmed">DevBridge v0.1.0-alpha</span>
   </footer>
 </template>
-
-<style scoped>
-.status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--status-bar-height);
-  padding: 0 10px;
-  background-color: var(--surface-sunken);
-  border-top: 1px solid var(--border-default);
-  grid-column: 1 / -1;
-  grid-row: 2;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  user-select: none;
-}
-
-.status-bar-left,
-.status-bar-center,
-.status-bar-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.status-bar-right {
-  justify-content: flex-end;
-}
-
-.status-placeholder {
-  color: var(--text-tertiary);
-}
-
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.status-dot.connected {
-  background-color: var(--status-success);
-}
-
-.status-dot.disconnected {
-  background-color: var(--text-tertiary);
-}
-
-.status-dot.error {
-  background-color: var(--status-error);
-}
-</style>

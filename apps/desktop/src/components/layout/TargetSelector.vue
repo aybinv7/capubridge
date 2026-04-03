@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { watch } from "vue";
-import { ChevronDown, Loader, CircleDot } from "lucide-vue-next";
+import { computed } from "vue";
+import { ChevronDown, Loader2, CircleDot } from "lucide-vue-next";
 import { useCDP } from "@/composables/useCDP";
 import type { CDPTarget } from "@/types/cdp.types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const { devicesStore, targetsStore, connectionStore, forwardAndFetchTargets, connectToTarget } =
   useCDP();
 
-// When a device is selected, auto-forward and fetch targets
+import { watch } from "vue";
 watch(
   () => devicesStore.selectedDevice,
   async (device) => {
@@ -30,207 +38,97 @@ async function handleTargetSelect(target: CDPTarget) {
 function connStatus(targetId: string) {
   return connectionStore.connections.get(targetId)?.status ?? "disconnected";
 }
+
+const selectedStatus = computed(() => {
+  const t = targetsStore.selectedTarget;
+  if (!t) return "disconnected";
+  return connStatus(t.id);
+});
+
+const dotClass = computed(() => {
+  switch (selectedStatus.value) {
+    case "connected":
+      return "bg-status-success";
+    case "connecting":
+      return "bg-status-warning";
+    default:
+      return "bg-muted-foreground/30";
+  }
+});
 </script>
 
 <template>
-  <div class="target-selector">
-    <!-- No device selected -->
-    <div v-if="!devicesStore.selectedDevice" class="selector-placeholder">Select a device</div>
+  <!-- No device selected -->
+  <span v-if="!devicesStore.selectedDevice" class="text-[11px] text-muted-foreground/40 px-1">
+    No device selected
+  </span>
 
-    <!-- Device selected, fetching targets -->
-    <div v-else-if="targetsStore.isFetching" class="selector-loading">
-      <Loader :size="12" class="spin" />
-      <span>Fetching targets…</span>
-    </div>
+  <!-- Fetching targets -->
+  <span
+    v-else-if="targetsStore.isFetching"
+    class="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 px-1"
+  >
+    <Loader2 :size="11" class="animate-spin" />
+    Fetching targets…
+  </span>
 
-    <!-- No targets found -->
-    <div
-      v-else-if="targetsStore.targets.length === 0 && !targetsStore.isFetching"
-      class="selector-placeholder"
-    >
-      No inspectable targets
-    </div>
+  <!-- No targets -->
+  <span
+    v-else-if="targetsStore.targets.length === 0"
+    class="text-[11px] text-muted-foreground/40 px-1"
+  >
+    No inspectable targets
+  </span>
 
-    <!-- Target dropdown -->
-    <div v-else class="selector-dropdown">
-      <div class="selector-selected">
-        <span
-          class="conn-dot"
-          :class="
-            targetsStore.selectedTarget
-              ? connStatus(targetsStore.selectedTarget.id)
-              : 'disconnected'
-          "
-        />
-        <span class="selector-text">
+  <!-- Target picker dropdown -->
+  <DropdownMenu v-else>
+    <DropdownMenuTrigger as-child>
+      <button
+        class="flex h-6 min-w-[160px] max-w-[280px] items-center gap-1.5 border border-border bg-transparent px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <!-- Connection dot -->
+        <span class="size-[6px] rounded-full shrink-0" :class="dotClass" />
+        <!-- Target title -->
+        <span class="flex-1 truncate text-left">
           {{ targetsStore.selectedTarget?.title || "Pick a target" }}
         </span>
-        <ChevronDown :size="12" />
-      </div>
+        <ChevronDown :size="10" class="shrink-0 opacity-50" />
+      </button>
+    </DropdownMenuTrigger>
 
-      <div class="selector-menu">
-        <button
-          v-for="target in targetsStore.targets"
-          :key="target.id"
-          class="selector-item"
-          :class="{ active: targetsStore.selectedTarget?.id === target.id }"
-          @click="handleTargetSelect(target)"
-        >
-          <CircleDot :size="10" />
-          <div class="selector-item-info">
-            <span class="item-title">{{ target.title || "(no title)" }}</span>
-            <span class="item-url">{{ target.url }}</span>
-          </div>
-        </button>
-      </div>
-    </div>
-  </div>
+    <DropdownMenuContent align="end" class="w-80">
+      <DropdownMenuLabel
+        class="py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60"
+      >
+        Inspectable Targets
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        v-for="target in targetsStore.targets"
+        :key="target.id"
+        class="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer"
+        @click="handleTargetSelect(target)"
+      >
+        <div class="flex w-full items-center gap-1.5">
+          <span
+            class="size-[6px] rounded-full shrink-0"
+            :class="
+              connStatus(target.id) === 'connected' ? 'bg-status-success' : 'bg-muted-foreground/20'
+            "
+          />
+          <span class="flex-1 truncate text-xs">
+            {{ target.title || "(no title)" }}
+          </span>
+          <CircleDot
+            v-if="targetsStore.selectedTarget?.id === target.id"
+            :size="10"
+            class="text-primary shrink-0"
+          />
+        </div>
+        <span class="pl-[14px] w-full truncate font-mono text-[10px] text-muted-foreground/50">
+          {{ target.url }}
+        </span>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
 </template>
-
-<style scoped>
-.target-selector {
-  position: relative;
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.selector-placeholder,
-.selector-loading {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.selector-dropdown {
-  position: relative;
-}
-
-.selector-dropdown:hover .selector-menu {
-  display: flex;
-}
-
-.selector-selected {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--border-default);
-  background-color: var(--surface-overlay);
-  min-width: 180px;
-  max-width: 320px;
-}
-
-.selector-text {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.selector-menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background-color: var(--surface-overlay);
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  padding: 4px;
-  min-width: 320px;
-  max-width: 420px;
-  max-height: 280px;
-  overflow-y: auto;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 100;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-.selector-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: background-color 0.1s;
-}
-
-.selector-item:hover {
-  background-color: var(--border-default);
-}
-
-.selector-item.active {
-  background-color: rgba(79, 142, 247, 0.1);
-  color: var(--text-primary);
-}
-
-.selector-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
-}
-
-.item-title {
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item-url {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.conn-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: inline-block;
-}
-
-.conn-dot.connected {
-  background-color: var(--status-success);
-}
-
-.conn-dot.connecting {
-  background-color: var(--status-warning);
-}
-
-.conn-dot.disconnected,
-.conn-dot.error {
-  background-color: var(--text-tertiary);
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>

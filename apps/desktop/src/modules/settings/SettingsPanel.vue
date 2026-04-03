@@ -1,19 +1,15 @@
 <script setup lang="ts">
-// Phase 6
+import { Settings } from "lucide-vue-next";
 </script>
+
 <template>
-  <div class="panel">
-    <div class="placeholder">Settings — Phase 6</div>
+  <div class="flex h-full flex-col items-center justify-center gap-3 text-center">
+    <Settings :size="28" class="text-muted-foreground/15" />
+    <div class="space-y-1">
+      <p class="text-[12px] font-medium text-muted-foreground/40">Settings</p>
+      <p class="text-[11px] text-muted-foreground/25">
+        ADB path · Theme · Keyboard shortcuts — Phase 6
+      </p>
+    </div>
   </div>
 </template>
-<style scoped>
-.panel {
-  height: 100%;
-  display: flex;
-}
-.placeholder {
-  margin: auto;
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-</style>

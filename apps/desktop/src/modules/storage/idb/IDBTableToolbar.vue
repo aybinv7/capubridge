@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
 
 const props = defineProps<{
   storeName: string;
@@ -22,160 +23,69 @@ const pageSizeOptions = [50, 100, 500];
 </script>
 
 <template>
-  <div class="toolbar">
-    <div class="toolbar-left">
-      <span class="toolbar-title">{{ props.storeName }}</span>
-      <span class="toolbar-subtitle">{{ props.dbName }}</span>
+  <div
+    class="flex h-9 shrink-0 items-center justify-between border-b border-border bg-card px-3 gap-3"
+  >
+    <!-- Left: store path -->
+    <div class="flex items-center gap-2 min-w-0 overflow-hidden">
+      <span class="text-[12px] font-medium text-foreground truncate">{{ props.storeName }}</span>
+      <span class="text-muted-foreground/30 shrink-0">·</span>
+      <span class="text-[11px] text-muted-foreground/50 truncate font-mono">{{
+        props.dbName
+      }}</span>
     </div>
 
-    <div class="toolbar-right">
-      <span class="record-count">{{ props.recordCount }} records</span>
+    <!-- Right: controls -->
+    <div class="flex items-center gap-2 shrink-0">
+      <!-- Record count -->
+      <span class="text-[11px] text-muted-foreground/40 tabular-nums">
+        {{ props.recordCount.toLocaleString() }} records
+      </span>
 
+      <!-- Page size selector -->
       <select
-        class="page-size-select"
+        class="h-6 border border-border bg-transparent px-1.5 text-[11px] text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
         :value="props.pageSize"
         @change="emit('pageSizeChange', Number(($event.target as HTMLSelectElement).value))"
       >
         <option v-for="s in pageSizeOptions" :key="s" :value="s">{{ s }} / page</option>
       </select>
 
-      <div class="pagination">
-        <button
-          class="toolbar-btn"
+      <!-- Pagination -->
+      <div class="flex items-center gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon-sm"
           :disabled="props.page === 0"
-          title="Previous page"
+          aria-label="Previous page"
           @click="emit('prev')"
         >
-          <ChevronLeft :size="14" />
-        </button>
-        <span class="page-num">{{ props.page + 1 }}</span>
-        <button
-          class="toolbar-btn"
+          <ChevronLeft :size="13" />
+        </Button>
+        <span class="w-6 text-center text-[11px] text-muted-foreground tabular-nums">
+          {{ props.page + 1 }}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           :disabled="!props.hasMore"
-          title="Next page"
+          aria-label="Next page"
           @click="emit('next')"
         >
-          <ChevronRight :size="14" />
-        </button>
+          <ChevronRight :size="13" />
+        </Button>
       </div>
 
-      <button
-        class="toolbar-btn"
-        :class="{ spinning: props.isLoading }"
-        title="Refresh"
+      <!-- Refresh -->
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Refresh"
+        :class="{ 'animate-spin': props.isLoading }"
         @click="emit('refresh')"
       >
-        <RefreshCw :size="14" />
-      </button>
+        <RefreshCw :size="13" />
+      </Button>
     </div>
   </div>
 </template>
-
-<style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--toolbar-height);
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border-default);
-  background-color: var(--surface-raised);
-  flex-shrink: 0;
-  gap: 12px;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow: hidden;
-}
-
-.toolbar-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.toolbar-subtitle {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.record-count {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.page-size-select {
-  font-size: 11px;
-  background-color: var(--surface-overlay);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  padding: 2px 4px;
-  cursor: pointer;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.page-num {
-  font-size: 11px;
-  color: var(--text-secondary);
-  min-width: 16px;
-  text-align: center;
-}
-
-.toolbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: none;
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition:
-    background-color 0.1s,
-    color 0.1s;
-}
-
-.toolbar-btn:hover:not(:disabled) {
-  background-color: var(--border-default);
-  color: var(--text-primary);
-}
-
-.toolbar-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.spinning svg {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>

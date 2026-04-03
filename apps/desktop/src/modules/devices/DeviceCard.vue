@@ -19,119 +19,54 @@ const statusLabel: Record<ADBDevice["status"], string> = {
 };
 
 const statusClass: Record<ADBDevice["status"], string> = {
-  online: "status-online",
-  offline: "status-offline",
-  unauthorized: "status-warn",
-  "no-permissions": "status-warn",
+  online: "text-status-success",
+  offline: "text-muted-foreground/40",
+  unauthorized: "text-status-warning",
+  "no-permissions": "text-status-warning",
 };
 </script>
 
 <template>
-  <button class="device-card" :class="{ selected: props.isSelected }" @click="emit('select')">
-    <div class="device-card-top">
-      <span class="device-name">{{ props.device.model || props.device.serial }}</span>
-      <span class="device-badge" :class="statusClass[props.device.status]">
+  <button
+    class="group w-full border-l-2 px-3 py-2.5 text-left transition-[background-color,border-color] duration-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+    :class="
+      props.isSelected
+        ? 'border-l-primary bg-primary/[0.06]'
+        : 'border-l-transparent hover:bg-accent hover:border-l-border'
+    "
+    @click="emit('select')"
+  >
+    <!-- Top row: model name + status badge -->
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <span
+        class="text-[13px] font-medium truncate text-foreground"
+        :class="{ 'text-primary': props.isSelected }"
+      >
+        {{ props.device.model || props.device.serial }}
+      </span>
+      <span class="text-[10px] font-semibold shrink-0" :class="statusClass[props.device.status]">
         {{ statusLabel[props.device.status] }}
       </span>
     </div>
-    <div class="device-card-bottom">
-      <span class="device-serial">{{ props.device.serial }}</span>
+
+    <!-- Bottom row: serial + connection type -->
+    <div class="flex items-center justify-between">
+      <span class="font-mono text-[11px] text-muted-foreground/50 truncate">
+        {{ props.device.serial }}
+      </span>
       <component
         :is="props.device.connectionType === 'wifi' ? Wifi : Usb"
-        :size="12"
-        class="device-conn-icon"
+        :size="11"
+        class="text-muted-foreground/30 shrink-0"
       />
     </div>
-    <p v-if="props.device.status === 'unauthorized'" class="device-hint">
+
+    <!-- Unauthorized hint -->
+    <p
+      v-if="props.device.status === 'unauthorized'"
+      class="mt-1.5 text-[10px] leading-snug text-status-warning"
+    >
       Accept the USB debugging prompt on the device
     </p>
   </button>
 </template>
-
-<style scoped>
-.device-card {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 6px;
-  background: none;
-  border: 1px solid transparent;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color 0.1s,
-    border-color 0.1s;
-  color: var(--text-primary);
-}
-
-.device-card:hover {
-  background-color: var(--border-default);
-}
-
-.device-card.selected {
-  background-color: rgba(79, 142, 247, 0.08);
-  border-color: var(--border-focus);
-}
-
-.device-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.device-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.device-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
-.status-online {
-  color: var(--status-success);
-  background-color: rgba(61, 214, 140, 0.15);
-}
-
-.status-offline {
-  color: var(--text-tertiary);
-  background-color: var(--border-default);
-}
-
-.status-warn {
-  color: var(--status-warning);
-  background-color: rgba(240, 160, 48, 0.15);
-}
-
-.device-card-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.device-serial {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  font-family: monospace;
-}
-
-.device-conn-icon {
-  color: var(--text-tertiary);
-}
-
-.device-hint {
-  font-size: 11px;
-  color: var(--status-warning);
-  margin-top: 4px;
-  line-height: 1.4;
-}
-</style>

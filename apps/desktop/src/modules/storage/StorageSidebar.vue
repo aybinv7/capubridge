@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { Database, ChevronRight, ChevronDown, Loader } from "lucide-vue-next";
+import {
+  Database,
+  HardDrive,
+  Archive,
+  FolderOpen,
+  ChevronRight,
+  ChevronDown,
+  Loader2,
+} from "lucide-vue-next";
 import { useIDB } from "@/composables/useIDB";
 import { useTargetsStore } from "@/stores/targets.store";
 
@@ -11,15 +19,10 @@ const targetsStore = useTargetsStore();
 const { useDatabases } = useIDB();
 
 const { data: databases, isLoading, isError, error } = useDatabases();
-
 const expandedDbs = ref<Set<string>>(new Set());
 
 function toggleDb(dbName: string) {
-  if (expandedDbs.value.has(dbName)) {
-    expandedDbs.value.delete(dbName);
-  } else {
-    expandedDbs.value.add(dbName);
-  }
+  expandedDbs.value.has(dbName) ? expandedDbs.value.delete(dbName) : expandedDbs.value.add(dbName);
 }
 
 function navigateToStore(dbName: string, storeName: string) {
@@ -29,212 +32,112 @@ function navigateToStore(dbName: string, storeName: string) {
 function isStoreActive(dbName: string, storeName: string) {
   return route.params["db"] === dbName && route.params["store"] === storeName;
 }
+
+const storageLinks = [
+  { to: "/storage/localstorage", icon: HardDrive, label: "LocalStorage" },
+  { to: "/storage/cache", icon: Archive, label: "Cache API" },
+  { to: "/storage/opfs", icon: FolderOpen, label: "OPFS" },
+] as const;
 </script>
 
 <template>
-  <aside class="storage-sidebar">
-    <div class="sidebar-header">Storage</div>
-
-    <div v-if="!targetsStore.selectedTarget" class="sidebar-empty">Connect to a target first</div>
-
-    <div v-else-if="isLoading" class="sidebar-loading">
-      <Loader :size="14" class="spin" />
-      <span>Loading…</span>
+  <aside class="flex w-[220px] shrink-0 flex-col border-r border-border overflow-hidden">
+    <!-- IndexedDB section -->
+    <div class="flex h-8 shrink-0 items-center border-b border-border px-3 gap-1.5">
+      <Database :size="12" class="text-muted-foreground/40 shrink-0" />
+      <span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/50">
+        IndexedDB
+      </span>
     </div>
 
-    <div v-else-if="isError" class="sidebar-error">
-      {{ error?.message }}
-    </div>
+    <!-- IDB tree -->
+    <div class="flex-1 overflow-y-auto overflow-x-hidden">
+      <!-- No target -->
+      <div
+        v-if="!targetsStore.selectedTarget"
+        class="px-3 py-3 text-[11px] text-muted-foreground/40"
+      >
+        Connect to a target first
+      </div>
 
-    <div v-else-if="databases && databases.length === 0" class="sidebar-empty">
-      No IndexedDB databases
-    </div>
+      <!-- Loading -->
+      <div
+        v-else-if="isLoading"
+        class="flex items-center gap-2 px-3 py-3 text-[11px] text-muted-foreground/50"
+      >
+        <Loader2 :size="12" class="animate-spin" />
+        Loading…
+      </div>
 
-    <ul v-else class="sidebar-tree">
-      <li v-for="db in databases" :key="db.name" class="tree-db">
-        <button class="tree-db-header" @click="toggleDb(db.name)">
-          <component :is="expandedDbs.has(db.name) ? ChevronDown : ChevronRight" :size="12" />
-          <Database :size="13" />
-          <span class="tree-db-name">{{ db.name }}</span>
-          <span class="tree-db-version">v{{ db.version }}</span>
-        </button>
+      <!-- Error -->
+      <div v-else-if="isError" class="px-3 py-3 text-[11px] text-status-error">
+        {{ error?.message }}
+      </div>
 
-        <ul v-if="expandedDbs.has(db.name)" class="tree-stores">
-          <li v-for="store in db.objectStoreNames" :key="store" class="tree-store">
-            <button
-              class="tree-store-btn"
-              :class="{ active: isStoreActive(db.name, store) }"
-              @click="navigateToStore(db.name, store)"
+      <!-- Empty -->
+      <div
+        v-else-if="databases && databases.length === 0"
+        class="px-3 py-3 text-[11px] text-muted-foreground/40"
+      >
+        No databases found
+      </div>
+
+      <!-- Database tree -->
+      <ul v-else class="py-1">
+        <li v-for="db in databases" :key="db.name">
+          <!-- DB row -->
+          <button
+            class="flex w-full items-center gap-1.5 px-2 py-[5px] text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none"
+            @click="toggleDb(db.name)"
+          >
+            <component
+              :is="expandedDbs.has(db.name) ? ChevronDown : ChevronRight"
+              :size="11"
+              class="shrink-0 opacity-50"
+            />
+            <Database :size="12" class="shrink-0 opacity-50" />
+            <span class="flex-1 truncate text-left">{{ db.name }}</span>
+            <span class="text-[10px] font-mono text-muted-foreground/30 shrink-0"
+              >v{{ db.version }}</span
             >
-              {{ store }}
-            </button>
-          </li>
-        </ul>
-      </li>
-    </ul>
+          </button>
 
-    <!-- LocalStorage link -->
-    <div class="sidebar-section">
-      <RouterLink to="/storage/localstorage" class="sidebar-link"> LocalStorage </RouterLink>
-      <RouterLink to="/storage/cache" class="sidebar-link"> Cache API </RouterLink>
-      <RouterLink to="/storage/opfs" class="sidebar-link"> OPFS </RouterLink>
+          <!-- Store rows -->
+          <ul v-if="expandedDbs.has(db.name)">
+            <li v-for="store in db.objectStoreNames" :key="store">
+              <button
+                class="flex w-full items-center gap-1.5 py-[4px] pl-[26px] pr-2 text-[11px] transition-colors focus-visible:outline-none"
+                :class="
+                  isStoreActive(db.name, store)
+                    ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary pl-[24px]'
+                    : 'text-muted-foreground/60 hover:bg-accent hover:text-accent-foreground'
+                "
+                @click="navigateToStore(db.name, store)"
+              >
+                <span class="truncate text-left">{{ store }}</span>
+              </button>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Other storage types -->
+    <div class="shrink-0 border-t border-border py-1">
+      <RouterLink
+        v-for="link in storageLinks"
+        :key="link.to"
+        :to="link.to"
+        class="flex items-center gap-2 px-3 py-[5px] text-[12px] transition-colors"
+        :class="
+          route.path.startsWith(link.to)
+            ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[10px]'
+            : 'text-muted-foreground/60 hover:bg-accent hover:text-accent-foreground'
+        "
+      >
+        <component :is="link.icon" :size="12" class="shrink-0" />
+        {{ link.label }}
+      </RouterLink>
     </div>
   </aside>
 </template>
-
-<style scoped>
-.storage-sidebar {
-  width: var(--storage-sidebar-width);
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--surface-raised);
-  border-right: 1px solid var(--border-default);
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.sidebar-header {
-  padding: 10px 12px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-bottom: 1px solid var(--border-default);
-  flex-shrink: 0;
-}
-
-.sidebar-empty,
-.sidebar-loading,
-.sidebar-error {
-  padding: 16px 12px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sidebar-error {
-  color: var(--status-error);
-}
-
-.sidebar-tree {
-  list-style: none;
-  padding: 4px 0;
-}
-
-.tree-db {
-  /* no margin */
-}
-
-.tree-db-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  padding: 5px 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 12px;
-  text-align: left;
-  transition: background-color 0.1s;
-}
-
-.tree-db-header:hover {
-  background-color: var(--border-default);
-}
-
-.tree-db-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tree-db-version {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.tree-stores {
-  list-style: none;
-  padding-left: 24px;
-}
-
-.tree-store-btn {
-  display: block;
-  width: 100%;
-  padding: 4px 8px;
-  background: none;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition:
-    background-color 0.1s,
-    color 0.1s;
-}
-
-.tree-store-btn:hover {
-  color: var(--text-secondary);
-  background-color: var(--border-default);
-}
-
-.tree-store-btn.active {
-  color: var(--accent-primary);
-  background-color: rgba(79, 142, 247, 0.1);
-}
-
-.sidebar-section {
-  padding: 8px;
-  border-top: 1px solid var(--border-default);
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sidebar-link {
-  display: block;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  text-decoration: none;
-  border-radius: 3px;
-  transition:
-    background-color 0.1s,
-    color 0.1s;
-}
-
-.sidebar-link:hover {
-  color: var(--text-secondary);
-  background-color: var(--border-default);
-}
-
-.sidebar-link.router-link-active {
-  color: var(--accent-primary);
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>

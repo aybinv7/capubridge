@@ -10,25 +10,6 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/storage",
     component: () => import("@/modules/storage/StoragePanel.vue"),
-    children: [
-      { path: "", redirect: "idb" },
-      {
-        path: "idb/:db?/:store?",
-        component: () => import("@/modules/storage/idb/IDBExplorer.vue"),
-      },
-      {
-        path: "localstorage",
-        component: () => import("@/modules/storage/localstorage/LSExplorer.vue"),
-      },
-      {
-        path: "cache",
-        component: () => import("@/modules/storage/cache/CacheExplorer.vue"),
-      },
-      {
-        path: "opfs",
-        component: () => import("@/modules/storage/opfs/OPFSExplorer.vue"),
-      },
-    ],
   },
   {
     path: "/network",
