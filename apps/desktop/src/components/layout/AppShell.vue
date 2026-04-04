@@ -31,7 +31,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
       <!-- Content column -->
       <div
-        class="flex flex-1 flex-col border-t border-l rounded-tl-xl overflow-hidden bg-[#151515]"
+        class="flex flex-1 flex-col border-t border-l border-border/40 rounded-tl-2xl overflow-hidden bg-surface-1"
       >
         <main class="flex-1 overflow-hidden">
           <RouterView />

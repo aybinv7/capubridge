@@ -90,11 +90,11 @@ const table = useVueTable({
 <template>
   <div class="relative flex-1 overflow-auto">
     <!-- Loading shimmer -->
-    <div v-if="isLoading && records.length === 0" class="flex flex-col gap-px p-3">
+    <div v-if="isLoading && records.length === 0" class="flex flex-col gap-px p-4">
       <div
         v-for="i in 10"
         :key="i"
-        class="h-7 animate-pulse bg-muted/60"
+        class="h-9 animate-pulse bg-surface-3/50"
         :style="{ animationDelay: `${i * 40}ms` }"
       />
     </div>
@@ -102,33 +102,36 @@ const table = useVueTable({
     <!-- Empty -->
     <div
       v-else-if="!isLoading && records.length === 0"
-      class="flex h-32 items-center justify-center text-[12px] text-muted-foreground/40"
+      class="flex h-40 items-center justify-center text-sm text-muted-foreground/30"
     >
       No records in this store
     </div>
 
     <!-- Table -->
-    <table v-else class="w-full border-collapse text-[12px]" style="table-layout: fixed">
+    <table v-else class="w-full border-collapse text-sm" style="table-layout: fixed">
       <thead>
         <tr>
           <th
             v-for="header in table.getFlatHeaders()"
             :key="header.id"
             :style="{ width: header.getSize() + 'px' }"
-            class="sticky top-0 z-[1] h-8 border-b border-border bg-card px-2.5 text-left text-[11px] font-semibold text-muted-foreground/60 select-none truncate"
+            class="sticky top-0 z-[1] h-10 border-b border-border/30 bg-surface-2 px-4 text-left text-xs font-medium text-muted-foreground/50 select-none truncate"
             :class="{
-              'cursor-pointer hover:text-foreground hover:bg-muted': header.column.getCanSort(),
+              'cursor-pointer hover:text-muted-foreground hover:bg-surface-3/50':
+                header.column.getCanSort(),
             }"
             @click="header.column.getToggleSortingHandler()?.($event)"
           >
             <span class="flex items-center gap-1">
               <FlexRender :render="header.column.columnDef.header" :props="header.getContext()" />
-              <span v-if="header.column.getIsSorted() === 'asc'" class="text-[10px] text-foreground"
+              <span
+                v-if="header.column.getIsSorted() === 'asc'"
+                class="text-xs text-muted-foreground"
                 >↑</span
               >
               <span
                 v-else-if="header.column.getIsSorted() === 'desc'"
-                class="text-[10px] text-foreground"
+                class="text-xs text-muted-foreground"
                 >↓</span
               >
             </span>
@@ -139,12 +142,12 @@ const table = useVueTable({
         <tr
           v-for="row in table.getRowModel().rows"
           :key="row.id"
-          class="group border-b border-border hover:bg-accent transition-colors duration-75"
+          class="group border-b border-border/20 hover:bg-surface-2/50 transition-colors duration-75"
         >
           <td
             v-for="cell in row.getVisibleCells()"
             :key="cell.id"
-            class="h-7 overflow-hidden text-ellipsis whitespace-nowrap px-2.5 font-mono text-foreground max-w-[300px]"
+            class="h-9 overflow-hidden text-ellipsis whitespace-nowrap px-4 font-mono text-foreground/80 max-w-[300px]"
           >
             <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
           </td>

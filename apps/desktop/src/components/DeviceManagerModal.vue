@@ -15,7 +15,6 @@ import {
   RotateCcw,
   Camera,
   Terminal,
-  ChevronRight,
   MonitorSmartphone,
 } from "lucide-vue-next";
 import { devices, portForwards } from "@/data/mock-data";
@@ -101,24 +100,24 @@ function selectDevice(id: string) {
       leave-to-class="opacity-0 scale-[0.98]"
     >
       <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/60" @click="emit('close')" />
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="emit('close')" />
 
         <div
-          class="relative flex bg-background border border-border overflow-hidden"
-          style="width: 900px; height: 560px"
+          class="relative flex bg-surface-1 border border-border/30 rounded-xl overflow-hidden shadow-2xl"
+          style="width: 960px; height: 580px"
         >
           <!-- LEFT SIDEBAR -->
-          <div class="w-[230px] border-r border-border flex flex-col shrink-0">
-            <div class="h-12 flex items-center gap-2 px-4 border-b border-border shrink-0">
-              <MonitorSmartphone class="w-3.5 h-3.5 text-foreground" />
-              <span class="text-xs font-semibold text-foreground">Devices</span>
-              <span class="ml-auto text-2xs font-mono text-muted-foreground">
+          <div class="w-[260px] border-r border-border/30 flex flex-col shrink-0 bg-surface-0">
+            <div class="h-12 flex items-center gap-3 px-4 border-b border-border/30 shrink-0 bg-surface-0">
+              <MonitorSmartphone class="w-4 h-4 text-muted-foreground/70" />
+              <span class="text-sm font-semibold text-foreground">Devices</span>
+              <span class="ml-auto text-xs font-mono text-muted-foreground/60">
                 {{ devices.filter((d) => d.status === "online").length }}/{{ devices.length }}
               </span>
               <button
-                class="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors duration-150"
+                class="w-6 h-6 flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors rounded-md hover:bg-surface-2"
               >
-                <RefreshCw class="w-3 h-3" />
+                <RefreshCw class="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -127,43 +126,39 @@ function selectDevice(id: string) {
                 v-for="d in devices"
                 :key="d.id"
                 @click="selectDevice(d.id)"
-                class="w-full text-left p-2.5 border transition-all duration-150"
+                class="w-full text-left p-3 rounded-lg transition-all duration-150 border border-transparent"
                 :class="
                   selectedDeviceId === d.id && rightView === 'device'
-                    ? 'border-border bg-accent'
-                    : 'border-transparent hover:bg-accent'
+                    ? 'border-border/30 bg-surface-2'
+                    : 'hover:bg-surface-2/50'
                 "
               >
                 <div class="flex items-center gap-2">
                   <Circle
-                    class="w-[6px] h-[6px] shrink-0"
+                    class="w-2 h-2 shrink-0"
                     :class="
                       d.status === 'online'
                         ? 'fill-success text-success'
                         : 'fill-muted-foreground/30 text-muted-foreground/30'
                     "
                   />
-                  <span class="text-xs font-medium text-foreground truncate flex-1">{{
+                  <span class="text-sm font-medium text-foreground truncate flex-1">{{
                     d.model
                   }}</span>
-                  <ChevronRight
-                    v-if="selectedDeviceId === d.id && rightView === 'device'"
-                    class="w-3 h-3 text-foreground shrink-0"
-                  />
                 </div>
-                <div class="flex items-center gap-1.5 mt-1 pl-3.5">
-                  <span class="text-2xs font-mono text-muted-foreground truncate">{{
-                    d.id.slice(0, 12)
+                <div class="flex items-center gap-1.5 mt-1 pl-5">
+                  <span class="text-xs font-mono text-muted-foreground/60 truncate">{{
+                    d.id.slice(0, 10)
                   }}</span>
-                  <span class="text-2xs text-muted-foreground shrink-0">·</span>
+                  <span class="text-xs text-muted-foreground/50">·</span>
                   <span
-                    class="text-2xs shrink-0"
+                    class="text-xs shrink-0"
                     :class="
                       deviceConn[d.id] === 'USB'
-                        ? 'text-success'
+                        ? 'text-success/80'
                         : deviceConn[d.id] === 'WiFi'
-                          ? 'text-info'
-                          : 'text-warning'
+                          ? 'text-info/80'
+                          : 'text-warning/80'
                     "
                     >{{ deviceConn[d.id] }}</span
                   >
@@ -171,20 +166,20 @@ function selectDevice(id: string) {
               </button>
             </div>
 
-            <div class="p-2 border-t border-border shrink-0">
+            <div class="p-3 border-t border-border/30 shrink-0">
               <button
                 @click="rightView = 'connect'"
-                class="w-full flex items-center gap-2 px-3 py-2.5 border transition-all duration-150 text-left"
+                class="w-full flex items-center gap-3 px-3 py-3 rounded-lg border border-dashed border-border/40 transition-all duration-150 text-left"
                 :class="
                   rightView === 'connect'
-                    ? 'border-border bg-accent text-foreground'
-                    : 'border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+                    ? 'border-border/60 bg-surface-2 text-foreground'
+                    : 'text-muted-foreground/70 hover:text-muted-foreground hover:bg-surface-2/50 hover:border-border/60'
                 "
               >
-                <Link class="w-3.5 h-3.5 shrink-0" />
+                <Link class="w-4 h-4 shrink-0" />
                 <div>
-                  <div class="text-xs font-medium">Connect New</div>
-                  <div class="text-2xs opacity-70">TCP/IP · WiFi Pair</div>
+                  <div class="text-sm font-medium">Connect New</div>
+                  <div class="text-xs opacity-70">TCP/IP · WiFi Pair</div>
                 </div>
               </button>
             </div>
@@ -194,30 +189,32 @@ function selectDevice(id: string) {
           <div class="flex-1 flex flex-col overflow-hidden">
             <button
               @click="emit('close')"
-              class="absolute top-3 right-3 z-10 p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-150"
+              class="absolute top-3 right-3 z-10 p-1.5 text-muted-foreground/40 hover:text-foreground hover:bg-surface-2 rounded-md transition-colors"
             >
-              <X class="w-3.5 h-3.5" />
+              <X class="w-4 h-4" />
             </button>
 
             <!-- DEVICE VIEW -->
             <template v-if="rightView === 'device' && selectedDevice">
-              <div class="h-12 flex items-center gap-3 px-5 border-b border-border shrink-0">
+              <div
+                class="h-14 flex items-center gap-4 px-6 border-b border-border/30 shrink-0 bg-surface-0"
+              >
                 <div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm font-semibold text-foreground">{{
+                  <div class="flex items-center gap-2.5">
+                    <span class="text-base font-semibold text-foreground">{{
                       selectedDevice.model
                     }}</span>
                     <span
-                      class="text-2xs px-1.5 py-0.5 font-medium"
+                      class="text-xs px-2 py-0.5 font-medium rounded-full"
                       :class="
                         selectedDevice.status === 'online'
-                          ? 'bg-success/10 text-success'
-                          : 'bg-muted text-muted-foreground'
+                          ? 'bg-success/10 text-success/70 border border-success/20'
+                          : 'bg-surface-2 text-muted-foreground/50 border border-border/30'
                       "
                       >{{ selectedDevice.status }}</span
                     >
                   </div>
-                  <div class="text-2xs text-muted-foreground font-mono">
+                  <div class="text-xs text-muted-foreground/40 font-mono mt-0.5">
                     Android {{ selectedDevice.androidVersion }} · API
                     {{ selectedDevice.apiLevel }} · {{ selectedDevice.ip }}
                   </div>
@@ -227,14 +224,16 @@ function selectDevice(id: string) {
                     emit('selectDevice', selectedDevice.id);
                     emit('close');
                   "
-                  class="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity shrink-0"
+                  class="ml-auto flex items-center gap-2 px-4 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity shrink-0"
                 >
                   Set Active
                 </button>
               </div>
 
               <!-- Device tab bar -->
-              <div class="flex items-end px-1 border-b border-border shrink-0">
+              <div
+                class="flex items-center gap-1 px-6 py-1 border-b border-border/30 shrink-0 bg-surface-0"
+              >
                 <button
                   v-for="t in [
                     { id: 'connection', label: 'Connection' },
@@ -244,25 +243,21 @@ function selectDevice(id: string) {
                   ]"
                   :key="t.id"
                   @click="deviceTab = t.id as DeviceTab"
-                  class="relative px-3 py-2.5 text-2xs transition-colors duration-150"
+                  class="px-3 py-1 text-sm transition-colors duration-150 rounded-full"
                   :class="
                     deviceTab === t.id
-                      ? 'text-foreground font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'text-foreground font-medium bg-surface-2 border border-border/30'
+                      : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-surface-2/50'
                   "
                 >
                   {{ t.label }}
-                  <div
-                    v-if="deviceTab === t.id"
-                    class="absolute bottom-0 left-1 right-1 h-0.5 bg-foreground"
-                  />
                 </button>
               </div>
 
               <!-- CONNECTION TAB -->
-              <div v-if="deviceTab === 'connection'" class="flex-1 overflow-y-auto p-5 space-y-5">
+              <div v-if="deviceTab === 'connection'" class="flex-1 overflow-y-auto p-6 space-y-6">
                 <div>
-                  <div class="text-2xs text-muted-foreground uppercase tracking-wider mb-3">
+                  <div class="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3">
                     Connection Mode
                   </div>
                   <div class="flex gap-3">
@@ -270,11 +265,11 @@ function selectDevice(id: string) {
                       v-for="mode in ['USB', 'WiFi', 'Emulator']"
                       :key="mode"
                       @click="deviceConn[selectedDevice.id] = mode"
-                      class="flex-1 flex flex-col items-center gap-2 py-4 border-2 transition-all duration-150"
+                      class="flex-1 flex flex-col items-center gap-2 py-5 rounded-lg border-2 transition-all duration-150"
                       :class="
                         deviceConn[selectedDevice.id] === mode
-                          ? 'border-foreground bg-accent'
-                          : 'border-border hover:border-muted-foreground'
+                          ? 'border-border/60 bg-surface-2'
+                          : 'border-border/20 hover:border-border/40'
                       "
                     >
                       <component
@@ -283,21 +278,21 @@ function selectDevice(id: string) {
                         :class="
                           deviceConn[selectedDevice.id] === mode
                             ? 'text-foreground'
-                            : 'text-muted-foreground'
+                            : 'text-muted-foreground/40'
                         "
                       />
                       <span
-                        class="text-xs font-medium"
+                        class="text-sm font-medium"
                         :class="
                           deviceConn[selectedDevice.id] === mode
                             ? 'text-foreground'
-                            : 'text-muted-foreground'
+                            : 'text-muted-foreground/50'
                         "
                         >{{ mode }}</span
                       >
                       <div
                         v-if="deviceConn[selectedDevice.id] === mode"
-                        class="text-2xs text-muted-foreground font-medium"
+                        class="text-xs text-muted-foreground/50"
                       >
                         Active
                       </div>
@@ -305,7 +300,7 @@ function selectDevice(id: string) {
                   </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-3">
                   <div
                     v-for="info in [
                       { label: 'Serial', value: selectedDevice.id },
@@ -314,24 +309,31 @@ function selectDevice(id: string) {
                       { label: 'Storage', value: selectedDevice.storage },
                     ]"
                     :key="info.label"
-                    class="bg-accent/50 px-3 py-2 border border-border"
+                    class="bg-surface-2 border border-border/30 rounded-lg px-4 py-3"
                   >
-                    <div class="text-2xs text-muted-foreground mb-0.5">{{ info.label }}</div>
-                    <div class="text-xs font-mono text-foreground truncate">{{ info.value }}</div>
+                    <div class="text-xs text-muted-foreground/50 mb-1">
+                      {{ info.label }}
+                    </div>
+                    <div class="text-sm font-mono text-foreground truncate">
+                      {{ info.value }}
+                    </div>
                   </div>
                 </div>
 
                 <div
                   v-if="deviceConn[selectedDevice.id] === 'USB'"
-                  class="bg-accent/30 border border-border p-3 space-y-1.5"
+                  class="bg-surface-2 border border-border/30 rounded-lg p-4 space-y-2"
                 >
-                  <div class="text-2xs text-muted-foreground font-medium">
+                  <div class="text-xs text-muted-foreground/50 font-medium">
                     Switch to WiFi Debugging
                   </div>
-                  <div class="flex items-center gap-2 text-2xs text-muted-foreground font-mono">
-                    <span class="bg-secondary px-1.5 py-0.5 text-foreground">adb tcpip 5555</span>
+                  <div class="flex items-center gap-2 text-xs text-muted-foreground/50 font-mono">
+                    <span
+                      class="bg-surface-3 px-2 py-0.5 text-foreground rounded border border-border/20"
+                      >adb tcpip 5555</span
+                    >
                     <span>→ then connect via</span>
-                    <span class="text-info">{{ selectedDevice.ip }}:5555</span>
+                    <span class="text-info/70">{{ selectedDevice.ip }}:5555</span>
                   </div>
                 </div>
               </div>
@@ -341,144 +343,172 @@ function selectDevice(id: string) {
                 v-else-if="deviceTab === 'forwarding'"
                 class="flex-1 flex flex-col overflow-hidden"
               >
-                <div class="flex-1 overflow-y-auto p-4 space-y-1.5">
+                <div class="flex-1 overflow-y-auto p-4 space-y-2">
                   <div
-                    class="text-2xs text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"
+                    class="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3 flex items-center gap-2"
                   >
-                    <ArrowRightLeft class="w-2.5 h-2.5" /> host → device
+                    <ArrowRightLeft class="w-3.5 h-3.5" /> host → device
                   </div>
                   <div
                     v-if="!devicePorts[selectedDevice.id]?.forwards?.length"
-                    class="py-6 text-center text-2xs text-muted-foreground"
+                    class="py-8 text-center text-sm text-muted-foreground/30"
                   >
                     No forwards for this device
                   </div>
                   <div
                     v-for="fwd in devicePorts[selectedDevice.id]?.forwards ?? []"
                     :key="fwd.id"
-                    class="flex items-center gap-3 px-3 py-2 bg-accent/30 border border-border group"
+                    class="flex items-center gap-3 px-4 py-3 bg-surface-2 border border-border/30 rounded-lg group"
                   >
-                    <span class="font-mono text-xs text-success">:{{ fwd.local }}</span>
-                    <ArrowRightLeft class="w-3 h-3 text-muted-foreground shrink-0" />
-                    <span class="font-mono text-xs text-info">:{{ fwd.remote }}</span>
-                    <span class="text-2xs text-muted-foreground flex-1 truncate">{{
+                    <span class="font-mono text-sm text-success/70">:{{ fwd.local }}</span>
+                    <ArrowRightLeft class="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
+                    <span class="font-mono text-sm text-info/70">:{{ fwd.remote }}</span>
+                    <span class="text-xs text-muted-foreground/50 flex-1 truncate">{{
                       fwd.description
                     }}</span>
                     <button
                       @click="removePort('forwards', fwd.id)"
-                      class="p-1 text-muted-foreground hover:text-error transition-colors duration-150 opacity-0 group-hover:opacity-100"
+                      class="p-1.5 text-muted-foreground/30 hover:text-error transition-colors opacity-0 group-hover:opacity-100 rounded-md hover:bg-error/10"
                     >
-                      <Trash2 class="w-3 h-3" />
+                      <Trash2 class="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-                <div class="p-3 border-t border-border flex gap-2">
+                <div class="p-4 border-t border-border/30 flex gap-2">
                   <input
                     v-model="newLocal"
-                    class="w-20 bg-transparent border border-border px-2 py-1.5 text-xs font-mono text-foreground outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground"
+                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
                     placeholder="host"
                   />
-                  <ArrowRightLeft class="w-3 h-3 text-muted-foreground self-center shrink-0" />
+                  <ArrowRightLeft
+                    class="w-3.5 h-3.5 text-muted-foreground/30 self-center shrink-0"
+                  />
                   <input
                     v-model="newRemote"
-                    class="w-20 bg-transparent border border-border px-2 py-1.5 text-xs font-mono text-foreground outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground"
+                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
                     placeholder="device"
                   />
                   <input
                     v-model="newDesc"
-                    class="flex-1 bg-transparent border border-border px-2 py-1.5 text-xs text-foreground outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground"
+                    class="flex-1 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
                     placeholder="description"
                   />
                   <button
                     @click="addPort('forwards')"
-                    class="px-3 py-1.5 bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity flex items-center gap-1"
+                    class="px-4 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
                   >
-                    <Plus class="w-3 h-3" /> Add
+                    <Plus class="w-3.5 h-3.5" /> Add
                   </button>
                 </div>
               </div>
 
               <!-- REVERSE TAB -->
               <div v-else-if="deviceTab === 'reverse'" class="flex-1 flex flex-col overflow-hidden">
-                <div class="flex-1 overflow-y-auto p-4 space-y-1.5">
+                <div class="flex-1 overflow-y-auto p-4 space-y-2">
                   <div
-                    class="text-2xs text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"
+                    class="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3 flex items-center gap-2"
                   >
-                    <ArrowLeftRight class="w-2.5 h-2.5" /> device → host
+                    <ArrowLeftRight class="w-3.5 h-3.5" /> device → host
                   </div>
                   <div
                     v-if="!devicePorts[selectedDevice.id]?.reverses?.length"
-                    class="py-6 text-center text-2xs text-muted-foreground"
+                    class="py-8 text-center text-sm text-muted-foreground/30"
                   >
                     No reverses for this device
                   </div>
                   <div
                     v-for="rev in devicePorts[selectedDevice.id]?.reverses ?? []"
                     :key="rev.id"
-                    class="flex items-center gap-3 px-3 py-2 bg-accent/30 border border-border group"
+                    class="flex items-center gap-3 px-4 py-3 bg-surface-2 border border-border/30 rounded-lg group"
                   >
-                    <span class="font-mono text-xs text-info">:{{ rev.local }}</span>
-                    <ArrowLeftRight class="w-3 h-3 text-muted-foreground shrink-0" />
-                    <span class="font-mono text-xs text-success">:{{ rev.remote }}</span>
-                    <span class="text-2xs text-muted-foreground flex-1 truncate">{{
+                    <span class="font-mono text-sm text-info/70">:{{ rev.local }}</span>
+                    <ArrowLeftRight class="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
+                    <span class="font-mono text-sm text-success/70">:{{ rev.remote }}</span>
+                    <span class="text-xs text-muted-foreground/50 flex-1 truncate">{{
                       rev.description
                     }}</span>
                     <button
                       @click="removePort('reverses', rev.id)"
-                      class="p-1 text-muted-foreground hover:text-error transition-colors duration-150 opacity-0 group-hover:opacity-100"
+                      class="p-1.5 text-muted-foreground/30 hover:text-error transition-colors opacity-0 group-hover:opacity-100 rounded-md hover:bg-error/10"
                     >
-                      <Trash2 class="w-3 h-3" />
+                      <Trash2 class="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-                <div class="p-3 border-t border-border flex gap-2">
+                <div class="p-4 border-t border-border/30 flex gap-2">
                   <input
                     v-model="newLocal"
-                    class="w-20 bg-transparent border border-border px-2 py-1.5 text-xs font-mono text-foreground outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground"
+                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
                     placeholder="device"
                   />
-                  <ArrowLeftRight class="w-3 h-3 text-muted-foreground self-center shrink-0" />
+                  <ArrowLeftRight
+                    class="w-3.5 h-3.5 text-muted-foreground/30 self-center shrink-0"
+                  />
                   <input
                     v-model="newRemote"
-                    class="w-20 bg-transparent border border-border px-2 py-1.5 text-xs font-mono text-foreground outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground"
+                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
                     placeholder="host"
                   />
                   <input
                     v-model="newDesc"
-                    class="flex-1 bg-transparent border border-border px-2 py-1.5 text-xs text-foreground outline-none focus:border-foreground transition-colors placeholder:text-muted-foreground"
+                    class="flex-1 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
                     placeholder="description"
                   />
                   <button
                     @click="addPort('reverses')"
-                    class="px-3 py-1.5 bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity flex items-center gap-1"
+                    class="px-4 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
                   >
-                    <Plus class="w-3 h-3" /> Add
+                    <Plus class="w-3.5 h-3.5" /> Add
                   </button>
                 </div>
               </div>
 
               <!-- ACTIONS TAB -->
-              <div v-else class="flex-1 overflow-y-auto p-4">
-                <div class="grid grid-cols-2 gap-2 max-w-sm">
+              <div v-else class="flex-1 overflow-y-auto p-6">
+                <div class="grid grid-cols-2 gap-3 max-w-md">
                   <button
                     v-for="action in [
-                      { icon: Camera, label: 'Take Screenshot', color: 'text-info' },
-                      { icon: RotateCcw, label: 'Restart ADB', color: 'text-warning' },
-                      { icon: Wifi, label: 'Enable WiFi Debug', color: 'text-foreground' },
-                      { icon: Power, label: 'Reboot Device', color: 'text-error' },
-                      { icon: Power, label: 'Reboot Recovery', color: 'text-warning' },
-                      { icon: Terminal, label: 'Open Shell', color: 'text-success' },
+                      {
+                        icon: Camera,
+                        label: 'Take Screenshot',
+                        color: 'text-info/70',
+                      },
+                      {
+                        icon: RotateCcw,
+                        label: 'Restart ADB',
+                        color: 'text-warning/70',
+                      },
+                      {
+                        icon: Wifi,
+                        label: 'Enable WiFi Debug',
+                        color: 'text-foreground/70',
+                      },
+                      {
+                        icon: Power,
+                        label: 'Reboot Device',
+                        color: 'text-error/70',
+                      },
+                      {
+                        icon: Power,
+                        label: 'Reboot Recovery',
+                        color: 'text-warning/70',
+                      },
+                      {
+                        icon: Terminal,
+                        label: 'Open Shell',
+                        color: 'text-success/70',
+                      },
                     ]"
                     :key="action.label"
-                    class="flex items-center gap-2.5 px-3 py-3 border border-border hover:bg-accent transition-all duration-150 text-left group"
+                    class="flex items-center gap-3 px-4 py-3.5 rounded-lg border border-border/30 hover:bg-surface-2 transition-all duration-150 text-left group"
                   >
                     <component
                       :is="action.icon"
-                      class="w-3.5 h-3.5 shrink-0 transition-colors"
+                      class="w-4 h-4 shrink-0 transition-colors"
                       :class="action.color"
                     />
                     <span
-                      class="text-xs text-muted-foreground group-hover:text-foreground transition-colors"
+                      class="text-sm text-muted-foreground/60 group-hover:text-foreground transition-colors"
                       >{{ action.label }}</span
                     >
                   </button>
@@ -488,43 +518,48 @@ function selectDevice(id: string) {
 
             <!-- CONNECT NEW VIEW -->
             <template v-else-if="rightView === 'connect'">
-              <div class="h-12 flex items-center px-5 border-b border-border shrink-0">
-                <span class="text-sm font-semibold text-foreground">Connect New Device</span>
+              <div
+                class="h-14 flex items-center px-6 border-b border-border/30 shrink-0 bg-surface-0"
+              >
+                <span class="text-base font-semibold text-foreground">Connect New Device</span>
               </div>
-              <div class="flex-1 overflow-y-auto p-5 space-y-6">
+              <div class="flex-1 overflow-y-auto p-6 space-y-8">
                 <div class="space-y-3">
-                  <div class="text-2xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div
+                    class="text-xs font-medium text-muted-foreground/50 uppercase tracking-wider"
+                  >
                     Connect via TCP/IP
                   </div>
-                  <div class="flex gap-2">
+                  <div class="flex gap-3">
                     <div
-                      class="flex-1 bg-transparent border border-border px-3 py-2.5 flex items-center gap-2 focus-within:border-foreground transition-colors"
+                      class="flex-1 bg-surface-2 border border-border/30 rounded-lg px-3 py-2.5 flex items-center gap-2 focus-within:border-border/60 transition-colors"
                     >
-                      <span class="text-2xs text-muted-foreground font-mono">IP</span>
+                      <span class="text-xs text-muted-foreground/40 font-mono">IP</span>
                       <input
                         v-model="wifiIp"
-                        class="bg-transparent text-xs text-foreground flex-1 outline-none font-mono placeholder:text-muted-foreground"
+                        class="bg-transparent text-sm text-foreground flex-1 outline-none font-mono placeholder:text-muted-foreground/30"
                         placeholder="192.168.1.100"
                       />
                     </div>
                     <div
-                      class="w-24 bg-transparent border border-border px-3 py-2.5 flex items-center gap-2 focus-within:border-foreground transition-colors"
+                      class="w-28 bg-surface-2 border border-border/30 rounded-lg px-3 py-2.5 flex items-center gap-2 focus-within:border-border/60 transition-colors"
                     >
-                      <span class="text-2xs text-muted-foreground font-mono">:</span>
+                      <span class="text-xs text-muted-foreground/40 font-mono">:</span>
                       <input
                         v-model="wifiPort"
-                        class="bg-transparent text-xs text-foreground flex-1 outline-none font-mono"
+                        class="bg-transparent text-sm text-foreground flex-1 outline-none font-mono"
                       />
                     </div>
                     <button
-                      class="px-4 bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                      class="px-5 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
                     >
-                      <Link class="w-3 h-3" /> Connect
+                      <Link class="w-3.5 h-3.5" /> Connect
                     </button>
                   </div>
-                  <p class="text-2xs text-muted-foreground">
+                  <p class="text-xs text-muted-foreground/40">
                     Run
-                    <span class="font-mono bg-secondary px-1.5 py-0.5 text-foreground"
+                    <span
+                      class="font-mono bg-surface-2 px-2 py-0.5 text-foreground rounded border border-border/20"
                       >adb tcpip 5555</span
                     >
                     on a USB-connected device first.
@@ -532,38 +567,40 @@ function selectDevice(id: string) {
                 </div>
 
                 <div class="space-y-3">
-                  <div class="text-2xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <div
+                    class="text-xs font-medium text-muted-foreground/50 uppercase tracking-wider"
+                  >
                     Wireless Debugging — Android 11+
                   </div>
-                  <div class="bg-accent/30 border border-border p-4 space-y-3">
-                    <div class="flex gap-2">
+                  <div class="bg-surface-2 border border-border/30 rounded-lg p-5 space-y-3">
+                    <div class="flex gap-3">
                       <div
-                        class="flex-1 bg-transparent border border-border px-3 py-2.5 flex items-center gap-2 focus-within:border-foreground transition-colors"
+                        class="flex-1 bg-surface-3 border border-border/30 rounded-lg px-3 py-2.5 flex items-center gap-2 focus-within:border-border/60 transition-colors"
                       >
-                        <span class="text-2xs text-muted-foreground font-mono">addr</span>
+                        <span class="text-xs text-muted-foreground/40 font-mono">addr</span>
                         <input
                           v-model="pairAddr"
-                          class="bg-transparent text-xs text-foreground flex-1 outline-none font-mono placeholder:text-muted-foreground"
+                          class="bg-transparent text-sm text-foreground flex-1 outline-none font-mono placeholder:text-muted-foreground/30"
                           placeholder="192.168.1.100:37261"
                         />
                       </div>
                       <div
-                        class="w-32 bg-transparent border border-border px-3 py-2.5 flex items-center gap-2 focus-within:border-foreground transition-colors"
+                        class="w-36 bg-surface-3 border border-border/30 rounded-lg px-3 py-2.5 flex items-center gap-2 focus-within:border-border/60 transition-colors"
                       >
-                        <span class="text-2xs text-muted-foreground">code</span>
+                        <span class="text-xs text-muted-foreground/40">code</span>
                         <input
                           v-model="pairCode"
-                          class="bg-transparent text-xs text-foreground flex-1 outline-none font-mono"
+                          class="bg-transparent text-sm text-foreground flex-1 outline-none font-mono"
                           placeholder="123456"
                         />
                       </div>
                       <button
-                        class="px-4 bg-secondary text-foreground border border-border text-xs hover:bg-accent transition-colors flex items-center gap-1.5"
+                        class="px-5 bg-surface-2 text-foreground border border-border/30 text-sm rounded-lg hover:bg-surface-3 transition-colors flex items-center gap-2"
                       >
-                        <Wifi class="w-3 h-3" /> Pair
+                        <Wifi class="w-3.5 h-3.5" /> Pair
                       </button>
                     </div>
-                    <p class="text-2xs text-muted-foreground leading-relaxed">
+                    <p class="text-xs text-muted-foreground/40 leading-relaxed">
                       Settings → Developer options → Wireless debugging → Pair device with pairing
                       code
                     </p>

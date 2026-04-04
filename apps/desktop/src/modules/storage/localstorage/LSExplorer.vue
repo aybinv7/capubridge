@@ -41,32 +41,19 @@ function selectOrigin(origin: string) {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Toolbar -->
-    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
-      <div
-        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border focus-within:border-border transition-colors"
-      >
-        <Search class="w-3 h-3 text-muted-foreground" />
-        <Input
-          v-model="filter"
-          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
-          placeholder="Filter keys or values…"
-        />
-      </div>
-      <span class="text-3xs text-muted-foreground/40 font-mono">{{ filtered.length }} entries</span>
-    </div>
-
-    <!-- Resizable panels: origins | table | detail -->
     <ResizablePanelGroup direction="horizontal" class="flex-1">
       <!-- Origins sidebar -->
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
-        <div class="flex h-full flex-col border-r border-border">
-          <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
-            <span
-              class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
-            >
-              Origins
-            </span>
+        <div class="flex h-full flex-col border-r border-border/30">
+          <div
+            class="flex items-center gap-2 bg-surface-3 rounded-md px-2.5 py-1.5 border border-border/30 focus-within:border-border/60 transition-colors"
+          >
+            <Search class="w-3.5 h-3.5 text-muted-foreground/50" />
+            <Input
+              v-model="filter"
+              class="h-6 text-xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground/40"
+              placeholder="Filter keys or values…"
+            />
           </div>
           <ScrollArea class="flex-1">
             <div class="py-1">
@@ -75,16 +62,16 @@ function selectOrigin(origin: string) {
                 :key="origin.origin"
                 variant="ghost"
                 size="sm"
-                class="w-full justify-start gap-2 px-3 py-[6px] h-auto text-[12px]"
+                class="w-full justify-start gap-2 px-3 py-2 h-auto text-xs"
                 :class="
                   selectedOrigin?.origin === origin.origin
-                    ? 'text-foreground bg-secondary font-medium border-l-2 border-foreground pl-[10px]'
-                    : 'text-muted-foreground/60 border-l-2 border-transparent pl-[10px]'
+                    ? 'text-foreground bg-surface-3 font-medium border-l-2 border-foreground pl-[10px]'
+                    : 'text-muted-foreground/50 border-l-2 border-transparent pl-[10px] hover:bg-surface-3/50 hover:text-muted-foreground'
                 "
                 @click="selectOrigin(origin.origin)"
               >
-                <Globe :size="12" class="shrink-0 opacity-50" />
-                <span class="truncate text-left font-mono text-[11px]">{{ origin.origin }}</span>
+                <Globe :size="13" class="shrink-0 opacity-40" />
+                <span class="truncate text-left font-mono text-xs">{{ origin.origin }}</span>
                 <span class="ml-auto text-[10px] font-mono text-muted-foreground/30 shrink-0">{{
                   origin.entries.length
                 }}</span>
@@ -98,14 +85,14 @@ function selectOrigin(origin: string) {
       <!-- Table -->
       <ResizablePanel :default-size="60">
         <div class="flex-1 overflow-auto h-full">
-          <table class="w-full text-2xs">
+          <table class="w-full text-xs">
             <thead class="sticky top-0 z-10">
               <tr
-                class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
+                class="bg-surface-2 text-left text-muted-foreground/50 uppercase tracking-wider border-b border-border/30"
               >
-                <th class="px-3 py-2 font-medium">Key</th>
-                <th class="px-3 py-2 font-medium">Value</th>
-                <th class="px-3 py-2 font-medium w-20"></th>
+                <th class="px-4 py-2.5 font-medium">Key</th>
+                <th class="px-4 py-2.5 font-medium">Value</th>
+                <th class="px-4 py-2.5 font-medium w-24"></th>
               </tr>
             </thead>
             <tbody>
@@ -113,39 +100,41 @@ function selectOrigin(origin: string) {
                 v-for="entry in filtered"
                 :key="entry.key"
                 @click="selectedKey = selectedKey === entry.key ? null : entry.key"
-                class="border-b border-border cursor-pointer transition-colors"
-                :class="selectedKey === entry.key ? 'bg-secondary' : 'data-row group'"
+                class="border-b border-border/20 cursor-pointer transition-colors"
+                :class="selectedKey === entry.key ? 'bg-surface-3' : 'data-row group'"
               >
                 <td
-                  class="px-3 py-2 font-mono text-xs text-info/70 whitespace-nowrap max-w-[200px] truncate"
+                  class="px-4 py-2.5 font-mono text-sm text-info/70 whitespace-nowrap max-w-[200px] truncate"
                 >
                   {{ entry.key }}
                 </td>
-                <td class="px-3 py-2 font-mono text-xs text-secondary-foreground max-w-md truncate">
+                <td
+                  class="px-4 py-2.5 font-mono text-sm text-secondary-foreground max-w-md truncate"
+                >
                   {{ entry.value }}
                 </td>
-                <td class="px-3 py-2">
+                <td class="px-4 py-2.5">
                   <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
-                      class="text-muted-foreground hover:text-muted-foreground"
+                      size="sm"
+                      class="text-muted-foreground/40 hover:text-muted-foreground h-7 w-7"
                     >
-                      <Copy class="w-3 h-3" />
+                      <Copy class="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon-sm"
-                      class="text-muted-foreground hover:text-muted-foreground"
+                      size="sm"
+                      class="text-muted-foreground/40 hover:text-muted-foreground h-7 w-7"
                     >
-                      <Pencil class="w-3 h-3" />
+                      <Pencil class="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon-sm"
-                      class="text-muted-foreground hover:text-error"
+                      size="sm"
+                      class="text-muted-foreground/40 hover:text-error h-7 w-7"
                     >
-                      <Trash2 class="w-3 h-3" />
+                      <Trash2 class="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </td>
@@ -157,50 +146,50 @@ function selectOrigin(origin: string) {
 
       <!-- Detail panel -->
       <ResizableHandle />
-      <ResizablePanel :default-size="25" :min-size="20" :max-size="40">
-        <div class="flex h-full flex-col border-l border-border bg-background">
+      <ResizablePanel :default-size="22" :min-size="20" :max-size="40">
+        <div class="flex h-full flex-col border-l border-border/30 bg-surface-1">
           <template v-if="selectedEntry">
             <div
-              class="h-10 flex items-center justify-between px-3 border-b border-border shrink-0"
+              class="h-11 flex items-center justify-between px-4 border-b border-border/30 shrink-0"
             >
-              <span class="text-xs font-medium text-foreground">Entry Detail</span>
+              <span class="text-sm font-medium text-foreground">Entry Detail</span>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                class="text-muted-foreground"
+                class="text-muted-foreground/50"
                 @click="selectedKey = null"
               >
                 ✕
               </Button>
             </div>
             <ScrollArea class="flex-1">
-              <div class="p-3 space-y-3">
+              <div class="p-5 space-y-4">
                 <div>
-                  <div class="text-2xs text-muted-foreground mb-0.5 uppercase tracking-wider">
+                  <div class="text-xs text-muted-foreground/50 mb-1.5 uppercase tracking-wider">
                     Key
                   </div>
                   <div
-                    class="text-xs font-mono text-info/70 break-all bg-accent rounded-md px-2 py-1.5 border border-border"
+                    class="text-sm font-mono text-info/70 break-all bg-surface-2 border border-border/30 rounded-lg px-3 py-2"
                   >
                     {{ selectedEntry.key }}
                   </div>
                 </div>
                 <div>
-                  <div class="text-2xs text-muted-foreground mb-0.5 uppercase tracking-wider">
+                  <div class="text-xs text-muted-foreground/50 mb-1.5 uppercase tracking-wider">
                     Value
                   </div>
                   <div
-                    class="text-xs font-mono text-foreground break-all bg-accent rounded-md px-2 py-1.5 border border-border whitespace-pre-wrap"
+                    class="text-sm font-mono text-foreground break-all bg-surface-2 border border-border/30 rounded-lg px-3 py-2 whitespace-pre-wrap"
                   >
                     {{ selectedEntry.value }}
                   </div>
                 </div>
                 <div>
-                  <div class="text-2xs text-muted-foreground mb-0.5 uppercase tracking-wider">
+                  <div class="text-xs text-muted-foreground/50 mb-1.5 uppercase tracking-wider">
                     Size
                   </div>
                   <div
-                    class="text-xs font-mono text-foreground bg-accent rounded-md px-2 py-1.5 border border-border"
+                    class="text-sm font-mono text-foreground bg-surface-2 border border-border/30 rounded-lg px-3 py-2"
                   >
                     {{ new Blob([selectedEntry.value]).size }} bytes
                   </div>
@@ -209,7 +198,7 @@ function selectOrigin(origin: string) {
             </ScrollArea>
           </template>
           <template v-else>
-            <div class="flex-1 flex items-center justify-center text-muted-foreground text-2xs">
+            <div class="flex-1 flex items-center justify-center text-muted-foreground/30 text-xs">
               Select an entry to view details
             </div>
           </template>

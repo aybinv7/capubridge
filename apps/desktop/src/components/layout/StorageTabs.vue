@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Database, HardDrive, Archive, FolderOpen } from "lucide-vue-next";
 
@@ -33,8 +32,9 @@ const navItems = [
   },
 ];
 
-function isActive(path: string): boolean {
-  return route.path === path || route.path.startsWith(path + "/");
+function isActive(name: string): boolean {
+  console.log("nameeee", name, route.name);
+  return route.name === name;
 }
 </script>
 
@@ -47,7 +47,7 @@ function isActive(path: string): boolean {
         @click="router.push(item.path)"
         class="relative flex items-center gap-1.5 px-3 py-2 text-xs transition-colors duration-150 rounded-none"
         :class="
-          isActive(item.path)
+          isActive(item.name)
             ? 'text-foreground'
             : 'text-muted-foreground hover:text-secondary-foreground'
         "
@@ -55,8 +55,8 @@ function isActive(path: string): boolean {
         <component :is="item.icon" :size="13" class="shrink-0" />
         {{ item.label }}
         <div
-          v-if="isActive(item.path)"
-          class="absolute bottom-0 left-1 right-1 h-[2px] bg-foreground rounded-full"
+          v-if="isActive(item.name)"
+          class="absolute bottom-0 left-1 right-1 bg-foreground rounded-full"
         />
       </button>
     </div>

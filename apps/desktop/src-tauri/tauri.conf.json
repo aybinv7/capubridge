@@ -5,7 +5,7 @@
   "identifier": "com.tauri.dev",
   "build": {
     "frontendDist": "desktop/src-tauri/tauri.conf.json",
-    "devUrl": "http://localhost:5173/",
+    "devUrl": "http://localhost:5174/",
     "beforeDevCommand": "vp dev",
     "beforeBuildCommand": "vp build"
   },

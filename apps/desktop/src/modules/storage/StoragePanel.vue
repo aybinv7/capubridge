@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { RouterView } from "vue-router";
-import StorageTabs from "@/components/layout/StorageTabs.vue";
+import SubNavTabs from "@/components/layout/SubNavTabs.vue";
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <StorageTabs />
+    <SubNavTabs />
     <div class="flex-1 overflow-hidden">
       <RouterView />
     </div>

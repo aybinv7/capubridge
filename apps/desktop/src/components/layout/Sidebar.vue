@@ -38,7 +38,7 @@ function isActive(path: string) {
           v-if="isActive(item.to)"
           class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-foreground"
         />
-        <div v-if="isActive(item.to)" class="absolute inset-0 bg-secondary" />
+        <div v-if="isActive(item.to)" class="absolute inset-0 rounded-lg bg-secondary" />
         <component
           :is="item.icon"
           class="w-4 h-4 relative z-10"

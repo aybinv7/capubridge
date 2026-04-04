@@ -34,21 +34,19 @@ const pageSizeLabel = computed(() => `${props.pageSize} / page`);
 
 <template>
   <div
-    class="flex h-9 shrink-0 items-center justify-between border-b border-border bg-card px-3 gap-3"
+    class="flex h-10 shrink-0 items-center justify-between border-b border-border/30 bg-surface-2 px-4 gap-3"
   >
     <!-- Left: store path -->
     <div class="flex items-center gap-2 min-w-0 overflow-hidden">
-      <span class="text-[12px] font-medium text-foreground truncate">{{ props.storeName }}</span>
-      <span class="text-muted-foreground/30 shrink-0">·</span>
-      <span class="text-[11px] text-muted-foreground/50 truncate font-mono">{{
-        props.dbName
-      }}</span>
+      <span class="text-sm font-medium text-foreground truncate">{{ props.storeName }}</span>
+      <span class="text-muted-foreground/20 shrink-0">·</span>
+      <span class="text-xs text-muted-foreground/40 truncate font-mono">{{ props.dbName }}</span>
     </div>
 
     <!-- Right: controls -->
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex items-center gap-3 shrink-0">
       <!-- Record count -->
-      <span class="text-[11px] text-muted-foreground/40 tabular-nums">
+      <span class="text-xs text-muted-foreground/40 tabular-nums">
         {{ props.recordCount.toLocaleString() }} records
       </span>
 
@@ -58,7 +56,7 @@ const pageSizeLabel = computed(() => `${props.pageSize} / page`);
         @update:model-value="(v: string) => emit('pageSizeChange', Number(v))"
       >
         <SelectTrigger
-          class="h-6 w-auto gap-1 border-border px-1.5 text-[11px] text-muted-foreground"
+          class="h-7 w-auto gap-1.5 border-border/30 px-2 text-xs text-muted-foreground"
         >
           <SelectValue :default-value="pageSizeLabel" />
         </SelectTrigger>
@@ -78,9 +76,9 @@ const pageSizeLabel = computed(() => `${props.pageSize} / page`);
           aria-label="Previous page"
           @click="emit('prev')"
         >
-          <ChevronLeft :size="13" />
+          <ChevronLeft :size="14" />
         </Button>
-        <span class="w-6 text-center text-[11px] text-muted-foreground tabular-nums">
+        <span class="w-8 text-center text-xs text-muted-foreground tabular-nums">
           {{ props.page + 1 }}
         </span>
         <Button
@@ -90,7 +88,7 @@ const pageSizeLabel = computed(() => `${props.pageSize} / page`);
           aria-label="Next page"
           @click="emit('next')"
         >
-          <ChevronRight :size="13" />
+          <ChevronRight :size="14" />
         </Button>
       </div>
 
@@ -102,7 +100,7 @@ const pageSizeLabel = computed(() => `${props.pageSize} / page`);
         :class="{ 'animate-spin': props.isLoading }"
         @click="emit('refresh')"
       >
-        <RefreshCw :size="13" />
+        <RefreshCw :size="14" />
       </Button>
     </div>
   </div>

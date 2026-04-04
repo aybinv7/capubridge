@@ -56,32 +56,19 @@ function toggleCache(name: string) {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Toolbar -->
-    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
-      <div
-        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border focus-within:border-border transition-colors"
-      >
-        <Search class="w-3 h-3 text-muted-foreground" />
-        <Input
-          v-model="filter"
-          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
-          placeholder="Filter by URL or type…"
-        />
-      </div>
-      <span class="text-3xs text-muted-foreground/40 font-mono">{{ filtered.length }} entries</span>
-    </div>
-
-    <!-- Resizable panels: sidebar | table -->
     <ResizablePanelGroup direction="horizontal" class="flex-1">
       <!-- Sidebar: origins + cache tree -->
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
-        <div class="flex h-full flex-col border-r border-border">
-          <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
-            <span
-              class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
-            >
-              Origins
-            </span>
+        <div class="flex h-full flex-col border-r border-border/30">
+          <div
+            class="flex items-center gap-2 bg-surface-3 rounded-md px-2.5 py-1.5 border border-border/30 focus-within:border-border/60 transition-colors"
+          >
+            <Search class="w-3.5 h-3.5 text-muted-foreground/50" />
+            <Input
+              v-model="filter"
+              class="h-6 text-xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground/40"
+              placeholder="Filter by URL or type…"
+            />
           </div>
           <ScrollArea class="flex-1">
             <div class="py-1">
@@ -91,41 +78,34 @@ function toggleCache(name: string) {
                   :key="origin.origin"
                   variant="ghost"
                   size="sm"
-                  class="w-full justify-start gap-2 px-3 py-[6px] h-auto text-[12px]"
+                  class="w-full justify-start gap-2 px-3 py-2 h-auto text-xs"
                   :class="
                     selectedOrigin?.origin === origin.origin
-                      ? 'text-foreground bg-secondary font-medium border-l-2 border-foreground pl-[10px]'
-                      : 'text-muted-foreground/60 border-l-2 border-transparent pl-[10px]'
+                      ? 'text-foreground bg-surface-3 font-medium border-l-2 border-foreground pl-[10px]'
+                      : 'text-muted-foreground/50 border-l-2 border-transparent pl-[10px] hover:bg-surface-3/50 hover:text-muted-foreground'
                   "
                   @click="selectOrigin(origin.origin)"
                 >
-                  <Globe :size="12" class="shrink-0 opacity-50" />
-                  <span class="truncate text-left font-mono text-[11px]">{{ origin.origin }}</span>
+                  <Globe :size="13" class="shrink-0 opacity-40" />
+                  <span class="truncate text-left font-mono text-xs">{{ origin.origin }}</span>
                 </Button>
 
                 <!-- Cache tree for selected origin -->
-                <div class="mt-2 pt-2 border-t border-border">
-                  <div class="px-3 pb-1">
-                    <span
-                      class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
-                    >
-                      Caches
-                    </span>
-                  </div>
+                <div class="mt-2 pt-2 border-t border-border/30">
                   <ul>
                     <li v-for="cache in selectedOrigin.caches" :key="cache.cacheName">
                       <Button
                         variant="ghost"
                         size="sm"
-                        class="w-full justify-start gap-1.5 px-3 py-[5px] h-auto text-[12px] text-muted-foreground"
+                        class="w-full justify-start gap-2 px-3 py-2 h-auto text-xs text-muted-foreground/60 hover:bg-surface-3/50 hover:text-muted-foreground"
                         @click="toggleCache(cache.cacheName)"
                       >
                         <component
                           :is="expandedCaches.has(cache.cacheName) ? ChevronDown : ChevronRight"
-                          :size="11"
+                          :size="12"
                           class="shrink-0 opacity-50"
                         />
-                        <Archive :size="12" class="shrink-0 opacity-50" />
+                        <Archive :size="13" class="shrink-0 opacity-40" />
                         <span class="flex-1 truncate text-left">{{ cache.cacheName }}</span>
                         <span class="text-[10px] font-mono text-muted-foreground/30 shrink-0">{{
                           cache.entries.length
@@ -136,15 +116,15 @@ function toggleCache(name: string) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            class="w-full justify-start py-[4px] pl-[26px] pr-3 h-auto text-[11px]"
+                            class="w-full justify-start py-1.5 pl-[26px] pr-3 h-auto"
                             :class="
                               selectedUrl === entry.url
-                                ? 'bg-secondary text-foreground font-medium border-l-2 border-foreground pl-[24px]'
-                                : 'text-muted-foreground/60'
+                                ? 'text-foreground font-medium bg-surface-3 border-l-2 border-foreground pl-[24px]'
+                                : 'text-muted-foreground/50 hover:bg-surface-3/50 hover:text-muted-foreground'
                             "
                             @click="selectedUrl = entry.url"
                           >
-                            <span class="truncate text-left font-mono text-[10px]">{{
+                            <span class="truncate text-left font-mono text-xs">{{
                               entry.url
                             }}</span>
                           </Button>
@@ -163,15 +143,15 @@ function toggleCache(name: string) {
       <!-- Table -->
       <ResizablePanel :default-size="80">
         <div class="flex-1 overflow-auto h-full">
-          <table class="w-full text-2xs">
+          <table class="w-full text-xs">
             <thead class="sticky top-0 z-10">
               <tr
-                class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
+                class="bg-surface-2 text-left text-muted-foreground/50 uppercase tracking-wider border-b border-border/30"
               >
-                <th class="px-3 py-2 font-medium">URL</th>
-                <th class="px-3 py-2 font-medium w-24">Cache</th>
-                <th class="px-3 py-2 font-medium w-20">Type</th>
-                <th class="px-3 py-2 font-medium w-20">Size</th>
+                <th class="px-4 py-2.5 font-medium">URL</th>
+                <th class="px-4 py-2.5 font-medium w-28">Cache</th>
+                <th class="px-4 py-2.5 font-medium w-24">Type</th>
+                <th class="px-4 py-2.5 font-medium w-24">Size</th>
               </tr>
             </thead>
             <tbody>
@@ -179,25 +159,29 @@ function toggleCache(name: string) {
                 v-for="entry in filtered"
                 :key="entry.url"
                 @click="selectedUrl = selectedUrl === entry.url ? null : entry.url"
-                class="border-b border-border cursor-pointer transition-colors"
-                :class="selectedUrl === entry.url ? 'bg-secondary' : 'data-row'"
+                class="border-b border-border/20 cursor-pointer transition-colors"
+                :class="selectedUrl === entry.url ? 'bg-surface-3' : 'data-row'"
               >
                 <td
-                  class="px-3 py-2 font-mono text-xs text-secondary-foreground truncate max-w-[300px]"
+                  class="px-4 py-2.5 font-mono text-sm text-secondary-foreground truncate max-w-[300px]"
                 >
-                  <div class="flex items-center gap-1.5">
-                    <FileText class="w-3 h-3 text-muted-foreground/40 shrink-0" />
+                  <div class="flex items-center gap-2">
+                    <FileText class="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
                     {{ entry.url }}
                   </div>
                 </td>
-                <td class="px-3 py-2">
+                <td class="px-4 py-2.5">
                   <span
-                    class="text-2xs font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground"
+                    class="text-xs font-mono px-2 py-0.5 rounded bg-surface-3 border border-border/30 text-muted-foreground/60"
                     >{{ entry.cacheName }}</span
                   >
                 </td>
-                <td class="px-3 py-2 text-muted-foreground font-mono">{{ entry.type }}</td>
-                <td class="px-3 py-2 text-muted-foreground font-mono">{{ entry.size }}</td>
+                <td class="px-4 py-2.5 text-muted-foreground/60 font-mono">
+                  {{ entry.type }}
+                </td>
+                <td class="px-4 py-2.5 text-muted-foreground/60 font-mono">
+                  {{ entry.size }}
+                </td>
               </tr>
             </tbody>
           </table>

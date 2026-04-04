@@ -7,10 +7,12 @@ const devicesStore = useDevicesStore();
 </script>
 
 <template>
-  <div class="flex h-full w-[260px] shrink-0 flex-col border-r border-border overflow-hidden">
+  <div
+    class="flex h-full w-[280px] shrink-0 flex-col border-r border-border/30 overflow-hidden bg-surface-2"
+  >
     <!-- Section header -->
-    <div class="flex h-8 shrink-0 items-center border-b border-border px-3">
-      <span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/50">
+    <div class="flex h-10 shrink-0 items-center border-b border-border/30 px-4">
+      <span class="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/50">
         Connected Devices
       </span>
     </div>
@@ -22,17 +24,17 @@ const devicesStore = useDevicesStore();
         v-if="devicesStore.devices.length === 0"
         class="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"
       >
-        <Smartphone :size="28" class="text-muted-foreground/20" />
+        <Smartphone :size="32" class="text-muted-foreground/15" />
         <div class="space-y-1">
-          <p class="text-[12px] font-medium text-muted-foreground/50">No devices connected</p>
-          <p class="text-[11px] text-muted-foreground/30">
+          <p class="text-sm font-medium text-muted-foreground/40">No devices connected</p>
+          <p class="text-xs text-muted-foreground/25">
             Connect an Android device via USB or enable wireless ADB
           </p>
         </div>
       </div>
 
       <!-- Device cards -->
-      <div v-else class="divide-y divide-border">
+      <div v-else class="divide-y divide-border/20">
         <DeviceCard
           v-for="device in devicesStore.devices"
           :key="device.serial"
@@ -46,7 +48,7 @@ const devicesStore = useDevicesStore();
     <!-- Error bar -->
     <div
       v-if="devicesStore.error"
-      class="shrink-0 border-t border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-status-error"
+      class="shrink-0 border-t border-border/30 bg-error/[0.06] px-4 py-2 text-xs text-error"
     >
       {{ devicesStore.error }}
     </div>

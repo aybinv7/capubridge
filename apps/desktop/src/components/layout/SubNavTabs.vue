@@ -89,21 +89,20 @@ function isActive(tabPath: string): boolean {
 </script>
 
 <template>
-  <div class="h-9 border-b border-border bg-[#151515] flex items-end px-4 shrink-0">
+  <div class="h-11 border-b border-border/30 bg-surface-0 flex items-center gap-1 px-3 shrink-0">
     <button
       v-for="tab in subTabs"
       :key="tab.name"
       @click="router.push(tab.path)"
-      class="relative flex items-center gap-1.5 px-3 py-2 text-xs transition-colors duration-150"
+      class="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 rounded-full"
       :class="
         isActive(tab.path)
-          ? 'text-foreground font-medium'
-          : 'text-muted-foreground hover:text-foreground'
+          ? 'text-foreground font-medium bg-surface-3 border border-border/30'
+          : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-surface-2'
       "
     >
-      <component v-if="tab.icon" :is="tab.icon" :size="13" class="shrink-0" />
+      <component v-if="tab.icon" :is="tab.icon" :size="13" class="shrink-0 opacity-50" />
       {{ tab.label }}
-      <div v-if="isActive(tab.path)" class="absolute bottom-0 left-2 right-2 h-0.5 bg-foreground" />
     </button>
   </div>
 </template>

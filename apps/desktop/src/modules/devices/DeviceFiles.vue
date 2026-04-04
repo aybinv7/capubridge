@@ -77,16 +77,12 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Toolbar -->
-    <div class="h-8 border-b border-border bg-background flex items-center px-3 gap-2 shrink-0">
-      <span class="text-2xs font-mono text-muted-foreground truncate">{{ selectedDir }}</span>
+    <div class="h-10 border-b border-border/30 bg-surface-2 flex items-center px-4 gap-3 shrink-0">
+      <span class="text-sm font-mono text-muted-foreground truncate">{{ selectedDir }}</span>
       <div class="flex-1" />
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        class="w-6 h-6 text-muted-foreground"
-        title="Push file"
-      >
-        <ArrowUp class="w-3 h-3" />
+      <Button variant="outline" size="sm" class="gap-2 text-xs" title="Push file">
+        <ArrowUp class="w-3.5 h-3.5" />
+        Push
       </Button>
     </div>
 
@@ -94,22 +90,22 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
     <ResizablePanelGroup direction="horizontal" class="flex-1">
       <!-- File tree -->
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
-        <div class="flex h-full flex-col border-r border-border">
-          <div class="h-8 flex items-center px-3 border-b border-border gap-1.5">
-            <FolderOpen class="w-3 h-3 text-warning/60" />
-            <span class="text-2xs font-medium text-muted-foreground">/sdcard</span>
+        <div class="flex h-full flex-col border-r border-border/30">
+          <div class="h-9 flex items-center px-3 border-b border-border/30 gap-2">
+            <FolderOpen class="w-3.5 h-3.5 text-warning/50" />
+            <span class="text-xs font-medium text-muted-foreground">/sdcard</span>
           </div>
           <ScrollArea class="flex-1">
-            <div class="py-1 text-2xs">
+            <div class="py-1 text-xs">
               <Button
                 variant="ghost"
                 size="sm"
-                class="w-full justify-start gap-1.5 px-3 py-[5px] h-auto text-muted-foreground"
-                :class="selectedDir === '/sdcard' ? 'text-foreground bg-secondary' : ''"
+                class="w-full justify-start gap-2 px-3 py-2 h-auto text-muted-foreground"
+                :class="selectedDir === '/sdcard' ? 'text-foreground bg-surface-3' : ''"
                 @click="selectedDir = '/sdcard'"
               >
                 <ChevronRight class="w-3 h-3 opacity-0" />
-                <FolderOpen class="w-3 h-3 text-warning/50" />
+                <FolderOpen class="w-3.5 h-3.5 text-warning/40" />
                 <span>/ (root)</span>
               </Button>
 
@@ -117,12 +113,12 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
                 <Button
                   variant="ghost"
                   size="sm"
-                  class="w-full justify-start gap-1.5 py-[5px] h-auto"
+                  class="w-full justify-start gap-2 py-2 h-auto"
                   :style="{ paddingLeft: `${12 + dir.depth * 14}px` }"
                   :class="
                     selectedDir === dir.path
-                      ? 'text-foreground bg-secondary'
-                      : 'text-secondary-foreground'
+                      ? 'text-foreground bg-surface-3'
+                      : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-surface-3/50'
                   "
                   @click="
                     selectedDir = dir.path;
@@ -131,9 +127,9 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
                 >
                   <component
                     :is="expandedDirs.has(dir.path) ? ChevronDown : ChevronRight"
-                    class="w-3 h-3 shrink-0"
+                    class="w-3 h-3 shrink-0 opacity-50"
                   />
-                  <FolderOpen class="w-3 h-3 text-warning/50 shrink-0" />
+                  <FolderOpen class="w-3.5 h-3.5 text-warning/40 shrink-0" />
                   <span class="truncate">{{ dir.name }}</span>
                 </Button>
               </template>
@@ -150,52 +146,52 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
             v-if="currentFiles.length === 0"
             class="flex flex-col items-center justify-center h-full text-center"
           >
-            <FolderOpen class="w-8 h-8 text-muted-foreground/30 mb-2" />
-            <p class="text-xs text-muted-foreground">No files in this directory</p>
+            <FolderOpen class="w-10 h-10 text-muted-foreground/15 mb-3" />
+            <p class="text-sm text-muted-foreground/40">No files in this directory</p>
           </div>
-          <table v-else class="w-full text-2xs">
+          <table v-else class="w-full text-xs">
             <thead class="sticky top-0 z-10">
               <tr
-                class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
+                class="bg-surface-2 text-left text-muted-foreground/50 uppercase tracking-wider border-b border-border/30"
               >
-                <th class="px-3 py-2 font-medium">Name</th>
-                <th class="px-3 py-2 font-medium w-20">Size</th>
-                <th class="px-3 py-2 font-medium w-36">Modified</th>
-                <th class="px-3 py-2 font-medium w-20"></th>
+                <th class="px-4 py-2.5 font-medium">Name</th>
+                <th class="px-4 py-2.5 font-medium w-24">Size</th>
+                <th class="px-4 py-2.5 font-medium w-40">Modified</th>
+                <th class="px-4 py-2.5 font-medium w-24"></th>
               </tr>
             </thead>
             <tbody>
               <tr
                 v-for="file in currentFiles"
                 :key="file.name"
-                class="border-b border-border data-row group"
+                class="border-b border-border/20 data-row group"
               >
-                <td class="px-3 py-2 flex items-center gap-2">
+                <td class="px-4 py-2.5 flex items-center gap-2.5">
                   <component
                     :is="getFileIcon(file.ext)"
-                    class="w-3 h-3 text-muted-foreground/60 shrink-0"
+                    class="w-4 h-4 text-muted-foreground/40 shrink-0"
                   />
-                  <span class="text-xs text-foreground">{{ file.name }}</span>
+                  <span class="text-sm text-foreground">{{ file.name }}</span>
                 </td>
-                <td class="px-3 py-2 text-muted-foreground font-mono">{{ file.size }}</td>
-                <td class="px-3 py-2 text-muted-foreground font-mono">{{ file.modified }}</td>
-                <td class="px-3 py-2">
+                <td class="px-4 py-2.5 text-muted-foreground/60 font-mono">{{ file.size }}</td>
+                <td class="px-4 py-2.5 text-muted-foreground/60 font-mono">{{ file.modified }}</td>
+                <td class="px-4 py-2.5">
                   <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="sm"
                       title="Pull to desktop"
-                      class="text-muted-foreground hover:text-foreground"
+                      class="text-muted-foreground/50 hover:text-foreground h-7 w-7"
                     >
-                      <ArrowDown class="w-3 h-3" />
+                      <ArrowDown class="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="sm"
                       title="Delete"
-                      class="text-muted-foreground hover:text-error"
+                      class="text-muted-foreground/50 hover:text-error h-7 w-7"
                     >
-                      <Trash2 class="w-3 h-3" />
+                      <Trash2 class="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </td>

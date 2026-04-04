@@ -18,9 +18,9 @@ const logLevelColor: Record<string, string> = {
   F: "text-error font-bold",
 };
 const logLevelBg: Record<string, string> = {
-  E: "bg-error/[0.03]",
-  W: "bg-warning/[0.03]",
-  F: "bg-error/[0.06]",
+  E: "bg-error/[0.04]",
+  W: "bg-warning/[0.04]",
+  F: "bg-error/[0.08]",
 };
 
 function toggleLevel(lvl: string) {
@@ -44,54 +44,59 @@ const filteredLogs = computed(() =>
 
 <template>
   <div class="flex-1 flex flex-col overflow-hidden">
-    <div class="border-b border-border bg-accent shrink-0">
-      <div class="flex items-center px-3 gap-2 h-8">
-        <Search class="w-3 h-3 text-muted-foreground shrink-0" />
-        <Input
-          v-model="logFilter"
-          class="h-6 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
-          placeholder="Filter messages…"
-        />
-        <div class="w-px h-3 bg-border" />
-        <div class="flex gap-0.5">
+    <!-- Filter bar -->
+    <div class="border-b border-border/30 bg-surface-2 shrink-0">
+      <div class="flex items-center px-4 gap-3 h-10">
+        <div class="flex items-center gap-2 flex-1 max-w-sm">
+          <Search class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <Input
+            v-model="logFilter"
+            class="h-7 text-sm font-mono bg-transparent border border-border/30 rounded-md px-2.5 placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-border/60"
+            placeholder="Filter messages…"
+          />
+        </div>
+        <div class="w-px h-4 bg-border/30" />
+        <div class="flex gap-1">
           <Button
             v-for="lvl in ['V', 'D', 'I', 'W', 'E']"
             :key="lvl"
             :variant="activeLevels.has(lvl) ? 'secondary' : 'ghost'"
-            size="icon-sm"
-            class="w-5 h-5 text-2xs font-mono"
-            :class="activeLevels.has(lvl) ? logLevelColor[lvl] : 'text-muted-foreground'"
+            size="sm"
+            class="w-7 h-7 text-xs font-mono"
+            :class="activeLevels.has(lvl) ? logLevelColor[lvl] : 'text-muted-foreground/40'"
             @click="toggleLevel(lvl)"
           >
             {{ lvl }}
           </Button>
         </div>
-      </div>
-      <div class="flex items-center px-3 gap-2 h-7 border-t border-border">
-        <span class="text-2xs text-muted-foreground font-mono w-8">tag</span>
-        <Input
-          v-model="logTag"
-          class="h-5 w-32 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
-          placeholder="Capacitor…"
-        />
-        <span class="ml-auto text-2xs text-muted-foreground font-mono"
+        <div class="flex-1" />
+        <span class="text-xs text-muted-foreground/50 font-mono"
           >{{ filteredLogs.length }} lines</span
         >
       </div>
+      <div class="flex items-center px-4 gap-2 h-8 border-t border-border/30">
+        <span class="text-xs text-muted-foreground/50 font-mono w-10">tag</span>
+        <Input
+          v-model="logTag"
+          class="h-6 w-40 text-xs font-mono bg-transparent border border-border/30 rounded-md px-2.5 placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-border/60"
+          placeholder="Capacitor…"
+        />
+      </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto bg-background font-mono text-2xs leading-[18px]">
+    <!-- Log output -->
+    <div class="flex-1 overflow-y-auto bg-surface-1 font-mono text-xs leading-5">
       <div
         v-for="(msg, i) in filteredLogs"
         :key="i"
-        class="flex gap-0 px-3 py-[3px] data-row"
+        class="flex gap-0 px-4 py-1 data-row"
         :class="logLevelBg[msg.level] || ''"
       >
-        <span class="w-3 shrink-0 font-bold" :class="logLevelColor[msg.level]">{{
+        <span class="w-4 shrink-0 font-bold" :class="logLevelColor[msg.level]">{{
           msg.level
         }}</span>
-        <span class="w-24 shrink-0 text-muted-foreground truncate px-2">{{ msg.tag }}</span>
-        <span class="w-10 shrink-0 text-muted-foreground text-right pr-3">{{ msg.pid }}</span>
+        <span class="w-28 shrink-0 text-muted-foreground truncate px-2">{{ msg.tag }}</span>
+        <span class="w-12 shrink-0 text-muted-foreground/50 text-right pr-3">{{ msg.pid }}</span>
         <span
           class="flex-1"
           :class="msg.level === 'E' ? 'text-error' : 'text-secondary-foreground'"

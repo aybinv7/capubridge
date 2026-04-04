@@ -56,8 +56,8 @@ function navigateToStore(dbName: string, storeName: string) {
   );
 }
 
-function isStoreActive(dbName: string, storeName: string) {
-  return route.params["db"] === dbName && route.params["store"] === storeName;
+function isStoreActive(db: string, store: string) {
+  return dbName.value === db && storeName.value === store;
 }
 
 function prevPage() {
@@ -85,45 +85,32 @@ const tableRecords = computed(() =>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Toolbar -->
-    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
-      <div
-        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border focus-within:border-border transition-colors"
-      >
-        <Search class="w-3 h-3 text-muted-foreground" />
-        <Input
-          v-model="filter"
-          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
-          placeholder="Filter by key or value…"
-        />
-      </div>
-      <span class="text-3xs text-muted-foreground/40 font-mono"
-        >{{ filteredRecords.length }} records</span
-      >
-    </div>
     <ResizablePanelGroup direction="horizontal" class="flex-1">
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
-        <div class="flex h-full flex-col border-r border-border">
-          <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
-            <span
-              class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
-            >
-              Databases
-            </span>
+        <div class="flex h-full flex-col border-r border-border/30">
+          <div
+            class="flex items-center gap-2 bg-surface-3 rounded-md px-2.5 py-1.5 border border-border/30 focus-within:border-border/60 transition-colors"
+          >
+            <Search class="w-3.5 h-3.5 text-muted-foreground/50" />
+            <Input
+              v-model="filter"
+              class="h-6 text-xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground/40"
+              placeholder="Filter by key or value…"
+            />
           </div>
           <ScrollArea class="flex-1">
             <ul class="py-1">
               <li v-for="db in mockDatabases" :key="db.name">
                 <button
-                  class="flex w-full items-center gap-1.5 px-3 py-[5px] text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground/60 transition-colors hover:bg-surface-3/50 hover:text-muted-foreground"
                   @click="toggleDb(db.name)"
                 >
                   <component
                     :is="expandedDbs.has(db.name) ? ChevronDown : ChevronRight"
-                    :size="11"
+                    :size="12"
                     class="shrink-0 opacity-50"
                   />
-                  <Database :size="12" class="shrink-0 opacity-50" />
+                  <Database :size="13" class="shrink-0 opacity-40" />
                   <span class="flex-1 truncate text-left">{{ db.name }}</span>
                   <span class="text-[10px] font-mono text-muted-foreground/30 shrink-0"
                     >v{{ db.version }}</span
@@ -132,17 +119,22 @@ const tableRecords = computed(() =>
                 <ul v-if="expandedDbs.has(db.name)">
                   <li v-for="store in db.stores" :key="store.name">
                     <button
-                      class="flex w-full items-center gap-1.5 py-[4px] pl-[26px] pr-3 text-[11px] transition-colors"
+                      class="flex w-full items-center gap-1.5 py-1.5 pl-[26px] pr-3 text-xs transition-colors"
                       :class="
                         isStoreActive(db.name, store.name)
-                          ? 'bg-secondary text-foreground font-medium border-l-2 border-foreground pl-[24px]'
-                          : 'text-muted-foreground/60 hover:bg-accent hover:text-accent-foreground'
+                          ? 'text-foreground font-medium bg-surface-3 border-l-2 border-foreground pl-[24px]'
+                          : 'text-[#676767] hover:bg-surface-3/50 hover:text-[#888888]'
                       "
                       @click="navigateToStore(db.name, store.name)"
                     >
                       <span class="truncate text-left">{{ store.name }}</span>
                       <span
-                        class="ml-auto text-[10px] font-mono text-muted-foreground/30 shrink-0"
+                        class="ml-auto text-[10px] font-mono shrink-0"
+                        :class="
+                          isStoreActive(db.name, store.name)
+                            ? 'text-muted-foreground/50'
+                            : 'text-[#444444]'
+                        "
                         >{{ store.recordCount }}</span
                       >
                     </button>
@@ -157,7 +149,7 @@ const tableRecords = computed(() =>
       <ResizablePanel :default-size="80">
         <div
           v-if="!dbName || !storeName"
-          class="flex flex-1 items-center justify-center text-[12px] text-muted-foreground/40"
+          class="flex flex-1 items-center justify-center text-sm text-muted-foreground/30"
         >
           Select a store from the sidebar
         </div>
@@ -180,7 +172,7 @@ const tableRecords = computed(() =>
 
             <div
               v-if="isError"
-              class="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-status-error"
+              class="shrink-0 border-b border-border/30 bg-error/[0.06] px-4 py-2 text-xs text-error"
             >
               Failed to load records
             </div>
