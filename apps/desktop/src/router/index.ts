@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
 
 const routes: RouteRecordRaw[] = [
@@ -130,31 +130,36 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  // ── Hybrid ───────────────────────────────────────────────────────────────
+  // ── Capacitor ────────────────────────────────────────────────────────────
   {
-    path: "/hybrid",
-    component: () => import("@/modules/hybrid/HybridPanel.vue"),
-    redirect: "/hybrid/sync",
+    path: "/capacitor",
+    component: () => import("@/modules/capacitor/CapacitorPanel.vue"),
+    redirect: "/capacitor/bridge",
     children: [
       {
-        path: "sync",
-        name: "hybrid-sync",
-        component: () => import("@/modules/hybrid/HybridSync.vue"),
+        path: "bridge",
+        name: "capacitor-bridge",
+        component: () => import("@/modules/capacitor/CapacitorBridge.vue"),
       },
       {
         path: "plugins",
-        name: "hybrid-plugins",
-        component: () => import("@/modules/hybrid/HybridPlugins.vue"),
+        name: "capacitor-plugins",
+        component: () => import("@/modules/capacitor/CapacitorPlugins.vue"),
       },
       {
-        path: "migrations",
-        name: "hybrid-migrations",
-        component: () => import("@/modules/hybrid/HybridMigrations.vue"),
+        path: "config",
+        name: "capacitor-config",
+        component: () => import("@/modules/capacitor/CapacitorConfig.vue"),
       },
       {
-        path: "persistence",
-        name: "hybrid-persistence",
-        component: () => import("@/modules/hybrid/HybridPersistence.vue"),
+        path: "permissions",
+        name: "capacitor-permissions",
+        component: () => import("@/modules/capacitor/CapacitorPermissions.vue"),
+      },
+      {
+        path: "deeplinks",
+        name: "capacitor-deeplinks",
+        component: () => import("@/modules/capacitor/CapacitorDeeplinks.vue"),
       },
     ],
   },
@@ -193,6 +198,6 @@ const routes: RouteRecordRaw[] = [
 ];
 
 export default createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes,
 });

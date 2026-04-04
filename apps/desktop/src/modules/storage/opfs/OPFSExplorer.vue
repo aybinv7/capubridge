@@ -26,18 +26,18 @@ function getFileIcon(type: string) {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <div class="h-9 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2">
+    <div class="h-8 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2">
       <div
-        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-1 flex-1 max-w-xs border border-border/20 focus-within:border-primary/20 transition-colors"
+        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-0.5 max-w-xs border border-border/20 focus-within:border-primary/20 transition-colors"
       >
         <Search class="w-3 h-3 text-dimmed" />
         <Input
           v-model="filter"
-          class="h-6 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
           placeholder="Filter files…"
         />
       </div>
-      <span class="text-2xs text-muted-foreground/40 font-mono">{{ filtered.length }} entries</span>
+      <span class="text-3xs text-muted-foreground/40 font-mono">{{ filtered.length }} entries</span>
     </div>
 
     <div class="flex-1 overflow-auto">

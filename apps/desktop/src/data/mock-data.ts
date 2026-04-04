@@ -50,10 +50,25 @@ export const storageTree = {
       name: "appDatabase",
       version: 3,
       stores: [
-        { name: "users", recordCount: 142, keyPath: "id", indexes: ["email", "createdAt"] },
-        { name: "syncQueue", recordCount: 12, keyPath: "id", indexes: ["status", "timestamp"] },
+        {
+          name: "users",
+          recordCount: 142,
+          keyPath: "id",
+          indexes: ["email", "createdAt"],
+        },
+        {
+          name: "syncQueue",
+          recordCount: 12,
+          keyPath: "id",
+          indexes: ["status", "timestamp"],
+        },
         { name: "settings", recordCount: 1, keyPath: "key", indexes: [] },
-        { name: "offlineCache", recordCount: 387, keyPath: "url", indexes: ["timestamp", "type"] },
+        {
+          name: "offlineCache",
+          recordCount: 387,
+          keyPath: "url",
+          indexes: ["timestamp", "type"],
+        },
       ],
     },
     {
@@ -385,16 +400,36 @@ export const logcatMessages = [
     pid: 1234,
     message: "Displayed com.myapp.ionic/.MainActivity: +892ms",
   },
-  { level: "D", tag: "Capacitor", pid: 5678, message: "Loading app at http://localhost/" },
-  { level: "I", tag: "Capacitor/Plugin", pid: 5678, message: "Loading plugin SplashScreen" },
-  { level: "I", tag: "Capacitor/Plugin", pid: 5678, message: "Loading plugin StatusBar" },
+  {
+    level: "D",
+    tag: "Capacitor",
+    pid: 5678,
+    message: "Loading app at http://localhost/",
+  },
+  {
+    level: "I",
+    tag: "Capacitor/Plugin",
+    pid: 5678,
+    message: "Loading plugin SplashScreen",
+  },
+  {
+    level: "I",
+    tag: "Capacitor/Plugin",
+    pid: 5678,
+    message: "Loading plugin StatusBar",
+  },
   {
     level: "W",
     tag: "chromium",
     pid: 5678,
     message: "[WARNING:dns_config_service_android.cc] Failed to read DnsConfig.",
   },
-  { level: "D", tag: "WebView", pid: 5678, message: "loadUrl: http://localhost/" },
+  {
+    level: "D",
+    tag: "WebView",
+    pid: 5678,
+    message: "loadUrl: http://localhost/",
+  },
   {
     level: "I",
     tag: "chromium",
@@ -422,8 +457,14 @@ export const logcatMessages = [
 ];
 
 export const localStorageEntries = [
-  { key: "CapacitorStorage.user_token", value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
-  { key: "CapacitorStorage.refresh_token", value: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..." },
+  {
+    key: "CapacitorStorage.user_token",
+    value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  },
+  {
+    key: "CapacitorStorage.refresh_token",
+    value: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...",
+  },
   {
     key: "CapacitorStorage.user_preferences",
     value: '{"theme":"dark","lang":"en","notifications":true}',
@@ -436,7 +477,12 @@ export const localStorageEntries = [
 ];
 
 export const packages = [
-  { name: "com.myapp.ionic", version: "2.4.1", size: "34.2 MB", installDate: "2024-03-15" },
+  {
+    name: "com.myapp.ionic",
+    version: "2.4.1",
+    size: "34.2 MB",
+    installDate: "2024-03-15",
+  },
   {
     name: "com.google.android.gms",
     version: "24.08.12",
@@ -449,7 +495,12 @@ export const packages = [
     size: "178 MB",
     installDate: "2024-03-20",
   },
-  { name: "io.ionic.starter", version: "1.0.0", size: "12.1 MB", installDate: "2024-02-28" },
+  {
+    name: "io.ionic.starter",
+    version: "1.0.0",
+    size: "12.1 MB",
+    installDate: "2024-02-28",
+  },
 ];
 
 export const installedApps = [
@@ -621,7 +672,14 @@ export const webviewTargets = [
     pid: 9101,
     packageName: "com.android.chrome",
     appLabel: "Chrome",
-    targets: [{ id: "ct1", type: "page" as const, url: "https://google.com/", title: "Google" }],
+    targets: [
+      {
+        id: "ct1",
+        type: "page" as const,
+        url: "https://google.com/",
+        title: "Google",
+      },
+    ],
   },
 ];
 
@@ -793,7 +851,12 @@ export const portForwards = [
 export interface MockIDBDatabase {
   name: string;
   version: number;
-  stores: { name: string; recordCount: number; keyPath: string; indexes: string[] }[];
+  stores: {
+    name: string;
+    recordCount: number;
+    keyPath: string;
+    indexes: string[];
+  }[];
 }
 
 export const mockDatabases: MockIDBDatabase[] = [
@@ -801,10 +864,25 @@ export const mockDatabases: MockIDBDatabase[] = [
     name: "appDatabase",
     version: 3,
     stores: [
-      { name: "users", recordCount: 142, keyPath: "id", indexes: ["email", "createdAt"] },
-      { name: "syncQueue", recordCount: 12, keyPath: "id", indexes: ["status", "timestamp"] },
+      {
+        name: "users",
+        recordCount: 142,
+        keyPath: "id",
+        indexes: ["email", "createdAt"],
+      },
+      {
+        name: "syncQueue",
+        recordCount: 12,
+        keyPath: "id",
+        indexes: ["status", "timestamp"],
+      },
       { name: "settings", recordCount: 1, keyPath: "key", indexes: [] },
-      { name: "offlineCache", recordCount: 387, keyPath: "url", indexes: ["timestamp", "type"] },
+      {
+        name: "offlineCache",
+        recordCount: 387,
+        keyPath: "url",
+        indexes: ["timestamp", "type"],
+      },
     ],
   },
   {
@@ -984,7 +1062,13 @@ const mockSyncQueueStore: MockIDBRecord[] = [
 const mockSettingsStore: MockIDBRecord[] = [
   {
     key: "appConfig",
-    value: { theme: "dark", lang: "en", notifications: true, analytics: false, version: "2.4.1" },
+    value: {
+      theme: "dark",
+      lang: "en",
+      notifications: true,
+      analytics: false,
+      version: "2.4.1",
+    },
   },
 ];
 
@@ -1083,8 +1167,14 @@ export const mockLocalStorageOrigins: MockLSOrigin[] = [
   {
     origin: "https://my-ionic-app.com",
     entries: [
-      { key: "CapacitorStorage.user_token", value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
-      { key: "CapacitorStorage.refresh_token", value: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..." },
+      {
+        key: "CapacitorStorage.user_token",
+        value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      },
+      {
+        key: "CapacitorStorage.refresh_token",
+        value: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...",
+      },
       {
         key: "CapacitorStorage.user_preferences",
         value: '{"theme":"dark","lang":"en","notifications":true}',
@@ -1127,7 +1217,10 @@ export const mockLocalStorageEntries = mockLocalStorageOrigins[0].entries;
 
 export interface MockCacheOrigin {
   origin: string;
-  caches: { cacheName: string; entries: { url: string; size: string; type: string }[] }[];
+  caches: {
+    cacheName: string;
+    entries: { url: string; size: string; type: string }[];
+  }[];
 }
 
 export const mockCacheAPIOrigins: MockCacheOrigin[] = [
@@ -1179,9 +1272,458 @@ export const mockCacheAPIOrigins: MockCacheOrigin[] = [
   },
 ];
 
+export const mockCacheAPIEntries = mockCacheAPIOrigins[0].caches;
+
+// export const mockCacheAPIEntries = [
+//   {
+//     cacheName: "v1-static",
+//     entries: [
+//       { url: "/index.html", size: "4.2 KB", type: "text/html" },
+//       { url: "/main.js", size: "245 KB", type: "application/javascript" },
+//       { url: "/vendor.js", size: "1.2 MB", type: "application/javascript" },
+//       { url: "/styles.css", size: "34 KB", type: "text/css" },
+//     ],
+//   },
+//   {
+//     cacheName: "v1-api",
+//     entries: [
+//       { url: "/api/v2/config", size: "456 B", type: "application/json" },
+//       { url: "/api/v2/users/me", size: "1.2 KB", type: "application/json" },
+//     ],
+//   },
+// ];
+
 export const mockOPFSEntries = [
-  { name: "mydb.sqlite", size: "4.2 MB", type: "database", modified: "2024-03-28 14:12" },
-  { name: "temp-upload.bin", size: "890 KB", type: "binary", modified: "2024-03-28 13:50" },
-  { name: "export-2024-03.json", size: "124 KB", type: "json", modified: "2024-03-27 09:30" },
-  { name: "image-cache/", size: "2.1 MB", type: "directory", modified: "2024-03-26 18:00" },
+  {
+    name: "mydb.sqlite",
+    size: "4.2 MB",
+    type: "database",
+    modified: "2024-03-28 14:12",
+  },
+  {
+    name: "temp-upload.bin",
+    size: "890 KB",
+    type: "binary",
+    modified: "2024-03-28 13:50",
+  },
+  {
+    name: "export-2024-03.json",
+    size: "124 KB",
+    type: "json",
+    modified: "2024-03-27 09:30",
+  },
+  {
+    name: "image-cache/",
+    size: "2.1 MB",
+    type: "directory",
+    modified: "2024-03-26 18:00",
+  },
+];
+
+// ── Capacitor mock data ─────────────────────────────────────────────────────
+
+export interface BridgeCall {
+  id: number;
+  plugin: string;
+  method: string;
+  args: Record<string, unknown>;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  status: "pending" | "resolved" | "rejected";
+  timestamp: string;
+  duration: number;
+}
+
+export const mockBridgeCalls: BridgeCall[] = [
+  {
+    id: 1,
+    plugin: "Camera",
+    method: "getPhoto",
+    args: { quality: 90, allowEditing: false, resultType: "base64" },
+    result: { base64String: "data:image/jpeg;base64,/9j/4AAQ...", format: "jpeg" },
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:12:03.421Z",
+    duration: 1847,
+  },
+  {
+    id: 2,
+    plugin: "Geolocation",
+    method: "getCurrentPosition",
+    args: { enableHighAccuracy: true, timeout: 10000 },
+    result: {
+      coords: { latitude: 37.7749, longitude: -122.4194, accuracy: 12.5 },
+      timestamp: "2024-03-28T14:12:01.000Z",
+    },
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:12:01.203Z",
+    duration: 203,
+  },
+  {
+    id: 3,
+    plugin: "Storage",
+    method: "get",
+    args: { key: "user_preferences" },
+    result: { value: '{"theme":"dark","lang":"en"}' },
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:11:58.102Z",
+    duration: 12,
+  },
+  {
+    id: 4,
+    plugin: "PushNotifications",
+    method: "requestPermissions",
+    args: {},
+    result: { receive: "granted" },
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:11:55.890Z",
+    duration: 445,
+  },
+  {
+    id: 5,
+    plugin: "Filesystem",
+    method: "readFile",
+    args: { path: "data.json", directory: "DATA" },
+    result: null,
+    error: "File does not exist",
+    status: "rejected",
+    timestamp: "2024-03-28T14:11:52.334Z",
+    duration: 8,
+  },
+  {
+    id: 6,
+    plugin: "Network",
+    method: "getStatus",
+    args: {},
+    result: { connected: true, connectionType: "wifi" },
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:11:50.100Z",
+    duration: 3,
+  },
+  {
+    id: 7,
+    plugin: "Device",
+    method: "getInfo",
+    args: {},
+    result: { model: "Pixel 7", platform: "android", osVersion: "14", appVersion: "2.4.1" },
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:11:48.050Z",
+    duration: 15,
+  },
+  {
+    id: 8,
+    plugin: "Haptics",
+    method: "vibrate",
+    args: { duration: 200 },
+    result: null,
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:11:45.900Z",
+    duration: 2,
+  },
+  {
+    id: 9,
+    plugin: "Browser",
+    method: "open",
+    args: { url: "https://example.com" },
+    result: null,
+    error: null,
+    status: "resolved",
+    timestamp: "2024-03-28T14:11:42.500Z",
+    duration: 312,
+  },
+  {
+    id: 10,
+    plugin: "Geolocation",
+    method: "watchPosition",
+    args: { enableHighAccuracy: true },
+    result: null,
+    error: "Location permission denied",
+    status: "rejected",
+    timestamp: "2024-03-28T14:11:38.200Z",
+    duration: 15,
+  },
+];
+
+export interface CapacitorPlugin {
+  name: string;
+  package: string;
+  version: string;
+  status: "ok" | "warn" | "outdated" | "error";
+  native: boolean;
+  docsUrl: string;
+  calls: number;
+}
+
+export const mockCapacitorPlugins: CapacitorPlugin[] = [
+  {
+    name: "Camera",
+    package: "@capacitor/camera",
+    version: "5.0.9",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/camera",
+    calls: 142,
+  },
+  {
+    name: "Geolocation",
+    package: "@capacitor/geolocation",
+    version: "5.0.7",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/geolocation",
+    calls: 89,
+  },
+  {
+    name: "Storage",
+    package: "@capacitor/storage",
+    version: "1.2.5",
+    status: "outdated",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/storage",
+    calls: 1204,
+  },
+  {
+    name: "Push Notifications",
+    package: "@capacitor/push-notifications",
+    version: "5.1.2",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/push-notifications",
+    calls: 3,
+  },
+  {
+    name: "Filesystem",
+    package: "@capacitor/filesystem",
+    version: "5.2.1",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/filesystem",
+    calls: 67,
+  },
+  {
+    name: "Network",
+    package: "@capacitor/network",
+    version: "5.0.5",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/network",
+    calls: 234,
+  },
+  {
+    name: "Device",
+    package: "@capacitor/device",
+    version: "5.0.6",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/device",
+    calls: 12,
+  },
+  {
+    name: "Haptics",
+    package: "@capacitor/haptics",
+    version: "5.0.6",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/haptics",
+    calls: 56,
+  },
+  {
+    name: "Browser",
+    package: "@capacitor/browser",
+    version: "5.1.1",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/browser",
+    calls: 8,
+  },
+  {
+    name: "Preferences",
+    package: "@capacitor/preferences",
+    version: "5.0.7",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/preferences",
+    calls: 445,
+  },
+  {
+    name: "Keyboard",
+    package: "@capacitor/keyboard",
+    version: "5.0.8",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/keyboard",
+    calls: 23,
+  },
+  {
+    name: "Status Bar",
+    package: "@capacitor/status-bar",
+    version: "5.0.7",
+    status: "ok",
+    native: true,
+    docsUrl: "https://capacitorjs.com/docs/apis/status-bar",
+    calls: 5,
+  },
+];
+
+export interface CapacitorConfig {
+  appId: string;
+  appName: string;
+  webDir: string;
+  server?: { url: string; cleartext: boolean };
+  plugins: Record<string, Record<string, unknown>>;
+  android: { allowMixedContent: boolean; backgroundColor: string };
+}
+
+export const mockCapacitorConfig: CapacitorConfig = {
+  appId: "com.example.myapp",
+  appName: "MyApp",
+  webDir: "dist",
+  server: { url: "http://10.0.2.2:8100", cleartext: true },
+  plugins: {
+    SplashScreen: { launchShowDuration: 2000, backgroundColor: "#ffffff" },
+    StatusBar: { style: "DARK", backgroundColor: "#ffffff" },
+  },
+  android: { allowMixedContent: true, backgroundColor: "#ffffff" },
+};
+
+export interface AppInfo {
+  packageName: string;
+  versionName: string;
+  versionCode: number;
+  buildType: "debug" | "release";
+  minSdkVersion: number;
+  targetSdkVersion: number;
+  capacitorVersion: string;
+  capacitorCoreVersion: string;
+  cliVersion: string;
+  platform: "android" | "ios";
+  osVersion: string;
+  deviceModel: string;
+  webViewVersion: string;
+  installSource: string;
+  firstInstall: string;
+  lastUpdate: string;
+}
+
+export const mockAppInfo: AppInfo = {
+  packageName: "com.example.myapp",
+  versionName: "2.4.1",
+  versionCode: 42,
+  buildType: "debug",
+  minSdkVersion: 22,
+  targetSdkVersion: 34,
+  capacitorVersion: "5.7.0",
+  capacitorCoreVersion: "5.7.0",
+  cliVersion: "5.7.4",
+  platform: "android",
+  osVersion: "14",
+  deviceModel: "Pixel 7",
+  webViewVersion: "122.0.6261.105",
+  installSource: "local",
+  firstInstall: "2024-01-15T09:00:00Z",
+  lastUpdate: "2024-03-28T14:00:00Z",
+};
+
+export interface PermissionEntry {
+  name: string;
+  androidPermission: string;
+  status: "granted" | "denied" | "not_requested";
+  lastRequested: string | null;
+}
+
+export const mockPermissions: PermissionEntry[] = [
+  {
+    name: "Camera",
+    androidPermission: "android.permission.CAMERA",
+    status: "granted",
+    lastRequested: "2024-03-28T14:12:03Z",
+  },
+  {
+    name: "Location (Fine)",
+    androidPermission: "android.permission.ACCESS_FINE_LOCATION",
+    status: "granted",
+    lastRequested: "2024-03-28T14:12:01Z",
+  },
+  {
+    name: "Location (Coarse)",
+    androidPermission: "android.permission.ACCESS_COARSE_LOCATION",
+    status: "granted",
+    lastRequested: "2024-03-28T14:12:01Z",
+  },
+  {
+    name: "Notifications",
+    androidPermission: "android.permission.POST_NOTIFICATIONS",
+    status: "granted",
+    lastRequested: "2024-03-28T14:11:55Z",
+  },
+  {
+    name: "Read External Storage",
+    androidPermission: "android.permission.READ_EXTERNAL_STORAGE",
+    status: "not_requested",
+    lastRequested: null,
+  },
+  {
+    name: "Write External Storage",
+    androidPermission: "android.permission.WRITE_EXTERNAL_STORAGE",
+    status: "not_requested",
+    lastRequested: null,
+  },
+  {
+    name: "Record Audio",
+    androidPermission: "android.permission.RECORD_AUDIO",
+    status: "denied",
+    lastRequested: "2024-03-25T10:00:00Z",
+  },
+  {
+    name: "Bluetooth Connect",
+    androidPermission: "android.permission.BLUETOOTH_CONNECT",
+    status: "not_requested",
+    lastRequested: null,
+  },
+  {
+    name: "Vibrate",
+    androidPermission: "android.permission.VIBRATE",
+    status: "granted",
+    lastRequested: "2024-03-28T14:11:45Z",
+  },
+];
+
+export interface DeepLinkTest {
+  url: string;
+  description: string;
+  status: "pending" | "success" | "failed";
+  timestamp: string | null;
+}
+
+export const mockDeepLinkTests: DeepLinkTest[] = [
+  {
+    url: "myapp://home",
+    description: "Home screen",
+    status: "success",
+    timestamp: "2024-03-28T14:10:00Z",
+  },
+  {
+    url: "myapp://product/123",
+    description: "Product detail",
+    status: "success",
+    timestamp: "2024-03-28T14:08:00Z",
+  },
+  {
+    url: "myapp://settings/profile",
+    description: "Settings > Profile",
+    status: "failed",
+    timestamp: "2024-03-28T14:05:00Z",
+  },
+  {
+    url: "https://myapp.com/reset-password?token=abc123",
+    description: "Password reset",
+    status: "pending",
+    timestamp: null,
+  },
 ];

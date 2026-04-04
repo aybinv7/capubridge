@@ -145,6 +145,9 @@
   /* Custom font size: 10px / 14px */
   --text-2xs: 0.625rem;
   --text-2xs--line-height: 0.875rem;
+  /* Custom font size: 9px / 13px */
+  --text-3xs: 0.5625rem;
+  --text-3xs--line-height: 0.8125rem;
 }
 
 @layer base {

@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { Search, Pause, Trash2, Download, X } from "lucide-vue-next";
+import { Search, X } from "lucide-vue-next";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { networkRequests } from "@/data/mock-data";
 
 type DetailTab = "headers" | "payload" | "response" | "timing";
 
 const selectedReq = ref<number | null>(null);
 const detailTab = ref<DetailTab>("headers");
-const filterText = ref("");
-const typeFilter = ref("All");
 
 const selected = ref<(typeof networkRequests)[0] | undefined>(undefined);
 
@@ -45,168 +44,169 @@ function methodBadge(method: string) {
 </script>
 
 <template>
-  <div class="flex flex-1 overflow-hidden">
-    <div class="flex-1 flex flex-col overflow-hidden">
-      <div class="flex-1 overflow-auto">
-        <table class="w-full text-2xs">
-          <thead class="sticky top-0 z-10">
-            <tr
-              class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
-            >
-              <th class="px-3 py-2 font-medium w-[60px]">Method</th>
-              <th class="px-3 py-2 font-medium w-[52px]">Status</th>
-              <th class="px-3 py-2 font-medium">URL</th>
-              <th class="px-3 py-2 font-medium w-14">Type</th>
-              <th class="px-3 py-2 font-medium w-16 text-right">Size</th>
-              <th class="px-3 py-2 font-medium w-16 text-right">Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="req in networkRequests"
-              :key="req.id"
-              @click="selectReq(req.id)"
-              class="border-b border-border/10 cursor-pointer transition-colors"
-              :class="[
-                selectedReq === req.id ? 'bg-primary/[0.04]' : 'data-row',
-                req.status >= 400 ? 'bg-error/[0.02]' : '',
-              ]"
-            >
-              <td class="px-3 py-[7px]">
-                <span
-                  class="text-2xs font-mono font-semibold px-1.5 py-[2px] rounded"
-                  :class="methodBadge(req.method)"
-                  >{{ req.method }}</span
-                >
-              </td>
-              <td class="px-3 py-[7px] font-mono font-medium" :class="statusColor(req.status)">
-                {{ req.status }}
-              </td>
-              <td
-                class="px-3 py-[7px] font-mono text-xs text-secondary-foreground truncate max-w-[350px]"
+  <div class="flex h-full flex-col overflow-hidden">
+    <!-- Resizable panels: table | detail -->
+    <ResizablePanelGroup direction="horizontal" class="flex-1">
+      <ResizablePanel :default-size="75" :min-size="60">
+        <div class="h-full overflow-auto">
+          <table class="w-full text-2xs">
+            <thead class="sticky top-0 z-10">
+              <tr
+                class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
               >
-                {{ req.url.replace(/^https?:\/\//, "") }}
-              </td>
-              <td class="px-3 py-[7px] text-dimmed">{{ req.type }}</td>
-              <td class="px-3 py-[7px] text-muted-foreground text-right font-mono">
-                {{ req.size }}
-              </td>
-              <td
-                class="px-3 py-[7px] text-right font-mono"
-                :class="
-                  req.time.includes('s') && !req.time.includes('ms')
-                    ? 'text-warning'
-                    : 'text-muted-foreground'
+                <th class="px-3 py-2 font-medium">Method</th>
+                <th class="px-3 py-2 font-medium w-[52px]">Status</th>
+                <th class="px-3 py-2 font-medium">URL</th>
+                <th class="px-3 py-2 font-medium w-14">Type</th>
+                <th class="px-3 py-2 font-medium w-16 text-right">Size</th>
+                <th class="px-3 py-2 font-medium w-16 text-right">Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="req in networkRequests"
+                :key="req.id"
+                @click="selectReq(req.id)"
+                class="border-b border-border/10 cursor-pointer transition-colors"
+                :class="[
+                  selectedReq === req.id ? 'bg-primary/[0.04]' : 'data-row',
+                  req.status >= 400 ? 'bg-error/[0.02]' : '',
+                ]"
+              >
+                <td class="px-3 py-[7px]">
+                  <span
+                    class="text-2xs font-mono font-semibold px-1.5 py-[2px] rounded"
+                    :class="methodBadge(req.method)"
+                    >{{ req.method }}</span
+                  >
+                </td>
+                <td class="px-3 py-[7px] font-mono font-medium" :class="statusColor(req.status)">
+                  {{ req.status }}
+                </td>
+                <td
+                  class="px-3 py-[7px] font-mono text-xs text-secondary-foreground truncate max-w-[350px]"
+                >
+                  {{ req.url.replace(/^https?:\/\//, "") }}
+                </td>
+                <td class="px-3 py-[7px] text-dimmed">{{ req.type }}</td>
+                <td class="px-3 py-[7px] text-muted-foreground text-right font-mono">
+                  {{ req.size }}
+                </td>
+                <td
+                  class="px-3 py-[7px] text-right font-mono"
+                  :class="
+                    req.time.includes('s') && !req.time.includes('ms')
+                      ? 'text-warning'
+                      : 'text-muted-foreground'
+                  "
+                >
+                  {{ req.time }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ResizablePanel>
+
+      <ResizableHandle />
+      <ResizablePanel :default-size="25" :min-size="20" :max-size="40">
+        <div class="flex h-full flex-col border-l border-border/30 bg-surface-1">
+          <template v-if="selected">
+            <div class="h-10 flex items-center px-3 border-b border-border/20 shrink-0">
+              <div class="flex items-center gap-1.5">
+                <Button
+                  v-for="t in ['headers', 'payload', 'response', 'timing'] as DetailTab[]"
+                  :key="t"
+                  :variant="detailTab === t ? 'secondary' : 'ghost'"
+                  size="sm"
+                  class="h-6 px-2 text-2xs capitalize"
+                  :class="detailTab === t ? '' : 'text-muted-foreground'"
+                  @click="detailTab = t"
+                >
+                  {{ t }}
+                </Button>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="ml-auto text-dimmed"
+                @click="
+                  selectedReq = null;
+                  selected = undefined;
                 "
               >
-                {{ req.time }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+                <X class="w-3 h-3" />
+              </Button>
+            </div>
 
-    <Transition
-      enter-active-class="transition-[width,opacity] duration-150 overflow-hidden"
-      enter-from-class="w-0 opacity-0"
-      enter-to-class="w-[320px] opacity-100"
-      leave-active-class="transition-[width,opacity] duration-150 overflow-hidden"
-      leave-from-class="w-[320px] opacity-100"
-      leave-to-class="w-0 opacity-0"
-    >
-      <div
-        v-if="selected"
-        class="w-[320px] border-l border-border/30 bg-surface-1 shrink-0 flex flex-col"
-      >
-        <div class="h-10 flex items-center px-3 border-b border-border/20 shrink-0">
-          <div class="flex items-center gap-1.5">
-            <Button
-              v-for="t in ['headers', 'payload', 'response', 'timing'] as DetailTab[]"
-              :key="t"
-              :variant="detailTab === t ? 'secondary' : 'ghost'"
-              size="sm"
-              class="h-6 px-2 text-2xs capitalize"
-              :class="detailTab === t ? '' : 'text-muted-foreground'"
-              @click="detailTab = t"
-            >
-              {{ t }}
-            </Button>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            class="ml-auto text-dimmed"
-            @click="
-              selectedReq = null;
-              selected = undefined;
-            "
-          >
-            <X class="w-3 h-3" />
-          </Button>
-        </div>
+            <ScrollArea class="flex-1">
+              <div class="p-3 text-2xs">
+                <div class="mb-4">
+                  <div class="text-dimmed uppercase tracking-wider mb-2 font-medium">General</div>
+                  <div class="space-y-2 font-mono">
+                    <div>
+                      <span class="text-dimmed block mb-0.5">URL</span>
+                      <span class="text-foreground text-xs break-all leading-relaxed">{{
+                        selected.url
+                      }}</span>
+                    </div>
+                    <div
+                      v-for="[label, val] in [
+                        ['Method', selected.method],
+                        ['Status', selected.status],
+                        ['Initiator', selected.initiator],
+                        ['Time', selected.time],
+                      ]"
+                      :key="String(label)"
+                      class="flex justify-between items-center"
+                    >
+                      <span class="text-dimmed">{{ label }}</span>
+                      <span
+                        class="text-xs"
+                        :class="
+                          label === 'Status'
+                            ? statusColor(Number(val))
+                            : label === 'Initiator'
+                              ? 'text-primary/70'
+                              : 'text-foreground'
+                        "
+                        >{{ val }}</span
+                      >
+                    </div>
+                  </div>
+                </div>
 
-        <ScrollArea class="flex-1">
-          <div class="p-3 text-2xs">
-            <div class="mb-4">
-              <div class="text-dimmed uppercase tracking-wider mb-2 font-medium">General</div>
-              <div class="space-y-2 font-mono">
                 <div>
-                  <span class="text-dimmed block mb-0.5">URL</span>
-                  <span class="text-foreground text-xs break-all leading-relaxed">{{
-                    selected.url
-                  }}</span>
-                </div>
-                <div
-                  v-for="[label, val] in [
-                    ['Method', selected.method],
-                    ['Status', selected.status],
-                    ['Initiator', selected.initiator],
-                    ['Time', selected.time],
-                  ]"
-                  :key="String(label)"
-                  class="flex justify-between items-center"
-                >
-                  <span class="text-dimmed">{{ label }}</span>
-                  <span
-                    class="text-xs"
-                    :class="
-                      label === 'Status'
-                        ? statusColor(Number(val))
-                        : label === 'Initiator'
-                          ? 'text-primary/70'
-                          : 'text-foreground'
-                    "
-                    >{{ val }}</span
-                  >
+                  <div class="text-dimmed uppercase tracking-wider mb-2 font-medium">
+                    Response Headers
+                  </div>
+                  <div class="space-y-1.5 font-mono">
+                    <div
+                      v-for="[k, v] in [
+                        ['content-type', 'application/json; charset=utf-8'],
+                        ['cache-control', 'no-store, no-cache'],
+                        ['x-request-id', 'a3f8c2e1-b421-4d89'],
+                        ['x-response-time', '124ms'],
+                        ['access-control-allow-origin', '*'],
+                      ]"
+                      :key="k"
+                      class="flex gap-2"
+                    >
+                      <span class="text-info/50 shrink-0">{{ k }}</span>
+                      <span class="text-secondary-foreground break-all">{{ v }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </ScrollArea>
+          </template>
+          <template v-else>
+            <div class="flex-1 flex items-center justify-center text-dimmed text-2xs">
+              Select a request to view details
             </div>
-
-            <div>
-              <div class="text-dimmed uppercase tracking-wider mb-2 font-medium">
-                Response Headers
-              </div>
-              <div class="space-y-1.5 font-mono">
-                <div
-                  v-for="[k, v] in [
-                    ['content-type', 'application/json; charset=utf-8'],
-                    ['cache-control', 'no-store, no-cache'],
-                    ['x-request-id', 'a3f8c2e1-b421-4d89'],
-                    ['x-response-time', '124ms'],
-                    ['access-control-allow-origin', '*'],
-                  ]"
-                  :key="k"
-                  class="flex gap-2"
-                >
-                  <span class="text-info/50 shrink-0">{{ k }}</span>
-                  <span class="text-secondary-foreground break-all">{{ v }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
-      </div>
-    </Transition>
+          </template>
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   </div>
 </template>
