@@ -7,15 +7,30 @@ const route = useRoute();
 const router = useRouter();
 
 const navItems = [
-  { name: "storage-indexeddb", label: "IndexedDB", icon: Database, path: "/storage/indexeddb" },
+  {
+    name: "storage-indexeddb",
+    label: "IndexedDB",
+    icon: Database,
+    path: "/storage/indexeddb",
+  },
   {
     name: "storage-localstorage",
     label: "LocalStorage",
     icon: HardDrive,
     path: "/storage/localstorage",
   },
-  { name: "storage-cache", label: "Cache API", icon: Archive, path: "/storage/cache" },
-  { name: "storage-opfs", label: "OPFS", icon: FolderOpen, path: "/storage/opfs" },
+  {
+    name: "storage-cache",
+    label: "Cache API",
+    icon: Archive,
+    path: "/storage/cache",
+  },
+  {
+    name: "storage-opfs",
+    label: "OPFS",
+    icon: FolderOpen,
+    path: "/storage/opfs",
+  },
 ];
 
 function isActive(path: string): boolean {
@@ -24,7 +39,7 @@ function isActive(path: string): boolean {
 </script>
 
 <template>
-  <div class="h-10 border-b border-border/20 bg-surface-1 flex items-center px-1 shrink-0">
+  <div class="h-10 border-b border-border bg-[#151515] flex items-center px-1 shrink-0">
     <div class="flex items-center gap-0">
       <button
         v-for="item in navItems"
@@ -41,7 +56,7 @@ function isActive(path: string): boolean {
         {{ item.label }}
         <div
           v-if="isActive(item.path)"
-          class="absolute bottom-0 left-1 right-1 h-[2px] bg-primary rounded-full"
+          class="absolute bottom-0 left-1 right-1 h-[2px] bg-foreground rounded-full"
         />
       </button>
     </div>

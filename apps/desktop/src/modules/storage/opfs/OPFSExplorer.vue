@@ -26,14 +26,14 @@ function getFileIcon(type: string) {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <div class="h-8 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2">
+    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
       <div
-        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-0.5 max-w-xs border border-border/20 focus-within:border-primary/20 transition-colors"
+        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border focus-within:border-border transition-colors"
       >
-        <Search class="w-3 h-3 text-dimmed" />
+        <Search class="w-3 h-3 text-muted-foreground" />
         <Input
           v-model="filter"
-          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Filter files…"
         />
       </div>
@@ -44,7 +44,7 @@ function getFileIcon(type: string) {
       <table class="w-full text-2xs">
         <thead class="sticky top-0 z-10">
           <tr
-            class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
+            class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
           >
             <th class="px-3 py-2 font-medium">Name</th>
             <th class="px-3 py-2 font-medium w-20">Type</th>
@@ -57,8 +57,8 @@ function getFileIcon(type: string) {
             v-for="entry in filtered"
             :key="entry.name"
             @click="selectedFile = selectedFile === entry.name ? null : entry.name"
-            class="border-b border-border/10 cursor-pointer transition-colors"
-            :class="selectedFile === entry.name ? 'bg-primary/[0.04]' : 'data-row'"
+            class="border-b border-border cursor-pointer transition-colors"
+            :class="selectedFile === entry.name ? 'bg-secondary' : 'data-row'"
           >
             <td class="px-3 py-2 font-mono text-xs text-secondary-foreground">
               <div class="flex items-center gap-1.5">
@@ -71,7 +71,7 @@ function getFileIcon(type: string) {
             </td>
             <td class="px-3 py-2">
               <span
-                class="text-2xs font-mono px-1.5 py-0.5 rounded bg-surface-3 text-muted-foreground"
+                class="text-2xs font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground"
                 >{{ entry.type }}</span
               >
             </td>

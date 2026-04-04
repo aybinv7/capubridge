@@ -77,10 +77,15 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Toolbar -->
-    <div class="h-8 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2 shrink-0">
+    <div class="h-8 border-b border-border bg-background flex items-center px-3 gap-2 shrink-0">
       <span class="text-2xs font-mono text-muted-foreground truncate">{{ selectedDir }}</span>
       <div class="flex-1" />
-      <Button variant="ghost" size="icon-sm" class="w-6 h-6 text-dimmed" title="Push file">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="w-6 h-6 text-muted-foreground"
+        title="Push file"
+      >
         <ArrowUp class="w-3 h-3" />
       </Button>
     </div>
@@ -90,7 +95,7 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
       <!-- File tree -->
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
         <div class="flex h-full flex-col border-r border-border">
-          <div class="h-8 flex items-center px-3 border-b border-border/20 gap-1.5">
+          <div class="h-8 flex items-center px-3 border-b border-border gap-1.5">
             <FolderOpen class="w-3 h-3 text-warning/60" />
             <span class="text-2xs font-medium text-muted-foreground">/sdcard</span>
           </div>
@@ -100,7 +105,7 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
                 variant="ghost"
                 size="sm"
                 class="w-full justify-start gap-1.5 px-3 py-[5px] h-auto text-muted-foreground"
-                :class="selectedDir === '/sdcard' ? 'text-primary bg-primary/[0.06]' : ''"
+                :class="selectedDir === '/sdcard' ? 'text-foreground bg-secondary' : ''"
                 @click="selectedDir = '/sdcard'"
               >
                 <ChevronRight class="w-3 h-3 opacity-0" />
@@ -116,7 +121,7 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
                   :style="{ paddingLeft: `${12 + dir.depth * 14}px` }"
                   :class="
                     selectedDir === dir.path
-                      ? 'text-primary bg-primary/[0.06]'
+                      ? 'text-foreground bg-secondary'
                       : 'text-secondary-foreground'
                   "
                   @click="
@@ -151,7 +156,7 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
           <table v-else class="w-full text-2xs">
             <thead class="sticky top-0 z-10">
               <tr
-                class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
+                class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
               >
                 <th class="px-3 py-2 font-medium">Name</th>
                 <th class="px-3 py-2 font-medium w-20">Size</th>
@@ -163,7 +168,7 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
               <tr
                 v-for="file in currentFiles"
                 :key="file.name"
-                class="border-b border-border/10 data-row group"
+                class="border-b border-border data-row group"
               >
                 <td class="px-3 py-2 flex items-center gap-2">
                   <component
@@ -180,7 +185,7 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
                       variant="ghost"
                       size="icon-sm"
                       title="Pull to desktop"
-                      class="text-dimmed hover:text-foreground"
+                      class="text-muted-foreground hover:text-foreground"
                     >
                       <ArrowDown class="w-3 h-3" />
                     </Button>
@@ -188,7 +193,7 @@ const currentFiles = computed(() => getFilesInDir(selectedDir.value));
                       variant="ghost"
                       size="icon-sm"
                       title="Delete"
-                      class="text-dimmed hover:text-error"
+                      class="text-muted-foreground hover:text-error"
                     >
                       <Trash2 class="w-3 h-3" />
                     </Button>

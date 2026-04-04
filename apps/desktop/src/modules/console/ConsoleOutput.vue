@@ -23,7 +23,12 @@ const levelStyles: Record<string, { border: string; text: string; bg: string; ba
     bg: "bg-error/[0.03]",
     badge: "bg-error/10 text-error",
   },
-  debug: { border: "", text: "text-dimmed", bg: "", badge: "bg-surface-3 text-dimmed" },
+  debug: {
+    border: "",
+    text: "text-muted-foreground",
+    bg: "",
+    badge: "bg-secondary text-muted-foreground",
+  },
 };
 
 const levelCounts = computed(() => ({
@@ -49,9 +54,7 @@ const filtered = computed(() =>
 
 <template>
   <div class="flex flex-1 flex-col overflow-hidden">
-    <div
-      class="h-8 border-b border-border/[0.15] bg-surface-2/30 flex items-center px-3 gap-2 shrink-0"
-    >
+    <div class="h-8 border-b border-border bg-accent flex items-center px-3 gap-2 shrink-0">
       <div class="flex items-center gap-0.5">
         <Button
           v-for="[level, count] in Object.entries(levelCounts) as [string, number][]"
@@ -65,7 +68,11 @@ const filtered = computed(() =>
           <span
             class="text-2xs font-mono"
             :class="
-              level === 'error' ? 'text-error' : level === 'warn' ? 'text-warning' : 'text-dimmed'
+              level === 'error'
+                ? 'text-error'
+                : level === 'warn'
+                  ? 'text-warning'
+                  : 'text-muted-foreground'
             "
             >{{ count }}</span
           >
@@ -77,13 +84,11 @@ const filtered = computed(() =>
       </Button>
     </div>
 
-    <div
-      class="h-7 border-b border-border/[0.15] bg-surface-2/30 flex items-center px-3 gap-2 shrink-0"
-    >
-      <Search class="w-3 h-3 text-dimmed" />
+    <div class="h-7 border-b border-border bg-accent flex items-center px-3 gap-2 shrink-0">
+      <Search class="w-3 h-3 text-muted-foreground" />
       <Input
         v-model="filter"
-        class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+        class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
         placeholder="Filter output…"
       />
     </div>
@@ -92,10 +97,10 @@ const filtered = computed(() =>
       <div
         v-for="(msg, i) in filtered"
         :key="i"
-        class="flex items-start gap-0 px-3 py-[3px] group hover:bg-surface-2/30 transition-colors"
+        class="flex items-start gap-0 px-3 py-[3px] group hover:bg-accent transition-colors"
         :class="[levelStyles[msg.level]?.bg || '', levelStyles[msg.level]?.border || '']"
       >
-        <span class="w-[72px] shrink-0 text-dimmed tabular-nums select-none">{{
+        <span class="w-[72px] shrink-0 text-muted-foreground tabular-nums select-none">{{
           msg.timestamp
         }}</span>
 
@@ -114,7 +119,7 @@ const filtered = computed(() =>
 
         <span
           v-if="msg.source"
-          class="text-dimmed shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-2xs"
+          class="text-muted-foreground shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-2xs"
           >{{ msg.source }}</span
         >
 

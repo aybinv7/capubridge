@@ -15,7 +15,14 @@ import { devices } from "@/data/mock-data";
 
 const device = ref(devices[0]);
 
-const perf = ref({ cpu: 24, ram: 62, battery: 87, fps: 60, rxKbps: 48, txKbps: 12 });
+const perf = ref({
+  cpu: 24,
+  ram: 62,
+  battery: 87,
+  fps: 60,
+  rxKbps: 48,
+  txKbps: 12,
+});
 
 let perfTimer: ReturnType<typeof setInterval>;
 onMounted(() => {
@@ -45,10 +52,30 @@ const ramColor = computed(() =>
     <div class="grid grid-cols-3 gap-2.5 max-w-3xl">
       <div
         v-for="item in [
-          { icon: Smartphone, label: 'Model', value: device.model, color: 'text-primary' },
-          { icon: Monitor, label: 'Display', value: device.resolution, color: 'text-info' },
-          { icon: Cpu, label: 'Processor', value: device.cpu, color: 'text-warning' },
-          { icon: HardDrive, label: 'Storage', value: device.storage, color: 'text-success' },
+          {
+            icon: Smartphone,
+            label: 'Model',
+            value: device.model,
+            color: 'text-foreground',
+          },
+          {
+            icon: Monitor,
+            label: 'Display',
+            value: device.resolution,
+            color: 'text-info',
+          },
+          {
+            icon: Cpu,
+            label: 'Processor',
+            value: device.cpu,
+            color: 'text-warning',
+          },
+          {
+            icon: HardDrive,
+            label: 'Storage',
+            value: device.storage,
+            color: 'text-success',
+          },
           {
             icon: Battery,
             label: 'Battery',
@@ -63,11 +90,11 @@ const ramColor = computed(() =>
           },
         ]"
         :key="item.label"
-        class="bg-surface-2/60 rounded-lg p-3 border border-border/20 hover:border-border/40 transition-colors"
+        class="bg-background/30 p-3 border border-border transition-colors"
       >
         <div class="flex items-center gap-2 mb-2">
           <div
-            class="w-6 h-6 rounded-md bg-surface-3 flex items-center justify-center"
+            class="w-6 h-6 rounded-md bg-secondary flex items-center justify-center"
             :class="item.color"
           >
             <component :is="item.icon" class="w-3 h-3" />

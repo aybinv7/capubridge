@@ -1,0 +1,419 @@
+<h2>Dark Theme Palette Direction</h2>
+<p class="subtitle">Which neutral dark base feels right for Capubridge?</p>
+
+<div class="cards">
+  <!-- Option A: Pure Neutral (OpenCode exact) -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden">
+      <div
+        style="
+          background: #1b1b1b;
+          padding: 16px;
+          min-height: 280px;
+          font-family: Geist, system-ui, sans-serif;
+        "
+      >
+        <!-- Simulated app shell -->
+        <div style="display: flex; height: 100%; gap: 1px">
+          <!-- Sidebar -->
+          <div
+            style="
+              width: 48px;
+              background: #161616;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 12px 0;
+              gap: 12px;
+            "
+          >
+            <div style="width: 24px; height: 24px; border-radius: 4px; background: #2a2a2a"></div>
+            <div
+              style="
+                width: 20px;
+                height: 20px;
+                border-radius: 2px;
+                background: #e8e8e8;
+                opacity: 0.9;
+              "
+            ></div>
+            <div style="width: 20px; height: 20px; border-radius: 2px; background: #555"></div>
+            <div style="width: 20px; height: 20px; border-radius: 2px; background: #555"></div>
+            <div style="width: 20px; height: 20px; border-radius: 2px; background: #555"></div>
+          </div>
+          <!-- Main area -->
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 1px">
+            <!-- Top bar -->
+            <div
+              style="
+                background: #161616;
+                padding: 8px 12px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+              "
+            >
+              <div style="display: flex; gap: 8px; align-items: center">
+                <span style="color: #e8e8e8; font-size: 11px; font-weight: 500">Devices</span>
+                <span style="color: #666; font-size: 11px">Storage</span>
+                <span style="color: #666; font-size: 11px">Network</span>
+              </div>
+              <div
+                style="
+                  background: #2a2a2a;
+                  border: 1px solid #333;
+                  border-radius: 2px;
+                  padding: 3px 24px 3px 8px;
+                  font-size: 10px;
+                  color: #666;
+                "
+              >
+                Search...
+              </div>
+            </div>
+            <!-- Content -->
+            <div style="flex: 1; background: #1b1b1b; padding: 12px">
+              <div style="display: flex; gap: 8px; margin-bottom: 12px">
+                <div
+                  style="
+                    background: #2a2a2a;
+                    border: 1px solid #333;
+                    border-radius: 2px;
+                    padding: 4px 10px;
+                    font-size: 10px;
+                    color: #e8e8e8;
+                  "
+                >
+                  All
+                </div>
+                <div
+                  style="
+                    background: transparent;
+                    border: 1px solid #333;
+                    border-radius: 2px;
+                    padding: 4px 10px;
+                    font-size: 10px;
+                    color: #666;
+                  "
+                >
+                  Online
+                </div>
+                <div
+                  style="
+                    background: transparent;
+                    border: 1px solid #333;
+                    border-radius: 2px;
+                    padding: 4px 10px;
+                    font-size: 10px;
+                    color: #666;
+                  "
+                >
+                  Offline
+                </div>
+              </div>
+              <!-- Table rows -->
+              <div style="border: 1px solid #2a2a2a">
+                <div
+                  style="
+                    display: flex;
+                    padding: 6px 10px;
+                    border-bottom: 1px solid #2a2a2a;
+                    background: #161616;
+                  "
+                >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 9px;
+                      color: #666;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Device</span
+                  >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 9px;
+                      color: #666;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Status</span
+                  >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 9px;
+                      color: #666;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Port</span
+                  >
+                </div>
+                <div style="display: flex; padding: 8px 10px; border-bottom: 1px solid #2a2a2a">
+                  <span style="flex: 1; font-size: 11px; color: #e8e8e8">Samsung S23</span>
+                  <span style="flex: 1; font-size: 11px; color: #4ade80">● online</span>
+                  <span style="flex: 1; font-size: 11px; color: #888; font-family: monospace"
+                    >9222</span
+                  >
+                </div>
+                <div style="display: flex; padding: 8px 10px; border-bottom: 1px solid #2a2a2a">
+                  <span style="flex: 1; font-size: 11px; color: #e8e8e8">Pixel 7</span>
+                  <span style="flex: 1; font-size: 11px; color: #4ade80">● online</span>
+                  <span style="flex: 1; font-size: 11px; color: #888; font-family: monospace"
+                    >9223</span
+                  >
+                </div>
+                <div style="display: flex; padding: 8px 10px">
+                  <span style="flex: 1; font-size: 11px; color: #e8e8e8">Huawei P30</span>
+                  <span style="flex: 1; font-size: 11px; color: #ef4444">● offline</span>
+                  <span style="flex: 1; font-size: 11px; color: #888; font-family: monospace"
+                    >—</span
+                  >
+                </div>
+              </div>
+            </div>
+            <!-- Status bar -->
+            <div
+              style="
+                background: #161616;
+                padding: 4px 12px;
+                display: flex;
+                justify-content: space-between;
+              "
+            >
+              <span style="font-size: 9px; color: #666">2 devices connected</span>
+              <span style="font-size: 9px; color: #666">v0.1.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Pure Neutral</h3>
+      <p>
+        OpenCode-exact grays. Background #1b1b1b, surfaces #161616/#2a2a2a. Zero warmth. Pure
+        achromatic. Color only for status: green=online, red=offline.
+      </p>
+    </div>
+  </div>
+
+  <!-- Option B: Warm Neutral (slight warmth like OpenCode's dark theme with oklch warm tint) -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 0; overflow: hidden">
+      <div
+        style="
+          background: #1a1916;
+          padding: 16px;
+          min-height: 280px;
+          font-family: Geist, system-ui, sans-serif;
+        "
+      >
+        <div style="display: flex; height: 100%; gap: 1px">
+          <!-- Sidebar -->
+          <div
+            style="
+              width: 48px;
+              background: #15140f;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 12px 0;
+              gap: 12px;
+            "
+          >
+            <div style="width: 24px; height: 24px; border-radius: 4px; background: #2a2820"></div>
+            <div
+              style="
+                width: 20px;
+                height: 20px;
+                border-radius: 2px;
+                background: #ede8d4;
+                opacity: 0.9;
+              "
+            ></div>
+            <div style="width: 20px; height: 20px; border-radius: 2px; background: #5a5647"></div>
+            <div style="width: 20px; height: 20px; border-radius: 2px; background: #5a5647"></div>
+            <div style="width: 20px; height: 20px; border-radius: 2px; background: #5a5647"></div>
+          </div>
+          <!-- Main area -->
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 1px">
+            <div
+              style="
+                background: #15140f;
+                padding: 8px 12px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+              "
+            >
+              <div style="display: flex; gap: 8px; align-items: center">
+                <span style="color: #ede8d4; font-size: 11px; font-weight: 500">Devices</span>
+                <span style="color: #6b6656; font-size: 11px">Storage</span>
+                <span style="color: #6b6656; font-size: 11px">Network</span>
+              </div>
+              <div
+                style="
+                  background: #2a2820;
+                  border: 1px solid #3a3730;
+                  border-radius: 2px;
+                  padding: 3px 24px 3px 8px;
+                  font-size: 10px;
+                  color: #6b6656;
+                "
+              >
+                Search...
+              </div>
+            </div>
+            <div style="flex: 1; background: #1a1916; padding: 12px">
+              <div style="display: flex; gap: 8px; margin-bottom: 12px">
+                <div
+                  style="
+                    background: #2a2820;
+                    border: 1px solid #3a3730;
+                    border-radius: 2px;
+                    padding: 4px 10px;
+                    font-size: 10px;
+                    color: #ede8d4;
+                  "
+                >
+                  All
+                </div>
+                <div
+                  style="
+                    background: transparent;
+                    border: 1px solid #3a3730;
+                    border-radius: 2px;
+                    padding: 4px 10px;
+                    font-size: 10px;
+                    color: #6b6656;
+                  "
+                >
+                  Online
+                </div>
+                <div
+                  style="
+                    background: transparent;
+                    border: 1px solid #3a3730;
+                    border-radius: 2px;
+                    padding: 4px 10px;
+                    font-size: 10px;
+                    color: #6b6656;
+                  "
+                >
+                  Offline
+                </div>
+              </div>
+              <div style="border: 1px solid #2a2820">
+                <div
+                  style="
+                    display: flex;
+                    padding: 6px 10px;
+                    border-bottom: 1px solid #2a2820;
+                    background: #15140f;
+                  "
+                >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 9px;
+                      color: #6b6656;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Device</span
+                  >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 9px;
+                      color: #6b6656;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Status</span
+                  >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 9px;
+                      color: #6b6656;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Port</span
+                  >
+                </div>
+                <div style="display: flex; padding: 8px 10px; border-bottom: 1px solid #2a2820">
+                  <span style="flex: 1; font-size: 11px; color: #ede8d4">Samsung S23</span>
+                  <span style="flex: 1; font-size: 11px; color: #4ade80">● online</span>
+                  <span style="flex: 1; font-size: 11px; color: #8a8474; font-family: monospace"
+                    >9222</span
+                  >
+                </div>
+                <div style="display: flex; padding: 8px 10px; border-bottom: 1px solid #2a2820">
+                  <span style="flex: 1; font-size: 11px; color: #ede8d4">Pixel 7</span>
+                  <span style="flex: 1; font-size: 11px; color: #4ade80">● online</span>
+                  <span style="flex: 1; font-size: 11px; color: #8a8474; font-family: monospace"
+                    >9223</span
+                  >
+                </div>
+                <div style="display: flex; padding: 8px 10px">
+                  <span style="flex: 1; font-size: 11px; color: #ede8d4">Huawei P30</span>
+                  <span style="flex: 1; font-size: 11px; color: #ef4444">● offline</span>
+                  <span style="flex: 1; font-size: 11px; color: #8a8474; font-family: monospace"
+                    >—</span
+                  >
+                </div>
+              </div>
+            </div>
+            <div
+              style="
+                background: #15140f;
+                padding: 4px 12px;
+                display: flex;
+                justify-content: space-between;
+              "
+            >
+              <span style="font-size: 9px; color: #6b6656">2 devices connected</span>
+              <span style="font-size: 9px; color: #6b6656">v0.1.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · Warm Neutral</h3>
+      <p>
+        Matches OpenCode's dark theme oklch values — very slight warm/yellow tint in grays.
+        Background #1a1916, foreground #ede8d4. Feels organic, like parchment in the dark. Same
+        semantic color rules.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px">
+  <h3>Color Reference</h3>
+  <p class="subtitle">Both palettes use color only for semantic meaning</p>
+  <div style="display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="width: 14px; height: 14px; border-radius: 50%; background: #4ade80"></div>
+      <span style="font-size: 12px">Online / Success / Added</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="width: 14px; height: 14px; border-radius: 50%; background: #ef4444"></div>
+      <span style="font-size: 12px">Offline / Error / Removed</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="width: 14px; height: 14px; border-radius: 50%; background: #f59e0b"></div>
+      <span style="font-size: 12px">Warning / Pending</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="width: 14px; height: 14px; border-radius: 50%; background: #60a5fa"></div>
+      <span style="font-size: 12px">Info / Links / Focus</span>
+    </div>
+  </div>
+</div>

@@ -7,7 +7,7 @@ const storageAPIs = [
     status: "available",
     quota: "14.2 MB / 2.4 GB",
     icon: Database,
-    color: "text-primary",
+    color: "text-foreground",
   },
   {
     name: "LocalStorage",
@@ -39,10 +39,10 @@ const storageAPIs = [
       <div
         v-for="api in storageAPIs"
         :key="api.name"
-        class="flex items-center gap-4 p-4 rounded-xl border border-border/20 bg-surface-2/40 hover:border-border/40 transition-all"
+        class="flex items-center gap-4 p-4 border border-border bg-accent transition-all"
       >
         <div
-          class="w-10 h-10 rounded-xl bg-surface-3 border border-border/20 flex items-center justify-center shrink-0"
+          class="w-10 h-10 bg-secondary border border-border flex items-center justify-center shrink-0"
           :class="api.color"
         >
           <component :is="api.icon" class="w-5 h-5" />
@@ -54,7 +54,7 @@ const storageAPIs = [
           </div>
           <div class="text-2xs text-muted-foreground font-mono">{{ api.quota }}</div>
         </div>
-        <div class="w-1.5 h-1.5 rounded-full bg-success glow-dot" />
+        <div class="w-1.5 h-1.5 rounded-full bg-success" />
       </div>
     </div>
   </div>

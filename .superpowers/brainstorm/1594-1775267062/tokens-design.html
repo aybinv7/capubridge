@@ -1,0 +1,346 @@
+<h2>Section 1: Design Token System</h2>
+<p class="subtitle">The CSS variable foundation — all shadcn-vue components inherit from this</p>
+
+<div class="section">
+  <h3>Dark Theme Palette (primary mode)</h3>
+  <p class="subtitle">Warm neutral oklch values from OpenCode's OC-2 theme</p>
+
+  <div
+    style="
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    "
+  >
+    <!-- Background -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="
+          width: 36px;
+          height: 36px;
+          border-radius: 2px;
+          background: oklch(0.1722 0.0041 106.8174);
+          border: 1px solid #444;
+          flex-shrink: 0;
+        "
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">--background</div>
+        <div style="font-size: 10px; color: #888; font-family: monospace">
+          oklch(0.17 0.004 107)
+        </div>
+      </div>
+    </div>
+    <!-- Foreground -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="
+          width: 36px;
+          height: 36px;
+          border-radius: 2px;
+          background: oklch(0.9927 0.0364 107.0448);
+          border: 1px solid #444;
+          flex-shrink: 0;
+        "
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">--foreground</div>
+        <div style="font-size: 10px; color: #888; font-family: monospace">
+          oklch(0.99 0.036 107)
+        </div>
+      </div>
+    </div>
+    <!-- Secondary -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="
+          width: 36px;
+          height: 36px;
+          border-radius: 2px;
+          background: oklch(0.4856 0.0171 107.0202);
+          border: 1px solid #444;
+          flex-shrink: 0;
+        "
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">--secondary / --border</div>
+        <div style="font-size: 10px; color: #888; font-family: monospace">
+          oklch(0.49 0.017 107)
+        </div>
+      </div>
+    </div>
+    <!-- Muted foreground -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="
+          width: 36px;
+          height: 36px;
+          border-radius: 2px;
+          background: oklch(0.6357 0.0218 107.0046);
+          border: 1px solid #444;
+          flex-shrink: 0;
+        "
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">--muted-foreground</div>
+        <div style="font-size: 10px; color: #888; font-family: monospace">
+          oklch(0.64 0.022 107)
+        </div>
+      </div>
+    </div>
+    <!-- Accent -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="
+          width: 36px;
+          height: 36px;
+          border-radius: 2px;
+          background: oklch(0.6357 0.0218 107.0046);
+          border: 1px solid #444;
+          flex-shrink: 0;
+        "
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">--accent</div>
+        <div style="font-size: 10px; color: #888; font-family: monospace">
+          oklch(0.64 0.022 107)
+        </div>
+      </div>
+    </div>
+    <!-- Destructive -->
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="
+          width: 36px;
+          height: 36px;
+          border-radius: 2px;
+          background: oklch(0.6368 0.2078 25.3313);
+          border: 1px solid #444;
+          flex-shrink: 0;
+        "
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">--destructive</div>
+        <div style="font-size: 10px; color: #888; font-family: monospace">oklch(0.64 0.208 25)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Semantic Status Colors</h3>
+  <p class="subtitle">The only chromatic colors in the entire UI — used for meaning only</p>
+  <div
+    style="
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    "
+  >
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="width: 28px; height: 28px; border-radius: 2px; background: #4ade80; flex-shrink: 0"
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">Success / Online</div>
+        <div style="font-size: 10px; color: #888">Connected, added, passing</div>
+      </div>
+    </div>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="width: 28px; height: 28px; border-radius: 2px; background: #ef4444; flex-shrink: 0"
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">Error / Offline</div>
+        <div style="font-size: 10px; color: #888">Disconnected, removed, failing</div>
+      </div>
+    </div>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="width: 28px; height: 28px; border-radius: 2px; background: #f59e0b; flex-shrink: 0"
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">Warning / Pending</div>
+        <div style="font-size: 10px; color: #888">Connecting, modified, caution</div>
+      </div>
+    </div>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border: 1px solid #333;
+        border-radius: 4px;
+      "
+    >
+      <div
+        style="width: 28px; height: 28px; border-radius: 2px; background: #60a5fa; flex-shrink: 0"
+      ></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #e8e8e8">Info / Focus</div>
+        <div style="font-size: 10px; color: #888">Links, focus rings, highlights</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Typography & Spacing</h3>
+  <div
+    style="
+      background: #1a1916;
+      border: 1px solid oklch(0.4856 0.0171 107.0202);
+      padding: 20px;
+      margin-top: 12px;
+    "
+  >
+    <div style="font-family: Geist, system-ui, sans-serif">
+      <div
+        style="
+          font-size: 14px;
+          color: oklch(0.9927 0.0364 107.0448);
+          margin-bottom: 8px;
+          font-weight: 500;
+        "
+      >
+        Primary text — 14px Geist (labels, headings, nav items)
+      </div>
+      <div style="font-size: 12px; color: oklch(0.6357 0.0218 107.0046); margin-bottom: 8px">
+        Secondary text — 12px Geist (descriptions, metadata, timestamps)
+      </div>
+      <div style="font-size: 11px; color: oklch(0.6357 0.0218 107.0046); margin-bottom: 16px">
+        Tertiary text — 11px Geist (status bar, captions, counts)
+      </div>
+      <div style="font-family: &quot;Geist Mono&quot;, monospace">
+        <div style="font-size: 13px; color: oklch(0.9927 0.0364 107.0448); margin-bottom: 8px">
+          Mono primary — 13px Geist Mono (code, values, ports)
+        </div>
+        <div style="font-size: 11px; color: oklch(0.6357 0.0218 107.0046)">
+          Mono secondary — 11px Geist Mono (timestamps, IDs, hashes)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Key Design Rules</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px">
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">
+        Radius
+      </div>
+      <div style="font-size: 11px; color: #999">
+        Panels/containers: 0px<br />Buttons/inputs: 4px (0.25rem)<br />Badges/pills: 4px
+      </div>
+    </div>
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">
+        Shadows
+      </div>
+      <div style="font-size: 11px; color: #999">
+        All shadows: 0 opacity (flat)<br />Separation: 1px borders only<br />No blur, no glow
+        effects
+      </div>
+    </div>
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">
+        Transitions
+      </div>
+      <div style="font-size: 11px; color: #999">
+        Hover: color/bg 150ms ease<br />Panels/sheets: translateY 200ms<br />Modals: opacity+scale
+        200ms
+      </div>
+    </div>
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">Fonts</div>
+      <div style="font-size: 11px; color: #999">
+        Sans: Geist<br />Mono: Geist Mono<br />No serif usage
+      </div>
+    </div>
+  </div>
+</div>

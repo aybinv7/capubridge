@@ -41,7 +41,7 @@ const syncStatusColor: Record<string, string> = {
 
 <template>
   <div class="flex-1 flex flex-col overflow-hidden">
-    <div class="flex items-stretch border-b border-border/20 bg-surface-2/30 shrink-0">
+    <div class="flex items-stretch border-b border-border bg-accent shrink-0">
       <div
         v-for="stat in [
           { label: 'Pending', value: syncStats.pending, color: 'text-warning', bg: 'bg-warning/5' },
@@ -49,13 +49,13 @@ const syncStatusColor: Record<string, string> = {
           { label: 'Synced', value: syncStats.synced, color: 'text-success', bg: 'bg-success/5' },
         ]"
         :key="stat.label"
-        class="flex-1 flex flex-col items-center justify-center py-3 border-r border-border/15 last:border-r-0"
+        class="flex-1 flex flex-col items-center justify-center py-3 border-r border-border last:border-r-0"
         :class="stat.bg"
       >
         <span class="text-xl font-bold font-mono" :class="stat.color">{{ stat.value }}</span>
-        <span class="text-2xs text-dimmed mt-0.5">{{ stat.label }}</span>
+        <span class="text-2xs text-muted-foreground mt-0.5">{{ stat.label }}</span>
       </div>
-      <div class="flex items-center px-3 border-l border-border/15">
+      <div class="flex items-center px-3 border-l border-border">
         <Button variant="ghost" size="sm" class="text-2xs gap-1.5">
           <RefreshCw class="w-3 h-3" />
           Flush all
@@ -67,13 +67,13 @@ const syncStatusColor: Record<string, string> = {
       <div
         v-for="record in syncRecords"
         :key="record.id"
-        class="flex items-start gap-3 p-3 rounded-xl border transition-colors"
+        class="flex items-start gap-3 p-3 border transition-colors"
         :class="
           record.status === 'failed'
             ? 'border-error/20 bg-error/[0.03]'
             : record.status === 'synced'
-              ? 'border-border/10 bg-surface-2/20 opacity-60'
-              : 'border-border/20 bg-surface-2/40'
+              ? 'border-border bg-accent opacity-60'
+              : 'border-border bg-accent'
         "
       >
         <div class="shrink-0 mt-0.5">
@@ -93,15 +93,15 @@ const syncStatusColor: Record<string, string> = {
               {{ record.type }}
             </span>
             <span class="text-xs text-foreground font-medium">{{ record.entity }}</span>
-            <span class="text-2xs font-mono text-dimmed">{{ record.entityId }}</span>
-            <span class="ml-auto text-2xs font-mono text-dimmed">{{
+            <span class="text-2xs font-mono text-muted-foreground">{{ record.entityId }}</span>
+            <span class="ml-auto text-2xs font-mono text-muted-foreground">{{
               record.timestamp.slice(11, 19)
             }}</span>
           </div>
 
           <div
             v-if="record.payload"
-            class="font-mono text-2xs text-muted-foreground/70 bg-surface-0/50 rounded-md px-2 py-1.5 border border-border/10"
+            class="font-mono text-2xs text-muted-foreground/70 bg-background rounded-md px-2 py-1.5 border border-border"
           >
             {{ JSON.stringify(record.payload) }}
           </div>
@@ -120,7 +120,7 @@ const syncStatusColor: Record<string, string> = {
             variant="ghost"
             size="icon-sm"
             title="Retry"
-            class="text-dimmed hover:text-warning"
+            class="text-muted-foreground hover:text-warning"
           >
             <RotateCcw class="w-3 h-3" />
           </Button>
@@ -128,7 +128,7 @@ const syncStatusColor: Record<string, string> = {
             variant="ghost"
             size="icon-sm"
             title="Delete"
-            class="text-dimmed hover:text-error"
+            class="text-muted-foreground hover:text-error"
           >
             <Trash2 class="w-3 h-3" />
           </Button>

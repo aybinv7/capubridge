@@ -24,7 +24,7 @@ function selectReq(id: number) {
 }
 
 function statusColor(status: number) {
-  if (status === 101) return "text-primary";
+  if (status === 101) return "text-foreground";
   if (status < 300) return "text-success";
   if (status < 400) return "text-info";
   if (status < 500) return "text-warning";
@@ -37,9 +37,9 @@ function methodBadge(method: string) {
     POST: "text-info bg-info/[0.08]",
     PUT: "text-warning bg-warning/[0.08]",
     DELETE: "text-error bg-error/[0.08]",
-    WS: "text-primary bg-primary/[0.08]",
+    WS: "text-foreground bg-secondary",
   };
-  return map[method] || "text-muted-foreground bg-surface-3";
+  return map[method] || "text-muted-foreground bg-secondary";
 }
 </script>
 
@@ -52,7 +52,7 @@ function methodBadge(method: string) {
           <table class="w-full text-2xs">
             <thead class="sticky top-0 z-10">
               <tr
-                class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
+                class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
               >
                 <th class="px-3 py-2 font-medium">Method</th>
                 <th class="px-3 py-2 font-medium w-[52px]">Status</th>
@@ -67,9 +67,9 @@ function methodBadge(method: string) {
                 v-for="req in networkRequests"
                 :key="req.id"
                 @click="selectReq(req.id)"
-                class="border-b border-border/10 cursor-pointer transition-colors"
+                class="border-b border-border cursor-pointer transition-colors"
                 :class="[
-                  selectedReq === req.id ? 'bg-primary/[0.04]' : 'data-row',
+                  selectedReq === req.id ? 'bg-secondary' : 'data-row',
                   req.status >= 400 ? 'bg-error/[0.02]' : '',
                 ]"
               >
@@ -88,7 +88,7 @@ function methodBadge(method: string) {
                 >
                   {{ req.url.replace(/^https?:\/\//, "") }}
                 </td>
-                <td class="px-3 py-[7px] text-dimmed">{{ req.type }}</td>
+                <td class="px-3 py-[7px] text-muted-foreground">{{ req.type }}</td>
                 <td class="px-3 py-[7px] text-muted-foreground text-right font-mono">
                   {{ req.size }}
                 </td>
@@ -110,9 +110,9 @@ function methodBadge(method: string) {
 
       <ResizableHandle />
       <ResizablePanel :default-size="25" :min-size="20" :max-size="40">
-        <div class="flex h-full flex-col border-l border-border/30 bg-surface-1">
+        <div class="flex h-full flex-col border-l border-border bg-background">
           <template v-if="selected">
-            <div class="h-10 flex items-center px-3 border-b border-border/20 shrink-0">
+            <div class="h-10 flex items-center px-3 border-b border-border shrink-0">
               <div class="flex items-center gap-1.5">
                 <Button
                   v-for="t in ['headers', 'payload', 'response', 'timing'] as DetailTab[]"
@@ -129,7 +129,7 @@ function methodBadge(method: string) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                class="ml-auto text-dimmed"
+                class="ml-auto text-muted-foreground"
                 @click="
                   selectedReq = null;
                   selected = undefined;
@@ -142,10 +142,12 @@ function methodBadge(method: string) {
             <ScrollArea class="flex-1">
               <div class="p-3 text-2xs">
                 <div class="mb-4">
-                  <div class="text-dimmed uppercase tracking-wider mb-2 font-medium">General</div>
+                  <div class="text-muted-foreground uppercase tracking-wider mb-2 font-medium">
+                    General
+                  </div>
                   <div class="space-y-2 font-mono">
                     <div>
-                      <span class="text-dimmed block mb-0.5">URL</span>
+                      <span class="text-muted-foreground block mb-0.5">URL</span>
                       <span class="text-foreground text-xs break-all leading-relaxed">{{
                         selected.url
                       }}</span>
@@ -160,14 +162,14 @@ function methodBadge(method: string) {
                       :key="String(label)"
                       class="flex justify-between items-center"
                     >
-                      <span class="text-dimmed">{{ label }}</span>
+                      <span class="text-muted-foreground">{{ label }}</span>
                       <span
                         class="text-xs"
                         :class="
                           label === 'Status'
                             ? statusColor(Number(val))
                             : label === 'Initiator'
-                              ? 'text-primary/70'
+                              ? 'text-foreground'
                               : 'text-foreground'
                         "
                         >{{ val }}</span
@@ -177,7 +179,7 @@ function methodBadge(method: string) {
                 </div>
 
                 <div>
-                  <div class="text-dimmed uppercase tracking-wider mb-2 font-medium">
+                  <div class="text-muted-foreground uppercase tracking-wider mb-2 font-medium">
                     Response Headers
                   </div>
                   <div class="space-y-1.5 font-mono">
@@ -201,7 +203,7 @@ function methodBadge(method: string) {
             </ScrollArea>
           </template>
           <template v-else>
-            <div class="flex-1 flex items-center justify-center text-dimmed text-2xs">
+            <div class="flex-1 flex items-center justify-center text-muted-foreground text-2xs">
               Select a request to view details
             </div>
           </template>

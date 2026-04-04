@@ -39,7 +39,7 @@ function severityColor(severity: string) {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Tabs -->
-    <div class="h-8 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-0.5">
+    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-0.5">
       <Button
         v-for="tab in ['config', 'app', 'issues'] as const"
         :key="tab"
@@ -67,7 +67,7 @@ function severityColor(severity: string) {
           </Button>
         </div>
         <pre
-          class="text-xs font-mono text-foreground bg-surface-2/50 rounded-lg p-4 border border-border/10 overflow-x-auto"
+          class="text-xs font-mono text-foreground bg-accent p-4 border border-border overflow-x-auto"
           >{{ JSON.stringify(mockCapacitorConfig, null, 2) }}</pre
         >
       </div>
@@ -92,9 +92,9 @@ function severityColor(severity: string) {
               ['Last Update', mockAppInfo.lastUpdate.slice(0, 10)],
             ]"
             :key="label"
-            class="bg-surface-2/50 rounded-md p-2.5 border border-border/10"
+            class="bg-accent rounded-md p-2.5 border border-border"
           >
-            <div class="text-2xs text-dimmed mb-0.5">{{ label }}</div>
+            <div class="text-2xs text-muted-foreground mb-0.5">{{ label }}</div>
             <div class="text-xs font-mono text-foreground">{{ value }}</div>
           </div>
         </div>
@@ -110,7 +110,7 @@ function severityColor(severity: string) {
           :class="
             issue.severity === 'warn'
               ? 'border-warning/20 bg-warning/[0.03]'
-              : 'border-border/15 bg-surface-2/30'
+              : 'border-border bg-accent'
           "
         >
           <div class="flex items-center gap-2 mb-1">

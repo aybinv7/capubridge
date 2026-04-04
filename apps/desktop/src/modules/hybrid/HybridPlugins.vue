@@ -98,12 +98,12 @@ const pluginStatusLabel: Record<string, string> = {
       <div
         v-for="plugin in plugins"
         :key="plugin.name"
-        class="flex items-center gap-3 p-3 rounded-xl border border-border/20 bg-surface-2/40 hover:border-border/40 transition-all group"
+        class="flex items-center gap-3 p-3 border border-border bg-accent transition-all group"
       >
         <div
-          class="w-9 h-9 rounded-lg bg-surface-3 border border-border/20 flex items-center justify-center shrink-0"
+          class="w-9 h-9 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0"
         >
-          <component :is="plugin.icon" class="w-4 h-4 text-primary/70" />
+          <component :is="plugin.icon" class="w-4 h-4 text-foreground" />
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
@@ -112,14 +112,14 @@ const pluginStatusLabel: Record<string, string> = {
               {{ pluginStatusLabel[plugin.status] }}
             </span>
           </div>
-          <div class="text-2xs font-mono text-dimmed mt-0.5">
+          <div class="text-2xs font-mono text-muted-foreground mt-0.5">
             {{ plugin.package }} · v{{ plugin.version }}
           </div>
           <div v-if="plugin.perms.length > 0" class="flex gap-1 mt-1.5 flex-wrap">
             <span
               v-for="perm in plugin.perms"
               :key="perm"
-              class="text-2xs font-mono px-1.5 py-0.5 rounded bg-surface-3 text-muted-foreground border border-border/15"
+              class="text-2xs font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border"
             >
               {{ perm }}
             </span>

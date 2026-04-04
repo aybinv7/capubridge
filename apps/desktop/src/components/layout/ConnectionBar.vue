@@ -37,30 +37,17 @@ function onSelectDevice(id: string) {
 </script>
 
 <template>
-  <header class="h-10 bg-surface-0 flex items-center px-4 gap-5 shrink-0 border-b border-border/20">
-    <!-- Device selector -->
-    <button
-      @click="deviceModalOpen = true"
-      class="flex items-center gap-2 text-xs surface-interactive rounded-md px-2.5 py-1.5 border border-transparent hover:border-border/40 transition-colors"
-    >
-      <Circle class="w-[7px] h-[7px] fill-success text-success glow-dot" />
-      <span class="font-medium text-foreground">{{ activeDevice.model }}</span>
-      <span class="text-muted-foreground font-mono text-2xs">{{
-        activeDevice.id.slice(0, 12)
-      }}</span>
-      <ChevronDown class="w-3 h-3 text-muted-foreground" />
-    </button>
-
-    <div class="w-px h-4 bg-border/40" />
+  <header class="h-10 bg-background flex items-center px-4 gap-5 shrink-0 border-b border-border">
+    <div class="w-px h-4 bg-border" />
 
     <!-- CDP target -->
     <div class="flex items-center gap-2 text-xs">
-      <Signal class="w-3 h-3 text-primary" />
+      <Signal class="w-3 h-3 text-foreground" />
       <span class="text-secondary-foreground">CDP</span>
       <span class="text-muted-foreground font-mono text-2xs">localhost:9222</span>
     </div>
 
-    <div class="w-px h-4 bg-border/40" />
+    <div class="w-px h-4 bg-border" />
 
     <!-- Origin -->
     <div class="flex items-center gap-2 text-xs">
@@ -75,7 +62,7 @@ function onSelectDevice(id: string) {
       <span class="font-mono">{{ clock }}</span>
       <button
         @click="emit('openCommandPalette')"
-        class="px-1.5 py-0.5 rounded bg-surface-3 border border-border/40 text-2xs text-muted-foreground hover:text-foreground hover:border-border/60 transition-colors"
+        class="px-1.5 py-0.5 rounded bg-secondary border border-border text-2xs text-muted-foreground hover:text-foreground/60 transition-colors"
       >
         ⌘K
       </button>

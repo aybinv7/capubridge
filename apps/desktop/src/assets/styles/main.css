@@ -3,84 +3,168 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Opencode-inspired dark theme ── */
 :root {
-  /* Core shadcn-vue tokens — teal dark theme */
-  --background: hsl(228 12% 7%);
-  --foreground: hsl(220 15% 85%);
+  /* Chrome (title bar + sidebar) — darker */
+  --background: #0d0d0d;
+  --foreground: #d4d4d4;
 
-  --card: hsl(228 10% 9.5%);
-  --card-foreground: hsl(220 15% 85%);
+  /* Main content area — slightly lighter */
+  --surface-0: #111111;
+  --surface-1: #161616;
+  --surface-2: #1c1c1c;
+  --surface-3: #242424;
 
-  --popover: hsl(228 10% 9.5%);
-  --popover-foreground: hsl(220 15% 85%);
+  /* Cards — match surface-1 */
+  --card: #161616;
+  --card-foreground: #d4d4d4;
 
-  --primary: hsl(172 66% 50%);
-  --primary-foreground: hsl(228 12% 5%);
+  /* Popover — elevated surface */
+  --popover: #1c1c1c;
+  --popover-foreground: #d4d4d4;
 
-  --secondary: hsl(225 10% 13%);
-  --secondary-foreground: hsl(220 12% 65%);
+  /* Primary — soft white */
+  --primary: #e0e0e0;
+  --primary-foreground: #0d0d0d;
 
-  --muted: hsl(225 8% 15%);
-  --muted-foreground: hsl(220 8% 42%);
+  /* Secondary — warm gray */
+  --secondary: #222222;
+  --secondary-foreground: #c0c0c0;
 
-  --accent: hsl(172 40% 18%);
-  --accent-foreground: hsl(172 60% 68%);
+  /* Muted */
+  --muted: #1c1c1c;
+  --muted-foreground: #666666;
 
-  --destructive: hsl(0 65% 52%);
-  --destructive-foreground: hsl(0 0% 100%);
+  /* Accent — subtle lift */
+  --accent: #1e1e1e;
+  --accent-foreground: #c0c0c0;
 
-  --border: hsl(225 8% 14%);
-  --input: hsl(225 8% 14%);
-  --ring: hsl(172 66% 50%);
-  --radius: 0.5rem;
+  /* Destructive */
+  --destructive: #7a2020;
+  --destructive-foreground: #e8e8e8;
 
-  /* Layered surface system */
-  --surface-0: hsl(228 14% 5.5%);
-  --surface-1: hsl(228 12% 8%);
-  --surface-2: hsl(228 10% 10.5%);
-  --surface-3: hsl(225 8% 13.5%);
-  --surface-4: hsl(225 7% 16.5%);
+  /* Borders — dimmed, subtle */
+  --border: #262626;
+  --border-subtle: #1e1e1e;
+  --border-active: #363636;
+  --input: #262626;
+  --ring: #e0e0e0;
 
-  /* Semantic status colors */
-  --success: hsl(152 55% 48%);
-  --warning: hsl(38 85% 58%);
-  --info: hsl(215 75% 58%);
-  --error: hsl(0 65% 52%);
+  /* Semantic status — muted, not neon */
+  --success: #4a8c4a;
+  --success-bg: #1a2e1a;
+  --warning: #b8860b;
+  --warning-bg: #2e2618;
+  --info: #5a8abf;
+  --info-bg: #1a2430;
+  --error: #981515;
+  --error-bg: #2e1a1a;
 
-  /* Raw HSL for glow utilities */
-  --glow-primary-h: 172;
-  --glow-primary-s: 66%;
-  --glow-primary-l: 50%;
-
-  /* Sidebar tokens */
-  --sidebar: hsl(228 14% 5.5%);
-  --sidebar-foreground: hsl(220 8% 42%);
-  --sidebar-primary: hsl(172 66% 50%);
-  --sidebar-primary-foreground: hsl(228 12% 5%);
-  --sidebar-accent: hsl(225 8% 13.5%);
-  --sidebar-accent-foreground: hsl(220 15% 85%);
-  --sidebar-border: hsl(225 8% 12%);
-  --sidebar-ring: hsl(172 66% 50%);
+  /* Sidebar — same as chrome bg */
+  --sidebar: #0d0d0d;
+  --sidebar-foreground: #c0c0c0;
+  --sidebar-primary: #e0e0e0;
+  --sidebar-primary-foreground: #0d0d0d;
+  --sidebar-accent: #1c1c1c;
+  --sidebar-accent-foreground: #c0c0c0;
+  --sidebar-border: #1e1e1e;
+  --sidebar-ring: #e0e0e0;
 
   /* Fonts */
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+  --font-sans: "Geist", ui-sans-serif, sans-serif, system-ui;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-serif: ui-serif, serif;
 
-  /* Shadows — dark-tuned */
-  --shadow-2xs: 0 1px 2px 0 hsl(228 14% 3% / 0.5);
-  --shadow-xs: 0 1px 3px 0 hsl(228 14% 3% / 0.5);
-  --shadow-sm: 0 1px 3px 0 hsl(228 14% 3% / 0.5), 0 1px 2px -1px hsl(228 14% 3% / 0.4);
-  --shadow: 0 4px 6px -1px hsl(228 14% 3% / 0.5), 0 2px 4px -2px hsl(228 14% 3% / 0.4);
-  --shadow-md: 0 4px 6px -1px hsl(228 14% 3% / 0.5), 0 2px 4px -2px hsl(228 14% 3% / 0.4);
-  --shadow-lg: 0 10px 15px -3px hsl(228 14% 3% / 0.5), 0 4px 6px -4px hsl(228 14% 3% / 0.4);
-  --shadow-xl: 0 20px 25px -5px hsl(228 14% 3% / 0.5), 0 8px 10px -6px hsl(228 14% 3% / 0.4);
-  --shadow-2xl: 0 25px 50px -12px hsl(228 14% 3% / 0.6);
+  /* Radius */
+  --radius: 0.25rem;
+
+  /* Shadows — flat */
+  --shadow-2xs: 0 0.125rem 0 0 hsl(0 0% 0% / 0);
+  --shadow-xs: 0 0.125rem 0 0 hsl(0 0% 0% / 0);
+  --shadow-sm: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 1px 2px -1px hsl(0 0% 0% / 0);
+  --shadow: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 1px 2px -1px hsl(0 0% 0% / 0);
+  --shadow-md: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 2px 4px -1px hsl(0 0% 0% / 0);
+  --shadow-lg: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 4px 6px -1px hsl(0 0% 0% / 0);
+  --shadow-xl: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 8px 10px -1px hsl(0 0% 0% / 0);
+  --shadow-2xl: 0 0.125rem 0 0 hsl(0 0% 0% / 0);
+
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: #0d0d0d;
+  --foreground: #d4d4d4;
+
+  --surface-0: #111111;
+  --surface-1: #161616;
+  --surface-2: #1c1c1c;
+  --surface-3: #242424;
+
+  --card: #161616;
+  --card-foreground: #d4d4d4;
+  --popover: #1c1c1c;
+  --popover-foreground: #d4d4d4;
+  --primary: #e0e0e0;
+  --primary-foreground: #0d0d0d;
+  --secondary: #222222;
+  --secondary-foreground: #c0c0c0;
+  --muted: #1c1c1c;
+  --muted-foreground: #666666;
+  --accent: #1e1e1e;
+  --accent-foreground: #c0c0c0;
+  --destructive: #7a2020;
+  --destructive-foreground: #e8e8e8;
+  --border: #262626;
+  --border-subtle: #1e1e1e;
+  --border-active: #363636;
+  --input: #262626;
+  --ring: #e0e0e0;
+
+  --success: #4a8c4a;
+  --success-bg: #1a2e1a;
+  --warning: #b8860b;
+  --warning-bg: #2e2618;
+  --info: #5a8abf;
+  --info-bg: #1a2430;
+  --error: #981515;
+  --error-bg: #2e1a1a;
+
+  --sidebar: #0d0d0d;
+  --sidebar-foreground: #c0c0c0;
+  --sidebar-primary: #e0e0e0;
+  --sidebar-primary-foreground: #0d0d0d;
+  --sidebar-accent: #1c1c1c;
+  --sidebar-accent-foreground: #c0c0c0;
+  --sidebar-border: #1e1e1e;
+  --sidebar-ring: #e0e0e0;
+
+  --font-sans: "Geist", ui-sans-serif, sans-serif, system-ui;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-serif: ui-serif, serif;
+
+  --radius: 0.25rem;
+
+  --shadow-2xs: 0 0.125rem 0 0 hsl(0 0% 0% / 0);
+  --shadow-xs: 0 0.125rem 0 0 hsl(0 0% 0% / 0);
+  --shadow-sm: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 1px 2px -1px hsl(0 0% 0% / 0);
+  --shadow: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 1px 2px -1px hsl(0 0% 0% / 0);
+  --shadow-md: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 2px 4px -1px hsl(0 0% 0% / 0);
+  --shadow-lg: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 4px 6px -1px hsl(0 0% 0% / 0);
+  --shadow-xl: 0 0.125rem 0 0 hsl(0 0% 0% / 0), 0 8px 10px -1px hsl(0 0% 0% / 0);
+  --shadow-2xl: 0 0.125rem 0 0 hsl(0 0% 0% / 0);
 }
 
 @theme inline {
-  /* Core colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  /* Surface layers */
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -96,21 +180,20 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-active: var(--border-active);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Surface system */
-  --color-surface-0: var(--surface-0);
-  --color-surface-1: var(--surface-1);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-surface-4: var(--surface-4);
-
-  /* Semantic colors */
+  /* Semantic */
   --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
   --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
   --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
   --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
 
   /* Sidebar */
   --color-sidebar: var(--sidebar);
@@ -125,8 +208,9 @@
   /* Fonts */
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
 
-  /* Radius scale */
+  /* Radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -142,10 +226,9 @@
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
 
-  /* Custom font size: 10px / 14px */
+  /* Custom text sizes */
   --text-2xs: 0.625rem;
   --text-2xs--line-height: 0.875rem;
-  /* Custom font size: 9px / 13px */
   --text-3xs: 0.5625rem;
   --text-3xs--line-height: 0.8125rem;
 }
@@ -162,7 +245,7 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Crisp, thin scrollbars */
+  /* Thin scrollbars */
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -171,11 +254,10 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(225 8% 18%);
-    border-radius: 999px;
+    background: var(--border);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(225 8% 26%);
+    background: var(--muted-foreground);
   }
   ::-webkit-scrollbar-corner {
     background: transparent;
@@ -183,45 +265,22 @@
 }
 
 @layer utilities {
-  /* Frosted glass surface */
-  .glass-surface {
-    background: linear-gradient(180deg, hsl(228 10% 10% / 0.8), hsl(228 10% 8.5% / 0.95));
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-
-  /* Teal ambient glow */
-  .glow-primary {
-    box-shadow:
-      0 0 20px -5px hsl(172 66% 50% / 0.15),
-      0 0 40px -10px hsl(172 66% 50% / 0.08);
-  }
-
-  /* Small dot glow (connection indicator) */
-  .glow-dot {
-    box-shadow: 0 0 6px 1px currentColor;
-  }
-
-  /* Dimmed text — below muted-foreground */
-  .text-dimmed {
-    color: hsl(220 6% 35%);
-  }
-
-  /* Hover surface for interactive rows */
+  /* Interactive surface — subtle hover */
   .surface-interactive {
     transition:
-      background-color 150ms,
-      border-color 150ms;
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
   }
   .surface-interactive:hover {
-    background: hsl(225 8% 14%);
+    background-color: var(--accent);
   }
 
-  /* Data table row hover */
+  /* Data table row hover — very subtle */
   .data-row {
-    transition: background-color 75ms;
+    transition: background-color 80ms ease;
   }
   .data-row:hover {
-    background: hsl(225 10% 11%);
+    background-color: var(--surface-2);
   }
 }

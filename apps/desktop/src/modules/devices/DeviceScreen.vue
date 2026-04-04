@@ -13,14 +13,14 @@ const recordFormat = ref<"mp4" | "gif">("mp4");
   <div class="flex-1 flex gap-4 p-5 overflow-y-auto">
     <div class="flex flex-col items-center gap-4">
       <div
-        class="relative rounded-3xl border-2 border-border/40 bg-surface-2/60 overflow-hidden shadow-2xl"
+        class="relative border-2 border-border bg-accent overflow-hidden"
         style="width: 200px; height: 355px"
       >
         <div class="absolute inset-0 flex items-center justify-center">
           <div class="text-center">
             <ScreenShare class="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p class="text-2xs text-dimmed">Live preview</p>
-            <p class="text-2xs text-dimmed">not connected</p>
+            <p class="text-2xs text-muted-foreground">Live preview</p>
+            <p class="text-2xs text-muted-foreground">not connected</p>
           </div>
         </div>
         <div

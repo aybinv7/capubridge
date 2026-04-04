@@ -15,7 +15,6 @@ import {
   Globe,
   Terminal,
   AlertTriangle,
-  RefreshCw,
   Zap,
   Shield,
   Link,
@@ -90,26 +89,21 @@ function isActive(tabPath: string): boolean {
 </script>
 
 <template>
-  <div class="h-10 border-b border-border/20 bg-surface-1 flex items-center px-1 shrink-0">
-    <div class="flex items-center gap-0">
-      <button
-        v-for="tab in subTabs"
-        :key="tab.name"
-        @click="router.push(tab.path)"
-        class="relative flex items-center gap-1.5 px-3 py-2 text-xs transition-colors duration-150 rounded-none"
-        :class="
-          isActive(tab.path)
-            ? 'text-foreground'
-            : 'text-muted-foreground hover:text-secondary-foreground'
-        "
-      >
-        <component v-if="tab.icon" :is="tab.icon" :size="13" class="shrink-0" />
-        {{ tab.label }}
-        <div
-          v-if="isActive(tab.path)"
-          class="absolute bottom-0 left-1 right-1 h-[2px] bg-primary rounded-full"
-        />
-      </button>
-    </div>
+  <div class="h-9 border-b border-border bg-[#151515] flex items-end px-4 shrink-0">
+    <button
+      v-for="tab in subTabs"
+      :key="tab.name"
+      @click="router.push(tab.path)"
+      class="relative flex items-center gap-1.5 px-3 py-2 text-xs transition-colors duration-150"
+      :class="
+        isActive(tab.path)
+          ? 'text-foreground font-medium'
+          : 'text-muted-foreground hover:text-foreground'
+      "
+    >
+      <component v-if="tab.icon" :is="tab.icon" :size="13" class="shrink-0" />
+      {{ tab.label }}
+      <div v-if="isActive(tab.path)" class="absolute bottom-0 left-2 right-2 h-0.5 bg-foreground" />
+    </button>
   </div>
 </template>

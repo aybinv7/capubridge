@@ -44,15 +44,15 @@ const filteredLogs = computed(() =>
 
 <template>
   <div class="flex-1 flex flex-col overflow-hidden">
-    <div class="border-b border-border/20 bg-surface-2/40 shrink-0">
+    <div class="border-b border-border bg-accent shrink-0">
       <div class="flex items-center px-3 gap-2 h-8">
         <Search class="w-3 h-3 text-muted-foreground shrink-0" />
         <Input
           v-model="logFilter"
-          class="h-6 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-6 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Filter messages…"
         />
-        <div class="w-px h-3 bg-border/40" />
+        <div class="w-px h-3 bg-border" />
         <div class="flex gap-0.5">
           <Button
             v-for="lvl in ['V', 'D', 'I', 'W', 'E']"
@@ -60,25 +60,27 @@ const filteredLogs = computed(() =>
             :variant="activeLevels.has(lvl) ? 'secondary' : 'ghost'"
             size="icon-sm"
             class="w-5 h-5 text-2xs font-mono"
-            :class="activeLevels.has(lvl) ? logLevelColor[lvl] : 'text-dimmed'"
+            :class="activeLevels.has(lvl) ? logLevelColor[lvl] : 'text-muted-foreground'"
             @click="toggleLevel(lvl)"
           >
             {{ lvl }}
           </Button>
         </div>
       </div>
-      <div class="flex items-center px-3 gap-2 h-7 border-t border-border/10">
-        <span class="text-2xs text-dimmed font-mono w-8">tag</span>
+      <div class="flex items-center px-3 gap-2 h-7 border-t border-border">
+        <span class="text-2xs text-muted-foreground font-mono w-8">tag</span>
         <Input
           v-model="logTag"
-          class="h-5 w-32 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 w-32 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Capacitor…"
         />
-        <span class="ml-auto text-2xs text-dimmed font-mono">{{ filteredLogs.length }} lines</span>
+        <span class="ml-auto text-2xs text-muted-foreground font-mono"
+          >{{ filteredLogs.length }} lines</span
+        >
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto bg-surface-0/50 font-mono text-2xs leading-[18px]">
+    <div class="flex-1 overflow-y-auto bg-background font-mono text-2xs leading-[18px]">
       <div
         v-for="(msg, i) in filteredLogs"
         :key="i"
@@ -88,8 +90,8 @@ const filteredLogs = computed(() =>
         <span class="w-3 shrink-0 font-bold" :class="logLevelColor[msg.level]">{{
           msg.level
         }}</span>
-        <span class="w-24 shrink-0 text-dimmed truncate px-2">{{ msg.tag }}</span>
-        <span class="w-10 shrink-0 text-dimmed text-right pr-3">{{ msg.pid }}</span>
+        <span class="w-24 shrink-0 text-muted-foreground truncate px-2">{{ msg.tag }}</span>
+        <span class="w-10 shrink-0 text-muted-foreground text-right pr-3">{{ msg.pid }}</span>
         <span
           class="flex-1"
           :class="msg.level === 'E' ? 'text-error' : 'text-secondary-foreground'"

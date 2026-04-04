@@ -58,7 +58,7 @@ const pageSizeLabel = computed(() => `${props.pageSize} / page`);
         @update:model-value="(v: string) => emit('pageSizeChange', Number(v))"
       >
         <SelectTrigger
-          class="h-6 w-auto gap-1 border-border/40 px-1.5 text-[11px] text-muted-foreground"
+          class="h-6 w-auto gap-1 border-border px-1.5 text-[11px] text-muted-foreground"
         >
           <SelectValue :default-value="pageSizeLabel" />
         </SelectTrigger>

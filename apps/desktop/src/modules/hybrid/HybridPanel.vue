@@ -197,10 +197,10 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
   <div class="flex-1 overflow-y-auto p-4">
     <div class="max-w-6xl mx-auto space-y-4">
       <!-- ── Sync Queue ──────────────────────────────────────────── -->
-      <div class="rounded-xl border border-border/20 bg-surface-2/30 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border/15">
+      <div class="border border-border bg-accent overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <div class="flex items-center gap-2">
-            <RefreshCw class="w-4 h-4 text-primary/60" />
+            <RefreshCw class="w-4 h-4 text-muted-foreground" />
             <h3 class="text-sm font-medium text-foreground">Sync Queue</h3>
           </div>
           <div class="flex items-center gap-2">
@@ -219,7 +219,7 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
             </Button>
           </div>
         </div>
-        <div class="divide-y divide-border/10">
+        <div class="divide-y divide-border">
           <div
             v-for="record in syncRecords"
             :key="record.id"
@@ -244,8 +244,8 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
               {{ record.type }}
             </span>
             <span class="text-xs text-foreground font-medium">{{ record.entity }}</span>
-            <span class="text-2xs font-mono text-dimmed">{{ record.entityId }}</span>
-            <span class="ml-auto text-2xs font-mono text-dimmed">{{
+            <span class="text-2xs font-mono text-muted-foreground">{{ record.entityId }}</span>
+            <span class="ml-auto text-2xs font-mono text-muted-foreground">{{
               record.timestamp.slice(11, 19)
             }}</span>
             <div v-if="record.retries > 0" class="flex items-center gap-1">
@@ -253,7 +253,11 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
               <span class="text-2xs text-error">{{ record.retries }}×</span>
             </div>
             <div v-if="record.status === 'failed'" class="flex gap-0.5">
-              <Button variant="ghost" size="icon-sm" class="w-5 h-5 text-dimmed hover:text-warning">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="w-5 h-5 text-muted-foreground hover:text-warning"
+              >
                 <RotateCcw class="w-3 h-3" />
               </Button>
             </div>
@@ -264,28 +268,28 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
       <!-- ── Plugins + Migrations side by side ──────────────────── -->
       <div class="grid grid-cols-2 gap-4">
         <!-- Plugins -->
-        <div class="rounded-xl border border-border/20 bg-surface-2/30 overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-2.5 border-b border-border/15">
+        <div class="border border-border bg-accent overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-border">
             <div class="flex items-center gap-2">
-              <Layers class="w-4 h-4 text-primary/60" />
+              <Layers class="w-4 h-4 text-muted-foreground" />
               <h3 class="text-sm font-medium text-foreground">Plugins</h3>
             </div>
             <span class="text-2xs text-muted-foreground">{{ plugins.length }} installed</span>
           </div>
-          <div class="divide-y divide-border/10">
+          <div class="divide-y divide-border">
             <div
               v-for="plugin in plugins"
               :key="plugin.name"
               class="flex items-center gap-2.5 px-4 py-2"
             >
               <div
-                class="w-6 h-6 rounded-md bg-surface-3 border border-border/20 flex items-center justify-center shrink-0"
+                class="w-6 h-6 rounded-md bg-secondary border border-border flex items-center justify-center shrink-0"
               >
-                <component :is="plugin.icon" class="w-3 h-3 text-primary/60" />
+                <component :is="plugin.icon" class="w-3 h-3 text-muted-foreground" />
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-xs text-foreground truncate">{{ plugin.name }}</div>
-                <div class="text-2xs font-mono text-dimmed">v{{ plugin.version }}</div>
+                <div class="text-2xs font-mono text-muted-foreground">v{{ plugin.version }}</div>
               </div>
               <span class="text-2xs font-medium" :class="pluginStatusColor[plugin.status]">
                 {{ pluginStatusLabel[plugin.status] }}
@@ -304,22 +308,22 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
         </div>
 
         <!-- Migrations -->
-        <div class="rounded-xl border border-border/20 bg-surface-2/30 overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-2.5 border-b border-border/15">
+        <div class="border border-border bg-accent overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-border">
             <div class="flex items-center gap-2">
-              <GitBranch class="w-4 h-4 text-primary/60" />
+              <GitBranch class="w-4 h-4 text-muted-foreground" />
               <h3 class="text-sm font-medium text-foreground">Migrations</h3>
             </div>
             <Button
               variant="outline"
               size="sm"
-              class="h-6 text-2xs gap-1 bg-primary/10 text-primary border-primary/20"
+              class="h-6 text-2xs gap-1 bg-secondary text-foreground border-border"
             >
               <Play class="w-3 h-3" />
               Run pending
             </Button>
           </div>
-          <div class="divide-y divide-border/10">
+          <div class="divide-y divide-border">
             <div
               v-for="m in migrations"
               :key="m.id"
@@ -331,10 +335,10 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
                 class="w-3.5 h-3.5 text-success shrink-0"
               />
               <Clock v-else class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <span class="text-2xs font-mono text-dimmed w-10">{{ m.id }}</span>
+              <span class="text-2xs font-mono text-muted-foreground w-10">{{ m.id }}</span>
               <span class="text-xs text-foreground flex-1 truncate">{{ m.name }}</span>
-              <span class="text-2xs font-mono text-dimmed">{{ m.db }}</span>
-              <span class="text-2xs font-mono text-dimmed">v{{ m.version }}</span>
+              <span class="text-2xs font-mono text-muted-foreground">{{ m.db }}</span>
+              <span class="text-2xs font-mono text-muted-foreground">v{{ m.version }}</span>
               <span
                 class="text-2xs font-medium"
                 :class="m.status === 'applied' ? 'text-success' : 'text-muted-foreground'"
@@ -347,21 +351,21 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
       </div>
 
       <!-- ── Storage Overview ───────────────────────────────────── -->
-      <div class="rounded-xl border border-border/20 bg-surface-2/30 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border/15">
+      <div class="border border-border bg-accent overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <div class="flex items-center gap-2">
-            <HardDrive class="w-4 h-4 text-primary/60" />
+            <HardDrive class="w-4 h-4 text-muted-foreground" />
             <h3 class="text-sm font-medium text-foreground">Storage Overview</h3>
           </div>
         </div>
-        <div class="grid grid-cols-4 divide-x divide-border/10">
+        <div class="grid grid-cols-4 divide-x divide-border">
           <div class="flex flex-col items-center justify-center py-5">
-            <Database class="w-5 h-5 text-primary/40 mb-2" />
+            <Database class="w-5 h-5 text-muted-foreground mb-2" />
             <span class="text-lg font-bold font-mono text-foreground">{{
               mockDatabases.length
             }}</span>
             <span class="text-2xs text-muted-foreground">IndexedDB</span>
-            <span class="text-2xs text-dimmed font-mono mt-0.5"
+            <span class="text-2xs text-muted-foreground font-mono mt-0.5"
               >{{ mockDatabases.reduce((s, d) => s + d.stores.length, 0) }} stores</span
             >
           </div>
@@ -369,7 +373,7 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
             <HardDrive class="w-5 h-5 text-info/40 mb-2" />
             <span class="text-lg font-bold font-mono text-foreground">{{ totalKeys }}</span>
             <span class="text-2xs text-muted-foreground">LocalStorage</span>
-            <span class="text-2xs text-dimmed font-mono mt-0.5"
+            <span class="text-2xs text-muted-foreground font-mono mt-0.5"
               >{{ mockLocalStorageOrigins.length }} origins</span
             >
           </div>
@@ -377,7 +381,7 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
             <Archive class="w-5 h-5 text-warning/40 mb-2" />
             <span class="text-lg font-bold font-mono text-foreground">{{ totalCacheEntries }}</span>
             <span class="text-2xs text-muted-foreground">Cache API</span>
-            <span class="text-2xs text-dimmed font-mono mt-0.5"
+            <span class="text-2xs text-muted-foreground font-mono mt-0.5"
               >{{ mockCacheAPIOrigins.length }} origins</span
             >
           </div>
@@ -387,7 +391,7 @@ const totalCacheEntries = mockCacheAPIOrigins.reduce(
               mockOPFSEntries.length
             }}</span>
             <span class="text-2xs text-muted-foreground">OPFS</span>
-            <span class="text-2xs text-dimmed font-mono mt-0.5"
+            <span class="text-2xs text-muted-foreground font-mono mt-0.5"
               >{{ mockOPFSEntries.filter((e) => e.type !== "directory").length }} files</span
             >
           </div>

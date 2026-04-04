@@ -65,11 +65,9 @@ function statusColor(status: string) {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Stats bar -->
-    <div
-      class="h-8 shrink-0 border-b border-border/20 bg-surface-2/30 flex items-center px-4 gap-4"
-    >
+    <div class="h-8 shrink-0 border-b border-border bg-accent flex items-center px-4 gap-4">
       <div class="flex items-center gap-1.5 text-2xs">
-        <span class="text-dimmed">{{ stats.total }} calls</span>
+        <span class="text-muted-foreground">{{ stats.total }} calls</span>
         <span class="text-success">{{ stats.resolved }} ok</span>
         <span class="text-error">{{ stats.rejected }} err</span>
         <span class="text-muted-foreground">{{ stats.avgDuration }}ms avg</span>
@@ -91,14 +89,14 @@ function statusColor(status: string) {
     </div>
 
     <!-- Filter bar -->
-    <div class="h-8 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2">
+    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
       <div
-        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-0.5 max-w-xs border border-border/20"
+        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border"
       >
-        <Search class="w-3 h-3 text-dimmed" />
+        <Search class="w-3 h-3 text-muted-foreground" />
         <Input
           v-model="filter"
-          class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Filter by plugin, method, args…"
         />
       </div>
@@ -124,7 +122,7 @@ function statusColor(status: string) {
           <table class="w-full text-2xs">
             <thead class="sticky top-0 z-10">
               <tr
-                class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
+                class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
               >
                 <th class="px-3 py-2 font-medium w-4"></th>
                 <th class="px-3 py-2 font-medium w-24">Plugin</th>
@@ -139,10 +137,10 @@ function statusColor(status: string) {
                 v-for="call in filtered"
                 :key="call.id"
                 @click="selectedCall = selectedCall?.id === call.id ? null : call"
-                class="border-b border-border/10 cursor-pointer transition-colors group"
+                class="border-b border-border cursor-pointer transition-colors group"
                 :class="
                   selectedCall?.id === call.id
-                    ? 'bg-primary/[0.04]'
+                    ? 'bg-secondary'
                     : call.status === 'rejected'
                       ? 'bg-error/[0.02]'
                       : 'data-row'
@@ -158,17 +156,19 @@ function statusColor(status: string) {
                 <td class="px-3 py-2">
                   <Badge
                     variant="outline"
-                    class="text-2xs font-mono border-border/20 text-muted-foreground"
+                    class="text-2xs font-mono border-border text-muted-foreground"
                   >
                     {{ call.plugin }}
                   </Badge>
                 </td>
                 <td class="px-3 py-2 font-mono text-xs text-foreground">{{ call.method }}</td>
-                <td class="px-3 py-2 font-mono text-xs text-dimmed truncate max-w-[250px]">
+                <td
+                  class="px-3 py-2 font-mono text-xs text-muted-foreground truncate max-w-[250px]"
+                >
                   {{ JSON.stringify(call.args) }}
                 </td>
                 <td
-                  class="px-3 py-2 font-mono text-dimmed"
+                  class="px-3 py-2 font-mono text-muted-foreground"
                   :class="call.duration > 500 ? 'text-warning' : ''"
                 >
                   {{ call.duration }}ms
@@ -186,25 +186,25 @@ function statusColor(status: string) {
 
       <ResizableHandle />
       <ResizablePanel :default-size="25" :min-size="20" :max-size="40">
-        <div class="flex h-full flex-col border-l border-border/30 bg-surface-1">
+        <div class="flex h-full flex-col border-l border-border bg-background">
           <template v-if="selectedCall">
             <div
-              class="h-10 flex items-center justify-between px-3 border-b border-border/20 shrink-0"
+              class="h-10 flex items-center justify-between px-3 border-b border-border shrink-0"
             >
               <div class="flex items-center gap-2">
-                <Badge variant="outline" class="text-2xs font-mono border-border/20">{{
+                <Badge variant="outline" class="text-2xs font-mono border-border">{{
                   selectedCall.plugin
                 }}</Badge>
                 <span class="text-xs font-mono text-foreground">{{ selectedCall.method }}</span>
               </div>
               <div class="flex items-center gap-1">
-                <Button variant="ghost" size="icon-sm" class="w-5 h-5 text-dimmed">
+                <Button variant="ghost" size="icon-sm" class="w-5 h-5 text-muted-foreground">
                   <ExternalLink class="w-3 h-3" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  class="w-5 h-5 text-dimmed"
+                  class="w-5 h-5 text-muted-foreground"
                   @click="selectedCall = null"
                 >
                   ✕
@@ -223,7 +223,7 @@ function statusColor(status: string) {
                   <span class="font-medium capitalize" :class="statusColor(selectedCall.status)">{{
                     selectedCall.status
                   }}</span>
-                  <span class="text-dimmed ml-auto">{{ selectedCall.duration }}ms</span>
+                  <span class="text-muted-foreground ml-auto">{{ selectedCall.duration }}ms</span>
                 </div>
 
                 <div>
@@ -233,7 +233,7 @@ function statusColor(status: string) {
                     <ArrowDownLeft class="w-3 h-3" /> Arguments
                   </div>
                   <pre
-                    class="text-xs font-mono text-foreground bg-surface-2/50 rounded-md p-2 border border-border/10 overflow-x-auto whitespace-pre-wrap"
+                    class="text-xs font-mono text-foreground bg-accent rounded-md p-2 border border-border overflow-x-auto whitespace-pre-wrap"
                     >{{ JSON.stringify(selectedCall.args, null, 2) }}</pre
                   >
                 </div>
@@ -245,7 +245,7 @@ function statusColor(status: string) {
                     <ArrowUpRight class="w-3 h-3 text-success" /> Result
                   </div>
                   <pre
-                    class="text-xs font-mono text-success bg-surface-2/50 rounded-md p-2 border border-border/10 overflow-x-auto whitespace-pre-wrap"
+                    class="text-xs font-mono text-success bg-accent rounded-md p-2 border border-border overflow-x-auto whitespace-pre-wrap"
                     >{{ JSON.stringify(selectedCall.result, null, 2) }}</pre
                   >
                 </div>
@@ -262,12 +262,14 @@ function statusColor(status: string) {
                   >
                 </div>
 
-                <div class="text-2xs text-dimmed font-mono">{{ selectedCall.timestamp }}</div>
+                <div class="text-2xs text-muted-foreground font-mono">
+                  {{ selectedCall.timestamp }}
+                </div>
               </div>
             </ScrollArea>
           </template>
           <template v-else>
-            <div class="flex-1 flex items-center justify-center text-dimmed text-2xs">
+            <div class="flex-1 flex items-center justify-center text-muted-foreground text-2xs">
               Select a call to view details
             </div>
           </template>

@@ -151,33 +151,29 @@ function globalIndex(group: string, localIdx: number): number {
 <template>
   <Teleport to="body">
     <Transition
-      enter-active-class="transition-all duration-150"
-      enter-from-class="opacity-0 scale-95"
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="opacity-0 scale-[0.98]"
       enter-to-class="opacity-100 scale-100"
-      leave-active-class="transition-all duration-100"
+      leave-active-class="transition-all duration-100 ease-in"
       leave-from-class="opacity-100 scale-100"
-      leave-to-class="opacity-0 scale-95"
+      leave-to-class="opacity-0 scale-[0.98]"
     >
       <div v-if="open" class="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="emit('close')" />
+        <div class="absolute inset-0 bg-black/50" @click="emit('close')" />
 
-        <!-- Palette -->
-        <div
-          class="relative w-[520px] bg-surface-1 border border-border/40 rounded-xl shadow-2xl overflow-hidden"
-        >
+        <div class="relative w-[520px] bg-background border border-border overflow-hidden">
           <!-- Input -->
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-border/20">
+          <div class="flex items-center gap-3 px-4 py-3 border-b border-border">
             <Search class="w-4 h-4 text-muted-foreground shrink-0" />
             <input
               ref="inputRef"
               v-model="query"
               @keydown="onKey"
-              class="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
-              placeholder="Type a command or search…"
+              class="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder="Type a command or search..."
             />
             <kbd
-              class="text-2xs text-dimmed bg-surface-3 px-1.5 py-0.5 rounded border border-border/30"
+              class="text-2xs text-muted-foreground bg-secondary px-1.5 py-0.5 border border-border font-mono"
               >esc</kbd
             >
           </div>
@@ -185,7 +181,9 @@ function globalIndex(group: string, localIdx: number): number {
           <!-- Results -->
           <div class="max-h-[320px] overflow-y-auto py-1">
             <template v-for="[group, cmds] in grouped" :key="group">
-              <div class="px-3 py-1.5 text-2xs text-dimmed uppercase tracking-wider font-medium">
+              <div
+                class="px-3 py-1.5 text-2xs text-muted-foreground uppercase tracking-wider font-medium"
+              >
                 {{ group }}
               </div>
               <button
@@ -193,24 +191,18 @@ function globalIndex(group: string, localIdx: number): number {
                 :key="cmd.label"
                 @click="run(globalIndex(group, i))"
                 @mouseenter="selected = globalIndex(group, i)"
-                class="w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors"
+                class="w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors duration-150"
                 :class="
                   selected === globalIndex(group, i)
-                    ? 'bg-primary/[0.08] text-foreground'
-                    : 'text-secondary-foreground hover:bg-surface-2/60'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent'
                 "
               >
-                <component
-                  :is="cmd.icon"
-                  class="w-4 h-4 shrink-0"
-                  :class="
-                    selected === globalIndex(group, i) ? 'text-primary' : 'text-muted-foreground'
-                  "
-                />
+                <component :is="cmd.icon" class="w-4 h-4 shrink-0" />
                 <span class="flex-1 text-left text-xs">{{ cmd.label }}</span>
                 <span
                   v-if="cmd.keys"
-                  class="text-2xs font-mono text-dimmed bg-surface-3 px-1.5 py-0.5 rounded border border-border/30"
+                  class="text-2xs font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 border border-border"
                   >{{ cmd.keys }}</span
                 >
               </button>
@@ -218,7 +210,7 @@ function globalIndex(group: string, localIdx: number): number {
 
             <div v-if="flatFiltered.length === 0" class="py-8 text-center">
               <p class="text-xs text-muted-foreground">No commands found</p>
-              <p class="text-2xs text-dimmed mt-1">Try a different search term</p>
+              <p class="text-2xs text-muted-foreground mt-1">Try a different search term</p>
             </div>
           </div>
         </div>

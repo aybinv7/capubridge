@@ -57,14 +57,14 @@ function toggleCache(name: string) {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Toolbar -->
-    <div class="h-8 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2">
+    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
       <div
-        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-0.5 max-w-xs border border-border/20 focus-within:border-primary/20 transition-colors"
+        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border focus-within:border-border transition-colors"
       >
-        <Search class="w-3 h-3 text-dimmed" />
+        <Search class="w-3 h-3 text-muted-foreground" />
         <Input
           v-model="filter"
-          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Filter by URL or type…"
         />
       </div>
@@ -76,7 +76,7 @@ function toggleCache(name: string) {
       <!-- Sidebar: origins + cache tree -->
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
         <div class="flex h-full flex-col border-r border-border">
-          <div class="flex h-7 shrink-0 items-center border-b border-border/50 px-3">
+          <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
             <span
               class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
             >
@@ -94,7 +94,7 @@ function toggleCache(name: string) {
                   class="w-full justify-start gap-2 px-3 py-[6px] h-auto text-[12px]"
                   :class="
                     selectedOrigin?.origin === origin.origin
-                      ? 'text-primary bg-primary/10 font-medium border-l-2 border-primary pl-[10px]'
+                      ? 'text-foreground bg-secondary font-medium border-l-2 border-foreground pl-[10px]'
                       : 'text-muted-foreground/60 border-l-2 border-transparent pl-[10px]'
                   "
                   @click="selectOrigin(origin.origin)"
@@ -104,7 +104,7 @@ function toggleCache(name: string) {
                 </Button>
 
                 <!-- Cache tree for selected origin -->
-                <div class="mt-2 pt-2 border-t border-border/30">
+                <div class="mt-2 pt-2 border-t border-border">
                   <div class="px-3 pb-1">
                     <span
                       class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
@@ -139,7 +139,7 @@ function toggleCache(name: string) {
                             class="w-full justify-start py-[4px] pl-[26px] pr-3 h-auto text-[11px]"
                             :class="
                               selectedUrl === entry.url
-                                ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary pl-[24px]'
+                                ? 'bg-secondary text-foreground font-medium border-l-2 border-foreground pl-[24px]'
                                 : 'text-muted-foreground/60'
                             "
                             @click="selectedUrl = entry.url"
@@ -166,7 +166,7 @@ function toggleCache(name: string) {
           <table class="w-full text-2xs">
             <thead class="sticky top-0 z-10">
               <tr
-                class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
+                class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
               >
                 <th class="px-3 py-2 font-medium">URL</th>
                 <th class="px-3 py-2 font-medium w-24">Cache</th>
@@ -179,8 +179,8 @@ function toggleCache(name: string) {
                 v-for="entry in filtered"
                 :key="entry.url"
                 @click="selectedUrl = selectedUrl === entry.url ? null : entry.url"
-                class="border-b border-border/10 cursor-pointer transition-colors"
-                :class="selectedUrl === entry.url ? 'bg-primary/[0.04]' : 'data-row'"
+                class="border-b border-border cursor-pointer transition-colors"
+                :class="selectedUrl === entry.url ? 'bg-secondary' : 'data-row'"
               >
                 <td
                   class="px-3 py-2 font-mono text-xs text-secondary-foreground truncate max-w-[300px]"
@@ -192,7 +192,7 @@ function toggleCache(name: string) {
                 </td>
                 <td class="px-3 py-2">
                   <span
-                    class="text-2xs font-mono px-1.5 py-0.5 rounded bg-surface-3 text-muted-foreground"
+                    class="text-2xs font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground"
                     >{{ entry.cacheName }}</span
                   >
                 </td>

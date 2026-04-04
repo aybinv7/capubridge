@@ -122,7 +122,7 @@ const dotClass = computed(() => {
           <CircleDot
             v-if="targetsStore.selectedTarget?.id === target.id"
             :size="10"
-            class="text-primary shrink-0"
+            class="text-foreground shrink-0"
           />
         </div>
         <span class="pl-[14px] w-full truncate font-mono text-[10px] text-muted-foreground/50">

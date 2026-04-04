@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import TitleBar from "./TitleBar.vue";
-import Sidebar from "./Sidebar.vue";
 import ConnectionBar from "./ConnectionBar.vue";
+import Sidebar from "./Sidebar.vue";
 import StatusBar from "./StatusBar.vue";
 import CommandPalette from "@/components/CommandPalette.vue";
 
@@ -20,17 +20,20 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
-  <div class="flex flex-col h-screen overflow-hidden bg-surface-0">
-    <TitleBar />
+  <div class="flex flex-col h-screen overflow-hidden bg-background dark">
+    <!-- Title bar with window controls -->
+    <TitleBar @open-command-palette="commandPaletteOpen = true" />
+
+    <!-- Main area: sidebar + content -->
     <div class="flex flex-1 overflow-hidden">
+      <!-- Sidebar -->
       <Sidebar />
 
-      <div class="flex flex-1 flex-col overflow-hidden">
-        <ConnectionBar @open-command-palette="commandPaletteOpen = true" />
-
-        <main
-          class="flex-1 overflow-hidden bg-surface-1 rounded-tl-xl border-t border-l border-border/30"
-        >
+      <!-- Content column -->
+      <div
+        class="flex flex-1 flex-col border-t border-l rounded-tl-xl overflow-hidden bg-[#151515]"
+      >
+        <main class="flex-1 overflow-hidden">
           <RouterView />
         </main>
 

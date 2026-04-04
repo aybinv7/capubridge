@@ -59,11 +59,9 @@ function statusLabel(status: string) {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Stats bar -->
-    <div
-      class="h-8 shrink-0 border-b border-border/20 bg-surface-2/30 flex items-center px-4 gap-4"
-    >
+    <div class="h-8 shrink-0 border-b border-border bg-accent flex items-center px-4 gap-4">
       <div class="flex items-center gap-1.5 text-2xs">
-        <span class="text-dimmed">{{ pluginStats.total }} plugins</span>
+        <span class="text-muted-foreground">{{ pluginStats.total }} plugins</span>
         <span class="text-muted-foreground">{{ pluginStats.native }} native</span>
         <span v-if="pluginStats.outdated > 0" class="text-info"
           >{{ pluginStats.outdated }} outdated</span
@@ -75,14 +73,14 @@ function statusLabel(status: string) {
     </div>
 
     <!-- Filter -->
-    <div class="h-8 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2">
+    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
       <div
-        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-0.5 max-w-xs border border-border/20"
+        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border"
       >
-        <Search class="w-3 h-3 text-dimmed" />
+        <Search class="w-3 h-3 text-muted-foreground" />
         <Input
           v-model="filter"
-          class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Filter plugins…"
         />
       </div>
@@ -96,7 +94,7 @@ function statusLabel(status: string) {
             <table class="w-full text-2xs">
               <thead class="sticky top-0 z-10">
                 <tr
-                  class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
+                  class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
                 >
                   <th class="px-3 py-2 font-medium">Plugin</th>
                   <th class="px-3 py-2 font-medium w-48">Package</th>
@@ -111,8 +109,8 @@ function statusLabel(status: string) {
                   v-for="plugin in filtered"
                   :key="plugin.name"
                   @click="selectedPlugin = selectedPlugin?.name === plugin.name ? null : plugin"
-                  class="border-b border-border/10 cursor-pointer transition-colors group"
-                  :class="selectedPlugin?.name === plugin.name ? 'bg-primary/[0.04]' : 'data-row'"
+                  class="border-b border-border cursor-pointer transition-colors group"
+                  :class="selectedPlugin?.name === plugin.name ? 'bg-secondary' : 'data-row'"
                 >
                   <td class="px-3 py-2">
                     <div class="flex items-center gap-2">
@@ -120,14 +118,14 @@ function statusLabel(status: string) {
                       <Badge
                         v-if="plugin.native"
                         variant="outline"
-                        class="text-2xs border-border/20 text-dimmed"
+                        class="text-2xs border-border text-muted-foreground"
                         >native</Badge
                       >
                     </div>
                   </td>
                   <td class="px-3 py-2 font-mono text-muted-foreground">{{ plugin.package }}</td>
                   <td class="px-3 py-2 font-mono text-muted-foreground">{{ plugin.version }}</td>
-                  <td class="px-3 py-2 font-mono text-dimmed">
+                  <td class="px-3 py-2 font-mono text-muted-foreground">
                     {{ plugin.calls.toLocaleString() }}
                   </td>
                   <td class="px-3 py-2">
@@ -149,7 +147,7 @@ function statusLabel(status: string) {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      class="w-5 h-5 text-dimmed opacity-0 group-hover:opacity-100"
+                      class="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100"
                       @click.stop
                     >
                       <ExternalLink class="w-3 h-3" />
@@ -163,16 +161,16 @@ function statusLabel(status: string) {
 
         <ResizableHandle />
         <ResizablePanel :default-size="25" :min-size="20" :max-size="40">
-          <div class="flex h-full flex-col border-l border-border/30 bg-surface-1">
+          <div class="flex h-full flex-col border-l border-border bg-background">
             <template v-if="selectedPlugin">
               <div
-                class="h-10 flex items-center justify-between px-3 border-b border-border/20 shrink-0"
+                class="h-10 flex items-center justify-between px-3 border-b border-border shrink-0"
               >
                 <span class="text-xs font-medium text-foreground">{{ selectedPlugin.name }}</span>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  class="w-5 h-5 text-dimmed"
+                  class="w-5 h-5 text-muted-foreground"
                   @click="selectedPlugin = null"
                   >✕</Button
                 >
@@ -182,20 +180,20 @@ function statusLabel(status: string) {
                   <div class="space-y-2">
                     <div class="text-2xs text-muted-foreground">Package</div>
                     <div
-                      class="text-xs font-mono text-foreground bg-surface-2/50 rounded-md px-2 py-1.5 border border-border/10 break-all"
+                      class="text-xs font-mono text-foreground bg-accent rounded-md px-2 py-1.5 border border-border break-all"
                     >
                       {{ selectedPlugin.package }}
                     </div>
                   </div>
                   <div class="grid grid-cols-2 gap-2">
-                    <div class="bg-surface-2/50 rounded-md p-2 border border-border/10">
-                      <div class="text-2xs text-dimmed">Version</div>
+                    <div class="bg-accent rounded-md p-2 border border-border">
+                      <div class="text-2xs text-muted-foreground">Version</div>
                       <div class="text-xs font-mono text-foreground">
                         {{ selectedPlugin.version }}
                       </div>
                     </div>
-                    <div class="bg-surface-2/50 rounded-md p-2 border border-border/10">
-                      <div class="text-2xs text-dimmed">Calls</div>
+                    <div class="bg-accent rounded-md p-2 border border-border">
+                      <div class="text-2xs text-muted-foreground">Calls</div>
                       <div class="text-xs font-mono text-foreground">
                         {{ selectedPlugin.calls.toLocaleString() }}
                       </div>
@@ -226,7 +224,7 @@ function statusLabel(status: string) {
               </ScrollArea>
             </template>
             <template v-else>
-              <div class="flex-1 flex items-center justify-center text-dimmed text-2xs">
+              <div class="flex-1 flex items-center justify-center text-muted-foreground text-2xs">
                 Select a plugin to view details
               </div>
             </template>

@@ -14,14 +14,14 @@ const typeFilter = ref("All");
   <div class="flex h-full flex-col overflow-hidden">
     <SubNavTabs />
 
-    <div class="h-10 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2 shrink-0">
+    <div class="h-10 border-b border-border bg-background flex items-center px-3 gap-2 shrink-0">
       <div
-        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-1 flex-1 max-w-xs border border-border/20 focus-within:border-primary/20 transition-colors"
+        class="flex items-center gap-1 bg-accent rounded-md px-2 py-1 flex-1 max-w-xs border border-border focus-within:border-border transition-colors"
       >
-        <Search class="w-3 h-3 text-dimmed" />
+        <Search class="w-3 h-3 text-muted-foreground" />
         <Input
           v-model="filterText"
-          class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 text-2xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Filter by URL, method, status…"
         />
       </div>

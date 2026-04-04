@@ -15,9 +15,7 @@ const pollingInterval = ref("3s");
       <div>
         <h3 class="text-sm font-medium text-foreground mb-3">ADB Configuration</h3>
         <div class="space-y-3">
-          <div
-            class="flex items-center justify-between p-3 rounded-lg bg-surface-2/40 border border-border/20"
-          >
+          <div class="flex items-center justify-between p-3 bg-accent border border-border">
             <div class="flex items-center gap-3">
               <Terminal class="w-4 h-4 text-muted-foreground" />
               <div>
@@ -32,7 +30,7 @@ const pollingInterval = ref("3s");
               placeholder="auto-detect"
             />
           </div>
-          <div class="p-3 rounded-lg bg-surface-2/40 border border-border/20">
+          <div class="p-3 bg-accent border border-border">
             <span class="text-xs font-medium text-foreground">Polling Interval</span>
             <p class="text-2xs text-muted-foreground mb-2">How often to refresh device list</p>
             <div class="flex gap-1.5">

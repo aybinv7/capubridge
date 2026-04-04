@@ -23,11 +23,11 @@ const shortcuts = [
           <div
             v-for="sc in shortcuts"
             :key="sc.keys"
-            class="flex items-center justify-between p-3 rounded-lg bg-surface-2/40 border border-border/20"
+            class="flex items-center justify-between p-3 bg-accent border border-border"
           >
             <span class="text-xs text-foreground">{{ sc.action }}</span>
             <kbd
-              class="text-2xs font-mono text-dimmed bg-surface-3 px-2 py-1 rounded border border-border/30"
+              class="text-2xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded border border-border"
             >
               {{ sc.keys }}
             </kbd>

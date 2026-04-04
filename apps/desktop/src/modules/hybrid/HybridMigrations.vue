@@ -71,7 +71,7 @@ const migrations = [
         <Button
           variant="outline"
           size="sm"
-          class="gap-1.5 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+          class="gap-1.5 bg-secondary text-foreground border-border hover:bg-secondary"
         >
           <Play class="w-3 h-3" />
           Run pending
@@ -79,7 +79,7 @@ const migrations = [
       </div>
 
       <div class="relative">
-        <div class="absolute left-[19px] top-0 bottom-0 w-px bg-border/30" />
+        <div class="absolute left-[19px] top-0 bottom-0 w-px bg-border" />
         <div v-for="(m, i) in migrations" :key="m.id" class="relative flex gap-4 pb-4 last:pb-0">
           <div class="relative z-10 shrink-0">
             <div
@@ -87,7 +87,7 @@ const migrations = [
               :class="
                 m.status === 'applied'
                   ? 'bg-success/10 border-success/20'
-                  : 'bg-surface-3 border-border/30'
+                  : 'bg-secondary border-border'
               "
             >
               <CheckCircle v-if="m.status === 'applied'" class="w-4 h-4 text-success" />
@@ -95,19 +95,15 @@ const migrations = [
             </div>
           </div>
           <div
-            class="flex-1 rounded-xl border p-3 mb-0"
-            :class="
-              m.status === 'applied'
-                ? 'border-border/15 bg-surface-2/30'
-                : 'border-border/25 bg-surface-2/50'
-            "
+            class="flex-1 border p-3 mb-0"
+            :class="m.status === 'applied' ? 'border-border bg-accent' : 'border-border bg-accent'"
           >
             <div class="flex items-center gap-2 mb-1">
-              <span class="font-mono text-2xs text-dimmed">{{ m.id }}</span>
-              <GitBranch class="w-2.5 h-2.5 text-dimmed" />
+              <span class="font-mono text-2xs text-muted-foreground">{{ m.id }}</span>
+              <GitBranch class="w-2.5 h-2.5 text-muted-foreground" />
               <span class="text-xs font-medium text-foreground">{{ m.name }}</span>
             </div>
-            <div class="flex items-center gap-3 text-2xs text-dimmed">
+            <div class="flex items-center gap-3 text-2xs text-muted-foreground">
               <span class="font-mono">{{ m.db }}</span>
               <span>v{{ m.version }}</span>
               <span v-if="m.status === 'applied'" class="text-muted-foreground">{{ m.ts }}</span>

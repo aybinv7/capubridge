@@ -4,7 +4,7 @@ import { Circle, Wifi, HardDrive, Activity } from "lucide-vue-next";
 
 <template>
   <footer
-    class="h-[22px] bg-surface-0 border-t border-border/30 flex items-center px-3 text-2xs font-mono text-muted-foreground shrink-0 gap-4 select-none"
+    class="h-6 bg-background border-t border-border flex items-center px-3 text-2xs font-mono text-muted-foreground shrink-0 gap-4 select-none"
   >
     <span class="flex items-center gap-1.5">
       <Circle class="w-[5px] h-[5px] fill-success text-success" />
@@ -22,6 +22,6 @@ import { Circle, Wifi, HardDrive, Activity } from "lucide-vue-next";
       <HardDrive class="w-2.5 h-2.5" />
       14.2 MB / 2.4 GB
     </span>
-    <span class="ml-auto text-dimmed">Capubridge v0.1.0-alpha</span>
+    <span class="ml-auto">Capubridge v0.1.0-alpha</span>
   </footer>
 </template>

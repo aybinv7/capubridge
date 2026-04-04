@@ -32,7 +32,7 @@ const devicesStore = useDevicesStore();
       </div>
 
       <!-- Device cards -->
-      <div v-else class="divide-y divide-border/50">
+      <div v-else class="divide-y divide-border">
         <DeviceCard
           v-for="device in devicesStore.devices"
           :key="device.serial"

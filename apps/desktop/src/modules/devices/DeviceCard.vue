@@ -31,7 +31,7 @@ const statusClass: Record<ADBDevice["status"], string> = {
     class="group w-full border-l-2 px-3 py-2.5 text-left transition-[background-color,border-color] duration-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
     :class="
       props.isSelected
-        ? 'border-l-primary bg-primary/[0.06]'
+        ? 'border-l-foreground bg-secondary'
         : 'border-l-transparent hover:bg-accent hover:border-l-border'
     "
     @click="emit('select')"
@@ -40,7 +40,7 @@ const statusClass: Record<ADBDevice["status"], string> = {
     <div class="flex items-center justify-between gap-2 mb-1">
       <span
         class="text-[13px] font-medium truncate text-foreground"
-        :class="{ 'text-primary': props.isSelected }"
+        :class="{ 'text-foreground': props.isSelected }"
       >
         {{ props.device.model || props.device.serial }}
       </span>

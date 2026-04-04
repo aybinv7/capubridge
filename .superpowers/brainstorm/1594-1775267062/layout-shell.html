@@ -1,0 +1,720 @@
+<h2>Section 2: Layout Shell</h2>
+<p class="subtitle">AppShell, Sidebar (64px), TitleBar, ConnectionBar, StatusBar</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Full App Shell Layout</div>
+    <div class="mockup-body" style="padding: 0; overflow: hidden">
+      <div
+        style="
+          background: oklch(0.1722 0.0041 106.8174);
+          min-height: 420px;
+          font-family: Geist, system-ui, sans-serif;
+          display: flex;
+          flex-direction: column;
+        "
+      >
+        <!-- TitleBar (32px) - draggable, no decorations on content side -->
+        <div
+          style="
+            height: 32px;
+            background: oklch(0.1722 0.0041 106.8174);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            border-bottom: 1px solid oklch(0.4856 0.0171 107.0202);
+          "
+        >
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span style="font-size: 12px; color: oklch(0.6357 0.0218 107.0046); font-weight: 500"
+              >Capubridge</span
+            >
+          </div>
+          <div style="display: flex; gap: 0">
+            <div
+              style="
+                width: 46px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <div
+                style="width: 10px; height: 1px; background: oklch(0.6357 0.0218 107.0046)"
+              ></div>
+            </div>
+            <div
+              style="
+                width: 46px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <div
+                style="width: 9px; height: 9px; border: 1px solid oklch(0.6357 0.0218 107.0046)"
+              ></div>
+            </div>
+            <div
+              style="
+                width: 46px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span style="font-size: 14px; color: oklch(0.6357 0.0218 107.0046)">×</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex: 1; display: flex">
+          <!-- Sidebar (64px) with icon + label -->
+          <div
+            style="
+              width: 64px;
+              background: oklch(0.1722 0.0041 106.8174);
+              border-right: 1px solid oklch(0.4856 0.0171 107.0202);
+              display: flex;
+              flex-direction: column;
+              padding: 8px 0;
+            "
+          >
+            <!-- Logo -->
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 40px;
+                margin-bottom: 8px;
+              "
+            >
+              <div
+                style="
+                  width: 28px;
+                  height: 28px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-family: &quot;Geist Mono&quot;, monospace;
+                  font-size: 10px;
+                  font-weight: 700;
+                  color: oklch(0.9927 0.0364 107.0448);
+                  border: 1px solid oklch(0.4856 0.0171 107.0202);
+                "
+              >
+                CB
+              </div>
+            </div>
+
+            <!-- Nav items -->
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 6px; flex: 1">
+              <!-- Active item -->
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 6px 0;
+                  background: oklch(0.4856 0.0171 107.0202);
+                  position: relative;
+                "
+              >
+                <div
+                  style="
+                    position: absolute;
+                    left: 0;
+                    top: 4px;
+                    bottom: 4px;
+                    width: 2px;
+                    background: oklch(0.9927 0.0364 107.0448);
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="oklch(0.9927 0.0364 107.0448)"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                    <line x1="12" y1="18" x2="12.01" y2="18" />
+                  </svg>
+                </div>
+                <span style="font-size: 9px; color: oklch(0.9927 0.0364 107.0448); font-weight: 500"
+                  >Devices</span
+                >
+              </div>
+              <!-- Inactive items -->
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 6px 0;
+                "
+              >
+                <div
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="oklch(0.6357 0.0218 107.0046)"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                  </svg>
+                </div>
+                <span style="font-size: 9px; color: oklch(0.6357 0.0218 107.0046)">Storage</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 6px 0;
+                "
+              >
+                <div
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="oklch(0.6357 0.0218 107.0046)"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path
+                      d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+                    />
+                  </svg>
+                </div>
+                <span style="font-size: 9px; color: oklch(0.6357 0.0218 107.0046)">Network</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 6px 0;
+                "
+              >
+                <div
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="oklch(0.6357 0.0218 107.0046)"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                </div>
+                <span style="font-size: 9px; color: oklch(0.6357 0.0218 107.0046)">Console</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 6px 0;
+                "
+              >
+                <div
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="oklch(0.6357 0.0218 107.0046)"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                </div>
+                <span style="font-size: 9px; color: oklch(0.6357 0.0218 107.0046)">Capacitor</span>
+              </div>
+            </div>
+
+            <!-- Bottom: Settings -->
+            <div style="padding: 0 6px">
+              <div
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 6px 0;
+                "
+              >
+                <div
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="oklch(0.6357 0.0218 107.0046)"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                    />
+                  </svg>
+                </div>
+                <span style="font-size: 9px; color: oklch(0.6357 0.0218 107.0046)">Settings</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main content area -->
+          <div style="flex: 1; display: flex; flex-direction: column">
+            <!-- ConnectionBar (40px) -->
+            <div
+              style="
+                height: 40px;
+                background: oklch(0.1722 0.0041 106.8174);
+                border-bottom: 1px solid oklch(0.4856 0.0171 107.0202);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 16px;
+              "
+            >
+              <div style="display: flex; align-items: center; gap: 12px">
+                <!-- Device selector -->
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 4px 10px;
+                    border: 1px solid oklch(0.4856 0.0171 107.0202);
+                    border-radius: 4px;
+                  "
+                >
+                  <div
+                    style="width: 6px; height: 6px; border-radius: 50%; background: #c4ffc0"
+                  ></div>
+                  <span style="font-size: 12px; color: oklch(0.9927 0.0364 107.0448)"
+                    >Samsung S23</span
+                  >
+                  <span style="font-size: 10px; color: oklch(0.6357 0.0218 107.0046)">▾</span>
+                </div>
+                <span
+                  style="
+                    font-size: 11px;
+                    color: oklch(0.6357 0.0218 107.0046);
+                    font-family: &quot;Geist Mono&quot;, monospace;
+                  "
+                  >:9222</span
+                >
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px">
+                <span style="font-size: 11px; color: oklch(0.6357 0.0218 107.0046)">14:32</span>
+                <!-- Command palette trigger -->
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 4px 10px;
+                    border: 1px solid oklch(0.4856 0.0171 107.0202);
+                    border-radius: 4px;
+                  "
+                >
+                  <span style="font-size: 11px; color: oklch(0.6357 0.0218 107.0046)">Search</span>
+                  <span
+                    style="
+                      font-size: 9px;
+                      color: oklch(0.4856 0.0171 107.0202);
+                      border: 1px solid oklch(0.4856 0.0171 107.0202);
+                      padding: 1px 4px;
+                      border-radius: 2px;
+                      font-family: &quot;Geist Mono&quot;, monospace;
+                    "
+                    >⌘K</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-nav tabs -->
+            <div
+              style="
+                height: 36px;
+                background: oklch(0.1722 0.0041 106.8174);
+                border-bottom: 1px solid oklch(0.4856 0.0171 107.0202);
+                display: flex;
+                align-items: center;
+                padding: 0 16px;
+                gap: 4px;
+              "
+            >
+              <div
+                style="
+                  padding: 6px 12px;
+                  font-size: 12px;
+                  color: oklch(0.9927 0.0364 107.0448);
+                  font-weight: 500;
+                  border-bottom: 2px solid oklch(0.9927 0.0364 107.0448);
+                "
+              >
+                Overview
+              </div>
+              <div style="padding: 6px 12px; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)">
+                Logcat
+              </div>
+              <div style="padding: 6px 12px; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)">
+                Apps
+              </div>
+              <div style="padding: 6px 12px; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)">
+                WebView
+              </div>
+              <div style="padding: 6px 12px; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)">
+                Files
+              </div>
+              <div style="padding: 6px 12px; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)">
+                Screen
+              </div>
+              <div style="padding: 6px 12px; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)">
+                Perf
+              </div>
+            </div>
+
+            <!-- Main content (placeholder) -->
+            <div style="flex: 1; background: oklch(0.1722 0.0041 106.8174); padding: 16px">
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr 1fr 1fr;
+                  gap: 12px;
+                  margin-bottom: 16px;
+                "
+              >
+                <!-- Stat cards -->
+                <div style="border: 1px solid oklch(0.4856 0.0171 107.0202); padding: 12px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    Battery
+                  </div>
+                  <div
+                    style="font-size: 18px; color: oklch(0.9927 0.0364 107.0448); font-weight: 500"
+                  >
+                    87%
+                  </div>
+                </div>
+                <div style="border: 1px solid oklch(0.4856 0.0171 107.0202); padding: 12px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    Storage
+                  </div>
+                  <div
+                    style="font-size: 18px; color: oklch(0.9927 0.0364 107.0448); font-weight: 500"
+                  >
+                    64 GB
+                  </div>
+                </div>
+                <div style="border: 1px solid oklch(0.4856 0.0171 107.0202); padding: 12px">
+                  <div
+                    style="
+                      font-size: 11px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      margin-bottom: 4px;
+                    "
+                  >
+                    Android
+                  </div>
+                  <div
+                    style="font-size: 18px; color: oklch(0.9927 0.0364 107.0448); font-weight: 500"
+                  >
+                    14
+                  </div>
+                </div>
+              </div>
+              <!-- Table preview -->
+              <div style="border: 1px solid oklch(0.4856 0.0171 107.0202)">
+                <div
+                  style="
+                    display: flex;
+                    padding: 8px 12px;
+                    border-bottom: 1px solid oklch(0.4856 0.0171 107.0202);
+                  "
+                >
+                  <span
+                    style="
+                      flex: 2;
+                      font-size: 11px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Device</span
+                  >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 11px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Status</span
+                  >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 11px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >Port</span
+                  >
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 11px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                    >API</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    padding: 8px 12px;
+                    border-bottom: 1px solid oklch(0.3 0.01 107);
+                  "
+                >
+                  <span style="flex: 2; font-size: 13px; color: oklch(0.9927 0.0364 107.0448)"
+                    >Samsung Galaxy S23</span
+                  >
+                  <span style="flex: 1; font-size: 12px; color: #c4ffc0">● online</span>
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 12px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      font-family: &quot;Geist Mono&quot;, monospace;
+                    "
+                    >9222</span
+                  >
+                  <span style="flex: 1; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)"
+                    >34</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    padding: 8px 12px;
+                    border-bottom: 1px solid oklch(0.3 0.01 107);
+                  "
+                >
+                  <span style="flex: 2; font-size: 13px; color: oklch(0.9927 0.0364 107.0448)"
+                    >Pixel 7 Emulator</span
+                  >
+                  <span style="flex: 1; font-size: 12px; color: #c4ffc0">● online</span>
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 12px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      font-family: &quot;Geist Mono&quot;, monospace;
+                    "
+                    >9223</span
+                  >
+                  <span style="flex: 1; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)"
+                    >33</span
+                  >
+                </div>
+                <div style="display: flex; padding: 8px 12px">
+                  <span style="flex: 2; font-size: 13px; color: oklch(0.9927 0.0364 107.0448)"
+                    >Huawei P30 Pro</span
+                  >
+                  <span style="flex: 1; font-size: 12px; color: #981515">● offline</span>
+                  <span
+                    style="
+                      flex: 1;
+                      font-size: 12px;
+                      color: oklch(0.6357 0.0218 107.0046);
+                      font-family: &quot;Geist Mono&quot;, monospace;
+                    "
+                    >—</span
+                  >
+                  <span style="flex: 1; font-size: 12px; color: oklch(0.6357 0.0218 107.0046)"
+                    >29</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- StatusBar (24px) -->
+            <div
+              style="
+                height: 24px;
+                background: oklch(0.1722 0.0041 106.8174);
+                border-top: 1px solid oklch(0.4856 0.0171 107.0202);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 16px;
+              "
+            >
+              <div style="display: flex; align-items: center; gap: 12px">
+                <div style="display: flex; align-items: center; gap: 4px">
+                  <div
+                    style="width: 6px; height: 6px; border-radius: 50%; background: #c4ffc0"
+                  ></div>
+                  <span style="font-size: 10px; color: oklch(0.6357 0.0218 107.0046)"
+                    >USB Connected</span
+                  >
+                </div>
+                <span style="font-size: 10px; color: oklch(0.6357 0.0218 107.0046)">CDP :9222</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px">
+                <span style="font-size: 10px; color: oklch(0.6357 0.0218 107.0046)"
+                  >↓ 1.2 MB/s</span
+                >
+                <span style="font-size: 10px; color: oklch(0.6357 0.0218 107.0046)">v0.1.0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px">
+  <h3>Layout Anatomy</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px">
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">
+        TitleBar — 32px
+      </div>
+      <div style="font-size: 11px; color: #999">
+        App name left, window controls right. Draggable. Same background as sidebar — seamless top
+        edge. 1px border-bottom.
+      </div>
+    </div>
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">
+        Sidebar — 64px
+      </div>
+      <div style="font-size: 11px; color: #999">
+        Icon (16px) + label (9px) stacked. Active: foreground text + secondary bg + 2px left accent
+        bar. Inactive: muted-foreground. 1px border-right.
+      </div>
+    </div>
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">
+        ConnectionBar — 40px
+      </div>
+      <div style="font-size: 11px; color: #999">
+        Device selector (shadcn Select) + port display left. Time + command palette trigger right.
+        1px border-bottom.
+      </div>
+    </div>
+    <div style="padding: 12px; border: 1px solid #333; border-radius: 4px">
+      <div style="font-size: 12px; font-weight: 600; color: #e8e8e8; margin-bottom: 6px">
+        StatusBar — 24px
+      </div>
+      <div style="font-size: 11px; color: #999">
+        Connection status dot + label left. Network speed + version right. 10px text. 1px
+        border-top.
+      </div>
+    </div>
+  </div>
+</div>

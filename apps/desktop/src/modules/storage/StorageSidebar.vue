@@ -78,7 +78,7 @@ const navItems = [
         class="flex items-center gap-2 px-3 py-[5px] text-[12px] transition-colors"
         :class="
           isSectionActive(item.id)
-            ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[10px] font-medium'
+            ? 'text-foreground bg-secondary border-l-2 border-foreground pl-[10px] font-medium'
             : 'text-muted-foreground/60 hover:bg-accent hover:text-accent-foreground border-l-2 border-transparent pl-[10px]'
         "
       >
@@ -91,7 +91,7 @@ const navItems = [
     <div class="flex-1 overflow-y-auto overflow-x-hidden">
       <!-- ── IndexedDB tree ─────────────────────────────────────── -->
       <template v-if="activeSection === 'idb'">
-        <div class="flex h-7 shrink-0 items-center border-b border-border/50 px-3">
+        <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
           <span
             class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
           >
@@ -125,7 +125,7 @@ const navItems = [
                   class="w-full justify-start gap-1.5 py-[4px] pl-[26px] pr-3 h-auto text-[11px]"
                   :class="
                     isStoreActive(db.name, store.name)
-                      ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary pl-[24px]'
+                      ? 'bg-secondary text-foreground font-medium border-l-2 border-foreground pl-[24px]'
                       : 'text-muted-foreground/60'
                   "
                   @click="navigateToStore(db.name, store.name)"
@@ -143,7 +143,7 @@ const navItems = [
 
       <!-- ── LocalStorage list ──────────────────────────────────── -->
       <template v-else-if="activeSection === 'localstorage'">
-        <div class="flex h-7 shrink-0 items-center border-b border-border/50 px-3">
+        <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
           <span
             class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
           >
@@ -167,7 +167,7 @@ const navItems = [
 
       <!-- ── Cache API tree ─────────────────────────────────────── -->
       <template v-else-if="activeSection === 'cache'">
-        <div class="flex h-7 shrink-0 items-center border-b border-border/50 px-3">
+        <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
           <span
             class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
           >
@@ -218,7 +218,7 @@ const navItems = [
 
       <!-- ── OPFS file list ─────────────────────────────────────── -->
       <template v-else-if="activeSection === 'opfs'">
-        <div class="flex h-7 shrink-0 items-center border-b border-border/50 px-3">
+        <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
           <span
             class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
           >

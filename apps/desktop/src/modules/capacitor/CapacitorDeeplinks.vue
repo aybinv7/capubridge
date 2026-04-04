@@ -50,16 +50,16 @@ function statusColor(status: string) {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Add new link -->
-    <div class="h-12 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-4 gap-2">
+    <div class="h-12 shrink-0 border-b border-border bg-background flex items-center px-4 gap-2">
       <Input
         v-model="newUrl"
-        class="h-7 text-xs font-mono bg-surface-2/50 border-border/20"
+        class="h-7 text-xs font-mono bg-accent border-border"
         placeholder="myapp://path/to/screen"
         @keydown.enter="addTest"
       />
       <Input
         v-model="newDescription"
-        class="h-7 text-xs bg-surface-2/50 border-border/20 w-40"
+        class="h-7 text-xs bg-accent border-border w-40"
         placeholder="Description"
         @keydown.enter="addTest"
       />
@@ -75,7 +75,7 @@ function statusColor(status: string) {
         <div
           v-for="(test, i) in tests"
           :key="i"
-          class="flex items-center gap-3 p-3 rounded-lg border border-border/20 bg-surface-2/30"
+          class="flex items-center gap-3 p-3 border border-border bg-accent"
         >
           <component
             :is="statusIcon(test.status)"
@@ -88,7 +88,7 @@ function statusColor(status: string) {
               <Badge
                 v-if="test.status !== 'pending'"
                 variant="outline"
-                class="text-2xs capitalize border-border/20"
+                class="text-2xs capitalize border-border"
                 :class="statusColor(test.status)"
               >
                 {{ test.status }}
@@ -104,7 +104,7 @@ function statusColor(status: string) {
             <Button
               variant="ghost"
               size="icon-sm"
-              class="w-6 h-6 text-dimmed"
+              class="w-6 h-6 text-muted-foreground"
               @click="removeTest(i)"
             >
               <Trash2 class="w-3 h-3" />

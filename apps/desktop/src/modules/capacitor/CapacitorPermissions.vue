@@ -29,9 +29,7 @@ function statusColor(status: string) {
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Stats bar -->
-    <div
-      class="h-8 shrink-0 border-b border-border/20 bg-surface-2/30 flex items-center px-4 gap-4"
-    >
+    <div class="h-8 shrink-0 border-b border-border bg-accent flex items-center px-4 gap-4">
       <div class="flex items-center gap-1.5 text-2xs">
         <span class="text-success">{{ stats.granted }} granted</span>
         <span class="text-error">{{ stats.denied }} denied</span>
@@ -49,7 +47,7 @@ function statusColor(status: string) {
       <table class="w-full text-2xs">
         <thead class="sticky top-0 z-10">
           <tr
-            class="bg-surface-2/80 backdrop-blur-sm text-left text-dimmed uppercase tracking-wider border-b border-border/20"
+            class="bg-accent text-left text-muted-foreground uppercase tracking-wider border-b border-border"
           >
             <th class="px-3 py-2 font-medium w-4"></th>
             <th class="px-3 py-2 font-medium">Permission</th>
@@ -60,11 +58,7 @@ function statusColor(status: string) {
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="perm in permissions"
-            :key="perm.name"
-            class="border-b border-border/10 data-row"
-          >
+          <tr v-for="perm in permissions" :key="perm.name" class="border-b border-border data-row">
             <td class="px-3 py-2">
               <component
                 :is="statusIcon(perm.status)"
@@ -79,13 +73,13 @@ function statusColor(status: string) {
             <td class="px-3 py-2">
               <Badge
                 variant="outline"
-                class="text-2xs capitalize border-border/20"
+                class="text-2xs capitalize border-border"
                 :class="statusColor(perm.status)"
               >
                 {{ perm.status.replace("_", " ") }}
               </Badge>
             </td>
-            <td class="px-3 py-2 font-mono text-dimmed text-[11px]">
+            <td class="px-3 py-2 font-mono text-muted-foreground text-[11px]">
               {{ perm.lastRequested ? perm.lastRequested.slice(0, 10) : "—" }}
             </td>
             <td class="px-3 py-2">

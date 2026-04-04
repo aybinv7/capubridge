@@ -123,12 +123,12 @@ const table = useVueTable({
           >
             <span class="flex items-center gap-1">
               <FlexRender :render="header.column.columnDef.header" :props="header.getContext()" />
-              <span v-if="header.column.getIsSorted() === 'asc'" class="text-[10px] text-primary"
+              <span v-if="header.column.getIsSorted() === 'asc'" class="text-[10px] text-foreground"
                 >↑</span
               >
               <span
                 v-else-if="header.column.getIsSorted() === 'desc'"
-                class="text-[10px] text-primary"
+                class="text-[10px] text-foreground"
                 >↓</span
               >
             </span>
@@ -139,7 +139,7 @@ const table = useVueTable({
         <tr
           v-for="row in table.getRowModel().rows"
           :key="row.id"
-          class="group border-b border-border/50 hover:bg-accent/30 transition-colors duration-75"
+          class="group border-b border-border hover:bg-accent transition-colors duration-75"
         >
           <td
             v-for="cell in row.getVisibleCells()"

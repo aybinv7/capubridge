@@ -86,14 +86,14 @@ const tableRecords = computed(() =>
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Toolbar -->
-    <div class="h-8 shrink-0 border-b border-border/20 bg-surface-1 flex items-center px-3 gap-2">
+    <div class="h-8 shrink-0 border-b border-border bg-background flex items-center px-3 gap-2">
       <div
-        class="flex items-center gap-1 bg-surface-2/60 rounded-md px-2 py-0.5 max-w-xs border border-border/20 focus-within:border-primary/20 transition-colors"
+        class="flex items-center gap-1 bg-accent rounded-md px-2 py-0.5 max-w-xs border border-border focus-within:border-border transition-colors"
       >
-        <Search class="w-3 h-3 text-dimmed" />
+        <Search class="w-3 h-3 text-muted-foreground" />
         <Input
           v-model="filter"
-          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-dimmed"
+          class="h-5 text-3xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground"
           placeholder="Filter by key or value…"
         />
       </div>
@@ -104,7 +104,7 @@ const tableRecords = computed(() =>
     <ResizablePanelGroup direction="horizontal" class="flex-1">
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
         <div class="flex h-full flex-col border-r border-border">
-          <div class="flex h-7 shrink-0 items-center border-b border-border/50 px-3">
+          <div class="flex h-7 shrink-0 items-center border-b border-border px-3">
             <span
               class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/40"
             >
@@ -135,7 +135,7 @@ const tableRecords = computed(() =>
                       class="flex w-full items-center gap-1.5 py-[4px] pl-[26px] pr-3 text-[11px] transition-colors"
                       :class="
                         isStoreActive(db.name, store.name)
-                          ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary pl-[24px]'
+                          ? 'bg-secondary text-foreground font-medium border-l-2 border-foreground pl-[24px]'
                           : 'text-muted-foreground/60 hover:bg-accent hover:text-accent-foreground'
                       "
                       @click="navigateToStore(db.name, store.name)"
