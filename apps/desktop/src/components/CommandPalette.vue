@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import {
   Search,
   Smartphone,
   Database,
   Globe,
   Terminal,
-  Puzzle,
+  Zap,
   Settings,
   ScreenShare,
   RefreshCw,
@@ -20,9 +20,11 @@ const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const router = useRouter();
+const route = useRoute();
 const query = ref("");
 const selected = ref(0);
 const inputRef = ref<HTMLInputElement>();
+const listRef = ref<HTMLDivElement>();
 
 const commands = [
   {
@@ -55,10 +57,10 @@ const commands = [
   },
   {
     group: "Navigate",
-    icon: Puzzle,
-    label: "Hybrid Tools",
-    action: () => router.push("/hybrid"),
-    keys: "H",
+    icon: Zap,
+    label: "Capacitor",
+    action: () => router.push("/capacitor"),
+    keys: "",
   },
   {
     group: "Navigate",
@@ -93,12 +95,34 @@ const grouped = computed(() => {
 
 const flatFiltered = computed(() => filtered.value);
 
+function globalIndex(group: string, localIdx: number): number {
+  let offset = 0;
+  for (const [g, cmds] of grouped.value) {
+    if (g === group) return offset + localIdx;
+    offset += cmds.length;
+  }
+  return 0;
+}
+
+function scrollToSelected() {
+  nextTick(() => {
+    const el = listRef.value?.querySelector('[data-selected="true"]');
+    if (el) {
+      el.scrollIntoView({ block: "nearest" });
+    }
+  });
+}
+
 watch(
   () => filtered.value,
   () => {
     selected.value = 0;
   },
 );
+
+watch(selected, () => {
+  scrollToSelected();
+});
 
 function run(idx: number) {
   const cmd = flatFiltered.value[idx];
@@ -137,15 +161,6 @@ watch(
     }
   },
 );
-
-function globalIndex(group: string, localIdx: number): number {
-  let offset = 0;
-  for (const [g, cmds] of grouped.value) {
-    if (g === group) return offset + localIdx;
-    offset += cmds.length;
-  }
-  return 0;
-}
 </script>
 
 <template>
@@ -159,30 +174,32 @@ function globalIndex(group: string, localIdx: number): number {
       leave-to-class="opacity-0 scale-[0.98]"
     >
       <div v-if="open" class="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
-        <div class="absolute inset-0 bg-black/50" @click="emit('close')" />
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="emit('close')" />
 
-        <div class="relative w-[520px] bg-background border border-border overflow-hidden">
+        <div
+          class="relative w-[560px] bg-surface-1 border border-border/30 rounded-xl overflow-hidden shadow-2xl"
+        >
           <!-- Input -->
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-border">
-            <Search class="w-4 h-4 text-muted-foreground shrink-0" />
+          <div class="flex items-center gap-3 px-5 py-4 border-b border-border/30">
+            <Search class="w-4 h-4 text-muted-foreground/60 shrink-0" />
             <input
               ref="inputRef"
               v-model="query"
               @keydown="onKey"
-              class="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              placeholder="Type a command or search..."
+              class="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+              placeholder="Type a command or search…"
             />
             <kbd
-              class="text-2xs text-muted-foreground bg-secondary px-1.5 py-0.5 border border-border font-mono"
+              class="text-[10px] text-muted-foreground/60 bg-surface-2 px-2 py-0.5 border border-border/30 rounded-md font-mono"
               >esc</kbd
             >
           </div>
 
           <!-- Results -->
-          <div class="max-h-[320px] overflow-y-auto py-1">
+          <div ref="listRef" class="max-h-[360px] overflow-y-auto py-1">
             <template v-for="[group, cmds] in grouped" :key="group">
               <div
-                class="px-3 py-1.5 text-2xs text-muted-foreground uppercase tracking-wider font-medium"
+                class="px-5 py-2 text-[10px] text-muted-foreground/60 uppercase tracking-wider font-semibold"
               >
                 {{ group }}
               </div>
@@ -191,26 +208,27 @@ function globalIndex(group: string, localIdx: number): number {
                 :key="cmd.label"
                 @click="run(globalIndex(group, i))"
                 @mouseenter="selected = globalIndex(group, i)"
-                class="w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors duration-150"
+                :data-selected="selected === globalIndex(group, i)"
+                class="w-full flex items-center gap-3 px-5 py-2.5 text-sm transition-colors duration-100"
                 :class="
                   selected === globalIndex(group, i)
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-accent'
+                    ? 'bg-surface-2 text-foreground'
+                    : 'text-muted-foreground/80 hover:bg-surface-2/50 hover:text-foreground'
                 "
               >
-                <component :is="cmd.icon" class="w-4 h-4 shrink-0" />
-                <span class="flex-1 text-left text-xs">{{ cmd.label }}</span>
+                <component :is="cmd.icon" class="w-4 h-4 shrink-0 opacity-70" />
+                <span class="flex-1 text-left text-sm">{{ cmd.label }}</span>
                 <span
                   v-if="cmd.keys"
-                  class="text-2xs font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 border border-border"
+                  class="text-[10px] font-mono text-muted-foreground/60 bg-surface-2 px-2 py-0.5 border border-border/30 rounded-md"
                   >{{ cmd.keys }}</span
                 >
               </button>
             </template>
 
-            <div v-if="flatFiltered.length === 0" class="py-8 text-center">
-              <p class="text-xs text-muted-foreground">No commands found</p>
-              <p class="text-2xs text-muted-foreground mt-1">Try a different search term</p>
+            <div v-if="flatFiltered.length === 0" class="py-10 text-center">
+              <p class="text-sm text-muted-foreground/50">No commands found</p>
+              <p class="text-xs text-muted-foreground/40 mt-1">Try a different search term</p>
             </div>
           </div>
         </div>
