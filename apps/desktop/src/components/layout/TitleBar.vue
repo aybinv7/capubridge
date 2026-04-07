@@ -20,6 +20,7 @@ import { Search } from "lucide-vue-next";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useSourceStore } from "@/stores/source.store";
 import { useCDP } from "@/composables/useCDP";
+import { useSessionPersistence } from "@/composables/useSessionPersistence";
 import TargetSelector from "./TargetSelector.vue";
 import {
   Dialog,
@@ -45,6 +46,9 @@ const autoConnectAttempted = ref(false);
 const devicesStore = useDevicesStore();
 const { refreshTargets } = useCDP();
 const sourceStore = useSourceStore();
+
+// Persistence — reads/writes localStorage, auto-selects restored device & target
+const { restoreSourceMode } = useSessionPersistence(sourceMode);
 
 const activeDeviceLabel = computed(() => {
   const d = devicesStore.selectedDevice;
@@ -119,7 +123,8 @@ async function handleChromeDisconnect() {
   toast.info("Chrome disconnected");
 }
 
-async function tryAutoConnect() {
+// autoLaunch = true when restoring session: launch automatically if not found
+async function tryAutoConnect(autoLaunch = false) {
   if (autoConnectAttempted.value || sourceStore.hasChromeSource) return;
   autoConnectAttempted.value = true;
 
@@ -130,11 +135,22 @@ async function tryAutoConnect() {
       description: `Found existing debug instance on port ${sourceStore.getChromeSource()?.port}`,
     });
   } else if (result === "needs_relaunch") {
-    showRelaunchDialog.value = true;
+    if (autoLaunch) {
+      // Session restore: silently relaunch instead of showing dialog
+      await handleChromeRelaunch();
+    } else {
+      showRelaunchDialog.value = true;
+    }
   } else {
-    toast.info("No Chrome debug instance found", {
-      description: "Click Launch to start Chrome in debug mode.",
-    });
+    // "not_found"
+    if (autoLaunch) {
+      // Session restore: try to open a fresh Chrome instance
+      await handleChromeLaunch();
+    } else {
+      toast.info("No Chrome debug instance found", {
+        description: "Click Launch to start Chrome in debug mode.",
+      });
+    }
   }
 }
 
@@ -160,6 +176,14 @@ onMounted(async () => {
     });
   } catch {
     appWindow = null;
+  }
+
+  // Restore persisted session
+  const savedMode = restoreSourceMode();
+  sourceMode.value = savedMode;
+  if (savedMode === "chrome") {
+    // Auto-connect and auto-launch if needed — fire-and-forget, errors handled inside
+    tryAutoConnect(/* autoLaunch */ true).catch(() => {});
   }
 });
 

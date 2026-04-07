@@ -17,9 +17,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { useIDB } from "@/composables/useIDB";
 import { useSidebarSettings } from "@/modules/storage/stores/useSidebarSettingsStore";
-import type { IDBDatabaseInfo, IDBRecord } from "utils";
+import type { IDBDatabaseInfo, IDBRecord, StoreInfo } from "utils";
 import IDBTable from "./IDBTable.vue";
 import IDBTableToolbar from "./IDBTableToolbar.vue";
+import IDBDatabaseOverview from "./IDBDatabaseOverview.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -52,7 +53,7 @@ const {
   isHidden,
 } = useSidebarSettings();
 
-const { useDatabases, useRecords } = useIDB();
+const { useDatabases, useRecords, useStoreInfo, useStorageEstimate } = useIDB();
 
 const {
   data: databases,
@@ -69,9 +70,31 @@ const {
   refetch: refetchRecords,
 } = useRecords(selectedOrigin, dbName, storeName, page, pageSize);
 
+// Find the DB info for the currently selected DB
+const selectedDbInfo = computed<IDBDatabaseInfo | undefined>(() => {
+  if (!dbName.value || !databases.value) return undefined;
+  return databases.value.find((db) => db.name === dbName.value);
+});
+
+const selectedDbOrigin = computed(() => selectedDbInfo.value?.origin ?? "");
+
+const {
+  data: storeInfoData,
+  isLoading: isLoadingStoreInfo,
+  isError: isStoreInfoError,
+  refetch: refetchStoreInfo,
+} = useStoreInfo(dbName, selectedOrigin);
+
+const { data: storageEstimate } = useStorageEstimate(selectedOrigin);
+
 const isLoading = computed(() => isLoadingRecords.value || isFetchingRecords.value);
 const hasMore = computed(() => recordsData.value?.hasMore ?? false);
 const recordCount = computed(() => recordsData.value?.records.length ?? 0);
+const totalRecords = computed(() => {
+  if (!storeName.value || !storeInfoData.value) return 0;
+  const store = storeInfoData.value.find((s) => s.name === storeName.value);
+  return store?.recordCount ?? 0;
+});
 
 const filteredRecords = computed<IDBRecord[]>(() => {
   if (!recordsData.value?.records) return [];
@@ -104,6 +127,8 @@ function getVisibleDatabases(): IDBDatabaseInfo[] {
   const q = storeSearch.value.toLowerCase();
   return databases.value
     .filter((db) => {
+      //exclude localforage gets it owns tab
+      if (db.name === "localforage") return false;
       if (isDbHidden(db.origin, db.name) && !showHiddenDbs.value) return false;
       if (q) {
         const hasMatchingStore = db.objectStoreNames.some((s) => s.toLowerCase().includes(q));
@@ -125,6 +150,16 @@ function navigateToStore(db: IDBDatabaseInfo, store: string) {
   );
 }
 
+function navigateToDbOverview(db: IDBDatabaseInfo) {
+  selectedOrigin.value = db.origin;
+  void router.push(`/storage/indexeddb/${encodeURIComponent(db.name)}`);
+}
+
+function handleSelectStore(storeName: string) {
+  if (!selectedDbInfo.value) return;
+  navigateToStore(selectedDbInfo.value, storeName);
+}
+
 function isStoreActive(db: string, store: string) {
   return dbName.value === db && storeName.value === store;
 }
@@ -144,15 +179,52 @@ function handlePageSizeChange(size: number) {
   page.value = 0;
 }
 
+async function fetchSingleRecord(index: number): Promise<IDBRecord | null> {
+  const { useCDP } = await import("@/composables/useCDP");
+  const { useTargetsStore } = await import("@/stores/targets.store");
+  const { IDBDomain } = await import("utils");
+
+  const targetsStore = useTargetsStore();
+  const targetId = targetsStore.selectedTarget?.id ?? "";
+  const { getClient } = useCDP();
+  const client = getClient(targetId);
+  if (!client) return null;
+
+  const domain = new IDBDomain(client);
+  try {
+    const result = await domain.getData({
+      securityOrigin: selectedDbOrigin.value,
+      databaseName: dbName.value,
+      objectStoreName: storeName.value,
+      skipCount: index,
+      pageSize: 1,
+    });
+    return result.records[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function refetch() {
   void refetchDbs();
   void refetchRecords();
 }
 
-watch([dbName, storeName], () => {
+watch([dbName, storeName], async () => {
   page.value = 0;
   filter.value = "";
 });
+
+// Sync selectedOrigin when selectedDbInfo changes
+watch(
+  selectedDbInfo,
+  (db) => {
+    if (db?.origin && selectedOrigin.value !== db.origin) {
+      selectedOrigin.value = db.origin;
+    }
+  },
+  { immediate: true },
+);
 
 watch(
   databases,
@@ -194,9 +266,9 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
         <!-- Sidebar: full height flex column, no overflow on outer -->
         <div class="flex h-full flex-col border-r border-border/30 min-h-0">
           <!-- Store search -->
-          <div class="shrink-0 px-2 py-1.5 border-b border-border/20">
+          <div class="shrink-0 border-b border-border/20">
             <div
-              class="flex items-center gap-2 bg-surface-3 rounded-md px-2.5 py-1 border border-border/30 focus-within:border-border/60 transition-colors"
+              class="flex items-center gap-2 bg-surface-3 rounded-md px-2 py-2 border border-border/30 focus-within:border-border/60 transition-colors"
             >
               <Search class="w-3 h-3 text-muted-foreground/50 shrink-0" />
               <Input
@@ -268,10 +340,26 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                       class="shrink-0 opacity-50"
                     />
                     <Database :size="13" class="shrink-0 opacity-40" />
-                    <span class="flex-1 truncate text-left">{{ db.name }}</span>
-                    <span class="text-[10px] font-mono text-muted-foreground/40 shrink-0">
+                    <span
+                      class="flex-1 truncate text-left"
+                      :class="{ 'opacity-40': isDbHidden(db.origin, db.name) }"
+                    >
+                      {{ db.name }}
+                    </span>
+                    <span
+                      class="text-[10px] font-mono text-muted-foreground/40 shrink-0"
+                      :class="{ 'opacity-40': isDbHidden(db.origin, db.name) }"
+                    >
                       v{{ db.version }}
                     </span>
+                  </button>
+                  <!-- Click DB name to show overview -->
+                  <button
+                    class="text-[10px] text-muted-foreground/40 hover:text-foreground/60 transition-colors px-1 py-0.5 rounded hover:bg-surface-3"
+                    title="View database overview"
+                    @click.stop="navigateToDbOverview(db)"
+                  >
+                    <Database :size="11" />
                   </button>
 
                   <!-- DB action icons (shown on hover) -->
@@ -364,14 +452,32 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
 
       <ResizableHandle with-handle />
 
-      <ResizablePanel :default-size="80" class="min-h-0">
+      <ResizablePanel :default-size="85" class="min-h-0">
+        <!-- No database selected -->
         <div
-          v-if="!dbName || !storeName"
+          v-if="!dbName"
           class="flex h-full items-center justify-center text-sm text-muted-foreground/30"
         >
-          Select a store from the sidebar
+          Select a database from the sidebar
         </div>
 
+        <!-- Database selected but no store → show overview -->
+        <template v-else-if="!storeName && selectedDbInfo">
+          <IDBDatabaseOverview
+            :db-name="selectedDbInfo.name"
+            :db-version="selectedDbInfo.version"
+            :db-origin="selectedDbInfo.origin"
+            :store-count="selectedDbInfo.objectStoreNames.length"
+            :stores="storeInfoData ?? []"
+            :is-loading="isLoadingStoreInfo"
+            :is-error="isStoreInfoError"
+            :idb-size="storageEstimate?.idbUsage"
+            @select-store="handleSelectStore"
+            @refresh="void refetchStoreInfo()"
+          />
+        </template>
+
+        <!-- Store selected → show table -->
         <template v-else>
           <div class="flex flex-col h-full overflow-hidden">
             <IDBTableToolbar
@@ -381,7 +487,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
               :page="page"
               :page-size="pageSize"
               :has-more="hasMore"
-              :record-count="recordCount"
+              :record-count="totalRecords"
               @refresh="refetch"
               @prev="prevPage"
               @next="nextPage"
@@ -395,7 +501,15 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
               Failed to load records. Make sure the target supports IndexedDB inspection.
             </div>
 
-            <IDBTable :records="filteredRecords" :is-loading="isLoading" />
+            <IDBTable
+              :records="filteredRecords"
+              :is-loading="isLoading"
+              :store-name="storeName"
+              :db-name="dbName"
+              :total-records="totalRecords"
+              :fetch-record="fetchSingleRecord"
+              @refresh="refetch"
+            />
           </div>
         </template>
       </ResizablePanel>

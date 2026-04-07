@@ -41,6 +41,70 @@ export interface GetDataResult {
   hasMore: boolean;
 }
 
+export interface StoreInfo {
+  name: string;
+  keyPath: string | string[] | null;
+  autoIncrement: boolean;
+  recordCount: number;
+  keyGeneratorValue?: number;
+  indexCount: number;
+  indexes: IDBIndexInfo[];
+  estimatedSize: number;
+}
+
+// CDP types for the IndexedDB domain
+interface CdpKeyPath {
+  type: "null" | "string" | "array";
+  string?: string;
+  array?: string[];
+}
+
+interface CdpObjectStoreIndex {
+  name: string;
+  keyPath: CdpKeyPath;
+  unique: boolean;
+  multiEntry: boolean;
+}
+
+interface CdpObjectStore {
+  name: string;
+  keyPath: CdpKeyPath;
+  autoIncrement: boolean;
+  indexes: CdpObjectStoreIndex[];
+}
+
+interface CdpDatabaseWithObjectStores {
+  name: string;
+  version: number;
+  objectStores: CdpObjectStore[];
+}
+
+interface CdpRemoteObject {
+  type: string;
+  subtype?: string;
+  value?: unknown;
+  description?: string;
+}
+
+interface CdpDataEntry {
+  key: CdpRemoteObject;
+  primaryKey: CdpRemoteObject;
+  value: CdpRemoteObject;
+}
+
+function cdpKeyPathToValue(keyPath: CdpKeyPath): string | string[] | null {
+  if (keyPath.type === "null") return null;
+  if (keyPath.type === "string") return keyPath.string ?? null;
+  if (keyPath.type === "array") return keyPath.array ?? [];
+  return null;
+}
+
+function extractRemoteValue(obj: CdpRemoteObject): unknown {
+  if (obj.value !== undefined) return obj.value;
+  if (obj.description !== undefined) return obj.description;
+  return null;
+}
+
 export class IDBDomain {
   constructor(private client: CDPClient) {}
 
@@ -91,6 +155,168 @@ export class IDBDomain {
     return parsed as IDBDatabaseInfo[];
   }
 
+  async getStoreInfo(databaseName: string, securityOrigin: string): Promise<StoreInfo[]> {
+    await this.enable();
+
+    const { databaseWithObjectStores } = await this.client.send<{
+      databaseWithObjectStores: CdpDatabaseWithObjectStores;
+    }>("IndexedDB.requestDatabase", { securityOrigin, databaseName });
+
+    const stores = await Promise.all(
+      databaseWithObjectStores.objectStores.map(async (store) => {
+        const [{ entriesCount, keyGeneratorValue }, sample] = await Promise.all([
+          this.client.send<{ entriesCount: number; keyGeneratorValue: number }>(
+            "IndexedDB.getMetadata",
+            { securityOrigin, databaseName, objectStoreName: store.name },
+          ),
+          this.sampleStoreSize(securityOrigin, databaseName, store.name),
+        ]);
+
+        // Extrapolate total size from sample
+        const estimatedSize =
+          sample.count > 0 && entriesCount > 0
+            ? Math.round((sample.bytes / sample.count) * entriesCount)
+            : 0;
+
+        return {
+          name: store.name,
+          keyPath: cdpKeyPathToValue(store.keyPath),
+          autoIncrement: store.autoIncrement,
+          recordCount: entriesCount,
+          keyGeneratorValue,
+          indexCount: store.indexes.length,
+          indexes: store.indexes.map((idx) => ({
+            name: idx.name,
+            keyPath: cdpKeyPathToValue(idx.keyPath) as string | string[],
+            unique: idx.unique,
+            multiEntry: idx.multiEntry,
+          })),
+          estimatedSize,
+        } satisfies StoreInfo;
+      }),
+    );
+
+    return stores;
+  }
+
+  /**
+   * Fetches a small sample of records to estimate per-record byte size.
+   * Runs in parallel with getMetadata — adds zero sequential latency.
+   */
+  private async sampleStoreSize(
+    securityOrigin: string,
+    databaseName: string,
+    objectStoreName: string,
+    sampleSize = 12,
+  ): Promise<{ bytes: number; count: number }> {
+    try {
+      const { objectStoreDataEntries } = await this.client.send<{
+        objectStoreDataEntries: CdpDataEntry[];
+        hasMore: boolean;
+      }>("IndexedDB.requestData", {
+        securityOrigin,
+        databaseName,
+        objectStoreName,
+        indexName: "",
+        skipCount: 0,
+        pageSize: sampleSize,
+      });
+
+      if (objectStoreDataEntries.length === 0) return { bytes: 0, count: 0 };
+
+      const bytes = objectStoreDataEntries.reduce((sum, entry) => {
+        const v = extractRemoteValue(entry.value);
+        const k = extractRemoteValue(entry.key);
+        return sum + JSON.stringify(v).length + JSON.stringify(k).length;
+      }, 0);
+
+      return { bytes, count: objectStoreDataEntries.length };
+    } catch {
+      return this.sampleStoreSizeViaEval(databaseName, objectStoreName, sampleSize);
+    }
+  }
+
+  private async sampleStoreSizeViaEval(
+    databaseName: string,
+    objectStoreName: string,
+    sampleSize: number,
+  ): Promise<{ bytes: number; count: number }> {
+    try {
+      const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+        expression: `
+          (async () => {
+            try {
+              const req = indexedDB.open('${databaseName}');
+              const db = await new Promise((resolve, reject) => {
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+              });
+
+              const store = db.transaction('${objectStoreName}', 'readonly').objectStore('${objectStoreName}');
+              const records = [];
+              const cursorReq = store.openCursor();
+              await new Promise((resolve, reject) => {
+                cursorReq.onsuccess = () => {
+                  const cursor = cursorReq.result;
+                  if (!cursor || records.length >= ${sampleSize}) return resolve();
+                  records.push({ key: cursor.primaryKey, value: cursor.value });
+                  cursor.continue();
+                };
+                cursorReq.onerror = () => reject(cursorReq.error);
+              });
+
+              db.close();
+
+              let totalBytes = 0;
+              for (const r of records) {
+                totalBytes += JSON.stringify(r.key).length + JSON.stringify(r.value).length;
+              }
+              return JSON.stringify({ bytes: totalBytes, count: records.length });
+            } catch (e) {
+              return JSON.stringify({ error: e.message });
+            }
+          })()
+        `,
+        awaitPromise: true,
+        returnByValue: true,
+      });
+
+      const value = (result.result as Record<string, unknown>).value as string;
+      const parsed = JSON.parse(value);
+      if (parsed.error) return { bytes: 0, count: 0 };
+      return { bytes: parsed.bytes, count: parsed.count };
+    } catch {
+      return { bytes: 0, count: 0 };
+    }
+  }
+
+  async getStorageEstimate(): Promise<{ usage: number; idbUsage: number; quota: number }> {
+    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      expression: `
+        (async () => {
+          try {
+            const est = await navigator.storage.estimate();
+            return JSON.stringify({
+              usage: est.usage ?? 0,
+              quota: est.quota ?? 0,
+              idbUsage: (est.usageDetails && est.usageDetails.indexedDB) ? est.usageDetails.indexedDB : (est.usage ?? 0)
+            });
+          } catch (e) {
+            return JSON.stringify({ usage: 0, quota: 0, idbUsage: 0 });
+          }
+        })()
+      `,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const value = (result.result as Record<string, unknown>).value as string;
+    try {
+      return JSON.parse(value) as { usage: number; idbUsage: number; quota: number };
+    } catch {
+      return { usage: 0, idbUsage: 0, quota: 0 };
+    }
+  }
+
   async getDatabases(securityOrigin: string): Promise<IDBDatabaseInfo[]> {
     const { databaseNames } = await this.client.send<{ databaseNames: string[] }>(
       "IndexedDB.requestDatabaseNames",
@@ -100,101 +326,91 @@ export class IDBDomain {
   }
 
   async getDatabase(securityOrigin: string, databaseName: string): Promise<IDBDatabaseInfo> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { databaseWithObjectStores } = await this.client.send<any>("IndexedDB.requestDatabase", {
-      securityOrigin,
-      databaseName,
-    });
+    const { databaseWithObjectStores } = await this.client.send<{
+      databaseWithObjectStores: CdpDatabaseWithObjectStores;
+    }>("IndexedDB.requestDatabase", { securityOrigin, databaseName });
+
     return {
-      name: databaseWithObjectStores.name as string,
-      version: databaseWithObjectStores.version as number,
+      name: databaseWithObjectStores.name,
+      version: databaseWithObjectStores.version,
       origin: securityOrigin,
-      objectStoreNames: (databaseWithObjectStores.objectStores as Array<{ name: string }>).map(
-        (s) => s.name,
-      ),
+      objectStoreNames: databaseWithObjectStores.objectStores.map((s) => s.name),
     };
   }
 
   async getData(params: GetDataParams): Promise<GetDataResult> {
     const isLocalForage = params.databaseName === "localforage";
 
+    if (isLocalForage) {
+      return this.getDataViaEval(params);
+    }
+
+    await this.enable();
+
+    try {
+      const response = await this.client.send<{
+        objectStoreDataEntries: CdpDataEntry[];
+        hasMore: boolean;
+      }>("IndexedDB.requestData", {
+        securityOrigin: params.securityOrigin,
+        databaseName: params.databaseName,
+        objectStoreName: params.objectStoreName,
+        indexName: params.indexName ?? "",
+        skipCount: params.skipCount,
+        pageSize: params.pageSize,
+        ...(params.keyRange ? { keyRange: params.keyRange } : {}),
+      });
+
+      console.log(
+        "[IDB] requestData hasMore:",
+        response.hasMore,
+        "count:",
+        response.objectStoreDataEntries.length,
+      );
+
+      const records: IDBRecord[] = response.objectStoreDataEntries.map((entry) => ({
+        key: extractRemoteValue(entry.key) as IDBValidKey,
+        value: extractRemoteValue(entry.value),
+      }));
+
+      return { records, hasMore: response.hasMore };
+    } catch (err) {
+      console.warn("[IDB] CDP requestData failed, falling back to Runtime.evaluate:", err);
+      return this.getDataViaEval(params);
+    }
+  }
+
+  private async getDataViaEval(params: GetDataParams): Promise<GetDataResult> {
+    const indexName = params.indexName ?? "";
     const expression = `
       (async () => {
         try {
-          ${
-            isLocalForage
-              ? `
-          // Special handling for localforage - use its API to get logical keys
-          if (typeof localforage !== 'undefined') {
-            const lfDriver = localforage.createInstance({
-              name: '${params.databaseName}',
-              storeName: '${params.objectStoreName}'
-            });
-            const keys = await lfDriver.keys();
-            const allValues = await Promise.all(keys.map(k => lfDriver.getItem(k)));
-            
-            const skip = ${params.skipCount};
-            const take = ${params.pageSize};
-            const total = keys.length;
-            const hasMore = skip + take < total;
-            
-            function safeSerialize(val) {
-              if (val === undefined) return undefined;
-              if (val === null) return null;
-              if (val instanceof Date) return { __type: 'Date', value: val.toISOString() };
-              if (val instanceof Blob) return { __type: 'Blob', size: val.size, type: val.type };
-              if (typeof val === 'bigint') return { __type: 'BigInt', value: val.toString() };
-              if (val instanceof ArrayBuffer) return { __type: 'ArrayBuffer', byteLength: val.byteLength };
-              if (val instanceof Uint8Array) return { __type: 'Uint8Array', data: Array.from(val) };
-              if (val instanceof Set) return { __type: 'Set', values: Array.from(val) };
-              if (val instanceof Map) return { __type: 'Map', entries: Array.from(val.entries()) };
-              return val;
-            }
-            
-            const records = [];
-            for (let i = skip; i < Math.min(skip + take, total); i++) {
-              records.push({
-                key: safeSerialize(keys[i]),
-                value: safeSerialize(allValues[i])
-              });
-            }
-            
-            return JSON.stringify({ records, hasMore, total });
-          }
-          `
-              : ""
-          }
-          
-          // Fallback: raw IndexedDB access
+          const req = indexedDB.open('${params.databaseName}');
           const db = await new Promise((resolve, reject) => {
-            const req = indexedDB.open('${params.databaseName}');
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
           });
 
-          const tx = db.transaction('${params.objectStoreName}', 'readonly');
-          const store = tx.objectStore('${params.objectStoreName}');
-          const keyPath = store.keyPath;
-          const autoIncrement = store.autoIncrement;
+          const store = db.transaction('${params.objectStoreName}', 'readonly').objectStore('${params.objectStoreName}');
+          const cursorSource = ${indexName ? `store.index('${indexName}')` : "store"};
+          const allRecords = [];
 
-          const [allKeys, allValues] = await Promise.all([
-            new Promise((resolve, reject) => {
-              const req = store.getAllKeys();
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => reject(req.error);
-            }),
-            new Promise((resolve, reject) => {
-              const req = store.getAll();
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => reject(req.error);
-            })
-          ]);
+          const cursorReq = cursorSource.openCursor();
+          await new Promise((resolve, reject) => {
+            cursorReq.onsuccess = () => {
+              const cursor = cursorReq.result;
+              if (!cursor) return resolve();
+              allRecords.push({ key: cursor.primaryKey, value: cursor.value });
+              cursor.continue();
+            };
+            cursorReq.onerror = () => reject(cursorReq.error);
+          });
 
           db.close();
 
           const skip = ${params.skipCount};
           const take = ${params.pageSize};
-          const total = allKeys.length;
+          const total = allRecords.length;
           const hasMore = skip + take < total;
 
           function safeSerialize(val) {
@@ -212,17 +428,9 @@ export class IDBDomain {
 
           const records = [];
           for (let i = skip; i < Math.min(skip + take, total); i++) {
-            let displayKey = allKeys[i];
-            if (keyPath && typeof allValues[i] === 'object' && allValues[i] !== null) {
-              if (typeof keyPath === 'string') {
-                displayKey = allValues[i][keyPath];
-              } else if (Array.isArray(keyPath)) {
-                displayKey = keyPath.map(k => allValues[i][k]);
-              }
-            }
             records.push({
-              key: safeSerialize(displayKey),
-              value: safeSerialize(allValues[i])
+              key: safeSerialize(allRecords[i].key),
+              value: safeSerialize(allRecords[i].value)
             });
           }
 
@@ -240,7 +448,7 @@ export class IDBDomain {
     });
 
     const value = (result.result as Record<string, unknown>).value as string;
-    console.log("[IDB] getData result (first 500 chars):", value?.substring(0, 500));
+    console.log("[IDB] getDataViaEval result (first 500 chars):", value?.substring(0, 500));
 
     const parsed = JSON.parse(value as string);
     if (parsed.error) {

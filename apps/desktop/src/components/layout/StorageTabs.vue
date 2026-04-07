@@ -19,6 +19,12 @@ const navItems = [
     path: "/storage/localstorage",
   },
   {
+    name: "storage-localstorage",
+    label: "LocalForage",
+    icon: Database,
+    path: "/storage/localforage",
+  },
+  {
     name: "storage-cache",
     label: "Cache API",
     icon: Archive,
@@ -33,7 +39,6 @@ const navItems = [
 ];
 
 function isActive(name: string): boolean {
-  console.log("nameeee", name, route.name);
   return route.name === name;
 }
 </script>

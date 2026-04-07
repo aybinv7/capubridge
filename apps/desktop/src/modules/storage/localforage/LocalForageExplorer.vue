@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import {
   Search,
   Copy,
@@ -27,8 +27,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useLocalStorage } from "@/composables/useStorage";
-import JsonEditor from "./JsonEditor.vue";
+import { useLocalForage } from "@/composables/useLocalForage";
+import JsonEditor from "../localstorage/JsonEditor.vue";
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 
@@ -50,7 +50,7 @@ const editSaving = ref(false);
 const showDeleteConfirm = ref(false);
 const deleteTargetKey = ref("");
 
-const { useOrigins, useEntries, getDomain } = useLocalStorage();
+const { useOrigins, useEntries, getDomain } = useLocalForage();
 
 const { data: origins, isLoading: isLoadingOrigins, refetch: refetchOrigins } = useOrigins();
 
@@ -68,22 +68,17 @@ type ValueType = "json" | "number" | "date" | "boolean" | "string";
 function inferType(raw: string): ValueType {
   const v = raw.trim();
   if (!v) return "string";
-  // JSON object/array
   if ((v.startsWith("{") && v.endsWith("}")) || (v.startsWith("[") && v.endsWith("]"))) {
     try {
       JSON.parse(v);
       return "json";
     } catch {
-      return "json"; /* treat as json even if invalid */
+      return "json";
     }
   }
-  // number
   if (!isNaN(Number(v)) && v !== "") return "number";
-  // boolean
   if (v === "true" || v === "false") return "boolean";
-  // date (ISO 8601 or similar)
   if (/^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]+)?$/.test(v)) return "date";
-  // full JSON primitives (quoted strings stored as JSON)
   if (v.startsWith('"') && v.endsWith('"')) {
     try {
       JSON.parse(v);
@@ -95,7 +90,6 @@ function inferType(raw: string): ValueType {
   return "string";
 }
 
-// The type is locked to the original value when editing (not creating)
 const originalType = computed<ValueType>(() => inferType(editOriginalValue.value));
 
 // ─── Validation ────────────────────────────────────────────────────────────────
@@ -104,7 +98,7 @@ type ValidationResult = { valid: true } | { valid: false; reason: string };
 
 const validation = computed<ValidationResult>(() => {
   const v = editValue.value.trim();
-  if (!v) return { valid: true }; // empty is fine for strings
+  if (!v) return { valid: true };
 
   const type = isCreate.value ? inferType(v) : originalType.value;
 
@@ -147,7 +141,6 @@ const editFormValid = computed(() => {
   return isEditValueValid.value;
 });
 
-// Badge: priority order: invalid > unsaved > (nothing)
 const badge = computed<null | "unsaved" | "invalid">(() => {
   if (!isEditValueValid.value) return "invalid";
   if (isDirty.value) return "unsaved";
@@ -266,7 +259,6 @@ function openCreateDialog() {
 
 async function saveEdit() {
   if (!editFormValid.value || !selectedOrigin.value) return;
-  // Auto-format JSON on save
   if (originalType.value === "json" || (isCreate.value && inferType(editValue.value) === "json")) {
     try {
       editValue.value = JSON.stringify(JSON.parse(editValue.value), null, 2);
@@ -405,10 +397,10 @@ watch(origins, (newOrigins) => {
                 >({{ filtered.length ?? 0 }} entries)</span
               >
               <div class="flex-1" />
-              <Button variant="ghost" size="sm" class="h-6 text-xs" @click="openCreateDialog()">
+              <Button variant="ghost" size="sm" class="h-5 text-xs" @click="openCreateDialog()">
                 <Plus :size="12" class="mr-1" />New Key
               </Button>
-              <Button variant="ghost" size="sm" class="h-6 text-xs" @click="refetchAll()">
+              <Button variant="ghost" size="sm" class="h-5 text-xs" @click="refetchAll()">
                 <RefreshCw :size="12" class="mr-1" />Refresh
               </Button>
             </div>
@@ -423,7 +415,7 @@ watch(origins, (newOrigins) => {
               >
                 <AlertCircle :size="16" class="text-muted-foreground/30 mb-2" />
                 <p class="text-[11px] text-muted-foreground/40">
-                  {{ isError ? "Failed to load" : "No LocalStorage entries" }}
+                  {{ isError ? "Failed to load" : "No LocalForage entries" }}
                 </p>
               </div>
 
@@ -572,7 +564,11 @@ watch(origins, (newOrigins) => {
               :disabled="!editFormValid || editSaving"
               @click="saveEdit()"
             >
-              <RefreshCw v-if="editSaving" :size="12" class="animate-spin mr-1" />
+              <RefreshCw
+                v-if="editSaving"
+                :size="12"
+                class="animate-spin mr-1"
+              />
               Save
             </Button> -->
             <div class="relative group">

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,13 +27,11 @@ const emit = defineEmits<{
 }>();
 
 const pageSizeOptions = [50, 100, 500];
-
-const pageSizeLabel = computed(() => `${props.pageSize} / page`);
 </script>
 
 <template>
   <div
-    class="flex h-10 shrink-0 items-center justify-between border-b border-border/30 bg-surface-2 px-4 gap-3"
+    class="flex h-9 shrink-0 items-center justify-between border-b border-border/30 bg-surface-2 px-4 gap-3"
   >
     <!-- Left: store path -->
     <div class="flex items-center gap-2 min-w-0 overflow-hidden">
@@ -58,7 +55,7 @@ const pageSizeLabel = computed(() => `${props.pageSize} / page`);
         <SelectTrigger
           class="h-7 w-auto gap-1.5 border-border/30 px-2 text-xs text-muted-foreground"
         >
-          <SelectValue :default-value="pageSizeLabel" />
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem v-for="s in pageSizeOptions" :key="s" :value="String(s)">

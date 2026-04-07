@@ -74,12 +74,12 @@ function refetch() {
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30">
         <div class="flex h-full flex-col border-r border-border/30">
           <div
-            class="flex items-center gap-2 bg-surface-3 rounded-md px-2.5 py-1.5 border border-border/30 focus-within:border-border/60 transition-colors"
+            class="flex items-center gap-2 bg-surface-3 rounded-md px-2 py-2 border border-border/30 focus-within:border-border/60 transition-colors"
           >
-            <Search class="w-3.5 h-3.5 text-muted-foreground/50" />
+            <Search class="w-3 h-3 text-muted-foreground/50" />
             <Input
               v-model="filter"
-              class="h-6 text-xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground/40"
+              class="h-5 text-xs font-mono bg-transparent border-0 focus-visible:ring-0 px-0 placeholder:text-muted-foreground/40"
               placeholder="Filter by URL or type…"
             />
           </div>
@@ -134,7 +134,7 @@ function refetch() {
       </ResizablePanel>
       <ResizableHandle with-handle />
 
-      <ResizablePanel :default-size="80">
+      <ResizablePanel :default-size="85">
         <div class="flex flex-col h-full">
           <div
             v-if="!selectedCacheName"

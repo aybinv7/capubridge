@@ -10,6 +10,7 @@
     "tauri": "vpx tauri.cmd dev"
   },
   "dependencies": {
+    "@internationalized/date": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/vue-query": "catalog:",
     "@tanstack/vue-table": "catalog:",

@@ -17,13 +17,20 @@ pub struct ChromeFindResult {
 
 fn find_chrome_path() -> Option<String> {
     let candidates = [
+        // User-level install (most common on Windows — no admin rights required)
+        // r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe",
+        // r"%LOCALAPPDATA%\Google\Chrome Dev\Application\chrome.exe",
+        // r"%LOCALAPPDATA%\Google\Chrome Beta\Application\chrome.exe",
+        // System-level installs
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files\Google\Chrome Dev\Application\chrome.exe",
         r"C:\Program Files\Google\Chrome Beta\Application\chrome.exe",
         r"C:\Program Files\Google\Chrome SxS\Application\chrome.exe",
+        // macOS
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+        // Linux
         "/usr/bin/google-chrome",
         "/usr/bin/google-chrome-stable",
         "/usr/bin/chromium-browser",
@@ -99,12 +106,6 @@ pub async fn chrome_launch(_app: tauri::AppHandle, port: u16) -> Result<ChromeLa
             "Port {} is already in use. Close Chrome or use manual connect mode.",
             port
         ));
-    }
-
-    if is_chrome_already_running() {
-        return Err(
-            "Chrome is already running. Close all Chrome windows first, or use manual connect mode to attach to an existing instance started with --remote-debugging-port.".to_string()
-        );
     }
 
     let port_str = port.to_string();

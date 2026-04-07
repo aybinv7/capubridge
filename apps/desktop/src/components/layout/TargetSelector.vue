@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { ChevronDown, Loader2, Smartphone, Globe, RefreshCw } from "lucide-vue-next";
+import { computed, ref } from "vue";
+import {
+  ChevronDown,
+  Loader2,
+  Smartphone,
+  Globe,
+  RefreshCw,
+} from "lucide-vue-next";
 import { useCDP } from "@/composables/useCDP";
 import type { CDPTarget } from "@/types/cdp.types";
 import {
@@ -11,7 +17,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const { targetsStore, connectionStore, connectToTarget, sourceStore, refreshTargets } = useCDP();
+const isOpen = ref(false);
+
+const {
+  targetsStore,
+  connectionStore,
+  connectToTarget,
+  sourceStore,
+  refreshTargets,
+} = useCDP();
 
 async function handleTargetSelect(target: CDPTarget) {
   targetsStore.selectTarget(target);
@@ -20,6 +34,12 @@ async function handleTargetSelect(target: CDPTarget) {
   } catch (err) {
     console.error("CDP connect failed:", err);
   }
+}
+
+function openTarget() {
+  if (isOpen.value) return (isOpen.value = false);
+  refreshTargets();
+  isOpen.value = true;
 }
 
 function connStatus(targetId: string) {
@@ -44,7 +64,9 @@ const dotClass = computed(() => {
 });
 
 const hasActiveSource = computed(() => sourceStore.activeSources.length > 0);
-const isFetching = computed(() => hasActiveSource.value && targetsStore.fetchingSources.size > 0);
+const isFetching = computed(
+  () => hasActiveSource.value && targetsStore.fetchingSources.size > 0,
+);
 const hasTargets = computed(() => targetsStore.targets.length > 0);
 
 const sourceIcon = (source: string) => {
@@ -53,23 +75,21 @@ const sourceIcon = (source: string) => {
 </script>
 
 <template>
-  <span v-if="!hasActiveSource" class="text-[11px] text-muted-foreground/40 px-1">
+  <span
+    v-if="!hasActiveSource"
+    class="text-[11px] text-muted-foreground/40 px-1"
+  >
     Select a source to inspect targets
   </span>
 
   <span
-    v-else-if="isFetching"
-    class="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 px-1"
+    v-else-if="!hasTargets"
+    class="text-[11px] text-muted-foreground/40 px-1"
   >
-    <Loader2 :size="11" class="animate-spin" />
-    Fetching targets…
-  </span>
-
-  <span v-else-if="!hasTargets" class="text-[11px] text-muted-foreground/40 px-1">
     No inspectable targets
   </span>
 
-  <DropdownMenu v-else>
+  <DropdownMenu :open="isOpen" v-else @update:open="openTarget()">
     <DropdownMenuTrigger as-child>
       <button
         class="flex h-6 min-w-[160px] max-w-[280px] items-center gap-2 border border-border/40 bg-surface-2/50 px-2.5 text-[11px] text-foreground/70 transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -84,7 +104,9 @@ const sourceIcon = (source: string) => {
 
     <DropdownMenuContent align="end" class="w-80 p-1">
       <div class="flex items-center justify-between px-2 py-2">
-        <span class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+        <span
+          class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50"
+        >
           Targets
         </span>
         <button
@@ -110,7 +132,9 @@ const sourceIcon = (source: string) => {
           <span
             class="size-[6px] rounded-full shrink-0"
             :class="
-              connStatus(target.id) === 'connected' ? 'bg-status-success' : 'bg-muted-foreground/20'
+              connStatus(target.id) === 'connected'
+                ? 'bg-status-success'
+                : 'bg-muted-foreground/20'
             "
           />
           <component
@@ -122,7 +146,9 @@ const sourceIcon = (source: string) => {
             {{ target.title || "(no title)" }}
           </span>
         </div>
-        <span class="w-full truncate font-mono text-[10px] text-muted-foreground/40 pl-[16px]">
+        <span
+          class="w-full truncate font-mono text-[10px] text-muted-foreground/40 pl-[16px]"
+        >
           {{ target.url }}
         </span>
       </DropdownMenuItem>

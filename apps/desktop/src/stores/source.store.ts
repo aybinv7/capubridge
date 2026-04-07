@@ -43,7 +43,10 @@ export const useSourceStore = defineStore("source", () => {
     if (!source) return;
 
     try {
-      await invoke("adb_remove_forward", { serial: source.serial, localPort: source.port });
+      await invoke("adb_remove_forward", {
+        serial: source.serial,
+        localPort: source.port,
+      });
     } catch {
       // ignore cleanup errors
     }
@@ -57,7 +60,9 @@ export const useSourceStore = defineStore("source", () => {
     chromeNeedsRelaunch.value = false;
 
     try {
-      const res = await invoke<boolean>("chrome_verify_port", { port: CHROME_CDP_PORT });
+      const res = await invoke<boolean>("chrome_verify_port", {
+        port: CHROME_CDP_PORT,
+      });
       if (res) {
         activeSources.value.push({
           type: "chrome",
@@ -68,16 +73,22 @@ export const useSourceStore = defineStore("source", () => {
         return "connected";
       }
     } catch {
-      // port not listening, continue to launch
+      // port not listening, continue
     }
 
-    const isRunning = await invoke<boolean>("chrome_is_running");
-    if (isRunning) {
-      chromeNeedsRelaunch.value = true;
+    try {
+      const isRunning = await invoke<boolean>("chrome_is_running");
+      if (isRunning) {
+        chromeNeedsRelaunch.value = true;
+        chromeStatus.value = "idle";
+        return "needs_relaunch";
+      }
+    } catch {
+      // command unavailable (binary not yet rebuilt) — treat as not found
       chromeStatus.value = "idle";
-      return "needs_relaunch";
     }
 
+    chromeStatus.value = "idle";
     return "not_found";
   }
 
@@ -86,13 +97,24 @@ export const useSourceStore = defineStore("source", () => {
     chromeError.value = null;
 
     try {
-      const isRunning = await invoke<boolean>("chrome_is_running");
-      if (isRunning) {
-        await invoke("chrome_kill_all");
-        await new Promise((r) => setTimeout(r, 1500));
+      try {
+        const isRunning = await invoke<boolean>("chrome_is_running");
+        if (isRunning) {
+          await invoke("chrome_kill_all");
+          // Poll until all Chrome processes are gone (max 6s)
+          for (let i = 0; i < 30; i++) {
+            await new Promise((r) => setTimeout(r, 200));
+            const stillRunning = await invoke<boolean>("chrome_is_running");
+            if (!stillRunning) break;
+          }
+        }
+      } catch {
+        // chrome_is_running unavailable — binary needs rebuild, skip pre-kill
       }
 
-      const result = await invoke<ChromeLaunchResult>("chrome_launch", { port: CHROME_CDP_PORT });
+      const result = await invoke<ChromeLaunchResult>("chrome_launch", {
+        port: CHROME_CDP_PORT,
+      });
 
       activeSources.value.push({
         type: "chrome",

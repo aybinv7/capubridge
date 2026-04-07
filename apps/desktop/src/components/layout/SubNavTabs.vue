@@ -23,6 +23,7 @@ import {
   Wrench,
   Palette,
   Keyboard,
+  DatabaseZap,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -36,8 +37,9 @@ const iconMap: Record<string, typeof Smartphone> = {
   "devices-files": FolderOpen,
   "devices-screen": ScreenShare,
   "devices-perf": Gauge,
-  "storage-indexeddb": Database,
-  "storage-localstorage": HardDrive,
+  "storage-indexeddb": HardDrive,
+  "storage-localforage": Database,
+  "storage-localstorage": DatabaseZap,
   "storage-cache": Archive,
   "storage-opfs": FolderOpen,
   "network-requests": Globe,
@@ -67,7 +69,7 @@ const subTabs = computed(() => {
     .filter((r) => r.path && !r.path.startsWith(":") && r.name)
     .map((r) => {
       const parentPath = parentRoute.path.replace(/\/$/, "");
-      const childPath = r.path.replace(/^\//, "");
+      const childPath = r.path.replace(/^\//, "").split("/")[0];
       const fullPath = childPath ? `${parentPath}/${childPath}` : parentPath;
       const name = r.name as string;
       return {
