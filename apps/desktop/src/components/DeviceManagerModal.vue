@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import {
   X,
   Usb,
   Wifi,
-  Plus,
-  Trash2,
   ArrowRightLeft,
   ArrowLeftRight,
   Link,
@@ -16,77 +14,197 @@ import {
   Camera,
   Terminal,
   MonitorSmartphone,
+  Smartphone,
+  Loader2,
 } from "lucide-vue-next";
-import { devices, portForwards } from "@/data/mock-data";
+import { toast } from "vue-sonner";
+import { useDevicesStore } from "@/stores/devices.store";
+import { useAdb } from "@/composables/useAdb";
+import type { ADBDevice } from "@/types/adb.types";
 
-defineProps<{ open: boolean }>();
-const emit = defineEmits<{ close: []; selectDevice: [id: string] }>();
+const props = defineProps<{ open: boolean }>();
+const emit = defineEmits<{ close: []; selectDevice: [serial: string] }>();
 
-const selectedDeviceId = ref(devices[0].id);
+const devicesStore = useDevicesStore();
+const { getDeviceOverview, connectDevice, disconnectDevice, pairDevice, reboot, restartServer, tcpip, shellCommand } = useAdb();
+
+const selectedDeviceSerial = ref<string | null>(null);
 const rightView = ref<"device" | "connect">("device");
 type DeviceTab = "connection" | "forwarding" | "reverse" | "actions";
 const deviceTab = ref<DeviceTab>("connection");
 
-const selectedDevice = computed(() => devices.find((d) => d.id === selectedDeviceId.value)!);
-
-const devicePorts = reactive<
-  Record<string, { forwards: typeof portForwards; reverses: typeof portForwards }>
->({
-  [devices[0].id]: {
-    forwards: portForwards.map((f) => ({ ...f })),
-    reverses: [{ id: 10, local: 3000, remote: 3000, description: "React Native Metro" }],
-  },
-  [devices[1].id]: {
-    forwards: [{ id: 20, local: 8081, remote: 8081, description: "Metro Bundler" }],
-    reverses: [],
-  },
-  [devices[2].id]: { forwards: [], reverses: [] },
+const selectedDevice = computed(() => {
+  if (!selectedDeviceSerial.value) return null;
+  return devicesStore.devices.find((d) => d.serial === selectedDeviceSerial.value) ?? null;
 });
 
-function ensureDevicePorts(id: string) {
-  if (!devicePorts[id]) devicePorts[id] = { forwards: [], reverses: [] };
+const deviceInfoCache = reactive<Record<string, Awaited<ReturnType<typeof getDeviceOverview>>>>({});
+const deviceInfoLoading = ref(false);
+
+async function fetchDeviceInfo(serial: string) {
+  if (deviceInfoCache[serial]) return;
+  deviceInfoLoading.value = true;
+  try {
+    const info = await getDeviceOverview(serial);
+    if (info) {
+      deviceInfoCache[serial] = info;
+    }
+  } catch {
+    // info unavailable
+  } finally {
+    deviceInfoLoading.value = false;
+  }
 }
 
-const deviceConn = reactive<Record<string, string>>(
-  Object.fromEntries(devices.map((d) => [d.id, d.connection])),
-);
+const selectedDeviceInfo = computed(() => {
+  if (!selectedDeviceSerial.value) return null;
+  return deviceInfoCache[selectedDeviceSerial.value] ?? null;
+});
 
-const newLocal = ref("");
-const newRemote = ref("");
-const newDesc = ref("");
+const deviceConn = reactive<Record<string, string>>({});
 
-function addPort(type: "forwards" | "reverses") {
-  if (!newLocal.value || !newRemote.value) return;
-  ensureDevicePorts(selectedDeviceId.value);
-  devicePorts[selectedDeviceId.value][type].push({
-    id: Date.now(),
-    local: Number(newLocal.value),
-    remote: Number(newRemote.value),
-    description: newDesc.value,
-  });
-  newLocal.value = "";
-  newRemote.value = "";
-  newDesc.value = "";
-}
-
-function removePort(type: "forwards" | "reverses", id: number) {
-  ensureDevicePorts(selectedDeviceId.value);
-  devicePorts[selectedDeviceId.value][type] = devicePorts[selectedDeviceId.value][type].filter(
-    (f) => f.id !== id,
-  );
+function getConnectionType(device: ADBDevice): string {
+  if (device.connectionType === "wifi") return "WiFi";
+  if (device.serial.includes("emulator")) return "Emulator";
+  return "USB";
 }
 
 const wifiIp = ref("");
 const wifiPort = ref("5555");
 const pairAddr = ref("");
 const pairCode = ref("");
+const actionLoading = ref<string | null>(null);
 
-function selectDevice(id: string) {
-  selectedDeviceId.value = id;
+function selectDevice(serial: string) {
+  selectedDeviceSerial.value = serial;
   rightView.value = "device";
   deviceTab.value = "connection";
-  emit("selectDevice", id);
+  void fetchDeviceInfo(serial);
 }
+
+function onSelectDevice(serial: string) {
+  emit("selectDevice", serial);
+  emit("close");
+}
+
+function refreshDevices() {
+  void devicesStore.refreshDevices();
+}
+
+async function handleConnect() {
+  if (!wifiIp.value) {
+    toast.error("Enter an IP address");
+    return;
+  }
+  const port = parseInt(wifiPort.value, 10) || 5555;
+  try {
+    await connectDevice(wifiIp.value, port);
+    toast.success("Device connected", { description: `${wifiIp.value}:${port}` });
+    await devicesStore.refreshDevices();
+  } catch (err) {
+    toast.error("Failed to connect", { description: String(err) });
+  }
+}
+
+async function handlePair() {
+  if (!pairAddr.value || !pairCode.value) {
+    toast.error("Enter address and pairing code");
+    return;
+  }
+  const [host, portStr] = pairAddr.value.split(":");
+  const port = parseInt(portStr, 10);
+  if (!host || isNaN(port)) {
+    toast.error("Invalid address", { description: "Expected format: 192.168.1.x:PORT" });
+    return;
+  }
+  try {
+    await pairDevice(host, port, pairCode.value);
+    toast.success("Device paired", { description: `${pairAddr.value}` });
+    pairCode.value = "";
+  } catch (err) {
+    toast.error("Pairing failed", { description: String(err) });
+  }
+}
+
+async function handleAction(action: string) {
+  const serial = selectedDevice.value?.serial;
+  if (!serial) return;
+  actionLoading.value = action;
+  try {
+    switch (action) {
+      case "screenshot": {
+        await shellCommand(serial, "screencap -p /sdcard/capubridge_screenshot.png");
+        toast.success("Screenshot saved", { description: "/sdcard/capubridge_screenshot.png" });
+        break;
+      }
+      case "restart-adb": {
+        await restartServer();
+        toast.success("ADB server restarted");
+        await devicesStore.refreshDevices();
+        break;
+      }
+      case "wifi-debug": {
+        await tcpip(serial);
+        const ip = selectedDeviceInfo.value?.ipAddresses[0];
+        toast.success("WiFi debugging enabled on port 5555", {
+          description: ip ? `Connect via: ${ip}:5555` : "Connect using the device IP",
+        });
+        break;
+      }
+      case "reboot": {
+        await reboot(serial);
+        toast.info("Rebooting device…");
+        break;
+      }
+      case "reboot-recovery": {
+        await reboot(serial, "recovery");
+        toast.info("Rebooting to recovery…");
+        break;
+      }
+    }
+  } catch (err) {
+    toast.error(`Action failed: ${action}`, { description: String(err) });
+  } finally {
+    actionLoading.value = null;
+  }
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      void devicesStore.refreshDevices();
+      if (!selectedDeviceSerial.value && devicesStore.devices.length > 0) {
+        selectDevice(devicesStore.devices[0].serial);
+      }
+    }
+  },
+);
+
+watch(
+  () => devicesStore.devices,
+  (devices) => {
+    for (const d of devices) {
+      if (!deviceConn[d.serial]) {
+        deviceConn[d.serial] = getConnectionType(d);
+      }
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => devicesStore.selectedDevice,
+  (d) => {
+    if (d) {
+      selectedDeviceSerial.value = d.serial;
+      if (!deviceConn[d.serial]) {
+        deviceConn[d.serial] = getConnectionType(d);
+      }
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -114,23 +232,36 @@ function selectDevice(id: string) {
               <MonitorSmartphone class="w-4 h-4 text-muted-foreground/70" />
               <span class="text-sm font-semibold text-foreground">Devices</span>
               <span class="ml-auto text-xs font-mono text-muted-foreground/60">
-                {{ devices.filter((d) => d.status === "online").length }}/{{ devices.length }}
+                {{ devicesStore.onlineDevices.length }}/{{ devicesStore.devices.length }}
               </span>
               <button
                 class="w-6 h-6 flex items-center justify-center text-muted-foreground/60 hover:text-muted-foreground transition-colors rounded-md hover:bg-surface-2"
+                @click="refreshDevices"
               >
                 <RefreshCw class="w-3.5 h-3.5" />
               </button>
             </div>
 
             <div class="flex-1 overflow-y-auto p-2 space-y-1">
+              <!-- Empty state -->
+              <div
+                v-if="devicesStore.devices.length === 0"
+                class="flex flex-col items-center justify-center py-12 px-4 text-center"
+              >
+                <Smartphone :size="24" class="text-muted-foreground/20 mb-2" />
+                <p class="text-xs text-muted-foreground/40">No devices connected</p>
+                <p class="text-[10px] text-muted-foreground/25 mt-1">
+                  Connect an Android device via USB
+                </p>
+              </div>
+
               <button
-                v-for="d in devices"
-                :key="d.id"
-                @click="selectDevice(d.id)"
+                v-for="d in devicesStore.devices"
+                :key="d.serial"
+                @click="selectDevice(d.serial)"
                 class="w-full text-left p-3 rounded-lg transition-all duration-150 border border-transparent"
                 :class="
-                  selectedDeviceId === d.id && rightView === 'device'
+                  selectedDeviceSerial === d.serial && rightView === 'device'
                     ? 'border-border/30 bg-surface-2'
                     : 'hover:bg-surface-2/50'
                 "
@@ -145,24 +276,24 @@ function selectDevice(id: string) {
                     "
                   />
                   <span class="text-sm font-medium text-foreground truncate flex-1">{{
-                    d.model
+                    d.model || d.serial
                   }}</span>
                 </div>
                 <div class="flex items-center gap-1.5 mt-1 pl-5">
                   <span class="text-xs font-mono text-muted-foreground/60 truncate">{{
-                    d.id.slice(0, 10)
+                    d.serial.slice(0, 10)
                   }}</span>
                   <span class="text-xs text-muted-foreground/50">·</span>
                   <span
                     class="text-xs shrink-0"
                     :class="
-                      deviceConn[d.id] === 'USB'
+                      deviceConn[d.serial] === 'USB'
                         ? 'text-success/80'
-                        : deviceConn[d.id] === 'WiFi'
+                        : deviceConn[d.serial] === 'WiFi'
                           ? 'text-info/80'
                           : 'text-warning/80'
                     "
-                    >{{ deviceConn[d.id] }}</span
+                    >{{ deviceConn[d.serial] }}</span
                   >
                 </div>
               </button>
@@ -204,7 +335,7 @@ function selectDevice(id: string) {
                 <div>
                   <div class="flex items-center gap-2.5">
                     <span class="text-base font-semibold text-foreground">{{
-                      selectedDevice.model
+                      selectedDevice.model || selectedDevice.serial
                     }}</span>
                     <span
                       class="text-xs px-2 py-0.5 font-medium rounded-full"
@@ -217,15 +348,21 @@ function selectDevice(id: string) {
                     >
                   </div>
                   <div class="text-xs text-muted-foreground/40 font-mono mt-0.5">
-                    Android {{ selectedDevice.androidVersion }} · API
-                    {{ selectedDevice.apiLevel }} · {{ selectedDevice.ip }}
+                    <template v-if="selectedDeviceInfo">
+                      Android {{ selectedDeviceInfo.androidVersion }} · API
+                      {{ selectedDeviceInfo.apiLevel }}
+                    </template>
+                    <template v-else-if="deviceInfoLoading">
+                      <Loader2 :size="10" class="inline animate-spin mr-1" />
+                      Loading device info…
+                    </template>
+                    <template v-else>
+                      {{ selectedDevice.serial }}
+                    </template>
                   </div>
                 </div>
                 <button
-                  @click="
-                    emit('selectDevice', selectedDevice.id);
-                    emit('close');
-                  "
+                  @click="onSelectDevice(selectedDevice.serial)"
                   class="ml-auto flex items-center gap-2 px-4 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity shrink-0"
                 >
                   Set Active
@@ -266,10 +403,10 @@ function selectDevice(id: string) {
                     <button
                       v-for="mode in ['USB', 'WiFi', 'Emulator']"
                       :key="mode"
-                      @click="deviceConn[selectedDevice.id] = mode"
+                      @click="deviceConn[selectedDevice.serial] = mode"
                       class="flex-1 flex flex-col items-center gap-2 py-5 rounded-lg border-2 transition-all duration-150"
                       :class="
-                        deviceConn[selectedDevice.id] === mode
+                        deviceConn[selectedDevice.serial] === mode
                           ? 'border-border/60 bg-surface-2'
                           : 'border-border/20 hover:border-border/40'
                       "
@@ -278,7 +415,7 @@ function selectDevice(id: string) {
                         :is="mode === 'WiFi' ? Wifi : mode === 'USB' ? Usb : Terminal"
                         class="w-5 h-5"
                         :class="
-                          deviceConn[selectedDevice.id] === mode
+                          deviceConn[selectedDevice.serial] === mode
                             ? 'text-foreground'
                             : 'text-muted-foreground/40'
                         "
@@ -286,14 +423,14 @@ function selectDevice(id: string) {
                       <span
                         class="text-sm font-medium"
                         :class="
-                          deviceConn[selectedDevice.id] === mode
+                          deviceConn[selectedDevice.serial] === mode
                             ? 'text-foreground'
                             : 'text-muted-foreground/50'
                         "
                         >{{ mode }}</span
                       >
                       <div
-                        v-if="deviceConn[selectedDevice.id] === mode"
+                        v-if="deviceConn[selectedDevice.serial] === mode"
                         class="text-xs text-muted-foreground/50"
                       >
                         Active
@@ -303,27 +440,44 @@ function selectDevice(id: string) {
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
+                  <div class="bg-surface-2 border border-border/30 rounded-lg px-4 py-3">
+                    <div class="text-xs text-muted-foreground/50 mb-1">Serial</div>
+                    <div class="text-sm font-mono text-foreground truncate">
+                      {{ selectedDevice.serial }}
+                    </div>
+                  </div>
                   <div
-                    v-for="info in [
-                      { label: 'Serial', value: selectedDevice.id },
-                      { label: 'IP Address', value: selectedDevice.ip },
-                      { label: 'Resolution', value: selectedDevice.resolution },
-                      { label: 'Storage', value: selectedDevice.storage },
-                    ]"
-                    :key="info.label"
+                    v-if="selectedDeviceInfo?.ipAddresses?.length"
                     class="bg-surface-2 border border-border/30 rounded-lg px-4 py-3"
                   >
-                    <div class="text-xs text-muted-foreground/50 mb-1">
-                      {{ info.label }}
-                    </div>
+                    <div class="text-xs text-muted-foreground/50 mb-1">IP Address</div>
                     <div class="text-sm font-mono text-foreground truncate">
-                      {{ info.value }}
+                      {{ selectedDeviceInfo.ipAddresses[0] }}
+                    </div>
+                  </div>
+                  <div
+                    v-if="selectedDeviceInfo?.screenResolution"
+                    class="bg-surface-2 border border-border/30 rounded-lg px-4 py-3"
+                  >
+                    <div class="text-xs text-muted-foreground/50 mb-1">Resolution</div>
+                    <div class="text-sm font-mono text-foreground truncate">
+                      {{ selectedDeviceInfo.screenResolution }}
+                    </div>
+                  </div>
+                  <div
+                    v-if="selectedDeviceInfo?.totalStorage"
+                    class="bg-surface-2 border border-border/30 rounded-lg px-4 py-3"
+                  >
+                    <div class="text-xs text-muted-foreground/50 mb-1">Storage</div>
+                    <div class="text-sm font-mono text-foreground truncate">
+                      {{ Math.round(selectedDeviceInfo.availableStorage / 1073741824) }} GB free /
+                      {{ Math.round(selectedDeviceInfo.totalStorage / 1073741824) }} GB
                     </div>
                   </div>
                 </div>
 
                 <div
-                  v-if="deviceConn[selectedDevice.id] === 'USB'"
+                  v-if="deviceConn[selectedDevice.serial] === 'USB'"
                   class="bg-surface-2 border border-border/30 rounded-lg p-4 space-y-2"
                 >
                   <div class="text-xs text-muted-foreground/50 font-medium">
@@ -335,7 +489,9 @@ function selectDevice(id: string) {
                       >adb tcpip 5555</span
                     >
                     <span>→ then connect via</span>
-                    <span class="text-info/70">{{ selectedDevice.ip }}:5555</span>
+                    <span class="text-info/70">
+                      {{ selectedDeviceInfo?.ipAddresses?.[0] ?? "device IP" }}:5555
+                    </span>
                   </div>
                 </div>
               </div>
@@ -345,123 +501,29 @@ function selectDevice(id: string) {
                 v-else-if="deviceTab === 'forwarding'"
                 class="flex-1 flex flex-col overflow-hidden"
               >
-                <div class="flex-1 overflow-y-auto p-4 space-y-2">
+                <div class="flex-1 overflow-y-auto p-4">
                   <div
                     class="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3 flex items-center gap-2"
                   >
                     <ArrowRightLeft class="w-3.5 h-3.5" /> host → device
                   </div>
-                  <div
-                    v-if="!devicePorts[selectedDevice.id]?.forwards?.length"
-                    class="py-8 text-center text-sm text-muted-foreground/30"
-                  >
-                    No forwards for this device
+                  <div class="py-8 text-center text-sm text-muted-foreground/30">
+                    Port forwarding managed automatically by Capubridge
                   </div>
-                  <div
-                    v-for="fwd in devicePorts[selectedDevice.id]?.forwards ?? []"
-                    :key="fwd.id"
-                    class="flex items-center gap-3 px-4 py-3 bg-surface-2 border border-border/30 rounded-lg group"
-                  >
-                    <span class="font-mono text-sm text-success/70">:{{ fwd.local }}</span>
-                    <ArrowRightLeft class="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
-                    <span class="font-mono text-sm text-info/70">:{{ fwd.remote }}</span>
-                    <span class="text-xs text-muted-foreground/50 flex-1 truncate">{{
-                      fwd.description
-                    }}</span>
-                    <button
-                      @click="removePort('forwards', fwd.id)"
-                      class="p-1.5 text-muted-foreground/30 hover:text-error transition-colors opacity-0 group-hover:opacity-100 rounded-md hover:bg-error/10"
-                    >
-                      <Trash2 class="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-                <div class="p-4 border-t border-border/30 flex gap-2">
-                  <input
-                    v-model="newLocal"
-                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
-                    placeholder="host"
-                  />
-                  <ArrowRightLeft
-                    class="w-3.5 h-3.5 text-muted-foreground/30 self-center shrink-0"
-                  />
-                  <input
-                    v-model="newRemote"
-                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
-                    placeholder="device"
-                  />
-                  <input
-                    v-model="newDesc"
-                    class="flex-1 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
-                    placeholder="description"
-                  />
-                  <button
-                    @click="addPort('forwards')"
-                    class="px-4 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                  >
-                    <Plus class="w-3.5 h-3.5" /> Add
-                  </button>
                 </div>
               </div>
 
               <!-- REVERSE TAB -->
               <div v-else-if="deviceTab === 'reverse'" class="flex-1 flex flex-col overflow-hidden">
-                <div class="flex-1 overflow-y-auto p-4 space-y-2">
+                <div class="flex-1 overflow-y-auto p-4">
                   <div
                     class="text-xs text-muted-foreground/50 uppercase tracking-wider mb-3 flex items-center gap-2"
                   >
                     <ArrowLeftRight class="w-3.5 h-3.5" /> device → host
                   </div>
-                  <div
-                    v-if="!devicePorts[selectedDevice.id]?.reverses?.length"
-                    class="py-8 text-center text-sm text-muted-foreground/30"
-                  >
-                    No reverses for this device
+                  <div class="py-8 text-center text-sm text-muted-foreground/30">
+                    No reverse forwards configured
                   </div>
-                  <div
-                    v-for="rev in devicePorts[selectedDevice.id]?.reverses ?? []"
-                    :key="rev.id"
-                    class="flex items-center gap-3 px-4 py-3 bg-surface-2 border border-border/30 rounded-lg group"
-                  >
-                    <span class="font-mono text-sm text-info/70">:{{ rev.local }}</span>
-                    <ArrowLeftRight class="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
-                    <span class="font-mono text-sm text-success/70">:{{ rev.remote }}</span>
-                    <span class="text-xs text-muted-foreground/50 flex-1 truncate">{{
-                      rev.description
-                    }}</span>
-                    <button
-                      @click="removePort('reverses', rev.id)"
-                      class="p-1.5 text-muted-foreground/30 hover:text-error transition-colors opacity-0 group-hover:opacity-100 rounded-md hover:bg-error/10"
-                    >
-                      <Trash2 class="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-                <div class="p-4 border-t border-border/30 flex gap-2">
-                  <input
-                    v-model="newLocal"
-                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
-                    placeholder="device"
-                  />
-                  <ArrowLeftRight
-                    class="w-3.5 h-3.5 text-muted-foreground/30 self-center shrink-0"
-                  />
-                  <input
-                    v-model="newRemote"
-                    class="w-20 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
-                    placeholder="host"
-                  />
-                  <input
-                    v-model="newDesc"
-                    class="flex-1 bg-surface-2 border border-border/30 rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-border/60 transition-colors placeholder:text-muted-foreground/30"
-                    placeholder="description"
-                  />
-                  <button
-                    @click="addPort('reverses')"
-                    class="px-4 py-2 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                  >
-                    <Plus class="w-3.5 h-3.5" /> Add
-                  </button>
                 </div>
               </div>
 
@@ -470,41 +532,23 @@ function selectDevice(id: string) {
                 <div class="grid grid-cols-2 gap-3 max-w-md">
                   <button
                     v-for="action in [
-                      {
-                        icon: Camera,
-                        label: 'Take Screenshot',
-                        color: 'text-info/70',
-                      },
-                      {
-                        icon: RotateCcw,
-                        label: 'Restart ADB',
-                        color: 'text-warning/70',
-                      },
-                      {
-                        icon: Wifi,
-                        label: 'Enable WiFi Debug',
-                        color: 'text-foreground/70',
-                      },
-                      {
-                        icon: Power,
-                        label: 'Reboot Device',
-                        color: 'text-error/70',
-                      },
-                      {
-                        icon: Power,
-                        label: 'Reboot Recovery',
-                        color: 'text-warning/70',
-                      },
-                      {
-                        icon: Terminal,
-                        label: 'Open Shell',
-                        color: 'text-success/70',
-                      },
+                      { id: 'screenshot', icon: Camera, label: 'Take Screenshot', color: 'text-info/70' },
+                      { id: 'restart-adb', icon: RotateCcw, label: 'Restart ADB', color: 'text-warning/70' },
+                      { id: 'wifi-debug', icon: Wifi, label: 'Enable WiFi Debug', color: 'text-foreground/70' },
+                      { id: 'reboot', icon: Power, label: 'Reboot Device', color: 'text-error/70' },
+                      { id: 'reboot-recovery', icon: Power, label: 'Reboot Recovery', color: 'text-warning/70' },
                     ]"
-                    :key="action.label"
-                    class="flex items-center gap-3 px-4 py-3.5 rounded-lg border border-border/30 hover:bg-surface-2 transition-all duration-150 text-left group"
+                    :key="action.id"
+                    :disabled="actionLoading !== null"
+                    @click="handleAction(action.id)"
+                    class="flex items-center gap-3 px-4 py-3.5 rounded-lg border border-border/30 hover:bg-surface-2 transition-all duration-150 text-left group disabled:opacity-50 disabled:cursor-not-allowed"
                   >
+                    <Loader2
+                      v-if="actionLoading === action.id"
+                      class="w-4 h-4 shrink-0 animate-spin text-muted-foreground/60"
+                    />
                     <component
+                      v-else
                       :is="action.icon"
                       class="w-4 h-4 shrink-0 transition-colors"
                       :class="action.color"
@@ -553,7 +597,8 @@ function selectDevice(id: string) {
                       />
                     </div>
                     <button
-                      class="px-5 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
+                      class="px-5 bg-foreground text-background text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+                      @click="handleConnect"
                     >
                       <Link class="w-3.5 h-3.5" /> Connect
                     </button>
@@ -598,6 +643,7 @@ function selectDevice(id: string) {
                       </div>
                       <button
                         class="px-5 bg-surface-2 text-foreground border border-border/30 text-sm rounded-lg hover:bg-surface-3 transition-colors flex items-center gap-2"
+                        @click="handlePair"
                       >
                         <Wifi class="w-3.5 h-3.5" /> Pair
                       </button>

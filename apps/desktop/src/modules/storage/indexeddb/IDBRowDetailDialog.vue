@@ -1,20 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import JsonEditor from "@/modules/storage/localstorage/JsonEditor.vue";
-import {
-  ChevronDown,
-  Copy,
-  Check,
-  Info,
-  AlertTriangle,
-} from "lucide-vue-next";
+import { ChevronDown, Copy, Check, Info, AlertTriangle } from "lucide-vue-next";
 
 const props = defineProps<{
   open: boolean;

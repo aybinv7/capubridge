@@ -1,5 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
+import { invoke } from "@tauri-apps/api/core";
 import type { CDPTarget, CDPConnection } from "@/types/cdp.types";
 import { CDPClient } from "utils";
 
@@ -20,12 +21,30 @@ export const useConnectionStore = defineStore("connection", () => {
     const existing = clientMap.get(target.id);
     if (existing && existing.readyState === WebSocket.OPEN) return existing;
 
+    // Use Rust WebSocket proxy to avoid Origin header 403 from Android CDP
+    let wsUrl = target.webSocketDebuggerUrl;
+    if (target.source === "adb") {
+      try {
+        const proxy = await invoke<{ wsUrl: string; localPort: number }>("cdp_start_proxy", {
+          wsUrl: target.webSocketDebuggerUrl,
+        });
+        wsUrl = proxy.wsUrl;
+        console.log("[connection] Using CDP proxy:", wsUrl);
+      } catch (e) {
+        console.error("[connection] Failed to start CDP proxy:", e);
+        throw e;
+      }
+    }
+
+    // Create the CDPClient first — opens exactly one WebSocket to the proxy.
+    // Do NOT open a separate raw WebSocket for status tracking; reuse the client's socket.
+    const client = new CDPClient(wsUrl);
+
     const conn: CDPConnection = {
       targetId: target.id,
-      ws: new WebSocket(target.webSocketDebuggerUrl),
+      ws: client.ws,
       status: "connecting",
     };
-
     connections.value.set(target.id, conn);
 
     await new Promise<void>((resolve, reject) => {
@@ -36,6 +55,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
       conn.ws.addEventListener("close", () => {
         conn.status = "disconnected";
+        clientMap.delete(target.id);
       });
 
       conn.ws.addEventListener("error", () => {
@@ -44,15 +64,7 @@ export const useConnectionStore = defineStore("connection", () => {
       });
     });
 
-    const client = new CDPClient(target.webSocketDebuggerUrl);
-    await client.waitForOpen();
     clientMap.set(target.id, client);
-
-    conn.ws.addEventListener("close", () => {
-      conn.status = "disconnected";
-      clientMap.delete(target.id);
-    });
-
     return client;
   }
 

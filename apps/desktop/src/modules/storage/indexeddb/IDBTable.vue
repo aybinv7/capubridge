@@ -684,12 +684,7 @@ function showCalendar(columnId: string, operator: string): boolean {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem
-                v-for="op in OPERATORS"
-                :key="op.value"
-                :value="op.value"
-                class="text-xs"
-              >
+              <SelectItem v-for="op in OPERATORS" :key="op.value" :value="op.value" class="text-xs">
                 {{ op.label }}
               </SelectItem>
             </SelectContent>
@@ -872,10 +867,7 @@ function showCalendar(columnId: string, operator: string): boolean {
                   <DropdownMenuSeparator v-if="header.column.getCanSort()" />
 
                   <!-- Filter -->
-                  <DropdownMenuItem
-                    class="text-xs"
-                    @click="addFilter(header.column.id)"
-                  >
+                  <DropdownMenuItem class="text-xs" @click="addFilter(header.column.id)">
                     <Filter class="h-3 w-3 mr-2" />
                     Filter...
                   </DropdownMenuItem>

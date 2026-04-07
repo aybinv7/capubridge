@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { invoke } from "@tauri-apps/api/core";
+import { useAdb } from "@/composables/useAdb";
 import type { ADBDevice } from "@/types/adb.types";
 
 export const useDevicesStore = defineStore("devices", () => {
@@ -11,14 +11,16 @@ export const useDevicesStore = defineStore("devices", () => {
 
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+  const { refreshDevices: fetchDevices } = useAdb();
+
   const onlineDevices = computed(() => devices.value.filter((d) => d.status === "online"));
 
   async function refreshDevices() {
     try {
-      devices.value = await invoke<ADBDevice[]>("adb_list_devices");
+      const result = await fetchDevices();
+      devices.value = result;
       error.value = null;
 
-      // If selected device is no longer present, deselect
       if (
         selectedDevice.value &&
         !devices.value.find((d) => d.serial === selectedDevice.value!.serial)
@@ -27,6 +29,7 @@ export const useDevicesStore = defineStore("devices", () => {
       }
     } catch (err) {
       error.value = String(err);
+      console.error("ADB list devices error:", err);
     }
   }
 
@@ -49,6 +52,10 @@ export const useDevicesStore = defineStore("devices", () => {
     selectedDevice.value = device;
   }
 
+  function setDevices(newDevices: ADBDevice[]) {
+    devices.value = newDevices;
+  }
+
   return {
     devices,
     selectedDevice,
@@ -59,5 +66,6 @@ export const useDevicesStore = defineStore("devices", () => {
     startPolling,
     stopPolling,
     selectDevice,
+    setDevices,
   };
 });

@@ -48,7 +48,7 @@ const { refreshTargets } = useCDP();
 const sourceStore = useSourceStore();
 
 // Persistence — reads/writes localStorage, auto-selects restored device & target
-const { restoreSourceMode } = useSessionPersistence(sourceMode);
+const { restoreSourceMode, saveChromePort, restoreChromePort } = useSessionPersistence(sourceMode);
 
 const activeDeviceLabel = computed(() => {
   const d = devicesStore.selectedDevice;
@@ -108,6 +108,7 @@ async function handleChromeRelaunch() {
 async function handleChromeConnect() {
   const success = await sourceStore.connectChrome(chromePortInput.value);
   if (success) {
+    saveChromePort(chromePortInput.value);
     toast.success("Connected to Chrome", {
       description: `Port: ${chromePortInput.value}`,
     });
@@ -128,15 +129,29 @@ async function tryAutoConnect(autoLaunch = false) {
   if (autoConnectAttempted.value || sourceStore.hasChromeSource) return;
   autoConnectAttempted.value = true;
 
+  // Try the standard auto-connect first (checks CHROME_CDP_PORT)
   const result = await sourceStore.autoConnectChrome();
 
   if (result === "connected") {
     toast.success("Chrome connected", {
       description: `Found existing debug instance on port ${sourceStore.getChromeSource()?.port}`,
     });
-  } else if (result === "needs_relaunch") {
+    return;
+  }
+
+  // If not found on default port, try the last-used port from session
+  const savedPort = restoreChromePort();
+  if (savedPort && savedPort !== chromePortInput.value) {
+    chromePortInput.value = savedPort;
+    const reconnected = await sourceStore.connectChrome(savedPort);
+    if (reconnected) {
+      toast.success("Chrome reconnected", { description: `Port: ${savedPort}` });
+      return;
+    }
+  }
+
+  if (result === "needs_relaunch") {
     if (autoLaunch) {
-      // Session restore: silently relaunch instead of showing dialog
       await handleChromeRelaunch();
     } else {
       showRelaunchDialog.value = true;
@@ -144,7 +159,6 @@ async function tryAutoConnect(autoLaunch = false) {
   } else {
     // "not_found"
     if (autoLaunch) {
-      // Session restore: try to open a fresh Chrome instance
       await handleChromeLaunch();
     } else {
       toast.info("No Chrome debug instance found", {
@@ -180,6 +194,8 @@ onMounted(async () => {
 
   // Restore persisted session
   const savedMode = restoreSourceMode();
+  const savedPort = restoreChromePort();
+  if (savedPort) chromePortInput.value = savedPort;
   sourceMode.value = savedMode;
   if (savedMode === "chrome") {
     // Auto-connect and auto-launch if needed — fire-and-forget, errors handled inside
@@ -347,14 +363,6 @@ function updateClock() {
     <!-- Target selector -->
     <div class="flex items-center gap-1 ml-3" style="-webkit-app-region: no-drag">
       <TargetSelector />
-      <button
-        v-if="sourceStore.hasChromeSource || sourceStore.hasAdbSource"
-        class="flex items-center justify-center w-6 h-6 rounded-md text-muted-foreground/40 hover:text-foreground hover:bg-surface-2 transition-colors"
-        title="Refresh targets"
-        @click="refreshTargets()"
-      >
-        <RefreshCw :size="12" />
-      </button>
     </div>
 
     <div class="flex-1" />

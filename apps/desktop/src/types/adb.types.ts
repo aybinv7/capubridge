@@ -1,3 +1,9 @@
+export interface WebViewSocket {
+  socketName: string;
+  pid: number | null;
+  packageName: string | null;
+}
+
 export interface ADBDevice {
   serial: string;
   model: string;

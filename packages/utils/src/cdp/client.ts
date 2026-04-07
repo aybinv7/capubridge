@@ -6,7 +6,7 @@ type CommandHandler = {
 type EventHandler = (params: unknown) => void;
 
 export class CDPClient {
-  private ws: WebSocket;
+  readonly ws: WebSocket;
   private pendingCommands = new Map<number, CommandHandler>();
   private eventHandlers = new Map<string, Set<EventHandler>>();
   private commandId = 1;

@@ -25,8 +25,12 @@ tauri = { version = "2.10.3", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 shellexpand = "3"
-tokio = { version = "1", features = ["time"] }
+tokio = { version = "1", features = ["time", "sync", "macros", "rt", "net"] }
 sysinfo = "0.33"
 which = "7"
 reqwest = { version = "0.12", features = ["json"] }
-tauri-plugin-devtools = "2.0.0"
+adb_client = "3.2"
+parking_lot = "0.12"
+tokio-tungstenite = "0.26"
+http = "1"
+futures-util = "0.3"

@@ -8,6 +8,7 @@ const KEYS = {
   sourceMode: "capubridge:source-mode",
   deviceSerial: "capubridge:device-serial",
   targetUrl: "capubridge:target-url",
+  chromePort: "capubridge:chrome-port",
 } as const;
 
 export function useSessionPersistence(sourceMode: Ref<"device" | "chrome">) {
@@ -69,5 +70,16 @@ export function useSessionPersistence(sourceMode: Ref<"device" | "chrome">) {
     return (localStorage.getItem(KEYS.sourceMode) as "device" | "chrome") ?? "device";
   }
 
-  return { restoreSourceMode };
+  function saveChromePort(port: number) {
+    localStorage.setItem(KEYS.chromePort, String(port));
+  }
+
+  function restoreChromePort(): number | null {
+    const saved = localStorage.getItem(KEYS.chromePort);
+    if (!saved) return null;
+    const port = parseInt(saved, 10);
+    return isNaN(port) ? null : port;
+  }
+
+  return { restoreSourceMode, saveChromePort, restoreChromePort };
 }

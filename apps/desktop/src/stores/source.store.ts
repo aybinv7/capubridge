@@ -29,8 +29,6 @@ export const useSourceStore = defineStore("source", () => {
       await removeAdbSource();
     }
 
-    await invoke("adb_forward_cdp", { serial, localPort: ADB_CDP_PORT });
-
     activeSources.value.push({
       type: "adb",
       serial,
@@ -43,10 +41,7 @@ export const useSourceStore = defineStore("source", () => {
     if (!source) return;
 
     try {
-      await invoke("adb_remove_forward", {
-        serial: source.serial,
-        localPort: source.port,
-      });
+      await invoke("adb_remove_forward", { serial: source.serial, localPort: source.port });
     } catch {
       // ignore cleanup errors
     }
