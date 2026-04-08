@@ -79,6 +79,15 @@ export class LocalStorageDomain {
       value,
     });
   }
+
+  async getStorageSize(origin: string): Promise<number> {
+    const entries = await this.getEntries(origin);
+    let totalSize = 0;
+    for (const { key, value } of entries) {
+      totalSize += key.length + value.length;
+    }
+    return totalSize;
+  }
 }
 
 export class CacheAPIDomain {
@@ -152,6 +161,42 @@ export class CacheAPIDomain {
       returnByValue: true,
     });
   }
+
+  async getStorageSize(): Promise<number> {
+    const cacheNames = await this.getCacheNames();
+    let totalSize = 0;
+
+    for (const cacheName of cacheNames) {
+      const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+        expression: `
+          (async () => {
+            try {
+              const cache = await caches.open('${cacheName.replace(/'/g, "\\'")}');
+              const requests = await cache.keys();
+              let total = 0;
+              for (const req of requests) {
+                const resp = await cache.match(req);
+                if (resp) {
+                  const blob = await resp.blob();
+                  total += blob.size;
+                }
+              }
+              return total;
+            } catch (e) {
+              return 0;
+            }
+          })()
+        `,
+        awaitPromise: true,
+        returnByValue: true,
+      });
+      const value = (result.result as Record<string, unknown>).value as string;
+      const size = parseInt(value, 10);
+      if (!isNaN(size)) totalSize += size;
+    }
+
+    return totalSize;
+  }
 }
 
 export class OPFSDomain {
@@ -223,5 +268,21 @@ export class OPFSDomain {
       awaitPromise: true,
       returnByValue: true,
     });
+  }
+
+  async getStorageSize(path: string = ""): Promise<number> {
+    const entries = await this.listDirectory(path);
+    let totalSize = 0;
+
+    for (const entry of entries) {
+      if (entry.kind === "file" && entry.size) {
+        totalSize += entry.size;
+      } else if (entry.kind === "directory") {
+        const subPath = path ? `${path}/${entry.name}` : entry.name;
+        totalSize += await this.getStorageSize(subPath);
+      }
+    }
+
+    return totalSize;
   }
 }

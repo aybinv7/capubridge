@@ -16,6 +16,11 @@ export interface ADBDevice {
   battery?: number;
 }
 
+export interface AdbPackage {
+  packageName: string;
+  apkPath: string;
+}
+
 export interface ADBPackage {
   packageName: string;
   versionName: string;

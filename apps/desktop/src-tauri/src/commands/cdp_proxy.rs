@@ -51,7 +51,7 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
                         let client_ws = tokio_tungstenite::accept_async(client_stream)
                             .await;
 
-                        let mut client_ws = match client_ws {
+                        let client_ws = match client_ws {
                             Ok(ws) => ws,
                             Err(e) => {
                                 log::error!("[cdp_proxy] Failed to accept client: {}", e);
@@ -77,7 +77,7 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
 
                         let cdp_result = connect_async(request).await;
 
-                        let (mut cdp_ws, response) = match cdp_result {
+                        let (cdp_ws, response) = match cdp_result {
                             Ok((ws, resp)) => (ws, resp),
                             Err(e) => {
                                 log::error!("[cdp_proxy] Failed to connect to CDP: {}", e);

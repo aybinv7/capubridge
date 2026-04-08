@@ -338,6 +338,78 @@ export class IDBDomain {
     };
   }
 
+  async putRecord(
+    _securityOrigin: string,
+    databaseName: string,
+    objectStoreName: string,
+    value: unknown,
+  ): Promise<void> {
+    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      expression: `
+        (async () => {
+          try {
+            const req = indexedDB.open('${databaseName}');
+            const db = await new Promise((resolve, reject) => {
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => reject(req.error?.message ?? 'open failed');
+            });
+            const tx = db.transaction('${objectStoreName}', 'readwrite');
+            tx.objectStore('${objectStoreName}').put(${JSON.stringify(value)});
+            await new Promise((resolve, reject) => {
+              tx.oncomplete = () => resolve(true);
+              tx.onerror = () => reject(tx.error?.message ?? 'put failed');
+            });
+            db.close();
+            return JSON.stringify({ ok: true });
+          } catch (e) {
+            return JSON.stringify({ error: String(e) });
+          }
+        })()
+      `,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const raw = (result.result as Record<string, unknown>).value as string;
+    const parsed = JSON.parse(raw) as { ok?: boolean; error?: string };
+    if (parsed.error) throw new Error(parsed.error);
+  }
+
+  async deleteRecord(
+    _securityOrigin: string,
+    databaseName: string,
+    objectStoreName: string,
+    key: IDBValidKey,
+  ): Promise<void> {
+    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      expression: `
+        (async () => {
+          try {
+            const req = indexedDB.open('${databaseName}');
+            const db = await new Promise((resolve, reject) => {
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => reject(req.error?.message ?? 'open failed');
+            });
+            const tx = db.transaction('${objectStoreName}', 'readwrite');
+            tx.objectStore('${objectStoreName}').delete(${JSON.stringify(key)});
+            await new Promise((resolve, reject) => {
+              tx.oncomplete = () => resolve(true);
+              tx.onerror = () => reject(tx.error?.message ?? 'delete failed');
+            });
+            db.close();
+            return JSON.stringify({ ok: true });
+          } catch (e) {
+            return JSON.stringify({ error: String(e) });
+          }
+        })()
+      `,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const raw = (result.result as Record<string, unknown>).value as string;
+    const parsed = JSON.parse(raw) as { ok?: boolean; error?: string };
+    if (parsed.error) throw new Error(parsed.error);
+  }
+
   async getData(params: GetDataParams): Promise<GetDataResult> {
     const isLocalForage = params.databaseName === "localforage";
 
@@ -459,5 +531,10 @@ export class IDBDomain {
       records: parsed.records as IDBRecord[],
       hasMore: parsed.hasMore as boolean,
     };
+  }
+
+  async getDatabaseSize(databaseName: string, securityOrigin: string): Promise<number> {
+    const stores = await this.getStoreInfo(databaseName, securityOrigin);
+    return stores.reduce((sum, store) => sum + (store.estimatedSize ?? 0), 0);
   }
 }

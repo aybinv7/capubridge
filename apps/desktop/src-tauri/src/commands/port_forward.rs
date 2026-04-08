@@ -1,12 +1,14 @@
-use tauri_plugin_shell::ShellExt;
-use crate::commands::chrome::CDPJsonTarget;
+use crate::commands::{
+    adb::{get_server, map_adb_server_err},
+    chrome::CDPJsonTarget,
+};
 
 /// Forward a local TCP port to a CDP abstract socket on the device.
-/// Uses `adb forward` via shell to avoid adb_client protocol issues.
-/// If the port is already in use, removes the existing forward first.
+/// Uses adb server protocol via adb_client (no direct adb.exe spawn).
+/// If the port is already in use, clears existing forwards for the device and retries.
 #[tauri::command]
 pub async fn adb_forward_cdp(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     serial: String,
     local_port: u16,
     socket_name: Option<String>,
@@ -19,59 +21,31 @@ pub async fn adb_forward_cdp(
         socket
     );
 
-    // Try the forward first
-    let output = app
-        .shell()
-        .command("adb")
-        .args(&[
-            "-s",
-            &serial,
-            "forward",
-            &format!("tcp:{}", local_port),
-            &format!("localabstract:{}", socket),
-        ])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to spawn adb: {}", e))?;
+    let mut server = get_server().lock();
+    let mut device = server
+        .get_device_by_name(&serial)
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+    let local = format!("tcp:{local_port}");
+    let remote = format!("localabstract:{socket}");
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // If port already in use, remove the forward and retry
-        if stderr.contains("cannot bind") || stderr.contains("already") {
-            log::info!("[adb_forward_cdp] Port {} in use, removing existing forward", local_port);
-            let _ = app
-                .shell()
-                .command("adb")
-                .args(&[
-                    "-s",
-                    &serial,
-                    "forward",
-                    &format!("--remove=tcp:{}", local_port),
-                ])
-                .output()
-                .await;
-
-            // Retry
-            let output2 = app
-                .shell()
-                .command("adb")
-                .args(&[
-                    "-s",
-                    &serial,
-                    "forward",
-                    &format!("tcp:{}", local_port),
-                    &format!("localabstract:{}", socket),
-                ])
-                .output()
-                .await
-                .map_err(|e| format!("Failed to spawn adb: {}", e))?;
-
-            if !output2.status.success() {
-                let stderr2 = String::from_utf8_lossy(&output2.stderr);
-                return Err(format!("adb forward error: {}", stderr2.trim()));
-            }
+    if let Err(err) = device.forward(remote.clone(), local.clone()) {
+        let err_text = err.to_string();
+        // Existing forward rules can conflict with the requested local port.
+        // adb_client exposes `forward_remove_all` but not single-port removal.
+        if err_text.contains("cannot bind") || err_text.contains("already") {
+            log::info!(
+                "[adb_forward_cdp] Port {} in use, clearing existing forwards for serial {}",
+                local_port,
+                serial
+            );
+            device
+                .forward_remove_all()
+                .map_err(|e| format!("adb forward cleanup error: {e}"))?;
+            device
+                .forward(remote, local)
+                .map_err(|e| format!("adb forward error: {e}"))?;
         } else {
-            return Err(format!("adb forward error: {}", stderr.trim()));
+            return Err(format!("adb forward error: {}", err_text.trim()));
         }
     }
 
@@ -82,33 +56,22 @@ pub async fn adb_forward_cdp(
 /// Remove a previously established port forward.
 #[tauri::command]
 pub async fn adb_remove_forward(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     serial: String,
     local_port: u16,
 ) -> Result<(), String> {
     log::info!(
-        "[adb_remove_forward] serial={}, local_port={}",
-        serial,
-        local_port
+        "[adb_remove_forward] serial={}, local_port={} (clear all forwards for this serial)",
+        serial, local_port
     );
 
-    let output = app
-        .shell()
-        .command("adb")
-        .args(&[
-            "-s",
-            &serial,
-            "forward",
-            &format!("--remove=tcp:{}", local_port),
-        ])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to spawn adb: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("adb forward --remove error: {}", stderr.trim()));
-    }
+    let mut server = get_server().lock();
+    let mut device = server
+        .get_device_by_name(&serial)
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+    device
+        .forward_remove_all()
+        .map_err(|e| format!("adb forward --remove error: {e}"))?;
 
     Ok(())
 }

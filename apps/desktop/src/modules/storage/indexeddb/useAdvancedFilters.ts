@@ -139,6 +139,13 @@ export function useAdvancedFilters(records: Ref<IDBRecord[]>) {
     });
   }
 
+  function addFilterFull(filter: Omit<AdvancedFilter, "id">) {
+    advancedFilters.value.push({
+      ...filter,
+      id: `adv-${filterIdCounter++}`,
+    });
+  }
+
   function removeFilter(id: string) {
     const idx = advancedFilters.value.findIndex((f) => f.id === id);
     if (idx >= 0) advancedFilters.value.splice(idx, 1);
@@ -157,6 +164,7 @@ export function useAdvancedFilters(records: Ref<IDBRecord[]>) {
     filteredData,
     getOperator,
     addFilter,
+    addFilterFull,
     removeFilter,
     clearAdvancedFilters,
     reset,

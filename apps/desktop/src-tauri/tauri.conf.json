@@ -2,9 +2,9 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "desktop",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.capubridge.io",
   "build": {
-    "frontendDist": "desktop/src-tauri/tauri.conf.json",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:5173/",
     "beforeDevCommand": "vp dev",
     "beforeBuildCommand": "vp build"
@@ -26,6 +26,7 @@
   },
   "bundle": {
     "active": true,
+    "resources": ["resources"],
     "targets": "all",
     "icon": [
       "icons/32x32.png",

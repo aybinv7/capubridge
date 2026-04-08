@@ -36,11 +36,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/modules/devices/DeviceFiles.vue"),
       },
       {
-        path: "screen",
-        name: "devices-screen",
-        component: () => import("@/modules/devices/DeviceScreen.vue"),
-      },
-      {
         path: "perf",
         name: "devices-perf",
         component: () => import("@/modules/devices/DevicePerf.vue"),

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ADBDevice, WebViewSocket } from "@/types/adb.types";
+import type { ADBDevice, AdbPackage, WebViewSocket } from "@/types/adb.types";
 
 export type { WebViewSocket };
 
@@ -11,6 +11,7 @@ export interface DeviceOverview {
   serial: string;
   availableStorage: number;
   totalStorage: number;
+  totalRam: number;
   screenResolution: string;
   ipAddresses: string[];
   androidVersion: string;
@@ -38,12 +39,14 @@ export function useAdb() {
         ipAddresses: string[];
         availableStorage: number;
         totalStorage: number;
+        totalRam: number;
+        cpuArch: string;
       }>("adb_get_device_info", { serial: deviceId });
 
       return {
         name: info.model || "",
         manufacturer: info.manufacturer || "",
-        model: info.model || "",
+        model: info.cpuArch ? `${info.model} · ${info.cpuArch}` : info.model || "",
         androidVersion: info.androidVersion || "",
         apiLevel: info.apiLevel,
         serial: info.serial,
@@ -51,6 +54,7 @@ export function useAdb() {
         ipAddresses: info.ipAddresses ?? [],
         availableStorage: info.availableStorage,
         totalStorage: info.totalStorage,
+        totalRam: info.totalRam ?? 0,
       };
     } catch (err) {
       console.error("Failed to get device overview:", err);
@@ -90,6 +94,10 @@ export function useAdb() {
     await invoke("adb_restart_server");
   }
 
+  async function listPackages(serial: string): Promise<AdbPackage[]> {
+    return invoke<AdbPackage[]>("adb_list_packages", { serial });
+  }
+
   async function listWebViewSockets(serial: string): Promise<WebViewSocket[]> {
     return invoke<WebViewSocket[]>("adb_list_webview_sockets", { serial });
   }
@@ -111,5 +119,6 @@ export function useAdb() {
     restartServer,
     forward,
     listWebViewSockets,
+    listPackages,
   };
 }

@@ -36,7 +36,7 @@ export const useTargetsStore = defineStore("targets", () => {
         raw = await invoke<RawCDPTarget[]>("chrome_fetch_targets", { port: source.port });
       } else {
         console.log("[targets] Fetching for ADB, serial:", source.serial);
-        
+
         // Enumerate all debuggable WebView sockets on the device and collect targets from each.
         // Each socket is forwarded to its own local port so WebSocket URLs remain valid
         // for the duration of the session.
@@ -54,9 +54,7 @@ export const useTargetsStore = defineStore("targets", () => {
         // Deduplicate socket names and skip Stetho sockets (they don't serve CDP /json)
         const uniqueSocketNames = [
           "chrome_devtools_remote",
-          ...sockets
-            .map((s) => s.socketName)
-            .filter((name) => !name.startsWith("stetho_")),
+          ...sockets.map((s) => s.socketName).filter((name) => !name.startsWith("stetho_")),
         ].filter((name, i, arr) => arr.indexOf(name) === i);
         console.log("[targets] Unique socket names to probe:", uniqueSocketNames);
 
@@ -73,10 +71,9 @@ export const useTargetsStore = defineStore("targets", () => {
               socketName,
             });
             console.log("[targets] Fetching /json from port:", port, "via Rust");
-            const targets: RawCDPTarget[] = await invoke<RawCDPTarget[]>(
-              "adb_fetch_json_targets",
-              { port }
-            );
+            const targets: RawCDPTarget[] = await invoke<RawCDPTarget[]>("adb_fetch_json_targets", {
+              port,
+            });
             console.log("[targets] Targets found:", targets.length, targets);
             raw.push(...targets);
           } catch (e) {

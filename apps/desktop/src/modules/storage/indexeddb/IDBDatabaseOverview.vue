@@ -11,7 +11,7 @@ const props = defineProps<{
   stores: StoreInfo[];
   isLoading: boolean;
   isError?: boolean;
-  idbSize?: number;
+  totalIdbSize?: number;
 }>();
 
 const emit = defineEmits<{
@@ -36,6 +36,10 @@ const totalRecords = computed(() => props.stores.reduce((sum, s) => sum + s.reco
 const totalIndexes = computed(() => props.stores.reduce((sum, s) => sum + s.indexCount, 0));
 const autoIncCount = computed(() => props.stores.filter((s) => s.autoIncrement).length);
 const maxRecords = computed(() => Math.max(...props.stores.map((s) => s.recordCount), 1));
+
+const dbEstimatedSize = computed(() =>
+  props.stores.reduce((sum, s) => sum + (s.estimatedSize ?? 0), 0),
+);
 
 const sortedStores = computed(() =>
   [...props.stores].sort((a, b) => b.recordCount - a.recordCount),
@@ -136,13 +140,29 @@ function formatBytes(bytes: number | undefined | null): string {
         <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Auto-Inc</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
-        <span
-          class="font-mono text-base font-semibold"
-          :class="idbSize != null ? 'text-foreground/90' : 'text-muted-foreground/30'"
+        <div class="flex items-center gap-1.5">
+          <span
+            class="font-mono text-base font-semibold"
+            :class="
+              dbEstimatedSize != null && dbEstimatedSize > 0
+                ? 'text-foreground/90'
+                : 'text-muted-foreground/30'
+            "
+          >
+            {{ formatBytes(dbEstimatedSize) }}
+          </span>
+          <span v-if="totalIdbSize != null" class="text-muted-foreground/30 text-[10px]">/</span>
+          <span
+            v-if="totalIdbSize != null"
+            class="font-mono text-[13px]"
+            :class="totalIdbSize > 0 ? 'text-muted-foreground/50' : 'text-muted-foreground/20'"
+          >
+            {{ formatBytes(totalIdbSize) }}
+          </span>
+        </div>
+        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50"
+          >DB / Total</span
         >
-          {{ formatBytes(idbSize) }}
-        </span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">IDB Size</span>
       </div>
     </div>
 

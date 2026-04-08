@@ -26,7 +26,16 @@ const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: []; selectDevice: [serial: string] }>();
 
 const devicesStore = useDevicesStore();
-const { getDeviceOverview, connectDevice, disconnectDevice, pairDevice, reboot, restartServer, tcpip, shellCommand } = useAdb();
+const {
+  getDeviceOverview,
+  connectDevice,
+  disconnectDevice,
+  pairDevice,
+  reboot,
+  restartServer,
+  tcpip,
+  shellCommand,
+} = useAdb();
 
 const selectedDeviceSerial = ref<string | null>(null);
 const rightView = ref<"device" | "connect">("device");
@@ -532,11 +541,31 @@ watch(
                 <div class="grid grid-cols-2 gap-3 max-w-md">
                   <button
                     v-for="action in [
-                      { id: 'screenshot', icon: Camera, label: 'Take Screenshot', color: 'text-info/70' },
-                      { id: 'restart-adb', icon: RotateCcw, label: 'Restart ADB', color: 'text-warning/70' },
-                      { id: 'wifi-debug', icon: Wifi, label: 'Enable WiFi Debug', color: 'text-foreground/70' },
+                      {
+                        id: 'screenshot',
+                        icon: Camera,
+                        label: 'Take Screenshot',
+                        color: 'text-info/70',
+                      },
+                      {
+                        id: 'restart-adb',
+                        icon: RotateCcw,
+                        label: 'Restart ADB',
+                        color: 'text-warning/70',
+                      },
+                      {
+                        id: 'wifi-debug',
+                        icon: Wifi,
+                        label: 'Enable WiFi Debug',
+                        color: 'text-foreground/70',
+                      },
                       { id: 'reboot', icon: Power, label: 'Reboot Device', color: 'text-error/70' },
-                      { id: 'reboot-recovery', icon: Power, label: 'Reboot Recovery', color: 'text-warning/70' },
+                      {
+                        id: 'reboot-recovery',
+                        icon: Power,
+                        label: 'Reboot Recovery',
+                        color: 'text-warning/70',
+                      },
                     ]"
                     :key="action.id"
                     :disabled="actionLoading !== null"

@@ -1,3 +1,4 @@
+import { toast } from "vue-sonner";
 import type { Table } from "@tanstack/vue-table";
 import type { IDBRecord } from "utils";
 
@@ -38,18 +39,21 @@ export function useIDBTableExport(
 
     const csv = [header, ...dataRows].join("\n");
     downloadFile(csv, `${dbName()}_${storeName()}.csv`, "text/csv");
+    toast.success("Exported to CSV", { description: `${rows.length} rows exported` });
   }
 
   function exportToJSON() {
     const rows = table.getFilteredRowModel().rows.map((row) => row.original);
     const json = JSON.stringify(rows, null, 2);
     downloadFile(json, `${dbName()}_${storeName()}.json`, "application/json");
+    toast.success("Exported to JSON", { description: `${rows.length} records exported` });
   }
 
   function exportSelectedToJSON() {
     const rows = table.getSelectedRowModel().rows.map((row) => row.original);
     const json = JSON.stringify(rows, null, 2);
     downloadFile(json, `${dbName()}_${storeName()}_selected.json`, "application/json");
+    toast.success("Exported selected to JSON", { description: `${rows.length} records exported` });
   }
 
   return { exportToCSV, exportToJSON, exportSelectedToJSON };

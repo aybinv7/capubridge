@@ -25,7 +25,7 @@ tauri = { version = "2.10.3", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 shellexpand = "3"
-tokio = { version = "1", features = ["time", "sync", "macros", "rt", "net"] }
+tokio = { version = "1", features = ["time", "sync", "macros", "rt", "net", "process"] }
 sysinfo = "0.33"
 which = "7"
 reqwest = { version = "0.12", features = ["json"] }
@@ -34,3 +34,4 @@ parking_lot = "0.12"
 tokio-tungstenite = "0.26"
 http = "1"
 futures-util = "0.3"
+base64 = "0.22"

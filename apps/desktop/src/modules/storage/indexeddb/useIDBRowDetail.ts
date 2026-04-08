@@ -1,4 +1,5 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { toast } from "vue-sonner";
 import type { Row } from "@tanstack/vue-table";
 import type { IDBRecord } from "utils";
 
@@ -95,6 +96,7 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
       const parsed = JSON.parse(editJson.value);
       onEdit({ key: selectedRow.value.key, value: parsed });
       editOriginalJson.value = editJson.value;
+      toast.success("Record saved", { description: `Key: ${editKey.value}` });
     } catch {
       // Invalid JSON — editor already marks it invalid
     }
@@ -103,6 +105,7 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
   function deleteRow() {
     if (!selectedRow.value) return;
     onDelete(selectedRow.value.key);
+    toast.success("Record deleted", { description: `Key: ${editKey.value}` });
     const total = totalRecords() ?? getFilteredRows().length;
     navigateRow("next");
     if (currentRowIndex.value >= total) {
@@ -113,6 +116,7 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
   async function copyToClipboard(text: string) {
     await navigator.clipboard.writeText(text);
     copiedRaw.value = true;
+    toast.success("Copied to clipboard");
     setTimeout(() => (copiedRaw.value = false), 2000);
   }
 

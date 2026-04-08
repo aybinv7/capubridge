@@ -13,11 +13,13 @@ import {
   Play,
   RefreshCw,
   XCircle,
+  ScreenShare,
 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import DeviceManagerModal from "@/components/DeviceManagerModal.vue";
 import { Search } from "lucide-vue-next";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useMirrorStore } from "@/stores/mirror.store";
 import { useSourceStore } from "@/stores/source.store";
 import { useCDP } from "@/composables/useCDP";
 import { useSessionPersistence } from "@/composables/useSessionPersistence";
@@ -46,6 +48,9 @@ const autoConnectAttempted = ref(false);
 const devicesStore = useDevicesStore();
 const { refreshTargets } = useCDP();
 const sourceStore = useSourceStore();
+const mirrorStore = useMirrorStore();
+
+const mirrorEnabled = computed(() => devicesStore.selectedDevice?.status === "online");
 
 // Persistence — reads/writes localStorage, auto-selects restored device & target
 const { restoreSourceMode, saveChromePort, restoreChromePort } = useSessionPersistence(sourceMode);
@@ -364,6 +369,35 @@ function updateClock() {
     <div class="flex items-center gap-1 ml-3" style="-webkit-app-region: no-drag">
       <TargetSelector />
     </div>
+
+    <!-- Mirror toggle -->
+    <button
+      class="flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-full text-xs transition-all border"
+      :class="
+        mirrorStore.isOpen
+          ? 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
+          : mirrorEnabled
+            ? 'border-border/30 text-muted-foreground/60 hover:text-foreground hover:border-border/50 hover:bg-accent'
+            : 'border-border/20 text-muted-foreground/25 cursor-not-allowed'
+      "
+      :disabled="!mirrorEnabled"
+      style="-webkit-app-region: no-drag"
+      :title="
+        !mirrorEnabled
+          ? 'Connect a device to enable mirroring'
+          : mirrorStore.isOpen
+            ? 'Stop mirroring'
+            : 'Mirror device screen'
+      "
+      @click="mirrorEnabled && mirrorStore.toggle()"
+    >
+      <ScreenShare class="w-3.5 h-3.5" />
+      <span class="text-[11px]">Mirror</span>
+      <span
+        v-if="mirrorStore.isOpen && mirrorStore.isStreaming"
+        class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"
+      />
+    </button>
 
     <div class="flex-1" />
 

@@ -9,8 +9,44 @@ use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::LazyLock;
 
-static ADB_SERVER: LazyLock<Mutex<ADBServer>> = LazyLock::new(|| Mutex::new(ADBServer::default()));
+fn create_adb_server() -> ADBServer {
+    #[cfg(debug_assertions)]
+    {
+        // adb_client currently runs `adb start-server` for each local connect() call.
+        // In Windows dev sessions this can trigger repeated RunDLL popups from
+        // third-party DLL injection. We disable auto-start in debug and rely on an
+        // already running adb server at 127.0.0.1:5037.
+        return ADBServer::new_from_path(
+            SocketAddrV4::new(Ipv4Addr::LOCALHOST, 5037),
+            Some("__capubridge_disable_adb_autostart__".to_string()),
+        );
+    }
 
+    #[cfg(not(debug_assertions))]
+    {
+        ADBServer::default()
+    }
+}
+
+pub(crate) fn map_adb_server_err(err: impl std::fmt::Display) -> String {
+    let msg = err.to_string();
+    #[cfg(debug_assertions)]
+    {
+        if msg.contains("Connection refused")
+            || msg.contains("NotConnected")
+            || msg.contains("failed to lookup address information")
+        {
+            return format!(
+                "{msg}. In dev mode, adb auto-start is disabled to avoid RunDLL popups. Start adb once manually with: adb start-server"
+            );
+        }
+    }
+    msg
+}
+
+static ADB_SERVER: LazyLock<Mutex<ADBServer>> = LazyLock::new(|| Mutex::new(create_adb_server()));
+
+#[allow(dead_code)]
 pub fn get_server() -> &'static Mutex<ADBServer> {
     &ADB_SERVER
 }
@@ -108,7 +144,7 @@ fn parse_device_long(dl: &DeviceLong) -> AdbDevice {
 #[tauri::command]
 pub fn adb_list_devices() -> Result<Vec<AdbDevice>, String> {
     let mut server = ADB_SERVER.lock();
-    let devices = server.devices_long().map_err(|e| e.to_string())?;
+    let devices = server.devices_long().map_err(map_adb_server_err)?;
 
     Ok(devices
         .iter()
@@ -122,7 +158,7 @@ pub fn adb_get_device_info(serial: String) -> Result<DeviceInfo, String> {
     let mut server = ADB_SERVER.lock();
     let mut device = server
         .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
     let model = get_prop(&mut device, "ro.product.model");
     let manufacturer = get_prop(&mut device, "ro.product.manufacturer");
@@ -225,7 +261,7 @@ pub fn adb_shell_command(serial: String, command: String) -> Result<String, Stri
     let mut server = ADB_SERVER.lock();
     let mut device = server
         .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
     let mut output = Vec::new();
     device
@@ -239,21 +275,21 @@ pub fn adb_shell_command(serial: String, command: String) -> Result<String, Stri
 pub fn adb_connect_device(host: String, port: u16) -> Result<(), String> {
     let mut server = ADB_SERVER.lock();
     let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-    server.connect_device(addr).map_err(|e| e.to_string())
+    server.connect_device(addr).map_err(map_adb_server_err)
 }
 
 #[tauri::command]
 pub fn adb_disconnect_device(host: String, port: u16) -> Result<(), String> {
     let mut server = ADB_SERVER.lock();
     let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-    server.disconnect_device(addr).map_err(|e| e.to_string())
+    server.disconnect_device(addr).map_err(map_adb_server_err)
 }
 
 #[tauri::command]
 pub fn adb_pair_device(host: String, port: u16, code: String) -> Result<(), String> {
     let mut server = ADB_SERVER.lock();
     let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-    server.pair(addr, code).map_err(|e| e.to_string())
+    server.pair(addr, code).map_err(map_adb_server_err)
 }
 
 #[tauri::command]
@@ -261,8 +297,8 @@ pub fn adb_tcpip(serial: String, port: u16) -> Result<(), String> {
     let mut server = ADB_SERVER.lock();
     let mut device = server
         .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
-    device.tcpip(port).map_err(|e| e.to_string())
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+    device.tcpip(port).map_err(map_adb_server_err)
 }
 
 #[tauri::command]
@@ -270,13 +306,13 @@ pub fn adb_reboot(serial: String, mode: Option<String>) -> Result<(), String> {
     let mut server = ADB_SERVER.lock();
     let mut device = server
         .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
     let reboot_type = match mode.as_deref() {
         Some("recovery") => RebootType::Recovery,
         Some("bootloader") => RebootType::Bootloader,
         _ => RebootType::System,
     };
-    device.reboot(reboot_type).map_err(|e| e.to_string())
+    device.reboot(reboot_type).map_err(map_adb_server_err)
 }
 
 #[tauri::command]
@@ -284,15 +320,103 @@ pub fn adb_root(serial: String) -> Result<(), String> {
     let mut server = ADB_SERVER.lock();
     let mut device = server
         .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
-    device.root().map_err(|e| e.to_string())
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+    device.root().map_err(map_adb_server_err)
 }
 
 #[tauri::command]
 pub fn adb_restart_server() -> Result<(), String> {
     let mut server = ADB_SERVER.lock();
-    server.kill().map_err(|e| e.to_string())?;
+    server.kill().map_err(map_adb_server_err)?;
     Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AdbPackage {
+    pub package_name: String,
+    pub apk_path: String,
+}
+
+#[tauri::command]
+pub fn adb_list_packages(serial: String) -> Result<Vec<AdbPackage>, String> {
+    let mut server = ADB_SERVER.lock();
+    let mut device = server
+        .get_device_by_name(&serial)
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+
+    let output = shell_output(&mut device, "pm list packages -f -3");
+    let mut packages: Vec<AdbPackage> = output
+        .lines()
+        .filter_map(|line| {
+            // format: "package:<apk_path>=<package_name>"
+            let line = line.strip_prefix("package:")?;
+            let eq_pos = line.rfind('=')?;
+            let apk_path = line[..eq_pos].trim().to_string();
+            let package_name = line[eq_pos + 1..].trim().to_string();
+            if package_name.is_empty() {
+                return None;
+            }
+            Some(AdbPackage { package_name, apk_path })
+        })
+        .collect();
+
+    packages.sort_by(|a, b| a.package_name.cmp(&b.package_name));
+    Ok(packages)
+}
+
+/// Extract the app icon from an APK already installed on the device.
+/// Uses `unzip -p` (available via toybox on Android 6+) to stream just the icon
+/// without pulling the whole APK. Returns a `data:<mime>;base64,...` URL.
+#[tauri::command]
+pub async fn adb_get_app_icon(serial: String, apk_path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        // Independent connection so multiple icon fetches run in parallel
+        let mut server = create_adb_server();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {e}"))?;
+
+        // Try densities from high to medium; prefer PNG then WebP
+        let candidates: &[(&str, &str)] = &[
+            ("res/mipmap-xhdpi-v4/ic_launcher.png", "image/png"),
+            ("res/mipmap-hdpi-v4/ic_launcher.png", "image/png"),
+            ("res/drawable-xhdpi-v4/ic_launcher.png", "image/png"),
+            ("res/drawable-hdpi-v4/ic_launcher.png", "image/png"),
+            ("res/mipmap-mdpi-v4/ic_launcher.png", "image/png"),
+            ("res/mipmap-xhdpi-v4/ic_launcher.webp", "image/webp"),
+            ("res/mipmap-hdpi-v4/ic_launcher.webp", "image/webp"),
+            ("res/mipmap-mdpi-v4/ic_launcher.webp", "image/webp"),
+            ("res/mipmap-xhdpi-v4/ic_launcher_round.png", "image/png"),
+            ("res/mipmap-hdpi-v4/ic_launcher_round.png", "image/png"),
+        ];
+
+        let escaped = apk_path.replace('\'', "'\\''");
+
+        for (icon_path, mime) in candidates {
+            let mut out = Vec::new();
+            let cmd = format!("unzip -p '{}' '{}' 2>/dev/null | base64", escaped, icon_path);
+            let _ = device.shell_command(&cmd, Some(&mut out), None::<&mut dyn Write>);
+            // Strip whitespace (base64 wraps at 76 chars on Android)
+            let b64: String = out
+                .iter()
+                .filter(|&&b| !matches!(b, b'\n' | b'\r' | b' '))
+                .map(|&b| b as char)
+                .collect();
+            // Validate magic bytes in base64 to reject unzip error text:
+            //   PNG  → raw \x89PNG → base64 "iVBOR"
+            //   WebP → raw RIFF   → base64 "UklGR"
+            let is_valid = (b64.starts_with("iVBOR") || b64.starts_with("UklGR"))
+                && b64.len() > 100;
+            if is_valid {
+                return Ok(format!("data:{};base64,{}", mime, b64));
+            }
+        }
+
+        Err("no icon".to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -310,7 +434,7 @@ pub fn adb_list_webview_sockets(serial: String) -> Result<Vec<WebViewSocket>, St
     let mut server = ADB_SERVER.lock();
     let mut device = server
         .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
+        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
     log::info!("[adb_list_webview_sockets] Running shell command");
     let unix_output = shell_output(&mut device, "cat /proc/net/unix");

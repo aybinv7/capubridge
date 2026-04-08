@@ -16,8 +16,12 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { useIDB } from "@/composables/useIDB";
+import { useCDP } from "@/composables/useCDP";
+import { useTargetsStore } from "@/stores/targets.store";
+import { useStorageSize } from "@/composables/useStorageSize";
 import { useSidebarSettings } from "@/modules/storage/stores/useSidebarSettingsStore";
 import type { IDBDatabaseInfo, IDBRecord, StoreInfo } from "utils";
+import { IDBDomain } from "utils";
 import IDBTable from "./IDBTable.vue";
 import IDBTableToolbar from "./IDBTableToolbar.vue";
 import IDBDatabaseOverview from "./IDBDatabaseOverview.vue";
@@ -54,6 +58,8 @@ const {
 } = useSidebarSettings();
 
 const { useDatabases, useRecords, useStoreInfo, useStorageEstimate } = useIDB();
+const { useTotalStorageSize } = useStorageSize();
+const { getClient } = useCDP();
 
 const {
   data: databases,
@@ -85,7 +91,7 @@ const {
   refetch: refetchStoreInfo,
 } = useStoreInfo(dbName, selectedOrigin);
 
-const { data: storageEstimate } = useStorageEstimate(selectedOrigin);
+const { data: storageSizeData } = useTotalStorageSize(selectedOrigin);
 
 const isLoading = computed(() => isLoadingRecords.value || isFetchingRecords.value);
 const hasMore = computed(() => recordsData.value?.hasMore ?? false);
@@ -202,6 +208,47 @@ async function fetchSingleRecord(index: number): Promise<IDBRecord | null> {
     return result.records[0] ?? null;
   } catch {
     return null;
+  }
+}
+
+function getDomain(): IDBDomain | null {
+  const targetsStore = useTargetsStore();
+  const client = getClient(targetsStore.selectedTarget?.id ?? "");
+  return client ? new IDBDomain(client) : null;
+}
+
+async function handleRecordEdit(record: IDBRecord) {
+  const domain = getDomain();
+  if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
+  try {
+    await domain.putRecord(selectedOrigin.value, dbName.value, storeName.value, record.value);
+    void refetchRecords();
+  } catch (err) {
+    console.error("[IDB] Failed to save record:", err);
+  }
+}
+
+async function handleRecordDelete(key: IDBValidKey) {
+  const domain = getDomain();
+  if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
+  try {
+    await domain.deleteRecord(selectedOrigin.value, dbName.value, storeName.value, key);
+    void refetchRecords();
+  } catch (err) {
+    console.error("[IDB] Failed to delete record:", err);
+  }
+}
+
+async function handleRecordDeleteBulk(keys: IDBValidKey[]) {
+  const domain = getDomain();
+  if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
+  try {
+    for (const key of keys) {
+      await domain.deleteRecord(selectedOrigin.value, dbName.value, storeName.value, key);
+    }
+    void refetchRecords();
+  } catch (err) {
+    console.error("[IDB] Failed to delete records:", err);
   }
 }
 
@@ -471,7 +518,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
             :stores="storeInfoData ?? []"
             :is-loading="isLoadingStoreInfo"
             :is-error="isStoreInfoError"
-            :idb-size="storageEstimate?.idbUsage"
+            :total-idb-size="storageSizeData?.idb"
             @select-store="handleSelectStore"
             @refresh="void refetchStoreInfo()"
           />
@@ -507,8 +554,12 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
               :store-name="storeName"
               :db-name="dbName"
               :total-records="totalRecords"
+              :store-info="storeInfoData ?? []"
               :fetch-record="fetchSingleRecord"
               @refresh="refetch"
+              @record-edit="handleRecordEdit"
+              @record-delete="handleRecordDelete"
+              @record-delete-bulk="handleRecordDeleteBulk"
             />
           </div>
         </template>

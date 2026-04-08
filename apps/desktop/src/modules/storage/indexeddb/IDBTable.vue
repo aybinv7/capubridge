@@ -19,7 +19,7 @@ import {
   type ColumnDef,
   type ColumnSizingState,
 } from "@tanstack/vue-table";
-import type { IDBRecord } from "utils";
+import type { IDBRecord, StoreInfo } from "utils";
 
 // UI components
 import { Button } from "@/components/ui/button";
@@ -45,14 +45,22 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDate } from "@internationalized/date";
-import type { DateValue } from "reka-ui";
+import type { CheckboxCheckedState, DateValue } from "reka-ui";
 
 // Module composables & components
-import { useAdvancedFilters, OPERATORS } from "./useAdvancedFilters";
+import {
+  useAdvancedFilters,
+  OPERATORS,
+  type AdvancedFilter,
+  type FilterOperator,
+} from "./useAdvancedFilters";
 import { useIDBTableExport } from "./useIDBTableExport";
 import { useIDBRowDetail } from "./useIDBRowDetail";
 import IDBRowDetailDialog from "./IDBRowDetailDialog.vue";
+import IDBTableActions from "./IDBTableActions.vue";
 
 // Icons
 import {
@@ -61,22 +69,15 @@ import {
   ArrowDown,
   Filter,
   X,
-  Eye,
   EyeOff,
   Pin,
-  Columns,
+  Layers,
   Download,
-  Search,
   ChevronRight,
   ChevronDown,
-  Copy,
-  Trash2,
-  Table2,
-  Maximize2,
-  Minimize2,
-  Code,
   Plus,
   CalendarDays,
+  Check,
 } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -85,6 +86,7 @@ const props = defineProps<{
   storeName: string;
   dbName: string;
   totalRecords?: number;
+  storeInfo?: StoreInfo[];
   fetchRecord?: (index: number) => Promise<IDBRecord | null>;
 }>();
 
@@ -92,6 +94,8 @@ const emit = defineEmits<{
   refresh: [];
   recordEdit: [record: IDBRecord];
   recordDelete: [key: IDBValidKey];
+  recordDeleteBulk: [keys: IDBValidKey[]];
+  "filter-update": [filter: AdvancedFilter];
 }>();
 
 // ─── Table State ─────────────────────────────────────────────────────────────
@@ -109,17 +113,24 @@ const columnPinning = ref<ColumnPinningState>({
 const rowSelection = ref<Record<string, boolean>>({});
 const columnSizing = ref<ColumnSizingState>({});
 
+// Confirmation dialog state
+const showDeleteConfirm = ref(false);
+const pendingDeleteKeys = ref<IDBValidKey[]>([]);
+
 // ─── Advanced Filters ────────────────────────────────────────────────────────
 const recordsRef = computed(() => props.records);
 const {
   advancedFilters,
   filteredData,
   getOperator,
-  addFilter,
+  addFilterFull,
   removeFilter,
-  clearAdvancedFilters,
   reset: resetAdvancedFilters,
 } = useAdvancedFilters(recordsRef);
+
+function updateFilters(filters: AdvancedFilter[]) {
+  advancedFilters.value = [...filters];
+}
 
 // Reset all state when store/db changes
 watch(
@@ -138,12 +149,6 @@ watch(
     resetAdvancedFilters();
   },
 );
-
-function clearAllFilters() {
-  columnFilters.value = [];
-  globalFilter.value = "";
-  clearAdvancedFilters();
-}
 
 // ─── Column Helper & Dynamic Columns ────────────────────────────────────────
 const columnHelper = createColumnHelper<IDBRecord>();
@@ -175,40 +180,65 @@ const objectKeys = computed(() => {
 const columns = computed<ColumnDef<IDBRecord, unknown>[]>(() => {
   const actionsCol = columnHelper.display({
     id: "__actions",
-    header: "",
-    size: 48,
-    minSize: 48,
-    maxSize: 48,
+    header: ({ table }) =>
+      h(Checkbox, {
+        modelValue: table.getIsAllRowsSelected()
+          ? true
+          : table.getIsSomeRowsSelected()
+            ? "indeterminate"
+            : false,
+        "onUpdate:modelValue": (value: boolean | string) => {
+          if (typeof value === "boolean") {
+            table.toggleAllRowsSelected(value);
+          } else {
+            table.toggleAllRowsSelected();
+          }
+        },
+        class: "h-3.5 w-3.5",
+      }),
+    size: 20,
+    minSize: 20,
+    maxSize: 20,
     enableHiding: false,
     enableResizing: false,
     enableGrouping: false,
+    enableColumnFilter: true,
     cell: ({ row }) =>
       h("div", { class: "flex items-center justify-center" }, [
+        // Checkbox - visible for all rows including grouped
+        // For grouped rows, selecting selects all child rows
         h(
-          "button",
+          Checkbox,
           {
-            class:
-              "p-1 rounded hover:bg-surface-3 text-muted-foreground/50 hover:text-foreground transition-colors",
-            onClick: () => row.toggleExpanded(),
+            modelValue: row.getIsSelected(),
+            "onUpdate:modelValue": (value: CheckboxCheckedState) => {
+              if (value !== row.getIsSelected()) {
+                row.toggleSelected();
+              }
+            },
+            class: "h-3.5 w-3.5",
           },
-          [
-            h(row.getIsExpanded() ? ChevronDown : ChevronRight, {
-              size: 14,
-              class: "transition-transform",
-            }),
-          ],
+          {
+            default: ({ checked }: { checked: CheckboxCheckedState }) =>
+              checked
+                ? h(Check, { class: "size-3" })
+                : !checked
+                  ? null
+                  : h("div", { class: "size-2.5 bg-primary rounded-sm" }),
+          },
         ),
       ]),
   });
 
   const keyCol = columnHelper.accessor("key", {
     header: "Key",
-    size: 180,
-    minSize: 80,
+    size: 70,
+    minSize: 30,
     enableHiding: true,
     enableResizing: true,
     enableGrouping: true,
-    enableFiltering: true,
+    enableColumnFilter: true,
+    enableGlobalFilter: true,
     cell: (info) => {
       const v = info.getValue();
       if (typeof v === "object") return JSON.stringify(v);
@@ -225,7 +255,8 @@ const columns = computed<ColumnDef<IDBRecord, unknown>[]>(() => {
       enableHiding: true,
       enableResizing: true,
       enableGrouping: true,
-      enableFiltering: true,
+      enableColumnFilter: true,
+      enableGlobalFilter: true,
       cell: (info) => {
         const v = info.getValue();
         if (v === null || v === undefined) return "";
@@ -246,7 +277,8 @@ const columns = computed<ColumnDef<IDBRecord, unknown>[]>(() => {
       enableHiding: true,
       enableResizing: true,
       enableGrouping: true,
-      enableFiltering: true,
+      enableColumnFilter: true,
+      enableGlobalFilter: true,
       cell: (info) => {
         const v = info.getValue();
         if (v === null || v === undefined) return "";
@@ -339,16 +371,26 @@ const table = useVueTable({
   getGroupedRowModel: getGroupedRowModel(),
   getExpandedRowModel: getExpandedRowModel(),
   enableHiding: true,
-  enableResizing: true,
-  enableColumnOrdering: true,
   enableMultiSort: true,
   enableColumnPinning: true,
-  enableFiltering: true,
+  enableColumnResizing: true,
+  enableColumnFilters: true,
+  enableGlobalFilter: true,
+  enableFilters: true,
+  enableSorting: true,
+  enableGrouping: true,
+  enableRowPinning: true,
+  enableMultiRowSelection: true,
+  enableMultiRemove: true,
+  enableRowSelection: true,
+  enableExpanding: true,
+  enableSortingRemoval: true,
+  enableSubRowSelection: true,
   getRowId: (row, index) => `${String(row.key)}-${index}`,
 });
 
 // ─── Export ──────────────────────────────────────────────────────────────────
-const { exportToCSV, exportToJSON, exportSelectedToJSON } = useIDBTableExport(
+const { exportSelectedToJSON } = useIDBTableExport(
   table,
   () => props.dbName,
   () => props.storeName,
@@ -380,41 +422,6 @@ const {
 // ─── Computed Stats ──────────────────────────────────────────────────────────
 const filteredRowCount = computed(() => table.getFilteredRowModel().rows.length);
 const selectedRowCount = computed(() => table.getSelectedRowModel().rows.length);
-const hasActiveFilters = computed(
-  () =>
-    advancedFilters.value.length > 0 || columnFilters.value.length > 0 || globalFilter.value !== "",
-);
-
-// ─── Column Layout Utils ─────────────────────────────────────────────────────
-function resetColumnLayout() {
-  columnVisibility.value = {};
-  columnOrder.value = [];
-  columnPinning.value = { left: ["__actions", "key"], right: [] };
-  columnSizing.value = {};
-}
-
-function autoSizeColumns() {
-  const sizing: ColumnSizingState = {};
-  for (const col of table.getAllLeafColumns()) {
-    if (col.id === "__actions") continue;
-    sizing[col.id] = col.columnDef.size ?? 200;
-  }
-  columnSizing.value = sizing;
-}
-
-function fitColumnsToGrid() {
-  const visibleColumns = table.getVisibleFlatColumns().filter((c) => c.id !== "__actions");
-  if (visibleColumns.length === 0) return;
-  const containerWidth =
-    (document.querySelector("[data-idb-table-container]") as HTMLElement)?.offsetWidth ?? 1200;
-  const availableWidth = containerWidth - 48; // 48 = actions col
-  const perColumn = Math.floor(availableWidth / visibleColumns.length);
-  const sizing: ColumnSizingState = {};
-  for (const col of visibleColumns) {
-    sizing[col.id] = Math.max(perColumn, col.columnDef.minSize ?? 80);
-  }
-  columnSizing.value = sizing;
-}
 
 // ─── Grouping Helpers ────────────────────────────────────────────────────────
 const isColumnGrouped = (columnId: string) => grouping.value.includes(columnId);
@@ -459,288 +466,39 @@ const DATE_OPERATORS = new Set(["gt", "gte", "lt", "lte", "equals"]);
 function showCalendar(columnId: string, operator: string): boolean {
   return DATE_OPERATORS.has(operator) && isDateColumn(columnId);
 }
+
+function handleBulkDelete() {
+  const selectedKeys = table.getSelectedRowModel().rows.map((row) => row.original.key);
+  if (selectedKeys.length > 0) {
+    pendingDeleteKeys.value = selectedKeys;
+    showDeleteConfirm.value = true;
+  }
+}
+
+function confirmBulkDelete() {
+  if (pendingDeleteKeys.value.length > 0) {
+    emit("recordDeleteBulk", pendingDeleteKeys.value);
+    pendingDeleteKeys.value = [];
+    table.resetRowSelection();
+  }
+}
 </script>
 
 <template>
   <div class="flex flex-col h-full overflow-hidden" data-idb-table-container>
-    <!-- ─── Toolbar ──────────────────────────────────────────────────────── -->
-    <div
-      class="flex shrink-0 items-center gap-2 border-b border-border/30 bg-surface-2 px-3 py-2 flex-wrap"
-    >
-      <!-- Global Search -->
-      <div class="relative flex-1 min-w-[200px] max-w-md">
-        <Search
-          class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40"
-        />
-        <Input
-          v-model="globalFilter"
-          placeholder="Search all columns…"
-          class="h-7 pl-8 text-xs bg-surface-3 border-border/30 focus:border-border/60"
-        />
-        <button
-          v-if="globalFilter"
-          class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground"
-          @click="globalFilter = ''"
-        >
-          <X class="h-3 w-3" />
-        </button>
-      </div>
-
-      <!-- Add Filter button -->
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        class="h-7 w-7 shrink-0"
-        title="Add advanced filter"
-        @click="addFilter()"
-      >
-        <Plus class="h-3.5 w-3.5" />
-      </Button>
-
-      <!-- Filter indicators -->
-      <div v-if="hasActiveFilters" class="flex items-center gap-1">
-        <span class="text-[10px] text-muted-foreground/50">
-          {{ filteredRowCount }} of {{ totalCount }} rows
-        </span>
-        <Button variant="ghost" size="icon-sm" class="h-5 w-5" @click="clearAllFilters">
-          <X class="h-3 w-3" />
-        </Button>
-      </div>
-
-      <div class="flex-1" />
-
-      <!-- Selection count -->
-      <span v-if="selectedRowCount > 0" class="text-[10px] text-muted-foreground/60 tabular-nums">
-        {{ selectedRowCount }} selected
-      </span>
-
-      <!-- Column Visibility & Grouping -->
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon-sm" class="h-7 w-7" title="Columns">
-            <Eye class="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-72 max-h-80 overflow-y-auto">
-          <DropdownMenuLabel>Columns</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem
-              v-for="col in table
-                .getAllLeafColumns()
-                .filter((c) => c.id !== '__actions' && c.columnDef.enableHiding !== false)"
-              :key="col.id"
-              class="flex items-center justify-between gap-2 py-1.5"
-            >
-              <span class="truncate flex items-center gap-2 flex-1 min-w-0">
-                <button
-                  class="shrink-0 p-0.5 rounded hover:bg-surface-3"
-                  :class="col.getIsVisible() ? 'text-foreground/70' : 'text-muted-foreground/40'"
-                  :title="col.getIsVisible() ? 'Hide column' : 'Show column'"
-                  @click.stop="col.toggleVisibility()"
-                >
-                  <Eye v-if="col.getIsVisible()" class="h-3.5 w-3.5" />
-                  <EyeOff v-else class="h-3.5 w-3.5" />
-                </button>
-                <span class="truncate">{{ col.columnDef.header ?? col.id }}</span>
-              </span>
-              <button
-                class="shrink-0 p-0.5 rounded hover:bg-surface-3"
-                :class="
-                  isColumnGrouped(col.id)
-                    ? 'text-foreground/70 bg-surface-3'
-                    : 'text-muted-foreground/40'
-                "
-                title="Group by this column"
-                @click.stop="toggleGrouping(col.id)"
-              >
-                <Columns class="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator v-if="grouping.length > 0" />
-          <DropdownMenuItem
-            v-if="grouping.length > 0"
-            class="text-xs text-muted-foreground"
-            @click="grouping = []"
-          >
-            Clear grouping
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <!-- Column Layout -->
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon-sm" class="h-7 w-7" title="Layout options">
-            <Table2 class="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-48">
-          <DropdownMenuLabel>Layout</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem @click="autoSizeColumns">
-            <Maximize2 class="h-3.5 w-3.5 mr-2" />
-            Auto-size columns
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="fitColumnsToGrid">
-            <Minimize2 class="h-3.5 w-3.5 mr-2" />
-            Fit to grid
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem @click="resetColumnLayout"> Reset layout </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <!-- Export -->
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon-sm" class="h-7 w-7" title="Export data">
-            <Download class="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-48">
-          <DropdownMenuLabel>Export</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem @click="exportToCSV"> CSV (filtered) </DropdownMenuItem>
-          <DropdownMenuItem @click="exportToJSON"> JSON (filtered) </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem :disabled="selectedRowCount === 0" @click="exportSelectedToJSON">
-            Selected ({{ selectedRowCount }})
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-
-    <!-- ─── Advanced Filters Bar ─────────────────────────────────────────── -->
-    <div
-      v-if="advancedFilters.length > 0"
-      class="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/30 bg-surface-2 px-3 py-2"
-    >
-      <span class="text-[10px] font-medium text-muted-foreground shrink-0 uppercase tracking-wider">
-        Where
-      </span>
-
-      <template v-for="(filter, idx) in advancedFilters" :key="filter.id">
-        <!-- AND / OR toggle between filters -->
-        <div
-          v-if="idx > 0"
-          class="flex shrink-0 rounded-md border border-border/50 overflow-hidden text-[10px] font-semibold"
-        >
-          <button
-            class="px-2 py-1 transition-colors"
-            :class="
-              filter.logic === 'and'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-surface-3 text-muted-foreground hover:text-foreground'
-            "
-            @click="filter.logic = 'and'"
-          >
-            AND
-          </button>
-          <button
-            class="px-2 py-1 transition-colors border-l border-border/50"
-            :class="
-              filter.logic === 'or'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-surface-3 text-muted-foreground hover:text-foreground'
-            "
-            @click="filter.logic = 'or'"
-          >
-            OR
-          </button>
-        </div>
-
-        <!-- Filter pill -->
-        <div
-          class="flex items-center shrink-0 rounded-md border border-border/50 bg-surface-3 overflow-hidden text-xs"
-        >
-          <!-- Column selector -->
-          <Select v-model="filter.columnId">
-            <SelectTrigger
-              class="h-7 border-0 rounded-none border-r border-border/50 bg-transparent text-[11px] font-medium px-2 min-w-[80px] max-w-[130px] focus:ring-0 shadow-none"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="col in table
-                  .getAllLeafColumns()
-                  .filter((c) => c.id !== '__actions' && c.columnDef.enableHiding !== false)"
-                :key="col.id"
-                :value="col.id"
-                class="text-xs"
-              >
-                {{ col.columnDef.header ?? col.id }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <!-- Operator selector -->
-          <Select v-model="filter.operator">
-            <SelectTrigger
-              class="h-7 border-0 rounded-none border-r border-border/50 bg-transparent text-[11px] text-muted-foreground px-2 min-w-[90px] max-w-[130px] focus:ring-0 shadow-none"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="op in OPERATORS" :key="op.value" :value="op.value" class="text-xs">
-                {{ op.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          <!-- Value: calendar picker for date columns + comparison ops -->
-          <template v-if="getOperator(filter.operator).needsValue">
-            <Popover v-if="showCalendar(filter.columnId, filter.operator)">
-              <PopoverTrigger as-child>
-                <button
-                  class="h-7 px-2 flex items-center gap-1.5 text-[11px] border-r border-border/50 min-w-[110px] hover:bg-surface-2 transition-colors"
-                  :class="filter.value ? 'text-foreground' : 'text-muted-foreground'"
-                >
-                  <CalendarDays class="h-3 w-3 shrink-0" />
-                  {{ filter.value || "Pick date…" }}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent class="w-auto p-0" align="start">
-                <Calendar
-                  layout="month-and-year"
-                  :model-value="parseFilterDate(filter.value)"
-                  @update:model-value="filter.value = ($event?.toString() ?? '').slice(0, 10)"
-                />
-              </PopoverContent>
-            </Popover>
-
-            <!-- Plain text input for non-date columns -->
-            <Input
-              v-else
-              v-model="filter.value"
-              placeholder="value…"
-              class="h-7 border-0 rounded-none border-r border-border/50 bg-transparent text-[11px] w-28 focus-visible:ring-0 shadow-none px-2"
-            />
-          </template>
-
-          <!-- Remove filter -->
-          <button
-            class="h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors shrink-0"
-            @click="removeFilter(filter.id)"
-          >
-            <X class="h-3 w-3" />
-          </button>
-        </div>
-      </template>
-
-      <!-- Add another filter -->
-      <Button
-        variant="ghost"
-        size="sm"
-        class="h-7 text-[11px] text-muted-foreground hover:text-foreground px-2 gap-1"
-        @click="addFilter()"
-      >
-        <Plus class="h-3 w-3" />
-        Add filter
-      </Button>
-    </div>
+    <!-- ─── Table Actions Toolbar ───────────────────────────────────────────────── -->
+    <IDBTableActions
+      :records="records"
+      :table="table"
+      :grouping="grouping"
+      :store-info="storeInfo"
+      :store-name="storeName"
+      :total-records="totalRecords"
+      :advanced-filters="advancedFilters"
+      @update:grouping="grouping = $event"
+      @record-delete-bulk="handleBulkDelete"
+      @update:filters="updateFilters"
+    />
 
     <!-- ─── Table ────────────────────────────────────────────────────────── -->
     <div class="flex-1 overflow-auto min-h-0 relative">
@@ -784,8 +542,8 @@ function showCalendar(columnId: string, operator: string): boolean {
               :style="{ width: header.getSize() + 'px' }"
               class="h-7 border-b border-border/20 bg-surface-3/30 px-3 text-left text-xs font-medium text-muted-foreground/50 select-none"
               :class="{
-                'sticky left-0 z-[2]': header.column.getIsPinned() === 'left',
-                'sticky right-0 z-[2]': header.column.getIsPinned() === 'right',
+                'sticky left-0 z-2': header.column.getIsPinned() === 'left',
+                'sticky right-0 z-2': header.column.getIsPinned() === 'right',
               }"
             >
               <FlexRender
@@ -802,10 +560,10 @@ function showCalendar(columnId: string, operator: string): boolean {
               v-for="header in table.getFlatHeaders().filter((h) => h.column.getIsVisible())"
               :key="header.id"
               :style="{ width: header.getSize() + 'px' }"
-              class="group sticky top-0 z-[1] h-10 border-b border-border/30 bg-surface-2 px-3 text-left text-xs font-medium text-muted-foreground/50 select-none relative"
+              class="group top-0 z-1 h-10 border-b border-border/30 bg-surface-2 px-3 text-left text-xs font-medium text-muted-foreground/50 select-none relative"
               :class="{
-                'sticky left-0 z-[2]': header.column.getIsPinned() === 'left',
-                'sticky right-0 z-[2]': header.column.getIsPinned() === 'right',
+                'sticky left-0 z-2': header.column.getIsPinned() === 'left',
+                'sticky right-0 z-2': header.column.getIsPinned() === 'right',
               }"
             >
               <!-- Column actions dropdown -->
@@ -840,7 +598,9 @@ function showCalendar(columnId: string, operator: string): boolean {
                   <DropdownMenuGroup v-if="header.column.getCanSort()">
                     <DropdownMenuItem
                       class="text-xs"
-                      :class="{ 'bg-accent': header.column.getIsSorted() === 'asc' }"
+                      :class="{
+                        'bg-accent': header.column.getIsSorted() === 'asc',
+                      }"
                       @click="header.column.toggleSorting(false)"
                     >
                       <ArrowUp class="h-3 w-3 mr-2" />
@@ -848,7 +608,9 @@ function showCalendar(columnId: string, operator: string): boolean {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       class="text-xs"
-                      :class="{ 'bg-accent': header.column.getIsSorted() === 'desc' }"
+                      :class="{
+                        'bg-accent': header.column.getIsSorted() === 'desc',
+                      }"
                       @click="header.column.toggleSorting(true)"
                     >
                       <ArrowDown class="h-3 w-3 mr-2" />
@@ -884,7 +646,7 @@ function showCalendar(columnId: string, operator: string): boolean {
 
                   <!-- Group by -->
                   <DropdownMenuItem class="text-xs" @click="toggleGrouping(header.column.id)">
-                    <Columns class="h-3 w-3 mr-2" />
+                    <Layers class="h-3 w-3 mr-2" />
                     {{ isColumnGrouped(header.column.id) ? "Ungroup" : "Group by" }}
                   </DropdownMenuItem>
 
@@ -897,14 +659,18 @@ function showCalendar(columnId: string, operator: string): boolean {
                     <DropdownMenuSubContent>
                       <DropdownMenuItem
                         class="text-xs"
-                        :class="{ 'bg-accent': header.column.getIsPinned() === 'left' }"
+                        :class="{
+                          'bg-accent': header.column.getIsPinned() === 'left',
+                        }"
                         @click="header.column.pin('left')"
                       >
                         Pin to left
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         class="text-xs"
-                        :class="{ 'bg-accent': header.column.getIsPinned() === 'right' }"
+                        :class="{
+                          'bg-accent': header.column.getIsPinned() === 'right',
+                        }"
                         @click="header.column.pin('right')"
                       >
                         Pin to right
@@ -956,132 +722,56 @@ function showCalendar(columnId: string, operator: string): boolean {
             <!-- Group header -->
             <tr v-if="row.getIsGrouped()" class="bg-surface-3/30 border-b border-border/20">
               <td :colspan="row.getVisibleCells().length" class="px-3 py-2">
-                <button
-                  class="flex items-center gap-2 text-xs font-medium text-foreground/70 hover:text-foreground"
-                  @click="row.toggleExpanded()"
-                >
-                  <component
-                    :is="row.getIsExpanded() ? ChevronDown : ChevronRight"
-                    class="h-3 w-3"
+                <div class="flex items-center gap-2">
+                  <!-- Checkbox for selecting all rows in group -->
+                  <Checkbox
+                    :model-value="row.getIsSelected()"
+                    @update:model-value="row.toggleSelected()"
+                    class="h-3.5 w-3.5"
                   />
-                  <span>
-                    {{ row.groupingColumnId }}:
-                    <code class="text-[10px] bg-surface-3 px-1 rounded">
-                      {{ row.getValue(row.groupingColumnId) }}
-                    </code>
-                    <span class="text-muted-foreground/40 ml-1"> ({{ row.subRows.length }}) </span>
-                  </span>
-                </button>
+                  <button
+                    class="flex items-center gap-2 text-xs font-medium text-foreground/70 hover:text-foreground"
+                    @click="row.toggleExpanded()"
+                  >
+                    <component
+                      :is="row.getIsExpanded() ? ChevronDown : ChevronRight"
+                      class="h-3 w-3"
+                    />
+                    <span>
+                      {{ row.groupingColumnId }}:
+                      <code class="text-[10px] bg-surface-3 px-1 rounded">
+                        {{ row.getValue(row.groupingColumnId ?? "") }}
+                      </code>
+                      <span class="text-muted-foreground/40 ml-1">
+                        ({{ row.subRows.length }})
+                      </span>
+                    </span>
+                  </button>
+                </div>
               </td>
             </tr>
 
             <!-- Data row -->
             <tr
               v-else
-              class="group border-b border-border/20 hover:bg-surface-2/50 transition-colors duration-75"
+              class="group select-none border-b border-border/20 hover:bg-surface-2/50 transition-colors duration-75"
               :class="{
                 'bg-surface-3/30': row.getIsGrouped(),
-                'bg-accent/10': row.getIsSelected(),
+                'pl-6': row.depth > 0,
+                'bg-accent/10!': row.getIsSelected(),
               }"
-              @click="row.toggleSelected()"
             >
               <td
                 v-for="cell in row.getVisibleCells()"
                 :key="cell.id"
                 class="h-9 overflow-hidden text-ellipsis whitespace-nowrap px-3 font-mono text-foreground/80 text-xs"
                 :class="{
-                  'sticky left-0 z-[3] bg-surface-2 group-hover:bg-surface-2/50':
-                    cell.column.getIsPinned() === 'left',
-                  'sticky right-0 z-[3] bg-surface-2 group-hover:bg-surface-2/50':
-                    cell.column.getIsPinned() === 'right',
+                  'sticky left-0 z-3': cell.column.getIsPinned() === 'left',
+                  'sticky right-0 z-3': cell.column.getIsPinned() === 'right',
                 }"
                 @dblclick="openRowDetail(row.original)"
               >
                 <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
-              </td>
-            </tr>
-
-            <!-- Expanded row detail -->
-            <tr v-if="row.getIsExpanded()" class="bg-surface-3/20">
-              <td :colspan="row.getVisibleCells().length" class="p-0">
-                <div class="border-t border-border/20 p-4">
-                  <div class="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 class="text-xs font-medium text-foreground/80">Row Detail</h4>
-                      <p class="text-[10px] text-muted-foreground/50 mt-0.5">
-                        Key:
-                        <code class="bg-surface-3 px-1 rounded">{{ row.original.key }}</code>
-                      </p>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        class="h-6 w-6"
-                        title="Copy as JSON"
-                        @click="copyToClipboard(JSON.stringify(row.original.value, null, 2))"
-                      >
-                        <Copy class="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        class="h-6 w-6"
-                        title="View / Edit"
-                        @click="openRowDetail(row.original)"
-                      >
-                        <Code class="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        class="h-6 w-6 text-error hover:text-error"
-                        title="Delete"
-                        @click="emit('recordDelete', row.original.key)"
-                      >
-                        <Trash2 class="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Value preview (key-value mode) -->
-                  <div
-                    v-if="isKeyValueStore"
-                    class="bg-surface-3/50 rounded p-3 font-mono text-xs text-foreground/70 overflow-x-auto"
-                  >
-                    <pre class="whitespace-pre-wrap">{{
-                      JSON.stringify(row.original.value, null, 2)
-                    }}</pre>
-                  </div>
-
-                  <!-- Value as key-value pairs (object mode) -->
-                  <div
-                    v-else
-                    class="grid grid-cols-[120px_1fr] gap-px bg-border/30 rounded overflow-hidden"
-                  >
-                    <template
-                      v-for="(val, key) in row.original.value as Record<string, unknown>"
-                      :key="key"
-                    >
-                      <div
-                        class="bg-surface-2 px-3 py-1.5 text-[10px] font-medium text-muted-foreground/60 truncate"
-                      >
-                        {{ key }}
-                      </div>
-                      <div
-                        class="bg-surface-2 px-3 py-1.5 text-xs font-mono text-foreground/70 truncate"
-                      >
-                        {{
-                          val === null || val === undefined
-                            ? ""
-                            : typeof val === "object"
-                              ? JSON.stringify(val)
-                              : String(val)
-                        }}
-                      </div>
-                    </template>
-                  </div>
-                </div>
               </td>
             </tr>
           </template>
@@ -1132,6 +822,17 @@ function showCalendar(columnId: string, operator: string): boolean {
       @delete="deleteRow"
       @copy="copyToClipboard(editJson)"
       @validity-change="jsonEditorValid = $event"
+    />
+
+    <!-- Delete Confirmation Dialog -->
+    <ConfirmDialog
+      v-model:open="showDeleteConfirm"
+      title="Delete Records"
+      :description="`Are you sure you want to delete ${pendingDeleteKeys.length} record(s)? This action cannot be undone.`"
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      variant="destructive"
+      @confirm="confirmBulkDelete"
     />
   </div>
 </template>

@@ -105,6 +105,7 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "adb_client",
+ "base64 0.22.1",
  "futures-util",
  "http",
  "log",
@@ -4913,6 +4914,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
