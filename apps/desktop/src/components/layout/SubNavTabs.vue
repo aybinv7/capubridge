@@ -34,7 +34,7 @@ const iconMap: Record<string, typeof Smartphone> = {
   "devices-apps": Package,
   "devices-webview": Monitor,
   "devices-files": FolderOpen,
-  "devices-perf": Gauge,
+  "devices-performance": Gauge,
   "storage-indexeddb": HardDrive,
   "storage-localforage": Database,
   "storage-localstorage": DatabaseZap,
@@ -90,7 +90,9 @@ function isActive(tabPath: string): boolean {
 </script>
 
 <template>
-  <div class="h-11 border-b border-border/30 bg-surface-0 flex items-center gap-1 px-1.5 shrink-0">
+  <div
+    class="h-11 border-b border-border/30 bg-surface-0 flex items-center gap-1 px-1.5 shrink-0"
+  >
     <button
       v-for="tab in subTabs"
       :key="tab.name"
@@ -102,7 +104,12 @@ function isActive(tabPath: string): boolean {
           : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-surface-2'
       "
     >
-      <component v-if="tab.icon" :is="tab.icon" :size="13" class="shrink-0 opacity-50" />
+      <component
+        v-if="tab.icon"
+        :is="tab.icon"
+        :size="13"
+        class="shrink-0 opacity-50"
+      />
       {{ tab.label }}
     </button>
   </div>
