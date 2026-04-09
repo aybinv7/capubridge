@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ADBDevice, AdbPackage, WebViewSocket } from "@/types/adb.types";
+import type { ADBDevice, AdbPackage, AdbPackageDetails, WebViewSocket } from "@/types/adb.types";
 
 export type { WebViewSocket };
+export type PackageListScope = "third-party" | "all";
 
 export interface DeviceOverview {
   name: string;
@@ -94,8 +95,26 @@ export function useAdb() {
     await invoke("adb_restart_server");
   }
 
-  async function listPackages(serial: string): Promise<AdbPackage[]> {
-    return invoke<AdbPackage[]>("adb_list_packages", { serial });
+  async function listPackages(
+    serial: string,
+    scope: PackageListScope = "all",
+  ): Promise<AdbPackage[]> {
+    return invoke<AdbPackage[]>("adb_list_packages", { serial, scope });
+  }
+
+  async function cancelListPackages(serial: string): Promise<void> {
+    await invoke("adb_cancel_list_packages", { serial });
+  }
+
+  async function getPackageDetails(
+    serial: string,
+    packageName: string,
+  ): Promise<AdbPackageDetails> {
+    return invoke<AdbPackageDetails>("adb_get_package_details", { serial, packageName });
+  }
+
+  async function openPackage(serial: string, packageName: string): Promise<string> {
+    return invoke<string>("adb_open_package", { serial, packageName });
   }
 
   async function listWebViewSockets(serial: string): Promise<WebViewSocket[]> {
@@ -120,5 +139,8 @@ export function useAdb() {
     forward,
     listWebViewSockets,
     listPackages,
+    cancelListPackages,
+    getPackageDetails,
+    openPackage,
   };
 }

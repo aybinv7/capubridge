@@ -1,190 +1,495 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import {
-  Search,
-  LayoutGrid,
-  List,
-  StopCircle,
-  Trash2,
-  X,
-  RefreshCw,
-  AlertCircle,
-  Loader2,
-  Package,
-  HardDrive,
-  Eraser,
-} from "lucide-vue-next";
-import { useQuery } from "@tanstack/vue-query";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useRouter } from "vue-router";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { invoke } from "@tauri-apps/api/core";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { useDevicesStore } from "@/stores/devices.store";
-import { useAdb } from "@/composables/useAdb";
-import type { AdbPackage } from "@/types/adb.types";
-import AppIcon from "./AppIcon.vue";
+import { AlertCircle, Loader2 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useAdb, type PackageListScope } from "@/composables/useAdb";
+import { useDevicesStore } from "@/stores/devices.store";
+import type { AdbPackage } from "@/types/adb.types";
+import DeviceAppInspector from "./DeviceAppInspector.vue";
+import DeviceAppsList from "./DeviceAppsList.vue";
+import DeviceAppsToolbar from "./DeviceAppsToolbar.vue";
+
+type DialogAction = "forceStop" | "clearData" | "uninstall" | null;
+type AppAction = Exclude<DialogAction, null>;
+type PackageScope = "third-party" | "all" | "system";
+type PackageFetchScope = PackageListScope;
+
+interface QuickPathEntry {
+  key: string;
+  label: string;
+  path: string;
+}
+
+interface CachedPackagesRecord {
+  serial: string;
+  scope: PackageFetchScope;
+  updatedAt: number;
+  packages: AdbPackage[];
+}
+
+const PACKAGE_CACHE_STALE_MS = 60_000;
+const PACKAGE_CACHE_PREFIX = "capubridge:device-apps:v1";
+
+function getPackagesCacheKey(serial: string, scope: PackageFetchScope): string {
+  return `${PACKAGE_CACHE_PREFIX}:${serial}:${scope}`;
+}
+
+function readPackagesCache(serial: string, scope: PackageFetchScope): CachedPackagesRecord | null {
+  try {
+    const raw = localStorage.getItem(getPackagesCacheKey(serial, scope));
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<CachedPackagesRecord>;
+    if (
+      parsed.serial !== serial ||
+      parsed.scope !== scope ||
+      typeof parsed.updatedAt !== "number" ||
+      !Array.isArray(parsed.packages)
+    ) {
+      return null;
+    }
+    return {
+      serial,
+      scope,
+      updatedAt: parsed.updatedAt,
+      packages: parsed.packages as AdbPackage[],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePackagesCache(
+  serial: string,
+  scope: PackageFetchScope,
+  packages: AdbPackage[],
+  updatedAt: number,
+) {
+  try {
+    const payload: CachedPackagesRecord = { serial, scope, updatedAt, packages };
+    localStorage.setItem(getPackagesCacheKey(serial, scope), JSON.stringify(payload));
+  } catch {
+    // ignore write failures (quota/private mode)
+  }
+}
+
+function removePackagesCache(serial: string, scope: PackageFetchScope) {
+  try {
+    localStorage.removeItem(getPackagesCacheKey(serial, scope));
+  } catch {
+    // ignore remove failures
+  }
+}
+
+function readScopedPackagesCache(
+  serial: string,
+  scope: PackageFetchScope,
+): CachedPackagesRecord | null {
+  if (scope === "all") {
+    return readPackagesCache(serial, "all");
+  }
+
+  const thirdParty = readPackagesCache(serial, "third-party");
+  if (thirdParty) {
+    return thirdParty;
+  }
+
+  const all = readPackagesCache(serial, "all");
+  if (!all) {
+    return null;
+  }
+
+  return {
+    serial,
+    scope: "third-party",
+    updatedAt: all.updatedAt,
+    packages: all.packages.filter((entry) => !entry.system),
+  };
+}
 
 const devicesStore = useDevicesStore();
-const { listPackages } = useAdb();
+const router = useRouter();
+const queryClient = useQueryClient();
+const { getPackageDetails, listPackages, openPackage, cancelListPackages } = useAdb();
 
 const serial = computed(() => devicesStore.selectedDevice?.serial ?? "");
+const appsView = ref<"grid" | "table">("grid");
+const appsSearch = ref("");
+const packageScope = ref<PackageScope>("third-party");
+const gridColumns = ref("6");
+const selectedApp = ref<AdbPackage | null>(null);
+const pendingAction = ref<DialogAction>(null);
+const isActing = ref(false);
+const isCancellingLoad = ref(false);
+const fetchScope = computed<PackageFetchScope>(() =>
+  packageScope.value === "third-party" ? "third-party" : "all",
+);
 
 const {
   data: packages,
   isLoading,
+  isFetching,
   isError,
   error,
   refetch,
 } = useQuery({
-  queryKey: computed(() => ["packages", serial.value]),
-  queryFn: () => listPackages(serial.value),
+  queryKey: computed(() => ["packages", serial.value, fetchScope.value]),
+  queryFn: async () => {
+    const activeSerial = serial.value;
+    const activeScope = fetchScope.value;
+    const nextPackages = await listPackages(activeSerial, activeScope);
+    const updatedAt = Date.now();
+    writePackagesCache(activeSerial, activeScope, nextPackages, updatedAt);
+
+    if (activeScope === "all") {
+      const thirdPartyPackages = nextPackages.filter((entry) => !entry.system);
+      writePackagesCache(activeSerial, "third-party", thirdPartyPackages, updatedAt);
+      queryClient.setQueryData(["packages", activeSerial, "third-party"], thirdPartyPackages);
+    }
+
+    return nextPackages;
+  },
   enabled: computed(() => !!serial.value),
-  staleTime: 60_000,
+  staleTime: PACKAGE_CACHE_STALE_MS,
+  gcTime: 24 * 60 * 60 * 1000,
+  initialData: () => {
+    const activeSerial = serial.value;
+    if (!activeSerial) {
+      return undefined;
+    }
+    return readScopedPackagesCache(activeSerial, fetchScope.value)?.packages;
+  },
+  initialDataUpdatedAt: () => {
+    const activeSerial = serial.value;
+    if (!activeSerial) {
+      return undefined;
+    }
+    return readScopedPackagesCache(activeSerial, fetchScope.value)?.updatedAt;
+  },
 });
 
-const appsView = ref<"grid" | "table">("grid");
-const appsSearch = ref("");
-const selectedApp = ref<AdbPackage | null>(null);
+const isPackagesBusy = computed(() => isLoading.value || isFetching.value);
 
-// Segments too generic to be meaningful as display names
-const GENERIC_SEGMENTS = new Set([
-  "android",
-  "app",
-  "application",
-  "mobile",
-  "phone",
-  "tablet",
-  "wear",
-  "auto",
-  "tv",
-  "launcher",
-  "client",
-  "main",
-  "core",
-  "lite",
-  "pro",
-]);
+const selectedPackageName = computed(() => selectedApp.value?.packageName ?? "");
+const {
+  data: selectedAppDetails,
+  isLoading: isLoadingDetails,
+  isError: isDetailsError,
+  error: detailsError,
+  refetch: refetchSelectedAppDetails,
+} = useQuery({
+  queryKey: computed(() => ["package-details", serial.value, selectedPackageName.value]),
+  queryFn: () => getPackageDetails(serial.value, selectedPackageName.value),
+  enabled: computed(() => !!serial.value && !!selectedPackageName.value),
+  staleTime: PACKAGE_CACHE_STALE_MS,
+});
 
-function displayName(pkg: string): string {
-  const parts = pkg.split(".").filter((p) => p.length > 0);
-  // Walk backward to find a meaningful segment
-  let segment = "";
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const s = parts[i]!;
-    if (!GENERIC_SEGMENTS.has(s.toLowerCase()) || i === 0) {
-      segment = s;
-      break;
+watch(
+  () => packages.value,
+  (nextPackages) => {
+    if (!selectedApp.value) {
+      return;
     }
+
+    const refreshed = nextPackages?.find(
+      (entry) => entry.packageName === selectedApp.value?.packageName,
+    );
+    selectedApp.value = refreshed ?? null;
+  },
+);
+
+watch(serial, () => {
+  selectedApp.value = null;
+});
+
+async function cancelPackagesLoad(options?: { silent?: boolean }) {
+  const activeSerial = serial.value;
+  if (!activeSerial || !isFetching.value || isCancellingLoad.value) {
+    return;
   }
-  if (!segment) segment = parts[parts.length - 1] ?? pkg;
-  // Split on underscores, camelCase boundaries, and digit transitions
-  segment = segment.replace(/_/g, " ");
-  segment = segment.replace(/([a-zA-Z])(\d)/g, "$1 $2");
-  segment = segment.replace(/([a-z])([A-Z])/g, "$1 $2");
-  return segment
-    .split(" ")
-    .filter((w) => w.length > 0)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+
+  const silent = options?.silent ?? false;
+  isCancellingLoad.value = true;
+  try {
+    await cancelListPackages(activeSerial);
+    if (!silent) {
+      toast("Stopping package load…");
+    }
+  } catch (err) {
+    if (!silent) {
+      toast.error("Failed to stop package load", { description: String(err) });
+    }
+  } finally {
+    isCancellingLoad.value = false;
+  }
 }
 
-// Short domain like "com.twitter" or "io.ionic"
-function pkgDomain(pkg: string): string {
-  const parts = pkg.split(".");
-  return parts.slice(0, Math.min(2, parts.length - 1)).join(".");
+async function handleRefresh() {
+  const activeSerial = serial.value;
+  if (!activeSerial) {
+    return;
+  }
+
+  const activeScope = fetchScope.value;
+  removePackagesCache(activeSerial, activeScope);
+  if (activeScope === "all") {
+    removePackagesCache(activeSerial, "third-party");
+    queryClient.removeQueries({
+      queryKey: ["packages", activeSerial, "third-party"],
+      exact: true,
+    });
+  }
+  await refetch();
 }
+
+onBeforeUnmount(() => {
+  void cancelPackagesLoad({ silent: true });
+});
+
+function appDisplayName(app: AdbPackage): string {
+  const label = app.label?.trim();
+  return label && label.length > 0 ? label : app.packageName;
+}
+
+function dirname(path?: string | null): string | null {
+  if (!path) {
+    return null;
+  }
+  const cleanPath = path.replace(/\/+$/, "");
+  const slashIndex = cleanPath.lastIndexOf("/");
+  if (slashIndex <= 0) {
+    return null;
+  }
+  return cleanPath.slice(0, slashIndex);
+}
+
+const packageCounts = computed(() => {
+  const activeSerial = serial.value;
+  const allPackagesFromQuery = activeSerial
+    ? queryClient.getQueryData<AdbPackage[]>(["packages", activeSerial, "all"])
+    : undefined;
+  const allPackagesFromCache = activeSerial
+    ? readPackagesCache(activeSerial, "all")?.packages
+    : undefined;
+  const allPackages = allPackagesFromQuery ?? allPackagesFromCache ?? packages.value ?? [];
+  const system = allPackages.filter((entry) => entry.system).length;
+  return {
+    total: allPackages.length,
+    system,
+    thirdParty: allPackages.length - system,
+  };
+});
 
 const filteredApps = computed(() => {
-  if (!packages.value) return [];
-  const q = appsSearch.value.toLowerCase().trim();
-  if (!q) return packages.value;
-  return packages.value.filter((p) => p.packageName.toLowerCase().includes(q));
+  let entries = packages.value ?? [];
+
+  if (packageScope.value === "system") {
+    entries = entries.filter((entry) => entry.system);
+  } else if (packageScope.value === "third-party") {
+    entries = entries.filter((entry) => !entry.system);
+  }
+
+  const query = appsSearch.value.toLowerCase().trim();
+  if (!query) {
+    return entries;
+  }
+
+  return entries.filter((entry) => {
+    const label = appDisplayName(entry).toLowerCase();
+    const packageName = entry.packageName.toLowerCase();
+    return label.includes(query) || packageName.includes(query);
+  });
 });
 
-// --- App actions ---
-type DialogAction = "forceStop" | "clearData" | "uninstall" | null;
-const pendingAction = ref<DialogAction>(null);
-const isActing = ref(false);
+const selectedTotalSize = computed(() => {
+  const details = selectedAppDetails.value;
+  if (!details) {
+    return null;
+  }
+
+  const numbers = [details.appSize, details.dataSize, details.cacheSize].filter(
+    (value): value is number => value !== null && value !== undefined,
+  );
+  if (numbers.length === 0) {
+    return null;
+  }
+
+  return numbers.reduce((sum, value) => sum + value, 0);
+});
+
+const quickPaths = computed<QuickPathEntry[]>(() => {
+  const app = selectedApp.value;
+  if (!app) {
+    return [];
+  }
+
+  const details = selectedAppDetails.value;
+  const packageName = app.packageName;
+  const candidates = [
+    {
+      key: "external",
+      label: "Android/data",
+      path: details?.externalDataDir ?? `/sdcard/Android/data/${packageName}`,
+    },
+    {
+      key: "internal",
+      label: "Internal data",
+      path: details?.dataDir ?? `/data/data/${packageName}`,
+    },
+    {
+      key: "media",
+      label: "Android/media",
+      path: details?.mediaDir ?? null,
+    },
+    {
+      key: "obb",
+      label: "Android/obb",
+      path: details?.obbDir ?? null,
+    },
+    {
+      key: "apk",
+      label: "APK folder",
+      path: dirname(details?.apkPath ?? app.apkPath),
+    },
+  ];
+
+  const seen = new Set<string>();
+  return candidates
+    .filter((candidate): candidate is QuickPathEntry => {
+      if (!candidate.path || seen.has(candidate.path)) {
+        return false;
+      }
+      seen.add(candidate.path);
+      return true;
+    })
+    .map((candidate) => ({ ...candidate }));
+});
 
 const confirmDialogConfig = computed(() => {
   const app = selectedApp.value;
-  if (!app) return null;
-  const name = displayName(app.packageName);
+  if (!app || !pendingAction.value) {
+    return null;
+  }
+
+  const name = appDisplayName(app);
   if (pendingAction.value === "forceStop") {
     return {
-      title: `Force Stop "${name}"?`,
-      description: "This will kill all running processes for this app.",
+      title: `Force stop "${name}"?`,
+      description: "This will kill the app process on the connected device.",
       confirmText: "Force Stop",
       variant: "default" as const,
     };
   }
   if (pendingAction.value === "clearData") {
     return {
-      title: `Clear Data for "${name}"?`,
+      title: `Clear data for "${name}"?`,
       description:
-        "This will permanently delete all app data, cache, and settings. The app will be reset to a fresh install state.",
+        "This deletes the app data and cache on the device and resets it to a fresh state.",
       confirmText: "Clear Data",
       variant: "destructive" as const,
     };
   }
-  if (pendingAction.value === "uninstall") {
-    return {
-      title: `Uninstall "${name}"?`,
-      description: "This will permanently remove the app and all its data from the device.",
-      confirmText: "Uninstall",
-      variant: "destructive" as const,
-    };
-  }
-  return null;
+  return {
+    title: `Uninstall "${name}"?`,
+    description: "This removes the package and all app data from the connected device.",
+    confirmText: "Uninstall",
+    variant: "destructive" as const,
+  };
 });
 
-function promptAction(app: AdbPackage, action: DialogAction) {
+function selectApp(app: AdbPackage) {
+  selectedApp.value = selectedApp.value?.packageName === app.packageName ? null : app;
+}
+
+async function openFiles(path: string) {
+  await router.push({
+    name: "devices-files",
+    query: { path },
+  });
+}
+
+async function handleLaunchApp(app: AdbPackage) {
+  if (!serial.value) {
+    return;
+  }
+
+  try {
+    await openPackage(serial.value, app.packageName);
+    toast.success("App launched", { description: app.packageName });
+  } catch (err) {
+    toast.error("Failed to launch app", { description: String(err) });
+  }
+}
+
+function promptAction(app: AdbPackage, action: AppAction) {
   selectedApp.value = app;
   pendingAction.value = action;
+}
+
+function handleListAction(payload: { app: AdbPackage; action: AppAction }) {
+  promptAction(payload.app, payload.action);
+}
+
+function handleInspectorAction(action: AppAction) {
+  if (!selectedApp.value) {
+    return;
+  }
+  promptAction(selectedApp.value, action);
 }
 
 async function executeAction() {
   const app = selectedApp.value;
   const action = pendingAction.value;
-  if (!app || !action || !serial.value) return;
+  if (!app || !action || !serial.value) {
+    return;
+  }
 
-  const name = displayName(app.packageName);
+  const name = appDisplayName(app);
   pendingAction.value = null;
   isActing.value = true;
 
   try {
-    let shellCmd = "";
-    if (action === "forceStop") shellCmd = `am force-stop ${app.packageName}`;
-    else if (action === "clearData") shellCmd = `pm clear ${app.packageName}`;
-    else if (action === "uninstall") shellCmd = `pm uninstall ${app.packageName}`;
+    let command = "";
+    if (action === "forceStop") {
+      command = `am force-stop ${app.packageName}`;
+    } else if (action === "clearData") {
+      command = `pm clear ${app.packageName}`;
+    } else {
+      command = `pm uninstall ${app.packageName}`;
+    }
 
     const result = await invoke<string>("adb_shell_command", {
       serial: serial.value,
-      command: shellCmd,
+      command,
     });
 
     if (action === "uninstall") {
       if (result.toLowerCase().includes("success")) {
-        toast.success(`"${name}" uninstalled`);
+        toast.success("App uninstalled", { description: name });
         selectedApp.value = null;
-        refetch();
+        await handleRefresh();
       } else {
-        toast.error(`Uninstall failed: ${result.trim()}`);
+        toast.error("Uninstall failed", { description: result.trim() });
       }
     } else if (action === "clearData") {
       if (result.toLowerCase().includes("success")) {
-        toast.success(`Data cleared for "${name}"`);
+        toast.success("App data cleared", { description: name });
+        void refetchSelectedAppDetails();
       } else {
-        toast.error(`Clear data failed: ${result.trim()}`);
+        toast.error("Clear data failed", { description: result.trim() });
       }
     } else {
-      toast.success(`"${name}" force stopped`);
+      toast.success("App force stopped", { description: name });
     }
   } catch (err) {
-    toast.error(`Action failed: ${err}`);
+    toast.error("Action failed", { description: String(err) });
   } finally {
     isActing.value = false;
   }
@@ -193,395 +498,96 @@ async function executeAction() {
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Toolbar -->
-    <div class="h-11 shrink-0 border-b border-border/30 bg-surface-2 flex items-center px-4 gap-3">
-      <div class="flex items-center gap-2 max-w-xs flex-1">
-        <Search class="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-        <Input
-          v-model="appsSearch"
-          class="h-7 text-xs bg-transparent border-0 px-0 focus-visible:ring-0 placeholder:text-muted-foreground/30"
-          placeholder="Filter packages…"
-        />
-      </div>
+    <DeviceAppsToolbar
+      v-model:search="appsSearch"
+      v-model:package-scope="packageScope"
+      v-model:apps-view="appsView"
+      v-model:grid-columns="gridColumns"
+      :filtered-count="filteredApps.length"
+      :total-count="packageCounts.total"
+      :third-party-count="packageCounts.thirdParty"
+      :system-count="packageCounts.system"
+      :show-counts="!!packages"
+      :is-loading="isPackagesBusy"
+      :is-cancelling="isCancellingLoad"
+      @refresh="void handleRefresh()"
+      @cancel-load="void cancelPackagesLoad()"
+    />
 
-      <div class="w-px h-4 bg-border/30" />
-
-      <span v-if="packages" class="text-[11px] text-muted-foreground/40 tabular-nums shrink-0">
-        {{ filteredApps.length
-        }}<span v-if="appsSearch" class="text-muted-foreground/25">/{{ packages.length }}</span>
-        apps
-      </span>
-
-      <div class="flex-1" />
-
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        class="w-7 h-7 text-muted-foreground/40 hover:text-muted-foreground"
-        :disabled="isLoading"
-        @click="refetch"
-      >
-        <RefreshCw class="w-3.5 h-3.5" :class="isLoading ? 'animate-spin' : ''" />
-      </Button>
-
-      <div class="flex gap-0.5 p-0.5 rounded-md bg-surface-3 border border-border/20">
-        <button
-          class="w-6 h-6 rounded flex items-center justify-center transition-colors"
-          :class="
-            appsView === 'grid'
-              ? 'bg-surface-2 text-foreground shadow-sm'
-              : 'text-muted-foreground/40 hover:text-muted-foreground/70'
-          "
-          @click="appsView = 'grid'"
-        >
-          <LayoutGrid class="w-3 h-3" />
-        </button>
-        <button
-          class="w-6 h-6 rounded flex items-center justify-center transition-colors"
-          :class="
-            appsView === 'table'
-              ? 'bg-surface-2 text-foreground shadow-sm'
-              : 'text-muted-foreground/40 hover:text-muted-foreground/70'
-          "
-          @click="appsView = 'table'"
-        >
-          <List class="w-3 h-3" />
-        </button>
-      </div>
-    </div>
-
-    <!-- Loading state -->
     <div
-      v-if="isLoading"
-      class="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground/40"
+      v-if="isLoading && !packages"
+      class="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground/40"
     >
-      <Loader2 class="w-4 h-4 animate-spin" />
+      <Loader2 class="h-4 w-4 animate-spin" />
       Loading packages…
     </div>
 
-    <!-- Error state -->
-    <div v-else-if="isError" class="flex-1 flex items-center justify-center p-8">
+    <div v-else-if="isError" class="flex flex-1 items-center justify-center p-8">
       <div
-        class="max-w-sm w-full flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400"
+        class="flex w-full max-w-sm items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400"
       >
-        <AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />
-        <div class="flex-1 min-w-0">
+        <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+        <div class="min-w-0 flex-1">
           <div class="font-medium">Failed to load packages</div>
-          <div class="mt-0.5 font-mono text-[10px] text-red-400/60 truncate">{{ error }}</div>
+          <div class="mt-0.5 truncate font-mono text-[10px] text-red-400/60">
+            {{ error }}
+          </div>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          class="text-red-400 hover:text-red-300 h-7 px-2 shrink-0"
-          @click="refetch"
+          class="h-7 shrink-0 px-2 text-red-400 hover:text-red-300"
+          @click="void handleRefresh()"
         >
           Retry
         </Button>
       </div>
     </div>
 
-    <!-- No device -->
     <div
       v-else-if="!serial"
-      class="flex-1 flex items-center justify-center text-muted-foreground/25 text-sm"
+      class="flex flex-1 items-center justify-center text-sm text-muted-foreground/25"
     >
       No device selected
     </div>
 
-    <!-- Content -->
-    <ResizablePanelGroup v-else direction="horizontal" class="flex-1 min-h-0">
-      <ResizablePanel :default-size="selectedApp ? 72 : 100" :min-size="55">
-        <!-- Grid view -->
-        <div v-if="appsView === 'grid'" class="h-full overflow-y-auto">
-          <div
-            v-if="filteredApps.length === 0"
-            class="flex items-center justify-center h-32 text-muted-foreground/25 text-sm"
-          >
-            No packages match
-          </div>
-          <div
-            v-else
-            class="grid gap-px bg-border/20 p-0"
-            style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr))"
-          >
-            <button
-              v-for="app in filteredApps"
-              :key="app.packageName"
-              class="group flex flex-col items-center gap-3 p-5 bg-surface-1 transition-all text-left relative"
-              :class="
-                selectedApp?.packageName === app.packageName
-                  ? 'bg-surface-3 ring-1 ring-inset ring-border/40 z-10'
-                  : 'hover:bg-surface-2'
-              "
-              @click="selectedApp = selectedApp?.packageName === app.packageName ? null : app"
-            >
-              <!-- Selected indicator -->
-              <div
-                v-if="selectedApp?.packageName === app.packageName"
-                class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary"
-              />
-
-              <AppIcon
-                :serial="serial"
-                :apk-path="app.apkPath"
-                :package-name="app.packageName"
-                size="md"
-              />
-
-              <div class="w-full text-center min-w-0">
-                <div class="text-xs font-medium text-foreground truncate leading-snug">
-                  {{ displayName(app.packageName) }}
-                </div>
-                <div class="text-[10px] text-muted-foreground/40 font-mono mt-0.5 truncate">
-                  {{ pkgDomain(app.packageName) }}
-                </div>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <!-- Table view -->
-        <div v-else class="h-full overflow-auto">
-          <table class="w-full text-xs border-separate border-spacing-0">
-            <thead class="sticky top-0 z-10">
-              <tr class="bg-surface-2/95 backdrop-blur-sm">
-                <th
-                  class="px-4 py-2.5 text-left text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider border-b border-border/20 w-10"
-                ></th>
-                <th
-                  class="px-3 py-2.5 text-left text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider border-b border-border/20"
-                >
-                  Package
-                </th>
-                <th
-                  class="px-3 py-2.5 text-left text-[10px] font-medium text-muted-foreground/40 uppercase tracking-wider border-b border-border/20 hidden xl:table-cell"
-                >
-                  APK Path
-                </th>
-                <th class="px-3 py-2.5 border-b border-border/20 w-24"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="app in filteredApps"
-                :key="app.packageName"
-                class="group cursor-pointer border-b border-border/10 transition-colors"
-                :class="
-                  selectedApp?.packageName === app.packageName
-                    ? 'bg-surface-3'
-                    : 'hover:bg-surface-2/60'
-                "
-                @click="selectedApp = selectedApp?.packageName === app.packageName ? null : app"
-              >
-                <td class="px-4 py-2.5">
-                  <AppIcon
-                    :serial="serial"
-                    :apk-path="app.apkPath"
-                    :package-name="app.packageName"
-                    size="sm"
-                  />
-                </td>
-                <td class="px-3 py-2.5">
-                  <div class="font-medium text-foreground/90">
-                    {{ displayName(app.packageName) }}
-                  </div>
-                  <div
-                    class="font-mono text-[10px] text-muted-foreground/40 mt-0.5 truncate max-w-xs"
-                  >
-                    {{ app.packageName }}
-                  </div>
-                </td>
-                <td class="px-3 py-2.5 hidden xl:table-cell">
-                  <span
-                    class="font-mono text-[10px] text-muted-foreground/30 truncate max-w-sm block"
-                  >
-                    {{ app.apkPath }}
-                  </span>
-                </td>
-                <td class="px-3 py-2.5">
-                  <div
-                    class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity justify-end"
-                  >
-                    <button
-                      title="Force Stop"
-                      class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground/30 hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
-                      @click.stop="promptAction(app, 'forceStop')"
-                    >
-                      <StopCircle class="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      title="Clear Data"
-                      class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground/30 hover:text-orange-400 hover:bg-orange-400/10 transition-colors"
-                      @click.stop="promptAction(app, 'clearData')"
-                    >
-                      <Eraser class="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      title="Uninstall"
-                      class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground/30 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-                      @click.stop="promptAction(app, 'uninstall')"
-                    >
-                      <Trash2 class="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <ResizablePanelGroup v-else direction="horizontal" class="min-h-0 flex-1">
+      <ResizablePanel :default-size="66" :min-size="42">
+        <DeviceAppsList
+          :serial="serial"
+          :apps-view="appsView"
+          :grid-columns="gridColumns"
+          :apps="filteredApps"
+          :selected-package-name="selectedApp?.packageName ?? null"
+          @select="selectApp"
+          @launch="handleLaunchApp"
+          @action="handleListAction"
+        />
       </ResizablePanel>
 
-      <!-- Detail panel -->
-      <template v-if="selectedApp">
-        <ResizableHandle />
-        <ResizablePanel :default-size="28" :min-size="22" :max-size="42">
-          <div class="flex h-full flex-col bg-surface-1 border-l border-border/20">
-            <!-- Header -->
-            <div
-              class="h-11 flex items-center justify-between px-4 border-b border-border/20 shrink-0"
-            >
-              <span class="text-xs font-medium text-foreground/70 truncate">
-                {{ displayName(selectedApp.packageName) }}
-              </span>
-              <button
-                class="w-6 h-6 rounded flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground hover:bg-surface-3 transition-colors ml-2 shrink-0"
-                @click="selectedApp = null"
-              >
-                <X class="w-3.5 h-3.5" />
-              </button>
-            </div>
+      <ResizableHandle />
 
-            <ScrollArea class="flex-1">
-              <div class="p-5 space-y-5">
-                <!-- App identity -->
-                <div class="flex flex-col items-center py-4 gap-3">
-                  <AppIcon
-                    :serial="serial"
-                    :apk-path="selectedApp.apkPath"
-                    :package-name="selectedApp.packageName"
-                    size="lg"
-                  />
-                  <div class="text-center">
-                    <div class="text-sm font-semibold text-foreground">
-                      {{ displayName(selectedApp.packageName) }}
-                    </div>
-                    <div
-                      class="text-[11px] text-muted-foreground/50 font-mono mt-1 break-all leading-relaxed"
-                    >
-                      {{ selectedApp.packageName }}
-                    </div>
-                  </div>
-                </div>
-
-                <!-- APK info -->
-                <div class="space-y-2">
-                  <div
-                    class="text-[10px] text-muted-foreground/40 uppercase tracking-wider font-medium"
-                  >
-                    Installation
-                  </div>
-                  <div
-                    class="rounded-lg bg-surface-2 border border-border/20 divide-y divide-border/20"
-                  >
-                    <div class="flex items-start gap-3 px-3 py-2.5">
-                      <HardDrive class="w-3.5 h-3.5 text-muted-foreground/30 mt-0.5 shrink-0" />
-                      <div class="min-w-0">
-                        <div class="text-[10px] text-muted-foreground/40 mb-0.5">APK Path</div>
-                        <div
-                          class="text-[11px] font-mono text-muted-foreground/60 break-all leading-relaxed"
-                        >
-                          {{ selectedApp.apkPath }}
-                        </div>
-                      </div>
-                    </div>
-                    <div class="flex items-center gap-3 px-3 py-2.5">
-                      <Package class="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
-                      <div class="min-w-0">
-                        <div class="text-[10px] text-muted-foreground/40 mb-0.5">Type</div>
-                        <div class="text-[11px] text-muted-foreground/60">Third-party</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="space-y-2">
-                  <div
-                    class="text-[10px] text-muted-foreground/40 uppercase tracking-wider font-medium"
-                  >
-                    Actions
-                  </div>
-                  <div class="space-y-1.5">
-                    <button
-                      :disabled="isActing"
-                      class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-2 border border-border/20 hover:border-amber-500/30 hover:bg-amber-500/5 transition-colors text-left group disabled:opacity-40 disabled:cursor-not-allowed"
-                      @click="promptAction(selectedApp!, 'forceStop')"
-                    >
-                      <div
-                        class="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center shrink-0"
-                      >
-                        <StopCircle class="w-3.5 h-3.5 text-amber-400" />
-                      </div>
-                      <div>
-                        <div
-                          class="text-xs font-medium text-foreground/80 group-hover:text-foreground"
-                        >
-                          Force Stop
-                        </div>
-                        <div class="text-[10px] text-muted-foreground/40">Kill all processes</div>
-                      </div>
-                    </button>
-
-                    <button
-                      :disabled="isActing"
-                      class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-2 border border-border/20 hover:border-orange-500/30 hover:bg-orange-500/5 transition-colors text-left group disabled:opacity-40 disabled:cursor-not-allowed"
-                      @click="promptAction(selectedApp!, 'clearData')"
-                    >
-                      <div
-                        class="w-6 h-6 rounded-md bg-orange-500/10 flex items-center justify-center shrink-0"
-                      >
-                        <Eraser class="w-3.5 h-3.5 text-orange-400" />
-                      </div>
-                      <div>
-                        <div
-                          class="text-xs font-medium text-foreground/80 group-hover:text-foreground"
-                        >
-                          Clear Data
-                        </div>
-                        <div class="text-[10px] text-muted-foreground/40">
-                          Reset app to fresh state
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      :disabled="isActing"
-                      class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-2 border border-border/20 hover:border-red-500/30 hover:bg-red-500/5 transition-colors text-left group disabled:opacity-40 disabled:cursor-not-allowed"
-                      @click="promptAction(selectedApp!, 'uninstall')"
-                    >
-                      <div
-                        class="w-6 h-6 rounded-md bg-red-500/10 flex items-center justify-center shrink-0"
-                      >
-                        <Trash2 class="w-3.5 h-3.5 text-red-400" />
-                      </div>
-                      <div>
-                        <div class="text-xs font-medium text-red-400/80 group-hover:text-red-400">
-                          Uninstall
-                        </div>
-                        <div class="text-[10px] text-muted-foreground/40">Remove from device</div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </ScrollArea>
-          </div>
-        </ResizablePanel>
-      </template>
+      <ResizablePanel :default-size="34" :min-size="24" :max-size="48" class="min-h-0">
+        <DeviceAppInspector
+          :serial="serial"
+          :app="selectedApp"
+          :details="selectedAppDetails"
+          :selected-total-size="selectedTotalSize"
+          :quick-paths="quickPaths"
+          :is-loading-details="isLoadingDetails"
+          :is-details-error="isDetailsError"
+          :details-error="detailsError"
+          :is-acting="isActing"
+          @clear-selection="selectedApp = null"
+          @open-files="openFiles"
+          @launch="selectedApp && void handleLaunchApp(selectedApp)"
+          @action="handleInspectorAction"
+          @retry-details="refetchSelectedAppDetails"
+        />
+      </ResizablePanel>
     </ResizablePanelGroup>
   </div>
 
-  <!-- Action confirmation dialog -->
   <ConfirmDialog
     v-if="confirmDialogConfig"
     :open="pendingAction !== null"
@@ -592,8 +598,10 @@ async function executeAction() {
     @confirm="executeAction"
     @cancel="pendingAction = null"
     @update:open="
-      (v) => {
-        if (!v) pendingAction = null;
+      (open) => {
+        if (!open) {
+          pendingAction = null;
+        }
       }
     "
   />
