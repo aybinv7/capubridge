@@ -18,11 +18,14 @@ fn suppress_error_dialogs() {
 }
 
 use commands::adb::{
+    adb_cancel_list_packages,
     adb_connect_device, adb_disconnect_device, adb_get_app_icon, adb_get_device_info,
-    adb_list_devices, adb_list_packages, adb_list_webview_sockets, adb_pair_device, adb_reboot,
-    adb_restart_server, adb_root, adb_shell_command, adb_tcpip,
+    adb_get_package_details, adb_list_devices, adb_list_packages, adb_list_webview_sockets,
+    adb_open_package, adb_pair_device, adb_reboot, adb_restart_server, adb_root,
+    adb_shell_command, adb_tcpip,
+    adb_reverse, adb_remove_reverse, adb_list_reverse,
 };
-use commands::files::{adb_delete_file, adb_list_dir, adb_pull_file};
+use commands::files::{adb_delete_file, adb_list_dir, adb_open_file, adb_pull_file};
 use commands::cdp_proxy::{cdp_start_proxy, cdp_stop_proxy};
 use commands::chrome::{chrome_fetch_targets, chrome_find, chrome_is_running, chrome_kill_all, chrome_launch, chrome_verify_port};
 use commands::mirror::{
@@ -63,8 +66,14 @@ pub fn run() {
             adb_root,
             adb_restart_server,
             adb_list_packages,
+            adb_cancel_list_packages,
+            adb_get_package_details,
+            adb_open_package,
             adb_get_app_icon,
             adb_list_webview_sockets,
+            adb_reverse,
+            adb_remove_reverse,
+            adb_list_reverse,
             adb_forward_cdp,
             adb_remove_forward,
             adb_fetch_json_targets,
@@ -92,6 +101,7 @@ pub fn run() {
             adb_perf_stop,
             adb_list_dir,
             adb_pull_file,
+            adb_open_file,
             adb_delete_file,
         ])
         .run(tauri::generate_context!())
