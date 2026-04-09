@@ -1,15 +1,26 @@
 // Mirrors Tauri command signatures — keep in sync with src-tauri/src/commands/
 // Usage: invoke<ReturnType>('command_name', params)
 
-import type { ADBDevice, ADBPackage, DeviceInfo, FileEntry } from "./adb.types";
+import type { ADBDevice, ADBPackage, AdbPackageDetails, DeviceInfo, FileEntry } from "./adb.types";
 import type { ChromeLaunchResult, ChromeFindResult } from "./connection.types";
 
-export type { ADBDevice, ADBPackage, DeviceInfo, FileEntry, ChromeLaunchResult, ChromeFindResult };
+export type {
+  ADBDevice,
+  ADBPackage,
+  AdbPackageDetails,
+  DeviceInfo,
+  FileEntry,
+  ChromeLaunchResult,
+  ChromeFindResult,
+};
 
 // ADB commands
 // invoke('adb_list_devices'): Promise<ADBDevice[]>
 // invoke('adb_get_device_info', { serial: string }): Promise<DeviceInfo>
 // invoke('adb_list_packages', { serial: string }): Promise<ADBPackage[]>
+// invoke('adb_cancel_list_packages', { serial: string }): Promise<void>
+// invoke('adb_get_package_details', { serial: string, packageName: string }): Promise<AdbPackageDetails>
+// invoke('adb_open_package', { serial: string, packageName: string }): Promise<string>
 // invoke('adb_force_stop', { serial: string, packageName: string }): Promise<void>
 // invoke('adb_clear_data', { serial: string, packageName: string }): Promise<void>
 // invoke('adb_uninstall', { serial: string, packageName: string }): Promise<void>

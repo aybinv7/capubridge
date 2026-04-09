@@ -7,19 +7,28 @@ const props = defineProps<{
   serial: string;
   apkPath: string;
   packageName: string;
+  iconPath?: string | null;
   size?: "sm" | "md" | "lg";
 }>();
 
 const { data: iconUrl, isPending } = useQuery({
-  queryKey: computed(() => ["app-icon", props.serial, props.apkPath]),
+  queryKey: computed(() => [
+    "app-icon",
+    props.serial,
+    props.packageName,
+    props.apkPath,
+    props.iconPath ?? "",
+  ]),
   queryFn: () =>
     invoke<string>("adb_get_app_icon", {
       serial: props.serial,
       apkPath: props.apkPath,
+      packageName: props.packageName,
+      iconPath: props.iconPath,
     }),
   staleTime: Infinity,
   gcTime: 1000 * 60 * 60,
-  enabled: computed(() => !!props.serial && !!props.apkPath),
+  enabled: computed(() => !!props.serial && (!!props.apkPath || !!props.iconPath)),
   retry: false,
 });
 

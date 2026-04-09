@@ -19,15 +19,46 @@ export interface ADBDevice {
 export interface AdbPackage {
   packageName: string;
   apkPath: string;
+  system: boolean;
+  enabled: boolean;
+  label?: string | null;
+  iconPath?: string | null;
+}
+
+export interface AdbPackageDetails {
+  packageName: string;
+  apkPath?: string | null;
+  versionName?: string | null;
+  versionCode?: string | null;
+  firstInstallTime?: string | null;
+  lastUpdateTime?: string | null;
+  minSdkVersion?: number | null;
+  targetSdkVersion?: number | null;
+  installerPackageName?: string | null;
+  dataDir?: string | null;
+  externalDataDir?: string | null;
+  mediaDir?: string | null;
+  obbDir?: string | null;
+  appSize?: number | null;
+  dataSize?: number | null;
+  cacheSize?: number | null;
+  launchableActivity?: string | null;
 }
 
 export interface ADBPackage {
   packageName: string;
-  versionName: string;
-  versionCode: number;
   apkPath: string;
-  installTime: Date;
-  dataDir: string;
+  system: boolean;
+  enabled: boolean;
+  label?: string | null;
+  iconPath?: string | null;
+  versionName?: string | null;
+  versionCode?: string | null;
+  firstInstallTime?: string | null;
+  lastUpdateTime?: string | null;
+  minSdkVersion?: number | null;
+  targetSdkVersion?: number | null;
+  dataDir?: string | null;
   sizeBytes?: number;
 }
 
@@ -44,7 +75,7 @@ export interface LogcatEntry {
 export interface FileEntry {
   name: string;
   size: number;
-  modified: string;    // "YYYY-MM-DD HH:MM" or "Mon DD HH:MM"
+  modified: string; // "YYYY-MM-DD HH:MM" or "Mon DD HH:MM"
   entryType: "file" | "dir" | "symlink" | "other";
   permissions: string; // 9-char unix perm string e.g. "rwxr-xr-x"
 }
