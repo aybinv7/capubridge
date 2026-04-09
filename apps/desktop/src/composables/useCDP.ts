@@ -38,33 +38,8 @@ export function useCDP() {
   }
 
   function disconnectTarget(targetId: string) {
-    connectionStore.disconnectTarget(targetId);
+    void connectionStore.disconnectTarget(targetId);
   }
-
-  watch(
-    () => devicesStore.selectedDevice,
-    async (device) => {
-      if (device?.status === "online") {
-        await sourceStore.addAdbSource(device.serial);
-        const source = sourceStore.getAdbSource();
-        if (source) {
-          await fetchTargetsForSource(source);
-        }
-      } else {
-        await sourceStore.removeAdbSource();
-        targetsStore.clearTargetsForSource("adb");
-      }
-    },
-  );
-
-  watch(
-    () => sourceStore.getChromeSource(),
-    async (chromeSource) => {
-      if (chromeSource) {
-        await fetchTargetsForSource(chromeSource);
-      }
-    },
-  );
 
   return {
     activeClient,
@@ -78,4 +53,55 @@ export function useCDP() {
     getClient,
     disconnectTarget,
   };
+}
+
+export function initCDPWatchers() {
+  const devicesStore = useDevicesStore();
+  const targetsStore = useTargetsStore();
+  const connectionStore = useConnectionStore();
+  const sourceStore = useSourceStore();
+
+  watch(
+    () => devicesStore.selectedDevice,
+    async (device, previousDevice) => {
+      const oldSerial = sourceStore.getAdbSource()?.serial ?? null;
+
+      if (device?.status === "online") {
+        if (oldSerial && oldSerial !== device.serial) {
+          await connectionStore.disconnectTarget(targetsStore.selectedTarget?.id ?? "");
+          await sourceStore.addAdbSource(device.serial);
+
+          const source = sourceStore.getAdbSource();
+          if (source) {
+            await targetsStore.fetchTargetsForSource(source);
+          }
+
+          const hasNewTargets = targetsStore.targets.some((t) => t.deviceSerial === device.serial);
+          if (hasNewTargets) {
+            targetsStore.clearTargetsForSerial(oldSerial);
+          }
+        } else {
+          await sourceStore.addAdbSource(device.serial);
+          const source = sourceStore.getAdbSource();
+          if (source) {
+            await targetsStore.fetchTargetsForSource(source);
+          }
+        }
+      } else if (previousDevice && !device) {
+        const currentSerial = sourceStore.getAdbSource()?.serial ?? null;
+        await connectionStore.disconnectTarget(targetsStore.selectedTarget?.id ?? "");
+        if (currentSerial) targetsStore.clearTargetsForSerial(currentSerial);
+        await sourceStore.removeAdbSource();
+      }
+    },
+  );
+
+  watch(
+    () => sourceStore.getChromeSource(),
+    async (chromeSource) => {
+      if (chromeSource) {
+        await targetsStore.fetchTargetsForSource(chromeSource);
+      }
+    },
+  );
 }

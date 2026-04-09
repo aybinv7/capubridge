@@ -2,7 +2,7 @@ import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 import type { ConnectionSource, ChromeLaunchResult } from "@/types/connection.types";
-import { ADB_CDP_PORT, CHROME_CDP_PORT } from "@/config/ports";
+import { CHROME_CDP_PORT } from "@/config/ports";
 
 export const useSourceStore = defineStore("source", () => {
   const activeSources = ref<ConnectionSource[]>([]);
@@ -32,7 +32,6 @@ export const useSourceStore = defineStore("source", () => {
     activeSources.value.push({
       type: "adb",
       serial,
-      port: ADB_CDP_PORT,
     });
   }
 
@@ -41,7 +40,7 @@ export const useSourceStore = defineStore("source", () => {
     if (!source) return;
 
     try {
-      await invoke("adb_remove_forward", { serial: source.serial, localPort: source.port });
+      await invoke("adb_remove_forward", { serial: source.serial });
     } catch {
       // ignore cleanup errors
     }

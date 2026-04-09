@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { ConnectionSource } from "@/types/connection.types";
 import type { WebViewSocket } from "@/types/adb.types";
-import { CHROME_CDP_PORT } from "@/config/ports";
 
 interface RawCDPTarget {
   id: string;
@@ -26,28 +25,23 @@ export const useTargetsStore = defineStore("targets", () => {
     fetchingSources.value.add(key);
     error.value = null;
 
-    console.log("[targets] fetchTargetsForSource", source);
-    console.log("[targets] source type:", source.type);
-
     try {
       let raw: RawCDPTarget[] = [];
 
       if (source.type === "chrome") {
-        raw = await invoke<RawCDPTarget[]>("chrome_fetch_targets", { port: source.port });
+        raw = await invoke<RawCDPTarget[]>("chrome_fetch_targets", {
+          port: source.port,
+        });
       } else {
-        console.log("[targets] Fetching for ADB, serial:", source.serial);
-
         // Enumerate all debuggable WebView sockets on the device and collect targets from each.
-        // Each socket is forwarded to its own local port so WebSocket URLs remain valid
-        // for the duration of the session.
+        // Each socket is forwarded to a dynamically allocated local port to avoid collisions.
         let sockets: WebViewSocket[] = [];
         try {
           sockets = await invoke<WebViewSocket[]>("adb_list_webview_sockets", {
             serial: source.serial,
           });
-          console.log("[targets] WebView sockets found:", sockets);
-        } catch (e) {
-          console.error("[targets] adb_list_webview_sockets error:", e);
+        } catch {
+          // socket enumeration failed — continue with chrome_devtools_remote only
         }
 
         // Always probe chrome_devtools_remote too (Chrome browser tabs)
@@ -56,47 +50,60 @@ export const useTargetsStore = defineStore("targets", () => {
           "chrome_devtools_remote",
           ...sockets.map((s) => s.socketName).filter((name) => !name.startsWith("stetho_")),
         ].filter((name, i, arr) => arr.indexOf(name) === i);
-        console.log("[targets] Unique socket names to probe:", uniqueSocketNames);
-
-        let port = source.port; // starts at ADB_CDP_PORT (9222)
-        console.log("[targets] Starting port:", port);
 
         for (const socketName of uniqueSocketNames) {
-          if (port === CHROME_CDP_PORT) port++; // never clash with desktop Chrome port
           try {
-            console.log("[targets] Forwarding:", socketName, "to port:", port);
-            await invoke("adb_forward_cdp", {
+            const port = await invoke<number>("adb_forward_cdp", {
               serial: source.serial,
-              localPort: port,
               socketName,
             });
-            console.log("[targets] Fetching /json from port:", port, "via Rust");
-            const targets: RawCDPTarget[] = await invoke<RawCDPTarget[]>("adb_fetch_json_targets", {
-              port,
-            });
-            console.log("[targets] Targets found:", targets.length, targets);
-            raw.push(...targets);
-          } catch (e) {
-            console.warn("[targets] Port", port, "failed:", e);
+
+            // Try to fetch /json from this socket.
+            // Only chrome_devtools_remote and some WebView sockets serve HTTP /json.
+            // For WebSocket-only sockets, we'll create synthetic targets.
+            let socketTargets: RawCDPTarget[] = [];
+            try {
+              socketTargets = await invoke<RawCDPTarget[]>("adb_fetch_json_targets", { port });
+            } catch {
+              // This socket doesn't serve /json — create a synthetic target
+              const wsUrl = `ws://127.0.0.1:${port}/`;
+              const pkg =
+                sockets.find((s) => s.socketName === socketName)?.packageName ?? "unknown";
+              socketTargets.push({
+                id: `${socketName}_${port}`,
+                type: "page",
+                title: `${socketName} (${pkg})`,
+                url: "",
+                webSocketDebuggerUrl: wsUrl,
+              });
+            }
+
+            raw.push(...socketTargets);
+          } catch {
+            // forward failed for this socket — skip it
           }
-          port++;
         }
       }
 
-      const enriched = raw
-        .filter((t) => ["page", "background_page", "iframe"].includes(t.type))
-        .map((t) => ({
-          id: t.id,
-          type: t.type as CDPTarget["type"],
-          title: t.title,
-          url: t.url,
-          webSocketDebuggerUrl: t.webSocketDebuggerUrl,
-          source: source.type as "adb" | "chrome",
-          deviceSerial: source.type === "adb" ? source.serial : undefined,
-          faviconUrl: t.faviconUrl,
-        }));
+      const enriched = raw.map((t) => ({
+        id: t.id,
+        type: (t.type as CDPTarget["type"]) || "page",
+        title: t.title,
+        url: t.url,
+        webSocketDebuggerUrl: t.webSocketDebuggerUrl,
+        source: source.type as "adb" | "chrome",
+        deviceSerial: source.type === "adb" ? source.serial : undefined,
+        faviconUrl: t.faviconUrl,
+      }));
 
-      targets.value = targets.value.filter((t) => t.source !== source.type).concat(enriched);
+      // Key by deviceSerial for ADB (not source.type) so each device owns its slice of targets.
+      if (source.type === "adb") {
+        targets.value = targets.value
+          .filter((t) => t.deviceSerial !== source.serial)
+          .concat(enriched);
+      } else {
+        targets.value = targets.value.filter((t) => t.source !== source.type).concat(enriched);
+      }
     } catch (err) {
       error.value = String(err);
     } finally {
@@ -108,9 +115,9 @@ export const useTargetsStore = defineStore("targets", () => {
     selectedTarget.value = target;
   }
 
-  function clearTargetsForSource(sourceType: "adb" | "chrome") {
-    targets.value = targets.value.filter((t) => t.source !== sourceType);
-    if (selectedTarget.value?.source === sourceType) {
+  function clearTargetsForSerial(serial: string) {
+    targets.value = targets.value.filter((t) => t.deviceSerial !== serial);
+    if (selectedTarget.value?.deviceSerial === serial) {
       selectedTarget.value = null;
     }
   }
@@ -127,7 +134,7 @@ export const useTargetsStore = defineStore("targets", () => {
     error,
     fetchTargetsForSource,
     selectTarget,
-    clearTargetsForSource,
+    clearTargetsForSerial,
     clearAllTargets,
   };
 });

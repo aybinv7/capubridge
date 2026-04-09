@@ -3,7 +3,6 @@ export type ConnectionSourceType = "adb" | "chrome";
 export interface ADBSource {
   type: "adb";
   serial: string;
-  port: number;
 }
 
 export interface ChromeSource {

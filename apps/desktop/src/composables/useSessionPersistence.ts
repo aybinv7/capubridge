@@ -1,25 +1,18 @@
 import { watch } from "vue";
-import type { Ref } from "vue";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useConnectionStore } from "@/stores/connection.store";
 
 const KEYS = {
-  sourceMode: "capubridge:source-mode",
   deviceSerial: "capubridge:device-serial",
   targetUrl: "capubridge:target-url",
   chromePort: "capubridge:chrome-port",
 } as const;
 
-export function useSessionPersistence(sourceMode: Ref<"device" | "chrome">) {
+export function useSessionPersistence() {
   const targetsStore = useTargetsStore();
   const devicesStore = useDevicesStore();
   const connectionStore = useConnectionStore();
-
-  // ─── Persist on change ──────────────────────────────────────────────────────
-  watch(sourceMode, (mode) => {
-    localStorage.setItem(KEYS.sourceMode, mode);
-  });
 
   watch(
     () => devicesStore.selectedDevice,
@@ -35,7 +28,6 @@ export function useSessionPersistence(sourceMode: Ref<"device" | "chrome">) {
     },
   );
 
-  // ─── Auto-select device when device list loads/changes ──────────────────────
   watch(
     () => devicesStore.devices,
     (devices) => {
@@ -47,28 +39,25 @@ export function useSessionPersistence(sourceMode: Ref<"device" | "chrome">) {
     },
   );
 
-  // ─── Auto-select + connect target when target list loads/changes ────────────
   watch(
     () => targetsStore.targets,
     async (targets) => {
-      if (targetsStore.selectedTarget) return;
+      if (targetsStore.selectedTarget || connectionStore.activeConnection) return;
+
       const savedUrl = localStorage.getItem(KEYS.targetUrl);
       if (!savedUrl) return;
+
       const match = targets.find((t) => t.url === savedUrl);
       if (!match) return;
+
       targetsStore.selectTarget(match);
       try {
         await connectionStore.connect(match);
       } catch {
-        // Connection failure is non-fatal — user can retry
+        // non-fatal
       }
     },
   );
-
-  // ─── Restore helpers ─────────────────────────────────────────────────────────
-  function restoreSourceMode(): "device" | "chrome" {
-    return (localStorage.getItem(KEYS.sourceMode) as "device" | "chrome") ?? "device";
-  }
 
   function saveChromePort(port: number) {
     localStorage.setItem(KEYS.chromePort, String(port));
@@ -81,5 +70,5 @@ export function useSessionPersistence(sourceMode: Ref<"device" | "chrome">) {
     return isNaN(port) ? null : port;
   }
 
-  return { restoreSourceMode, saveChromePort, restoreChromePort };
+  return { saveChromePort, restoreChromePort };
 }
