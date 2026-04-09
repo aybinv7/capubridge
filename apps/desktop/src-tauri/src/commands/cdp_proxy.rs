@@ -1,17 +1,16 @@
+use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::LazyLock;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
+use tokio::task::AbortHandle;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use futures_util::{SinkExt, StreamExt};
-
-static NEXT_PROXY_PORT: AtomicU16 = AtomicU16::new(19000);
 
 struct ProxyInfo {
     local_port: u16,
+    abort_handle: AbortHandle,
 }
 
 static ACTIVE_PROXIES: LazyLock<Mutex<HashMap<String, ProxyInfo>>> =
@@ -31,13 +30,25 @@ pub struct ProxyResult {
 pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
     log::info!("[cdp_start_proxy] Creating proxy for {}", ws_url);
 
-    let local_port = NEXT_PROXY_PORT.fetch_add(1, Ordering::SeqCst);
-    let listener = TcpListener::bind(("127.0.0.1", local_port))
+    // If already running for this URL, just return it
+    {
+        let proxies = ACTIVE_PROXIES.lock().await;
+        if let Some(proxy) = proxies.get(&ws_url) {
+            log::info!("[cdp_start_proxy] Proxy already exists on port {}", proxy.local_port);
+            return Ok(ProxyResult {
+                local_port: proxy.local_port,
+                ws_url: format!("ws://127.0.0.1:{}", proxy.local_port),
+            });
+        }
+    }
+
+    let listener = TcpListener::bind(("127.0.0.1", 0))
         .await
-        .map_err(|e| format!("Failed to bind proxy port {}: {}", local_port, e))?;
+        .map_err(|e| format!("Failed to bind proxy port: {}", e))?;
+    let local_port = listener.local_addr().unwrap().port();
 
     let cdp_url = ws_url.clone();
-    tokio::spawn(async move {
+    let join_handle = tokio::spawn(async move {
         log::info!("[cdp_proxy] Listening on port {}", local_port);
 
         loop {
@@ -48,8 +59,7 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
                     let cdp_url = cdp_url.clone();
                     tokio::spawn(async move {
                         // Accept the WebSocket handshake from the client
-                        let client_ws = tokio_tungstenite::accept_async(client_stream)
-                            .await;
+                        let client_ws = tokio_tungstenite::accept_async(client_stream).await;
 
                         let client_ws = match client_ws {
                             Ok(ws) => ws,
@@ -60,12 +70,10 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
                         };
 
                         // Build request to CDP — manually construct to avoid Origin header
-                        let mut request = cdp_url
-                            .into_client_request()
-                            .unwrap_or_else(|e| {
-                                log::error!("[cdp_proxy] Invalid CDP URL: {}", e);
-                                panic!("Invalid CDP URL");
-                            });
+                        let mut request = cdp_url.into_client_request().unwrap_or_else(|e| {
+                            log::error!("[cdp_proxy] Invalid CDP URL: {}", e);
+                            panic!("Invalid CDP URL");
+                        });
 
                         // Remove Origin header — this is what causes 403 on Android CDP
                         request.headers_mut().remove("Origin");
@@ -85,10 +93,7 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
                             }
                         };
 
-                        log::info!(
-                            "[cdp_proxy] Connected to CDP, status: {}",
-                            response.status()
-                        );
+                        log::info!("[cdp_proxy] Connected to CDP, status: {}", response.status());
 
                         // Bidirectional relay
                         let (mut client_sink, mut client_stream) = client_ws.split();
@@ -128,7 +133,10 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
 
     ACTIVE_PROXIES.lock().await.insert(
         ws_url.clone(),
-        ProxyInfo { local_port },
+        ProxyInfo {
+            local_port,
+            abort_handle: join_handle.abort_handle(),
+        },
     );
 
     let proxy_ws_url = format!("ws://127.0.0.1:{}", local_port);
@@ -146,7 +154,7 @@ pub async fn cdp_stop_proxy(ws_url: String) -> Result<(), String> {
     let mut proxies = ACTIVE_PROXIES.lock().await;
     if let Some(proxy) = proxies.remove(&ws_url) {
         log::info!("[cdp_stop_proxy] Stopping proxy on port {}", proxy.local_port);
-        // The listener will be dropped, closing all connections
+        proxy.abort_handle.abort();
     }
     Ok(())
 }
