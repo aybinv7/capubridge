@@ -47,8 +47,6 @@ const emit = defineEmits<{
   "update:filters": [filters: AdvancedFilter[]];
 }>();
 
-const { addFilterFull, clearAdvancedFilters } = useAdvancedFilters(() => props.records);
-
 const { exportToCSV, exportToJSON, exportSelectedToJSON } = useIDBTableExport(
   props.table,
   () => "idb",

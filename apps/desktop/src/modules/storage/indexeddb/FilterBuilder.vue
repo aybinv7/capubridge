@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { Check, ChevronDown, Filter, X, Plus, Trash2 } from "lucide-vue-next";
+import { Check, ChevronDown, Filter, X, Plus, Trash2, ChevronsUpDownIcon } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -133,10 +133,7 @@ const hasFilters = computed(() => localFilters.value.length > 0);
         />
       </Button>
     </PopoverTrigger>
-    <PopoverContent
-      class="w-[520px] p-0 rounded-xl border border-border/50 shadow-lg"
-      align="start"
-    >
+    <PopoverContent class="w-auto p-0 rounded-xl border border-border/50 shadow-lg" align="start">
       <div class="flex flex-col rounded-xl">
         <!-- Header -->
         <div class="flex items-center justify-between px-3 py-2.5 border-b border-border/20">
@@ -159,7 +156,7 @@ const hasFilters = computed(() => localFilters.value.length > 0);
         </div>
 
         <!-- Filters List -->
-        <div class="max-h-[320px] overflow-y-auto p-2 space-y-1.5">
+        <div class="max-h-80 overflow-y-auto p-2 space-y-1.5">
           <template v-for="(filter, idx) in localFilters" :key="filter.id">
             <!-- AND/OR row (own line) -->
             <div v-if="idx > 0" class="flex items-center justify-center py-0.5">
@@ -179,14 +176,16 @@ const hasFilters = computed(() => localFilters.value.length > 0);
               <!-- Column Combobox -->
               <Popover>
                 <PopoverTrigger as-child>
-                  <button
-                    class="h-8 px-2.5 text-xs justify-between min-w-[100px] shrink-0 bg-surface-3 border border-border/40 rounded-lg hover:bg-surface-2 transition-colors text-left"
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    class="w-44 max-w-60 rounded-xl justify-between"
                   >
-                    <span class="truncate">{{ getColumnLabel(filter.columnId) }}</span>
-                    <ChevronDown class="h-3 w-3 opacity-50 ml-1 shrink-0" />
-                  </button>
+                    {{ getColumnLabel(filter.columnId) }}
+                    <ChevronsUpDownIcon class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
                 </PopoverTrigger>
-                <PopoverContent class="w-[180px] p-0">
+                <PopoverContent class="w-44 max-w-60 rounded-xl p-0">
                   <Command>
                     <CommandInput placeholder="Search..." class="h-8" />
                     <CommandList>
@@ -218,14 +217,16 @@ const hasFilters = computed(() => localFilters.value.length > 0);
               <!-- Operator Combobox -->
               <Popover>
                 <PopoverTrigger as-child>
-                  <button
-                    class="h-8 px-2.5 text-xs justify-between min-w-[80px] shrink-0 bg-surface-3 border border-border/40 rounded-lg hover:bg-surface-2 transition-colors text-left"
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    class="w-44 max-w-60 rounded-xl justify-between"
                   >
-                    <span class="truncate">{{ getOperatorLabel(filter.operator) }}</span>
-                    <ChevronDown class="h-3 w-3 opacity-50 ml-1 shrink-0" />
-                  </button>
+                    {{ getOperatorLabel(filter.operator) }}
+                    <ChevronsUpDownIcon class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
                 </PopoverTrigger>
-                <PopoverContent class="w-[160px] p-0">
+                <PopoverContent class="w-44 max-w-60 rounded-xl p-0">
                   <Command>
                     <CommandInput placeholder="Search..." class="h-8" />
                     <CommandList>
@@ -257,12 +258,14 @@ const hasFilters = computed(() => localFilters.value.length > 0);
               <!-- Value Input -->
               <Popover v-if="showCalendarPicker(filter.operator)">
                 <PopoverTrigger as-child>
-                  <button
-                    class="h-8 px-2.5 text-xs justify-between min-w-[90px] shrink-0 bg-surface-3 border border-border/40 rounded-lg hover:bg-surface-2 transition-colors text-left"
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    class="w-44 max-w-60 rounded-xl justify-between"
                   >
-                    <span class="truncate">{{ filter.value || "Pick date..." }}</span>
-                    <ChevronDown class="h-3 w-3 opacity-50 ml-1 shrink-0" />
-                  </button>
+                    {{ filter.value || "Pick date..." }}
+                    <ChevronsUpDownIcon class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent class="w-auto p-0" align="start">
                   <Calendar
@@ -276,7 +279,7 @@ const hasFilters = computed(() => localFilters.value.length > 0);
                 v-else-if="needsValue(filter.operator)"
                 v-model="filter.value"
                 placeholder="Value"
-                class="h-8 text-xs w-24 shrink-0 bg-surface-3 border-border/40 rounded-lg"
+                class="h-8 text-xs w-44 max-w-60 rounded-xl shrink-0 bg-surface-3 border-border/40 rounded-lg"
               />
 
               <!-- Remove filter -->

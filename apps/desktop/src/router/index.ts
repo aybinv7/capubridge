@@ -58,14 +58,12 @@ const routes: RouteRecordRaw[] = [
       {
         path: "localforage",
         name: "storage-localforage",
-        component: () =>
-          import("@/modules/storage/localforage/LocalForageExplorer.vue"),
+        component: () => import("@/modules/storage/localforage/LocalForageExplorer.vue"),
       },
       {
         path: "localstorage",
         name: "storage-localstorage",
-        component: () =>
-          import("@/modules/storage/localstorage/LSExplorer.vue"),
+        component: () => import("@/modules/storage/localstorage/LSExplorer.vue"),
       },
       {
         path: "cache",

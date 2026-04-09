@@ -125,6 +125,18 @@ export function useAdb() {
     await invoke("adb_forward_cdp", { serial, localPort: parseInt(local.replace("tcp:", ""), 10) });
   }
 
+  async function reverse(serial: string, remotePort: number, localPort: number): Promise<void> {
+    await invoke("adb_reverse", { serial, remotePort, localPort });
+  }
+
+  async function removeReverse(serial: string, remotePort: number): Promise<void> {
+    await invoke("adb_remove_reverse", { serial, remotePort });
+  }
+
+  async function listReverse(serial: string): Promise<{ remotePort: number; localPort: number }[]> {
+    return invoke<{ remotePort: number; localPort: number }[]>("adb_list_reverse", { serial });
+  }
+
   return {
     refreshDevices,
     getDeviceOverview,
@@ -142,5 +154,8 @@ export function useAdb() {
     cancelListPackages,
     getPackageDetails,
     openPackage,
+    reverse,
+    removeReverse,
+    listReverse,
   };
 }

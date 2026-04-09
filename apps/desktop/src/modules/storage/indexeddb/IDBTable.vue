@@ -36,27 +36,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/select";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDate } from "@internationalized/date";
 import type { CheckboxCheckedState, DateValue } from "reka-ui";
 
 // Module composables & components
-import {
-  useAdvancedFilters,
-  OPERATORS,
-  type AdvancedFilter,
-  type FilterOperator,
-} from "./useAdvancedFilters";
+import { useAdvancedFilters, type AdvancedFilter } from "./useAdvancedFilters";
 import { useIDBTableExport } from "./useIDBTableExport";
 import { useIDBRowDetail } from "./useIDBRowDetail";
 import IDBRowDetailDialog from "./IDBRowDetailDialog.vue";
@@ -122,9 +108,7 @@ const recordsRef = computed(() => props.records);
 const {
   advancedFilters,
   filteredData,
-  getOperator,
-  addFilterFull,
-  removeFilter,
+  addFilter,
   reset: resetAdvancedFilters,
 } = useAdvancedFilters(recordsRef);
 

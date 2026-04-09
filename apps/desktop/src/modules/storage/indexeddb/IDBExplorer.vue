@@ -20,7 +20,7 @@ import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useStorageSize } from "@/composables/useStorageSize";
 import { useSidebarSettings } from "@/modules/storage/stores/useSidebarSettingsStore";
-import type { IDBDatabaseInfo, IDBRecord, StoreInfo } from "utils";
+import type { IDBDatabaseInfo, IDBRecord } from "utils";
 import { IDBDomain } from "utils";
 import IDBTable from "./IDBTable.vue";
 import IDBTableToolbar from "./IDBTableToolbar.vue";

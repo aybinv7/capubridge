@@ -53,8 +53,18 @@ const infoCards = computed(() => {
   const storagePct = d.totalStorage > 0 ? Math.round((usedStorage / d.totalStorage) * 100) : 0;
 
   return [
-    { icon: Monitor, label: "Display", value: d.screenResolution || "—", color: "text-sky-400" },
-    { icon: Cpu, label: "CPU / ABI", value: d.model || "—", color: "text-amber-400" },
+    {
+      icon: Monitor,
+      label: "Display",
+      value: d.screenResolution || "—",
+      color: "text-sky-400",
+    },
+    {
+      icon: Cpu,
+      label: "CPU / ABI",
+      value: d.model || "—",
+      color: "text-amber-400",
+    },
     {
       icon: HardDrive,
       label: "Storage",
@@ -118,7 +128,9 @@ const connectionLabel = computed(() =>
         <AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />
         <div class="flex-1">
           <div class="font-medium">Failed to load device info</div>
-          <div class="mt-0.5 font-mono text-[11px] text-red-400/70">{{ error }}</div>
+          <div class="mt-0.5 font-mono text-[11px] text-red-400/70">
+            {{ error }}
+          </div>
         </div>
         <Button variant="ghost" size="sm" class="text-red-400 h-7 px-2" @click="refetch">
           <RefreshCw class="w-3.5 h-3.5 mr-1" /> Retry
@@ -134,7 +146,9 @@ const connectionLabel = computed(() =>
             <Smartphone class="w-6 h-6 text-muted-foreground" />
           </div>
           <div>
-            <h1 class="text-lg font-semibold text-foreground">{{ deviceName }}</h1>
+            <h1 class="text-lg font-semibold text-foreground">
+              {{ deviceName }}
+            </h1>
             <p class="text-sm text-muted-foreground font-mono">{{ serial }}</p>
           </div>
           <div class="ml-auto flex items-center gap-3">
@@ -174,25 +188,6 @@ const connectionLabel = computed(() =>
             <span class="text-sm font-medium text-foreground font-mono break-all">{{
               item.value
             }}</span>
-          </div>
-        </div>
-
-        <!-- Quick actions -->
-        <div>
-          <span class="text-xs text-muted-foreground uppercase tracking-wider">Quick Actions</span>
-          <div class="flex gap-2 mt-3">
-            <Button variant="outline" size="sm" class="gap-2">
-              <ScreenShare class="w-4 h-4" />
-              Screenshot
-            </Button>
-            <Button variant="outline" size="sm" class="gap-2">
-              <FolderOpen class="w-4 h-4" />
-              File Explorer
-            </Button>
-            <Button variant="outline" size="sm" class="gap-2">
-              <Wifi class="w-4 h-4" />
-              Wireless Debug
-            </Button>
           </div>
         </div>
       </template>
