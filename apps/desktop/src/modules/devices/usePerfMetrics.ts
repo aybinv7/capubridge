@@ -1,4 +1,4 @@
-import { ref, computed, onUnmounted } from "vue";
+import { ref, computed, onUnmounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -23,9 +23,11 @@ export interface PerfMetrics {
   network: { rxBps: number; txBps: number };
   battery: { level: number; temperature: number; charging: boolean };
   cpuTemp: number | null;
-  gpuUsage: number | null;
+  cpuTempSource?: string | null;
   timestamp: number;
 }
+
+export type CdpMetricsStatus = "idle" | "waiting" | "active" | "degraded" | "error";
 
 function emptyHistory<T>(defaultVal: T): T[] {
   return Array.from({ length: HISTORY }, () => defaultVal);
@@ -40,7 +42,6 @@ export function usePerfMetrics() {
   const memHistory = ref<number[]>(emptyHistory(0));
   const rxHistory = ref<number[]>(emptyHistory(0));
   const txHistory = ref<number[]>(emptyHistory(0));
-  const gpuHistory = ref<number[]>(emptyHistory(0));
   const batteryHistory = ref<number[]>(emptyHistory(0));
 
   // Live snapshot
@@ -56,6 +57,11 @@ export function usePerfMetrics() {
   const jsHeapUsed = ref<number[]>(emptyHistory(0));
   const domNodes = ref<number[]>(emptyHistory(0));
   const jsHeapTotal = ref<number[]>(emptyHistory(0));
+  const cdpMetricsStatus = ref<CdpMetricsStatus>("idle");
+  const cdpMetricsMessage = ref("Not started");
+  const cdpMetricsSource = ref<"none" | "performance" | "runtime-fallback">("none");
+  const cdpLastUpdatedAt = ref<number | null>(null);
+  const cdpTargetId = ref<string | null>(null);
 
   let unlisten: UnlistenFn | null = null;
   let unlistenError: UnlistenFn | null = null;
@@ -64,6 +70,18 @@ export function usePerfMetrics() {
 
   function push<T>(arr: T[], val: T): T[] {
     return [...arr.slice(1), val];
+  }
+
+  function pushWithCarry(arr: number[], next: number | null): number[] {
+    const fallback = arr.at(-1) ?? 0;
+    return push(arr, next ?? fallback);
+  }
+
+  function stopCdpMetricsPolling() {
+    if (cdpTimer) {
+      clearInterval(cdpTimer);
+      cdpTimer = null;
+    }
   }
 
   function onMetrics(metrics: PerfMetrics) {
@@ -77,14 +95,12 @@ export function usePerfMetrics() {
       memPct: metrics.memory.usedPct.toFixed(1),
       battery: metrics.battery.level,
       temp: metrics.cpuTemp,
-      gpu: metrics.gpuUsage,
     });
 
     cpuTotalHistory.value = push(cpuTotalHistory.value, metrics.cpuTotal);
     memHistory.value = push(memHistory.value, metrics.memory.usedPct);
     rxHistory.value = push(rxHistory.value, metrics.network.rxBps / 1024);
     txHistory.value = push(txHistory.value, metrics.network.txBps / 1024);
-    gpuHistory.value = push(gpuHistory.value, metrics.gpuUsage ?? 0);
     batteryHistory.value = push(batteryHistory.value, metrics.battery.level);
 
     const cores = metrics.cpuCores;
@@ -98,37 +114,144 @@ export function usePerfMetrics() {
   }
 
   async function startCdpMetrics() {
-    if (cdpTimer) clearInterval(cdpTimer);
+    stopCdpMetricsPolling();
     const conn = connectionStore.activeConnection;
     if (!conn || conn.status !== "connected") {
-      console.log("[perf] no active CDP connection, skipping WebView metrics");
+      cdpMetricsStatus.value = "waiting";
+      cdpMetricsMessage.value = "Waiting for a connected WebView target";
+      cdpMetricsSource.value = "none";
+      cdpTargetId.value = null;
       return;
     }
-    const client = connectionStore.getClient(conn.targetId);
-    if (!client) return;
 
+    const client = connectionStore.getClient(conn.targetId);
+    if (!client) {
+      cdpMetricsStatus.value = "waiting";
+      cdpMetricsMessage.value = "Connected target has no active CDP client";
+      cdpMetricsSource.value = "none";
+      cdpTargetId.value = conn.targetId;
+      return;
+    }
+
+    cdpTargetId.value = conn.targetId;
+    cdpMetricsStatus.value = "waiting";
+    cdpMetricsMessage.value = "Enabling CDP performance stream…";
+
+    let performanceEnabled = false;
     try {
       await client.send("Performance.enable", {});
+      performanceEnabled = true;
       console.log("[perf] CDP Performance domain enabled");
     } catch (e) {
-      console.warn("[perf] could not enable CDP Performance domain:", e);
-      return;
+      console.warn("[perf] Performance domain unavailable, using fallbacks:", e);
+    }
+
+    try {
+      await client.send("Runtime.enable", {});
+    } catch (e) {
+      console.warn("[perf] Runtime domain enable failed:", e);
     }
 
     cdpTimer = setInterval(async () => {
       try {
-        const res = (await client.send("Performance.getMetrics", {})) as {
-          metrics: Array<{ name: string; value: number }>;
-        };
-        const map: Record<string, number> = {};
-        for (const m of res.metrics) map[m.name] = m.value;
-        jsHeapUsed.value = push(jsHeapUsed.value, (map["JSHeapUsedSize"] ?? 0) / 1024 / 1024);
-        jsHeapTotal.value = push(jsHeapTotal.value, (map["JSHeapTotalSize"] ?? 0) / 1024 / 1024);
-        domNodes.value = push(domNodes.value, map["Nodes"] ?? 0);
+        const activeTargetId = connectionStore.activeConnection?.targetId ?? null;
+        if (activeTargetId !== conn.targetId) {
+          stopCdpMetricsPolling();
+          cdpMetricsStatus.value = "waiting";
+          cdpMetricsMessage.value = "WebView target changed, reconnecting…";
+          cdpMetricsSource.value = "none";
+          return;
+        }
+
+        let heapUsedMb: number | null = null;
+        let heapTotalMb: number | null = null;
+        let nodes: number | null = null;
+        let usedFallback = false;
+
+        if (performanceEnabled) {
+          try {
+            const res = (await client.send("Performance.getMetrics", {})) as {
+              metrics: Array<{ name: string; value: number }>;
+            };
+            const map: Record<string, number> = {};
+            for (const m of res.metrics) {
+              map[m.name] = m.value;
+            }
+            if (Number.isFinite(map["JSHeapUsedSize"])) {
+              heapUsedMb = map["JSHeapUsedSize"] / 1024 / 1024;
+            }
+            if (Number.isFinite(map["JSHeapTotalSize"])) {
+              heapTotalMb = map["JSHeapTotalSize"] / 1024 / 1024;
+            }
+            if (Number.isFinite(map["Nodes"])) {
+              nodes = map["Nodes"];
+            }
+          } catch (e) {
+            console.warn("[perf] Performance.getMetrics failed:", e);
+          }
+        }
+
+        if (heapUsedMb === null || heapTotalMb === null) {
+          try {
+            const heap = (await client.send("Runtime.getHeapUsage", {})) as {
+              usedSize: number;
+              totalSize: number;
+            };
+            if (Number.isFinite(heap.usedSize)) {
+              heapUsedMb = heap.usedSize / 1024 / 1024;
+            }
+            if (Number.isFinite(heap.totalSize)) {
+              heapTotalMb = heap.totalSize / 1024 / 1024;
+            }
+            usedFallback = true;
+          } catch (e) {
+            console.warn("[perf] Runtime.getHeapUsage fallback failed:", e);
+          }
+        }
+
+        if (nodes === null) {
+          try {
+            const counters = (await client.send("Memory.getDOMCounters", {})) as {
+              documents: number;
+              nodes: number;
+              jsEventListeners: number;
+            };
+            if (Number.isFinite(counters.nodes)) {
+              nodes = counters.nodes;
+              usedFallback = true;
+            }
+          } catch (e) {
+            console.warn("[perf] Memory.getDOMCounters fallback failed:", e);
+          }
+        }
+
+        const hasFreshSample = heapUsedMb !== null || heapTotalMb !== null || nodes !== null;
+
+        jsHeapUsed.value = pushWithCarry(jsHeapUsed.value, heapUsedMb);
+        jsHeapTotal.value = pushWithCarry(jsHeapTotal.value, heapTotalMb);
+        domNodes.value = pushWithCarry(domNodes.value, nodes);
+
+        cdpLastUpdatedAt.value = Date.now();
+        if (!hasFreshSample) {
+          cdpMetricsStatus.value = "degraded";
+          cdpMetricsMessage.value = "Connected, but this target exposes limited metrics";
+          cdpMetricsSource.value = "none";
+          return;
+        }
+
+        cdpMetricsStatus.value = usedFallback || !performanceEnabled ? "degraded" : "active";
+        cdpMetricsMessage.value =
+          usedFallback || !performanceEnabled
+            ? "Live metrics (runtime/memory fallback)"
+            : "Live metrics (performance domain)";
+        cdpMetricsSource.value =
+          usedFallback || !performanceEnabled ? "runtime-fallback" : "performance";
       } catch (e) {
         console.warn("[perf] CDP poll error, stopping:", e);
-        if (cdpTimer) clearInterval(cdpTimer);
-        cdpTimer = null;
+        stopCdpMetricsPolling();
+        cdpMetricsStatus.value = "error";
+        cdpMetricsMessage.value = `CDP stream failed: ${String(e)}`;
+        cdpMetricsSource.value = "none";
       }
     }, 1000);
   }
@@ -196,26 +319,65 @@ export function usePerfMetrics() {
     unlistenStopped?.();
     unlistenStopped = null;
 
-    if (cdpTimer) clearInterval(cdpTimer);
-    cdpTimer = null;
+    stopCdpMetricsPolling();
+    cdpMetricsStatus.value = "idle";
+    cdpMetricsMessage.value = "Stopped";
+    cdpMetricsSource.value = "none";
+    cdpTargetId.value = null;
   }
+
+  watch(
+    () => isRunning.value,
+    (running) => {
+      if (running) {
+        void startCdpMetrics();
+        return;
+      }
+      stopCdpMetricsPolling();
+      cdpMetricsStatus.value = "idle";
+      cdpMetricsMessage.value = "Stopped";
+      cdpMetricsSource.value = "none";
+      cdpTargetId.value = null;
+    },
+  );
+
+  watch(
+    () => connectionStore.activeConnection?.targetId ?? null,
+    () => {
+      if (!isRunning.value) {
+        return;
+      }
+      void startCdpMetrics();
+    },
+  );
 
   onUnmounted(() => void stop());
 
-  function toSeries(history: number[]): Array<{ x: number; y: number }> {
-    return history.map((y, x) => ({ x, y }));
+  function toSeries(
+    history: number[],
+    key: string,
+    latestTick: number,
+  ): Array<Record<string, number>> {
+    const xStart = latestTick - history.length + 1;
+    return history.map((value, i) => ({ x: xStart + i, [key]: value }));
   }
 
-  const cpuSeries = computed(() => toSeries(cpuTotalHistory.value));
-  const memSeries = computed(() => toSeries(memHistory.value));
-  const rxSeries = computed(() => toSeries(rxHistory.value));
-  const txSeries = computed(() => toSeries(txHistory.value));
-  const gpuSeries = computed(() => toSeries(gpuHistory.value));
-  const batterySeries = computed(() => toSeries(batteryHistory.value));
-  const heapUsedSeries = computed(() => toSeries(jsHeapUsed.value));
-  const heapTotalSeries = computed(() => toSeries(jsHeapTotal.value));
-  const domNodesSeries = computed(() => toSeries(domNodes.value));
-  const perCoreSeries = computed(() => perCoreHistory.value.map((hist) => toSeries(hist)));
+  function toLegacySeries(history: number[], latestTick: number): Array<{ x: number; y: number }> {
+    const xStart = latestTick - history.length + 1;
+    return history.map((y, i) => ({ x: xStart + i, y }));
+  }
+
+  const cpuSeries = computed(() => toSeries(cpuTotalHistory.value, "cpu", tickCount.value));
+  const memSeries = computed(() => toSeries(memHistory.value, "mem", tickCount.value));
+  const rxSeries = computed(() => toSeries(rxHistory.value, "rx", tickCount.value));
+  const txSeries = computed(() => toSeries(txHistory.value, "tx", tickCount.value));
+  const batterySeries = computed(() => toSeries(batteryHistory.value, "battery", tickCount.value));
+  const heapUsedSeries = computed(() => toSeries(jsHeapUsed.value, "heapUsed", tickCount.value));
+  const heapTotalSeries = computed(() => toSeries(jsHeapTotal.value, "heapTotal", tickCount.value));
+  const domNodesSeries = computed(() => toSeries(domNodes.value, "domNodes", tickCount.value));
+  const perCoreSeries = computed(() =>
+    perCoreHistory.value.map((hist) => toLegacySeries(hist, tickCount.value)),
+  );
 
   return {
     start,
@@ -230,11 +392,15 @@ export function usePerfMetrics() {
     memSeries,
     rxSeries,
     txSeries,
-    gpuSeries,
     batterySeries,
     heapUsedSeries,
     heapTotalSeries,
     domNodesSeries,
+    cdpMetricsStatus,
+    cdpMetricsMessage,
+    cdpMetricsSource,
+    cdpLastUpdatedAt,
+    cdpTargetId,
     perCoreSeries,
     perCoreHistory,
   };

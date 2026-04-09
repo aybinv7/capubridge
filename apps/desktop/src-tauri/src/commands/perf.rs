@@ -65,7 +65,7 @@ pub struct PerfMetrics {
     pub network: NetMetric,
     pub battery: BatteryMetric,
     pub cpu_temp: Option<f32>,
-    pub gpu_usage: Option<f32>,
+    pub cpu_temp_source: Option<String>,
     pub timestamp: u64,
 }
 
@@ -234,6 +234,70 @@ fn parse_battery(text: &str) -> BatteryMetric {
     BatteryMetric { level, temperature, charging }
 }
 
+fn parse_numeric_tokens(text: &str) -> Vec<f32> {
+    text.split(|c: char| c.is_whitespace() || matches!(c, ':' | ',' | ';' | '/'))
+        .filter_map(|token| {
+            let clean = token
+                .trim()
+                .trim_end_matches('%')
+                .trim_matches(|c: char| !(c.is_ascii_digit() || c == '.'));
+            if clean.is_empty() {
+                return None;
+            }
+            clean.parse::<f32>().ok()
+        })
+        .collect()
+}
+
+fn normalize_temp_value(raw: f32) -> Option<f32> {
+    if !raw.is_finite() || raw <= 0.0 {
+        return None;
+    }
+    let mut value = raw;
+    if value > 1000.0 {
+        value /= 1000.0;
+    } else if value > 200.0 {
+        value /= 10.0;
+    }
+    if (0.0..150.0).contains(&value) {
+        Some(value)
+    } else {
+        None
+    }
+}
+
+fn read_cpu_temp(device: &mut ADBServerDevice) -> (Option<f32>, Option<&'static str>) {
+    let probes = [
+        (
+            "thermal_zone_cpu",
+            "for z in /sys/class/thermal/thermal_zone*/type; do t=$(cat \"$z\" 2>/dev/null | tr 'A-Z' 'a-z'); case \"$t\" in *cpu*|*soc*|*ap*|*tsens*|*little*|*big*) cat \"${z%/type}/temp\" 2>/dev/null; break;; esac; done",
+        ),
+        ("thermal_zone0", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null"),
+        (
+            "thermal_zone_any",
+            "for z in /sys/class/thermal/thermal_zone*/temp; do cat \"$z\" 2>/dev/null && break; done",
+        ),
+        (
+            "dumpsys_thermalservice",
+            "dumpsys thermalservice 2>/dev/null | grep -m 1 -E 'cpu|soc|temperature' | grep -Eo '[0-9]+(\\.[0-9]+)?'",
+        ),
+        (
+            "dumpsys_hardware_properties",
+            "dumpsys hardware_properties 2>/dev/null | grep -m 1 -E 'CPU temperatures|cpu' | grep -Eo '[0-9]+(\\.[0-9]+)?'",
+        ),
+    ];
+
+    for (source, command) in probes {
+        let raw = shell(device, command).unwrap_or_default();
+        for value in parse_numeric_tokens(&raw) {
+            if let Some(normalized) = normalize_temp_value(value) {
+                return (Some(normalized), Some(source));
+            }
+        }
+    }
+    (None, None)
+}
+
 // ── Session state ─────────────────────────────────────────────────────────────
 
 struct PerfSession {
@@ -296,17 +360,27 @@ pub async fn adb_perf_start(serial: String, app: AppHandle) -> Result<(), String
 
         while !stop_flag.load(Ordering::Relaxed) {
             let s = serial_clone.clone();
-            let result = tokio::task::spawn_blocking(move || -> Result<(String, String, String, String, String, String), String> {
-                let mut device = get_device(&s)?;
-                let stat = shell(&mut device, "cat /proc/stat")?;
-                let meminfo = shell(&mut device, "cat /proc/meminfo")?;
-                let net = shell(&mut device, "cat /proc/net/dev")?;
-                let battery = shell(&mut device, "dumpsys battery")?;
-                // Best-effort — don't fail if not present
-                let cpu_temp = shell(&mut device, "cat /sys/class/thermal/thermal_zone0/temp").unwrap_or_default();
-                let gpu = shell(&mut device, "cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage").unwrap_or_default();
-                Ok((stat, meminfo, net, battery, cpu_temp, gpu))
-            })
+            let result = tokio::task::spawn_blocking(
+                move || -> Result<
+                    (
+                        String,
+                        String,
+                        String,
+                        String,
+                        Option<f32>,
+                        Option<String>,
+                    ),
+                    String,
+                > {
+                    let mut device = get_device(&s)?;
+                    let stat = shell(&mut device, "cat /proc/stat")?;
+                    let meminfo = shell(&mut device, "cat /proc/meminfo")?;
+                    let net = shell(&mut device, "cat /proc/net/dev")?;
+                    let battery = shell(&mut device, "dumpsys battery")?;
+                    let (cpu_temp, cpu_temp_source) = read_cpu_temp(&mut device);
+                    Ok((stat, meminfo, net, battery, cpu_temp, cpu_temp_source.map(str::to_string)))
+                },
+            )
             .await;
 
             if stop_flag.load(Ordering::Relaxed) {
@@ -314,7 +388,14 @@ pub async fn adb_perf_start(serial: String, app: AppHandle) -> Result<(), String
             }
 
             match result {
-                Ok(Ok((stat, meminfo, net_raw, battery_raw, cpu_temp_raw, gpu_raw))) => {
+                Ok(Ok((
+                    stat,
+                    meminfo,
+                    net_raw,
+                    battery_raw,
+                    cpu_temp,
+                    cpu_temp_source,
+                ))) => {
                     let now = std::time::Instant::now();
                     let elapsed = now.duration_since(prev_time).as_secs_f64();
                     prev_time = now;
@@ -331,18 +412,6 @@ pub async fn adb_perf_start(serial: String, app: AppHandle) -> Result<(), String
 
                     let battery = parse_battery(&battery_raw);
 
-                    let cpu_temp = cpu_temp_raw.trim().parse::<f32>().ok().map(|t| {
-                        // Some devices report in millidegrees
-                        if t > 1000.0 { t / 1000.0 } else { t }
-                    });
-
-                    let gpu_usage = gpu_raw
-                        .trim()
-                        .trim_end_matches('%')
-                        .parse::<f32>()
-                        .ok()
-                        .map(|v| v.clamp(0.0, 100.0));
-
                     let timestamp = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
@@ -355,7 +424,7 @@ pub async fn adb_perf_start(serial: String, app: AppHandle) -> Result<(), String
                         network,
                         battery,
                         cpu_temp,
-                        gpu_usage,
+                        cpu_temp_source,
                         timestamp,
                     };
 
