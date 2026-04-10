@@ -15,3 +15,15 @@ export { LocalStorageDomain, CacheAPIDomain, OPFSDomain } from "./cdp/domains/st
 export type { LSOrigin, CacheName, CacheEntry, OPFSEntry } from "./cdp/domains/storage.js";
 export { LocalForageDomain } from "./cdp/domains/localforage.js";
 export type { LocalForageEntry } from "./cdp/domains/localforage.js";
+export { DOMDomain } from "./cdp/domains/dom.js";
+export type { DOMNode, BoxModel } from "./cdp/domains/dom.js";
+export { CSSDomain } from "./cdp/domains/css.js";
+export type {
+  CSSProperty,
+  CSSRule,
+  CSSStyle,
+  ComputedStyle,
+  MatchedStyles,
+} from "./cdp/domains/css.js";
+export { OverlayDomain } from "./cdp/domains/overlay.js";
+export type { HighlightConfig, RGBA } from "./cdp/domains/overlay.js";
