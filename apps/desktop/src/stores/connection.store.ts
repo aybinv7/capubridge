@@ -34,14 +34,10 @@ export const useConnectionStore = defineStore("connection", () => {
 
         let wsUrl = target.webSocketDebuggerUrl;
         if (target.source === "adb") {
-          try {
-            const proxy = await invoke<{ wsUrl: string; localPort: number }>("cdp_start_proxy", {
-              wsUrl: target.webSocketDebuggerUrl,
-            });
-            wsUrl = proxy.wsUrl;
-          } catch (e) {
-            throw e;
-          }
+          const proxy = await invoke<{ wsUrl: string; localPort: number }>("cdp_start_proxy", {
+            wsUrl: target.webSocketDebuggerUrl,
+          });
+          wsUrl = proxy.wsUrl;
         }
 
         const client = new CDPClient(wsUrl);
@@ -109,6 +105,10 @@ export const useConnectionStore = defineStore("connection", () => {
         console.warn("[connection] Failed to stop proxy:", e);
       }
       targetToWsUrl.delete(targetId);
+    }
+
+    if (selectedTargetId.value === targetId) {
+      selectedTargetId.value = null;
     }
   }
 

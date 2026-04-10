@@ -12,6 +12,7 @@ interface RawCDPTarget {
   url: string;
   webSocketDebuggerUrl: string;
   faviconUrl?: string;
+  packageName?: string;
 }
 
 export const useTargetsStore = defineStore("targets", () => {
@@ -22,6 +23,8 @@ export const useTargetsStore = defineStore("targets", () => {
 
   async function fetchTargetsForSource(source: ConnectionSource) {
     const key = source.type === "adb" ? `adb:${source.serial}` : `chrome:${source.port}`;
+    if (fetchingSources.value.has(key)) return;
+
     fetchingSources.value.add(key);
     error.value = null;
 
@@ -58,6 +61,8 @@ export const useTargetsStore = defineStore("targets", () => {
               socketName,
             });
 
+            const pkg = sockets.find((s) => s.socketName === socketName)?.packageName ?? "unknown";
+
             // Try to fetch /json from this socket.
             // Only chrome_devtools_remote and some WebView sockets serve HTTP /json.
             // For WebSocket-only sockets, we'll create synthetic targets.
@@ -67,8 +72,6 @@ export const useTargetsStore = defineStore("targets", () => {
             } catch {
               // This socket doesn't serve /json — create a synthetic target
               const wsUrl = `ws://127.0.0.1:${port}/`;
-              const pkg =
-                sockets.find((s) => s.socketName === socketName)?.packageName ?? "unknown";
               socketTargets.push({
                 id: `${socketName}_${port}`,
                 type: "page",
@@ -78,6 +81,7 @@ export const useTargetsStore = defineStore("targets", () => {
               });
             }
 
+            socketTargets.forEach((t) => (t.packageName = pkg));
             raw.push(...socketTargets);
           } catch {
             // forward failed for this socket — skip it
@@ -94,6 +98,7 @@ export const useTargetsStore = defineStore("targets", () => {
         source: source.type as "adb" | "chrome",
         deviceSerial: source.type === "adb" ? source.serial : undefined,
         faviconUrl: t.faviconUrl,
+        packageName: t.packageName,
       }));
 
       // Key by deviceSerial for ADB (not source.type) so each device owns its slice of targets.
@@ -111,7 +116,7 @@ export const useTargetsStore = defineStore("targets", () => {
     }
   }
 
-  function selectTarget(target: CDPTarget) {
+  function selectTarget(target: CDPTarget | null) {
     selectedTarget.value = target;
   }
 

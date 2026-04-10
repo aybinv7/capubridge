@@ -60,20 +60,28 @@ export function initCDPWatchers() {
   const targetsStore = useTargetsStore();
   const connectionStore = useConnectionStore();
   const sourceStore = useSourceStore();
+  let selectionRun = 0;
 
   watch(
     () => devicesStore.selectedDevice,
     async (device, previousDevice) => {
+      const runId = ++selectionRun;
       const oldSerial = sourceStore.getAdbSource()?.serial ?? null;
+      const selectedTargetId = targetsStore.selectedTarget?.id ?? null;
 
       if (device?.status === "online") {
         if (oldSerial && oldSerial !== device.serial) {
-          await connectionStore.disconnectTarget(targetsStore.selectedTarget?.id ?? "");
+          if (selectedTargetId) {
+            await connectionStore.disconnectTarget(selectedTargetId);
+          }
+          if (runId !== selectionRun) return;
           await sourceStore.addAdbSource(device.serial);
+          if (runId !== selectionRun) return;
 
           const source = sourceStore.getAdbSource();
           if (source) {
             await targetsStore.fetchTargetsForSource(source);
+            if (runId !== selectionRun) return;
           }
 
           const hasNewTargets = targetsStore.targets.some((t) => t.deviceSerial === device.serial);
@@ -82,14 +90,19 @@ export function initCDPWatchers() {
           }
         } else {
           await sourceStore.addAdbSource(device.serial);
+          if (runId !== selectionRun) return;
           const source = sourceStore.getAdbSource();
           if (source) {
             await targetsStore.fetchTargetsForSource(source);
+            if (runId !== selectionRun) return;
           }
         }
       } else if (previousDevice && !device) {
         const currentSerial = sourceStore.getAdbSource()?.serial ?? null;
-        await connectionStore.disconnectTarget(targetsStore.selectedTarget?.id ?? "");
+        if (selectedTargetId) {
+          await connectionStore.disconnectTarget(selectedTargetId);
+        }
+        if (runId !== selectionRun) return;
         if (currentSerial) targetsStore.clearTargetsForSerial(currentSerial);
         await sourceStore.removeAdbSource();
       }

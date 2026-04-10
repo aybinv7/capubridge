@@ -41,6 +41,7 @@ const activePanel = ref<Panel>("device");
 const selectedSerial = ref<string | null>(null);
 const deviceInfoCache = reactive<Record<string, Awaited<ReturnType<typeof getDeviceOverview>>>>({});
 const deviceInfoLoading = ref(false);
+const isRefreshingDevices = ref(false);
 const scanningTargets = ref(false);
 const wifiIp = ref("");
 const wifiPort = ref("5555");
@@ -89,11 +90,29 @@ async function handleRefreshTargets() {
   }
 }
 
+async function handleRefreshDevices() {
+  if (isRefreshingDevices.value) {
+    return;
+  }
+  isRefreshingDevices.value = true;
+  try {
+    await devicesStore.refreshDevices();
+    if (
+      selectedSerial.value &&
+      !devicesStore.devices.some((d) => d.serial === selectedSerial.value)
+    ) {
+      selectedSerial.value =
+        devicesStore.selectedDevice?.serial ?? devicesStore.devices[0]?.serial ?? null;
+    }
+  } finally {
+    isRefreshingDevices.value = false;
+  }
+}
+
 async function handleSelectTarget(target: CDPTarget) {
-  // Enforce single active connection — disconnect the previous one first
   const prevId = connectionStore.selectedTargetId;
   if (prevId && prevId !== target.id) {
-    connectionStore.disconnectTarget(prevId);
+    await connectionStore.disconnectTarget(prevId);
   }
   targetsStore.selectTarget(target);
   try {
@@ -107,9 +126,9 @@ async function handleSelectTarget(target: CDPTarget) {
 async function handleDisconnectTarget(targetId: string, event: Event) {
   event.stopPropagation();
   try {
-    connectionStore.disconnectTarget(targetId);
+    await connectionStore.disconnectTarget(targetId);
     if (targetsStore.selectedTarget?.id === targetId) {
-      targetsStore.selectTarget(null as unknown as CDPTarget);
+      targetsStore.selectTarget(null);
     }
     toast.info("Target disconnected");
   } catch (err) {
@@ -120,7 +139,6 @@ async function handleDisconnectTarget(targetId: string, event: Event) {
 function selectSidebarDevice(serial: string) {
   const d = devicesStore.devices.find((x) => x.serial === serial);
   if (!d) return;
-
   selectedSerial.value = serial;
   activePanel.value = "device";
   devicesStore.selectDevice(d);
@@ -304,10 +322,11 @@ watch(
               </span>
               <button
                 class="text-muted-foreground/30 hover:text-muted-foreground/70 transition-colors"
-                @click="devicesStore.refreshDevices()"
+                :disabled="isRefreshingDevices"
+                @click="void handleRefreshDevices()"
                 title="Refresh devices"
               >
-                <RefreshCw :size="11" />
+                <RefreshCw :size="11" :class="{ 'animate-spin': isRefreshingDevices }" />
               </button>
             </div>
 
@@ -482,7 +501,13 @@ watch(
                         Targets
                       </span>
                       <button
-                        class="flex items-center gap-1 text-[10px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
+                        class="flex items-center gap-1 text-[10px] transition-colors"
+                        :class="
+                          scanningTargets || isFetchingTargets
+                            ? 'text-muted-foreground/20 cursor-not-allowed'
+                            : 'text-muted-foreground/30 hover:text-muted-foreground/60'
+                        "
+                        :disabled="scanningTargets || isFetchingTargets"
                         @click="handleRefreshTargets"
                       >
                         <RefreshCw
@@ -662,10 +687,19 @@ watch(
                     Targets
                   </span>
                   <button
-                    class="flex items-center gap-1 text-[10px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
+                    class="flex items-center gap-1 text-[10px] transition-colors"
+                    :class="
+                      scanningTargets || isFetchingTargets
+                        ? 'text-muted-foreground/20 cursor-not-allowed'
+                        : 'text-muted-foreground/30 hover:text-muted-foreground/60'
+                    "
+                    :disabled="scanningTargets || isFetchingTargets"
                     @click="handleRefreshTargets"
                   >
-                    <RefreshCw :size="9" :class="{ 'animate-spin': isFetchingTargets }" />
+                    <RefreshCw
+                      :size="9"
+                      :class="{ 'animate-spin': scanningTargets || isFetchingTargets }"
+                    />
                     Refresh
                   </button>
                 </div>
