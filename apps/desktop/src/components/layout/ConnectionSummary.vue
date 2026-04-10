@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { ChevronRight, ChevronDown } from "lucide-vue-next";
+import { useAdb } from "@/composables/useAdb";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useSourceStore } from "@/stores/source.store";
 import { useTargetsStore } from "@/stores/targets.store";
+import { useAppPackages } from "@/composables/useAppPackages";
 import DeviceManagerModal from "@/components/DeviceManagerModal.vue";
+import AppIcon from "@/modules/devices/AppIcon.vue";
 
 const emit = defineEmits<{ openModal: [] }>();
 
 const devicesStore = useDevicesStore();
 const sourceStore = useSourceStore();
 const targetsStore = useTargetsStore();
+const { cancelListPackages } = useAdb();
 
 const modalOpen = ref(false);
 
@@ -19,6 +23,20 @@ const target = computed(() => targetsStore.selectedTarget);
 const hasChromeSource = computed(() => sourceStore.hasChromeSource);
 
 const isConnected = computed(() => device.value?.status === "online" || hasChromeSource.value);
+
+const serial = computed(() => device.value?.serial ?? "");
+const { getCachedPackage, usePackages } = useAppPackages(serial);
+
+const { isFetching: isPackagesFetching } = usePackages("third-party");
+
+onBeforeUnmount(() => {
+  const activeSerial = serial.value;
+  if (!activeSerial || !isPackagesFetching.value) {
+    return;
+  }
+
+  void cancelListPackages(activeSerial);
+});
 
 const statusClass = computed(() => {
   if (target.value?.source === "chrome") return "bg-blue-400";
@@ -72,7 +90,19 @@ function onDeviceSelected(serial: string) {
 
     <template v-if="targetLabel">
       <ChevronRight :size="9" class="text-muted-foreground/25 shrink-0" />
-      <img v-if="target?.faviconUrl" :src="target.faviconUrl" alt="" class="w-4 h-4" />
+
+      <!-- Icon logic -->
+      <template v-if="target?.source === 'adb' && target?.packageName">
+        <AppIcon
+          :serial="serial"
+          :packageName="target.packageName"
+          :apkPath="getCachedPackage(target.packageName)?.apkPath ?? ''"
+          :iconPath="getCachedPackage(target.packageName)?.iconPath"
+          size="sm"
+          class="!w-4 !h-4 !rounded-sm"
+        />
+      </template>
+      <img v-else-if="target?.faviconUrl" :src="target.faviconUrl" alt="" class="w-4 h-4" />
       <span class="text-[11px] text-muted-foreground/55 truncate leading-none">
         {{ targetLabel }}
       </span>

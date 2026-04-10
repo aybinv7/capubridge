@@ -34,7 +34,7 @@ watch(
 );
 
 onMounted(async () => {
-  devicesStore.startPolling(3000);
+  void devicesStore.refreshDevices();
 
   const savedPort = localStorage.getItem("capubridge:chrome-port");
   if (!sourceStore.hasChromeSource) {

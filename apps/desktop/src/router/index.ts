@@ -75,6 +75,11 @@ const routes: RouteRecordRaw[] = [
         name: "storage-opfs",
         component: () => import("@/modules/storage/opfs/OPFSExplorer.vue"),
       },
+      {
+        path: "sqlite/:db?/:table?",
+        name: "storage-sqlite",
+        component: () => import("@/modules/storage/sqlite/SqliteExplorer.vue"),
+      },
     ],
   },
 
@@ -161,6 +166,20 @@ const routes: RouteRecordRaw[] = [
         path: "deeplinks",
         name: "capacitor-deeplinks",
         component: () => import("@/modules/capacitor/CapacitorDeeplinks.vue"),
+      },
+    ],
+  },
+
+  // ── Inspect ──────────────────────────────────────────────────────────────
+  {
+    path: "/inspect",
+    component: () => import("@/modules/inspect/InspectPanel.vue"),
+    redirect: "/inspect/elements",
+    children: [
+      {
+        path: "elements",
+        name: "inspect-elements",
+        component: () => import("@/modules/inspect/ElementsInspector.vue"),
       },
     ],
   },

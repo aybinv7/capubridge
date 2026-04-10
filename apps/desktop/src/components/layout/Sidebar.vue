@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router";
-import { Smartphone, Database, Globe, Terminal, Zap, Settings } from "lucide-vue-next";
+import { Smartphone, Database, Globe, Terminal, Zap, Settings, Crosshair } from "lucide-vue-next";
 
 const route = useRoute();
 
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/network", icon: Globe, label: "Network" },
   { to: "/console", icon: Terminal, label: "Console" },
   { to: "/capacitor", icon: Zap, label: "Capacitor" },
+  { to: "/inspect", icon: Crosshair, label: "Inspect" },
 ] as const;
 
 const bottomItems = [{ to: "/settings", icon: Settings, label: "Settings" }] as const;

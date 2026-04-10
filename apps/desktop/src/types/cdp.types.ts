@@ -7,6 +7,7 @@ export interface CDPTarget {
   source: "adb" | "chrome";
   deviceSerial?: string;
   faviconUrl?: string;
+  packageName?: string;
 }
 
 export interface CDPConnection {

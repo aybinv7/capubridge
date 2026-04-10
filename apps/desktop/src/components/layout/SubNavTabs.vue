@@ -23,6 +23,8 @@ import {
   Palette,
   Keyboard,
   DatabaseZap,
+  Table2,
+  Crosshair,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -40,6 +42,7 @@ const iconMap: Record<string, typeof Smartphone> = {
   "storage-localstorage": DatabaseZap,
   "storage-cache": Archive,
   "storage-opfs": FolderOpen,
+  "storage-sqlite": Table2,
   "network-requests": Globe,
   "network-websocket": Terminal,
   "network-throttle": Gauge,
@@ -57,6 +60,7 @@ const iconMap: Record<string, typeof Smartphone> = {
   "settings-chrome": Globe,
   "settings-theme": Palette,
   "settings-shortcuts": Keyboard,
+  "inspect-elements": Crosshair,
 };
 
 const subTabs = computed(() => {

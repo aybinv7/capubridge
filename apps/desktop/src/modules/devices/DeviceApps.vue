@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useAdb, type PackageListScope } from "@/composables/useAdb";
+import { useAppPackages } from "@/composables/useAppPackages";
 import { useDevicesStore } from "@/stores/devices.store";
 import type { AdbPackage } from "@/types/adb.types";
 import DeviceAppInspector from "./DeviceAppInspector.vue";
@@ -24,94 +25,6 @@ interface QuickPathEntry {
   key: string;
   label: string;
   path: string;
-}
-
-interface CachedPackagesRecord {
-  serial: string;
-  scope: PackageFetchScope;
-  updatedAt: number;
-  packages: AdbPackage[];
-}
-
-const PACKAGE_CACHE_STALE_MS = 60_000;
-const PACKAGE_CACHE_PREFIX = "capubridge:device-apps:v1";
-
-function getPackagesCacheKey(serial: string, scope: PackageFetchScope): string {
-  return `${PACKAGE_CACHE_PREFIX}:${serial}:${scope}`;
-}
-
-function readPackagesCache(serial: string, scope: PackageFetchScope): CachedPackagesRecord | null {
-  try {
-    const raw = localStorage.getItem(getPackagesCacheKey(serial, scope));
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as Partial<CachedPackagesRecord>;
-    if (
-      parsed.serial !== serial ||
-      parsed.scope !== scope ||
-      typeof parsed.updatedAt !== "number" ||
-      !Array.isArray(parsed.packages)
-    ) {
-      return null;
-    }
-    return {
-      serial,
-      scope,
-      updatedAt: parsed.updatedAt,
-      packages: parsed.packages as AdbPackage[],
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writePackagesCache(
-  serial: string,
-  scope: PackageFetchScope,
-  packages: AdbPackage[],
-  updatedAt: number,
-) {
-  try {
-    const payload: CachedPackagesRecord = { serial, scope, updatedAt, packages };
-    localStorage.setItem(getPackagesCacheKey(serial, scope), JSON.stringify(payload));
-  } catch {
-    // ignore write failures (quota/private mode)
-  }
-}
-
-function removePackagesCache(serial: string, scope: PackageFetchScope) {
-  try {
-    localStorage.removeItem(getPackagesCacheKey(serial, scope));
-  } catch {
-    // ignore remove failures
-  }
-}
-
-function readScopedPackagesCache(
-  serial: string,
-  scope: PackageFetchScope,
-): CachedPackagesRecord | null {
-  if (scope === "all") {
-    return readPackagesCache(serial, "all");
-  }
-
-  const thirdParty = readPackagesCache(serial, "third-party");
-  if (thirdParty) {
-    return thirdParty;
-  }
-
-  const all = readPackagesCache(serial, "all");
-  if (!all) {
-    return null;
-  }
-
-  return {
-    serial,
-    scope: "third-party",
-    updatedAt: all.updatedAt,
-    packages: all.packages.filter((entry) => !entry.system),
-  };
 }
 
 const devicesStore = useDevicesStore();
@@ -132,6 +45,9 @@ const fetchScope = computed<PackageFetchScope>(() =>
   packageScope.value === "third-party" ? "third-party" : "all",
 );
 
+const { PACKAGE_CACHE_STALE_MS, usePackages, refreshPackages, readPackagesCache } =
+  useAppPackages(serial);
+
 const {
   data: packages,
   isLoading,
@@ -139,41 +55,7 @@ const {
   isError,
   error,
   refetch,
-} = useQuery({
-  queryKey: computed(() => ["packages", serial.value, fetchScope.value]),
-  queryFn: async () => {
-    const activeSerial = serial.value;
-    const activeScope = fetchScope.value;
-    const nextPackages = await listPackages(activeSerial, activeScope);
-    const updatedAt = Date.now();
-    writePackagesCache(activeSerial, activeScope, nextPackages, updatedAt);
-
-    if (activeScope === "all") {
-      const thirdPartyPackages = nextPackages.filter((entry) => !entry.system);
-      writePackagesCache(activeSerial, "third-party", thirdPartyPackages, updatedAt);
-      queryClient.setQueryData(["packages", activeSerial, "third-party"], thirdPartyPackages);
-    }
-
-    return nextPackages;
-  },
-  enabled: computed(() => !!serial.value),
-  staleTime: PACKAGE_CACHE_STALE_MS,
-  gcTime: 24 * 60 * 60 * 1000,
-  initialData: () => {
-    const activeSerial = serial.value;
-    if (!activeSerial) {
-      return undefined;
-    }
-    return readScopedPackagesCache(activeSerial, fetchScope.value)?.packages;
-  },
-  initialDataUpdatedAt: () => {
-    const activeSerial = serial.value;
-    if (!activeSerial) {
-      return undefined;
-    }
-    return readScopedPackagesCache(activeSerial, fetchScope.value)?.updatedAt;
-  },
-});
+} = usePackages(fetchScope.value);
 
 const isPackagesBusy = computed(() => isLoading.value || isFetching.value);
 
@@ -232,20 +114,7 @@ async function cancelPackagesLoad(options?: { silent?: boolean }) {
 }
 
 async function handleRefresh() {
-  const activeSerial = serial.value;
-  if (!activeSerial) {
-    return;
-  }
-
-  const activeScope = fetchScope.value;
-  removePackagesCache(activeSerial, activeScope);
-  if (activeScope === "all") {
-    removePackagesCache(activeSerial, "third-party");
-    queryClient.removeQueries({
-      queryKey: ["packages", activeSerial, "third-party"],
-      exact: true,
-    });
-  }
+  await refreshPackages(fetchScope.value);
   await refetch();
 }
 
