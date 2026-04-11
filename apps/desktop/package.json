@@ -20,6 +20,9 @@
     "@types/node": "catalog:",
     "@unovis/ts": "catalog:",
     "@unovis/vue": "catalog:",
+    "@vue/devtools-core": "^8.1.1",
+    "@vue/devtools-electron": "^8.1.1",
+    "@vue/devtools-kit": "^8.1.1",
     "@vueuse/core": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
@@ -42,6 +45,7 @@
     "tw-animate-css": "catalog:",
     "typescript": "~5.9.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.15",
+    "vite-plugin-vue-devtools": "catalog:",
     "vite-plus": "catalog:"
   }
 }

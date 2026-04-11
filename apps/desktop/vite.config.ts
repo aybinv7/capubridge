@@ -1,6 +1,7 @@
 import { defineConfig } from "vite-plus";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
+// import vueDevTools from "vite-plugin-vue-devtools";
 import { fileURLToPath, URL } from "url";
 
 export default defineConfig({
