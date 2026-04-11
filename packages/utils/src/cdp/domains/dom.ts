@@ -25,6 +25,12 @@ export interface BoxModel {
   height: number;
 }
 
+export interface NodeForLocation {
+  nodeId: number;
+  backendNodeId: number;
+  frameId?: string;
+}
+
 export class DOMDomain {
   constructor(private client: CDPClient) {}
 
@@ -71,6 +77,21 @@ export class DOMDomain {
       nodeId,
     });
     return result.attributes;
+  }
+
+  async getNodeForLocation(
+    x: number,
+    y: number,
+    includeUserAgentShadowDOM = true,
+    ignorePointerEventsNone = false,
+  ): Promise<NodeForLocation | null> {
+    const result = await this.client.send<NodeForLocation>("DOM.getNodeForLocation", {
+      x,
+      y,
+      includeUserAgentShadowDOM,
+      ignorePointerEventsNone,
+    });
+    return result.nodeId ? result : null;
   }
 
   async setAttributeValue(nodeId: number, name: string, value: string): Promise<void> {

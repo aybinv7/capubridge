@@ -16,7 +16,7 @@ export type { LSOrigin, CacheName, CacheEntry, OPFSEntry } from "./cdp/domains/s
 export { LocalForageDomain } from "./cdp/domains/localforage.js";
 export type { LocalForageEntry } from "./cdp/domains/localforage.js";
 export { DOMDomain } from "./cdp/domains/dom.js";
-export type { DOMNode, BoxModel } from "./cdp/domains/dom.js";
+export type { DOMNode, BoxModel, NodeForLocation } from "./cdp/domains/dom.js";
 export { CSSDomain } from "./cdp/domains/css.js";
 export type {
   CSSProperty,

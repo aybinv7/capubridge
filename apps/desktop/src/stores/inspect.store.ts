@@ -10,6 +10,9 @@ export const useInspectStore = defineStore("inspect", () => {
   const activeDetailTab = ref<DetailTab>("styles");
   const searchQuery = ref("");
   const nodeMap = ref(new Map<number, DOMNode>());
+  const mirrorHoverPoint = ref<{ x: number; y: number; nonce: number } | null>(null);
+  const mirrorSelectPoint = ref<{ x: number; y: number; nonce: number } | null>(null);
+  let pointNonce = 0;
 
   const hasSelection = computed(() => selectedNodeId.value !== null);
 
@@ -69,6 +72,20 @@ export const useInspectStore = defineStore("inspect", () => {
     }
   }
 
+  function setMirrorHoverPoint(x: number, y: number) {
+    pointNonce += 1;
+    mirrorHoverPoint.value = { x, y, nonce: pointNonce };
+  }
+
+  function clearMirrorHoverPoint() {
+    mirrorHoverPoint.value = null;
+  }
+
+  function setMirrorSelectPoint(x: number, y: number) {
+    pointNonce += 1;
+    mirrorSelectPoint.value = { x, y, nonce: pointNonce };
+  }
+
   function reset() {
     inspectMode.value = false;
     documentRoot.value = null;
@@ -76,6 +93,8 @@ export const useInspectStore = defineStore("inspect", () => {
     expandedNodes.value.clear();
     nodeMap.value.clear();
     searchQuery.value = "";
+    mirrorHoverPoint.value = null;
+    mirrorSelectPoint.value = null;
   }
 
   return {
@@ -86,6 +105,8 @@ export const useInspectStore = defineStore("inspect", () => {
     activeDetailTab,
     searchQuery,
     nodeMap,
+    mirrorHoverPoint,
+    mirrorSelectPoint,
     hasSelection,
     selectNode,
     clearSelection,
@@ -93,6 +114,9 @@ export const useInspectStore = defineStore("inspect", () => {
     expandToNode,
     setDocument,
     updateChildNodes,
+    setMirrorHoverPoint,
+    clearMirrorHoverPoint,
+    setMirrorSelectPoint,
     buildNodeMap,
     reset,
   };

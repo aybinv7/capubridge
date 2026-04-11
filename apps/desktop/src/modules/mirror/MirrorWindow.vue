@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 import { X, Minus } from "lucide-vue-next";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useInspectStore } from "@/stores/inspect.store";
 import { useMirrorStream } from "./useMirrorStream";
 import MirrorStream from "./MirrorStream.vue";
 import MirrorControls from "./MirrorControls.vue";
@@ -11,6 +12,7 @@ import MirrorSettingsPanel from "./MirrorSettingsPanel.vue";
 
 const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
+const inspectStore = useInspectStore();
 const {
   useScrcpyCanvas,
   isConnected,
@@ -27,6 +29,7 @@ const {
 
 const settingsOpen = ref(false);
 let appWindow: any = null;
+let unlistenInspectMode: (() => void) | null = null;
 
 onMounted(async () => {
   try {
@@ -36,10 +39,28 @@ onMounted(async () => {
     if (mirrorStore.alwaysOnTop) {
       await appWindow.setAlwaysOnTop(true);
     }
+
+    const { listen } = await import("@tauri-apps/api/event");
+    unlistenInspectMode = await listen<{ enabled: boolean }>(
+      "capubridge:set-inspect-mode",
+      (event) => {
+        inspectStore.inspectMode = event.payload.enabled;
+        if (!event.payload.enabled) {
+          inspectStore.clearMirrorHoverPoint();
+        }
+      },
+    );
   } catch {}
 
   // Start the stream in detached mode
   await startStream();
+});
+
+onUnmounted(() => {
+  if (unlistenInspectMode) {
+    unlistenInspectMode();
+    unlistenInspectMode = null;
+  }
 });
 
 watch(
@@ -63,6 +84,7 @@ watch(
 
 async function handleClose() {
   await stopStream();
+  inspectStore.inspectMode = false;
   mirrorStore.isDetached = false;
   mirrorStore.close();
   try {
@@ -89,6 +111,32 @@ async function handleToggleAlwaysOnTop() {
   try {
     await appWindow?.setAlwaysOnTop(mirrorStore.alwaysOnTop);
   } catch {}
+}
+
+async function emitInspectEventToMain(event: string, payload?: { x: number; y: number }) {
+  try {
+    const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    const mainWindow = await WebviewWindow.getByLabel("main");
+    if (!mainWindow) return;
+    if (payload) await mainWindow.emit(event, payload);
+    else await mainWindow.emit(event);
+  } catch {}
+}
+
+function handleInspectHover(x: number, y: number) {
+  if (!inspectStore.inspectMode) return;
+  void emitInspectEventToMain("capubridge:inspect-hover", { x, y });
+}
+
+function handleInspectSelect(x: number, y: number) {
+  if (!inspectStore.inspectMode) return;
+  void emitInspectEventToMain("capubridge:inspect-select", { x, y });
+  inspectStore.inspectMode = false;
+}
+
+function handleInspectLeave() {
+  if (!inspectStore.inspectMode) return;
+  void emitInspectEventToMain("capubridge:inspect-leave");
 }
 
 function toggleRecord() {
@@ -177,7 +225,11 @@ function toggleRecord() {
           :laser-mode="mirrorStore.laserMode"
           :device-width="mirrorStore.deviceWidth"
           :device-height="mirrorStore.deviceHeight"
+          :inspect-mode="inspectStore.inspectMode"
           @touch="sendTouch"
+          @inspect-hover="handleInspectHover"
+          @inspect-select="handleInspectSelect"
+          @inspect-leave="handleInspectLeave"
           @canvas-ready="setCanvasElement"
         />
       </div>

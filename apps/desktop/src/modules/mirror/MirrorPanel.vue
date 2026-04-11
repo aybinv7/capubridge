@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { toast } from "vue-sonner";
-import { useRouter } from "vue-router";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
@@ -11,7 +10,6 @@ import MirrorControls from "./MirrorControls.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
 import MirrorSettingsPanel from "./MirrorSettingsPanel.vue";
 
-const router = useRouter();
 const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
 const inspectStore = useInspectStore();
@@ -141,9 +139,19 @@ async function handleMaximize() {
   } catch {}
 }
 
-function handleInspect() {
-  inspectStore.inspectMode = true;
-  router.push("/inspect/elements");
+function handleInspectHover(x: number, y: number) {
+  if (!inspectStore.inspectMode) return;
+  inspectStore.setMirrorHoverPoint(x, y);
+}
+
+function handleInspectSelect(x: number, y: number) {
+  if (!inspectStore.inspectMode) return;
+  inspectStore.setMirrorSelectPoint(x, y);
+}
+
+function handleInspectLeave() {
+  if (!inspectStore.inspectMode) return;
+  inspectStore.clearMirrorHoverPoint();
 }
 
 function toggleRecord() {
@@ -185,7 +193,6 @@ function toggleRecord() {
         @toggle-always-on-top="handleToggleAlwaysOnTop"
         @toggle-side="mirrorStore.setSide(mirrorStore.side === 'right' ? 'left' : 'right')"
         @toggle-detach="handleDetach"
-        @inspect="handleInspect"
         @launch-scrcpy="launchExternalScrcpy"
         @maximize="handleMaximize"
         @update:settings-open="settingsOpen = $event"
@@ -218,7 +225,11 @@ function toggleRecord() {
             :laser-mode="mirrorStore.laserMode"
             :device-width="mirrorStore.deviceWidth"
             :device-height="mirrorStore.deviceHeight"
+            :inspect-mode="inspectStore.inspectMode"
             @touch="sendTouch"
+            @inspect-hover="handleInspectHover"
+            @inspect-select="handleInspectSelect"
+            @inspect-leave="handleInspectLeave"
             @canvas-ready="setCanvasElement"
           />
         </div>

@@ -8,10 +8,14 @@ const props = defineProps<{
   laserMode: boolean;
   deviceWidth: number;
   deviceHeight: number;
+  inspectMode?: boolean;
 }>();
 
 const emit = defineEmits<{
   touch: [action: "down" | "move" | "up", x: number, y: number];
+  inspectHover: [x: number, y: number];
+  inspectSelect: [x: number, y: number];
+  inspectLeave: [];
   canvasReady: [canvas: HTMLCanvasElement | null];
 }>();
 
@@ -51,6 +55,11 @@ function onMouseMove(e: MouseEvent) {
   laserX.value = e.clientX - rect.left;
   laserY.value = e.clientY - rect.top;
   showLaser.value = true;
+  if (props.inspectMode) {
+    const c = getDeviceCoords(e.clientX, e.clientY);
+    emit("inspectHover", c.x, c.y);
+    return;
+  }
   if (!dragOrigin.value) return;
   if ((e.buttons & 1) !== 1) return;
   const c = getDeviceCoords(e.clientX, e.clientY);
@@ -59,6 +68,11 @@ function onMouseMove(e: MouseEvent) {
 
 function onMouseLeave() {
   showLaser.value = false;
+  if (props.inspectMode) {
+    dragOrigin.value = null;
+    emit("inspectLeave");
+    return;
+  }
   if (dragOrigin.value) {
     const c = getDeviceCoords(lastClientX.value, lastClientY.value);
     emit("touch", "up", c.x, c.y);
@@ -70,6 +84,11 @@ function onMouseDown(e: MouseEvent) {
   if (e.button !== 0) return;
   lastClientX.value = e.clientX;
   lastClientY.value = e.clientY;
+  if (props.inspectMode) {
+    const c = getDeviceCoords(e.clientX, e.clientY);
+    emit("inspectSelect", c.x, c.y);
+    return;
+  }
   dragOrigin.value = { x: e.clientX, y: e.clientY };
   const c = getDeviceCoords(e.clientX, e.clientY);
   emit("touch", "down", c.x, c.y);
@@ -77,6 +96,7 @@ function onMouseDown(e: MouseEvent) {
 
 function onMouseUp(e: MouseEvent) {
   if (e.button !== 0) return;
+  if (props.inspectMode) return;
   if (!dragOrigin.value) return;
   lastClientX.value = e.clientX;
   lastClientY.value = e.clientY;
@@ -86,6 +106,7 @@ function onMouseUp(e: MouseEvent) {
 }
 
 function onWindowMouseUp(e: MouseEvent) {
+  if (props.inspectMode) return;
   if (!dragOrigin.value) return;
   const c = getDeviceCoords(e.clientX, e.clientY);
   emit("touch", "up", c.x, c.y);
@@ -115,7 +136,7 @@ watch(
     ref="containerRef"
     class="relative w-full overflow-hidden bg-black select-none"
     :style="{ aspectRatio }"
-    :class="isConnected ? 'cursor-pointer' : 'cursor-default'"
+    :class="isConnected ? (inspectMode ? 'cursor-default' : 'cursor-pointer') : 'cursor-default'"
     @mousemove="onMouseMove"
     @mouseleave="onMouseLeave"
     @mousedown="onMouseDown"

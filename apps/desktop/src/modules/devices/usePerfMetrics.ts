@@ -89,14 +89,6 @@ export function usePerfMetrics() {
     latest.value = metrics;
     error.value = null;
 
-    console.log("[perf] tick", tickCount.value, {
-      cpu: metrics.cpuTotal.toFixed(1),
-      cores: metrics.cpuCores.length,
-      memPct: metrics.memory.usedPct.toFixed(1),
-      battery: metrics.battery.level,
-      temp: metrics.cpuTemp,
-    });
-
     cpuTotalHistory.value = push(cpuTotalHistory.value, metrics.cpuTotal);
     memHistory.value = push(memHistory.value, metrics.memory.usedPct);
     rxHistory.value = push(rxHistory.value, metrics.network.rxBps / 1024);
@@ -105,7 +97,6 @@ export function usePerfMetrics() {
 
     const cores = metrics.cpuCores;
     if (cores.length !== coreCount.value) {
-      console.log("[perf] detected", cores.length, "CPU cores");
       coreCount.value = cores.length;
       perCoreHistory.value = Array.from({ length: cores.length }, () => emptyHistory(0));
     }
@@ -141,7 +132,6 @@ export function usePerfMetrics() {
     try {
       await client.send("Performance.enable", {});
       performanceEnabled = true;
-      console.log("[perf] CDP Performance domain enabled");
     } catch (e) {
       console.warn("[perf] Performance domain unavailable, using fallbacks:", e);
     }
@@ -265,7 +255,6 @@ export function usePerfMetrics() {
       return;
     }
 
-    console.log("[perf] starting for device:", serial);
     error.value = null;
     isRunning.value = true;
 
@@ -280,13 +269,11 @@ export function usePerfMetrics() {
     });
 
     unlistenStopped = await listen<string>("perf:stopped", (e) => {
-      console.log("[perf] stopped event for:", e.payload);
       isRunning.value = false;
     });
 
     try {
       await invoke("adb_perf_start", { serial });
-      console.log("[perf] invoke adb_perf_start OK");
     } catch (e) {
       console.error("[perf] invoke adb_perf_start FAILED:", e);
       error.value = String(e);

@@ -21,6 +21,13 @@ export const useTargetsStore = defineStore("targets", () => {
   const fetchingSources = ref<Set<string>>(new Set());
   const error = ref<string | null>(null);
 
+  function isSameTargetSignature(a: CDPTarget, b: CDPTarget) {
+    if (a.source !== b.source) return false;
+    if ((a.deviceSerial ?? null) !== (b.deviceSerial ?? null)) return false;
+    if (a.url && b.url) return a.url === b.url;
+    return a.title === b.title && (a.packageName ?? "") === (b.packageName ?? "");
+  }
+
   async function fetchTargetsForSource(source: ConnectionSource) {
     const key = source.type === "adb" ? `adb:${source.serial}` : `chrome:${source.port}`;
     if (fetchingSources.value.has(key)) return;
@@ -73,7 +80,7 @@ export const useTargetsStore = defineStore("targets", () => {
               // This socket doesn't serve /json — create a synthetic target
               const wsUrl = `ws://127.0.0.1:${port}/`;
               socketTargets.push({
-                id: `${socketName}_${port}`,
+                id: `adb:${source.serial}:${socketName}`,
                 type: "page",
                 title: `${socketName} (${pkg})`,
                 url: "",
@@ -108,6 +115,16 @@ export const useTargetsStore = defineStore("targets", () => {
           .concat(enriched);
       } else {
         targets.value = targets.value.filter((t) => t.source !== source.type).concat(enriched);
+      }
+
+      const currentSelected = selectedTarget.value;
+      if (currentSelected) {
+        const replacement =
+          targets.value.find((t) => t.id === currentSelected.id) ??
+          targets.value.find((t) => isSameTargetSignature(currentSelected, t));
+        if (replacement) {
+          selectedTarget.value = replacement;
+        }
       }
     } catch (err) {
       error.value = String(err);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Search, RefreshCw } from "lucide-vue-next";
+import { Search, RefreshCw, Crosshair } from "lucide-vue-next";
 import { useInspectStore } from "@/stores/inspect.store";
 import DomTreeNode from "./DomTreeNode.vue";
 
@@ -9,6 +9,7 @@ const emit = defineEmits<{
   expand: [nodeId: number];
   hover: [nodeId: number];
   unhover: [];
+  toggleInspect: [];
   refresh: [];
 }>();
 
@@ -32,6 +33,18 @@ const rootNodes = computed(() => {
           class="flex-1 bg-transparent text-xs outline-none text-foreground placeholder:text-muted-foreground/30"
         />
       </div>
+      <button
+        class="w-6 h-6 flex items-center justify-center rounded transition-colors"
+        :class="
+          store.inspectMode
+            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+            : 'text-muted-foreground/50 hover:bg-surface-2 hover:text-foreground'
+        "
+        title="Toggle inspect mode"
+        @click="emit('toggleInspect')"
+      >
+        <Crosshair class="w-3 h-3" />
+      </button>
       <button
         class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-2 text-muted-foreground/50 hover:text-foreground transition-colors"
         title="Refresh DOM tree"

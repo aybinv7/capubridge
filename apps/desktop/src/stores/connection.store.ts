@@ -19,6 +19,16 @@ export const useConnectionStore = defineStore("connection", () => {
     return null;
   });
 
+  function setConnection(targetId: string, connection: CDPConnection) {
+    connections.value.set(targetId, connection);
+  }
+
+  function updateConnectionStatus(targetId: string, status: CDPConnection["status"]) {
+    const existing = connections.value.get(targetId);
+    if (!existing) return;
+    setConnection(targetId, { ...existing, status });
+  }
+
   async function connect(target: CDPTarget): Promise<CDPClient> {
     selectedTargetId.value = target.id;
 
@@ -47,7 +57,7 @@ export const useConnectionStore = defineStore("connection", () => {
           ws: client.ws,
           status: "connecting",
         };
-        connections.value.set(target.id, conn);
+        setConnection(target.id, conn);
 
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
@@ -56,19 +66,19 @@ export const useConnectionStore = defineStore("connection", () => {
 
           conn.ws.addEventListener("open", () => {
             clearTimeout(timeout);
-            conn.status = "connected";
+            updateConnectionStatus(target.id, "connected");
             resolve();
           });
 
           conn.ws.addEventListener("close", () => {
             clearTimeout(timeout);
-            conn.status = "disconnected";
+            updateConnectionStatus(target.id, "disconnected");
             clientMap.delete(target.id);
           });
 
           conn.ws.addEventListener("error", () => {
             clearTimeout(timeout);
-            conn.status = "error";
+            updateConnectionStatus(target.id, "error");
             reject(new Error(`WebSocket error connecting to ${target.url}`));
           });
         });
@@ -113,8 +123,7 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   function setStatus(targetId: string, status: CDPConnection["status"]) {
-    const conn = connections.value.get(targetId);
-    if (conn) conn.status = status;
+    updateConnectionStatus(targetId, status);
   }
 
   return {

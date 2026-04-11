@@ -2,17 +2,14 @@
 import {
   Camera,
   Video,
-  Square,
   Zap,
   Settings2,
   PanelRightOpen,
   PanelLeftOpen,
   ExternalLink,
-  PanelLeft,
   Pin,
   PinOff,
   Maximize2,
-  Crosshair,
 } from "lucide-vue-next";
 import type { MirrorSide } from "@/stores/mirror.store";
 
@@ -30,7 +27,6 @@ const emit = defineEmits<{
   screenshot: [];
   toggleRecord: [];
   toggleLaser: [];
-  inspect: [];
   toggleAlwaysOnTop: [];
   toggleSide: [];
   toggleDetach: [];
@@ -100,15 +96,6 @@ const emit = defineEmits<{
       @click="emit('toggleLaser')"
     >
       <Zap class="w-3.5 h-3.5" />
-    </button>
-
-    <!-- Inspect -->
-    <button
-      class="w-6 h-6 flex items-center justify-center rounded transition-colors text-muted-foreground/50 hover:text-foreground hover:bg-accent"
-      title="Inspect element"
-      @click="emit('inspect')"
-    >
-      <Crosshair class="w-3.5 h-3.5" />
     </button>
 
     <div class="flex-1" />
