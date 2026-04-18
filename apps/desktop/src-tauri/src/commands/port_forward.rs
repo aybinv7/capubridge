@@ -1,5 +1,5 @@
 use crate::commands::{
-    adb::{get_server, map_adb_server_err},
+    adb::{catch_adb_panic, get_server, map_adb_server_err},
     chrome::CDPJsonTarget,
 };
 
@@ -22,33 +22,35 @@ pub async fn adb_forward_cdp(
     serial: String,
     socket_name: Option<String>,
 ) -> Result<u16, String> {
-    let socket = socket_name.unwrap_or_else(|| "chrome_devtools_remote".to_string());
-    let remote = format!("localabstract:{socket}");
+    catch_adb_panic("adb_forward_cdp", move || {
+        let socket = socket_name.unwrap_or_else(|| "chrome_devtools_remote".to_string());
+        let remote = format!("localabstract:{socket}");
 
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut server = get_server().lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
-    for attempt in 0..8 {
-        let local_port = allocate_local_port()?;
-        let local = format!("tcp:{local_port}");
-        log::info!(
-            "[adb_forward_cdp] attempt={}, serial={}, port={}, socket={}",
-            attempt, serial, local_port, socket
-        );
-        match device.forward(remote.clone(), local) {
-            Ok(()) => {
-                log::info!("[adb_forward_cdp] SUCCESS serial={} socket={} → port {}", serial, socket, local_port);
-                return Ok(local_port);
-            }
-            Err(e) => {
-                log::warn!("[adb_forward_cdp] FAILED serial={} port={}: {}", serial, local_port, e);
+        for attempt in 0..8 {
+            let local_port = allocate_local_port()?;
+            let local = format!("tcp:{local_port}");
+            log::info!(
+                "[adb_forward_cdp] attempt={}, serial={}, port={}, socket={}",
+                attempt, serial, local_port, socket
+            );
+            match device.forward(remote.clone(), local) {
+                Ok(()) => {
+                    log::info!("[adb_forward_cdp] SUCCESS serial={} socket={} → port {}", serial, socket, local_port);
+                    return Ok(local_port);
+                }
+                Err(e) => {
+                    log::warn!("[adb_forward_cdp] FAILED serial={} port={}: {}", serial, local_port, e);
+                }
             }
         }
-    }
 
-    Err(format!("Failed to allocate a local port for ADB forward after 8 attempts (serial={}, socket={})", serial, socket))
+        Err(format!("Failed to allocate a local port for ADB forward after 8 attempts (serial={}, socket={})", serial, socket))
+    })
 }
 
 /// Remove all previously established port forwards for a device.
@@ -58,26 +60,28 @@ pub async fn adb_remove_forward(
     _app: tauri::AppHandle,
     serial: String,
 ) -> Result<(), String> {
-    log::info!("[adb_remove_forward] serial={}", serial);
+    catch_adb_panic("adb_remove_forward", move || {
+        log::info!("[adb_remove_forward] serial={}", serial);
 
-    let mut server = get_server().lock();
-    let device = server.get_device_by_name(&serial);
-    match device {
-        Ok(mut d) => {
-            if let Err(e) = d.forward_remove_all() {
-                log::warn!("[adb_remove_forward] forward_remove_all failed for {}: {e}", serial);
+        let mut server = get_server().lock();
+        let device = server.get_device_by_name(&serial);
+        match device {
+            Ok(mut d) => {
+                if let Err(e) = d.forward_remove_all() {
+                    log::warn!("[adb_remove_forward] forward_remove_all failed for {}: {e}", serial);
+                }
+            }
+            Err(e) => {
+                log::info!(
+                    "[adb_remove_forward] Device {} not found (likely offline), skipping: {}",
+                    serial,
+                    map_adb_server_err(e)
+                );
             }
         }
-        Err(e) => {
-            log::info!(
-                "[adb_remove_forward] Device {} not found (likely offline), skipping: {}",
-                serial,
-                map_adb_server_err(e)
-            );
-        }
-    }
 
-    Ok(())
+        Ok(())
+    })
 }
 
 /// Fetch CDP targets from a forwarded port via Rust (avoids CORS in browser).

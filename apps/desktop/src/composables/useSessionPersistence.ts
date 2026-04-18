@@ -42,6 +42,12 @@ export function useSessionPersistence() {
   watch(
     () => targetsStore.targets,
     async (targets) => {
+      if (connectionStore.externalDevtoolsTargetId) {
+        console.log("[session] skip restore; external devtools active", {
+          targetId: connectionStore.externalDevtoolsTargetId,
+        });
+        return;
+      }
       if (targetsStore.selectedTarget || connectionStore.activeConnection) return;
 
       const savedUrl = localStorage.getItem(KEYS.targetUrl);
@@ -50,6 +56,10 @@ export function useSessionPersistence() {
       const match = targets.find((t) => t.url === savedUrl);
       if (!match) return;
 
+      console.log("[session] restoring target", {
+        targetId: match.id,
+        url: match.url,
+      });
       targetsStore.selectTarget(match);
       try {
         await connectionStore.connect(match);

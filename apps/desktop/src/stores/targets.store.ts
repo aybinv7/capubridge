@@ -10,9 +10,25 @@ interface RawCDPTarget {
   type: string;
   title: string;
   url: string;
+  devtoolsFrontendUrl?: string;
   webSocketDebuggerUrl: string;
   faviconUrl?: string;
   packageName?: string;
+}
+
+function mapRawTargetToCDP(source: ConnectionSource, target: RawCDPTarget): CDPTarget {
+  return {
+    id: target.id,
+    type: (target.type as CDPTarget["type"]) || "page",
+    title: target.title,
+    url: target.url,
+    devtoolsFrontendUrl: target.devtoolsFrontendUrl,
+    webSocketDebuggerUrl: target.webSocketDebuggerUrl,
+    source: source.type as "adb" | "chrome",
+    deviceSerial: source.type === "adb" ? source.serial : undefined,
+    faviconUrl: target.faviconUrl,
+    packageName: target.packageName,
+  };
 }
 
 export const useTargetsStore = defineStore("targets", () => {
@@ -84,6 +100,7 @@ export const useTargetsStore = defineStore("targets", () => {
                 type: "page",
                 title: `${socketName} (${pkg})`,
                 url: "",
+                devtoolsFrontendUrl: undefined,
                 webSocketDebuggerUrl: wsUrl,
               });
             }
@@ -96,17 +113,7 @@ export const useTargetsStore = defineStore("targets", () => {
         }
       }
 
-      const enriched = raw.map((t) => ({
-        id: t.id,
-        type: (t.type as CDPTarget["type"]) || "page",
-        title: t.title,
-        url: t.url,
-        webSocketDebuggerUrl: t.webSocketDebuggerUrl,
-        source: source.type as "adb" | "chrome",
-        deviceSerial: source.type === "adb" ? source.serial : undefined,
-        faviconUrl: t.faviconUrl,
-        packageName: t.packageName,
-      }));
+      const enriched = raw.map((target) => mapRawTargetToCDP(source, target));
 
       // Key by deviceSerial for ADB (not source.type) so each device owns its slice of targets.
       if (source.type === "adb") {
@@ -137,6 +144,22 @@ export const useTargetsStore = defineStore("targets", () => {
     selectedTarget.value = target;
   }
 
+  async function createChromeTarget(url: string, port: number) {
+    const rawTarget = await invoke<RawCDPTarget>("chrome_open_target", {
+      port,
+      url,
+    });
+    const source: ConnectionSource = {
+      type: "chrome",
+      port,
+      mode: "manual",
+    };
+    const target = mapRawTargetToCDP(source, rawTarget);
+    targets.value = targets.value.filter((existing) => existing.id !== target.id).concat(target);
+    selectedTarget.value = target;
+    return target;
+  }
+
   function clearTargetsForSerial(serial: string) {
     targets.value = targets.value.filter((t) => t.deviceSerial !== serial);
     if (selectedTarget.value?.deviceSerial === serial) {
@@ -155,6 +178,7 @@ export const useTargetsStore = defineStore("targets", () => {
     fetchingSources,
     error,
     fetchTargetsForSource,
+    createChromeTarget,
     selectTarget,
     clearTargetsForSerial,
     clearAllTargets,

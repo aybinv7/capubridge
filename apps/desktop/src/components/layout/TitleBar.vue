@@ -4,6 +4,7 @@ import { Minus, Maximize2, Minimize2, X, Search, ScreenShare } from "lucide-vue-
 import { useDevicesStore } from "@/stores/devices.store";
 import { useSourceStore } from "@/stores/source.store";
 import { useMirrorStore } from "@/stores/mirror.store";
+import { useTargetsStore } from "@/stores/targets.store";
 import { initCDPWatchers } from "@/composables/useCDP";
 import { useSessionPersistence } from "@/composables/useSessionPersistence";
 import ConnectionSummary from "./ConnectionSummary.vue";
@@ -13,6 +14,7 @@ const emit = defineEmits<{ openCommandPalette: [] }>();
 const devicesStore = useDevicesStore();
 const sourceStore = useSourceStore();
 const mirrorStore = useMirrorStore();
+const targetsStore = useTargetsStore();
 
 initCDPWatchers();
 useSessionPersistence();
@@ -21,7 +23,9 @@ const isMaximized = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let appWindow: any = null;
 
-const mirrorEnabled = computed(() => devicesStore.selectedDevice?.status === "online");
+const mirrorEnabled = computed(
+  () => devicesStore.selectedDevice?.status === "online" || targetsStore.selectedTarget !== null,
+);
 
 watch(
   () => devicesStore.devices,
@@ -99,7 +103,7 @@ async function close() {
       :disabled="!mirrorEnabled"
       :title="
         !mirrorEnabled
-          ? 'Connect a device to enable mirroring'
+          ? 'Select target or connect device to enable mirroring'
           : mirrorStore.isOpen
             ? 'Stop mirroring'
             : 'Mirror device screen'

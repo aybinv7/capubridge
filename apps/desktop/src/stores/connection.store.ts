@@ -8,9 +8,14 @@ export const useConnectionStore = defineStore("connection", () => {
   const connections = ref<Map<string, CDPConnection>>(new Map());
   const clientMap = new Map<string, CDPClient>();
   const selectedTargetId = ref<string | null>(null);
+  const externalDevtoolsTargetId = ref<string | null>(null);
   const pendingConnections = new Map<string, Promise<CDPClient>>();
 
   const targetToWsUrl = new Map<string, string>();
+
+  function logConnection(event: string, payload: Record<string, unknown>) {
+    console.log("[connection]", event, payload);
+  }
 
   const activeConnection = computed(() => {
     if (!selectedTargetId.value) return null;
@@ -30,13 +35,28 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   async function connect(target: CDPTarget): Promise<CDPClient> {
+    if (externalDevtoolsTargetId.value === target.id) {
+      logConnection("connect:blocked-external-devtools", { targetId: target.id });
+      throw new Error("Target currently owned by external DevTools");
+    }
     selectedTargetId.value = target.id;
+    logConnection("connect:start", {
+      targetId: target.id,
+      source: target.source,
+      url: target.url,
+    });
 
     const existing = clientMap.get(target.id);
-    if (existing && existing.readyState === WebSocket.OPEN) return existing;
+    if (existing && existing.readyState === WebSocket.OPEN) {
+      logConnection("connect:reuse-open", { targetId: target.id });
+      return existing;
+    }
 
     const pending = pendingConnections.get(target.id);
-    if (pending) return pending;
+    if (pending) {
+      logConnection("connect:reuse-pending", { targetId: target.id });
+      return pending;
+    }
 
     const connectionPromise = (async () => {
       try {
@@ -48,6 +68,11 @@ export const useConnectionStore = defineStore("connection", () => {
             wsUrl: target.webSocketDebuggerUrl,
           });
           wsUrl = proxy.wsUrl;
+          logConnection("connect:proxy-started", {
+            targetId: target.id,
+            proxyWsUrl: proxy.wsUrl,
+            proxyPort: proxy.localPort,
+          });
         }
 
         const client = new CDPClient(wsUrl);
@@ -67,6 +92,7 @@ export const useConnectionStore = defineStore("connection", () => {
           conn.ws.addEventListener("open", () => {
             clearTimeout(timeout);
             updateConnectionStatus(target.id, "connected");
+            logConnection("connect:open", { targetId: target.id, wsUrl });
             resolve();
           });
 
@@ -74,16 +100,19 @@ export const useConnectionStore = defineStore("connection", () => {
             clearTimeout(timeout);
             updateConnectionStatus(target.id, "disconnected");
             clientMap.delete(target.id);
+            logConnection("connect:close", { targetId: target.id, wsUrl });
           });
 
           conn.ws.addEventListener("error", () => {
             clearTimeout(timeout);
             updateConnectionStatus(target.id, "error");
+            logConnection("connect:error", { targetId: target.id, wsUrl });
             reject(new Error(`WebSocket error connecting to ${target.url}`));
           });
         });
 
         clientMap.set(target.id, client);
+        logConnection("connect:ready", { targetId: target.id });
         return client;
       } finally {
         pendingConnections.delete(target.id);
@@ -99,6 +128,7 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   async function disconnectTarget(targetId: string) {
+    logConnection("disconnect:start", { targetId });
     clientMap.get(targetId)?.close();
     clientMap.delete(targetId);
     const conn = connections.value.get(targetId);
@@ -111,6 +141,7 @@ export const useConnectionStore = defineStore("connection", () => {
     if (wsUrl) {
       try {
         await invoke("cdp_stop_proxy", { wsUrl });
+        logConnection("disconnect:proxy-stopped", { targetId, wsUrl });
       } catch (e) {
         console.warn("[connection] Failed to stop proxy:", e);
       }
@@ -120,19 +151,38 @@ export const useConnectionStore = defineStore("connection", () => {
     if (selectedTargetId.value === targetId) {
       selectedTargetId.value = null;
     }
+    logConnection("disconnect:done", { targetId });
   }
 
   function setStatus(targetId: string, status: CDPConnection["status"]) {
     updateConnectionStatus(targetId, status);
   }
 
+  function setExternalDevtoolsTarget(targetId: string | null) {
+    externalDevtoolsTargetId.value = targetId;
+    logConnection("external-devtools:set", { targetId });
+  }
+
+  function clearExternalDevtoolsTarget(targetId?: string) {
+    if (targetId && externalDevtoolsTargetId.value && externalDevtoolsTargetId.value !== targetId) {
+      return;
+    }
+    logConnection("external-devtools:clear", {
+      previousTargetId: externalDevtoolsTargetId.value,
+    });
+    externalDevtoolsTargetId.value = null;
+  }
+
   return {
     connections,
     activeConnection,
     selectedTargetId,
+    externalDevtoolsTargetId,
     connect,
     getClient,
     disconnectTarget,
     setStatus,
+    setExternalDevtoolsTarget,
+    clearExternalDevtoolsTarget,
   };
 });

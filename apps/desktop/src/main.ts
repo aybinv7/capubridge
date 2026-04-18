@@ -12,4 +12,13 @@ app.use(createPinia());
 app.use(router);
 app.use(VueQueryPlugin);
 
+app.config.errorHandler = (err, _instance, info) => {
+  console.error("[vue:error]", info, err);
+};
+
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("[unhandled-rejection]", event.reason);
+  event.preventDefault();
+});
+
 app.mount("#app");

@@ -24,18 +24,36 @@ fn create_adb_server() -> ADBServer {
 
 pub(crate) fn map_adb_server_err(err: impl std::fmt::Display) -> String {
     let msg = err.to_string();
-    #[cfg(target_os = "windows")]
+    if msg.contains("Connection refused")
+        || msg.contains("10061")
+        || msg.contains("NotConnected")
+        || msg.contains("failed to lookup address information")
     {
-        if msg.contains("Connection refused")
-            || msg.contains("NotConnected")
-            || msg.contains("failed to lookup address information")
-        {
-            return format!(
-                "{msg}. adb server is not running. Start it with: adb start-server"
-            );
-        }
+        return format!(
+            "{msg}. ADB server is not running — check that adb is installed and in your PATH."
+        );
     }
     msg
+}
+
+/// Catches panics from adb_client operations so they surface as `Err(String)`
+/// instead of crashing the Tauri process.
+pub(crate) fn catch_adb_panic<T>(
+    op: &str,
+    f: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(result) => result,
+        Err(panic) => {
+            let msg = panic
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| panic.downcast_ref::<&str>().copied())
+                .unwrap_or("unknown error");
+            log::error!("[{}] panicked: {}", op, msg);
+            Err(format!("Internal ADB error in {}: {}", op, msg))
+        }
+    }
 }
 
 static ADB_SERVER: LazyLock<Mutex<ADBServer>> = LazyLock::new(|| Mutex::new(create_adb_server()));
@@ -598,18 +616,20 @@ fn parse_device_long(dl: &DeviceLong) -> AdbDevice {
 
 #[tauri::command]
 pub fn adb_list_devices() -> Result<Vec<AdbDevice>, String> {
-    let mut server = ADB_SERVER.lock();
-    let devices = server.devices_long().map_err(map_adb_server_err)?;
-
-    Ok(devices
-        .iter()
-        .filter(|d| matches!(d.state, DeviceState::Device))
-        .map(|d| parse_device_long(d))
-        .collect())
+    catch_adb_panic("adb_list_devices", || {
+        let mut server = ADB_SERVER.lock();
+        let devices = server.devices_long().map_err(map_adb_server_err)?;
+        Ok(devices
+            .iter()
+            .filter(|d| matches!(d.state, DeviceState::Device))
+            .map(|d| parse_device_long(d))
+            .collect())
+    })
 }
 
 #[tauri::command]
 pub fn adb_get_device_info(serial: String) -> Result<DeviceInfo, String> {
+    catch_adb_panic("adb_get_device_info", move || {
     let mut server = ADB_SERVER.lock();
     let mut device = server
         .get_device_by_name(&serial)
@@ -709,81 +729,138 @@ pub fn adb_get_device_info(serial: String) -> Result<DeviceInfo, String> {
         battery_charging,
         ip_addresses,
     })
+    })
 }
 
 #[tauri::command]
 pub fn adb_shell_command(serial: String, command: String) -> Result<String, String> {
-    let mut server = ADB_SERVER.lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
-
-    let mut output = Vec::new();
-    device
-        .shell_command(&command, Some(&mut output), None::<&mut dyn Write>)
-        .map_err(|e| format!("Shell command failed: {e}"))?;
-
-    Ok(String::from_utf8_lossy(&output).to_string())
+    catch_adb_panic("adb_shell_command", move || {
+        let mut server = ADB_SERVER.lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut output = Vec::new();
+        device
+            .shell_command(&command, Some(&mut output), None::<&mut dyn Write>)
+            .map_err(|e| format!("Shell command failed: {e}"))?;
+        Ok(String::from_utf8_lossy(&output).to_string())
+    })
 }
 
 #[tauri::command]
 pub fn adb_connect_device(host: String, port: u16) -> Result<(), String> {
-    let mut server = ADB_SERVER.lock();
-    let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-    server.connect_device(addr).map_err(map_adb_server_err)
+    catch_adb_panic("adb_connect_device", move || {
+        let mut server = ADB_SERVER.lock();
+        let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
+        server.connect_device(addr).map_err(map_adb_server_err)
+    })
 }
 
 #[tauri::command]
 pub fn adb_disconnect_device(host: String, port: u16) -> Result<(), String> {
-    let mut server = ADB_SERVER.lock();
-    let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-    server.disconnect_device(addr).map_err(map_adb_server_err)
+    catch_adb_panic("adb_disconnect_device", move || {
+        let mut server = ADB_SERVER.lock();
+        let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
+        server.disconnect_device(addr).map_err(map_adb_server_err)
+    })
 }
 
 #[tauri::command]
 pub fn adb_pair_device(host: String, port: u16, code: String) -> Result<(), String> {
-    let mut server = ADB_SERVER.lock();
-    let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-    server.pair(addr, code).map_err(map_adb_server_err)
+    catch_adb_panic("adb_pair_device", move || {
+        let mut server = ADB_SERVER.lock();
+        let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
+        server.pair(addr, code).map_err(map_adb_server_err)
+    })
 }
 
 #[tauri::command]
 pub fn adb_tcpip(serial: String, port: u16) -> Result<(), String> {
-    let mut server = ADB_SERVER.lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
-    device.tcpip(port).map_err(map_adb_server_err)
+    catch_adb_panic("adb_tcpip", move || {
+        let mut server = ADB_SERVER.lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        device.tcpip(port).map_err(map_adb_server_err)
+    })
 }
 
 #[tauri::command]
 pub fn adb_reboot(serial: String, mode: Option<String>) -> Result<(), String> {
-    let mut server = ADB_SERVER.lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
-    let reboot_type = match mode.as_deref() {
-        Some("recovery") => RebootType::Recovery,
-        Some("bootloader") => RebootType::Bootloader,
-        _ => RebootType::System,
-    };
-    device.reboot(reboot_type).map_err(map_adb_server_err)
+    catch_adb_panic("adb_reboot", move || {
+        let mut server = ADB_SERVER.lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let reboot_type = match mode.as_deref() {
+            Some("recovery") => RebootType::Recovery,
+            Some("bootloader") => RebootType::Bootloader,
+            _ => RebootType::System,
+        };
+        device.reboot(reboot_type).map_err(map_adb_server_err)
+    })
 }
 
 #[tauri::command]
 pub fn adb_root(serial: String) -> Result<(), String> {
-    let mut server = ADB_SERVER.lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
-    device.root().map_err(map_adb_server_err)
+    catch_adb_panic("adb_root", move || {
+        let mut server = ADB_SERVER.lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        device.root().map_err(map_adb_server_err)
+    })
 }
 
 #[tauri::command]
 pub fn adb_restart_server() -> Result<(), String> {
-    let mut server = ADB_SERVER.lock();
-    server.kill().map_err(map_adb_server_err)?;
-    Ok(())
+    catch_adb_panic("adb_restart_server", || {
+        let mut server = ADB_SERVER.lock();
+        server.kill().map_err(map_adb_server_err)?;
+        Ok(())
+    })
+}
+
+/// One-time controlled spawn to start the ADB daemon when it is not running.
+/// Relies on `suppress_error_dialogs()` in lib.rs to prevent RunDLL popups.
+#[tauri::command]
+pub async fn adb_start_server() -> Result<String, String> {
+    {
+        let mut server = ADB_SERVER.lock();
+        if server.devices_long().is_ok() {
+            return Ok("already_running".to_string());
+        }
+    }
+
+    let adb_path = which::which("adb")
+        .map_err(|_| "adb not found in PATH — install Android SDK Platform Tools".to_string())?;
+
+    let mut cmd = tokio::process::Command::new(&adb_path);
+    cmd.arg("start-server");
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("Failed to launch adb: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("adb start-server failed: {}", stderr.trim()));
+    }
+
+    for _ in 0..25 {
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        let mut server = ADB_SERVER.lock();
+        if server.devices_long().is_ok() {
+            return Ok("started".to_string());
+        }
+    }
+
+    Err("ADB server did not respond after 5 seconds".to_string())
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1232,77 +1309,63 @@ pub struct WebViewSocket {
 
 #[tauri::command]
 pub fn adb_list_webview_sockets(serial: String) -> Result<Vec<WebViewSocket>, String> {
-    log::info!("[adb_list_webview_sockets] serial={}", serial);
+    catch_adb_panic("adb_list_webview_sockets", move || {
+        log::info!("[adb_list_webview_sockets] serial={}", serial);
 
-    let mut server = ADB_SERVER.lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut server = ADB_SERVER.lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
-    log::info!("[adb_list_webview_sockets] Running shell command");
-    let unix_output = shell_output(&mut device, "cat /proc/net/unix");
-    log::info!(
-        "[adb_list_webview_sockets] Unix output lines: {}",
-        unix_output.lines().count()
-    );
+        let unix_output = shell_output(&mut device, "cat /proc/net/unix");
 
-    if unix_output.trim().is_empty() {
-        log::warn!(
-            "[adb_list_webview_sockets] Empty /proc/net/unix output — this device may require root access"
-        );
-    }
+        if unix_output.trim().is_empty() {
+            log::warn!("[adb_list_webview_sockets] Empty /proc/net/unix — may require root");
+        }
 
-    let mut sockets: Vec<WebViewSocket> = unix_output
-        .lines()
-        .filter(|l| l.contains("devtools_remote"))
-        .filter_map(|l| {
-            let path = l.split_whitespace().last()?;
-            if !path.starts_with('@') {
-                return None;
-            }
-            let socket_name = path.trim_start_matches('@').to_string();
-            // socket names are like webview_devtools_remote_1234 — PID is the last segment
-            let pid = socket_name
-                .rsplit('_')
-                .next()
-                .and_then(|s| s.parse::<u32>().ok());
-            log::info!(
-                "[adb_list_webview_sockets] Found socket: {} pid: {:?}",
-                socket_name,
-                pid
-            );
-            Some(WebViewSocket {
-                socket_name,
-                pid,
-                package_name: None,
+        let mut sockets: Vec<WebViewSocket> = unix_output
+            .lines()
+            .filter(|l| l.contains("devtools_remote"))
+            .filter_map(|l| {
+                let path = l.split_whitespace().last()?;
+                if !path.starts_with('@') {
+                    return None;
+                }
+                let socket_name = path.trim_start_matches('@').to_string();
+                let pid = socket_name
+                    .rsplit('_')
+                    .next()
+                    .and_then(|s| s.parse::<u32>().ok());
+                Some(WebViewSocket {
+                    socket_name,
+                    pid,
+                    package_name: None,
+                })
             })
-        })
-        .collect();
+            .collect();
 
-    log::info!("[adb_list_webview_sockets] Found {} sockets", sockets.len());
+        log::info!("[adb_list_webview_sockets] Found {} sockets", sockets.len());
 
-    // Remove duplicates by socket_name only (same socket can appear multiple times in /proc/net/unix)
-    let mut seen = std::collections::HashSet::new();
-    sockets.retain(|s| seen.insert(s.socket_name.clone()));
+        let mut seen = std::collections::HashSet::new();
+        sockets.retain(|s| seen.insert(s.socket_name.clone()));
 
-    // Enrich with package names from /proc/{pid}/cmdline
-    for s in &mut sockets {
-        if let Some(pid) = s.pid {
-            let cmdline = shell_output(&mut device, &format!("cat /proc/{pid}/cmdline"));
-            // cmdline is null-byte delimited; first segment is the process name / package
-            let pkg = cmdline
-                .split(|c: char| c == '\0' || c == ' ')
-                .next()
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            if !pkg.is_empty() {
-                s.package_name = Some(pkg);
+        for s in &mut sockets {
+            if let Some(pid) = s.pid {
+                let cmdline = shell_output(&mut device, &format!("cat /proc/{pid}/cmdline"));
+                let pkg = cmdline
+                    .split(|c: char| c == '\0' || c == ' ')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if !pkg.is_empty() {
+                    s.package_name = Some(pkg);
+                }
             }
         }
-    }
 
-    Ok(sockets)
+        Ok(sockets)
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1314,49 +1377,53 @@ pub struct ReverseRule {
 
 #[tauri::command]
 pub fn adb_reverse(serial: String, remote_port: u16, local_port: u16) -> Result<(), String> {
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
-    let local = format!("tcp:{local_port}");
-    let remote = format!("tcp:{remote_port}");
-    device.reverse(remote, local).map_err(|e| e.to_string())
+    catch_adb_panic("adb_reverse", move || {
+        let mut server = get_server().lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {e}"))?;
+        let local = format!("tcp:{local_port}");
+        let remote = format!("tcp:{remote_port}");
+        device.reverse(remote, local).map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
 pub fn adb_remove_reverse(serial: String, _remote_port: u16) -> Result<(), String> {
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
-    device
-        .reverse_remove_all()
-        .map_err(|e| e.to_string())
+    catch_adb_panic("adb_remove_reverse", move || {
+        let mut server = get_server().lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {e}"))?;
+        device.reverse_remove_all().map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
 pub fn adb_list_reverse(serial: String) -> Result<Vec<ReverseRule>, String> {
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
-    let cmd = "reverse --list";
-    let mut stdout = Vec::new();
-    device
-        .shell_command(&cmd, Some(&mut stdout), None)
-        .map_err(|e| format!("Shell command failed: {e}"))?;
-    let output = String::from_utf8_lossy(&stdout);
-    Ok(output
-        .lines()
-        .filter_map(|line| {
-            let parts: Vec<&str> = line.trim().split_whitespace().collect();
-            if parts.len() >= 2 {
-                let remote = parts[0].trim_start_matches("tcp:").parse::<u16>().ok()?;
-                let local = parts[1].trim_start_matches("tcp:").parse::<u16>().ok()?;
-                Some(ReverseRule { remote_port: remote, local_port: local })
-            } else {
-                None
-            }
-        })
-        .collect())
+    catch_adb_panic("adb_list_reverse", move || {
+        let mut server = get_server().lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {e}"))?;
+        let cmd = "reverse --list";
+        let mut stdout = Vec::new();
+        device
+            .shell_command(&cmd, Some(&mut stdout), None)
+            .map_err(|e| format!("Shell command failed: {e}"))?;
+        let output = String::from_utf8_lossy(&stdout);
+        Ok(output
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.trim().split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let remote = parts[0].trim_start_matches("tcp:").parse::<u16>().ok()?;
+                    let local = parts[1].trim_start_matches("tcp:").parse::<u16>().ok()?;
+                    Some(ReverseRule { remote_port: remote, local_port: local })
+                } else {
+                    None
+                }
+            })
+            .collect())
+    })
 }

@@ -65,6 +65,10 @@ export function initCDPWatchers() {
   watch(
     () => devicesStore.selectedDevice,
     async (device, previousDevice) => {
+      console.log("[cdp] device watcher", {
+        current: device?.serial ?? null,
+        previous: previousDevice?.serial ?? null,
+      });
       const runId = ++selectionRun;
       const oldSerial = sourceStore.getAdbSource()?.serial ?? null;
       const selectedTargetId = targetsStore.selectedTarget?.id ?? null;
@@ -113,6 +117,10 @@ export function initCDPWatchers() {
     () => sourceStore.getChromeSource(),
     async (chromeSource) => {
       if (chromeSource) {
+        console.log("[cdp] chrome source watcher", {
+          port: chromeSource.port,
+          mode: chromeSource.mode,
+        });
         await targetsStore.fetchTargetsForSource(chromeSource);
       }
     },

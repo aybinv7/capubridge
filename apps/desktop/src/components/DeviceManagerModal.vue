@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { invoke } from "@tauri-apps/api/core";
 import { ref, reactive, computed, watch } from "vue";
 import {
   X,
   Usb,
   Wifi,
   Link,
+  ExternalLink,
   RefreshCw,
   Loader2,
   Smartphone,
@@ -12,9 +14,6 @@ import {
   Play,
   XCircle,
   Plus,
-  Monitor,
-  Zap,
-  ExternalLink,
   WifiOff,
 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
@@ -49,6 +48,9 @@ const pairAddr = ref("");
 const pairCode = ref("");
 const chromePortInput = ref(9223);
 const showChromePortInput = ref(false);
+const chromeNewUrl = ref("https://");
+const openingChromeUrl = ref(false);
+const isWifiConnecting = ref(false);
 
 const selectedDevice = computed(
   () => devicesStore.devices.find((d) => d.serial === selectedSerial.value) ?? null,
@@ -68,6 +70,103 @@ function connStatus(id: string) {
   return connectionStore.connections.get(id)?.status ?? "disconnected";
 }
 
+function getRemoteDevtoolsUrl(target: CDPTarget, wsDebuggerUrl: string, frontendPort: number) {
+  try {
+    const wsUrl = new URL(wsDebuggerUrl);
+    if (wsUrl.protocol !== "ws:" && wsUrl.protocol !== "wss:") {
+      return null;
+    }
+
+    const wsAddress = `${wsUrl.host}${wsUrl.pathname}${wsUrl.search}`;
+    if (target.devtoolsFrontendUrl) {
+      const baseUrl = `http://127.0.0.1:${frontendPort}`;
+      const frontendUrl = new URL(target.devtoolsFrontendUrl, baseUrl);
+      frontendUrl.searchParams.set("ws", wsAddress);
+      frontendUrl.searchParams.set("dockSide", "undocked");
+      return frontendUrl.toString();
+    }
+
+    const query = new URLSearchParams({
+      ws: wsAddress,
+      dockSide: "undocked",
+    }).toString();
+    return `http://127.0.0.1:${frontendPort}/devtools/inspector.html?${query}`;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveRemoteDevtoolsWsUrl(target: CDPTarget) {
+  if (target.source !== "adb") {
+    console.log("[device-manager] external-devtools raw ws", {
+      targetId: target.id,
+      wsUrl: target.webSocketDebuggerUrl,
+    });
+    return target.webSocketDebuggerUrl;
+  }
+
+  const proxy = await invoke<{ wsUrl: string; localPort: number }>("cdp_start_proxy", {
+    wsUrl: target.webSocketDebuggerUrl,
+  });
+
+  console.log("[device-manager] external-devtools proxy ws", {
+    targetId: target.id,
+    rawWsUrl: target.webSocketDebuggerUrl,
+    proxyWsUrl: proxy.wsUrl,
+    proxyPort: proxy.localPort,
+  });
+  return proxy.wsUrl;
+}
+
+async function handleOpenRemoteDevtools(target: CDPTarget, event: Event) {
+  event.stopPropagation();
+  const chromeSource = sourceStore.getChromeSource();
+  if (!chromeSource) {
+    toast.error("Connect Local Chrome first", {
+      description: "DevTools frontend comes from the Local Chrome debug session.",
+    });
+    return;
+  }
+
+  try {
+    console.log("[device-manager] external-devtools open:start", {
+      targetId: target.id,
+      source: target.source,
+      selectedTargetId: targetsStore.selectedTarget?.id ?? null,
+      hasExistingConnection: connectionStore.connections.has(target.id),
+    });
+    connectionStore.setExternalDevtoolsTarget(target.id);
+    if (connectionStore.connections.has(target.id)) {
+      await connectionStore.disconnectTarget(target.id);
+    }
+    if (targetsStore.selectedTarget?.id === target.id) {
+      targetsStore.selectTarget(null);
+    }
+
+    const wsDebuggerUrl = await resolveRemoteDevtoolsWsUrl(target);
+    const devtoolsUrl = getRemoteDevtoolsUrl(target, wsDebuggerUrl, chromeSource.port);
+    if (!devtoolsUrl) {
+      toast.error("Unable to open DevTools", {
+        description: "Target does not expose a valid CDP WebSocket URL.",
+      });
+      return;
+    }
+
+    console.log("[device-manager] external-devtools open:url", {
+      targetId: target.id,
+      devtoolsFrontendUrl: target.devtoolsFrontendUrl ?? null,
+      devtoolsUrl,
+    });
+    await invoke("chrome_open_devtools_url", { url: devtoolsUrl });
+  } catch (err) {
+    console.error("[device-manager] external-devtools open:error", {
+      targetId: target.id,
+      error: String(err),
+    });
+    toast.error("Failed to open DevTools window", { description: String(err) });
+  }
+}
+
 async function loadDeviceInfo(serial: string) {
   if (deviceInfoCache[serial]) return;
   deviceInfoLoading.value = true;
@@ -82,11 +181,15 @@ async function loadDeviceInfo(serial: string) {
 }
 
 async function handleRefreshTargets() {
+  if (scanningTargets.value) return;
   scanningTargets.value = true;
+  const wasPolling = devicesStore.isPolling;
+  if (wasPolling) devicesStore.stopPolling();
   try {
     await Promise.all(sourceStore.activeSources.map((s) => targetsStore.fetchTargetsForSource(s)));
   } finally {
     scanningTargets.value = false;
+    if (wasPolling && props.open) devicesStore.startPolling(3000);
   }
 }
 
@@ -110,16 +213,20 @@ async function handleRefreshDevices() {
 }
 
 async function handleSelectTarget(target: CDPTarget) {
-  const prevId = connectionStore.selectedTargetId;
-  if (prevId && prevId !== target.id) {
-    await connectionStore.disconnectTarget(prevId);
-  }
-  targetsStore.selectTarget(target);
+  const wasPolling = devicesStore.isPolling;
+  if (wasPolling) devicesStore.stopPolling();
   try {
+    const prevId = connectionStore.selectedTargetId;
+    if (prevId && prevId !== target.id) {
+      await connectionStore.disconnectTarget(prevId);
+    }
+    connectionStore.clearExternalDevtoolsTarget(target.id);
+    targetsStore.selectTarget(target);
     await connectionStore.connect(target);
     emit("close");
   } catch (err) {
     toast.error("Failed to connect to target", { description: String(err) });
+    if (wasPolling && props.open) devicesStore.startPolling(3000);
   }
 }
 
@@ -136,14 +243,17 @@ async function handleDisconnectTarget(targetId: string, event: Event) {
   }
 }
 
-function selectSidebarDevice(serial: string) {
+async function selectSidebarDevice(serial: string) {
   const d = devicesStore.devices.find((x) => x.serial === serial);
   if (!d) return;
+  const wasPolling = devicesStore.isPolling;
+  if (wasPolling) devicesStore.stopPolling();
   selectedSerial.value = serial;
   activePanel.value = "device";
   devicesStore.selectDevice(d);
   emit("selectDevice", serial);
-  void loadDeviceInfo(serial);
+  await loadDeviceInfo(serial);
+  if (wasPolling && props.open) devicesStore.startPolling(3000);
 }
 
 async function handleDisconnectDevice() {
@@ -167,10 +277,15 @@ async function handleDisconnectDevice() {
 }
 
 async function handleWifiDebug() {
-  if (!selectedSerial.value) return;
-  try {
-    await tcpip(selectedSerial.value, 5555);
+  if (!selectedSerial.value || isWifiConnecting.value) return;
+  isWifiConnecting.value = true;
 
+  // Pause polling so it doesn't race with the WiFi switch
+  const wasPolling = devicesStore.isPolling;
+  if (wasPolling) devicesStore.stopPolling();
+
+  try {
+    // Grab the IP while the device is still reachable over USB
     let ip = selectedDeviceInfo.value?.ipAddresses?.[0];
     if (!ip) {
       const info = await getDeviceOverview(selectedSerial.value);
@@ -180,12 +295,18 @@ async function handleWifiDebug() {
       }
     }
 
+    // Switch to TCP mode (may drop the USB connection immediately)
+    await tcpip(selectedSerial.value, 5555);
+
     if (!ip) {
       toast.warning("WiFi mode enabled — connect manually", {
         description: "Could not detect device IP. Run: adb connect <ip>:5555",
       });
       return;
     }
+
+    // Wait for the device to restart its ADB listener in TCP mode
+    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
 
     await connectDevice(ip, 5555);
     await devicesStore.refreshDevices();
@@ -197,6 +318,9 @@ async function handleWifiDebug() {
     toast.error("Failed to enable WiFi debugging", {
       description: String(err),
     });
+  } finally {
+    isWifiConnecting.value = false;
+    if (wasPolling && props.open) devicesStore.startPolling(3000);
   }
 }
 
@@ -274,21 +398,76 @@ async function handleChromeDisconnect() {
   toast.info("Chrome disconnected");
 }
 
+async function handleChromeOpenUrl() {
+  const source = sourceStore.getChromeSource();
+  if (!source) {
+    toast.error("Chrome is not connected");
+    return;
+  }
+  const raw = chromeNewUrl.value.trim();
+  if (!raw) {
+    toast.error("Enter URL first");
+    return;
+  }
+  const normalizedUrl =
+    raw.startsWith("http://") ||
+    raw.startsWith("https://") ||
+    raw.startsWith("about:") ||
+    raw.startsWith("file:")
+      ? raw
+      : `https://${raw}`;
+
+  openingChromeUrl.value = true;
+  try {
+    const target = await targetsStore.createChromeTarget(normalizedUrl, source.port);
+    await handleRefreshTargets();
+    await handleSelectTarget(target);
+  } catch (err) {
+    toast.error("Failed to open debuggable tab", { description: String(err) });
+  } finally {
+    openingChromeUrl.value = false;
+  }
+}
+
+// Show toast feedback when ADB server is being auto-started
+let adbToastId: string | number | undefined;
+watch(
+  () => devicesStore.adbServerStatus,
+  (status, prev) => {
+    if (status === "starting") {
+      adbToastId = toast.loading("Starting ADB server…", { duration: Infinity });
+    } else if (status === "running" && prev === "starting") {
+      if (adbToastId !== undefined) toast.dismiss(adbToastId);
+      toast.success("ADB server ready");
+      adbToastId = undefined;
+    } else if (status === "error") {
+      if (adbToastId !== undefined) toast.dismiss(adbToastId);
+      toast.error("Could not start ADB server", {
+        description: "Make sure adb is installed and in your PATH.",
+      });
+      adbToastId = undefined;
+    }
+  },
+);
+
 watch(
   () => props.open,
   (open) => {
-    if (!open) return;
-    void devicesStore.refreshDevices();
-    if (devicesStore.selectedDevice) {
-      selectedSerial.value = devicesStore.selectedDevice.serial;
-      activePanel.value = "device";
-      void loadDeviceInfo(devicesStore.selectedDevice.serial);
-    } else if (sourceStore.hasChromeSource) {
-      activePanel.value = "local";
-    } else if (devicesStore.devices.length) {
-      selectedSerial.value = devicesStore.devices[0].serial;
-      activePanel.value = "device";
-      void loadDeviceInfo(devicesStore.devices[0].serial);
+    if (open) {
+      devicesStore.startPolling(3000);
+      if (devicesStore.selectedDevice) {
+        selectedSerial.value = devicesStore.selectedDevice.serial;
+        activePanel.value = "device";
+        void loadDeviceInfo(devicesStore.selectedDevice.serial);
+      } else if (sourceStore.hasChromeSource) {
+        activePanel.value = "local";
+      } else if (devicesStore.devices.length) {
+        selectedSerial.value = devicesStore.devices[0].serial;
+        activePanel.value = "device";
+        void loadDeviceInfo(devicesStore.devices[0].serial);
+      }
+    } else {
+      devicesStore.stopPolling();
     }
   },
 );
@@ -471,10 +650,12 @@ watch(
                       <button
                         v-if="isUsb"
                         @click="handleWifiDebug"
-                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/25 bg-surface-2 hover:border-border/45 hover:bg-surface-3 transition-colors text-[11px] text-muted-foreground/60 hover:text-foreground"
+                        :disabled="isWifiConnecting"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/25 bg-surface-2 hover:border-border/45 hover:bg-surface-3 transition-colors text-[11px] text-muted-foreground/60 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
                         title="Switch to WiFi debugging"
                       >
-                        <Wifi :size="11" />
+                        <Loader2 v-if="isWifiConnecting" :size="11" class="animate-spin" />
+                        <Wifi v-else :size="11" />
                         WiFi
                       </button>
                       <AdbReversePopover :serial="selectedDevice.serial" />
@@ -551,6 +732,17 @@ watch(
                             {{ t.url }}
                           </div>
                         </div>
+                        <button
+                          @click="handleOpenRemoteDevtools(t, $event)"
+                          class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-surface-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                          :title="
+                            sourceStore.hasChromeSource
+                              ? 'Open remote DevTools'
+                              : 'Connect Local Chrome first'
+                          "
+                        >
+                          <ExternalLink :size="11" />
+                        </button>
                         <ChevronRight
                           :size="11"
                           class="text-muted-foreground/20 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -676,6 +868,30 @@ watch(
                     </button>
                   </div>
                 </Transition>
+
+                <div v-if="sourceStore.hasChromeSource" class="mt-3 space-y-1.5">
+                  <div
+                    class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/35"
+                  >
+                    New Tab URL
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model="chromeNewUrl"
+                      placeholder="https://example.com"
+                      class="flex-1 h-7 px-2 bg-surface-2 border border-border/30 rounded-md text-[11px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+                      @keydown.enter="void handleChromeOpenUrl()"
+                    />
+                    <button
+                      @click="void handleChromeOpenUrl()"
+                      :disabled="openingChromeUrl"
+                      class="h-7 px-3 rounded-md bg-surface-2 border border-border/30 text-[11px] hover:bg-surface-3 transition-colors disabled:opacity-50"
+                    >
+                      <Loader2 v-if="openingChromeUrl" :size="11" class="animate-spin" />
+                      <span v-else>Open</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Chrome targets -->
@@ -732,6 +948,13 @@ watch(
                         {{ t.url }}
                       </div>
                     </div>
+                    <button
+                      @click="handleOpenRemoteDevtools(t, $event)"
+                      class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-surface-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                      title="Open remote DevTools"
+                    >
+                      <ExternalLink :size="11" />
+                    </button>
                     <button
                       v-if="connStatus(t.id) === 'connected'"
                       @click="handleDisconnectTarget(t.id, $event)"

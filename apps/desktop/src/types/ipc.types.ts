@@ -39,6 +39,7 @@ export type {
 // invoke('chrome_find'): Promise<ChromeFindResult>
 // invoke('chrome_launch', { port: number }): Promise<ChromeLaunchResult>
 // invoke('chrome_verify_port', { port: number }): Promise<boolean>
+// invoke('chrome_open_devtools_url', { url: string }): Promise<void>
 
 // File I/O
 // invoke('save_export', { path: string, content: string }): Promise<void>

@@ -3,6 +3,7 @@ export interface RawCDPTarget {
   type: string;
   title: string;
   url: string;
+  devtoolsFrontendUrl?: string;
   webSocketDebuggerUrl: string;
   faviconUrl?: string;
 }

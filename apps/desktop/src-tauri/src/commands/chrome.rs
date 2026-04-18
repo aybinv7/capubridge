@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Stdio};
+use futures_util::{SinkExt, StreamExt};
+use tokio_tungstenite::connect_async;
+use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -160,6 +163,21 @@ pub async fn chrome_verify_port(port: u16) -> Result<bool, String> {
     }
 }
 
+#[tauri::command]
+pub async fn chrome_open_devtools_url(_app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let chrome_path = find_chrome_path()
+        .ok_or("Chrome not found. Install Google Chrome to open DevTools window.")?;
+
+    Command::new(&chrome_path)
+        .arg(format!("--app={url}"))
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to launch Chrome DevTools: {e}"))?;
+
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CDPJsonTarget {
@@ -168,6 +186,8 @@ pub struct CDPJsonTarget {
     pub target_type: String,
     pub title: String,
     pub url: String,
+    #[serde(rename = "devtoolsFrontendUrl")]
+    pub devtools_frontend_url: Option<String>,
     #[serde(rename = "webSocketDebuggerUrl")]
     pub web_socket_debugger_url: String,
     #[serde(rename = "faviconUrl")]
@@ -197,4 +217,205 @@ pub async fn chrome_fetch_targets(port: u16) -> Result<Vec<CDPJsonTarget>, Strin
         .map_err(|e| format!("Failed to parse targets: {e}"))?;
 
     Ok(targets)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChromeVersionResponse {
+    web_socket_debugger_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateTargetResponseEnvelope {
+    id: u32,
+    result: Option<CreateTargetResponseResult>,
+    error: Option<CreateTargetResponseError>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateTargetResponseResult {
+    target_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateTargetResponseError {
+    message: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ActivateTargetResponseEnvelope {
+    id: u32,
+    result: Option<serde_json::Value>,
+    error: Option<CreateTargetResponseError>,
+}
+
+#[tauri::command]
+pub async fn chrome_open_target(port: u16, url: String) -> Result<CDPJsonTarget, String> {
+    if !is_port_listening(port) {
+        return Err(format!("Nothing is listening on port {}", port));
+    }
+
+    let normalized_url = if url.starts_with("http://")
+        || url.starts_with("https://")
+        || url.starts_with("about:")
+        || url.starts_with("file:")
+    {
+        url
+    } else {
+        format!("https://{}", url)
+    };
+
+    let client = reqwest::Client::new();
+    let version = client
+        .get(&format!("http://localhost:{}/json/version", port))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Chrome version endpoint: {e}"))?;
+
+    if !version.status().is_success() {
+        return Err(format!("Chrome version endpoint responded with {}", version.status()));
+    }
+
+    let version: ChromeVersionResponse = version
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Chrome version endpoint: {e}"))?;
+
+    let (mut socket, _) = connect_async(&version.web_socket_debugger_url)
+        .await
+        .map_err(|e| format!("Failed to connect to Chrome browser websocket: {e}"))?;
+
+    let request_id: u32 = 1;
+    let payload = serde_json::json!({
+        "id": request_id,
+        "method": "Target.createTarget",
+        "params": {
+            "url": normalized_url,
+            "newWindow": false,
+            "background": true
+        }
+    });
+
+    socket
+        .send(Message::Text(payload.to_string().into()))
+        .await
+        .map_err(|e| format!("Failed to send create target command: {e}"))?;
+
+    let mut created_target_id: Option<String> = None;
+
+    while let Some(message) = socket.next().await {
+        let message = message.map_err(|e| format!("Failed reading browser response: {e}"))?;
+        let text = match message {
+            Message::Text(text) => text,
+            Message::Binary(bytes) => String::from_utf8(bytes.to_vec())
+                .map_err(|e| format!("Invalid utf8 websocket frame: {e}"))?
+                .into(),
+            _ => continue,
+        };
+
+        let parsed: CreateTargetResponseEnvelope = match serde_json::from_str(&text) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+
+        if parsed.id != request_id {
+            continue;
+        }
+
+        if let Some(error) = parsed.error {
+            return Err(format!("Chrome rejected create target command: {}", error.message));
+        }
+
+        if let Some(result) = parsed.result {
+            created_target_id = Some(result.target_id);
+            break;
+        }
+    }
+
+    let target_id = created_target_id.ok_or("Chrome did not return a new target id")?;
+
+    let targets = chrome_fetch_targets(port).await?;
+    let created = targets
+        .into_iter()
+        .find(|target| target.id == target_id)
+        .ok_or("Created target not visible in /json target list")?;
+
+    Ok(created)
+}
+
+#[tauri::command]
+pub async fn chrome_activate_target(port: u16, target_id: String) -> Result<(), String> {
+    if !is_port_listening(port) {
+        return Err(format!("Nothing is listening on port {}", port));
+    }
+
+    let client = reqwest::Client::new();
+    let version = client
+        .get(&format!("http://localhost:{}/json/version", port))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Chrome version endpoint: {e}"))?;
+
+    if !version.status().is_success() {
+        return Err(format!(
+            "Chrome version endpoint responded with {}",
+            version.status()
+        ));
+    }
+
+    let version: ChromeVersionResponse = version
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Chrome version endpoint: {e}"))?;
+
+    let (mut socket, _) = connect_async(&version.web_socket_debugger_url)
+        .await
+        .map_err(|e| format!("Failed to connect to Chrome browser websocket: {e}"))?;
+
+    let request_id: u32 = 1;
+    let payload = serde_json::json!({
+        "id": request_id,
+        "method": "Target.activateTarget",
+        "params": {
+            "targetId": target_id
+        }
+    });
+
+    socket
+        .send(Message::Text(payload.to_string().into()))
+        .await
+        .map_err(|e| format!("Failed to send activate target command: {e}"))?;
+
+    while let Some(message) = socket.next().await {
+        let message = message.map_err(|e| format!("Failed reading browser response: {e}"))?;
+        let text = match message {
+            Message::Text(text) => text,
+            Message::Binary(bytes) => String::from_utf8(bytes.to_vec())
+                .map_err(|e| format!("Invalid utf8 websocket frame: {e}"))?
+                .into(),
+            _ => continue,
+        };
+
+        let parsed: ActivateTargetResponseEnvelope = match serde_json::from_str(&text) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+
+        if parsed.id != request_id {
+            continue;
+        }
+
+        if let Some(error) = parsed.error {
+            return Err(format!("Chrome rejected activate target command: {}", error.message));
+        }
+
+        let _ = parsed.result;
+        return Ok(());
+    }
+
+    Err("Chrome did not respond to activate target command".to_string())
 }

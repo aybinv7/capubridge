@@ -20,12 +20,7 @@ export interface DeviceOverview {
 
 export function useAdb() {
   async function refreshDevices(): Promise<ADBDevice[]> {
-    try {
-      return await invoke<ADBDevice[]>("adb_list_devices");
-    } catch (err) {
-      console.error("Failed to refresh devices:", err);
-      return [];
-    }
+    return await invoke<ADBDevice[]>("adb_list_devices");
   }
 
   async function getDeviceOverview(deviceId: string): Promise<DeviceOverview | null> {

@@ -89,7 +89,7 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
                         request.headers_mut().remove("Pragma");
                         request.headers_mut().remove("Cache-Control");
 
-                        let cdp_result = connect_async(request).await;
+                    let cdp_result = connect_async(request).await;
 
                         let (cdp_ws, response) = match cdp_result {
                             Ok((ws, resp)) => (ws, resp),
@@ -107,18 +107,24 @@ pub async fn cdp_start_proxy(ws_url: String) -> Result<ProxyResult, String> {
 
                         let client_to_cdp = async {
                             while let Some(Ok(msg)) = client_stream.next().await {
+                                log::info!("[cdp_proxy] client -> cdp msg on port {}", local_port);
                                 if cdp_sink.send(msg).await.is_err() {
+                                    log::warn!("[cdp_proxy] client -> cdp send failed on port {}", local_port);
                                     break;
                                 }
                             }
+                            log::info!("[cdp_proxy] client stream ended on port {}", local_port);
                         };
 
                         let cdp_to_client = async {
                             while let Some(Ok(msg)) = cdp_stream.next().await {
+                                log::info!("[cdp_proxy] cdp -> client msg on port {}", local_port);
                                 if client_sink.send(msg).await.is_err() {
+                                    log::warn!("[cdp_proxy] cdp -> client send failed on port {}", local_port);
                                     break;
                                 }
                             }
+                            log::info!("[cdp_proxy] cdp stream ended on port {}", local_port);
                         };
 
                         tokio::select! {
