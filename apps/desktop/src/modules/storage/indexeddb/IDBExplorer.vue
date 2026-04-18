@@ -20,6 +20,7 @@ import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useStorageSize } from "@/composables/useStorageSize";
 import { useSidebarSettings } from "@/modules/storage/stores/useSidebarSettingsStore";
+import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
 import type { IDBDatabaseInfo, IDBRecord } from "utils";
 import { IDBDomain } from "utils";
 import IDBTable from "./IDBTable.vue";
@@ -36,7 +37,13 @@ const pageSize = ref(50);
 
 const dbName = computed(() => decodeURIComponent((route.params["db"] as string) ?? ""));
 const storeName = computed(() => decodeURIComponent((route.params["store"] as string) ?? ""));
-const selectedOrigin = ref("");
+const targetsStore = useTargetsStore();
+const storageContextStore = useStorageContextStore();
+const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+const selectedOrigin = computed({
+  get: () => storageContextStore.getSelectedOrigin(targetId.value),
+  set: (value: string) => storageContextStore.setSelectedOrigin(targetId.value, value),
+});
 
 const {
   pinnedDbs,
@@ -186,14 +193,7 @@ function handlePageSizeChange(size: number) {
 }
 
 async function fetchSingleRecord(index: number): Promise<IDBRecord | null> {
-  const { useCDP } = await import("@/composables/useCDP");
-  const { useTargetsStore } = await import("@/stores/targets.store");
-  const { IDBDomain } = await import("utils");
-
-  const targetsStore = useTargetsStore();
-  const targetId = targetsStore.selectedTarget?.id ?? "";
-  const { getClient } = useCDP();
-  const client = getClient(targetId);
+  const client = getClient(targetId.value);
   if (!client) return null;
 
   const domain = new IDBDomain(client);
@@ -212,8 +212,7 @@ async function fetchSingleRecord(index: number): Promise<IDBRecord | null> {
 }
 
 function getDomain(): IDBDomain | null {
-  const targetsStore = useTargetsStore();
-  const client = getClient(targetsStore.selectedTarget?.id ?? "");
+  const client = getClient(targetId.value);
   return client ? new IDBDomain(client) : null;
 }
 

@@ -28,12 +28,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useLocalStorage } from "@/composables/useStorage";
+import { useTargetsStore } from "@/stores/targets.store";
+import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
 import JsonEditor from "./JsonEditor.vue";
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 
 const filter = ref("");
-const selectedOrigin = ref("");
+const targetsStore = useTargetsStore();
+const storageContextStore = useStorageContextStore();
+const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+const selectedOrigin = computed({
+  get: () => storageContextStore.getSelectedOrigin(targetId.value),
+  set: (value: string) => storageContextStore.setSelectedOrigin(targetId.value, value),
+});
 const showExpandedDialog = ref(false);
 const copiedRaw = ref(false);
 const dialogEntryIdx = ref(-1);

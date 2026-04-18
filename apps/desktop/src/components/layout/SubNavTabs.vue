@@ -27,6 +27,7 @@ import {
   DatabaseZap,
   Table2,
   Crosshair,
+  Diff,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -46,6 +47,7 @@ const iconMap: Record<string, typeof Smartphone> = {
   "storage-cache": Archive,
   "storage-opfs": FolderOpen,
   "storage-sqlite": Table2,
+  "storage-changes": Diff,
   "network-requests": Globe,
   "network-websocket": Terminal,
   "network-throttle": Gauge,

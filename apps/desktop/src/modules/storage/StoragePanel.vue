@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { RouterView } from "vue-router";
 import SubNavTabs from "@/components/layout/SubNavTabs.vue";
+import { useIndexedDBChangesTracking } from "@/modules/storage/changes/useIndexedDBChangesTracking";
+
+useIndexedDBChangesTracking();
 </script>
 
 <template>
