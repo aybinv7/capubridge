@@ -1,31 +1,35 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Database, ChevronRight, ChevronDown, Search, RefreshCw, Table2 } from "lucide-vue-next";
+import { Database, Search, RefreshCw, Table2 } from "lucide-vue-next";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSQLite } from "@/composables/useSQLite";
-import { useAppPackages } from "@/composables/useAppPackages";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useTargetsStore } from "@/stores/targets.store";
 import type { SqliteDbFile, SqliteTableInfo, SqliteQueryResult } from "@/types/sqlite.types";
 import SqliteTable from "./SqliteTable.vue";
 import SqliteTableToolbar from "./SqliteTableToolbar.vue";
 import SqliteDatabaseOverview from "./SqliteDatabaseOverview.vue";
-import AppIcon from "@/modules/devices/AppIcon.vue";
-import { Button } from "@/components/ui/button";
 
 const route = useRoute();
 const router = useRouter();
 const devicesStore = useDevicesStore();
-const { scanAllDatabases, openDatabase, tableRows } = useSQLite();
+const targetsStore = useTargetsStore();
+const { listDatabases, openDatabase, tableRows } = useSQLite();
 
 const serial = computed(() => devicesStore.selectedDevice?.serial ?? "");
-const { usePackages, getCachedPackage } = useAppPackages(serial);
-
-// Fetch packages in background to populate icons
-usePackages("all");
-
-console.log("[sqlite] SqliteExplorer mounted, current route:", route.fullPath);
+const selectedTarget = computed(() => {
+  const target = targetsStore.selectedTarget;
+  if (!target || target.source !== "adb") {
+    return null;
+  }
+  if (target.deviceSerial !== serial.value) {
+    return null;
+  }
+  return target;
+});
+const selectedPackageName = computed(() => selectedTarget.value?.packageName?.trim() ?? "");
 
 const dbSearch = ref("");
 const isLoadingDbs = ref(false);
@@ -33,10 +37,7 @@ const isLoadingTables = ref(false);
 const isLoadingRecords = ref(false);
 const error = ref<string | null>(null);
 
-// State: flat list of all DBs across all packages
 const databases = ref<SqliteDbFile[]>([]);
-// Grouped by package for display
-const expandedPackages = ref<Set<string>>(new Set());
 const tables = ref<SqliteTableInfo[]>([]);
 
 // Route params
@@ -60,17 +61,16 @@ const hasMore = computed(() => {
 });
 
 async function fetchDatabases() {
-  if (!serial.value) return;
+  if (!serial.value || !selectedPackageName.value) {
+    databases.value = [];
+    return;
+  }
 
   isLoadingDbs.value = true;
   error.value = null;
 
   try {
-    const allDbs = await scanAllDatabases(serial.value);
-    databases.value = allDbs.map((db) => ({
-      ...db,
-      packageName: db.path.split("/")[3] ?? "unknown",
-    }));
+    databases.value = await listDatabases(serial.value, selectedPackageName.value);
   } catch (err) {
     error.value = String(err);
     databases.value = [];
@@ -80,20 +80,16 @@ async function fetchDatabases() {
 }
 
 async function openDb(dbFile: SqliteDbFile) {
-  console.log("[sqlite] openDb called:", dbFile.name, "pkg:", dbFile.packageName);
-  if (!serial.value || !dbFile.packageName) {
-    console.log("[sqlite] openDb missing serial or packageName:", serial.value, dbFile.packageName);
+  if (!serial.value || !selectedPackageName.value) {
     return;
   }
   isLoadingTables.value = true;
   error.value = null;
 
   try {
-    tables.value = await openDatabase(serial.value, dbFile.packageName, dbFile.path);
-    console.log("[sqlite] openDb returned", tables.value.length, "tables");
+    tables.value = await openDatabase(serial.value, selectedPackageName.value, dbFile.path);
   } catch (err) {
     error.value = `Failed to open database: ${err}`;
-    console.error("[sqlite] openDb error:", err);
     tables.value = [];
   } finally {
     isLoadingTables.value = false;
@@ -102,7 +98,7 @@ async function openDb(dbFile: SqliteDbFile) {
 
 async function fetchTableRows() {
   const dbFile = currentDb.value;
-  if (!serial.value || !dbFile?.packageName || !tableName.value) return;
+  if (!serial.value || !selectedPackageName.value || !dbFile || !tableName.value) return;
 
   isLoadingRecords.value = true;
   error.value = null;
@@ -110,7 +106,7 @@ async function fetchTableRows() {
   try {
     const result = await tableRows(
       serial.value,
-      dbFile.packageName,
+      selectedPackageName.value,
       dbFile.path,
       tableName.value,
       page.value * pageSize.value,
@@ -147,31 +143,13 @@ function isTableActive(table: string): boolean {
   return tableName.value === table;
 }
 
-function getVisibleDatabases(): SqliteDbFile[] {
+const visibleDatabases = computed(() => {
   const q = dbSearch.value.toLowerCase();
   if (!q) return databases.value;
   return databases.value.filter(
-    (db) => db.name.toLowerCase().includes(q) || db.packageName?.toLowerCase().includes(q),
+    (db) => db.name.toLowerCase().includes(q) || db.path.toLowerCase().includes(q),
   );
-}
-
-function getDatabasesByPackage(): Map<string, SqliteDbFile[]> {
-  const map = new Map<string, SqliteDbFile[]>();
-  for (const db of getVisibleDatabases()) {
-    const pkg = db.packageName ?? "unknown";
-    if (!map.has(pkg)) map.set(pkg, []);
-    map.get(pkg)!.push(db);
-  }
-  return map;
-}
-
-function togglePackage(pkg: string) {
-  if (expandedPackages.value.has(pkg)) {
-    expandedPackages.value.delete(pkg);
-  } else {
-    expandedPackages.value.add(pkg);
-  }
-}
+});
 
 function prevPage() {
   if (page.value > 0) {
@@ -232,21 +210,40 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
   }
 });
 
-// Watch for device change
 watch(
-  () => serial.value,
-  (newSerial) => {
-    console.log("[sqlite] serial watch fired:", newSerial);
+  [serial, selectedPackageName],
+  async () => {
     databases.value = [];
     tables.value = [];
-    expandedPackages.value.clear();
     queryResult.value = null;
-    void fetchDatabases();
+    page.value = 0;
+    orderBy.value = null;
+    orderDir.value = null;
+
+    if (!serial.value || !selectedPackageName.value) {
+      if (dbName.value || tableName.value) {
+        await router.replace("/storage/sqlite");
+      }
+      return;
+    }
+
+    await fetchDatabases();
+
+    if (!currentDb.value && (dbName.value || tableName.value)) {
+      await router.replace("/storage/sqlite");
+      return;
+    }
+
+    if (currentDb.value) {
+      await openDb(currentDb.value);
+      if (tableName.value) {
+        await fetchTableRows();
+      }
+    }
   },
   { immediate: true },
 );
 
-// Scroll active table into view
 watch([dbName, tableName], async () => {
   await nextTick();
   document.querySelector("[data-active-table]")?.scrollIntoView({
@@ -264,6 +261,16 @@ watch([dbName, tableName], async () => {
         <div class="flex h-full flex-col border-r border-border/30 min-h-0">
           <!-- Search -->
           <div class="shrink-0 border-b border-border/20 p-2">
+            <div class="mb-2 rounded-md border border-border/20 bg-surface-2/60 px-2 py-2">
+              <div
+                class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+              >
+                Target Package
+              </div>
+              <div class="mt-1 truncate font-mono text-[11px] text-foreground/80">
+                {{ selectedPackageName || "No target selected" }}
+              </div>
+            </div>
             <div
               class="flex items-center gap-2 bg-surface-3 rounded-md px-2 py-2 border border-border/30 focus-within:border-border/60 transition-colors"
             >
@@ -301,78 +308,57 @@ watch([dbName, tableName], async () => {
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <Database :size="16" class="text-muted-foreground/30 mb-2" />
-              <p class="text-[11px] text-muted-foreground/40">No SQLite databases found</p>
-              <p class="text-[10px] text-muted-foreground/30 mt-1">
-                Databases are scanned from third-party app packages
+              <p class="text-[11px] text-muted-foreground/40">
+                {{ selectedPackageName ? "No SQLite databases found" : "No target selected" }}
+              </p>
+              <p class="mt-1 text-[10px] text-muted-foreground/30">
+                {{
+                  selectedPackageName
+                    ? "The selected target package does not expose databases/"
+                    : "Pick a debuggable app target in Device Manager first"
+                }}
               </p>
             </div>
 
             <ul v-else class="py-1">
-              <li
-                v-for="[pkg, dbs] in getDatabasesByPackage()"
-                :key="pkg"
-                class="group-pkg relative"
-              >
-                <!-- Package header with icon -->
-                <div
-                  class="flex flex-row w-full items-center gap-2 px-2 py-1.5 text-[10px] text-muted-foreground/50 transition-colors hover:bg-surface-3/50"
-                  @click="togglePackage(pkg)"
+              <li v-for="db in visibleDatabases" :key="db.path" class="group-db">
+                <button
+                  class="flex w-full items-center gap-2 py-1.5 pl-3 pr-3 text-xs transition-colors"
+                  :class="
+                    isDbActive(db.name)
+                      ? 'text-foreground font-medium bg-surface-3 border-l-2 border-foreground pl-[10px]'
+                      : 'text-foreground/60 hover:bg-surface-3/50 hover:text-foreground/80'
+                  "
+                  @click="navigateToDb(db)"
                 >
-                  <AppIcon
-                    :serial="serial"
-                    :apk-path="getCachedPackage(pkg)?.apkPath ?? ''"
-                    :package-name="pkg"
-                    :icon-path="getCachedPackage(pkg)?.iconPath"
-                    size="sm"
-                  />
-                  <Button class="flex text-xs items-start min-w-0 pl-2" variant="ghost">
-                    <span class="truncate font-medium">{{ pkg }}</span>
-                  </Button>
-                </div>
+                  <Database :size="12" class="shrink-0 opacity-40" />
+                  <span class="flex-1 truncate text-left">{{ db.name }}</span>
+                  <span class="text-[10px] font-mono text-muted-foreground/40">
+                    {{ (db.size / 1024).toFixed(0) }}KB
+                  </span>
+                </button>
 
-                <!-- DBs in this package -->
-                <ul v-if="expandedPackages.has(pkg)">
-                  <li v-for="db in dbs" :key="db.path" class="group-db">
+                <ul v-if="isDbActive(db.name) && tables.length">
+                  <li
+                    v-for="t in tables"
+                    :key="t.name"
+                    :data-active-table="isTableActive(t.name) ? '' : undefined"
+                  >
                     <button
-                      class="flex w-full items-center gap-2 py-1.5 pl-[26px] pr-3 text-xs transition-colors"
+                      class="flex w-full items-center gap-1.5 py-1 pl-[30px] pr-3 text-xs transition-colors"
                       :class="
-                        isDbActive(db.name)
-                          ? 'text-foreground font-medium bg-surface-3 border-l-2 border-foreground pl-[24px]'
-                          : 'text-foreground/60 hover:bg-surface-3/50 hover:text-foreground/80'
+                        isTableActive(t.name)
+                          ? 'text-foreground font-medium bg-surface-2 border-l-2 border-foreground pl-[28px]'
+                          : 'text-foreground/50 hover:bg-surface-2/50 hover:text-foreground/70'
                       "
-                      @click="navigateToDb(db)"
+                      @click="navigateToTable(db, t.name)"
                     >
-                      <Database :size="12" class="shrink-0 opacity-40" />
-                      <span class="flex-1 truncate text-left">{{ db.name }}</span>
-                      <span class="text-[10px] font-mono text-muted-foreground/40">
-                        {{ (db.size / 1024).toFixed(0) }}KB
+                      <Table2 :size="10" class="shrink-0 opacity-40" />
+                      <span class="flex-1 truncate text-left">{{ t.name }}</span>
+                      <span class="text-[10px] font-mono text-muted-foreground/30">
+                        {{ t.rowCount }}
                       </span>
                     </button>
-
-                    <!-- Tables for active DB -->
-                    <ul v-if="isDbActive(db.name) && tables.length">
-                      <li
-                        v-for="t in tables"
-                        :key="t.name"
-                        :data-active-table="isTableActive(t.name) ? '' : undefined"
-                      >
-                        <button
-                          class="flex w-full items-center gap-1.5 py-1 pl-[44px] pr-3 text-xs transition-colors"
-                          :class="
-                            isTableActive(t.name)
-                              ? 'text-foreground font-medium bg-surface-2 border-l-2 border-foreground pl-[42px]'
-                              : 'text-foreground/50 hover:bg-surface-2/50 hover:text-foreground/70'
-                          "
-                          @click="navigateToTable(db, t.name)"
-                        >
-                          <Table2 :size="10" class="shrink-0 opacity-40" />
-                          <span class="flex-1 truncate text-left">{{ t.name }}</span>
-                          <span class="text-[10px] font-mono text-muted-foreground/30">
-                            {{ t.rowCount }}
-                          </span>
-                        </button>
-                      </li>
-                    </ul>
                   </li>
                 </ul>
               </li>
@@ -399,7 +385,7 @@ watch([dbName, tableName], async () => {
             :db-name="dbName"
             :db-path="currentDb?.path ?? ''"
             :db-size="currentDb?.size ?? 0"
-            :package-name="currentDb?.packageName"
+            :package-name="selectedPackageName || undefined"
             :tables="tables"
             :is-loading="isLoadingTables"
             @select-table="
