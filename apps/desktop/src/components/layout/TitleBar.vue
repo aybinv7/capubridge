@@ -1,20 +1,37 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
-import { Minus, Maximize2, Minimize2, X, Search, ScreenShare } from "lucide-vue-next";
+import {
+  Minus,
+  Maximize2,
+  Minimize2,
+  X,
+  ScreenShare,
+  Terminal,
+  PanelLeft,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+} from "lucide-vue-next";
+import { useRouter } from "vue-router";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useSourceStore } from "@/stores/source.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useTargetsStore } from "@/stores/targets.store";
+import { useDockStore } from "@/stores/dock.store";
+import { useUIStore } from "@/stores/ui.store";
 import { initCDPWatchers } from "@/composables/useCDP";
 import { useSessionPersistence } from "@/composables/useSessionPersistence";
 import ConnectionSummary from "./ConnectionSummary.vue";
 
 const emit = defineEmits<{ openCommandPalette: [] }>();
 
+const router = useRouter();
 const devicesStore = useDevicesStore();
 const sourceStore = useSourceStore();
 const mirrorStore = useMirrorStore();
 const targetsStore = useTargetsStore();
+const dockStore = useDockStore();
+const uiStore = useUIStore();
 
 initCDPWatchers();
 useSessionPersistence();
@@ -87,51 +104,93 @@ async function close() {
 
 <template>
   <div
-    class="h-11 shrink-0 flex flex-row justify-between w-full items-center px-2 select-none border-b border-border/20"
+    class="relative h-11 shrink-0 flex flex-row items-center px-2 select-none border-b border-border/20 bg-background"
     style="-webkit-app-region: drag"
   >
-    <!-- Mirror toggle -->
-    <button
-      class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] transition-all border"
-      :class="
-        mirrorStore.isOpen
-          ? 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
-          : mirrorEnabled
-            ? 'border-border/25 text-muted-foreground/50 hover:text-foreground hover:border-border/45 hover:bg-surface-2'
-            : 'border-border/15 text-muted-foreground/20 cursor-not-allowed'
-      "
-      :disabled="!mirrorEnabled"
-      :title="
-        !mirrorEnabled
-          ? 'Select target or connect device to enable mirroring'
-          : mirrorStore.isOpen
-            ? 'Stop mirroring'
-            : 'Mirror device screen'
-      "
-      @click="mirrorEnabled && mirrorStore.toggle()"
-    >
-      <ScreenShare class="w-3 h-3" />
-      <span>Mirror</span>
-      <span
-        v-if="mirrorStore.isOpen && mirrorStore.isStreaming"
-        class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"
-      />
-    </button>
-    <div style="-webkit-app-region: no-drag">
+    <!-- Left: sidebar toggle + back/forward -->
+    <div class="flex items-center gap-0.5 z-10" style="-webkit-app-region: no-drag">
+      <button
+        class="flex items-center justify-center w-8 h-8 rounded-md transition-colors duration-[120ms] text-muted-foreground/50 hover:text-foreground hover:bg-surface-2"
+        title="Toggle Sidebar (⌘B)"
+        @click="uiStore.toggleSidebar()"
+      >
+        <PanelLeft class="w-3.5 h-3.5" />
+      </button>
+      <button
+        class="flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-[120ms] text-muted-foreground/35 hover:text-foreground hover:bg-surface-2"
+        title="Go Back"
+        @click="router.back()"
+      >
+        <ChevronLeft class="w-3.5 h-3.5" />
+      </button>
+      <button
+        class="flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-[120ms] text-muted-foreground/35 hover:text-foreground hover:bg-surface-2"
+        title="Go Forward"
+        @click="router.forward()"
+      >
+        <ChevronRight class="w-3.5 h-3.5" />
+      </button>
+
+      <button
+        class="flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-[120ms] text-muted-foreground/35 hover:text-foreground hover:bg-surface-2"
+        title="Command palette (⌘K)"
+        @click="emit('openCommandPalette')"
+      >
+        <Search class="w-3.5 h-3.5" />
+      </button>
+    </div>
+
+    <!-- Center: absolutely positioned connection pill -->
+    <div class="absolute left-1/2 -translate-x-1/2" style="-webkit-app-region: no-drag">
       <ConnectionSummary />
     </div>
 
-    <div class="flex items-center gap-1" style="-webkit-app-region: no-drag">
-      <!-- Search / command palette -->
+    <!-- Right: dock + mirror + ⌘K + window controls -->
+    <div class="flex items-center gap-1 ml-auto z-10" style="-webkit-app-region: no-drag">
       <button
-        class="flex items-center gap-1 h-7 px-2.5 rounded-full border border-border/25 bg-surface-2 hover:border-border/45 hover:bg-surface-3 transition-colors ml-1"
-        @click="emit('openCommandPalette')"
-        title="Command palette (⌘K)"
+        class="flex items-center justify-center w-8 h-8 rounded-md transition-colors duration-[120ms] relative"
+        :class="
+          dockStore.isOpen
+            ? 'text-accent bg-accent-soft'
+            : 'text-muted-foreground/50 hover:text-foreground hover:bg-surface-2'
+        "
+        title="Toggle Dock (⌘J)"
+        @click="dockStore.toggleDock()"
       >
-        <kbd class="text-[10px] text-muted-foreground/35 font-mono leading-none">⌘ K</kbd>
+        <Terminal class="w-3.5 h-3.5" />
+        <span
+          v-if="dockStore.hasUnread"
+          class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent"
+        />
       </button>
 
-      <!-- Window controls -->
+      <button
+        class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] transition-all border ml-1"
+        :class="
+          mirrorStore.isOpen
+            ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent/20'
+            : mirrorEnabled
+              ? 'border-border/25 text-muted-foreground/50 hover:text-foreground hover:border-border-active hover:bg-surface-2'
+              : 'border-border/15 text-muted-foreground/20 cursor-not-allowed'
+        "
+        :disabled="!mirrorEnabled"
+        :title="
+          !mirrorEnabled
+            ? 'Select target or connect device to enable mirroring'
+            : mirrorStore.isOpen
+              ? 'Stop mirroring'
+              : 'Mirror device screen'
+        "
+        @click="mirrorEnabled && mirrorStore.toggle()"
+      >
+        <ScreenShare class="w-3 h-3" />
+        <span>Mirror</span>
+        <span
+          v-if="mirrorStore.isOpen && mirrorStore.isStreaming"
+          class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"
+        />
+      </button>
+
       <div class="flex items-center ml-1">
         <button
           class="w-10 h-9 flex items-center justify-center text-muted-foreground/40 hover:text-foreground hover:bg-surface-2 transition-colors"
@@ -147,7 +206,7 @@ async function close() {
           <Minimize2 v-else class="w-2.5 h-2.5" />
         </button>
         <button
-          class="w-10 h-9 flex items-center justify-center text-muted-foreground/40 hover:text-[#e05050] hover:bg-[#e05050]/10 transition-colors"
+          class="w-10 h-9 flex items-center justify-center text-muted-foreground/40 hover:text-destructive-foreground hover:bg-destructive/80 transition-colors"
           @click="close"
         >
           <X class="w-3 h-3" />

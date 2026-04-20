@@ -40,8 +40,8 @@ onBeforeUnmount(() => {
 
 const statusClass = computed(() => {
   if (target.value?.source === "chrome") return "bg-blue-400";
-  if (device.value?.status === "online") return "bg-status-success";
-  if (hasChromeSource.value) return "bg-status-success";
+  if (device.value?.status === "online") return "bg-success";
+  if (hasChromeSource.value) return "bg-success";
   return "bg-muted-foreground/20";
 });
 

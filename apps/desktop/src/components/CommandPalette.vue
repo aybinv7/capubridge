@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
-import { useRouter, useRoute } from "vue-router";
+import { useRouter } from "vue-router";
 import {
   Search,
   Smartphone,
@@ -15,12 +15,13 @@ import {
   Camera,
   Power,
 } from "lucide-vue-next";
+import { useDockStore } from "@/stores/dock.store";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const router = useRouter();
-const route = useRoute();
+const dockStore = useDockStore();
 const query = ref("");
 const selected = ref(0);
 const inputRef = ref<HTMLInputElement>();
@@ -51,9 +52,9 @@ const commands = [
   {
     group: "Navigate",
     icon: Terminal,
-    label: "Console",
-    action: () => router.push("/console"),
-    keys: "C",
+    label: "Dock Console",
+    action: () => dockStore.openDock("logcat"),
+    keys: "J",
   },
   {
     group: "Navigate",

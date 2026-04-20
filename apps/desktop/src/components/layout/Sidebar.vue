@@ -1,19 +1,38 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { Smartphone, Database, Globe, Terminal, Zap, Settings, Crosshair } from "lucide-vue-next";
+import { Smartphone, Database, Globe, Zap, Crosshair, Settings } from "lucide-vue-next";
+import {
+  SidebarContent,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarSeparator,
+} from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import ConnectionSummary from "./ConnectionSummary.vue";
+import { useUIStore } from "@/stores/ui.store";
+import { useDevicesStore } from "@/stores/devices.store";
+import { useSourceStore } from "@/stores/source.store";
 
+const uiStore = useUIStore();
+const devicesStore = useDevicesStore();
+const sourceStore = useSourceStore();
 const route = useRoute();
+
+const isCollapsed = computed(() => uiStore.sidebarCollapsed);
+
+const isConnected = computed(
+  () => devicesStore.selectedDevice?.status === "online" || sourceStore.hasChromeSource,
+);
 
 const navItems = [
   { to: "/devices", icon: Smartphone, label: "Devices" },
   { to: "/storage", icon: Database, label: "Storage" },
   { to: "/network", icon: Globe, label: "Network" },
-  { to: "/console", icon: Terminal, label: "Console" },
   { to: "/capacitor", icon: Zap, label: "Capacitor" },
   { to: "/inspect", icon: Crosshair, label: "Inspect" },
 ] as const;
-
-const bottomItems = [{ to: "/settings", icon: Settings, label: "Settings" }] as const;
 
 function isActive(path: string) {
   return route.path.startsWith(path);
@@ -21,62 +40,88 @@ function isActive(path: string) {
 </script>
 
 <template>
-  <aside class="w-18 bg-background flex flex-col shrink-0 pt-2">
-    <!-- Primary nav -->
-    <nav class="flex flex-col gap-0.5 px-2 flex-1">
-      <RouterLink
-        v-for="item in navItems"
-        :key="item.to"
-        :to="item.to"
-        :aria-label="item.label"
-        class="relative flex flex-col items-center gap-1 py-2 transition-colors duration-150"
-        :class="
-          isActive(item.to) ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-        "
-      >
-        <!-- Active indicator -->
-        <div
-          v-if="isActive(item.to)"
-          class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-foreground"
-        />
-        <div v-if="isActive(item.to)" class="absolute inset-0 rounded-lg bg-secondary" />
-        <component
-          :is="item.icon"
-          class="w-4 h-4 relative z-10"
-          :stroke-width="isActive(item.to) ? 2 : 1.5"
-        />
-        <span class="text-[9px] relative z-10" :class="isActive(item.to) ? 'font-medium' : ''">
-          {{ item.label }}
-        </span>
-      </RouterLink>
-    </nav>
+  <TooltipProvider :delay-duration="300">
+    <aside
+      class="group bg-sidebar text-sidebar-foreground flex flex-col shrink-0 border-r border-sidebar-border transition-[width] duration-200 ease-linear overflow-hidden"
+      :class="isCollapsed ? 'w-14' : 'w-50'"
+      :data-state="isCollapsed ? 'collapsed' : 'expanded'"
+      :data-collapsible="isCollapsed ? 'icon' : ''"
+    >
+      <SidebarContent class="px-2 py-2">
+        <SidebarMenu>
+          <SidebarMenuItem v-for="item in navItems" :key="item.to" class="relative">
+            <div
+              v-if="isActive(item.to)"
+              class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-full z-10"
+            />
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <RouterLink
+                  :to="item.to"
+                  class="flex items-center gap-3 w-full rounded-md px-3 py-2 text-sm transition-colors duration-[120ms] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+                  :class="
+                    isActive(item.to)
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                      : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+                  "
+                >
+                  <component :is="item.icon" :size="16" class="shrink-0" />
+                  <span class="group-data-[collapsible=icon]:hidden truncate">
+                    {{ item.label }}
+                  </span>
+                </RouterLink>
+              </TooltipTrigger>
+              <TooltipContent v-if="isCollapsed" side="right" :side-offset="8">
+                {{ item.label }}
+              </TooltipContent>
+            </Tooltip>
+          </SidebarMenuItem>
+        </SidebarMenu>
 
-    <!-- Bottom nav -->
-    <nav class="flex flex-col gap-0.5 px-2">
-      <RouterLink
-        v-for="item in bottomItems"
-        :key="item.to"
-        :to="item.to"
-        :aria-label="item.label"
-        class="relative flex flex-col items-center gap-1 py-2 transition-colors duration-150"
-        :class="
-          isActive(item.to) ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-        "
+        <div class="flex-1 min-h-2" />
+
+        <SidebarSeparator class="mx-0" />
+
+        <SidebarMenu class="mt-1">
+          <SidebarMenuItem class="relative">
+            <div
+              v-if="isActive('/settings')"
+              class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-full z-10"
+            />
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <RouterLink
+                  to="/settings"
+                  class="flex items-center gap-3 w-full rounded-md px-3 py-2 text-sm transition-colors duration-[120ms] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+                  :class="
+                    isActive('/settings')
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                      : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+                  "
+                >
+                  <Settings :size="16" class="shrink-0" />
+                  <span class="group-data-[collapsible=icon]:hidden truncate">Settings</span>
+                </RouterLink>
+              </TooltipTrigger>
+              <TooltipContent v-if="isCollapsed" side="right" :side-offset="8">
+                Settings
+              </TooltipContent>
+            </Tooltip>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarContent>
+
+      <SidebarFooter
+        class="flex-row items-center p-3 gap-2 border-t border-sidebar-border h-10 shrink-0"
       >
-        <div
-          v-if="isActive(item.to)"
-          class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-foreground"
+        <span
+          class="w-1.5 h-1.5 rounded-full shrink-0 transition-colors"
+          :class="isConnected ? 'bg-success' : 'bg-muted-foreground/30'"
         />
-        <div v-if="isActive(item.to)" class="absolute inset-0 bg-secondary" />
-        <component
-          :is="item.icon"
-          class="w-4 h-4 relative z-10"
-          :stroke-width="isActive(item.to) ? 2 : 1.5"
-        />
-        <span class="text-[9px] relative z-10" :class="isActive(item.to) ? 'font-medium' : ''">
-          {{ item.label }}
+        <span class="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden truncate">
+          {{ isConnected ? "Connected" : "Disconnected" }}
         </span>
-      </RouterLink>
-    </nav>
-  </aside>
+      </SidebarFooter>
+    </aside>
+  </TooltipProvider>
 </template>

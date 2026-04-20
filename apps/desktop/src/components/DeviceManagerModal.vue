@@ -612,7 +612,7 @@ watch(
                 <div class="flex items-center gap-1.5">
                   <span
                     class="w-1.5 h-1.5 rounded-full shrink-0"
-                    :class="d.status === 'online' ? 'bg-status-success' : 'bg-muted-foreground/25'"
+                    :class="d.status === 'online' ? 'bg-success' : 'bg-muted-foreground/25'"
                   />
                   <span class="text-[12px] font-medium text-foreground truncate">
                     {{ d.model || d.serial }}
@@ -649,9 +649,7 @@ watch(
                 <div class="flex items-center gap-1.5">
                   <span
                     class="w-1.5 h-1.5 rounded-full shrink-0"
-                    :class="
-                      sourceStore.hasChromeSource ? 'bg-status-success' : 'bg-muted-foreground/15'
-                    "
+                    :class="sourceStore.hasChromeSource ? 'bg-success' : 'bg-muted-foreground/15'"
                   />
                   <Globe :size="11" class="text-muted-foreground/40 shrink-0" />
                   <span class="text-[12px] font-medium text-foreground/70">Local</span>
@@ -698,7 +696,7 @@ watch(
                           class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                           :class="
                             selectedDevice.status === 'online'
-                              ? 'bg-status-success/10 text-status-success border border-status-success/20'
+                              ? 'bg-success/10 text-success border border-success/20'
                               : 'bg-surface-2 text-muted-foreground/40 border border-border/20'
                           "
                         >
@@ -941,7 +939,7 @@ watch(
                       <span class="text-[15px] font-semibold text-foreground">Local Chrome</span>
                       <span
                         v-if="sourceStore.hasChromeSource"
-                        class="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-status-success/10 text-status-success border border-status-success/20"
+                        class="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-success/10 text-success border border-success/20"
                       >
                         connected
                       </span>
@@ -1085,9 +1083,7 @@ watch(
                     <span
                       class="w-1.5 h-1.5 rounded-full shrink-0"
                       :class="
-                        connStatus(t.id) === 'connected'
-                          ? 'bg-status-success'
-                          : 'bg-muted-foreground/20'
+                        connStatus(t.id) === 'connected' ? 'bg-success' : 'bg-muted-foreground/20'
                       "
                     />
                     <div class="flex-1 min-w-0">

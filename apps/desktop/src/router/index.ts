@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
+import { dispatchDockOpenRequest, queueDockOpenRequest } from "@/lib/dock-events";
 
 const routes: RouteRecordRaw[] = [
   { path: "/", redirect: "/devices" },
@@ -107,33 +108,19 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  // ── Console ──────────────────────────────────────────────────────────────
   {
-    path: "/console",
-    component: () => import("@/modules/console/ConsolePanel.vue"),
-    redirect: "/console/logcat",
-    children: [
-      {
-        path: "logcat",
-        name: "console-logcat",
-        component: () => import("@/modules/devices/DeviceLogcat.vue"),
-      },
-      {
-        path: "output",
-        name: "console-output",
-        component: () => import("@/modules/console/ConsoleOutput.vue"),
-      },
-      {
-        path: "repl",
-        name: "console-repl",
-        component: () => import("@/modules/console/ConsoleRepl.vue"),
-      },
-      {
-        path: "exceptions",
-        name: "console-exceptions",
-        component: () => import("@/modules/console/ConsoleExceptions.vue"),
-      },
-    ],
+    path: "/console/:tab?",
+    component: { render: () => null },
+    beforeEnter: (to, from) => {
+      const value = Array.isArray(to.params.tab) ? to.params.tab[0] : to.params.tab;
+      const tab =
+        value === "output" || value === "repl" || value === "exceptions" ? value : "logcat";
+
+      queueDockOpenRequest(tab);
+      dispatchDockOpenRequest(tab);
+
+      return from.matched.length > 0 ? from.fullPath : "/devices";
+    },
   },
 
   // ── Capacitor ────────────────────────────────────────────────────────────

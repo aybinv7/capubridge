@@ -5,7 +5,6 @@ import { useRoute, useRouter } from "vue-router";
 import { useInspectPlugins } from "@/modules/inspect/useInspectPlugins";
 import {
   Smartphone,
-  FileText,
   Package,
   FolderOpen,
   Gauge,
@@ -14,7 +13,6 @@ import {
   Archive,
   Globe,
   Terminal,
-  AlertTriangle,
   Zap,
   Shield,
   Link,
@@ -27,11 +25,16 @@ import {
   Table2,
   Crosshair,
   Diff,
+  Sun,
+  Moon,
 } from "lucide-vue-next";
+
+import { useUIStore } from "@/stores/ui.store";
 
 const route = useRoute();
 const router = useRouter();
 const inspectPlugins = useInspectPlugins();
+const uiStore = useUIStore();
 
 const iconMap: Record<string, typeof Smartphone> = {
   "devices-overview": Smartphone,
@@ -49,10 +52,6 @@ const iconMap: Record<string, typeof Smartphone> = {
   "network-websocket": Terminal,
   "network-throttle": Gauge,
   "network-mock": Archive,
-  "console-logcat": FileText,
-  "console-output": FileText,
-  "console-repl": Terminal,
-  "console-exceptions": AlertTriangle,
   "capacitor-bridge": Zap,
   "capacitor-plugins": Package,
   "capacitor-config": FileJson,
@@ -145,5 +144,15 @@ function isActive(tabPath: string): boolean {
       <component v-if="tab.icon" :is="tab.icon" :size="13" class="shrink-0 opacity-50" />
       {{ tab.label }}
     </button>
+    <div v-if="route.path.startsWith('/settings')" class="ml-auto flex items-center pr-1">
+      <button
+        class="w-8 h-7 flex items-center justify-center rounded-md transition-colors duration-[120ms] text-muted-foreground/50 hover:text-foreground hover:bg-surface-2"
+        :title="uiStore.theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'"
+        @click="uiStore.toggleTheme()"
+      >
+        <Sun v-if="uiStore.theme === 'dark'" :size="14" />
+        <Moon v-else :size="14" />
+      </button>
+    </div>
   </div>
 </template>
