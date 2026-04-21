@@ -10,21 +10,12 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import ConnectionSummary from "./ConnectionSummary.vue";
 import { useUIStore } from "@/stores/ui.store";
-import { useDevicesStore } from "@/stores/devices.store";
-import { useSourceStore } from "@/stores/source.store";
 
 const uiStore = useUIStore();
-const devicesStore = useDevicesStore();
-const sourceStore = useSourceStore();
 const route = useRoute();
 
 const isCollapsed = computed(() => uiStore.sidebarCollapsed);
-
-const isConnected = computed(
-  () => devicesStore.selectedDevice?.status === "online" || sourceStore.hasChromeSource,
-);
 
 const navItems = [
   { to: "/devices", icon: Smartphone, label: "Devices" },
@@ -110,18 +101,6 @@ function isActive(path: string) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
-
-      <SidebarFooter
-        class="flex-row items-center p-3 gap-2 border-t border-sidebar-border h-10 shrink-0"
-      >
-        <span
-          class="w-1.5 h-1.5 rounded-full shrink-0 transition-colors"
-          :class="isConnected ? 'bg-success' : 'bg-muted-foreground/30'"
-        />
-        <span class="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden truncate">
-          {{ isConnected ? "Connected" : "Disconnected" }}
-        </span>
-      </SidebarFooter>
     </aside>
   </TooltipProvider>
 </template>
