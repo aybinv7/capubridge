@@ -8,11 +8,14 @@ use parking_lot::Mutex;
 use prost::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::hash::{Hash, Hasher};
 use std::io::{Cursor, Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener, TcpStream};
-use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, LazyLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tauri::{AppHandle, Emitter};
 
 fn create_adb_server() -> ADBServer {
     ADBServer::new_from_path(
@@ -61,6 +64,8 @@ static AYA_FORWARD_PORTS: LazyLock<Mutex<HashMap<String, u16>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static PACKAGE_SCAN_CANCELLATIONS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
+static LOGCAT_SESSIONS: LazyLock<Mutex<HashMap<String, Arc<AtomicBool>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 const APP_HELPER_REMOTE_DEX_PATH: &str = "/data/local/tmp/capubridge/capubridge-device-helper.dex";
 const AYA_SOCKET_NAME: &str = "localabstract:aya";
@@ -747,6 +752,316 @@ pub fn adb_shell_command(serial: String, command: String) -> Result<String, Stri
     })
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LogcatEntryPayload {
+    pub id: String,
+    pub serial: String,
+    pub date: String,
+    pub time: String,
+    pub pid: Option<u32>,
+    pub tid: Option<u32>,
+    pub level: String,
+    pub tag: String,
+    pub process_name: Option<String>,
+    pub package_name: Option<String>,
+    pub message: String,
+    pub raw: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LogcatErrorPayload {
+    pub serial: String,
+    pub message: String,
+}
+
+struct PendingLogcatEntry {
+    date: String,
+    time: String,
+    pid: Option<u32>,
+    tid: Option<u32>,
+    level: String,
+    tag: String,
+    message: String,
+    raw: String,
+}
+
+impl PendingLogcatEntry {
+    fn into_payload(
+        self,
+        serial: &str,
+        process_name: Option<String>,
+        package_name: Option<String>,
+    ) -> LogcatEntryPayload {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        serial.hash(&mut hasher);
+        self.date.hash(&mut hasher);
+        self.time.hash(&mut hasher);
+        self.pid.hash(&mut hasher);
+        self.tid.hash(&mut hasher);
+        self.level.hash(&mut hasher);
+        self.tag.hash(&mut hasher);
+        self.raw.hash(&mut hasher);
+
+        LogcatEntryPayload {
+            id: format!("{serial}:{:x}", hasher.finish()),
+            serial: serial.to_string(),
+            date: self.date,
+            time: self.time,
+            pid: self.pid,
+            tid: self.tid,
+            level: self.level,
+            tag: self.tag,
+            process_name,
+            package_name,
+            message: self.message,
+            raw: self.raw,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct LogcatProcessIdentity {
+    process_name: Option<String>,
+    package_name: Option<String>,
+}
+
+fn normalize_logcat_level(level: char) -> Option<String> {
+    match level {
+        'V' | 'D' | 'I' | 'W' | 'E' | 'F' => Some(level.to_string()),
+        'A' => Some("F".to_string()),
+        _ => None,
+    }
+}
+
+fn parse_logcat_header(line: &str) -> Option<PendingLogcatEntry> {
+    let mut parts = line.split_whitespace();
+    let date = parts.next()?.to_string();
+    let time = parts.next()?.to_string();
+    let pid = parts.next()?.parse::<u32>().ok();
+    let tid = parts.next()?.parse::<u32>().ok();
+    let level = normalize_logcat_level(parts.next()?.chars().next()?)?;
+    let remainder = parts.collect::<Vec<_>>().join(" ");
+    let split = remainder.find(':')?;
+    let tag = remainder[..split].trim().to_string();
+    if tag.is_empty() {
+        return None;
+    }
+
+    Some(PendingLogcatEntry {
+        date,
+        time,
+        pid,
+        tid,
+        level,
+        tag,
+        message: remainder[split + 1..].trim_start().to_string(),
+        raw: line.to_string(),
+    })
+}
+
+fn resolve_logcat_identity(
+    serial: &str,
+    pid_cache: &mut HashMap<u32, LogcatProcessIdentity>,
+    pid: Option<u32>,
+) -> LogcatProcessIdentity {
+    let Some(pid) = pid else {
+        return LogcatProcessIdentity {
+            process_name: None,
+            package_name: None,
+        };
+    };
+
+    if let Some(identity) = pid_cache.get(&pid) {
+        return identity.clone();
+    }
+
+    let serial_owned = serial.to_string();
+    let identity = catch_adb_panic("logcat_pid_identity", move || {
+        let mut server = ADB_SERVER.lock();
+        let mut device = server
+            .get_device_by_name(&serial_owned)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let cmd = format!("cat /proc/{pid}/cmdline 2>/dev/null");
+        let process_name = shell_output(&mut device, &cmd)
+            .replace('\0', "")
+            .trim()
+            .to_string();
+        let normalized_process = if process_name.is_empty() {
+            None
+        } else {
+            Some(process_name)
+        };
+        let package_name = normalized_process
+            .as_deref()
+            .and_then(|value| value.split(':').next())
+            .and_then(|value| if value.contains('.') { Some(value.to_string()) } else { None });
+        Ok(LogcatProcessIdentity {
+            process_name: normalized_process,
+            package_name,
+        })
+    });
+
+    let resolved = identity.unwrap_or(LogcatProcessIdentity {
+        process_name: None,
+        package_name: None,
+    });
+    pid_cache.insert(pid, resolved.clone());
+    resolved
+}
+
+fn parse_logcat_dump(
+    serial: &str,
+    dump: &str,
+    pid_cache: &mut HashMap<u32, LogcatProcessIdentity>,
+) -> Vec<LogcatEntryPayload> {
+    let mut entries = Vec::new();
+    let mut current: Option<PendingLogcatEntry> = None;
+
+    for raw_line in dump.lines() {
+        let line = raw_line.trim_end_matches('\r');
+        if let Some(next_entry) = parse_logcat_header(line) {
+            if let Some(entry) = current.take() {
+                let identity = resolve_logcat_identity(serial, pid_cache, entry.pid);
+                entries.push(entry.into_payload(
+                    serial,
+                    identity.process_name,
+                    identity.package_name,
+                ));
+            }
+            current = Some(next_entry);
+            continue;
+        }
+
+        if let Some(entry) = current.as_mut() {
+            let extra = line.trim();
+            if !extra.is_empty() {
+                entry.message.push('\n');
+                entry.message.push_str(extra);
+                entry.raw.push('\n');
+                entry.raw.push_str(line);
+            }
+        }
+    }
+
+    if let Some(entry) = current {
+        let identity = resolve_logcat_identity(serial, pid_cache, entry.pid);
+        entries.push(entry.into_payload(
+            serial,
+            identity.process_name,
+            identity.package_name,
+        ));
+    }
+
+    entries
+}
+
+fn read_logcat_dump(
+    serial: &str,
+    since: Option<&str>,
+    pid_cache: &mut HashMap<u32, LogcatProcessIdentity>,
+) -> Result<Vec<LogcatEntryPayload>, String> {
+    let serial_owned = serial.to_string();
+    catch_adb_panic("start_logcat", move || {
+        let mut server = ADB_SERVER.lock();
+        let mut device = server
+            .get_device_by_name(&serial_owned)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut output = Vec::new();
+        let command = since
+            .map(|cursor| format!("logcat -d -v threadtime -T '{cursor}'"))
+            .unwrap_or_else(|| "logcat -d -v threadtime -t 256".to_string());
+        device
+            .shell_command(
+                &command,
+                Some(&mut output),
+                None::<&mut dyn Write>,
+            )
+            .map_err(|e| format!("Logcat failed: {e}"))?;
+        Ok(parse_logcat_dump(
+            &serial_owned,
+            String::from_utf8_lossy(&output).as_ref(),
+            pid_cache,
+        ))
+    })
+}
+
+fn stop_logcat_session(serial: &str) {
+    if let Some(stop_flag) = LOGCAT_SESSIONS.lock().remove(serial) {
+        stop_flag.store(true, Ordering::Relaxed);
+    }
+}
+
+#[tauri::command]
+pub fn start_logcat(serial: String, app: AppHandle) -> Result<(), String> {
+    stop_logcat_session(&serial);
+
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    LOGCAT_SESSIONS
+        .lock()
+        .insert(serial.clone(), stop_flag.clone());
+
+    std::thread::spawn(move || {
+        let serial_clone = serial.clone();
+        let mut seen = HashSet::new();
+        let mut order = VecDeque::new();
+        let mut pid_cache = HashMap::new();
+        let mut cursor: Option<String> = None;
+
+        while !stop_flag.load(Ordering::Relaxed) {
+            match read_logcat_dump(&serial_clone, cursor.as_deref(), &mut pid_cache) {
+                Ok(entries) => {
+                    for entry in entries {
+                        cursor = Some(format!("{} {}", entry.date, entry.time));
+                        if !seen.insert(entry.id.clone()) {
+                            continue;
+                        }
+
+                        if order.len() >= 1024 {
+                            if let Some(old_id) = order.pop_front() {
+                                seen.remove(&old_id);
+                            }
+                        }
+
+                        order.push_back(entry.id.clone());
+                        let _ = app.emit("logcat:line", entry);
+                    }
+                }
+                Err(message) => {
+                    let _ = app.emit(
+                        "logcat:error",
+                        LogcatErrorPayload {
+                            serial: serial_clone.clone(),
+                            message,
+                        },
+                    );
+                    break;
+                }
+            }
+
+            std::thread::sleep(Duration::from_millis(900));
+        }
+
+        let mut sessions = LOGCAT_SESSIONS.lock();
+        if sessions
+            .get(&serial_clone)
+            .is_some_and(|current| Arc::ptr_eq(current, &stop_flag))
+        {
+            sessions.remove(&serial_clone);
+        }
+        let _ = app.emit("logcat:stopped", serial_clone);
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn stop_logcat(serial: String) -> Result<(), String> {
+    stop_logcat_session(&serial);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn adb_connect_device(host: String, port: u16) -> Result<(), String> {
     catch_adb_panic("adb_connect_device", move || {
@@ -839,7 +1154,6 @@ pub async fn adb_start_server() -> Result<String, String> {
     cmd.arg("start-server");
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x08000000);
     }
     let output = cmd
@@ -1163,137 +1477,141 @@ pub async fn adb_get_app_icon(
     icon_path: Option<String>,
 ) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
-        let mut server = create_adb_server();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {e}"))?;
+        catch_adb_panic("adb_get_app_icon", move || {
+            let mut server = ADB_SERVER.lock();
+            let mut device = server
+                .get_device_by_name(&serial)
+                .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
-        if let Some(icon_path) = icon_path.as_ref().filter(|path| !path.trim().is_empty()) {
-            let mut icon_bytes = Vec::new();
-            if device.pull(icon_path, &mut icon_bytes).is_ok() && !icon_bytes.is_empty() {
-                let encoded = general_purpose::STANDARD.encode(icon_bytes);
-                return Ok(format!("data:image/png;base64,{encoded}"));
-            }
-        }
-
-        let candidates: &[(&str, &str)] = &[
-            ("res/mipmap-xhdpi-v4/ic_launcher.png", "image/png"),
-            ("res/mipmap-hdpi-v4/ic_launcher.png", "image/png"),
-            ("res/drawable-xhdpi-v4/ic_launcher.png", "image/png"),
-            ("res/drawable-hdpi-v4/ic_launcher.png", "image/png"),
-            ("res/mipmap-mdpi-v4/ic_launcher.png", "image/png"),
-            ("res/mipmap-xhdpi-v4/ic_launcher.webp", "image/webp"),
-            ("res/mipmap-hdpi-v4/ic_launcher.webp", "image/webp"),
-            ("res/mipmap-mdpi-v4/ic_launcher.webp", "image/webp"),
-            ("res/mipmap-xhdpi-v4/ic_launcher_round.png", "image/png"),
-            ("res/mipmap-hdpi-v4/ic_launcher_round.png", "image/png"),
-        ];
-
-        let current_user = get_current_user(&mut device);
-        let mut apk_paths = Vec::new();
-        if !apk_path.trim().is_empty() {
-            apk_paths.push(apk_path.clone());
-        }
-        if let Some(package_name) = package_name.as_ref().filter(|name| !name.trim().is_empty()) {
-            apk_paths.extend(get_package_apk_paths(&mut device, package_name, current_user));
-        }
-        if apk_paths.is_empty() {
-            return Err("no apk path".to_string());
-        }
-
-        let mut seen = HashSet::new();
-        apk_paths.retain(|path| seen.insert(path.clone()));
-
-        for current_apk_path in apk_paths {
-            let escaped = current_apk_path.replace('\'', "'\\''");
-
-            let try_icon_path = |device: &mut ADBServerDevice, icon_path: &str, mime: &str| {
-                let mut out = Vec::new();
-                let cmd = format!("unzip -p '{}' '{}' 2>/dev/null | base64", escaped, icon_path);
-                let _ = device.shell_command(&cmd, Some(&mut out), None::<&mut dyn Write>);
-                let b64: String = out
-                    .iter()
-                    .filter(|&&b| !matches!(b, b'\n' | b'\r' | b' '))
-                    .map(|&b| b as char)
-                    .collect();
-                let is_valid =
-                    (b64.starts_with("iVBOR") || b64.starts_with("UklGR")) && b64.len() > 100;
-                if is_valid {
-                    return Some(format!("data:{};base64,{}", mime, b64));
-                }
-                None
-            };
-
-            for (icon_path, mime) in candidates {
-                if let Some(data_url) = try_icon_path(&mut device, icon_path, mime) {
-                    return Ok(data_url);
+            if let Some(icon_path) = icon_path.as_ref().filter(|path| !path.trim().is_empty()) {
+                let mut icon_bytes = Vec::new();
+                if device.pull(icon_path, &mut icon_bytes).is_ok() && !icon_bytes.is_empty() {
+                    let encoded = general_purpose::STANDARD.encode(icon_bytes);
+                    return Ok(format!("data:image/png;base64,{encoded}"));
                 }
             }
 
-            let list_cmd = format!("unzip -l '{}' 'res/*' 2>/dev/null", escaped);
-            let listing = shell_output(&mut device, &list_cmd);
-            let mut discovered: Vec<String> = listing
-                .lines()
-                .filter_map(|line| line.split_whitespace().last().map(str::to_string))
-                .filter(|path| path.starts_with("res/"))
-                .filter(|path| path.ends_with(".png") || path.ends_with(".webp"))
-                .filter(|path| path.contains("mipmap") || path.contains("drawable"))
-                .filter(|path| {
-                    let lower = path.to_lowercase();
-                    lower.contains("launcher") || lower.contains("icon")
-                })
-                .collect();
+            let candidates: &[(&str, &str)] = &[
+                ("res/mipmap-xhdpi-v4/ic_launcher.png", "image/png"),
+                ("res/mipmap-hdpi-v4/ic_launcher.png", "image/png"),
+                ("res/drawable-xhdpi-v4/ic_launcher.png", "image/png"),
+                ("res/drawable-hdpi-v4/ic_launcher.png", "image/png"),
+                ("res/mipmap-mdpi-v4/ic_launcher.png", "image/png"),
+                ("res/mipmap-xhdpi-v4/ic_launcher.webp", "image/webp"),
+                ("res/mipmap-hdpi-v4/ic_launcher.webp", "image/webp"),
+                ("res/mipmap-mdpi-v4/ic_launcher.webp", "image/webp"),
+                ("res/mipmap-xhdpi-v4/ic_launcher_round.png", "image/png"),
+                ("res/mipmap-hdpi-v4/ic_launcher_round.png", "image/png"),
+            ];
 
-            discovered.sort_by_key(|path| {
-                let lower = path.to_lowercase();
-                let mut score = 0_i32;
+            let current_user = get_current_user(&mut device);
+            let mut apk_paths = Vec::new();
+            if !apk_path.trim().is_empty() {
+                apk_paths.push(apk_path.clone());
+            }
+            if let Some(package_name) =
+                package_name.as_ref().filter(|name| !name.trim().is_empty())
+            {
+                apk_paths.extend(get_package_apk_paths(&mut device, package_name, current_user));
+            }
+            if apk_paths.is_empty() {
+                return Err("no apk path".to_string());
+            }
 
-                if lower.contains("launcher") {
-                    score += 200;
-                }
-                if lower.contains("icon") {
-                    score += 120;
-                }
-                if lower.contains("round") {
-                    score += 30;
-                }
-                if lower.contains("foreground") {
-                    score -= 40;
-                }
-                if lower.contains("background") {
-                    score -= 60;
-                }
-                if lower.contains("xxxhdpi") {
-                    score += 90;
-                } else if lower.contains("xxhdpi") {
-                    score += 80;
-                } else if lower.contains("xhdpi") {
-                    score += 70;
-                } else if lower.contains("hdpi") {
-                    score += 60;
-                } else if lower.contains("mdpi") {
-                    score += 50;
-                } else if lower.contains("nodpi") {
-                    score += 40;
-                }
+            let mut seen = HashSet::new();
+            apk_paths.retain(|path| seen.insert(path.clone()));
 
-                -score
-            });
-            discovered.dedup();
+            for current_apk_path in apk_paths {
+                let escaped = current_apk_path.replace('\'', "'\\''");
 
-            for icon_path in discovered.into_iter().take(24) {
-                let mime = if icon_path.ends_with(".webp") {
-                    "image/webp"
-                } else {
-                    "image/png"
+                let try_icon_path = |device: &mut ADBServerDevice, icon_path: &str, mime: &str| {
+                    let mut out = Vec::new();
+                    let cmd = format!("unzip -p '{}' '{}' 2>/dev/null | base64", escaped, icon_path);
+                    let _ = device.shell_command(&cmd, Some(&mut out), None::<&mut dyn Write>);
+                    let b64: String = out
+                        .iter()
+                        .filter(|&&b| !matches!(b, b'\n' | b'\r' | b' '))
+                        .map(|&b| b as char)
+                        .collect();
+                    let is_valid =
+                        (b64.starts_with("iVBOR") || b64.starts_with("UklGR")) && b64.len() > 100;
+                    if is_valid {
+                        return Some(format!("data:{};base64,{}", mime, b64));
+                    }
+                    None
                 };
-                if let Some(data_url) = try_icon_path(&mut device, &icon_path, mime) {
-                    return Ok(data_url);
+
+                for (icon_path, mime) in candidates {
+                    if let Some(data_url) = try_icon_path(&mut device, icon_path, mime) {
+                        return Ok(data_url);
+                    }
+                }
+
+                let list_cmd = format!("unzip -l '{}' 'res/*' 2>/dev/null", escaped);
+                let listing = shell_output(&mut device, &list_cmd);
+                let mut discovered: Vec<String> = listing
+                    .lines()
+                    .filter_map(|line| line.split_whitespace().last().map(str::to_string))
+                    .filter(|path| path.starts_with("res/"))
+                    .filter(|path| path.ends_with(".png") || path.ends_with(".webp"))
+                    .filter(|path| path.contains("mipmap") || path.contains("drawable"))
+                    .filter(|path| {
+                        let lower = path.to_lowercase();
+                        lower.contains("launcher") || lower.contains("icon")
+                    })
+                    .collect();
+
+                discovered.sort_by_key(|path| {
+                    let lower = path.to_lowercase();
+                    let mut score = 0_i32;
+
+                    if lower.contains("launcher") {
+                        score += 200;
+                    }
+                    if lower.contains("icon") {
+                        score += 120;
+                    }
+                    if lower.contains("round") {
+                        score += 30;
+                    }
+                    if lower.contains("foreground") {
+                        score -= 40;
+                    }
+                    if lower.contains("background") {
+                        score -= 60;
+                    }
+                    if lower.contains("xxxhdpi") {
+                        score += 90;
+                    } else if lower.contains("xxhdpi") {
+                        score += 80;
+                    } else if lower.contains("xhdpi") {
+                        score += 70;
+                    } else if lower.contains("hdpi") {
+                        score += 60;
+                    } else if lower.contains("mdpi") {
+                        score += 50;
+                    } else if lower.contains("nodpi") {
+                        score += 40;
+                    }
+
+                    -score
+                });
+                discovered.dedup();
+
+                for icon_path in discovered.into_iter().take(24) {
+                    let mime = if icon_path.ends_with(".webp") {
+                        "image/webp"
+                    } else {
+                        "image/png"
+                    };
+                    if let Some(data_url) = try_icon_path(&mut device, &icon_path, mime) {
+                        return Ok(data_url);
+                    }
                 }
             }
-        }
 
-        Err("no icon".to_string())
+            Err("no icon".to_string())
+        })
     })
     .await
     .map_err(|e| e.to_string())?

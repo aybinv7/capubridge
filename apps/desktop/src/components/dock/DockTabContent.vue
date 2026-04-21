@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import AssistantTab from "./tabs/AssistantTab.vue";
+import ConsoleTab from "./tabs/ConsoleTab.vue";
 import ExceptionsTab from "./tabs/ExceptionsTab.vue";
 import LogcatTab from "./tabs/LogcatTab.vue";
-import OutputTab from "./tabs/OutputTab.vue";
 import ReplTab from "./tabs/ReplTab.vue";
 import type { DockTab } from "@/types/dock.types";
 
@@ -15,7 +15,7 @@ const componentsByTab = {
   assistant: AssistantTab,
   logcat: LogcatTab,
   repl: ReplTab,
-  output: OutputTab,
+  console: ConsoleTab,
   exceptions: ExceptionsTab,
 } as const;
 

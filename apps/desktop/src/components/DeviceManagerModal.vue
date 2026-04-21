@@ -42,7 +42,7 @@ const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, pairDevice } 
 type Panel = "device" | "local" | "connect";
 const activePanel = ref<Panel>("device");
 const selectedSerial = ref<string | null>(null);
-const { usePackages, getCachedPackage } = useAppPackages(selectedSerial);
+const { getCachedPackage } = useAppPackages(selectedSerial);
 const deviceInfoCache = reactive<Record<string, Awaited<ReturnType<typeof getDeviceOverview>>>>({});
 const deviceInfoLoading = ref(false);
 const isRefreshingDevices = ref(false);
@@ -57,8 +57,6 @@ const chromeNewUrl = ref("https://");
 const openingChromeUrl = ref(false);
 const isWifiConnecting = ref(false);
 const expandedTargetPackages = ref<Set<string>>(new Set());
-
-usePackages("all");
 
 const selectedDevice = computed(
   () => devicesStore.devices.find((d) => d.serial === selectedSerial.value) ?? null,
@@ -510,7 +508,7 @@ watch(
   () => props.open,
   (open) => {
     if (open) {
-      devicesStore.startPolling(3000);
+      void handleRefreshDevices();
       if (devicesStore.selectedDevice) {
         selectedSerial.value = devicesStore.selectedDevice.serial;
         activePanel.value = "device";
@@ -803,6 +801,7 @@ watch(
                               :package-name="group.packageName"
                               :apk-path="getCachedPackage(group.packageName)?.apkPath ?? ''"
                               :icon-path="getCachedPackage(group.packageName)?.iconPath"
+                              :resolve="false"
                               size="sm"
                             />
                           </template>
@@ -857,6 +856,7 @@ watch(
                                 :package-name="t.packageName"
                                 :apk-path="getCachedPackage(t.packageName)?.apkPath ?? ''"
                                 :icon-path="getCachedPackage(t.packageName)?.iconPath"
+                                :resolve="false"
                                 size="sm"
                               />
                             </template>

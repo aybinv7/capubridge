@@ -13,6 +13,14 @@ interface PersistedDockState {
   poppedOutTabs: DockTab[];
 }
 
+function normalizePersistedTab(value: string | null | undefined): DockTab | null {
+  if (value === "output") {
+    return "console";
+  }
+
+  return isDockTab(value) ? value : null;
+}
+
 function getMaxHeight() {
   if (typeof window === "undefined") {
     return 560;
@@ -38,11 +46,13 @@ function readPersistedDockState(): PersistedDockState | null {
   try {
     const parsed = JSON.parse(raw) as Partial<PersistedDockState>;
     const poppedOutTabs = Array.isArray(parsed.poppedOutTabs)
-      ? parsed.poppedOutTabs.filter((tab): tab is DockTab => isDockTab(tab))
+      ? parsed.poppedOutTabs
+          .map((tab) => normalizePersistedTab(tab))
+          .filter((tab): tab is DockTab => tab !== null)
       : [];
 
     return {
-      activeTab: isDockTab(parsed.activeTab) ? parsed.activeTab : "assistant",
+      activeTab: normalizePersistedTab(parsed.activeTab) ?? "assistant",
       heightPx: clampHeight(
         typeof parsed.heightPx === "number" ? parsed.heightPx : dockDefaultHeight,
       ),
@@ -65,7 +75,7 @@ export const useDockStore = defineStore("dock", () => {
     assistant: false,
     logcat: false,
     repl: false,
-    output: false,
+    console: false,
     exceptions: false,
   });
   const poppedOutTabs = ref<Set<DockTab>>(new Set(persistedState?.poppedOutTabs ?? []));

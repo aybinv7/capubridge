@@ -1,4 +1,4 @@
-export const dockTabIds = ["assistant", "logcat", "repl", "output", "exceptions"] as const;
+export const dockTabIds = ["assistant", "logcat", "repl", "console", "exceptions"] as const;
 
 export type DockTab = (typeof dockTabIds)[number];
 

@@ -53,7 +53,7 @@ const commands = [
     group: "Navigate",
     icon: Terminal,
     label: "Dock Console",
-    action: () => dockStore.openDock("logcat"),
+    action: () => dockStore.openDock("console"),
     keys: "J",
   },
   {

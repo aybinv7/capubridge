@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
             Assistant lands in Phase 5
           </h3>
           <p class="text-sm leading-6 text-muted-foreground">
-            Dock shell ready now. Logcat, REPL, output, and exceptions already moved here.
+            Dock shell ready now. Logcat, REPL, console, and exceptions already moved here.
           </p>
         </div>
         <div class="flex items-center justify-center gap-2">

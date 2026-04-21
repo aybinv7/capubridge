@@ -8,10 +8,11 @@ const props = defineProps<{
   apkPath: string;
   packageName: string;
   iconPath?: string | null;
+  resolve?: boolean;
   size?: "sm" | "md" | "lg";
 }>();
 
-const { data: iconUrl, isPending } = useQuery({
+const { data: iconUrl, isFetching } = useQuery({
   queryKey: computed(() => [
     "app-icon",
     props.serial,
@@ -28,7 +29,9 @@ const { data: iconUrl, isPending } = useQuery({
     }),
   staleTime: Infinity,
   gcTime: 1000 * 60 * 60,
-  enabled: computed(() => !!props.serial && (!!props.apkPath || !!props.iconPath)),
+  enabled: computed(
+    () => props.resolve !== false && !!props.serial && (!!props.apkPath || !!props.iconPath),
+  ),
   retry: false,
 });
 
@@ -77,7 +80,11 @@ const letter = computed(() => {
 
 <template>
   <!-- Skeleton while loading -->
-  <div v-if="isPending" :class="sizeClasses" class="shrink-0 animate-pulse bg-surface-3" />
+  <div
+    v-if="props.resolve !== false && isFetching"
+    :class="sizeClasses"
+    class="shrink-0 animate-pulse bg-surface-3"
+  />
 
   <!-- Real icon -->
   <img

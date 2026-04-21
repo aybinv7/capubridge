@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, ref } from "vue";
 import { ChevronRight, ChevronDown } from "lucide-vue-next";
-import { useAdb } from "@/composables/useAdb";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useSourceStore } from "@/stores/source.store";
 import { useTargetsStore } from "@/stores/targets.store";
@@ -9,12 +8,9 @@ import { useAppPackages } from "@/composables/useAppPackages";
 import DeviceManagerModal from "@/components/DeviceManagerModal.vue";
 import AppIcon from "@/modules/devices/AppIcon.vue";
 
-const emit = defineEmits<{ openModal: [] }>();
-
 const devicesStore = useDevicesStore();
 const sourceStore = useSourceStore();
 const targetsStore = useTargetsStore();
-const { cancelListPackages } = useAdb();
 
 const modalOpen = ref(false);
 
@@ -25,18 +21,7 @@ const hasChromeSource = computed(() => sourceStore.hasChromeSource);
 const isConnected = computed(() => device.value?.status === "online" || hasChromeSource.value);
 
 const serial = computed(() => device.value?.serial ?? "");
-const { getCachedPackage, usePackages } = useAppPackages(serial);
-
-const { isFetching: isPackagesFetching } = usePackages("third-party");
-
-onBeforeUnmount(() => {
-  const activeSerial = serial.value;
-  if (!activeSerial || !isPackagesFetching.value) {
-    return;
-  }
-
-  void cancelListPackages(activeSerial);
-});
+const { getCachedPackage } = useAppPackages(serial);
 
 const statusClass = computed(() => {
   if (target.value?.source === "chrome") return "bg-blue-400";
@@ -98,6 +83,7 @@ function onDeviceSelected(serial: string) {
           :packageName="target.packageName"
           :apkPath="getCachedPackage(target.packageName)?.apkPath ?? ''"
           :iconPath="getCachedPackage(target.packageName)?.iconPath"
+          :resolve="false"
           size="sm"
           class="!w-4 !h-4 !rounded-sm"
         />

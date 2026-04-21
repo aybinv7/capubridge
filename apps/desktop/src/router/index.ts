@@ -114,7 +114,11 @@ const routes: RouteRecordRaw[] = [
     beforeEnter: (to, from) => {
       const value = Array.isArray(to.params.tab) ? to.params.tab[0] : to.params.tab;
       const tab =
-        value === "output" || value === "repl" || value === "exceptions" ? value : "logcat";
+        value === "console" || value === "output"
+          ? "console"
+          : value === "repl" || value === "exceptions"
+            ? value
+            : "logcat";
 
       queueDockOpenRequest(tab);
       dispatchDockOpenRequest(tab);

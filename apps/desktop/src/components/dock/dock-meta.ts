@@ -19,9 +19,9 @@ export const dockTabMeta: Record<DockTab, { label: string; windowTitle: string; 
       windowTitle: "REPL",
       icon: Terminal,
     },
-    output: {
-      label: "Output",
-      windowTitle: "Output",
+    console: {
+      label: "Console",
+      windowTitle: "Console",
       icon: FileText,
     },
     exceptions: {

@@ -5,7 +5,7 @@ use commands::adb::{
     adb_connect_device, adb_disconnect_device, adb_get_app_icon, adb_get_device_info,
     adb_get_package_details, adb_list_devices, adb_list_packages, adb_list_webview_sockets,
     adb_open_package, adb_pair_device, adb_reboot, adb_restart_server, adb_root,
-    adb_shell_command, adb_tcpip, adb_start_server,
+    adb_shell_command, adb_tcpip, adb_start_server, start_logcat, stop_logcat,
     adb_reverse, adb_remove_reverse, adb_list_reverse,
 };
 use commands::files::{adb_delete_file, adb_list_dir, adb_open_file, adb_pull_file};
@@ -85,6 +85,8 @@ pub fn run() {
             adb_reverse,
             adb_remove_reverse,
             adb_list_reverse,
+            start_logcat,
+            stop_logcat,
             adb_forward_cdp,
             adb_remove_forward,
             adb_fetch_json_targets,
