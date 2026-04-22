@@ -25,8 +25,8 @@ use commands::perf::{adb_perf_start, adb_perf_stop};
 use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
 use commands::sqlite::{
     sqlite_close_database, sqlite_execute_query, sqlite_list_databases, sqlite_open_database,
-    sqlite_refresh_database, sqlite_scan_all_databases, sqlite_table_columns, sqlite_table_indexes,
-    sqlite_table_rows,
+    sqlite_refresh_database, sqlite_scan_all_databases, sqlite_table_columns,
+    sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
 };
 use session::{
     cache_store::SessionCacheStore,
@@ -184,6 +184,7 @@ pub fn run() {
             sqlite_close_database,
             sqlite_table_columns,
             sqlite_table_indexes,
+            sqlite_table_foreign_keys,
             sqlite_table_rows,
             sqlite_execute_query,
         ])

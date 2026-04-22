@@ -21,6 +21,7 @@
     "@types/node": "catalog:",
     "@unovis/ts": "catalog:",
     "@unovis/vue": "catalog:",
+    "@vue-flow/core": "catalog:",
     "@vue/devtools-core": "^8.1.1",
     "@vue/devtools-electron": "^8.1.1",
     "@vue/devtools-kit": "^8.1.1",

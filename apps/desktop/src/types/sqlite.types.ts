@@ -28,6 +28,17 @@ export interface SqliteIndexInfo {
   sql: string | null;
 }
 
+export interface SqliteForeignKeyInfo {
+  id: number;
+  seq: number;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string | null;
+  onUpdate: string | null;
+  onDelete: string | null;
+  matchClause: string | null;
+}
+
 export interface SqliteQueryResult {
   columns: string[];
   rows: unknown[][];

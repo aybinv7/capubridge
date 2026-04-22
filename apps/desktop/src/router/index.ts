@@ -72,6 +72,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/modules/storage/sqlite/SqliteExplorer.vue"),
       },
       {
+        path: "graph",
+        name: "storage-graph",
+        component: () => import("@/modules/storage/graph/StorageGraphExplorer.vue"),
+      },
+      {
         path: "changes",
         name: "storage-changes",
         component: () => import("@/modules/storage/changes/IndexedDBChangesExplorer.vue"),

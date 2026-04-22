@@ -51,6 +51,19 @@ pub struct SqliteIndexInfo {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct SqliteForeignKeyInfo {
+    pub id: i64,
+    pub seq: i64,
+    pub from_column: String,
+    pub to_table: String,
+    pub to_column: Option<String>,
+    pub on_update: Option<String>,
+    pub on_delete: Option<String>,
+    pub match_clause: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SqliteQueryResult {
     pub columns: Vec<String>,
     pub rows: Vec<Vec<Value>>,
@@ -468,6 +481,69 @@ pub async fn sqlite_table_indexes(
         }
 
         Ok(indexes)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Get foreign keys for a table. Uses on-device sqlite3 — no file transfer.
+#[tauri::command]
+pub async fn sqlite_table_foreign_keys(
+    serial: String,
+    package: String,
+    db_path: String,
+    table_name: String,
+) -> Result<Vec<SqliteForeignKeyInfo>, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut server = get_server().lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {e}"))?;
+
+        let safe_table = table_name.replace('"', "\"\"");
+        let sql = format!("PRAGMA foreign_key_list(\"{safe_table}\");");
+        let output = run_sqlite3_on_device(&mut device, &package, &db_path, &sql)?;
+
+        let mut foreign_keys = Vec::new();
+        for line in output.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let parts: Vec<&str> = line.splitn(8, '|').collect();
+            if parts.len() < 8 {
+                continue;
+            }
+
+            foreign_keys.push(SqliteForeignKeyInfo {
+                id: parts[0].parse().unwrap_or(0),
+                seq: parts[1].parse().unwrap_or(0),
+                to_table: parts[2].trim().to_string(),
+                from_column: parts[3].trim().to_string(),
+                to_column: if parts[4].trim().is_empty() {
+                    None
+                } else {
+                    Some(parts[4].trim().to_string())
+                },
+                on_update: if parts[5].trim().is_empty() {
+                    None
+                } else {
+                    Some(parts[5].trim().to_string())
+                },
+                on_delete: if parts[6].trim().is_empty() {
+                    None
+                } else {
+                    Some(parts[6].trim().to_string())
+                },
+                match_clause: if parts[7].trim().is_empty() {
+                    None
+                } else {
+                    Some(parts[7].trim().to_string())
+                },
+            });
+        }
+
+        Ok(foreign_keys)
     })
     .await
     .map_err(|e| e.to_string())?

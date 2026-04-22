@@ -47,6 +47,7 @@ const iconMap: Record<string, typeof Smartphone> = {
   "storage-cache": Archive,
   "storage-opfs": FolderOpen,
   "storage-sqlite": Table2,
+  "storage-graph": Database,
   "storage-changes": Diff,
   "network-requests": Globe,
   "network-websocket": Terminal,

@@ -3,6 +3,7 @@ import type {
   SqliteDbFile,
   SqliteTableInfo,
   SqliteColumnInfo,
+  SqliteForeignKeyInfo,
   SqliteIndexInfo,
   SqliteQueryResult,
 } from "@/types/sqlite.types";
@@ -52,6 +53,20 @@ export function useSQLite() {
     tableName: string,
   ): Promise<SqliteIndexInfo[]> {
     return invoke<SqliteIndexInfo[]>("sqlite_table_indexes", {
+      serial,
+      package: pkg,
+      dbPath,
+      tableName,
+    });
+  }
+
+  async function tableForeignKeys(
+    serial: string,
+    pkg: string,
+    dbPath: string,
+    tableName: string,
+  ): Promise<SqliteForeignKeyInfo[]> {
+    return invoke<SqliteForeignKeyInfo[]>("sqlite_table_foreign_keys", {
       serial,
       package: pkg,
       dbPath,
@@ -121,6 +136,7 @@ export function useSQLite() {
     openDatabase,
     tableColumns,
     tableIndexes,
+    tableForeignKeys,
     tableRows,
     executeQuery,
     refreshDatabase,
