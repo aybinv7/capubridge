@@ -45,11 +45,10 @@ const tools: Array<{
 
 <template>
   <TooltipProvider :delay-duration="120">
-    <div
-      v-if="visible"
-      class="pointer-events-auto absolute left-7 top-1/2 z-30 -translate-y-1/2"
-    >
-      <div class="flex flex-col gap-1.5 rounded-[32px] border border-primary/15 bg-surface-0/94 p-2 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.68)] backdrop-blur-xl">
+    <div v-if="visible" class="pointer-events-auto absolute left-7 top-1/2 z-30 -translate-y-1/2">
+      <div
+        class="flex flex-col gap-1.5 rounded-[32px] border border-primary/15 bg-surface-0/94 p-2 shadow-[0_30px_80px_-32px_rgba(0,0,0,0.68)] backdrop-blur-xl"
+      >
         <Tooltip v-for="tool in tools" :key="tool.action">
           <TooltipTrigger as-child>
             <Button

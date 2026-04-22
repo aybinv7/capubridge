@@ -23,7 +23,9 @@ function createEmptyScope(): StorageGraphPersistedScope {
   };
 }
 
-function normalizeScope(scope: Partial<StorageGraphPersistedScope> | undefined): StorageGraphPersistedScope {
+function normalizeScope(
+  scope: Partial<StorageGraphPersistedScope> | undefined,
+): StorageGraphPersistedScope {
   return {
     positions: scope?.positions ?? {},
     notes: scope?.notes ?? [],
@@ -163,7 +165,9 @@ export const useStorageGraphStore = defineStore("storage-graph", () => {
       [scopeKey]: {
         ...scope,
         notes: scope.notes.filter((note) => note.id !== noteId),
-        manualEdges: scope.manualEdges.filter((edge) => edge.source !== noteId && edge.target !== noteId),
+        manualEdges: scope.manualEdges.filter(
+          (edge) => edge.source !== noteId && edge.target !== noteId,
+        ),
         groups: pruneGroups(scope.groups, [noteId]),
         positions: nextPositions,
       },
@@ -209,7 +213,11 @@ export const useStorageGraphStore = defineStore("storage-graph", () => {
     };
   }
 
-  function setNodeAnnotation(scopeKey: string, nodeId: string, annotation: StorageGraphNodeAnnotation) {
+  function setNodeAnnotation(
+    scopeKey: string,
+    nodeId: string,
+    annotation: StorageGraphNodeAnnotation,
+  ) {
     const scope = ensureScope(scopeKey);
     scopes.value = {
       ...scopes.value,

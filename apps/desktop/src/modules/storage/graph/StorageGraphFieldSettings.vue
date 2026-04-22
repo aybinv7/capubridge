@@ -49,17 +49,11 @@ defineProps<{
         </span>
 
         <div class="flex justify-center">
-          <span
-            v-if="field.isPrimary"
-            class="h-2.5 w-2.5 rounded-full bg-warning"
-          />
+          <span v-if="field.isPrimary" class="h-2.5 w-2.5 rounded-full bg-warning" />
         </div>
 
         <div class="flex justify-center">
-          <span
-            v-if="field.isIndexed"
-            class="h-2.5 w-2.5 rounded-full bg-info"
-          />
+          <span v-if="field.isIndexed" class="h-2.5 w-2.5 rounded-full bg-info" />
         </div>
 
         <div class="flex justify-center">

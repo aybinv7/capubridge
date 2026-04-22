@@ -39,7 +39,9 @@ const visibleFields = computed(() => props.data.fields.slice(0, 8));
       </div>
 
       <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground/50">
-        <span class="rounded-full bg-surface-2 px-2 py-0.5 font-mono">{{ data.containerLabel }}</span>
+        <span class="rounded-full bg-surface-2 px-2 py-0.5 font-mono">{{
+          data.containerLabel
+        }}</span>
         <span v-if="data.statsLabel" class="rounded-full bg-surface-2 px-2 py-0.5 font-mono">
           {{ data.statsLabel }}
         </span>
@@ -53,13 +55,18 @@ const visibleFields = computed(() => props.data.fields.slice(0, 8));
     </div>
 
     <div class="space-y-3 px-4 py-3">
-      <div v-if="data.annotation?.note" class="rounded-xl bg-surface-2 px-3 py-2 text-[11px] text-foreground/75">
+      <div
+        v-if="data.annotation?.note"
+        class="rounded-xl bg-surface-2 px-3 py-2 text-[11px] text-foreground/75"
+      >
         {{ data.annotation.note }}
       </div>
 
       <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <span class="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/35">Fields</span>
+          <span class="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            >Fields</span
+          >
           <span class="text-[10px] text-muted-foreground/35">{{ data.fields.length }}</span>
         </div>
 

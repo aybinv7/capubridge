@@ -12,10 +12,7 @@ const accentStyle = computed(() => ({
 </script>
 
 <template>
-  <div
-    class="w-[260px] rounded-2xl border-2 bg-surface-0 px-4 py-3 shadow-md"
-    :style="accentStyle"
-  >
+  <div class="w-[260px] rounded-2xl border-2 bg-surface-0 px-4 py-3 shadow-md" :style="accentStyle">
     <Handle id="target" type="target" :position="Position.Left" class="!h-3 !w-3 !border-2" />
 
     <p class="text-[13px] font-semibold text-foreground">{{ data.title || "Note" }}</p>

@@ -74,7 +74,10 @@ function storageOrder(kind: LayoutItem["storageKind"]): number {
 }
 
 export function normalizeGraphFieldName(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 export function dedupeGraphFields(fields: StorageGraphField[]): StorageGraphField[] {
@@ -248,8 +251,7 @@ function buildPairRelationship(
       source: best.source,
       target: best.target,
       label,
-      confidence:
-        best.combinedRank >= 15 ? "high" : best.combinedRank >= 11 ? "medium" : "low",
+      confidence: best.combinedRank >= 15 ? "high" : best.combinedRank >= 11 ? "medium" : "low",
       sourceFieldName: best.displayName,
       targetFieldName: best.displayName,
     },
@@ -311,10 +313,7 @@ export function buildFieldMatchRelationships(
 
     const sourceCount = nodeEdgeCounts.get(candidate.edge.source) ?? 0;
     const targetCount = nodeEdgeCounts.get(candidate.edge.target) ?? 0;
-    if (
-      sourceCount >= MAX_INFERRED_EDGES_PER_NODE ||
-      targetCount >= MAX_INFERRED_EDGES_PER_NODE
-    ) {
+    if (sourceCount >= MAX_INFERRED_EDGES_PER_NODE || targetCount >= MAX_INFERRED_EDGES_PER_NODE) {
       continue;
     }
 
@@ -327,7 +326,9 @@ export function buildFieldMatchRelationships(
   return results;
 }
 
-export function buildAutoLayoutPositions(items: LayoutItem[]): Record<string, StorageGraphPosition> {
+export function buildAutoLayoutPositions(
+  items: LayoutItem[],
+): Record<string, StorageGraphPosition> {
   const sortedItems = [...items].sort((left, right) => {
     const storageDelta = storageOrder(left.storageKind) - storageOrder(right.storageKind);
     if (storageDelta !== 0) {

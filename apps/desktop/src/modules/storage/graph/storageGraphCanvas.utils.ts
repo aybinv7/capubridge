@@ -2,6 +2,7 @@ import type { Node } from "@vue-flow/core";
 import type { StorageGraphNodeData } from "@/types/storageGraph.types";
 
 export type StorageGraphCanvasMode = "pan" | "select";
+type StorageGraphCanvasNode = Node<StorageGraphNodeData> & { selected?: boolean };
 
 export type StorageGraphSelectionAction =
   | "group"
@@ -19,22 +20,26 @@ export type StorageGraphSelectionAction =
 const PACK_GAP_X = 320;
 const PACK_GAP_Y = 220;
 
-function sortByX(nodes: Node<StorageGraphNodeData>[]) {
+function sortByX(nodes: StorageGraphCanvasNode[]) {
   return [...nodes].sort(
     (left, right) =>
-      left.position.x - right.position.x || left.position.y - right.position.y || left.id.localeCompare(right.id),
+      left.position.x - right.position.x ||
+      left.position.y - right.position.y ||
+      left.id.localeCompare(right.id),
   );
 }
 
-function sortByY(nodes: Node<StorageGraphNodeData>[]) {
+function sortByY(nodes: StorageGraphCanvasNode[]) {
   return [...nodes].sort(
     (left, right) =>
-      left.position.y - right.position.y || left.position.x - right.position.x || left.id.localeCompare(right.id),
+      left.position.y - right.position.y ||
+      left.position.x - right.position.x ||
+      left.id.localeCompare(right.id),
   );
 }
 
 function updateSelectedNodePositions(
-  nodes: Node<StorageGraphNodeData>[],
+  nodes: StorageGraphCanvasNode[],
   positions: Map<string, { x: number; y: number }>,
 ) {
   return nodes.map((node) => {
@@ -50,12 +55,12 @@ function updateSelectedNodePositions(
   });
 }
 
-export function getSelectedCanvasNodes(nodes: Node<StorageGraphNodeData>[]) {
-  return nodes.filter((node) => node.selected);
+export function getSelectedCanvasNodes(nodes: StorageGraphCanvasNode[]) {
+  return nodes.filter((node) => Boolean(node.selected));
 }
 
 export function applySelectionAction(
-  nodes: Node<StorageGraphNodeData>[],
+  nodes: StorageGraphCanvasNode[],
   action: StorageGraphSelectionAction,
 ) {
   const selectedNodes = getSelectedCanvasNodes(nodes);

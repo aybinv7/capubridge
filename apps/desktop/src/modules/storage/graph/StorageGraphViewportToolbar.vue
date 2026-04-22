@@ -22,10 +22,17 @@ const emit = defineEmits<{
   <TooltipProvider :delay-duration="120">
     <div class="pointer-events-auto absolute bottom-5 left-5 z-30">
       <div class="flex items-center gap-2">
-        <div class="flex items-center gap-1 rounded-[22px] border border-border/25 bg-surface-0/92 p-1.5 shadow-[0_18px_70px_-28px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+        <div
+          class="flex items-center gap-1 rounded-[22px] border border-border/25 bg-surface-0/92 p-1.5 shadow-[0_18px_70px_-28px_rgba(0,0,0,0.6)] backdrop-blur-xl"
+        >
           <Tooltip>
             <TooltipTrigger as-child>
-              <Button size="icon-sm" variant="ghost" class="h-10 w-10 rounded-2xl" @click="emit('zoomOut')">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                class="h-10 w-10 rounded-2xl"
+                @click="emit('zoomOut')"
+              >
                 <Minus :size="16" />
               </Button>
             </TooltipTrigger>
@@ -47,7 +54,12 @@ const emit = defineEmits<{
 
           <Tooltip>
             <TooltipTrigger as-child>
-              <Button size="icon-sm" variant="ghost" class="h-10 w-10 rounded-2xl" @click="emit('zoomIn')">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                class="h-10 w-10 rounded-2xl"
+                @click="emit('zoomIn')"
+              >
                 <Plus :size="16" />
               </Button>
             </TooltipTrigger>
@@ -55,7 +67,9 @@ const emit = defineEmits<{
           </Tooltip>
         </div>
 
-        <div class="flex items-center gap-1 rounded-[22px] border border-border/25 bg-surface-0/92 p-1.5 shadow-[0_18px_70px_-28px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+        <div
+          class="flex items-center gap-1 rounded-[22px] border border-border/25 bg-surface-0/92 p-1.5 shadow-[0_18px_70px_-28px_rgba(0,0,0,0.6)] backdrop-blur-xl"
+        >
           <Tooltip>
             <TooltipTrigger as-child>
               <Button

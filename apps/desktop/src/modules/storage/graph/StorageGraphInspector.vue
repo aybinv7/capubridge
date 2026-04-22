@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import {
-  ArrowRightLeft,
-  Database,
-  Link2,
-  StickyNote,
-  TableProperties,
-} from "lucide-vue-next";
+import { ArrowRightLeft, Database, Link2, StickyNote, TableProperties } from "lucide-vue-next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,9 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   saveAnnotation: [nodeId: string, annotation: StorageGraphNodeAnnotation];
-  saveNote: [
-    payload: { id: string; title: string; note: string; accent: string },
-  ];
+  saveNote: [payload: { id: string; title: string; note: string; accent: string }];
   deleteNote: [noteId: string];
   openNode: [path: string];
   saveEdge: [payload: { id: string; label: string }];
@@ -119,13 +111,8 @@ function saveNode() {
               <div class="min-w-0">
                 <div class="flex items-center gap-2">
                   <Badge variant="outline" class="gap-1 rounded-full">
-                    <component
-                      :is="isNoteNode ? StickyNote : Database"
-                      :size="12"
-                    />
-                    {{
-                      selectedNodeData.nodeKind === "note" ? "note" : "table"
-                    }}
+                    <component :is="isNoteNode ? StickyNote : Database" :size="12" />
+                    {{ selectedNodeData.nodeKind === "note" ? "note" : "table" }}
                   </Badge>
                   <span
                     v-if="selectedNodeData.nodeKind === 'entity'"
@@ -156,36 +143,24 @@ function saveNode() {
             v-if="selectedNodeData.nodeKind === 'entity'"
             class="grid grid-cols-3 gap-2 px-4 py-4"
           >
-            <div
-              class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3"
-            >
-              <div
-                class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35"
-              >
+            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
+              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
                 Fields
               </div>
               <div class="pt-2 text-lg font-semibold text-foreground">
                 {{ selectedNodeData.fields.length }}
               </div>
             </div>
-            <div
-              class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3"
-            >
-              <div
-                class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35"
-              >
+            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
+              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
                 Rows
               </div>
               <div class="pt-2 text-sm font-semibold text-foreground">
                 {{ selectedNodeData.statsLabel || "n/a" }}
               </div>
             </div>
-            <div
-              class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3"
-            >
-              <div
-                class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35"
-              >
+            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
+              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
                 Changes
               </div>
               <div class="pt-2 text-lg font-semibold text-foreground">
@@ -197,20 +172,14 @@ function saveNode() {
 
         <template v-if="isNoteNode">
           <div class="space-y-2">
-            <label
-              class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
               >Title</label
             >
-            <Input
-              v-model="noteTitle"
-              class="h-10 rounded-xl text-sm"
-              placeholder="Note title"
-            />
+            <Input v-model="noteTitle" class="h-10 rounded-xl text-sm" placeholder="Note title" />
           </div>
 
           <div class="space-y-2">
-            <label
-              class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
               >Body</label
             >
             <Textarea
@@ -221,8 +190,7 @@ function saveNode() {
           </div>
 
           <div class="space-y-2">
-            <label
-              class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
               >Accent</label
             >
             <input
@@ -233,16 +201,12 @@ function saveNode() {
           </div>
 
           <div class="flex items-center gap-2">
-            <Button size="sm" class="h-9 text-xs" @click="saveNode"
-              >Save note</Button
-            >
+            <Button size="sm" class="h-9 text-xs" @click="saveNode">Save note</Button>
             <Button
               variant="destructive"
               size="sm"
               class="h-9 text-xs"
-              @click="
-                props.selectedNode && emit('deleteNote', props.selectedNode.id)
-              "
+              @click="props.selectedNode && emit('deleteNote', props.selectedNode.id)"
             >
               Delete
             </Button>
@@ -251,8 +215,7 @@ function saveNode() {
 
         <template v-else>
           <div class="space-y-2">
-            <label
-              class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
               >Alias</label
             >
             <Input
@@ -263,8 +226,7 @@ function saveNode() {
           </div>
 
           <div class="space-y-2">
-            <label
-              class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
               >Attached note</label
             >
             <Textarea
@@ -275,9 +237,7 @@ function saveNode() {
           </div>
 
           <div class="flex items-center gap-2">
-            <Button size="sm" class="h-9 text-xs" @click="saveNode"
-              >Save</Button
-            >
+            <Button size="sm" class="h-9 text-xs" @click="saveNode">Save</Button>
             <Button
               variant="outline"
               size="sm"
@@ -294,8 +254,7 @@ function saveNode() {
 
           <div class="space-y-2">
             <div class="flex items-center justify-between">
-              <label
-                class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+              <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
                 >Field map</label
               >
               <Badge variant="outline" class="gap-1 rounded-full">
@@ -336,24 +295,16 @@ function saveNode() {
           </div>
 
           <div class="grid grid-cols-2 gap-2 px-4 py-4">
-            <div
-              class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3"
-            >
-              <div
-                class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35"
-              >
+            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
+              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
                 Confidence
               </div>
               <div class="pt-2 text-sm font-semibold text-foreground">
                 {{ selectedEdge.confidence }}
               </div>
             </div>
-            <div
-              class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3"
-            >
-              <div
-                class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35"
-              >
+            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
+              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
                 Type
               </div>
               <div class="pt-2 text-sm font-semibold text-foreground">
@@ -364,15 +315,10 @@ function saveNode() {
         </div>
 
         <div class="space-y-2">
-          <label
-            class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+          <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
             >Label</label
           >
-          <Input
-            v-model="edgeLabel"
-            class="h-10 rounded-xl text-sm"
-            placeholder="Link label"
-          />
+          <Input v-model="edgeLabel" class="h-10 rounded-xl text-sm" placeholder="Link label" />
         </div>
 
         <div class="flex items-center gap-2">
@@ -402,8 +348,7 @@ function saveNode() {
         >
           <p class="text-sm font-medium text-foreground/75">Nothing selected</p>
           <p class="pt-2 text-xs leading-5 text-muted-foreground/45">
-            Pick node or link. Right panel will show fields, relation details,
-            and notes.
+            Pick node or link. Right panel will show fields, relation details, and notes.
           </p>
         </div>
       </div>

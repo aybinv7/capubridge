@@ -11,7 +11,9 @@ defineProps<NodeProps<StorageGraphGroupFrameNodeData>>();
     :style="{ width: `${data.width}px`, height: `${data.height}px` }"
   >
     <div class="pl-4 pt-3">
-      <span class="rounded-full bg-surface-0/90 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-primary shadow-sm">
+      <span
+        class="rounded-full bg-surface-0/90 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-primary shadow-sm"
+      >
         {{ data.title }}
       </span>
     </div>

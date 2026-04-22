@@ -1,6 +1,12 @@
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { IDBDomain, LocalForageDomain, type IDBDatabaseInfo, type IDBRecord, type StoreInfo } from "utils";
+import {
+  IDBDomain,
+  LocalForageDomain,
+  type IDBDatabaseInfo,
+  type IDBRecord,
+  type StoreInfo,
+} from "utils";
 import { useCDP } from "@/composables/useCDP";
 import { useSQLite } from "@/composables/useSQLite";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -184,7 +190,11 @@ function buildIndexedDbDescriptor(
   };
 }
 
-function buildLocalForageDescriptor(origin: string, key: string, rawValue: string): StorageGraphEntityDescriptor {
+function buildLocalForageDescriptor(
+  origin: string,
+  key: string,
+  rawValue: string,
+): StorageGraphEntityDescriptor {
   const parsedValue = parseJsonValue(rawValue);
   const valueFields = extractObjectEntries(parsedValue).map(([field, value]) =>
     makeField(field, "sample-field", {
@@ -314,15 +324,14 @@ export function useStorageGraphData() {
     return target.packageName?.trim() ?? "";
   });
 
-  const scopeKey = computed(
-    () =>
-      [
-        "storage-graph",
-        serial.value || "no-serial",
-        targetId.value || "no-target",
-        selectedOrigin.value || "no-origin",
-        selectedPackageName.value || "no-package",
-      ].join(":"),
+  const scopeKey = computed(() =>
+    [
+      "storage-graph",
+      serial.value || "no-serial",
+      targetId.value || "no-target",
+      selectedOrigin.value || "no-origin",
+      selectedPackageName.value || "no-package",
+    ].join(":"),
   );
 
   const indexedDbQuery = useQuery({
@@ -400,7 +409,12 @@ export function useStorageGraphData() {
               const [columns, indexes, foreignKeys] = await Promise.all([
                 tableColumns(serial.value, selectedPackageName.value, database.path, table.name),
                 tableIndexes(serial.value, selectedPackageName.value, database.path, table.name),
-                tableForeignKeys(serial.value, selectedPackageName.value, database.path, table.name),
+                tableForeignKeys(
+                  serial.value,
+                  selectedPackageName.value,
+                  database.path,
+                  table.name,
+                ),
               ]);
 
               return buildSqliteDescriptor(
@@ -429,12 +443,7 @@ export function useStorageGraphData() {
         continue;
       }
 
-      const nodeId = makeGraphId(
-        "idb",
-        change.origin,
-        change.databaseName,
-        change.objectStoreName,
-      );
+      const nodeId = makeGraphId("idb", change.origin, change.databaseName, change.objectStoreName);
       counts[nodeId] = (counts[nodeId] ?? 0) + 1;
     }
 
@@ -450,7 +459,8 @@ export function useStorageGraphData() {
   const entities = computed<StorageGraphEntityDescriptor[]>(() =>
     baseEntities.value.map((entity) => ({
       ...entity,
-      changeCount: entity.storageKind === "indexeddb" ? indexedDbChangeCounts.value[entity.id] ?? 0 : 0,
+      changeCount:
+        entity.storageKind === "indexeddb" ? (indexedDbChangeCounts.value[entity.id] ?? 0) : 0,
       annotation: graphStore.getNodeAnnotation(scopeKey.value, entity.id),
     })),
   );
@@ -569,7 +579,8 @@ export function useStorageGraphData() {
     targetId,
     selectedOrigin,
     availableOrigins: computed(() => availableOriginsQuery.data.value ?? []),
-    setSelectedOrigin: (origin: string) => storageContextStore.setSelectedOrigin(targetId.value, origin),
+    setSelectedOrigin: (origin: string) =>
+      storageContextStore.setSelectedOrigin(targetId.value, origin),
     selectedPackageName,
     scopeKey,
     entities,

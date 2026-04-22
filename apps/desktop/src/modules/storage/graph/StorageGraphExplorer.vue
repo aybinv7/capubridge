@@ -167,7 +167,9 @@ const visibleRelationships = computed(() =>
       return false;
     }
 
-    return visibleNodeIds.value.has(relationship.source) && visibleNodeIds.value.has(relationship.target);
+    return (
+      visibleNodeIds.value.has(relationship.source) && visibleNodeIds.value.has(relationship.target)
+    );
   }),
 );
 
@@ -185,7 +187,9 @@ const nodeGroupIndex = computed(() => {
 });
 const selectedNodes = computed(() => getSelectedCanvasNodes(getInteractiveNodes(nodes.value)));
 const canArrangeSelection = computed(() => selectedNodes.value.length > 1);
-const selectedNode = computed(() => getInteractiveNodes(nodes.value).find((node) => node.id === selectedNodeId.value) ?? null);
+const selectedNode = computed(
+  () => getInteractiveNodes(nodes.value).find((node) => node.id === selectedNodeId.value) ?? null,
+);
 const selectedEdge = computed(
   () => visibleRelationships.value.find((edge) => edge.id === selectedEdgeId.value) ?? null,
 );
@@ -193,12 +197,15 @@ const entityCount = computed(() => filteredEntities.value.length);
 const relationshipCount = computed(() => visibleRelationships.value.length);
 
 function buildNodes() {
-  const selectedIds = new Set(getSelectedCanvasNodes(getInteractiveNodes(nodes.value)).map((node) => node.id));
+  const selectedIds = new Set(
+    getSelectedCanvasNodes(getInteractiveNodes(nodes.value)).map((node) => node.id),
+  );
 
   const entityNodes: Node<StorageGraphNodeData>[] = filteredEntities.value.map((entity) => ({
     id: entity.id,
     type: "entity",
-    position: persistedPositions.value[entity.id] ?? autoLayoutPositions.value[entity.id] ?? { x: 0, y: 0 },
+    position: persistedPositions.value[entity.id] ??
+      autoLayoutPositions.value[entity.id] ?? { x: 0, y: 0 },
     data: {
       nodeKind: "entity",
       entityKind: entity.entityKind,
@@ -223,7 +230,9 @@ function buildNodes() {
   const noteNodes: Node<StorageGraphNodeData>[] = notes.value.map((note) => ({
     id: note.id,
     type: "note",
-    position: persistedPositions.value[note.id] ?? note.position ?? autoLayoutPositions.value[note.id] ?? { x: 0, y: 0 },
+    position: persistedPositions.value[note.id] ??
+      note.position ??
+      autoLayoutPositions.value[note.id] ?? { x: 0, y: 0 },
     data: {
       nodeKind: "note",
       title: note.title,
@@ -495,8 +504,9 @@ function handleSelectionAction(action: StorageGraphSelectionAction) {
 
   if (action === "ungroup") {
     const selectedIds = new Set(selectedNodes.value.map((node) => node.id));
-    const groupsToRemove = persistedGroups.value.filter((group) =>
-      group.nodeIds.length > 1 && group.nodeIds.every((nodeId) => selectedIds.has(nodeId)),
+    const groupsToRemove = persistedGroups.value.filter(
+      (group) =>
+        group.nodeIds.length > 1 && group.nodeIds.every((nodeId) => selectedIds.has(nodeId)),
     );
 
     if (groupsToRemove.length === 0) {
@@ -664,7 +674,15 @@ watch(selectedNodes, (value) => {
 });
 
 watch(
-  [filteredEntities, notes, visibleRelationships, autoLayoutPositions, persistedPositions, persistedGroups, scopeKey],
+  [
+    filteredEntities,
+    notes,
+    visibleRelationships,
+    autoLayoutPositions,
+    persistedPositions,
+    persistedGroups,
+    scopeKey,
+  ],
   async () => {
     const baseNodes = buildNodes();
     nodes.value = [...baseNodes, ...buildGroupFrameNodes(baseNodes)];
@@ -688,17 +706,25 @@ watch(
     <div class="border-b border-border/20 bg-surface-0 px-4 py-3">
       <div class="flex flex-wrap items-center gap-2">
         <Select v-model:model-value="selectedOriginModel">
-          <SelectTrigger class="h-9 min-w-[14rem] rounded-xl border-border/30 bg-surface-2 text-xs font-mono">
+          <SelectTrigger
+            class="h-9 min-w-[14rem] rounded-xl border-border/30 bg-surface-2 text-xs font-mono"
+          >
             <SelectValue placeholder="Select origin" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem v-for="originOption in availableOrigins" :key="originOption" :value="originOption">
+            <SelectItem
+              v-for="originOption in availableOrigins"
+              :key="originOption"
+              :value="originOption"
+            >
               {{ originOption }}
             </SelectItem>
           </SelectContent>
         </Select>
 
-        <div class="flex min-w-[16rem] flex-1 items-center gap-2 rounded-xl border border-border/30 bg-surface-2 px-3 py-2">
+        <div
+          class="flex min-w-[16rem] flex-1 items-center gap-2 rounded-xl border border-border/30 bg-surface-2 px-3 py-2"
+        >
           <Input
             v-model="search"
             class="h-5 border-0 bg-transparent px-0 text-xs font-mono focus-visible:ring-0"
@@ -732,10 +758,20 @@ watch(
 
     <ResizablePanelGroup direction="horizontal" class="min-h-0 flex-1">
       <ResizablePanel :default-size="76" :min-size="45" class="min-h-0">
-        <div class="relative h-full bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.04),_transparent_38%),linear-gradient(180deg,var(--color-surface-0),var(--color-surface-1))]">
+        <div
+          class="relative h-full bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.04),_transparent_38%),linear-gradient(180deg,var(--color-surface-0),var(--color-surface-1))]"
+        >
           <div
             class="pointer-events-none absolute inset-0 z-0 opacity-70"
-            style="background-image: radial-gradient(circle, rgba(255,255,255,0.11) 1px, transparent 1.5px); background-position: 0 0; background-size: 24px 24px;"
+            style="
+              background-image: radial-gradient(
+                circle,
+                rgba(255, 255, 255, 0.11) 1px,
+                transparent 1.5px
+              );
+              background-position: 0 0;
+              background-size: 24px 24px;
+            "
           />
 
           <div
@@ -774,7 +810,10 @@ watch(
             @pane-click="clearSelection"
           />
 
-          <StorageGraphSelectionToolbar :visible="canArrangeSelection" @action="handleSelectionAction" />
+          <StorageGraphSelectionToolbar
+            :visible="canArrangeSelection"
+            @action="handleSelectionAction"
+          />
 
           <StorageGraphCanvasDock
             v-model:mode="canvasMode"
