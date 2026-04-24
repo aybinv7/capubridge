@@ -11,6 +11,7 @@ import {
 
 const props = defineProps<{
   value: unknown;
+  hideLineNumbers?: boolean;
 }>();
 
 const jsonString = computed(() => JSON.stringify(props.value, null, 2));
@@ -271,6 +272,7 @@ defineExpose({ expandAll, collapseAll, toggleAll, filterInputRef });
 
     <div class="flex flex-1 overflow-hidden text-sm font-mono leading-5">
       <div
+        v-if="!hideLineNumbers"
         class="flex-shrink-0 select-none text-right pr-3 text-muted-foreground/30 border-r border-border/20 overflow-hidden"
       >
         <div v-for="(_, i) in Array.from({ length: lineCount })" :key="i" class="h-5">

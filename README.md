@@ -168,10 +168,8 @@ Each device session runs at one of three temperatures:
 - [x] Package manager with persistent icon cache
 - [x] File browser with protected path fallbacks
 - [x] Multi-platform builds (Linux, macOS x64/arm64, Windows)
-- [X] Storage diff — compare storage snapshots between sessions or builds
-- [X] JS console REPL — run arbitrary JavaScript in the WebView context with full autocomplete
-
-
+- [x] Storage diff — compare storage snapshots between sessions or builds
+- [x] JS console REPL — run arbitrary JavaScript in the WebView context with full autocomplete
 
 ### v1.x — Planned
 

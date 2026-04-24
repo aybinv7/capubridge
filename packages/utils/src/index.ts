@@ -27,3 +27,19 @@ export type {
 } from "./cdp/domains/css.js";
 export { OverlayDomain } from "./cdp/domains/overlay.js";
 export type { HighlightConfig, RGBA } from "./cdp/domains/overlay.js";
+export { NetworkDomain } from "./cdp/domains/network.js";
+export type {
+  CDPResourceTiming,
+  CDPNetworkResponse,
+  RequestWillBeSentEvent,
+  ResponseReceivedEvent,
+  LoadingFinishedEvent,
+  LoadingFailedEvent,
+  RequestServedFromCacheEvent,
+  WebSocketCreatedEvent,
+  WebSocketHandshakeEvent,
+  WebSocketClosedEvent,
+  WebSocketFrameEvent,
+  GetResponseBodyResult,
+  NetworkEnableParams,
+} from "./cdp/domains/network.js";
