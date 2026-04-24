@@ -58,7 +58,7 @@ export function useMirrorViewportWidth(streamAreaRef: Ref<HTMLElement | null>) {
 
   const fittedPanelWidth = computed(() => {
     if (!streamAreaHeight.value) {
-      return mirrorStore.width;
+      return mirrorStore.preferredWidth;
     }
 
     const nextWidth =
@@ -67,7 +67,7 @@ export function useMirrorViewportWidth(streamAreaRef: Ref<HTMLElement | null>) {
     return Math.min(PANEL_MAX_WIDTH_PX, Math.max(PANEL_MIN_WIDTH_PX, nextWidth));
   });
 
-  const panelWidth = computed(() => Math.max(mirrorStore.width, fittedPanelWidth.value));
+  const panelWidth = computed(() => Math.max(mirrorStore.preferredWidth, fittedPanelWidth.value));
 
   return {
     panelWidth,

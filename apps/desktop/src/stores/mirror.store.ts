@@ -14,6 +14,7 @@ export const useMirrorStore = defineStore("mirror", () => {
   const isOpen = ref(false);
   const side = ref<MirrorSide>("right");
   const width = ref(272);
+  const preferredWidth = ref(272);
   const isDetached = ref(false);
   const isStreaming = ref(false);
   const isRecording = ref(false);
@@ -48,14 +49,18 @@ export const useMirrorStore = defineStore("mirror", () => {
     side.value = s;
   }
   function setWidth(w: number) {
-    width.value = Math.max(220, Math.min(560, w));
+    const nextWidth = Math.max(220, Math.min(560, w));
+    width.value = nextWidth;
+    preferredWidth.value = nextWidth;
   }
   function setDeviceSize(w: number, h: number) {
     deviceWidth.value = w;
     deviceHeight.value = h;
     if (h > 0) {
-      const idealWidth = Math.round((w / h) * 760);
-      width.value = Math.max(240, Math.min(520, idealWidth));
+      const idealWidth = Math.round((w / h) * 680);
+      const nextPreferredWidth = Math.max(220, Math.min(460, idealWidth));
+      preferredWidth.value = nextPreferredWidth;
+      width.value = Math.max(width.value, nextPreferredWidth);
     }
   }
 
@@ -63,6 +68,7 @@ export const useMirrorStore = defineStore("mirror", () => {
     isOpen,
     side,
     width,
+    preferredWidth,
     isDetached,
     isStreaming,
     isRecording,

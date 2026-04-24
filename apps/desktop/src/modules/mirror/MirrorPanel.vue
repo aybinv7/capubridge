@@ -6,7 +6,8 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
-import { useMirrorStream } from "./useMirrorStream";
+import { AndroidKey, useMirrorStream } from "./useMirrorStream";
+import { getDetachedMirrorLayoutMetrics } from "./detachedMirrorLayout";
 import MirrorStream from "./MirrorStream.vue";
 import MirrorControls from "./MirrorControls.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
@@ -25,6 +26,8 @@ const {
   downloadScreenshot,
   sendKey,
   sendTouch,
+  sendWheel,
+  sendKeyboard,
   startRecording,
   stopRecording,
   launchExternalScrcpy,
@@ -60,6 +63,10 @@ function startResize(e: MouseEvent) {
   window.addEventListener("wheel", onWheel);
   window.addEventListener("mousemove", onMove);
   window.addEventListener("mouseup", onUp);
+}
+
+function handleStreamNavigation(action: "back" | "home") {
+  void sendKey(action === "back" ? AndroidKey.BACK : AndroidKey.HOME);
 }
 
 watch(
@@ -126,14 +133,23 @@ async function handleDetach() {
 
   try {
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    const metrics = getDetachedMirrorLayoutMetrics({
+      preferredWidth: mirrorStore.preferredWidth,
+      aspectRatio: mirrorStore.aspectRatio,
+      availWidth: window.screen.availWidth,
+      availHeight: window.screen.availHeight,
+      mode: "panel",
+      settingsOpen: false,
+      isRecording: mirrorStore.isRecording,
+    });
     const win = new WebviewWindow("mirror-detached", {
       url: "/?mirror=1",
       title: "Device Mirror",
-      width: mirrorStore.width + 16,
-      height: 680,
-      minWidth: 200,
-      minHeight: 400,
-      resizable: true,
+      width: metrics.windowWidth,
+      height: metrics.windowHeight,
+      minWidth: 212,
+      minHeight: 420,
+      resizable: false,
       decorations: false,
       alwaysOnTop: mirrorStore.alwaysOnTop,
     });
@@ -255,6 +271,9 @@ function toggleRecord() {
             :device-height="mirrorStore.deviceHeight"
             :inspect-mode="inspectStore.inspectMode"
             @touch="sendTouch"
+            @wheel="sendWheel"
+            @navigation="handleStreamNavigation"
+            @keyboard="sendKeyboard"
             @inspect-hover="handleInspectHover"
             @inspect-select="handleInspectSelect"
             @inspect-leave="handleInspectLeave"

@@ -8,8 +8,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex as TokioMutex, Notify};
 
@@ -29,9 +30,16 @@ static SCRCPY_CONTROL_SESSIONS: LazyLock<Mutex<HashMap<String, ScrcpyControlSess
 
 #[derive(Clone)]
 struct ScrcpyControlSession {
-    socket: Arc<TokioMutex<TcpStream>>,
+    socket: Arc<TokioMutex<OwnedWriteHalf>>,
     width: u16,
     height: u16,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScrcpyClipboardEvent {
+    serial: String,
+    text: String,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -78,9 +86,22 @@ const SCRCPY_FLAG_KEY_FRAME: u64 = 1 << 62;
 const SCRCPY_GITHUB_LATEST_RELEASE: &str =
     "https://api.github.com/repos/Genymobile/scrcpy/releases/latest";
 const SCRCPY_MSG_TYPE_INJECT_TOUCH: u8 = 2;
+const SCRCPY_MSG_TYPE_INJECT_SCROLL: u8 = 3;
+const SCRCPY_MSG_TYPE_GET_CLIPBOARD: u8 = 8;
+const SCRCPY_MSG_TYPE_SET_CLIPBOARD: u8 = 9;
+const SCRCPY_MSG_TYPE_INJECT_KEYCODE: u8 = 0;
+const SCRCPY_MSG_TYPE_INJECT_TEXT: u8 = 1;
 const SCRCPY_TOUCH_ACTION_DOWN: u8 = 0;
 const SCRCPY_TOUCH_ACTION_UP: u8 = 1;
 const SCRCPY_TOUCH_ACTION_MOVE: u8 = 2;
+const SCRCPY_KEY_ACTION_DOWN: u8 = 0;
+const SCRCPY_KEY_ACTION_UP: u8 = 1;
+const SCRCPY_COPY_KEY_NONE: u8 = 0;
+const SCRCPY_COPY_KEY_COPY: u8 = 1;
+const SCRCPY_COPY_KEY_CUT: u8 = 2;
+const SCRCPY_DEVICE_MSG_CLIPBOARD: u8 = 0;
+const SCRCPY_DEVICE_MSG_ACK_CLIPBOARD: u8 = 1;
+const SCRCPY_DEVICE_MSG_UHID_OUTPUT: u8 = 2;
 
 fn stop_scrcpy_stream_session(serial: &str) {
     if let Ok(mut sessions) = SCRCPY_STREAM_SHUTDOWNS.lock() {
@@ -140,16 +161,103 @@ fn build_scrcpy_touch_message(
     Ok(buf)
 }
 
+fn push_scrcpy_position(buf: &mut Vec<u8>, x: u32, y: u32, screen_w: u16, screen_h: u16) {
+    buf.extend_from_slice(&x.to_be_bytes());
+    buf.extend_from_slice(&y.to_be_bytes());
+    buf.extend_from_slice(&screen_w.to_be_bytes());
+    buf.extend_from_slice(&screen_h.to_be_bytes());
+}
+
+fn encode_i16_fixed_point(value: f32) -> i16 {
+    let clamped = value.clamp(-1.0, 1.0);
+    if clamped >= 0.0 {
+        (clamped * i16::MAX as f32).round() as i16
+    } else {
+        (clamped * 32768.0).round() as i16
+    }
+}
+
+fn build_scrcpy_scroll_message(
+    x: u32,
+    y: u32,
+    h_scroll: f32,
+    v_scroll: f32,
+    screen_w: u16,
+    screen_h: u16,
+) -> Vec<u8> {
+    let h_scroll = encode_i16_fixed_point(h_scroll);
+    let v_scroll = encode_i16_fixed_point(v_scroll);
+    let mut buf = Vec::with_capacity(21);
+    buf.push(SCRCPY_MSG_TYPE_INJECT_SCROLL);
+    push_scrcpy_position(&mut buf, x, y, screen_w, screen_h);
+    buf.extend_from_slice(&h_scroll.to_be_bytes());
+    buf.extend_from_slice(&v_scroll.to_be_bytes());
+    buf.extend_from_slice(&0u32.to_be_bytes());
+    buf
+}
+
+fn build_scrcpy_keycode_message(
+    action: u8,
+    keycode: u32,
+    repeat: u32,
+    meta_state: u32,
+) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(14);
+    buf.push(SCRCPY_MSG_TYPE_INJECT_KEYCODE);
+    buf.push(action);
+    buf.extend_from_slice(&keycode.to_be_bytes());
+    buf.extend_from_slice(&repeat.to_be_bytes());
+    buf.extend_from_slice(&meta_state.to_be_bytes());
+    buf
+}
+
+fn build_scrcpy_text_message(text: &str) -> Result<Vec<u8>, String> {
+    let data = text.as_bytes();
+    let len = u32::try_from(data.len()).map_err(|_| "Text is too long".to_string())?;
+    let mut buf = Vec::with_capacity(5 + data.len());
+    buf.push(SCRCPY_MSG_TYPE_INJECT_TEXT);
+    buf.extend_from_slice(&len.to_be_bytes());
+    buf.extend_from_slice(data);
+    Ok(buf)
+}
+
+fn build_scrcpy_set_clipboard_message(text: &str, paste: bool) -> Result<Vec<u8>, String> {
+    let data = text.as_bytes();
+    let len = u32::try_from(data.len()).map_err(|_| "Clipboard text is too long".to_string())?;
+    let mut buf = Vec::with_capacity(14 + data.len());
+    buf.push(SCRCPY_MSG_TYPE_SET_CLIPBOARD);
+    buf.extend_from_slice(&1u64.to_be_bytes());
+    buf.push(if paste { 1 } else { 0 });
+    buf.extend_from_slice(&len.to_be_bytes());
+    buf.extend_from_slice(data);
+    Ok(buf)
+}
+
+fn build_scrcpy_get_clipboard_message(copy_key: u8) -> Vec<u8> {
+    vec![SCRCPY_MSG_TYPE_GET_CLIPBOARD, copy_key]
+}
+
+async fn write_scrcpy_control_message(
+    serial: &str,
+    msg: Vec<u8>,
+    label: &str,
+) -> Result<(), String> {
+    let session = get_scrcpy_control_session(serial)
+        .ok_or_else(|| "No active scrcpy control session for device".to_string())?;
+    let mut socket = session.socket.lock().await;
+    socket
+        .write_all(&msg)
+        .await
+        .map_err(|e| format!("Failed to send scrcpy {label}: {e}"))?;
+    Ok(())
+}
+
 async fn send_scrcpy_touch_event(serial: &str, action: &str, x: u32, y: u32) -> Result<(), String> {
     let session = get_scrcpy_control_session(serial)
         .ok_or_else(|| "No active scrcpy control session for device".to_string())?;
     let msg = build_scrcpy_touch_message(action, x, y, session.width, session.height)?;
     let started = std::time::Instant::now();
-    let mut socket = session.socket.lock().await;
-    socket
-        .write_all(&msg)
-        .await
-        .map_err(|e| format!("Failed to send scrcpy touch event: {e}"))?;
+    write_scrcpy_control_message(serial, msg, "touch event").await?;
     let took_ms = started.elapsed().as_secs_f64() * 1000.0;
     if action != "move" {
         log::info!(
@@ -171,6 +279,65 @@ async fn send_scrcpy_touch_event(serial: &str, action: &str, x: u32, y: u32) -> 
         );
     }
     Ok(())
+}
+
+async fn read_scrcpy_device_messages(
+    mut reader: OwnedReadHalf,
+    app: AppHandle,
+    serial: String,
+) -> Result<(), String> {
+    loop {
+        let msg_type = match reader.read_u8().await {
+            Ok(value) => value,
+            Err(e) => return Err(format!("Failed to read scrcpy device message type: {e}")),
+        };
+        match msg_type {
+            SCRCPY_DEVICE_MSG_CLIPBOARD => {
+                let len = reader
+                    .read_u32()
+                    .await
+                    .map_err(|e| format!("Failed to read scrcpy clipboard length: {e}"))?;
+                let len = usize::try_from(len)
+                    .map_err(|_| "Invalid scrcpy clipboard length".to_string())?;
+                let mut data = vec![0u8; len];
+                reader
+                    .read_exact(&mut data)
+                    .await
+                    .map_err(|e| format!("Failed to read scrcpy clipboard payload: {e}"))?;
+                let text = String::from_utf8(data)
+                    .map_err(|e| format!("Invalid scrcpy clipboard utf8: {e}"))?;
+                let _ = app.emit(
+                    "capubridge:mirror-device-clipboard",
+                    ScrcpyClipboardEvent {
+                        serial: serial.clone(),
+                        text,
+                    },
+                );
+            }
+            SCRCPY_DEVICE_MSG_ACK_CLIPBOARD => {
+                reader
+                    .read_u64()
+                    .await
+                    .map_err(|e| format!("Failed to read scrcpy clipboard ack: {e}"))?;
+            }
+            SCRCPY_DEVICE_MSG_UHID_OUTPUT => {
+                let _id = reader
+                    .read_u16()
+                    .await
+                    .map_err(|e| format!("Failed to read scrcpy uhid id: {e}"))?;
+                let len = reader
+                    .read_u16()
+                    .await
+                    .map_err(|e| format!("Failed to read scrcpy uhid length: {e}"))?;
+                let mut data = vec![0u8; len as usize];
+                reader
+                    .read_exact(&mut data)
+                    .await
+                    .map_err(|e| format!("Failed to read scrcpy uhid payload: {e}"))?;
+            }
+            _ => return Err(format!("Unknown scrcpy device message type: {msg_type}")),
+        }
+    }
 }
 
 fn split_nals(data: &[u8]) -> Vec<&[u8]> {
@@ -428,7 +595,17 @@ async fn start_scrcpy_stream(
     serial: &str,
     app: &AppHandle,
     settings: &ScrcpyStreamSettings,
-) -> Result<(TcpStream, Arc<TokioMutex<TcpStream>>, u32, u32, String), String> {
+) -> Result<
+    (
+        TcpStream,
+        OwnedReadHalf,
+        Arc<TokioMutex<OwnedWriteHalf>>,
+        u32,
+        u32,
+        String,
+    ),
+    String,
+> {
     let (server_path, server_version) = ensure_scrcpy_server(app).await?;
     let mut device = get_device(serial)?;
 
@@ -544,7 +721,8 @@ log_level=info",
         .await
         .map_err(|_| "Timeout waiting for scrcpy control stream".to_string())?
         .map_err(|e| format!("Failed to accept scrcpy control stream: {e}"))?;
-    let control_socket = Arc::new(TokioMutex::new(control_socket_raw));
+    let (control_reader, control_writer) = control_socket_raw.into_split();
+    let control_socket = Arc::new(TokioMutex::new(control_writer));
     let negotiated_codec = parse_scrcpy_codec(codec_buf, codec);
     log::info!(
         "[adb_mirror_scrcpy_start] serial={} codec={} width={} height={}",
@@ -555,6 +733,7 @@ log_level=info",
     );
     Ok((
         video_socket,
+        control_reader,
         control_socket,
         width,
         height,
@@ -643,7 +822,7 @@ pub async fn adb_mirror_scrcpy_start(
     remove_scrcpy_control_session(&serial);
 
     let settings = settings.unwrap_or_default();
-    let (video_socket, control_socket, width, height, codec) =
+    let (video_socket, control_reader, control_socket, width, height, codec) =
         start_scrcpy_stream(&serial, &app, &settings).await?;
 
     let shutdown = Arc::new(Notify::new());
@@ -667,20 +846,39 @@ pub async fn adb_mirror_scrcpy_start(
         );
     }
 
+    let serial_for_stream = serial.clone();
     tokio::spawn(async move {
         let result =
             stream_scrcpy_packets(video_socket, on_frame.clone(), shutdown.clone(), codec).await;
         if let Ok(mut sessions) = SCRCPY_STREAM_SHUTDOWNS.lock() {
-            sessions.remove(&serial);
+            sessions.remove(&serial_for_stream);
         }
-        remove_scrcpy_control_session(&serial);
-        cleanup_scrcpy_device(&serial).await;
+        remove_scrcpy_control_session(&serial_for_stream);
+        cleanup_scrcpy_device(&serial_for_stream).await;
         if let Err(err) = result {
             let _ = on_frame.send(ScrcpyFrameEvent::Disconnected { reason: err });
         } else {
             let _ = on_frame.send(ScrcpyFrameEvent::Disconnected {
                 reason: "stopped".to_string(),
             });
+        }
+    });
+
+    let app_for_device_messages = app.clone();
+    let serial_for_device_messages = serial.clone();
+    tokio::spawn(async move {
+        if let Err(err) = read_scrcpy_device_messages(
+            control_reader,
+            app_for_device_messages,
+            serial_for_device_messages.clone(),
+        )
+        .await
+        {
+            log::debug!(
+                "[adb_mirror_scrcpy_start] control reader ended for {}: {}",
+                serial_for_device_messages,
+                err
+            );
         }
     });
 
@@ -780,6 +978,70 @@ pub async fn adb_mirror_touch_event(
     y: u32,
 ) -> Result<(), String> {
     send_scrcpy_touch_event(&serial, &action, x, y).await
+}
+
+#[tauri::command]
+pub async fn adb_mirror_scroll_event(
+    serial: String,
+    x: u32,
+    y: u32,
+    h_scroll: f32,
+    v_scroll: f32,
+) -> Result<(), String> {
+    let session = get_scrcpy_control_session(&serial)
+        .ok_or_else(|| "No active scrcpy control session for device".to_string())?;
+    let msg = build_scrcpy_scroll_message(
+        x,
+        y,
+        h_scroll,
+        v_scroll,
+        session.width,
+        session.height,
+    );
+    write_scrcpy_control_message(&serial, msg, "scroll event").await
+}
+
+#[tauri::command]
+pub async fn adb_mirror_inject_keycode(
+    serial: String,
+    action: u8,
+    keycode: u32,
+    repeat: u32,
+    meta_state: u32,
+) -> Result<(), String> {
+    let action = match action {
+        SCRCPY_KEY_ACTION_DOWN | SCRCPY_KEY_ACTION_UP => action,
+        _ => return Err("Invalid key action".to_string()),
+    };
+    let msg = build_scrcpy_keycode_message(action, keycode, repeat, meta_state);
+    write_scrcpy_control_message(&serial, msg, "keycode").await
+}
+
+#[tauri::command]
+pub async fn adb_mirror_inject_text(serial: String, text: String) -> Result<(), String> {
+    let msg = build_scrcpy_text_message(&text)?;
+    write_scrcpy_control_message(&serial, msg, "text").await
+}
+
+#[tauri::command]
+pub async fn adb_mirror_set_clipboard(
+    serial: String,
+    text: String,
+    paste: bool,
+) -> Result<(), String> {
+    let msg = build_scrcpy_set_clipboard_message(&text, paste)?;
+    write_scrcpy_control_message(&serial, msg, "clipboard").await
+}
+
+#[tauri::command]
+pub async fn adb_mirror_get_clipboard(serial: String, copy_key: Option<u8>) -> Result<(), String> {
+    let copy_key = copy_key.unwrap_or(SCRCPY_COPY_KEY_NONE);
+    let copy_key = match copy_key {
+        SCRCPY_COPY_KEY_NONE | SCRCPY_COPY_KEY_COPY | SCRCPY_COPY_KEY_CUT => copy_key,
+        _ => return Err("Invalid clipboard copy key".to_string()),
+    };
+    let msg = build_scrcpy_get_clipboard_message(copy_key);
+    write_scrcpy_control_message(&serial, msg, "clipboard request").await
 }
 
 #[tauri::command]

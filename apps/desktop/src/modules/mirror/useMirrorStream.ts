@@ -12,9 +12,22 @@ import type { CDPClient } from "utils";
 export const AndroidKey = {
   HOME: 3,
   BACK: 4,
+  DPAD_UP: 19,
+  DPAD_DOWN: 20,
+  DPAD_LEFT: 21,
+  DPAD_RIGHT: 22,
+  A: 29,
   VOLUME_UP: 24,
   VOLUME_DOWN: 25,
   POWER: 26,
+  TAB: 61,
+  ENTER: 66,
+  DEL: 67,
+  FORWARD_DEL: 112,
+  PAGE_UP: 92,
+  PAGE_DOWN: 93,
+  MOVE_HOME: 122,
+  MOVE_END: 123,
   WAKEUP: 224,
   SLEEP: 223,
   RECENTS: 187,
@@ -52,6 +65,20 @@ interface TouchEventRequest {
   x: number;
   y: number;
   enqueuedAt: number;
+}
+
+interface MirrorKeyboardEvent {
+  key: string;
+  code: string;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+}
+
+interface MirrorClipboardPayload {
+  serial: string;
+  text: string;
 }
 
 interface ScreencastFrameMetadata {
@@ -100,6 +127,18 @@ export function useMirrorStream() {
   let pointerDown = false;
   let chromePollTimer: ReturnType<typeof setInterval> | null = null;
   let adbLeaseSerial: string | null = null;
+  let streamRunId = 0;
+  let clipboardUnlisten: (() => void) | null = null;
+  let lastDeviceClipboardText = "";
+
+  const ANDROID_KEY_ACTION_DOWN = 0;
+  const ANDROID_KEY_ACTION_UP = 1;
+  const ANDROID_META_SHIFT_ON = 1;
+  const ANDROID_META_ALT_ON = 2;
+  const ANDROID_META_CTRL_ON = 4096;
+  const ANDROID_META_META_ON = 65536;
+  const SCRCPY_COPY_KEY_COPY = 1;
+  const SCRCPY_COPY_KEY_CUT = 2;
 
   async function beginMirrorLease(serial: string) {
     await runSessionEffect(startMirrorLeaseEffect(serial), {
@@ -178,6 +217,107 @@ export function useMirrorStream() {
     if (!chromePollTimer) return;
     clearInterval(chromePollTimer);
     chromePollTimer = null;
+  }
+
+  function getAndroidMetaState(event: MirrorKeyboardEvent) {
+    let metaState = 0;
+    if (event.shiftKey) metaState |= ANDROID_META_SHIFT_ON;
+    if (event.altKey) metaState |= ANDROID_META_ALT_ON;
+    if (event.ctrlKey) metaState |= ANDROID_META_CTRL_ON;
+    if (event.metaKey) metaState |= ANDROID_META_META_ON;
+    return metaState;
+  }
+
+  function resolveSpecialAndroidKey(event: MirrorKeyboardEvent): AndroidKeyCode | null {
+    const keyMap: Record<string, AndroidKeyCode> = {
+      Enter: AndroidKey.ENTER,
+      Backspace: AndroidKey.DEL,
+      Delete: AndroidKey.FORWARD_DEL,
+      Tab: AndroidKey.TAB,
+      Escape: AndroidKey.BACK,
+      ArrowUp: AndroidKey.DPAD_UP,
+      ArrowDown: AndroidKey.DPAD_DOWN,
+      ArrowLeft: AndroidKey.DPAD_LEFT,
+      ArrowRight: AndroidKey.DPAD_RIGHT,
+      PageUp: AndroidKey.PAGE_UP,
+      PageDown: AndroidKey.PAGE_DOWN,
+      Home: AndroidKey.MOVE_HOME,
+      End: AndroidKey.MOVE_END,
+    };
+    return keyMap[event.key] ?? null;
+  }
+
+  function clampScrollDelta(delta: number) {
+    return Math.max(-1, Math.min(1, delta / 120));
+  }
+
+  function getWindowsVirtualKeyCode(event: MirrorKeyboardEvent) {
+    const keyMap: Record<string, number> = {
+      Enter: 13,
+      Backspace: 8,
+      Delete: 46,
+      Tab: 9,
+      Escape: 27,
+      ArrowUp: 38,
+      ArrowDown: 40,
+      ArrowLeft: 37,
+      ArrowRight: 39,
+      PageUp: 33,
+      PageDown: 34,
+      Home: 36,
+      End: 35,
+    };
+    if (event.key.length === 1) return event.key.toUpperCase().charCodeAt(0);
+    return keyMap[event.key] ?? 0;
+  }
+
+  function getChromeModifiers(event: MirrorKeyboardEvent) {
+    let modifiers = 0;
+    if (event.altKey) modifiers |= 1;
+    if (event.ctrlKey) modifiers |= 2;
+    if (event.metaKey) modifiers |= 4;
+    if (event.shiftKey) modifiers |= 8;
+    return modifiers;
+  }
+
+  async function writeHostClipboardText(text: string) {
+    try {
+      const clipboard = await import("@tauri-apps/plugin-clipboard-manager");
+      await clipboard.writeText(text);
+      return;
+    } catch {}
+    await navigator.clipboard.writeText(text);
+  }
+
+  async function readHostClipboardText() {
+    try {
+      const clipboard = await import("@tauri-apps/plugin-clipboard-manager");
+      return await clipboard.readText();
+    } catch {}
+    return navigator.clipboard.readText();
+  }
+
+  async function setupDeviceClipboardListener() {
+    if (clipboardUnlisten) return;
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      clipboardUnlisten = await listen<MirrorClipboardPayload>(
+        "capubridge:mirror-device-clipboard",
+        async (event) => {
+          const serial = resolveAdbSerial();
+          if (!serial || event.payload.serial !== serial) return;
+          if (!event.payload.text || event.payload.text === lastDeviceClipboardText) return;
+          lastDeviceClipboardText = event.payload.text;
+          await writeHostClipboardText(event.payload.text).catch(() => null);
+        },
+      );
+    } catch {}
+  }
+
+  function cleanupDeviceClipboardListener() {
+    if (!clipboardUnlisten) return;
+    clipboardUnlisten();
+    clipboardUnlisten = null;
   }
 
   async function stopChromeScreencast() {
@@ -564,6 +704,9 @@ export function useMirrorStream() {
     };
 
     try {
+      await waitForCanvas(1000);
+      if (activeSessionId !== sessionId) return;
+
       const streamSettings: ScrcpyStreamSettings = {
         maxSize: mirrorStore.settings.recordQuality === "720p" ? 1280 : 1920,
         maxFps: Math.max(30, mirrorStore.settings.fps),
@@ -579,6 +722,7 @@ export function useMirrorStream() {
       if (activeSessionId !== sessionId) return;
 
       mirrorStore.setDeviceSize(width, height);
+      await setupDeviceClipboardListener();
       useScrcpyCanvas.value = true;
       isConnected.value = true;
       mirrorStore.isStreaming = true;
@@ -591,7 +735,7 @@ export function useMirrorStream() {
             activeSessionId,
           );
         }
-      }, 2200);
+      }, 5000);
     } catch (startErr) {
       if (activeSessionId !== sessionId) return;
       await endMirrorLease(serial);
@@ -747,6 +891,7 @@ export function useMirrorStream() {
   }
 
   async function startStream() {
+    const runId = ++streamRunId;
     sessionId += 1;
     const activeSessionId = sessionId;
 
@@ -755,6 +900,7 @@ export function useMirrorStream() {
     cleanupChromeFrameQueue();
     cleanupChromePolling();
     cleanupChromeListeners();
+    cleanupDeviceClipboardListener();
     touchQueue = [];
     touchProcessing = false;
     pointerDown = false;
@@ -766,6 +912,7 @@ export function useMirrorStream() {
     adbLeaseSerial = null;
 
     const preferredSource = resolvePreferredSource();
+    if (runId !== streamRunId || activeSessionId !== sessionId) return;
     if (!preferredSource) {
       const msg = "Select target or online Android device before starting mirror.";
       error.value = msg;
@@ -797,6 +944,10 @@ export function useMirrorStream() {
     }
     try {
       await beginMirrorLease(serial);
+      if (runId !== streamRunId || activeSessionId !== sessionId) {
+        await endMirrorLease(serial);
+        return;
+      }
     } catch (leaseErr) {
       error.value = String(leaseErr);
       toast.error("Mirror unavailable", { description: String(leaseErr) });
@@ -807,6 +958,7 @@ export function useMirrorStream() {
   }
 
   async function stopStream() {
+    streamRunId += 1;
     sessionId += 1;
     const source = streamSource.value;
 
@@ -876,6 +1028,26 @@ export function useMirrorStream() {
     } catch (keyErr) {
       toast.error("Key event failed", { description: String(keyErr) });
     }
+  }
+
+  async function sendAndroidKeycode(keycode: AndroidKeyCode, metaState = 0) {
+    if (streamSource.value !== "adb") return;
+    const serial = resolveAdbSerial();
+    if (!serial) return;
+    await invoke("adb_mirror_inject_keycode", {
+      serial,
+      action: ANDROID_KEY_ACTION_DOWN,
+      keycode,
+      repeat: 0,
+      metaState,
+    });
+    await invoke("adb_mirror_inject_keycode", {
+      serial,
+      action: ANDROID_KEY_ACTION_UP,
+      keycode,
+      repeat: 0,
+      metaState,
+    });
   }
 
   async function dispatchTouch(action: TouchAction, x: number, y: number) {
@@ -1002,6 +1174,122 @@ export function useMirrorStream() {
     void processTouchQueue();
   }
 
+  async function sendWheel(x: number, y: number, deltaX: number, deltaY: number) {
+    if (!mirrorStore.isStreaming) return;
+
+    if (streamSource.value === "adb") {
+      const serial = resolveAdbSerial();
+      if (!serial) return;
+      try {
+        await invoke("adb_mirror_scroll_event", {
+          serial,
+          x,
+          y,
+          hScroll: -clampScrollDelta(deltaX),
+          vScroll: -clampScrollDelta(deltaY),
+        });
+      } catch (scrollErr) {
+        error.value = String(scrollErr);
+      }
+      return;
+    }
+
+    if (streamSource.value === "chrome") {
+      if (!chromeClient) {
+        const target = resolvePreferredChromeTarget();
+        if (!target) return;
+        chromeClient = await ensureChromeClient(target);
+      }
+      await chromeClient.send("Input.dispatchMouseEvent", {
+        type: "mouseWheel",
+        x,
+        y,
+        deltaX,
+        deltaY,
+      });
+    }
+  }
+
+  async function pasteHostClipboardToDevice() {
+    if (streamSource.value !== "adb") return;
+    const serial = resolveAdbSerial();
+    if (!serial) return;
+    const text = await readHostClipboardText().catch(() => "");
+    if (!text) return;
+    await invoke("adb_mirror_set_clipboard", { serial, text, paste: true });
+  }
+
+  async function requestDeviceClipboard(copyKey: number) {
+    if (streamSource.value !== "adb") return;
+    const serial = resolveAdbSerial();
+    if (!serial) return;
+    await invoke("adb_mirror_get_clipboard", { serial, copyKey });
+  }
+
+  async function sendKeyboard(event: MirrorKeyboardEvent) {
+    if (!mirrorStore.isStreaming) return;
+
+    try {
+      if (streamSource.value === "chrome") {
+        if (!chromeClient) {
+          const target = resolvePreferredChromeTarget();
+          if (!target) return;
+          chromeClient = await ensureChromeClient(target);
+        }
+        const windowsVirtualKeyCode = getWindowsVirtualKeyCode(event);
+        await chromeClient.send("Input.dispatchKeyEvent", {
+          type: "keyDown",
+          key: event.key,
+          code: event.code,
+          windowsVirtualKeyCode,
+          modifiers: getChromeModifiers(event),
+        });
+        await chromeClient.send("Input.dispatchKeyEvent", {
+          type: "keyUp",
+          key: event.key,
+          code: event.code,
+          windowsVirtualKeyCode,
+          modifiers: getChromeModifiers(event),
+        });
+        return;
+      }
+
+      if (streamSource.value !== "adb") return;
+
+      const shortcutKey = event.key.toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && shortcutKey === "v") {
+        await pasteHostClipboardToDevice();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && shortcutKey === "c") {
+        await requestDeviceClipboard(SCRCPY_COPY_KEY_COPY);
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && shortcutKey === "x") {
+        await requestDeviceClipboard(SCRCPY_COPY_KEY_CUT);
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && shortcutKey === "a") {
+        await sendAndroidKeycode(AndroidKey.A, ANDROID_META_CTRL_ON);
+        return;
+      }
+
+      const serial = resolveAdbSerial();
+      if (!serial) return;
+
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        await invoke("adb_mirror_inject_text", { serial, text: event.key });
+        return;
+      }
+
+      const keycode = resolveSpecialAndroidKey(event);
+      if (!keycode) return;
+      await sendAndroidKeycode(keycode, getAndroidMetaState(event));
+    } catch (keyboardErr) {
+      error.value = String(keyboardErr);
+    }
+  }
+
   async function startRecording() {
     if (streamSource.value !== "adb") {
       toast.info("Recording available only for Android mirror stream");
@@ -1069,6 +1357,7 @@ export function useMirrorStream() {
     cleanupChromePolling();
     void stopChromeScreencast();
     cleanupChromeListeners();
+    cleanupDeviceClipboardListener();
   });
 
   return {
@@ -1082,6 +1371,8 @@ export function useMirrorStream() {
     downloadScreenshot,
     sendKey,
     sendTouch,
+    sendWheel,
+    sendKeyboard,
     startRecording,
     stopRecording,
     launchExternalScrcpy,

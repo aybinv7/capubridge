@@ -42,13 +42,11 @@ const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, pairDevice } 
 type Panel = "device" | "local" | "connect";
 const activePanel = ref<Panel>("device");
 const selectedSerial = ref<string | null>(null);
-const { getCachedPackage, ensurePackages, refreshPackages, readPackagesCache } =
-  useAppPackages(selectedSerial);
+const { getCachedPackage } = useAppPackages(selectedSerial);
 const deviceInfoCache = reactive<Record<string, Awaited<ReturnType<typeof getDeviceOverview>>>>({});
 const deviceInfoLoading = ref(false);
 const isRefreshingDevices = ref(false);
 const scanningTargets = ref(false);
-const primingPackages = ref(false);
 const wifiIp = ref("");
 const wifiPort = ref("5555");
 const pairAddr = ref("");
@@ -254,39 +252,6 @@ async function loadDeviceInfo(serial: string) {
     // info unavailable
   } finally {
     deviceInfoLoading.value = false;
-  }
-}
-
-async function primeTargetPackages() {
-  const serial = selectedSerial.value;
-  if (!serial || primingPackages.value) {
-    return;
-  }
-
-  const packageNames = groupedAndroidTargets.value
-    .map((group) => group.packageName)
-    .filter((packageName) => packageName !== "Unknown package");
-  if (!packageNames.length) {
-    return;
-  }
-
-  const allPackagesCache = readPackagesCache(serial, "all");
-  const hasAllPackages = packageNames.every((packageName) => getCachedPackage(packageName));
-  if (allPackagesCache && hasAllPackages) {
-    return;
-  }
-
-  primingPackages.value = true;
-  try {
-    if (allPackagesCache && !hasAllPackages) {
-      await refreshPackages("all");
-      return;
-    }
-    await ensurePackages("all");
-  } catch {
-    return;
-  } finally {
-    primingPackages.value = false;
   }
 }
 
@@ -628,21 +593,6 @@ watch(
   },
   { immediate: true },
 );
-
-watch(
-  () => [
-    props.open,
-    selectedSerial.value,
-    groupedAndroidTargets.value.map((group) => group.packageName).join("|"),
-  ],
-  ([open, serial]) => {
-    if (!open || !serial) {
-      return;
-    }
-    void primeTargetPackages();
-  },
-  { immediate: true },
-);
 </script>
 
 <template>
@@ -893,11 +843,7 @@ watch(
                           @click="toggleTargetPackage(group.packageName)"
                         >
                           <template
-                            v-if="
-                              selectedSerial &&
-                              group.packageName !== 'Unknown package' &&
-                              getCachedPackage(group.packageName)
-                            "
+                            v-if="selectedSerial && group.packageName !== 'Unknown package'"
                           >
                             <AppIcon
                               :serial="selectedSerial"
@@ -948,11 +894,7 @@ watch(
                                 : 'bg-surface-1/40 border-border/20 hover:bg-surface-3/50'
                             "
                           >
-                            <template
-                              v-if="
-                                selectedSerial && t.packageName && getCachedPackage(t.packageName)
-                              "
-                            >
+                            <template v-if="selectedSerial && t.packageName">
                               <AppIcon
                                 :serial="selectedSerial"
                                 :package-name="t.packageName"

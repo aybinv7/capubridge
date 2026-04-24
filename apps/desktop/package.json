@@ -18,6 +18,7 @@
     "@tanstack/vue-table": "catalog:",
     "@tauri-apps/api": "catalog:",
     "@tauri-apps/cli": "catalog:",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@types/node": "catalog:",
     "@unovis/ts": "catalog:",
     "@unovis/vue": "catalog:",

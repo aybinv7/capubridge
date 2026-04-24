@@ -12,6 +12,8 @@
     "core:window:allow-is-maximized",
     "core:window:allow-set-always-on-top",
     "core:webview:allow-create-webview-window",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
     "shell:allow-execute",
     "shell:allow-spawn"
   ]

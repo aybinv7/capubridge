@@ -34,9 +34,7 @@ const { data: iconUrl, isFetching } = useQuery({
     }),
   staleTime: Infinity,
   gcTime: 1000 * 60 * 60,
-  enabled: computed(
-    () => props.resolve !== false && !!props.serial && (!!props.apkPath || !!props.iconPath),
-  ),
+  enabled: computed(() => props.resolve !== false && !!props.serial && !!props.packageName),
   retry: false,
 });
 

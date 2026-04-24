@@ -16,10 +16,12 @@ use commands::chrome::{
 };
 use commands::files::{adb_delete_file, adb_list_dir, adb_open_file, adb_pull_file};
 use commands::mirror::{
-    adb_mirror_get_screen_size, adb_mirror_keyevent, adb_mirror_launch_scrcpy,
+    adb_mirror_get_clipboard, adb_mirror_get_screen_size, adb_mirror_inject_keycode,
+    adb_mirror_inject_text, adb_mirror_keyevent, adb_mirror_launch_scrcpy,
     adb_mirror_scrcpy_start, adb_mirror_scrcpy_stop, adb_mirror_screenshot,
-    adb_mirror_start_recording, adb_mirror_stop_recording, adb_mirror_stop_scrcpy,
-    adb_mirror_swipe, adb_mirror_tap, adb_mirror_touch_event,
+    adb_mirror_scroll_event, adb_mirror_set_clipboard, adb_mirror_start_recording,
+    adb_mirror_stop_recording, adb_mirror_stop_scrcpy, adb_mirror_swipe, adb_mirror_tap,
+    adb_mirror_touch_event,
 };
 use commands::perf::{adb_perf_start, adb_perf_stop};
 use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
@@ -65,6 +67,7 @@ pub fn run() {
     let session_registry = SessionRegistryState::new();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(session_registry.clone())
         .plugin(tauri_plugin_shell::init())
         .setup(move |app| {
@@ -166,6 +169,11 @@ pub fn run() {
             adb_mirror_screenshot,
             adb_mirror_get_screen_size,
             adb_mirror_keyevent,
+            adb_mirror_inject_keycode,
+            adb_mirror_inject_text,
+            adb_mirror_scroll_event,
+            adb_mirror_set_clipboard,
+            adb_mirror_get_clipboard,
             adb_mirror_touch_event,
             adb_mirror_tap,
             adb_mirror_swipe,
