@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173/",
     "beforeDevCommand": "vp dev",
-    "beforeBuildCommand": "vp build"
+    "beforeBuildCommand": "pnpm --filter utils run build && vp build"
   },
   "app": {
     "windows": [

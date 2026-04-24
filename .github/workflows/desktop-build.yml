@@ -87,6 +87,9 @@ jobs:
       - name: install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: build workspace packages
+        run: pnpm --filter utils run build
+
       - name: bundle adb resources
         run: pnpm --filter desktop run bundle:adb
 
