@@ -105,9 +105,20 @@ jobs:
           retryAttempts: 2
           includeUpdaterJson: false
 
+      - name: parse artifact paths
+        id: parse-artifacts
+        shell: bash
+        run: |
+          echo '${{ steps.tauri.outputs.artifactPaths }}' | \
+            python3 -c "import json,sys; print('\n'.join(json.load(sys.stdin)))" \
+            > artifact_paths.txt
+          echo "paths<<EOF" >> $GITHUB_OUTPUT
+          cat artifact_paths.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: upload desktop artifacts
         uses: actions/upload-artifact@v4
         with:
           name: capubridge-${{ matrix.name }}
-          path: ${{ steps.tauri.outputs.artifactPaths }}
+          path: ${{ steps.parse-artifacts.outputs.paths }}
           if-no-files-found: error
