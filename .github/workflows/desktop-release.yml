@@ -1,17 +1,19 @@
-name: desktop-build
+name: desktop-release
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 concurrency:
-  group: desktop-build-${{ github.ref }}
-  cancel-in-progress: true
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build:
+  release:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
@@ -75,8 +77,7 @@ jobs:
       - name: bundle adb resources
         run: pnpm --filter desktop run bundle:adb
 
-      - name: build tauri bundles
-        id: tauri
+      - name: build and release
         uses: tauri-apps/tauri-action@v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,21 +87,9 @@ jobs:
           args: ${{ matrix.args }}
           retryAttempts: 2
           includeUpdaterJson: false
-
-      - name: parse artifact paths
-        id: parse-artifacts
-        shell: bash
-        run: |
-          echo '${{ steps.tauri.outputs.artifactPaths }}' | \
-            python3 -c "import json,sys; print('\n'.join(json.load(sys.stdin)))" \
-            > artifact_paths.txt
-          echo "paths<<EOF" >> $GITHUB_OUTPUT
-          cat artifact_paths.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: upload desktop artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: capubridge-${{ matrix.name }}
-          path: ${{ steps.parse-artifacts.outputs.paths }}
-          if-no-files-found: error
+          tagName: ${{ github.ref_name }}
+          releaseName: Capubridge ${{ github.ref_name }}
+          releaseBody: ${{ github.event.head_commit.message }}
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generateReleaseNotes: true
