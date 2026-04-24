@@ -2,7 +2,7 @@
 
 > A desktop devtool for hybrid app developers — bridging the Android device world and the browser runtime world in one place.
 
-Capubridge is a [Tauri 2](https://tauri.app) desktop application built for **Capacitor / Ionic / React Native / NativePHP** developers who spend their days debugging apps running inside Android WebViews. It unifies ADB device management, Chrome DevTools Protocol (CDP) inspection, deep storage exploration, and live runtime tools into a single, native-feeling GUI — without ever opening a browser tab.
+Capubridge is a [Tauri 2](https://tauri.app) desktop application built for **Capacitor / Ionic / React Native / NativePHP** developers who spend their days debugging apps running inside Android WebViews. It unifies ADB device management, Chrome DevTools Protocol (CDP) inspection, deep storage exploration, and live runtime tools into a single, native-feeling GUI — without ever opening a browser tab.also worth mentioning it was built mainly for webviews but could be really handy for other android apps debugging.also u can even inspect your local browser tabs :) .
 
 Inspired by [aya](https://github.com/liriliri/aya) and the raw power of the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/).
 
@@ -10,14 +10,13 @@ Inspired by [aya](https://github.com/liriliri/aya) and the raw power of the [Chr
 
 ## The Problem
 
-Debugging a Capacitor app on a physical Android device today means juggling:
+Debugging an app on a physical Android device today means juggling:
 
 - `adb` commands in a terminal to manage devices
 - `chrome://inspect` in a browser to find WebView targets
 - Chrome DevTools opened in a separate floating window
 - Manual `adb forward` port management per device
 - No integrated view of IndexedDB, LocalStorage, Cache API, or SQLite
-- Zero Capacitor-aware tooling — everything is generic web DevTools
 
 Capubridge replaces this fragmented workflow with a single desktop app that speaks ADB, CDP, and understands the Capacitor runtime.
 
@@ -135,11 +134,9 @@ Each device session runs at one of three temperatures:
 | Frontend          | Vue 3 (Composition API, `<script setup>`) |
 | Language          | TypeScript (strict) + Rust                |
 | Build system      | Vite+ (`vp`)                              |
-| Styling           | UnoCSS + Tailwind CSS v4                  |
+| Styling           | Tailwind CSS v4                           |
 | State             | Pinia (setup stores) + TanStack Query     |
 | Tables            | TanStack Table v8                         |
-| Terminal          | xterm.js v5                               |
-| Code editor       | Monaco Editor                             |
 | Control plane     | Effect-TS (runtime/IPC boundary only)     |
 | ADB (Rust)        | `adb_client` crate                        |
 | SQLite (Rust)     | `rusqlite` (bundled static)               |
