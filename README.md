@@ -2,7 +2,7 @@
 
 > A desktop devtool for hybrid app developers — bridging the Android device world and the browser runtime world in one place.
 
-Capubridge is a [Tauri 2](https://tauri.app) desktop application built for **Capacitor / Ionic** developers who spend their days debugging apps running inside Android WebViews. It unifies ADB device management, Chrome DevTools Protocol (CDP) inspection, deep storage exploration, and live runtime tools into a single, native-feeling GUI — without ever opening a browser tab.
+Capubridge is a [Tauri 2](https://tauri.app) desktop application built for **Capacitor / Ionic / React Native / NativePHP** developers who spend their days debugging apps running inside Android WebViews. It unifies ADB device management, Chrome DevTools Protocol (CDP) inspection, deep storage exploration, and live runtime tools into a single, native-feeling GUI — without ever opening a browser tab.
 
 Inspired by [aya](https://github.com/liriliri/aya) and the raw power of the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/).
 
