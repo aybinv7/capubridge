@@ -20,6 +20,10 @@ function generateSessionId(): string {
  *
  * Call start(config) to begin. Call stop() to finalize and get the .capu path.
  * The recording store reflects the current phase throughout.
+ *
+ * Network capture: depends on useNetwork() being active globally (AppShell mounts it).
+ * Console capture: acquires a lease on the console store so CDP events flow even when
+ *   the Console panel is not open.
  */
 export function useRecordingSession() {
   const recordingStore = useRecordingStore();
@@ -33,6 +37,7 @@ export function useRecordingSession() {
   let rrwebRecorder: ReturnType<typeof useRrwebRecorder> | null = null;
   let networkUnwatch: (() => void) | null = null;
   let consoleUnwatch: (() => void) | null = null;
+  let consoleLeasedByRecorder = false;
   let startedAt = 0;
   let activeSessionId = "";
 
@@ -61,7 +66,9 @@ export function useRecordingSession() {
     writer = useSessionWriter(sessionId, startedAt);
     writer.start();
 
-    // 3. Wire network track
+    // 3. Wire network track.
+    //    useNetwork() is mounted globally in AppShell so the store is always populated.
+    //    We watch allEntries and drain new request IDs since recording started.
     if (config.tracks.network) {
       const seenIds = new Set<string>();
       networkUnwatch = watch(
@@ -93,8 +100,17 @@ export function useRecordingSession() {
       );
     }
 
-    // 4. Wire console track — watch entries array length and drain new entries
+    // 4. Wire console track.
+    //    Acquire a lease so the console store starts its CDP listener even if the
+    //    Console panel is not currently open. Watch entries length and drain new entries.
     if (config.tracks.console) {
+      try {
+        await consoleStore.acquireLease();
+        consoleLeasedByRecorder = true;
+      } catch {
+        // Non-fatal — console events won't be captured if lease fails
+      }
+
       let lastConsoleIndex = consoleStore.entries.length;
       consoleUnwatch = watch(
         () => consoleStore.entries.length,
@@ -143,11 +159,21 @@ export function useRecordingSession() {
     consoleUnwatch?.();
     consoleUnwatch = null;
 
-    // 3. Flush remaining events to Rust
+    // 3. Release console lease if we acquired one
+    if (consoleLeasedByRecorder) {
+      consoleLeasedByRecorder = false;
+      try {
+        await consoleStore.releaseLease();
+      } catch {
+        // Best-effort
+      }
+    }
+
+    // 4. Flush remaining events to Rust
     await writer?.stop();
     writer = null;
 
-    // 4. Build manifest
+    // 5. Build manifest
     const manifest: SessionManifest = {
       version: 1,
       sessionId: activeSessionId,
@@ -160,7 +186,7 @@ export function useRecordingSession() {
       tracks: recordingStore.config?.tracks ?? { rrweb: false, network: false, console: false },
     };
 
-    // 5. Tell Rust to finalize the zip
+    // 6. Tell Rust to finalize the zip
     let capuPath: string | null = null;
     try {
       capuPath = await invoke<string>("recording_session_stop", {

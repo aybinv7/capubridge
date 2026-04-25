@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useNetworkStore } from "@/modules/network/stores/useNetworkStore";
-import { useNetwork } from "@/composables/useNetwork";
 import { useMockServer } from "@/composables/useMockServer";
 import type { NetworkTypeFilter } from "@/types/network.types";
 
@@ -32,8 +31,7 @@ const TYPE_FILTERS: NetworkTypeFilter[] = [
 
 const HTTP_METHODS = ["All", "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
 
-// Start CDP capture + mock intercept for the lifetime of this panel
-useNetwork();
+// Mock intercept for the lifetime of this panel (network capture now lives in AppShell)
 useMockServer();
 
 const store = useNetworkStore();
