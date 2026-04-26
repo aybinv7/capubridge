@@ -16,7 +16,6 @@ onMounted(() => {
 
   const rawEvents = props.events.map((e) => e.data) as eventWithTime[];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const config: any = { root: containerRef.value, skipInactive: true, speed: 1, mouseTail: false };
   replayer = new Replayer(rawEvents, config);
   replayer.pause(0);
@@ -27,12 +26,10 @@ onUnmounted(() => {
   replayer = null;
 });
 
-/** Seek to a time offset (ms from session start) without playing */
 function seekTo(ms: number) {
   replayer?.pause(ms);
 }
 
-/** Start playback from the given offset (ms). Omit to resume. */
 function play(fromMs?: number) {
   if (fromMs !== undefined) {
     replayer?.play(fromMs);
@@ -41,7 +38,6 @@ function play(fromMs?: number) {
   }
 }
 
-/** Pause playback. Optionally snap to a position. */
 function pause(atMs?: number) {
   replayer?.pause(atMs);
 }
@@ -51,10 +47,8 @@ defineExpose({ seekTo, play, pause });
 
 <template>
   <div class="relative w-full h-full overflow-hidden bg-black rounded-md">
-    <!-- rrweb mounts an iframe inside this container -->
     <div ref="containerRef" class="absolute inset-0 flex items-center justify-center" />
 
-    <!-- Empty state -->
     <div
       v-if="events.length === 0"
       class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground/40"

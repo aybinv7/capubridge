@@ -75,20 +75,17 @@ async function handleClick() {
     "
     @click="handleClick"
   >
-    <!-- Idle -->
     <template v-if="recordingStore.phase === 'idle'">
       <Circle class="w-3 h-3" />
       <span>Record</span>
     </template>
 
-    <!-- Recording -->
     <template v-else-if="recordingStore.phase === 'recording'">
       <span class="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
       <span>{{ formatElapsed(elapsedMs) }}</span>
       <Square class="w-2.5 h-2.5 fill-current" />
     </template>
 
-    <!-- Stopping -->
     <template v-else>
       <span class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 animate-pulse" />
       <span>Saving…</span>

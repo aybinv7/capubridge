@@ -65,7 +65,6 @@ async function handleStart() {
         </DialogDescription>
       </DialogHeader>
 
-      <!-- Label -->
       <div class="space-y-1.5">
         <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Session label
@@ -73,13 +72,11 @@ async function handleStart() {
         <Input v-model="label" placeholder="e.g. Login flow test" class="h-8 text-sm" />
       </div>
 
-      <!-- Tracks -->
       <div class="space-y-1.5">
         <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Capture tracks
         </label>
         <div class="space-y-1 rounded-md border border-border/30 bg-surface-1 p-2">
-          <!-- DOM replay -->
           <div
             class="flex items-center justify-between px-2 py-1.5 rounded-sm"
             :class="!hasTarget ? 'opacity-40' : ''"
@@ -100,7 +97,6 @@ async function handleStart() {
             />
           </div>
 
-          <!-- Network -->
           <div class="flex items-center justify-between px-2 py-1.5 rounded-sm">
             <div class="flex items-center gap-2">
               <Wifi class="w-3.5 h-3.5 text-muted-foreground" />
@@ -112,7 +108,6 @@ async function handleStart() {
             <Switch :checked="trackNetwork" @update:checked="trackNetwork = $event" />
           </div>
 
-          <!-- Console -->
           <div class="flex items-center justify-between px-2 py-1.5 rounded-sm">
             <div class="flex items-center gap-2">
               <Terminal class="w-3.5 h-3.5 text-muted-foreground" />
@@ -126,7 +121,6 @@ async function handleStart() {
         </div>
       </div>
 
-      <!-- Reload option — only relevant when rrweb enabled -->
       <div v-if="trackRrweb && hasTarget" class="flex items-center justify-between">
         <div>
           <p class="text-sm">Reload page on start</p>

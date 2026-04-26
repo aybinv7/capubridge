@@ -1,6 +1,5 @@
 import { ref, computed, onUnmounted } from "vue";
 
-// Polyfill for test environments where rAF is not available
 const _raf: (cb: (now: number) => void) => number =
   typeof requestAnimationFrame !== "undefined"
     ? (cb) => requestAnimationFrame(cb)
@@ -11,20 +10,6 @@ const _caf: (id: number) => void =
     ? (id) => cancelAnimationFrame(id)
     : (id) => clearTimeout(id);
 
-/**
- * Drives playback position for the session replay timeline.
- *
- * Rules:
- * - Call at component setup level only — never inside computed() or watch()
- * - positionMs is clamped to [0, durationMs]
- * - Stops automatically when positionMs reaches durationMs
- *
- * Usage:
- *   const clock = useTimelineClock(durationMs)
- *   clock.play()
- *   clock.seek(5000)
- *   watch(clock.positionMs, (ms) => replayer.goto(ms))
- */
 export function useTimelineClock(initialDurationMs = 0) {
   const positionMs = ref(0);
   const durationMs = ref(initialDurationMs);

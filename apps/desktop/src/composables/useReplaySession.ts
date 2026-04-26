@@ -14,14 +14,6 @@ export interface LoadedSession {
   consoleEvents: ConsoleCapuEvent[];
 }
 
-/**
- * Loads a .capu session file from disk and parses all tracks.
- *
- * Usage:
- *   const { session, isLoading, error, load } = useReplaySession()
- *   await load('/path/to/session.capu')
- *   // session.value is now populated
- */
 export function useReplaySession() {
   const session = ref<LoadedSession | null>(null);
   const isLoading = ref(false);

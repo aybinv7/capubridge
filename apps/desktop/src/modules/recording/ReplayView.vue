@@ -14,13 +14,11 @@ import ReplayConsoleLane from "./ReplayConsoleLane.vue";
 const route = useRoute();
 const { session, isLoading, error, load } = useReplaySession();
 
-// Clock is instantiated at setup level (not inside watch/computed)
 const clock = useTimelineClock(0);
 
 const playerRef = ref<InstanceType<typeof ReplayPlayer> | null>(null);
 const activePane = ref<"network" | "console">("network");
 
-// Auto-load if ?file= query param is present
 onMounted(() => {
   const filePath = route.query.file as string | undefined;
   if (filePath) loadFile(filePath);
@@ -31,7 +29,6 @@ async function loadFile(filePath: string) {
   await load(filePath);
 }
 
-// Once session loads, configure the clock duration
 watch(
   () => session.value,
   (s) => {
@@ -51,7 +48,6 @@ async function openPicker() {
   if (typeof selected === "string") await loadFile(selected);
 }
 
-// Timeline event handlers
 function onSeek(ms: number) {
   if (clock.isPlaying.value) {
     playerRef.value?.play(ms);
@@ -68,7 +64,6 @@ function onPause() {
   playerRef.value?.pause(clock.positionMs.value);
 }
 
-// Format helpers for session info bar
 function formatDate(ms: number): string {
   return new Date(ms).toLocaleString();
 }
@@ -85,7 +80,6 @@ function formatDuration(ms: number): string {
 
 <template>
   <div class="flex flex-col h-full bg-background">
-    <!-- ── Loading ── -->
     <div
       v-if="isLoading"
       class="flex flex-1 items-center justify-center gap-3 text-muted-foreground"
@@ -94,7 +88,6 @@ function formatDuration(ms: number): string {
       <span class="text-sm">Loading session…</span>
     </div>
 
-    <!-- ── Error ── -->
     <div
       v-else-if="error"
       class="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground"
@@ -108,7 +101,6 @@ function formatDuration(ms: number): string {
       </Button>
     </div>
 
-    <!-- ── Empty state ── -->
     <div
       v-else-if="!session"
       class="flex flex-1 flex-col items-center justify-center gap-4 text-muted-foreground"
@@ -128,9 +120,7 @@ function formatDuration(ms: number): string {
       </Button>
     </div>
 
-    <!-- ── Session loaded ── -->
     <template v-else>
-      <!-- Info bar -->
       <div
         class="flex-none flex items-center gap-4 px-4 py-2 border-b border-border/20 text-[11px] text-muted-foreground bg-surface-1"
       >
@@ -150,16 +140,12 @@ function formatDuration(ms: number): string {
         </Button>
       </div>
 
-      <!-- Main split -->
       <div class="flex flex-1 min-h-0">
-        <!-- DOM Player (left) -->
         <div class="flex-1 min-w-0 p-2">
           <ReplayPlayer ref="playerRef" :events="session.rrwebEvents" class="h-full" />
         </div>
 
-        <!-- Right panel: Network / Console lanes -->
         <div class="w-80 shrink-0 border-l border-border/20 flex flex-col min-h-0">
-          <!-- Pane tabs -->
           <div class="flex-none flex border-b border-border/20">
             <button
               class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
@@ -185,7 +171,6 @@ function formatDuration(ms: number): string {
             </button>
           </div>
 
-          <!-- Lane content -->
           <div class="flex-1 min-h-0">
             <ReplayNetworkLane
               v-if="activePane === 'network'"
@@ -203,7 +188,6 @@ function formatDuration(ms: number): string {
         </div>
       </div>
 
-      <!-- Timeline scrubber -->
       <ReplayTimeline
         :clock="clock"
         :network-events="session.networkEvents"

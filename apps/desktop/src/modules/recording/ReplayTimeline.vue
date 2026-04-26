@@ -29,14 +29,12 @@ function formatTime(ms: number): string {
 
 const progressPercent = computed(() => props.clock.progress.value * 100);
 
-// Network event markers — one tick per event
 const networkMarkers = computed(() =>
   props.networkEvents.map((ev) => ({
     pct: props.clock.durationMs.value > 0 ? (ev.t / props.clock.durationMs.value) * 100 : 0,
   })),
 );
 
-// Console error markers
 const consoleErrorMarkers = computed(() =>
   props.consoleEvents
     .filter((ev) => ev.data.level === "error")
@@ -97,22 +95,18 @@ function skipForward() {
 
 <template>
   <div class="flex flex-col gap-2 px-4 py-3 border-t border-border/20 bg-background select-none">
-    <!-- Scrubber track -->
     <div
       ref="scrubberRef"
       class="relative h-6 flex items-center cursor-pointer group"
       @mousedown="onScrubberMouseDown"
     >
-      <!-- Track -->
       <div class="absolute inset-x-0 h-1.5 rounded-full bg-surface-2">
-        <!-- Progress fill -->
         <div
           class="absolute left-0 top-0 h-full rounded-full bg-accent transition-none"
           :style="{ width: `${progressPercent}%` }"
         />
       </div>
 
-      <!-- Network event ticks -->
       <div
         v-for="(marker, i) in networkMarkers"
         :key="`net-${i}`"
@@ -120,7 +114,6 @@ function skipForward() {
         :style="{ left: `${marker.pct}%` }"
       />
 
-      <!-- Console error ticks -->
       <div
         v-for="(marker, i) in consoleErrorMarkers"
         :key="`err-${i}`"
@@ -128,16 +121,13 @@ function skipForward() {
         :style="{ left: `${marker.pct}%` }"
       />
 
-      <!-- Thumb -->
       <div
         class="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-accent shadow-md -translate-x-1/2 transition-none group-hover:scale-110"
         :style="{ left: `${progressPercent}%` }"
       />
     </div>
 
-    <!-- Controls row -->
     <div class="flex items-center gap-3">
-      <!-- Playback buttons -->
       <div class="flex items-center gap-1">
         <button
           class="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-surface-2 transition-colors"
@@ -163,16 +153,13 @@ function skipForward() {
         </button>
       </div>
 
-      <!-- Time display -->
       <span class="font-mono text-[11px] text-muted-foreground tabular-nums">
         {{ formatTime(clock.positionMs.value) }}
         <span class="text-muted-foreground/40">/ {{ formatTime(clock.durationMs.value) }}</span>
       </span>
 
-      <!-- Spacer -->
       <div class="flex-1" />
 
-      <!-- Legend -->
       <div class="flex items-center gap-3 text-[11px] text-muted-foreground/50">
         <span class="flex items-center gap-1">
           <span class="w-2 h-1 rounded bg-sky-400/60 inline-block" />

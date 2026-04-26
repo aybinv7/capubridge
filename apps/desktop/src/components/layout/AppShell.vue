@@ -18,12 +18,6 @@ import {
   restoreChromePort,
   restoreSelectedDeviceSerial,
 } from "@/composables/useSessionPersistence";
-import { useNetwork } from "@/composables/useNetwork";
-
-// Start network CDP capture globally so it's always active regardless of which panel is open.
-// This ensures the network store is populated during session recording even when the user
-// is not on the Network tab.
-useNetwork();
 import type { ADBDevice } from "@/types/adb.types";
 import type { DockTab } from "@/types/dock.types";
 

@@ -1,86 +1,147 @@
 import { buildInjectionScript } from "@/lib/replay/rrweb-inject-script";
 import type { CDPClient } from "utils";
 import type { useSessionWriter } from "./useSessionWriter";
+import { toast } from "vue-sonner";
 
 type Writer = ReturnType<typeof useSessionWriter>;
 
-/**
- * Manages rrweb injection into a CDP target WebView.
- *
- * Flow:
- * 1. Call Runtime.addBinding to create the `__capuEmit` bridge in the target
- * 2. Call Page.addScriptToEvaluateOnNewDocument to inject the rrweb recorder
- *    (persists across full navigations, rrweb keeps running on SPA pushState)
- * 3. Listen for Runtime.bindingCalled events → parse batch → push to writer
- * 4. On stop: remove the script + binding
- *
- * @param client — The CDPClient instance for the active target
- * @param writer — The session writer for this recording session
- */
+const BINDING_NAME = "__capuEmit";
+
 export function useRrwebRecorder(client: CDPClient, writer: Writer) {
-  const BINDING_NAME = "__capuEmit";
   let scriptIdentifier: string | null = null;
   let cleanupHandler: (() => void) | null = null;
+  let bindingCount = 0;
+  let eventCount = 0;
 
   async function start(opts: { reloadTarget: boolean }) {
-    // 1. Register the binding — creates window.__capuEmit in the target JS context
-    await client.send("Runtime.addBinding", { name: BINDING_NAME });
+    console.log("[rrweb] start: enabling Page+Runtime domains");
+    try {
+      await client.send("Page.enable", {});
+    } catch (e) {
+      const msg = `Page.enable failed: ${String(e)}`;
+      console.error("[rrweb]", msg);
+      toast.error(msg);
+      throw e;
+    }
+    try {
+      await client.send("Runtime.enable", {});
+    } catch (e) {
+      const msg = `Runtime.enable failed: ${String(e)}`;
+      console.error("[rrweb]", msg);
+      toast.error(msg);
+      throw e;
+    }
 
-    // 2. Inject the rrweb recorder script (survives full-page navigations)
+    console.log("[rrweb] adding binding", BINDING_NAME);
+    try {
+      await client.send("Runtime.addBinding", { name: BINDING_NAME });
+    } catch (e) {
+      const msg = `Runtime.addBinding failed: ${String(e)}`;
+      console.error("[rrweb]", msg);
+      toast.error(msg);
+      throw e;
+    }
+
     const script = buildInjectionScript();
-    const response = await client.send<{ identifier: string }>(
-      "Page.addScriptToEvaluateOnNewDocument",
-      { source: script },
-    );
-    scriptIdentifier = response.identifier;
+    console.log(`[rrweb] injecting script (${script.length} chars)`);
+    try {
+      const response = await client.send<{ identifier: string }>(
+        "Page.addScriptToEvaluateOnNewDocument",
+        { source: script },
+      );
+      scriptIdentifier = response.identifier;
+      console.log("[rrweb] script registered, identifier =", scriptIdentifier);
+    } catch (e) {
+      const msg = `Page.addScriptToEvaluateOnNewDocument failed: ${String(e)}`;
+      console.error("[rrweb]", msg);
+      toast.error(msg);
+      throw e;
+    }
 
-    // 3. Listen for binding calls (each call = one batch of rrweb events).
-    // CDPClient.on() returns an unsubscribe function — store it for cleanup.
     const handler = (params: unknown) => {
       const p = params as { name: string; payload: string };
       if (p.name !== BINDING_NAME) return;
+      bindingCount++;
       try {
-        const events = JSON.parse(p.payload) as Array<{ timestamp: number; [k: string]: unknown }>;
+        const events = JSON.parse(p.payload) as Array<{
+          timestamp: number;
+          [k: string]: unknown;
+        }>;
+        eventCount += events.length;
         for (const event of events) {
-          // Use rrweb's own timestamp as the wall time for accurate offsets
           writer.pushAt("rrweb", event, event.timestamp);
         }
-      } catch {
-        // Malformed payload — skip
+        if (bindingCount === 1) {
+          console.log(`[rrweb] first batch received (${events.length} events)`);
+          toast.success(`rrweb capturing — ${events.length} events`);
+        }
+      } catch (err) {
+        console.error("[rrweb] failed to parse batch", err);
       }
     };
 
-    // on() returns an unsubscribe fn — CDPClient has no separate .off() method
-    const unsub = client.on("Runtime.bindingCalled", handler);
-    cleanupHandler = unsub;
+    cleanupHandler = client.on("Runtime.bindingCalled", handler);
 
-    // 4. Optionally reload the target so rrweb initialises from a clean page load
     if (opts.reloadTarget) {
-      await client.send("Page.reload", {});
+      console.log("[rrweb] reloading target");
+      try {
+        await client.send("Page.reload", { ignoreCache: true });
+        toast.info("Target reloaded for clean rrweb snapshot");
+      } catch (e) {
+        const msg = `Page.reload failed: ${String(e)}`;
+        console.error("[rrweb]", msg);
+        toast.error(msg);
+      }
+    } else {
+      console.log("[rrweb] no-reload path: evaluating script in current document");
+      try {
+        const result = await client.send<{ exceptionDetails?: { text: string } }>(
+          "Runtime.evaluate",
+          { expression: script, awaitPromise: false, returnByValue: false },
+        );
+        if (result?.exceptionDetails) {
+          const msg = `rrweb inline eval threw: ${result.exceptionDetails.text}`;
+          console.error("[rrweb]", msg);
+          toast.error(msg);
+        } else {
+          console.log("[rrweb] inline eval completed");
+        }
+      } catch (e) {
+        const msg = `Runtime.evaluate failed: ${String(e)}`;
+        console.error("[rrweb]", msg);
+        toast.error(msg);
+      }
     }
+
+    setTimeout(() => {
+      if (eventCount === 0) {
+        const msg = `rrweb: no events after 3s. Binding called ${bindingCount}x. Try reload toggle.`;
+        console.warn("[rrweb]", msg);
+        toast.warning(msg);
+      }
+    }, 3000);
   }
 
   async function stop() {
-    // Remove the persistent script injection
+    console.log(`[rrweb] stop — captured ${eventCount} events in ${bindingCount} batches`);
+
     if (scriptIdentifier) {
       try {
         await client.send("Page.removeScriptToEvaluateOnNewDocument", {
           identifier: scriptIdentifier,
         });
       } catch {
-        // Best-effort — target may have disconnected
+        void 0;
       }
       scriptIdentifier = null;
     }
 
-    // Remove the binding
     try {
       await client.send("Runtime.removeBinding", { name: BINDING_NAME });
     } catch {
-      // Best-effort
+      void 0;
     }
 
-    // Detach event listener
     cleanupHandler?.();
     cleanupHandler = null;
   }

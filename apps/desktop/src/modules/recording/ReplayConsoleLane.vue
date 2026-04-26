@@ -66,17 +66,14 @@ const sortedEvents = computed(() => [...props.events].sort((a, b) => a.t - b.t))
         class="flex items-start gap-2 px-3 py-0.5 text-[11px] border-b border-border/10 transition-opacity"
         :class="ev.t > positionMs ? 'opacity-25' : 'opacity-100'"
       >
-        <!-- Time offset -->
         <span class="w-16 shrink-0 text-muted-foreground/50 pt-0.5">
           {{ formatOffset(ev.t) }}
         </span>
 
-        <!-- Level badge -->
         <span class="w-7 shrink-0 font-bold pt-0.5" :class="levelColor(ev.data.level)">
           {{ levelBadge(ev.data.level) }}
         </span>
 
-        <!-- Message -->
         <span class="flex-1 break-all whitespace-pre-wrap text-foreground/80">{{
           ev.data.text
         }}</span>

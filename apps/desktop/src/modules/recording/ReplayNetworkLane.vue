@@ -7,7 +7,6 @@ const props = defineProps<{
   positionMs: number;
 }>();
 
-// Status → color token
 function statusColor(status: number | null): string {
   if (status === null) return "text-muted-foreground/40";
   if (status < 300) return "text-green-400";
@@ -59,27 +58,22 @@ const sortedEvents = computed(() => [...props.events].sort((a, b) => a.t - b.t))
         class="flex items-center gap-2 px-3 py-1 text-[11px] border-b border-border/10 transition-opacity"
         :class="ev.t > positionMs ? 'opacity-25' : 'opacity-100'"
       >
-        <!-- Time offset -->
         <span class="w-16 shrink-0 font-mono text-muted-foreground/50">
           {{ formatOffset(ev.t) }}
         </span>
 
-        <!-- Method -->
         <span class="w-12 shrink-0 font-mono font-medium" :class="methodColor(ev.data.method)">
           {{ ev.data.method }}
         </span>
 
-        <!-- Status -->
         <span class="w-8 shrink-0 font-mono" :class="statusColor(ev.data.status)">
           {{ ev.data.status ?? "—" }}
         </span>
 
-        <!-- Duration -->
         <span class="w-14 shrink-0 text-right font-mono text-muted-foreground/50">
           {{ formatMs(ev.data.duration) }}
         </span>
 
-        <!-- URL -->
         <span class="flex-1 truncate text-foreground/80" :title="ev.data.url">
           {{ ev.data.url }}
         </span>
