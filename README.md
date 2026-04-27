@@ -236,6 +236,36 @@ vp run -r build
 
 ---
 
+## For mac users
+
+1. Use .app in .zip (not .dmg) — triggers softer "unidentified developer" prompt
+
+2. Users on target Mac:
+
+# 1. Download the .zip from GitHub releases
+
+# 2. Unzip it
+
+```bash
+unzip capubridge-*.macos-*.zip -d ~/Downloads/
+```
+
+# 3. Copy to Applications
+
+```bash
+cp -r ~/Downloads/capubridge.app /Applications/
+```
+
+# 4. FIRST OPEN: Right-click → Open (not double-click)
+
+# Then click "Open" in the dialog
+
+3. If macOS still shows "is damaged":
+
+```bash
+xattr -cr /Applications/capubridge.app
+```
+
 ## Acknowledgements
 
 - [aya](https://github.com/liriliri/aya) — inspiration for what a native Android devtool GUI can feel like
