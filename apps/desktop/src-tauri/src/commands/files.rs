@@ -211,19 +211,25 @@ fn read_file_bytes(
     path: &str,
 ) -> Result<Vec<u8>, String> {
     let escaped = shell_escape(path);
-    let command = format!("cat '{}' 2>/dev/null | base64", escaped);
+    let marker = "__CAPUBRIDGE_FILE_BASE64__";
+    let command = format!(
+        "if [ -f '{}' ]; then printf '{}\\n'; cat '{}' 2>/dev/null | base64; fi",
+        escaped, marker, escaped
+    );
     let mut out = Vec::new();
     let _ = device.shell_command(&command, Some(&mut out), None::<&mut dyn Write>);
 
-    let b64: String = out
+    let raw = String::from_utf8_lossy(&out);
+    let Some((_, encoded)) = raw.split_once(marker) else {
+        return Err("File not found or is a directory".to_string());
+    };
+
+    let b64: String = encoded
+        .as_bytes()
         .iter()
         .filter(|&&b| !matches!(b, b'\n' | b'\r' | b' '))
         .map(|&b| b as char)
         .collect();
-
-    if b64.is_empty() {
-        return Err("File not found or is a directory".to_string());
-    }
 
     general_purpose::STANDARD
         .decode(&b64)
@@ -262,6 +268,56 @@ fn open_with_default_app(local_path: &Path) -> Result<(), String> {
             .map_err(|e| format!("Failed to open file: {e}"))?;
         return Ok(());
     }
+}
+
+fn open_with_app_picker(local_path: &Path) -> Result<(), String> {
+    let path_str = local_path.to_string_lossy().to_string();
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("rundll32")
+            .arg("shell32.dll,OpenAs_RunDLL")
+            .arg(&path_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open app picker: {e}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path_str])
+            .spawn()
+            .map_err(|e| format!("Failed to reveal file: {e}"))?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {e}"))?;
+        return Ok(());
+    }
+}
+
+fn write_device_file_to_temp(
+    device: &mut adb_client::server_device::ADBServerDevice,
+    path: &str,
+) -> Result<std::path::PathBuf, String> {
+    let bytes = read_file_bytes(device, path)?;
+    let filename = std::path::Path::new(path)
+        .file_name()
+        .unwrap_or(std::ffi::OsStr::new("capubridge_file"))
+        .to_string_lossy()
+        .to_string();
+
+    let open_dir = std::env::temp_dir().join("capubridge-open");
+    std::fs::create_dir_all(&open_dir).map_err(|e| format!("Failed to create temp dir: {e}"))?;
+    let target_path = open_dir.join(filename);
+    std::fs::write(&target_path, bytes).map_err(|e| format!("Failed to write temp file: {e}"))?;
+    Ok(target_path)
 }
 
 fn virtual_data_root_entries() -> Vec<FileEntry> {
@@ -416,6 +472,50 @@ fn run_as_private_data_entries(
     Ok(Vec::new())
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceFileContent {
+    pub base64: String,
+    pub size: usize,
+}
+
+fn build_delete_command(path: &str, is_dir: bool) -> String {
+    let escaped = shell_escape(path);
+    let remove_cmd = if is_dir {
+        format!("rm -rf '{}'", escaped)
+    } else {
+        format!("rm -f '{}'", escaped)
+    };
+
+    if let Some(package_name) = package_name_from_private_data_path(path) {
+        return format!("run-as '{}' {} 2>&1", shell_escape(&package_name), remove_cmd);
+    }
+
+    format!("{remove_cmd} 2>&1")
+}
+
+fn delete_permission_error(path: &str, output: &str) -> String {
+    let normalized_path = normalize_path(path);
+    let lower = output.to_lowercase();
+
+    if normalized_path.starts_with("/data/data/")
+        || normalized_path.starts_with("/data/user/")
+        || normalized_path.starts_with("/data/user_de/")
+    {
+        if lower.contains("not debuggable") || lower.contains("run-as") {
+            return "Permission denied: app private data can only be deleted with run-as for debuggable apps.".to_string();
+        }
+    }
+
+    if normalized_path.starts_with("/sdcard/android/data")
+        || normalized_path.starts_with("/storage/emulated/0/android/data")
+    {
+        return "Permission denied: Android scoped storage blocks adb shell deletion in Android/data on many devices.".to_string();
+    }
+
+    output.to_string()
+}
+
 /// List directory contents on the device via `ls -la`.
 #[tauri::command]
 pub fn adb_list_dir(serial: String, path: String) -> Result<Vec<FileEntry>, String> {
@@ -504,6 +604,24 @@ pub async fn adb_pull_file(serial: String, path: String) -> Result<String, Strin
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+pub async fn adb_read_file(serial: String, path: String) -> Result<DeviceFileContent, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut server = get_server().lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+
+        let bytes = read_file_bytes(&mut device, &path)?;
+        let size = bytes.len();
+        let base64 = general_purpose::STANDARD.encode(bytes);
+
+        Ok(DeviceFileContent { base64, size })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Open a device file on the host machine using the default associated app.
 #[tauri::command]
 pub async fn adb_open_file(serial: String, path: String) -> Result<String, String> {
@@ -513,20 +631,25 @@ pub async fn adb_open_file(serial: String, path: String) -> Result<String, Strin
             .get_device_by_name(&serial)
             .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
-        let bytes = read_file_bytes(&mut device, &path)?;
-        let filename = std::path::Path::new(&path)
-            .file_name()
-            .unwrap_or(std::ffi::OsStr::new("capubridge_file"))
-            .to_string_lossy()
-            .to_string();
-
-        let open_dir = std::env::temp_dir().join("capubridge-open");
-        std::fs::create_dir_all(&open_dir)
-            .map_err(|e| format!("Failed to create temp dir: {e}"))?;
-        let target_path = open_dir.join(filename);
-        std::fs::write(&target_path, bytes)
-            .map_err(|e| format!("Failed to write temp file: {e}"))?;
+        let target_path = write_device_file_to_temp(&mut device, &path)?;
         open_with_default_app(&target_path)?;
+
+        Ok(target_path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn adb_open_file_picker(serial: String, path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut server = get_server().lock();
+        let mut device = server
+            .get_device_by_name(&serial)
+            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+
+        let target_path = write_device_file_to_temp(&mut device, &path)?;
+        open_with_app_picker(&target_path)?;
 
         Ok(target_path.to_string_lossy().to_string())
     })
@@ -542,12 +665,8 @@ pub fn adb_delete_file(serial: String, path: String, is_dir: bool) -> Result<(),
         .get_device_by_name(&serial)
         .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
 
-    let escaped = path.replace('\'', "'\\''");
-    let cmd = if is_dir {
-        format!("rm -rf '{}' 2>&1", escaped)
-    } else {
-        format!("rm -f '{}' 2>&1", escaped)
-    };
+    let normalized_path = normalize_path(&path);
+    let cmd = build_delete_command(&normalized_path, is_dir);
 
     let mut output = Vec::new();
     device
@@ -556,8 +675,12 @@ pub fn adb_delete_file(serial: String, path: String, is_dir: bool) -> Result<(),
 
     let out = strip_ansi(&String::from_utf8_lossy(&output));
     let out = out.trim();
-    if out.contains("Permission denied") || out.contains("Operation not permitted") {
-        return Err(out.to_string());
+    let lower = out.to_lowercase();
+    if lower.contains("permission denied")
+        || lower.contains("operation not permitted")
+        || lower.contains("not debuggable")
+    {
+        return Err(delete_permission_error(&normalized_path, out));
     }
 
     Ok(())

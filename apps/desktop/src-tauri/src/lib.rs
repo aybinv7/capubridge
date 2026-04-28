@@ -15,7 +15,8 @@ use commands::chrome::{
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
 };
 use commands::files::{
-    adb_delete_file, adb_list_dir, adb_open_file, adb_pull_file, save_base64_file, show_in_folder,
+    adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
+    adb_read_file, save_base64_file, show_in_folder,
 };
 use commands::mirror::{
     adb_mirror_get_clipboard, adb_mirror_get_screen_size, adb_mirror_inject_keycode,
@@ -196,7 +197,9 @@ pub fn run() {
             adb_perf_stop,
             adb_list_dir,
             adb_pull_file,
+            adb_read_file,
             adb_open_file,
+            adb_open_file_picker,
             adb_delete_file,
             show_in_folder,
             save_base64_file,

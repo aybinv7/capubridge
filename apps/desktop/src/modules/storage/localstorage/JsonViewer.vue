@@ -283,11 +283,11 @@ defineExpose({ expandAll, collapseAll, toggleAll, filterInputRef });
           {{ i + 1 }}
         </div>
       </div>
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1 overflow-auto select-text">
         <div
           v-for="{ line, idx } in getVisibleLines()"
           :key="idx"
-          class="h-5 whitespace-pre relative pl-5"
+          class="relative h-5 whitespace-pre pl-5 select-text"
           :class="{ 'bg-yellow-500/5': matchLines.includes(idx) }"
         >
           <button
@@ -298,7 +298,7 @@ defineExpose({ expandAll, collapseAll, toggleAll, filterInputRef });
             <ChevronRight v-if="isCollapsed(idx)" :size="12" />
             <ChevronDown v-else :size="12" />
           </button>
-          <span class="px-1" v-html="highlightLine(line.raw, idx)"></span>
+          <span class="cursor-text select-text px-1" v-html="highlightLine(line.raw, idx)"></span>
         </div>
       </div>
     </div>
