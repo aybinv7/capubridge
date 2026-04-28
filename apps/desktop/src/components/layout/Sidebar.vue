@@ -5,10 +5,10 @@ import {
   Smartphone,
   Database,
   Globe,
-  Zap,
   Crosshair,
   Settings,
   MonitorPlay,
+  AppWindow,
 } from "lucide-vue-next";
 import {
   SidebarContent,
@@ -26,9 +26,9 @@ const isCollapsed = computed(() => uiStore.sidebarCollapsed);
 
 const navItems = [
   { to: "/devices", icon: Smartphone, label: "Devices" },
+  { to: "/app", icon: AppWindow, label: "App" },
   { to: "/storage", icon: Database, label: "Storage" },
   { to: "/network", icon: Globe, label: "Network" },
-  { to: "/capacitor", icon: Zap, label: "Capacitor" },
   { to: "/inspect", icon: Crosshair, label: "Inspect" },
   { to: "/replay", icon: MonitorPlay, label: "Replay" },
 ] as const;

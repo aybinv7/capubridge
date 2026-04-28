@@ -5,9 +5,11 @@ import { useRoute, useRouter } from "vue-router";
 import { useInspectPlugins } from "@/modules/inspect/useInspectPlugins";
 import {
   Smartphone,
+  AppWindow,
   Package,
   FolderOpen,
   Gauge,
+  Battery,
   Database,
   HardDrive,
   Archive,
@@ -41,6 +43,10 @@ const iconMap: Record<string, typeof Smartphone> = {
   "devices-apps": Package,
   "devices-files": FolderOpen,
   "devices-performance": Gauge,
+  "app-overview": AppWindow,
+  "app-performance": Gauge,
+  "app-permissions": Shield,
+  "app-data-usage": Battery,
   "storage-indexeddb": HardDrive,
   "storage-localforage": Database,
   "storage-localstorage": DatabaseZap,

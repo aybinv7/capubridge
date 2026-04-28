@@ -34,6 +34,33 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
+  {
+    path: "/app",
+    component: () => import("@/modules/app/AppPanel.vue"),
+    redirect: "/app/overview",
+    children: [
+      {
+        path: "overview",
+        name: "app-overview",
+        component: () => import("@/modules/app/AppInspectorPanel.vue"),
+      },
+      {
+        path: "performance",
+        name: "app-performance",
+        component: () => import("@/modules/app/AppPerformancePage.vue"),
+      },
+      {
+        path: "permissions",
+        redirect: "/app/overview",
+      },
+      {
+        path: "data-usage",
+        name: "app-data-usage",
+        component: () => import("@/modules/app/AppDataUsagePage.vue"),
+      },
+    ],
+  },
+
   // ── Storage ──────────────────────────────────────────────────────────────
   {
     path: "/storage",
