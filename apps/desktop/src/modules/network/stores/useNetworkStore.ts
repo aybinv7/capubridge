@@ -29,7 +29,7 @@ export const useNetworkStore = defineStore("network", () => {
   const typeFilter = ref<NetworkTypeFilter>("All");
   const methodFilter = ref("All");
   const searchScope = ref<"url" | "all">("url");
-  const preserveLog = ref(false);
+  const preserveLog = ref(true);
   const focusSearchTrigger = ref(0);
 
   // Derived

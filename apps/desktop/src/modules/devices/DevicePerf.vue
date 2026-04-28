@@ -355,7 +355,7 @@ const svgDefs = `
             </span>
           </CardHeader>
           <CardContent>
-            <ChartContainer :config="cpuChartConfig" class="aspect-auto h-[128px] w-full">
+            <ChartContainer :config="cpuChartConfig" class="aspect-auto h-32 w-full">
               <VisXYContainer
                 :data="cpuSeries"
                 :svg-defs="svgDefs"
@@ -411,7 +411,8 @@ const svgDefs = `
                 {{ memPct }}%
               </span>
               <p v-if="latest?.memory" class="text-[10px] text-muted-foreground">
-                {{ fmtBytes(latest.memory.usedKb) }} / {{ fmtBytes(latest.memory.totalKb) }}
+                {{ fmtBytes(latest.memory.usedKb) }} /
+                {{ fmtBytes(latest.memory.totalKb) }}
               </p>
             </div>
           </CardHeader>
@@ -717,7 +718,9 @@ const svgDefs = `
             WebView · CDP Metrics
           </CardTitle>
           <div class="text-right">
-            <p class="text-xs font-semibold" :class="cdpStatusClass">{{ cdpStatusLabel }}</p>
+            <p class="text-xs font-semibold" :class="cdpStatusClass">
+              {{ cdpStatusLabel }}
+            </p>
             <p class="text-[10px] text-muted-foreground">Source: {{ cdpSourceLabel }}</p>
             <p class="text-[10px] text-muted-foreground">Last update: {{ cdpLastUpdatedLabel }}</p>
           </div>

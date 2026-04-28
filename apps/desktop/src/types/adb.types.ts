@@ -90,6 +90,11 @@ export interface FileEntry {
   permissions: string; // 9-char unix perm string e.g. "rwxr-xr-x"
 }
 
+export interface DeviceFileContent {
+  base64: string;
+  size: number;
+}
+
 export interface DeviceInfo {
   serial: string;
   model: string;
