@@ -161,6 +161,28 @@ export const useIndexedDBChangesStore = defineStore("indexeddb-changes", () => {
     selectedChangeId.value = "";
   }
 
+  function clearChangesWhere(predicate: (entry: IndexedDBChangeEntry) => boolean) {
+    const next = changes.value.filter((entry) => !predicate(entry));
+    changes.value = next;
+
+    if (!next.some((entry) => entry.id === selectedChangeId.value)) {
+      selectedChangeId.value = next[0]?.id ?? "";
+    }
+  }
+
+  function clearDatabaseChanges(origin: string, databaseName: string) {
+    clearChangesWhere((entry) => entry.origin === origin && entry.databaseName === databaseName);
+  }
+
+  function clearStoreChanges(origin: string, databaseName: string, objectStoreName: string) {
+    clearChangesWhere(
+      (entry) =>
+        entry.origin === origin &&
+        entry.databaseName === databaseName &&
+        entry.objectStoreName === objectStoreName,
+    );
+  }
+
   function selectChange(changeId: string) {
     selectedChangeId.value = changeId;
   }
@@ -216,6 +238,8 @@ export const useIndexedDBChangesStore = defineStore("indexeddb-changes", () => {
     addChanges,
     addSystemChange,
     clearChanges,
+    clearDatabaseChanges,
+    clearStoreChanges,
     selectChange,
     queueStore,
     drainPendingStoreKeys,

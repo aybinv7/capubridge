@@ -20,6 +20,7 @@ import {
   type ColumnSizingState,
 } from "@tanstack/vue-table";
 import type { IDBRecord, StoreInfo } from "utils";
+import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 
 // UI components
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,8 @@ import {
   Plus,
   CalendarDays,
   Check,
+  Pencil,
+  Trash2,
 } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -137,9 +140,43 @@ watch(
 // ─── Column Helper & Dynamic Columns ────────────────────────────────────────
 const columnHelper = createColumnHelper<IDBRecord>();
 
+function getChangeOperation(record: IDBRecord) {
+  return (record as IndexedDBDecoratedRecord).__changeOperation ?? null;
+}
+
+function isDeletedChange(record: IDBRecord | null) {
+  if (!record) return false;
+  return (record as IndexedDBDecoratedRecord).__changeDeleted === true;
+}
+
+function getRecordChange(record: IDBRecord | null) {
+  if (!record) return null;
+  return (record as IndexedDBDecoratedRecord).__recordChange ?? null;
+}
+
+function getChangeIndicatorClass(record: IDBRecord) {
+  const operation = getChangeOperation(record);
+
+  if (operation === "add") return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
+  if (operation === "update") return "bg-amber-500/15 text-amber-400 ring-amber-500/30";
+  if (operation === "delete") return "bg-red-500/15 text-red-400 ring-red-500/30";
+  return "";
+}
+
+function getChangeIcon(record: IDBRecord) {
+  const operation = getChangeOperation(record);
+
+  if (operation === "add") return Plus;
+  if (operation === "update") return Pencil;
+  if (operation === "delete") return Trash2;
+  return null;
+}
+
 const isKeyValueStore = computed(() => {
   if (props.records.length === 0) return true;
-  const firstValue = props.records[0]!.value;
+  const firstRecord = props.records[0];
+  if (!firstRecord) return true;
+  const firstValue = firstRecord.value;
   return (
     firstValue === null ||
     firstValue === undefined ||
@@ -180,21 +217,35 @@ const columns = computed<ColumnDef<IDBRecord, unknown>[]>(() => {
         },
         class: "h-3.5 w-3.5",
       }),
-    size: 20,
-    minSize: 20,
-    maxSize: 20,
+    size: 38,
+    minSize: 34,
+    maxSize: 42,
     enableHiding: false,
     enableResizing: false,
     enableGrouping: false,
     enableColumnFilter: true,
-    cell: ({ row }) =>
-      h("div", { class: "flex items-center justify-center" }, [
-        // Checkbox - visible for all rows including grouped
-        // For grouped rows, selecting selects all child rows
+    cell: ({ row }) => {
+      const ChangeIcon = getChangeIcon(row.original);
+
+      return h("div", { class: "flex items-center justify-center gap-1" }, [
+        ChangeIcon
+          ? h(
+              "span",
+              {
+                class: [
+                  "flex size-4 items-center justify-center rounded-sm ring-1",
+                  getChangeIndicatorClass(row.original),
+                ],
+                title: getChangeOperation(row.original) ?? undefined,
+              },
+              [h(ChangeIcon, { class: "size-2.5" })],
+            )
+          : null,
         h(
           Checkbox,
           {
             modelValue: row.getIsSelected(),
+            disabled: isDeletedChange(row.original),
             "onUpdate:modelValue": (value: CheckboxCheckedState) => {
               if (value !== row.getIsSelected()) {
                 row.toggleSelected();
@@ -211,7 +262,8 @@ const columns = computed<ColumnDef<IDBRecord, unknown>[]>(() => {
                   : h("div", { class: "size-2.5 bg-primary rounded-sm" }),
           },
         ),
-      ]),
+      ]);
+    },
   });
 
   const keyCol = columnHelper.accessor("key", {
@@ -366,7 +418,7 @@ const table = useVueTable({
   enableRowPinning: true,
   enableMultiRowSelection: true,
   enableMultiRemove: true,
-  enableRowSelection: true,
+  enableRowSelection: (row) => !isDeletedChange(row.original),
   enableExpanding: true,
   enableSortingRemoval: true,
   enableSubRowSelection: true,
@@ -383,6 +435,7 @@ const { exportSelectedToJSON } = useIDBTableExport(
 // ─── Row Detail Dialog ───────────────────────────────────────────────────────
 const {
   isDetailOpen,
+  selectedRow,
   editJson,
   editKey,
   jsonEditorValid,
@@ -401,11 +454,24 @@ const {
   fetchRecord: () => props.fetchRecord,
   onEdit: (record) => emit("recordEdit", record),
   onDelete: (key) => emit("recordDelete", key),
+  canMutate: (record) => !isDeletedChange(record),
 });
+
+const selectedRecordChange = computed(() => getRecordChange(selectedRow.value));
 
 // ─── Computed Stats ──────────────────────────────────────────────────────────
 const filteredRowCount = computed(() => table.getFilteredRowModel().rows.length);
 const selectedRowCount = computed(() => table.getSelectedRowModel().rows.length);
+const visibleRows = computed(() => {
+  const rows = table.getRowModel().rows;
+
+  if (grouping.value.length > 0) return rows;
+
+  const changedRows = rows.filter((row) => getChangeOperation(row.original));
+  const unchangedRows = rows.filter((row) => !getChangeOperation(row.original));
+
+  return [...changedRows, ...unchangedRows];
+});
 
 // ─── Grouping Helpers ────────────────────────────────────────────────────────
 const isColumnGrouped = (columnId: string) => grouping.value.includes(columnId);
@@ -702,7 +768,7 @@ function confirmBulkDelete() {
         </thead>
 
         <tbody>
-          <template v-for="row in table.getRowModel().rows" :key="row.id">
+          <template v-for="row in visibleRows" :key="row.id">
             <!-- Group header -->
             <tr v-if="row.getIsGrouped()" class="bg-surface-3/30 border-b border-border/20">
               <td :colspan="row.getVisibleCells().length" class="px-3 py-2">
@@ -743,6 +809,9 @@ function confirmBulkDelete() {
                 'bg-surface-3/30': row.getIsGrouped(),
                 'pl-6': row.depth > 0,
                 'bg-accent/10!': row.getIsSelected(),
+                'bg-emerald-500/[0.04]': getChangeOperation(row.original) === 'add',
+                'bg-amber-500/[0.04]': getChangeOperation(row.original) === 'update',
+                'bg-red-500/[0.04] opacity-75': getChangeOperation(row.original) === 'delete',
               }"
             >
               <td
@@ -801,6 +870,8 @@ function confirmBulkDelete() {
       :dialog-entry-size="dialogEntrySize"
       :copied-raw="copiedRaw"
       :json-editor-valid="jsonEditorValid"
+      :change="selectedRecordChange"
+      :read-only="isDeletedChange(selectedRow)"
       @navigate="navigateRow"
       @save="saveEdit"
       @delete="deleteRow"

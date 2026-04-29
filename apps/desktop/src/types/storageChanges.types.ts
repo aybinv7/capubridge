@@ -11,6 +11,14 @@ export interface IndexedDBFieldDiff {
   after?: unknown;
 }
 
+export interface IndexedDBChangeSummary {
+  add: number;
+  update: number;
+  delete: number;
+  total: number;
+  latestAt: string | null;
+}
+
 export interface IndexedDBStoreCatalogEntry {
   storeKey: string;
   origin: string;
