@@ -19,6 +19,7 @@ import {
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import JsonViewer from "@/modules/storage/localstorage/JsonViewer.vue";
 import type { NetworkCapuEvent, NetworkCapuTiming } from "@/types/replay.types";
 
 const TYPE_FILTERS = ["All", "XHR/Fetch", "WS", "Doc", "Img", "Script", "Other"] as const;
@@ -345,7 +346,11 @@ const timingBreakdown = computed(() => {
 
   const phases = [
     { label: "DNS lookup", value: dns, color: "bg-teal-500/80" },
-    { label: "Initial connection", value: connect - ssl, color: "bg-orange-400/80" },
+    {
+      label: "Initial connection",
+      value: connect - ssl,
+      color: "bg-orange-400/80",
+    },
     { label: "SSL", value: ssl, color: "bg-violet-400/80" },
     { label: "Request sent", value: send, color: "bg-success/80" },
     { label: "Waiting (TTFB)", value: ttfb, color: "bg-info/80" },
@@ -557,17 +562,14 @@ const timingBreakdown = computed(() => {
                 />
               </div>
               <template v-else-if="parsedResponseJson !== null">
-                <ScrollArea class="flex-1">
-                  <pre
-                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed"
-                    >{{ JSON.stringify(parsedResponseJson, null, 2) }}</pre
-                  >
-                </ScrollArea>
+                <div class="min-h-0 flex-1 overflow-hidden">
+                  <JsonViewer :value="parsedResponseJson" hide-line-numbers />
+                </div>
               </template>
               <template v-else>
-                <ScrollArea class="flex-1">
+                <ScrollArea class="min-h-0 flex-1">
                   <pre
-                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed"
+                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed select-text"
                     >{{ selectedEntry.responseBody }}</pre
                   >
                 </ScrollArea>
@@ -583,17 +585,14 @@ const timingBreakdown = computed(() => {
                 No request body
               </div>
               <template v-else-if="parsedPayloadJson !== null">
-                <ScrollArea class="flex-1">
-                  <pre
-                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed"
-                    >{{ JSON.stringify(parsedPayloadJson, null, 2) }}</pre
-                  >
-                </ScrollArea>
+                <div class="min-h-0 flex-1 overflow-hidden">
+                  <JsonViewer :value="parsedPayloadJson" hide-line-numbers />
+                </div>
               </template>
               <template v-else>
-                <ScrollArea class="flex-1">
+                <ScrollArea class="min-h-0 flex-1">
                   <pre
-                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed"
+                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed select-text"
                     >{{ selectedEntry.requestBody }}</pre
                   >
                 </ScrollArea>
@@ -745,7 +744,9 @@ const timingBreakdown = computed(() => {
                       <div
                         class="h-full rounded-full transition-all"
                         :class="phase.color"
-                        :style="{ width: `${(phase.value / timingBreakdown.total) * 100}%` }"
+                        :style="{
+                          width: `${(phase.value / timingBreakdown.total) * 100}%`,
+                        }"
                       />
                     </div>
                   </div>
