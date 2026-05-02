@@ -23,7 +23,7 @@ export function useMockServer() {
 
   let fetchDomain: FetchDomain | null = null;
   let unsubPaused: (() => void) | null = null;
-  let unsubHttpEvent: (() => Promise<void>) | null = null;
+  let unsubHttpEvent: (() => void) | null = null;
 
   async function startCDP() {
     await stopCDP();
@@ -140,7 +140,7 @@ export function useMockServer() {
 
   async function stopHTTP() {
     if (unsubHttpEvent) {
-      await unsubHttpEvent();
+      unsubHttpEvent();
       unsubHttpEvent = null;
     }
     try {

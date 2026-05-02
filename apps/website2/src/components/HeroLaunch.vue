@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
         <div class="relative z-20">
           <h1 class="sr-only">Capubridge turns Android WebView debugging into team evidence.</h1>
           <BlurText
-            text="Debug Android WebViews like a team."
+            text="Debug Android WebViews like never before."
             animate-by="words"
             direction="top"
             :delay="105"

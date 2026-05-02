@@ -180,7 +180,11 @@ function seekTo(ms: number) {
   replayer?.pause(ms);
 }
 function play(fromMs?: number) {
-  fromMs !== undefined ? replayer?.play(fromMs) : replayer?.play();
+  if (fromMs !== undefined) {
+    replayer?.play(fromMs);
+  } else {
+    replayer?.play();
+  }
 }
 function pause(atMs?: number) {
   replayer?.pause(atMs);

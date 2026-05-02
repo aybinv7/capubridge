@@ -62,11 +62,11 @@ export class FetchDomain {
   }
 
   continueRequest(params: ContinueRequestParams): Promise<void> {
-    return this.client.send("Fetch.continueRequest", params);
+    return this.client.send("Fetch.continueRequest", params as unknown as Record<string, unknown>);
   }
 
   fulfillRequest(params: FulfillRequestParams): Promise<void> {
-    return this.client.send("Fetch.fulfillRequest", params);
+    return this.client.send("Fetch.fulfillRequest", params as unknown as Record<string, unknown>);
   }
 
   failRequest(params: { requestId: string; errorReason: string }): Promise<void> {

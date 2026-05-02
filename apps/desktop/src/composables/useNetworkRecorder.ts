@@ -246,7 +246,7 @@ export function useNetworkRecorder(client: CDPClient, writer: Writer) {
 
     await Promise.allSettled(pendingFetches.values());
 
-    for (const requestId of [...requests.keys()]) {
+    for (const requestId of requests.keys()) {
       emitFinal(requestId, null, false);
     }
     requests.clear();

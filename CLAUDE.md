@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-This is a **Vite+ monorepo**. All tooling goes through the `vp` global CLI — never use `pnpm`, `npm`, or tool binaries (`vitest`, `eslint`, `oxlint`) directly. See `docs/viteplus.md` for the full reference.
+This is a **Vite+ monorepo**. All tooling goes through the `vp` global CLI — never use `pnpm`, `npm`, or tool binaries (`vitest`, `eslint`, `oxlint`) directly. See `apps/docs/viteplus.md` for the full reference.
 
 ```bash
 # Install dependencies (after pulling)
@@ -49,13 +49,10 @@ capubridge/
 │   ├── desktop/        # Tauri 2 desktop app (Vue 3 + TypeScript)
 │   │   ├── src/        # Frontend Vue source
 │   │   └── src-tauri/  # Rust backend (Tauri commands)
-│   └── website/        # Marketing/docs website (Vite)
+│   ├── docs/           # VitePress documentation app
+│   └── website2/       # Marketing/docs website (Vite)
 ├── packages/
 │   └── utils/          # Shared TypeScript utilities (imported as "utils" workspace dep)
-├── docs/
-│   ├── SPEC.md         # Full product spec — read before implementing anything
-│   ├── PHASE-1-TASKS.md # Current sprint task list
-│   └── QUICKREF.md     # Quick reference for common patterns
 └── vite.config.ts      # Root Vite+ config (fmt, lint, staged hooks)
 ```
 
@@ -73,7 +70,7 @@ It is a developer tool for hybrid app (Capacitor/Ionic) developers that combines
 - Remote Chrome DevTools Protocol (CDP) connection to physical Android devices
 - Capacitor-specific tooling
 
-Full specification: see `docs/SPEC.md`
+Full specification: see `apps/docs/SPEC.md`
 
 ---
 
@@ -433,4 +430,20 @@ const SQL = await initSqlJs({
 
 ## Phase 1 Task Tracking
 
-See `docs/PHASE-1-TASKS.md` for the current sprint task list and acceptance criteria.
+See `apps/docs/SPEC.md` and `apps/docs/QUICKREF.md` for current product guidance.
+
+<!--VITE PLUS START-->
+
+# Using Vite+, the Unified Toolchain for the Web
+
+This project is using Vite+, a unified toolchain built on top of Vite, Rolldown, Vitest, tsdown, Oxlint, Oxfmt, and Vite Task. Vite+ wraps runtime management, package management, and frontend tooling in a single global CLI called `vp`. Vite+ is distinct from Vite, and it invokes Vite through `vp dev` and `vp build`. Run `vp help` to print a list of commands and `vp <command> --help` for information about a specific command.
+
+Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.dev/guide/.
+
+## Review Checklist
+
+- [ ] Run `vp install` after pulling remote changes and before getting started.
+- [ ] Run `vp check` and `vp test` to format, lint, type check and test changes.
+- [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
+
+<!--VITE PLUS END-->

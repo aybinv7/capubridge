@@ -1,13 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useLocalStorage } from "@vueuse/core";
-import type {
-  MockRule,
-  MockLogEntry,
-  MockInterceptMode,
-  HttpMethodFilter,
-  UrlMatchType,
-} from "@/types/mock.types";
+import type { MockRule, MockLogEntry, MockInterceptMode, UrlMatchType } from "@/types/mock.types";
 
 const MAX_LOG = 500;
 
