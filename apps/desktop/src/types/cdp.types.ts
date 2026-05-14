@@ -4,11 +4,12 @@ export interface CDPTarget {
   title: string;
   url: string;
   devtoolsFrontendUrl?: string;
-  webSocketDebuggerUrl: string;
-  source: "adb" | "chrome";
+  webSocketDebuggerUrl?: string;
+  source: "adb" | "chrome" | "local";
   deviceSerial?: string;
   faviconUrl?: string;
   packageName?: string;
+  localWebviewLabel?: string;
   isStale?: boolean;
   lastUpdatedAt?: number;
 }

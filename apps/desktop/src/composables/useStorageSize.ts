@@ -16,7 +16,7 @@ export function useStorageSize() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
 
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   function getIDBDomain() {
     const client = getClient(targetId.value);

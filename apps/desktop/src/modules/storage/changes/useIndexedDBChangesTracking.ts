@@ -40,7 +40,7 @@ export function useIndexedDBChangesTracking() {
   const changesStore = useIndexedDBChangesStore();
   const { getClient } = useCDP();
 
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
   const origin = computed(() => storageContextStore.getSelectedOrigin(targetId.value));
 
   let sessionVersion = 0;

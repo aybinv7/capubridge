@@ -31,7 +31,7 @@ function mapRawTargetToCDP(source: ConnectionSource, target: RawCDPTarget): CDPT
     url: target.url,
     devtoolsFrontendUrl: target.devtoolsFrontendUrl,
     webSocketDebuggerUrl: target.webSocketDebuggerUrl,
-    source: source.type as "adb" | "chrome",
+    source: source.type,
     deviceSerial: source.type === "adb" ? source.serial : undefined,
     faviconUrl: target.faviconUrl,
     packageName: target.packageName,
@@ -62,6 +62,35 @@ export const useTargetsStore = defineStore("targets", () => {
   const selectedTarget = ref<CDPTarget | null>(null);
   const fetchingSources = ref<Set<string>>(new Set());
   const error = ref<string | null>(null);
+
+  const cdpTargetId = computed(() => {
+    const t = selectedTarget.value;
+    if (!t) return "";
+    if (t.source === "local") return t.webSocketDebuggerUrl ? t.id : "";
+    return t.id;
+  });
+
+  function localTargetLabel(id: string) {
+    return `local-preview-${id.replace(/[^a-zA-Z0-9_:/-]/g, "-")}`;
+  }
+
+  function createLocalTargetSnapshot(url: string, id = crypto.randomUUID()): CDPTarget {
+    let title = url;
+    try {
+      const parsed = new URL(url);
+      title = parsed.host || url;
+    } catch {}
+
+    return {
+      id: `local:${id}`,
+      type: "page",
+      title,
+      url,
+      source: "local",
+      localWebviewLabel: localTargetLabel(id),
+      lastUpdatedAt: Date.now(),
+    };
+  }
 
   function isSameTargetSignature(a: CDPTarget, b: CDPTarget) {
     if (a.source !== b.source) return false;
@@ -139,6 +168,10 @@ export const useTargetsStore = defineStore("targets", () => {
   }
 
   async function fetchTargetsForSource(source: ConnectionSource) {
+    if (source.type === "local") {
+      return;
+    }
+
     const key = source.type === "adb" ? `adb:${source.serial}` : `chrome:${source.port}`;
     if (fetchingSources.value.has(key)) return;
 
@@ -199,6 +232,37 @@ export const useTargetsStore = defineStore("targets", () => {
     return target;
   }
 
+  function createLocalTarget(url: string) {
+    const existing = targets.value.find(
+      (target) => target.source === "local" && target.url === url,
+    );
+    if (existing) {
+      selectTarget(existing);
+      return existing;
+    }
+
+    const target = createLocalTargetSnapshot(url);
+    targets.value = targets.value.concat(target);
+    selectTarget(target);
+    return target;
+  }
+
+  function updateLocalTargetCdp(targetId: string, webSocketDebuggerUrl: string) {
+    targets.value = targets.value.map((t) =>
+      t.id === targetId ? { ...t, webSocketDebuggerUrl } : t,
+    );
+    if (selectedTarget.value?.id === targetId) {
+      selectedTarget.value = { ...selectedTarget.value, webSocketDebuggerUrl };
+    }
+  }
+
+  function removeTarget(targetId: string) {
+    targets.value = targets.value.filter((target) => target.id !== targetId);
+    if (selectedTarget.value?.id === targetId) {
+      selectedTarget.value = null;
+    }
+  }
+
   function clearTargetsForSerial(serial: string) {
     targets.value = targets.value.filter((t) => t.deviceSerial !== serial);
     if (selectedTarget.value?.deviceSerial === serial) {
@@ -219,6 +283,9 @@ export const useTargetsStore = defineStore("targets", () => {
       if (target.source === "adb") {
         return target.deviceSerial === activeAdbSerial;
       }
+      if (target.source === "local") {
+        return true;
+      }
       return hasChromeSource;
     });
   });
@@ -227,11 +294,15 @@ export const useTargetsStore = defineStore("targets", () => {
     targets,
     visibleTargets,
     selectedTarget,
+    cdpTargetId,
     fetchingSources,
     error,
     hydrateAdbTargets,
     fetchTargetsForSource,
     createChromeTarget,
+    createLocalTarget,
+    updateLocalTargetCdp,
+    removeTarget,
     selectTarget,
     clearTargetsForSerial,
     clearAllTargets,

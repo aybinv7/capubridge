@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ChevronDown, Loader2, Smartphone, Globe, RefreshCw } from "lucide-vue-next";
+import { ChevronDown, Loader2, Smartphone, Globe, RefreshCw, Monitor } from "lucide-vue-next";
 import { useCDP } from "@/composables/useCDP";
 import type { CDPTarget } from "@/types/cdp.types";
 import {
@@ -17,6 +17,9 @@ const { targetsStore, connectionStore, connectToTarget, sourceStore, refreshTarg
 
 async function handleTargetSelect(target: CDPTarget) {
   targetsStore.selectTarget(target);
+  if (target.source === "local") {
+    return;
+  }
   try {
     await connectToTarget(target);
   } catch (err) {
@@ -55,11 +58,16 @@ const dotClass = computed(() => {
   }
 });
 
-const hasActiveSource = computed(() => sourceStore.activeSources.length > 0);
+const hasActiveSource = computed(
+  () =>
+    sourceStore.activeSources.length > 0 ||
+    targetsStore.visibleTargets.some((target) => target.source === "local"),
+);
 const isFetching = computed(() => targetsStore.fetchingSources.size > 0);
 const hasTargets = computed(() => targetsStore.visibleTargets.length > 0);
 
 const sourceIcon = (source: string) => {
+  if (source === "local") return Monitor;
   return source === "adb" ? Smartphone : Globe;
 };
 </script>

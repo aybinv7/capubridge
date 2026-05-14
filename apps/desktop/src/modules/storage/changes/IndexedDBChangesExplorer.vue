@@ -37,7 +37,7 @@ const { useDatabases } = useIDB();
 
 const { data: databases } = useDatabases();
 
-const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+const targetId = computed(() => targetsStore.cdpTargetId);
 const selectedOrigin = computed({
   get: () => storageContextStore.getSelectedOrigin(targetId.value),
   set: (value: string) => storageContextStore.setSelectedOrigin(targetId.value, value),

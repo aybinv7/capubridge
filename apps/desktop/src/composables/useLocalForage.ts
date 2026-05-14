@@ -7,7 +7,7 @@ import { LocalForageDomain } from "utils";
 export function useLocalForage() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   function getDomain() {
     const client = getClient(targetId.value);

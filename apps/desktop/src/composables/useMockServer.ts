@@ -19,7 +19,7 @@ export function useMockServer() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
 
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   let fetchDomain: FetchDomain | null = null;
   let unsubPaused: (() => void) | null = null;

@@ -321,11 +321,14 @@ export function useInspector() {
   watch(
     activeClient,
     async (client) => {
-      console.log("[inspector] watch fired, client:", client ? "connected" : "null");
       cleanup();
       if (client) {
         await initialize(client);
-      } else if (targetsStore.selectedTarget) {
+      } else if (
+        targetsStore.selectedTarget &&
+        (targetsStore.selectedTarget.source !== "local" ||
+          !!targetsStore.selectedTarget.webSocketDebuggerUrl)
+      ) {
         void ensureConnectedClient().catch((e) => {
           console.error("[inspector] Failed to recover connection:", e);
         });
@@ -338,6 +341,7 @@ export function useInspector() {
     () => targetsStore.selectedTarget,
     (target) => {
       if (!target) return;
+      if (target.source === "local" && !target.webSocketDebuggerUrl) return;
       const activeTargetId = connectionStore.activeConnection?.targetId ?? null;
       if (activeTargetId === target.id && activeClient.value) return;
       void connectToTarget(target).catch((e) => {

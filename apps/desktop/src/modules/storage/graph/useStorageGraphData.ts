@@ -294,7 +294,7 @@ export function useStorageGraphData() {
   const graphStore = useStorageGraphStore();
 
   const serial = computed(() => devicesStore.selectedDevice?.serial ?? "");
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
   const selectedTarget = computed(() => targetsStore.selectedTarget);
   const selectedOrigin = computed(() => storageContextStore.getSelectedOrigin(targetId.value));
   const availableOriginsQuery = useQuery({

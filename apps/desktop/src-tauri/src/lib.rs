@@ -18,6 +18,12 @@ use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
     adb_read_file, save_base64_file, show_in_folder,
 };
+use commands::local_webview::{
+    local_device_name, local_webview_fetch_cdp_target, local_webview_inject_scrollbar_hide,
+    local_webview_open_devtools,
+};
+#[cfg(target_os = "windows")]
+use commands::local_webview::enable_webview2_remote_debugging;
 use commands::mirror::{
     adb_mirror_get_clipboard, adb_mirror_get_screen_size, adb_mirror_inject_keycode,
     adb_mirror_inject_text, adb_mirror_keyevent, adb_mirror_launch_scrcpy,
@@ -75,6 +81,9 @@ fn suppress_error_dialogs() {
 pub fn run() {
     #[cfg(target_os = "windows")]
     suppress_error_dialogs();
+
+    #[cfg(target_os = "windows")]
+    enable_webview2_remote_debugging();
 
     let session_registry = SessionRegistryState::new();
 
@@ -224,6 +233,10 @@ pub fn run() {
             recording_delete_session,
             recording_read_session,
             recording_cleanup_orphans,
+            local_device_name,
+            local_webview_open_devtools,
+            local_webview_fetch_cdp_target,
+            local_webview_inject_scrollbar_hide,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

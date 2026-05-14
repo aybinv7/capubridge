@@ -7,7 +7,7 @@ import { useTargetsStore } from "@/stores/targets.store";
 export function useLocalStorage() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   function getDomain() {
     const client = getClient(targetId.value);
@@ -44,7 +44,7 @@ export function useLocalStorage() {
 export function useCacheAPI() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   function getDomain() {
     const client = getClient(targetId.value);
@@ -80,7 +80,7 @@ export function useCacheAPI() {
 export function useOPFS() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   function getDomain() {
     const client = getClient(targetId.value);

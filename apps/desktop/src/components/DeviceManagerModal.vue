@@ -1,30 +1,29 @@
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
-import { ref, reactive, computed, watch } from "vue";
+import { ref, reactive, computed, watch, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import {
-  X,
   Usb,
   Wifi,
   Link,
-  ExternalLink,
   RefreshCw,
   Loader2,
   Smartphone,
   Globe,
-  Play,
-  XCircle,
   Plus,
   WifiOff,
   Monitor,
-  Zap,
+  Crosshair,
+  Trash2,
 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { useDevicesStore } from "@/stores/devices.store";
-import { useSourceStore } from "@/stores/source.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useConnectionStore } from "@/stores/connection.store";
+import { useLocalWebviewStore } from "@/stores/localWebview.store";
+import { useMirrorStore } from "@/stores/mirror.store";
 import { useAdb } from "@/composables/useAdb";
 import { useAppPackages } from "@/composables/useAppPackages";
+import { normalizeInspectableUrl } from "@/lib/inspect-url";
 import type { CDPTarget } from "@/types/cdp.types";
 import AdbReversePopover from "@/components/layout/AdbReversePopover.vue";
 import { ChevronRight } from "lucide-vue-next";
@@ -33,10 +32,12 @@ import AppIcon from "@/modules/devices/AppIcon.vue";
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: []; selectDevice: [serial: string] }>();
 
+const router = useRouter();
 const devicesStore = useDevicesStore();
-const sourceStore = useSourceStore();
 const targetsStore = useTargetsStore();
 const connectionStore = useConnectionStore();
+const localWebviewStore = useLocalWebviewStore();
+const mirrorStore = useMirrorStore();
 const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, pairDevice } = useAdb();
 
 type Panel = "device" | "local" | "connect";
@@ -51,10 +52,9 @@ const wifiIp = ref("");
 const wifiPort = ref("5555");
 const pairAddr = ref("");
 const pairCode = ref("");
-const chromePortInput = ref(9223);
-const showChromePortInput = ref(false);
-const chromeNewUrl = ref("https://");
-const openingChromeUrl = ref(false);
+const localTargetUrl = ref("http://localhost:5173");
+const creatingLocalTarget = ref(false);
+const localDeviceName = ref("This PC");
 const isWifiConnecting = ref(false);
 const expandedTargetPackages = ref<Set<string>>(new Set());
 const openRunId = ref(0);
@@ -70,7 +70,7 @@ const isUsb = computed(() => selectedDevice.value?.connectionType === "usb");
 const androidTargets = computed(() =>
   targetsStore.targets.filter((t) => t.source === "adb" && t.deviceSerial === selectedSerial.value),
 );
-const chromeTargets = computed(() => targetsStore.targets.filter((t) => t.source === "chrome"));
+const localTargets = computed(() => targetsStore.targets.filter((t) => t.source === "local"));
 const isFetchingTargets = computed(() => targetsStore.fetchingSources.size > 0);
 const groupedAndroidTargets = computed(() => {
   const groups = new Map<string, CDPTarget[]>();
@@ -86,10 +86,6 @@ const groupedAndroidTargets = computed(() => {
     targets,
   }));
 });
-
-function connStatus(id: string) {
-  return connectionStore.connections.get(id)?.status ?? "disconnected";
-}
 
 function targetTypeLabel(target: CDPTarget) {
   return target.type === "page" ? "page" : target.type;
@@ -125,123 +121,6 @@ function toggleTargetPackage(packageName: string) {
   expandedTargetPackages.value = next;
 }
 
-function getRemoteDevtoolsUrl(target: CDPTarget, wsDebuggerUrl: string, frontendPort: number) {
-  try {
-    const wsUrl = new URL(wsDebuggerUrl);
-    if (wsUrl.protocol !== "ws:" && wsUrl.protocol !== "wss:") {
-      return null;
-    }
-
-    const wsAddress = `${wsUrl.host}${wsUrl.pathname}${wsUrl.search}`;
-    if (target.devtoolsFrontendUrl) {
-      const baseUrl = `http://127.0.0.1:${frontendPort}`;
-      const frontendUrl = new URL(target.devtoolsFrontendUrl, baseUrl);
-      frontendUrl.searchParams.set("ws", wsAddress);
-      frontendUrl.searchParams.set("dockSide", "undocked");
-      return frontendUrl.toString();
-    }
-
-    const query = new URLSearchParams({
-      ws: wsAddress,
-      dockSide: "undocked",
-    }).toString();
-    return `http://127.0.0.1:${frontendPort}/devtools/inspector.html?${query}`;
-  } catch {
-    return null;
-  }
-}
-
-async function resolveRemoteDevtoolsWsUrl(target: CDPTarget) {
-  if (target.source !== "adb") {
-    console.log("[device-manager] external-devtools raw ws", {
-      targetId: target.id,
-      wsUrl: target.webSocketDebuggerUrl,
-    });
-    return target.webSocketDebuggerUrl;
-  }
-
-  const proxy = await invoke<{ wsUrl: string; localPort: number }>("cdp_start_proxy", {
-    wsUrl: target.webSocketDebuggerUrl,
-  });
-
-  console.log("[device-manager] external-devtools proxy ws", {
-    targetId: target.id,
-    rawWsUrl: target.webSocketDebuggerUrl,
-    proxyWsUrl: proxy.wsUrl,
-    proxyPort: proxy.localPort,
-  });
-  return proxy.wsUrl;
-}
-
-async function handleOpenRemoteDevtools(target: CDPTarget, event: Event) {
-  event.stopPropagation();
-  try {
-    const targetUrl = new URL(target.webSocketDebuggerUrl);
-    if (
-      target.source === "adb" &&
-      !target.devtoolsFrontendUrl &&
-      targetUrl.pathname === "/" &&
-      !targetUrl.search
-    ) {
-      toast.error("Target metadata is incomplete", {
-        description: "Refresh targets before opening remote DevTools.",
-      });
-      return;
-    }
-  } catch {
-    toast.error("Target metadata is invalid", {
-      description: "Refresh targets before opening remote DevTools.",
-    });
-    return;
-  }
-
-  const chromeSource = sourceStore.getChromeSource();
-  if (!chromeSource) {
-    toast.error("Connect Local Chrome first", {
-      description: "DevTools frontend comes from the Local Chrome debug session.",
-    });
-    return;
-  }
-
-  try {
-    console.log("[device-manager] external-devtools open:start", {
-      targetId: target.id,
-      source: target.source,
-      selectedTargetId: targetsStore.selectedTarget?.id ?? null,
-      hasExistingConnection: connectionStore.connections.has(target.id),
-    });
-    connectionStore.setExternalDevtoolsTarget(target.id);
-    if (connectionStore.connections.has(target.id)) {
-      await connectionStore.disconnectTarget(target.id);
-    }
-    if (targetsStore.selectedTarget?.id === target.id) {
-      targetsStore.selectTarget(null);
-    }
-
-    const wsDebuggerUrl = await resolveRemoteDevtoolsWsUrl(target);
-    const devtoolsUrl = getRemoteDevtoolsUrl(target, wsDebuggerUrl, chromeSource.port);
-    if (!devtoolsUrl) {
-      toast.error("Unable to open DevTools", {
-        description: "Target does not expose a valid CDP WebSocket URL.",
-      });
-      return;
-    }
-
-    console.log("[device-manager] external-devtools open:url", {
-      targetId: target.id,
-      devtoolsFrontendUrl: target.devtoolsFrontendUrl ?? null,
-      devtoolsUrl,
-    });
-    await invoke("chrome_open_devtools_url", { url: devtoolsUrl });
-  } catch (err) {
-    console.error("[device-manager] external-devtools open:error", {
-      targetId: target.id,
-      error: String(err),
-    });
-    toast.error("Failed to open DevTools window", { description: String(err) });
-  }
-}
-
 async function loadDeviceInfo(serial: string) {
   if (deviceInfoCache[serial]) return;
   deviceInfoLoading.value = true;
@@ -262,18 +141,10 @@ async function handleRefreshTargets() {
   if (wasPolling) devicesStore.stopPolling();
   try {
     if (activePanel.value === "local") {
-      const chromeSource = sourceStore.getChromeSource();
-      if (chromeSource) {
-        await targetsStore.fetchTargetsForSource(chromeSource);
-      }
       return;
     }
 
-    const serial =
-      selectedSerial.value ??
-      devicesStore.selectedDevice?.serial ??
-      sourceStore.getAdbSource()?.serial ??
-      null;
+    const serial = selectedSerial.value ?? devicesStore.selectedDevice?.serial ?? null;
     if (!serial) {
       return;
     }
@@ -298,23 +169,40 @@ async function handleRefreshDevices() {
     ) {
       selectedSerial.value =
         devicesStore.selectedDevice?.serial ?? devicesStore.devices[0]?.serial ?? null;
+      if (selectedSerial.value) {
+        activePanel.value = "device";
+      }
     }
   } finally {
     isRefreshingDevices.value = false;
   }
 }
 
+async function connectRemoteTarget(target: CDPTarget) {
+  const prevId = connectionStore.selectedTargetId;
+  if (prevId && prevId !== target.id) {
+    await connectionStore.disconnectTarget(prevId);
+  }
+  connectionStore.clearExternalDevtoolsTarget(target.id);
+  targetsStore.selectTarget(target);
+  await connectionStore.connect(target);
+}
+
 async function handleSelectTarget(target: CDPTarget) {
   const wasPolling = devicesStore.isPolling;
   if (wasPolling) devicesStore.stopPolling();
   try {
-    const prevId = connectionStore.selectedTargetId;
-    if (prevId && prevId !== target.id) {
-      await connectionStore.disconnectTarget(prevId);
+    if (target.source === "local") {
+      if (connectionStore.selectedTargetId) {
+        await connectionStore.disconnectTarget(connectionStore.selectedTargetId);
+      }
+      targetsStore.selectTarget(target);
+      mirrorStore.open();
+      emit("close");
+      return;
     }
-    connectionStore.clearExternalDevtoolsTarget(target.id);
-    targetsStore.selectTarget(target);
-    await connectionStore.connect(target);
+
+    await connectRemoteTarget(target);
     emit("close");
   } catch (err) {
     toast.error("Failed to connect to target", { description: String(err) });
@@ -322,9 +210,39 @@ async function handleSelectTarget(target: CDPTarget) {
   }
 }
 
+async function handleInspectTarget(target: CDPTarget, event: Event) {
+  event.stopPropagation();
+  try {
+    if (target.source === "local") {
+      if (connectionStore.selectedTargetId) {
+        await connectionStore.disconnectTarget(connectionStore.selectedTargetId);
+      }
+      targetsStore.selectTarget(target);
+      mirrorStore.open();
+      emit("close");
+      await localWebviewStore.openDevtools(target);
+      return;
+    }
+
+    await connectRemoteTarget(target);
+    emit("close");
+    await router.push("/inspect/elements");
+  } catch (err) {
+    toast.error("Failed to inspect target", { description: String(err) });
+  }
+}
+
 async function handleDisconnectTarget(targetId: string, event: Event) {
   event.stopPropagation();
   try {
+    const target = targetsStore.targets.find((entry) => entry.id === targetId) ?? null;
+    if (target?.source === "local") {
+      await localWebviewStore.closeTarget(target);
+      targetsStore.removeTarget(targetId);
+      toast.info("Local target removed");
+      return;
+    }
+
     await connectionStore.disconnectTarget(targetId);
     if (targetsStore.selectedTarget?.id === targetId) {
       targetsStore.selectTarget(null);
@@ -346,6 +264,11 @@ async function selectSidebarDevice(serial: string) {
   emit("selectDevice", serial);
   await loadDeviceInfo(serial);
   if (wasPolling && props.open) devicesStore.startPolling(3000);
+}
+
+function selectLocalDevice() {
+  selectedSerial.value = null;
+  activePanel.value = "local";
 }
 
 async function handleDisconnectDevice() {
@@ -455,69 +378,22 @@ async function handlePair() {
   }
 }
 
-async function handleChromeLaunch() {
-  const ok = await sourceStore.launchChrome();
-  if (ok) {
-    toast.success("Chrome launched", {
-      description: `Port ${sourceStore.getChromeSource()?.port}`,
-    });
-    setTimeout(() => handleRefreshTargets(), 800);
-  } else {
-    toast.error("Failed to launch Chrome", {
-      description: sourceStore.chromeError ?? "Unknown error",
-    });
-  }
-}
-
-async function handleChromeConnect() {
-  const ok = await sourceStore.connectChrome(chromePortInput.value);
-  if (ok) {
-    showChromePortInput.value = false;
-    localStorage.setItem("capubridge:chrome-port", String(chromePortInput.value));
-    toast.success("Connected to Chrome", {
-      description: `Port ${chromePortInput.value}`,
-    });
-    setTimeout(() => handleRefreshTargets(), 500);
-  } else {
-    toast.error("Failed to connect", {
-      description: sourceStore.chromeError ?? "Unknown error",
-    });
-  }
-}
-
-async function handleChromeDisconnect() {
-  await sourceStore.disconnectChrome();
-  toast.info("Chrome disconnected");
-}
-
-async function handleChromeOpenUrl() {
-  const source = sourceStore.getChromeSource();
-  if (!source) {
-    toast.error("Chrome is not connected");
+async function handleCreateLocalTarget() {
+  const normalizedUrl = normalizeInspectableUrl(localTargetUrl.value);
+  if (!normalizedUrl) {
+    toast.error("Enter a valid URL");
     return;
   }
-  const raw = chromeNewUrl.value.trim();
-  if (!raw) {
-    toast.error("Enter URL first");
-    return;
-  }
-  const normalizedUrl =
-    raw.startsWith("http://") ||
-    raw.startsWith("https://") ||
-    raw.startsWith("about:") ||
-    raw.startsWith("file:")
-      ? raw
-      : `https://${raw}`;
 
-  openingChromeUrl.value = true;
+  creatingLocalTarget.value = true;
   try {
-    const target = await targetsStore.createChromeTarget(normalizedUrl, source.port);
-    await handleRefreshTargets();
+    const target = targetsStore.createLocalTarget(normalizedUrl);
+    localTargetUrl.value = normalizedUrl;
     await handleSelectTarget(target);
   } catch (err) {
-    toast.error("Failed to open debuggable tab", { description: String(err) });
+    toast.error("Failed to create local target", { description: String(err) });
   } finally {
-    openingChromeUrl.value = false;
+    creatingLocalTarget.value = false;
   }
 }
 
@@ -548,18 +424,20 @@ watch(
   () => props.open,
   (open) => {
     if (open) {
+      void localWebviewStore.hideAll();
       const runId = ++openRunId.value;
-      if (devicesStore.selectedDevice) {
-        selectedSerial.value = devicesStore.selectedDevice.serial;
-        activePanel.value = "device";
-        void loadDeviceInfo(devicesStore.selectedDevice.serial);
-      } else if (sourceStore.hasChromeSource) {
-        activePanel.value = "local";
-      } else if (devicesStore.devices.length) {
-        selectedSerial.value = devicesStore.devices[0].serial;
-        activePanel.value = "device";
-        void loadDeviceInfo(devicesStore.devices[0].serial);
+
+      const preferredDevice =
+        devicesStore.selectedDevice?.status === "online"
+          ? devicesStore.selectedDevice
+          : (devicesStore.onlineDevices[0] ?? null);
+
+      if (preferredDevice) {
+        void selectSidebarDevice(preferredDevice.serial);
+      } else {
+        selectLocalDevice();
       }
+
       void (async () => {
         await handleRefreshDevices();
         if (!props.open || runId !== openRunId.value) {
@@ -569,9 +447,16 @@ watch(
     } else {
       openRunId.value += 1;
       devicesStore.stopPolling();
+      localWebviewStore.requestLayoutSync();
     }
   },
 );
+
+onMounted(() => {
+  void localWebviewStore.localDeviceName().then((name) => {
+    localDeviceName.value = name;
+  });
+});
 
 watch(
   groupedAndroidTargets,
@@ -610,7 +495,6 @@ watch(
           class="relative flex bg-surface-1 border border-border/25 rounded-2xl overflow-hidden shadow-2xl"
           style="width: 760px; height: 490px"
         >
-          <!-- LEFT SIDEBAR -->
           <div class="w-[196px] border-r border-border/20 flex flex-col shrink-0 bg-surface-0/60">
             <div class="px-3 pt-4 pb-2 flex items-center gap-2">
               <span
@@ -619,7 +503,7 @@ watch(
                 Devices
               </span>
               <span class="ml-auto text-[10px] font-mono text-muted-foreground/30">
-                {{ devicesStore.onlineDevices.length }}/{{ devicesStore.devices.length }}
+                {{ devicesStore.onlineDevices.length + 1 }}/{{ devicesStore.devices.length + 1 }}
               </span>
               <button
                 class="text-muted-foreground/30 hover:text-muted-foreground/70 transition-colors"
@@ -632,15 +516,36 @@ watch(
             </div>
 
             <div class="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
-              <!-- Empty state -->
+              <button
+                @click="selectLocalDevice"
+                class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
+                :class="
+                  activePanel === 'local'
+                    ? 'bg-surface-2 border border-border/30'
+                    : 'hover:bg-surface-2/50 border border-transparent'
+                "
+              >
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0 bg-success" />
+                  <Monitor :size="11" class="text-muted-foreground/40 shrink-0" />
+                  <span class="text-[12px] font-medium text-foreground truncate">
+                    {{ localDeviceName }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-1 mt-0.5 pl-3">
+                  <span class="font-mono text-[9px] text-muted-foreground/35 truncate">
+                    local-host
+                  </span>
+                  <span class="text-muted-foreground/20 text-[9px]">·</span>
+                  <span class="text-[9px] text-muted-foreground/35">Native WebView</span>
+                </div>
+              </button>
+
               <div
                 v-if="devicesStore.devices.length === 0"
-                class="flex flex-col items-center justify-center py-10 gap-1.5"
+                class="px-2.5 py-3 text-[11px] text-muted-foreground/25"
               >
-                <Smartphone :size="20" class="text-muted-foreground/15" />
-                <p class="text-[11px] text-muted-foreground/30 text-center">
-                  No Android devices<br />Connect via USB
-                </p>
+                No Android devices connected.
               </div>
 
               <button
@@ -686,33 +591,7 @@ watch(
               </button>
             </div>
 
-            <!-- Local Chrome + Connect New -->
             <div class="px-2 pb-2 space-y-1 border-t border-border/15 pt-2">
-              <button
-                @click="activePanel = 'local'"
-                class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
-                :class="
-                  activePanel === 'local'
-                    ? 'bg-surface-2 border border-border/30'
-                    : 'hover:bg-surface-2/50 border border-transparent'
-                "
-              >
-                <div class="flex items-center gap-1.5">
-                  <span
-                    class="w-1.5 h-1.5 rounded-full shrink-0"
-                    :class="sourceStore.hasChromeSource ? 'bg-success' : 'bg-muted-foreground/15'"
-                  />
-                  <Globe :size="11" class="text-muted-foreground/40 shrink-0" />
-                  <span class="text-[12px] font-medium text-foreground/70">Local</span>
-                  <span
-                    v-if="sourceStore.hasChromeSource"
-                    class="ml-auto font-mono text-[9px] text-muted-foreground/35"
-                  >
-                    :{{ sourceStore.getChromeSource()?.port }}
-                  </span>
-                </div>
-              </button>
-
               <button
                 @click="activePanel = 'connect'"
                 class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
@@ -925,15 +804,11 @@ watch(
                               {{ targetTypeLabel(t) }}
                             </span>
                             <button
-                              @click="handleOpenRemoteDevtools(t, $event)"
+                              @click="handleInspectTarget(t, $event)"
                               class="flex shrink-0 items-center gap-2 rounded-md border border-border/30 px-3 py-1.5 text-xs text-foreground/70 transition-all hover:bg-surface-3 hover:text-foreground opacity-0 group-hover:opacity-100"
-                              :title="
-                                sourceStore.hasChromeSource
-                                  ? 'Open remote DevTools'
-                                  : 'Connect Local Chrome first'
-                              "
+                              title="Inspect target"
                             >
-                              <ExternalLink :size="13" />
+                              <Crosshair :size="13" />
                               Inspect
                             </button>
                           </div>
@@ -972,120 +847,28 @@ watch(
               </div>
             </template>
 
-            <!-- ── LOCAL / CHROME PANEL ── -->
             <template v-else-if="activePanel === 'local'">
               <div class="px-6 pt-5 pb-4 border-b border-border/15 shrink-0">
                 <div class="flex items-start gap-3">
                   <div class="flex-1">
                     <div class="flex items-center gap-2 mb-0.5">
-                      <Globe :size="15" class="text-muted-foreground/50" />
-                      <span class="text-[15px] font-semibold text-foreground">Local Chrome</span>
+                      <Monitor :size="15" class="text-muted-foreground/50" />
+                      <span class="text-[15px] font-semibold text-foreground">
+                        {{ localDeviceName }}
+                      </span>
                       <span
-                        v-if="sourceStore.hasChromeSource"
                         class="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-success/10 text-success border border-success/20"
                       >
                         connected
                       </span>
                     </div>
-                    <div
-                      v-if="sourceStore.hasChromeSource"
-                      class="text-[11px] font-mono text-muted-foreground/40"
-                    >
-                      Port :{{ sourceStore.getChromeSource()?.port }}
+                    <div class="text-[11px] text-muted-foreground/35">
+                      Native child WebView · created targets only
                     </div>
-                    <div v-else class="text-[11px] text-muted-foreground/35">
-                      Chrome debug session · localhost
-                    </div>
-                  </div>
-
-                  <!-- Chrome controls -->
-                  <div class="flex items-center gap-2 shrink-0">
-                    <template v-if="sourceStore.hasChromeSource">
-                      <button
-                        @click="handleChromeDisconnect"
-                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/25 bg-surface-2 hover:border-border/45 hover:bg-surface-3 transition-colors text-[11px] text-muted-foreground/50 hover:text-foreground"
-                      >
-                        <XCircle :size="11" />
-                        Disconnect
-                      </button>
-                    </template>
-                    <template v-else>
-                      <button
-                        @click="handleChromeLaunch"
-                        :disabled="sourceStore.chromeStatus === 'launching'"
-                        class="flex items-center gap-1.5 px-3.5 py-1.5 bg-foreground text-background text-[12px] font-medium rounded-lg hover:opacity-85 transition-opacity disabled:opacity-40"
-                      >
-                        <Loader2
-                          v-if="sourceStore.chromeStatus === 'launching'"
-                          :size="11"
-                          class="animate-spin"
-                        />
-                        <Play v-else :size="11" />
-                        Launch Chrome
-                      </button>
-                      <button
-                        @click="showChromePortInput = !showChromePortInput"
-                        class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border/25 text-[11px] text-muted-foreground/40 hover:text-foreground hover:bg-surface-2 transition-colors"
-                        title="Connect to custom port"
-                      >
-                        <Link :size="11" />
-                      </button>
-                    </template>
-                  </div>
-                </div>
-
-                <!-- Manual port input -->
-                <Transition
-                  enter-active-class="transition-all duration-150 ease-out"
-                  leave-active-class="transition-all duration-100 ease-in"
-                  enter-from-class="opacity-0 -translate-y-1"
-                  leave-to-class="opacity-0 -translate-y-1"
-                >
-                  <div
-                    v-if="showChromePortInput && !sourceStore.hasChromeSource"
-                    class="flex items-center gap-2 mt-3"
-                  >
-                    <input
-                      v-model.number="chromePortInput"
-                      type="number"
-                      placeholder="9223"
-                      class="w-24 h-7 px-2 bg-surface-2 border border-border/30 rounded-md text-[12px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-                    />
-                    <button
-                      @click="handleChromeConnect"
-                      class="h-7 px-3 rounded-md bg-surface-2 border border-border/30 text-[11px] hover:bg-surface-3 transition-colors"
-                    >
-                      Connect
-                    </button>
-                  </div>
-                </Transition>
-
-                <div v-if="sourceStore.hasChromeSource" class="mt-3 space-y-1.5">
-                  <div
-                    class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/35"
-                  >
-                    New Tab URL
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <input
-                      v-model="chromeNewUrl"
-                      placeholder="https://example.com"
-                      class="flex-1 h-7 px-2 bg-surface-2 border border-border/30 rounded-md text-[11px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
-                      @keydown.enter="void handleChromeOpenUrl()"
-                    />
-                    <button
-                      @click="void handleChromeOpenUrl()"
-                      :disabled="openingChromeUrl"
-                      class="h-7 px-3 rounded-md bg-surface-2 border border-border/30 text-[11px] hover:bg-surface-3 transition-colors disabled:opacity-50"
-                    >
-                      <Loader2 v-if="openingChromeUrl" :size="11" class="animate-spin" />
-                      <span v-else>Open</span>
-                    </button>
                   </div>
                 </div>
               </div>
 
-              <!-- Chrome targets -->
               <div class="flex-1 overflow-y-auto px-6 py-4">
                 <div class="flex items-center justify-between mb-2">
                   <span
@@ -1093,29 +876,32 @@ watch(
                   >
                     Targets
                   </span>
+                  <span class="text-[10px] text-muted-foreground/30">URL creates target</span>
+                </div>
+
+                <div
+                  class="mb-3 flex items-center gap-2 rounded-lg border border-dashed border-border/25 bg-surface-1/40 px-3 py-2.5"
+                >
+                  <Plus :size="12" class="shrink-0 text-muted-foreground/40" />
+                  <input
+                    v-model="localTargetUrl"
+                    placeholder="http://localhost:5173"
+                    class="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/25"
+                    @keydown.enter="void handleCreateLocalTarget()"
+                  />
                   <button
-                    class="flex items-center gap-1 text-[10px] transition-colors"
-                    :class="
-                      scanningTargets || isFetchingTargets
-                        ? 'text-muted-foreground/20 cursor-not-allowed'
-                        : 'text-muted-foreground/30 hover:text-muted-foreground/60'
-                    "
-                    :disabled="scanningTargets || isFetchingTargets"
-                    @click="handleRefreshTargets"
+                    @click="void handleCreateLocalTarget()"
+                    :disabled="creatingLocalTarget"
+                    class="h-7 rounded-md border border-border/30 bg-surface-2 px-3 text-[11px] text-foreground/70 transition-colors hover:bg-surface-3 disabled:opacity-50"
                   >
-                    <RefreshCw
-                      :size="9"
-                      :class="{
-                        'animate-spin': scanningTargets || isFetchingTargets,
-                      }"
-                    />
-                    Refresh
+                    <Loader2 v-if="creatingLocalTarget" :size="11" class="animate-spin" />
+                    <span v-else>Add</span>
                   </button>
                 </div>
 
-                <div v-if="chromeTargets.length" class="space-y-1">
+                <div v-if="localTargets.length" class="space-y-1">
                   <div
-                    v-for="t in chromeTargets"
+                    v-for="t in localTargets"
                     :key="t.id"
                     @click="handleSelectTarget(t)"
                     class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-colors text-left group cursor-pointer"
@@ -1128,9 +914,12 @@ watch(
                     <span
                       class="w-1.5 h-1.5 rounded-full shrink-0"
                       :class="
-                        connStatus(t.id) === 'connected' ? 'bg-success' : 'bg-muted-foreground/20'
+                        targetsStore.selectedTarget?.id === t.id
+                          ? 'bg-success'
+                          : 'bg-muted-foreground/20'
                       "
                     />
+                    <Globe :size="13" class="shrink-0 text-muted-foreground/35" />
                     <div class="flex-1 min-w-0">
                       <div class="text-[12px] text-foreground/80 truncate">
                         {{ t.title || "(no title)" }}
@@ -1140,51 +929,28 @@ watch(
                       </div>
                     </div>
                     <button
-                      @click="handleOpenRemoteDevtools(t, $event)"
+                      @click="handleInspectTarget(t, $event)"
                       class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-surface-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-                      title="Open remote DevTools"
+                      title="Inspect child webview"
                     >
-                      <ExternalLink :size="11" />
+                      <Crosshair :size="11" />
                     </button>
                     <button
-                      v-if="connStatus(t.id) === 'connected'"
                       @click="handleDisconnectTarget(t.id, $event)"
                       class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground/50 hover:text-error hover:bg-error/10 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-                      title="Disconnect"
+                      title="Remove"
                     >
-                      <XCircle :size="11" />
+                      <Trash2 :size="11" />
                     </button>
                     <ChevronRight
-                      v-else
                       :size="11"
                       class="text-muted-foreground/20 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     />
                   </div>
                 </div>
 
-                <div
-                  v-else-if="!sourceStore.hasChromeSource"
-                  class="py-8 text-center text-[11px] text-muted-foreground/25"
-                >
-                  Launch or connect Chrome to see targets.
-                </div>
-
-                <div
-                  v-else-if="isFetchingTargets"
-                  class="flex items-center gap-2 py-6 text-[11px] text-muted-foreground/35"
-                >
-                  <Loader2 :size="12" class="animate-spin" />
-                  Scanning…
-                </div>
-
                 <div v-else class="py-8 text-center text-[11px] text-muted-foreground/25">
-                  No targets found.
-                  <button
-                    class="underline underline-offset-2 hover:text-muted-foreground/50 transition-colors ml-1"
-                    @click="handleRefreshTargets"
-                  >
-                    Scan again
-                  </button>
+                  Add a URL to create a local child webview target.
                 </div>
               </div>
             </template>

@@ -11,6 +11,7 @@
     "tauri": "vpx tauri.cmd dev"
   },
   "dependencies": {
+    "@babel/parser": "catalog:",
     "@devicefarmer/adbkit": "^3.3.8",
     "@internationalized/date": "catalog:",
     "@tailwindcss/vite": "catalog:",

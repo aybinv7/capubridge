@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { toast } from "vue-sonner";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -9,6 +9,7 @@ import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
 import { getDetachedMirrorLayoutMetrics } from "./detachedMirrorLayout";
 import MirrorStream from "./MirrorStream.vue";
+import LocalWebviewHost from "./LocalWebviewHost.vue";
 import MirrorControls from "./MirrorControls.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
 import MirrorSettingsPanel from "./MirrorSettingsPanel.vue";
@@ -39,6 +40,19 @@ const settingsOpen = ref(false);
 const isResizing = ref(false);
 const streamAreaRef = ref<HTMLElement | null>(null);
 const { panelWidth } = useMirrorViewportWidth(streamAreaRef);
+const selectedTarget = computed(() => targetsStore.selectedTarget);
+const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
+const androidMode = computed(() => !isLocalTarget.value && isAndroidStream.value);
+const canUseStreamActions = computed(() => !isLocalTarget.value && mirrorStore.isStreaming);
+
+function syncLocalViewportSize() {
+  if (!isLocalTarget.value) return;
+  if (mirrorStore.settings.chromeViewportMode === "phone") {
+    mirrorStore.setDeviceSize(390, 844);
+    return;
+  }
+  mirrorStore.setDeviceSize(1280, 800);
+}
 
 function startResize(e: MouseEvent) {
   isResizing.value = true;
@@ -73,10 +87,15 @@ watch(
   () => mirrorStore.isOpen,
   (open) => {
     if (open && !mirrorStore.isDetached) {
+      if (isLocalTarget.value) {
+        void stopStream().then(syncLocalViewportSize);
+        return;
+      }
       void startStream();
-    } else if (!open) {
-      void stopStream();
+      return;
     }
+
+    void stopStream();
   },
 
   { immediate: true },
@@ -85,6 +104,7 @@ watch(
 watch(
   () => devicesStore.selectedDevice?.serial,
   () => {
+    if (isLocalTarget.value) return;
     if (mirrorStore.isOpen && !mirrorStore.isDetached) {
       void stopStream().then(() => startStream());
     }
@@ -95,6 +115,10 @@ watch(
   () => targetsStore.selectedTarget?.id ?? null,
   () => {
     if (mirrorStore.isOpen && !mirrorStore.isDetached) {
+      if (isLocalTarget.value) {
+        void stopStream().then(syncLocalViewportSize);
+        return;
+      }
       void stopStream().then(() => startStream());
     }
   },
@@ -118,16 +142,23 @@ watch(
       mirrorStore.isOpen &&
       !mirrorStore.isDetached &&
       mirrorStore.isStreaming &&
-      !isAndroidStream.value
+      !androidMode.value
     ) {
       void applyChromeViewportMode().catch(() => {
         void stopStream().then(() => startStream());
       });
     }
+    if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
+      syncLocalViewportSize();
+    }
   },
 );
 
 async function handleDetach() {
+  if (isLocalTarget.value) {
+    toast.info("Local webview stays in the main window");
+    return;
+  }
   await stopStream();
   mirrorStore.isDetached = true;
 
@@ -227,9 +258,9 @@ function toggleRecord() {
         :always-on-top="mirrorStore.alwaysOnTop"
         :side="mirrorStore.side"
         :is-detached="false"
-        :is-streaming="mirrorStore.isStreaming"
+        :is-streaming="canUseStreamActions"
         :settings-open="settingsOpen"
-        :android-mode="isAndroidStream"
+        :android-mode="androidMode"
         @screenshot="downloadScreenshot"
         @toggle-record="toggleRecord"
         @toggle-laser="mirrorStore.laserMode = !mirrorStore.laserMode"
@@ -248,7 +279,7 @@ function toggleRecord() {
         leave-to-class="opacity-0 max-h-0"
       >
         <div v-if="settingsOpen" class="overflow-hidden border-b border-border/30 max-h-48">
-          <MirrorSettingsPanel :android-mode="isAndroidStream" />
+          <MirrorSettingsPanel :android-mode="androidMode" />
         </div>
       </Transition>
 
@@ -263,7 +294,9 @@ function toggleRecord() {
             aspectRatio: `${mirrorStore.deviceWidth || 9} / ${mirrorStore.deviceHeight || 19.5}`,
           }"
         >
+          <LocalWebviewHost v-if="isLocalTarget" :target="selectedTarget" />
           <MirrorStream
+            v-else
             :use-canvas="useScrcpyCanvas"
             :is-connected="isConnected"
             :laser-mode="mirrorStore.laserMode"
@@ -282,7 +315,7 @@ function toggleRecord() {
         </div>
       </div>
 
-      <MirrorControls v-if="isAndroidStream" @keyevent="sendKey" />
+      <MirrorControls v-if="androidMode" @keyevent="sendKey" />
 
       <Transition
         enter-active-class="transition-all duration-300"

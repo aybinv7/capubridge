@@ -12,12 +12,7 @@ import { useInspectStore } from "@/stores/inspect.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useDevicesStore } from "@/stores/devices.store";
-import { useSourceStore } from "@/stores/source.store";
-import { useTargetsStore } from "@/stores/targets.store";
-import {
-  restoreChromePort,
-  restoreSelectedDeviceSerial,
-} from "@/composables/useSessionPersistence";
+import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import type { ADBDevice } from "@/types/adb.types";
 import type { DockTab } from "@/types/dock.types";
 
@@ -29,8 +24,6 @@ const inspectStore = useInspectStore();
 const uiStore = useUIStore();
 const dockStore = useDockStore();
 const devicesStore = useDevicesStore();
-const sourceStore = useSourceStore();
-const targetsStore = useTargetsStore();
 const router = useRouter();
 let unlistenInspectRequest: (() => void) | null = null;
 let unlistenInspectHover: (() => void) | null = null;
@@ -119,19 +112,6 @@ async function bootstrapRuntime() {
   const startupDevice = pickStartupDevice(devicesStore.devices);
   if (startupDevice) {
     await devicesStore.selectDevice(startupDevice);
-  }
-
-  if (!sourceStore.hasChromeSource) {
-    const savedPort = restoreChromePort();
-    const result = await sourceStore.autoConnectChrome().catch(() => null);
-    if (result !== "connected" && savedPort) {
-      await sourceStore.connectChrome(savedPort).catch(() => null);
-    }
-  }
-
-  const chromeSource = sourceStore.getChromeSource();
-  if (chromeSource) {
-    await targetsStore.fetchTargetsForSource(chromeSource);
   }
 }
 

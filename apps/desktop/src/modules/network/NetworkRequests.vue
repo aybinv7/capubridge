@@ -35,7 +35,7 @@ const TABS: DetailTab[] = ["headers", "payload", "response", "timing", "cookies"
 const store = useNetworkStore();
 const { getClient } = useCDP();
 const targetsStore = useTargetsStore();
-const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+const targetId = computed(() => targetsStore.cdpTargetId);
 
 const detailTab = ref<DetailTab>("headers");
 const expandedHeaderSections = ref(new Set<string>(["general", "response", "request"]));

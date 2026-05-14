@@ -4,11 +4,7 @@ import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import { useSourceStore } from "@/stores/source.store";
-import {
-  restoreChromePort,
-  restoreSelectedDeviceSerial,
-} from "@/composables/useSessionPersistence";
+import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import type { ADBDevice } from "@/types/adb.types";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
 import {
@@ -25,7 +21,6 @@ const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
 const inspectStore = useInspectStore();
 const targetsStore = useTargetsStore();
-const sourceStore = useSourceStore();
 const {
   useScrcpyCanvas,
   isAndroidStream,
@@ -143,24 +138,6 @@ async function bootstrapRuntime() {
   const startupDevice = devicesStore.selectedDevice ?? pickStartupDevice(devicesStore.devices);
   if (startupDevice && devicesStore.selectedDevice?.serial !== startupDevice.serial) {
     await devicesStore.selectDevice(startupDevice).catch(() => null);
-  }
-
-  if (!sourceStore.hasChromeSource) {
-    const savedPort = restoreChromePort();
-    const result = await sourceStore.autoConnectChrome().catch(() => null);
-    if (result !== "connected" && savedPort) {
-      await sourceStore.connectChrome(savedPort).catch(() => null);
-    }
-  }
-
-  const adbSource = sourceStore.getAdbSource();
-  if (adbSource) {
-    await targetsStore.fetchTargetsForSource(adbSource).catch(() => null);
-  }
-
-  const chromeSource = sourceStore.getChromeSource();
-  if (chromeSource) {
-    await targetsStore.fetchTargetsForSource(chromeSource).catch(() => null);
   }
 }
 

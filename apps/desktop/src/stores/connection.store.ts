@@ -35,6 +35,11 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   async function connect(target: CDPTarget): Promise<CDPClient> {
+    if (target.source === "local" && !target.webSocketDebuggerUrl) {
+      throw new Error(
+        "Local target has no CDP endpoint yet. Wait for WebView2 debug discovery to complete.",
+      );
+    }
     if (externalDevtoolsTargetId.value === target.id) {
       logConnection("connect:blocked-external-devtools", { targetId: target.id });
       throw new Error("Target currently owned by external DevTools");
@@ -60,6 +65,10 @@ export const useConnectionStore = defineStore("connection", () => {
 
     const connectionPromise = (async () => {
       try {
+        if (!target.webSocketDebuggerUrl) {
+          throw new Error("Target does not expose a CDP WebSocket URL.");
+        }
+
         targetToWsUrl.set(target.id, target.webSocketDebuggerUrl);
 
         let wsUrl = target.webSocketDebuggerUrl;

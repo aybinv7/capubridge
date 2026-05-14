@@ -8,7 +8,7 @@ export function useIDB() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
 
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   function getDomain() {
     const client = getClient(targetId.value);
@@ -20,11 +20,8 @@ export function useIDB() {
     return useQuery({
       queryKey: computed(() => ["idb-databases", targetId.value]),
       queryFn: async () => {
-        console.log("[IDB] useDatabases queryFn running, targetId:", targetId.value);
         const domain = getDomain();
-        const dbs = await domain.discoverDatabases();
-        console.log("[IDB] discovered databases:", dbs);
-        return dbs;
+        return domain.discoverDatabases();
       },
       enabled: computed(() => !!targetId.value),
     });

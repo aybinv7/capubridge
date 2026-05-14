@@ -2,38 +2,37 @@
 import { computed, ref } from "vue";
 import { ChevronRight, ChevronDown } from "lucide-vue-next";
 import { useDevicesStore } from "@/stores/devices.store";
-import { useSourceStore } from "@/stores/source.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useAppPackages } from "@/composables/useAppPackages";
 import DeviceManagerModal from "@/components/DeviceManagerModal.vue";
 import AppIcon from "@/modules/devices/AppIcon.vue";
 
 const devicesStore = useDevicesStore();
-const sourceStore = useSourceStore();
 const targetsStore = useTargetsStore();
 
 const modalOpen = ref(false);
 
 const device = computed(() => devicesStore.selectedDevice);
 const target = computed(() => targetsStore.selectedTarget);
-const hasChromeSource = computed(() => sourceStore.hasChromeSource);
 
-const isConnected = computed(() => device.value?.status === "online" || hasChromeSource.value);
+const isConnected = computed(
+  () => device.value?.status === "online" || target.value?.source === "local",
+);
 
 const serial = computed(() => device.value?.serial ?? "");
 const { getCachedPackage } = useAppPackages(serial);
 
 const statusClass = computed(() => {
+  if (target.value?.source === "local") return "bg-success";
   if (target.value?.source === "chrome") return "bg-blue-400";
   if (device.value?.status === "online") return "bg-success";
-  if (hasChromeSource.value) return "bg-success";
   return "bg-muted-foreground/20";
 });
 
 const sourceLabel = computed(() => {
-  if (target.value?.source === "chrome") return "Local";
+  if (target.value?.source === "local") return "Local";
+  if (target.value?.source === "chrome") return "Chrome";
   if (device.value?.status === "online") return device.value.model;
-  if (hasChromeSource.value) return "Local";
   if (device.value) return device.value.model;
   return "No connection";
 });
@@ -66,12 +65,6 @@ function onDeviceSelected(serial: string) {
     <span class="text-[11px] font-medium text-foreground/80 leading-none shrink-0">
       {{ sourceLabel }}
     </span>
-
-    <span
-      v-if="device?.status === 'online' && hasChromeSource"
-      class="w-1 h-1 rounded-full bg-blue-400/50 shrink-0"
-      title="Local Chrome also active"
-    />
 
     <template v-if="targetLabel">
       <ChevronRight :size="9" class="text-muted-foreground/25 shrink-0" />

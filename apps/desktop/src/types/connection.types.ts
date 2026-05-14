@@ -1,4 +1,4 @@
-export type ConnectionSourceType = "adb" | "chrome";
+export type ConnectionSourceType = "adb" | "chrome" | "local";
 
 export interface ADBSource {
   type: "adb";
@@ -12,7 +12,11 @@ export interface ChromeSource {
   pid?: number;
 }
 
-export type ConnectionSource = ADBSource | ChromeSource;
+export interface LocalSource {
+  type: "local";
+}
+
+export type ConnectionSource = ADBSource | ChromeSource | LocalSource;
 
 export interface ChromeLaunchResult {
   pid: number;

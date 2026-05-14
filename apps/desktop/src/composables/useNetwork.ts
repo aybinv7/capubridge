@@ -10,7 +10,7 @@ export function useNetwork() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
 
-  const targetId = computed(() => targetsStore.selectedTarget?.id ?? "");
+  const targetId = computed(() => targetsStore.cdpTargetId);
 
   let unsubscribers: Array<() => void> = [];
   let activeDomain: NetworkDomain | null = null;
