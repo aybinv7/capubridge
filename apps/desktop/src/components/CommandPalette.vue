@@ -51,6 +51,13 @@ const commands = [
   },
   {
     group: "Navigate",
+    icon: Globe,
+    label: "Preview",
+    action: () => router.push("/preview"),
+    keys: "P",
+  },
+  {
+    group: "Navigate",
     icon: Terminal,
     label: "Dock Console",
     action: () => dockStore.openDock("console"),

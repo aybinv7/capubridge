@@ -141,6 +141,12 @@ const routes: RouteRecordRaw[] = [
   },
 
   {
+    path: "/preview",
+    name: "browser-preview",
+    component: () => import("@/modules/browser-preview/BrowserPreviewPanel.vue"),
+  },
+
+  {
     path: "/console/:tab?",
     component: { render: () => null },
     beforeEnter: (to, from) => {
