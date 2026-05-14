@@ -825,8 +825,8 @@ watch(
 
           <StorageGraphViewportToolbar
             :zoom-percent="zoomPercent"
-            :can-undo="history.canUndo"
-            :can-redo="history.canRedo"
+            :can-undo="history.canUndo.value"
+            :can-redo="history.canRedo.value"
             @zoom-out="handleZoomOut"
             @zoom-in="handleZoomIn"
             @reset-zoom="handleResetZoom"
