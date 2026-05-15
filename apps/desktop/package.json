@@ -37,6 +37,7 @@
     "pinia": "catalog:",
     "reka-ui": "catalog:",
     "rrweb": "catalog:",
+    "sql.js": "catalog:",
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
     "utils": "workspace:*",
@@ -45,6 +46,7 @@
     "vue-sonner": "catalog:"
   },
   "devDependencies": {
+    "@types/sql.js": "catalog:",
     "@unocss/preset-wind": "catalog:",
     "@unocss/transformer-directives": "catalog:",
     "@unocss/transformer-variant-group": "catalog:",

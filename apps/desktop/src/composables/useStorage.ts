@@ -99,5 +99,16 @@ export function useOPFS() {
     });
   }
 
-  return { targetId, useDirectory, getDomain };
+  function useSahPoolDatabases(path: Ref<string>, enabled: Ref<boolean>) {
+    return useQuery({
+      queryKey: computed(() => ["opfs-sah-pool", targetId.value, path.value]),
+      queryFn: async () => {
+        const domain = getDomain();
+        return domain.listSahPoolDatabases(path.value);
+      },
+      enabled: computed(() => !!targetId.value && enabled.value),
+    });
+  }
+
+  return { targetId, useDirectory, useSahPoolDatabases, getDomain };
 }

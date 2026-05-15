@@ -55,6 +55,23 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
   const webviews = shallowRef(new Map<string, Webview>());
   const creationPromises = new Map<string, Promise<Webview>>();
 
+  if (typeof window !== "undefined") {
+    const destroyAll = () => {
+      for (const [, webview] of webviews.value) {
+        try {
+          void webview.close();
+        } catch {
+          /* webview may already be gone */
+        }
+      }
+    };
+    window.addEventListener("beforeunload", destroyAll);
+    window.addEventListener("pagehide", destroyAll);
+    if (import.meta.hot) {
+      import.meta.hot.dispose(destroyAll);
+    }
+  }
+
   const activeEntry = computed(() =>
     activeTargetId.value ? (entries.value[activeTargetId.value] ?? null) : null,
   );

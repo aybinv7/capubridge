@@ -1,13 +1,58 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, shallowRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Database, Search, RefreshCw, Table2 } from "lucide-vue-next";
+import {
+  Database,
+  Search,
+  RefreshCw,
+  Table2,
+  KeyRound,
+  Code,
+  Play,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  MoreVertical,
+  Pin,
+  PinOff,
+  Eye,
+  EyeOff,
+} from "lucide-vue-next";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "vue-sonner";
+import { Trash2, Eraser } from "lucide-vue-next";
+import { useOPFS } from "@/composables/useStorage";
 import { useSQLite } from "@/composables/useSQLite";
+import { useLiveRefresh } from "@/composables/useLiveRefresh";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import type { SqliteDbFile, SqliteTableInfo, SqliteQueryResult } from "@/types/sqlite.types";
+import { useSqlSessionStore } from "@/stores/sqlSession.store";
+import { useSqliteSidebarSettings } from "@/modules/storage/stores/useSqliteSidebarSettings";
+import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChangesStore";
+import {
+  useSqliteChangeIndex,
+  useSqliteTableChangeOverlay,
+  buildRowKey,
+} from "@/modules/storage/changes/useSqliteChangeOverlay";
+import type { SqliteChangeSummary } from "@/types/sqliteChanges.types";
+import type {
+  SqliteDbFile,
+  SqliteTableInfo,
+  SqliteQueryResult,
+  SqliteColumnInfo,
+  SqliteIndexInfo,
+  SqliteForeignKeyInfo,
+} from "@/types/sqlite.types";
 import SqliteTable from "./SqliteTable.vue";
 import SqliteTableToolbar from "./SqliteTableToolbar.vue";
 import SqliteDatabaseOverview from "./SqliteDatabaseOverview.vue";
@@ -16,10 +61,41 @@ const route = useRoute();
 const router = useRouter();
 const devicesStore = useDevicesStore();
 const targetsStore = useTargetsStore();
-const { listDatabases, openDatabase, tableRows } = useSQLite();
+const sqlSessionStore = useSqlSessionStore();
+const {
+  listDatabases,
+  openDatabase,
+  tableRows,
+  tableColumns,
+  tableIndexes,
+  tableForeignKeys,
+  executeQuery,
+} = useSQLite();
 
-const serial = computed(() => devicesStore.selectedDevice?.serial ?? "");
+const localSession = computed(() => sqlSessionStore.localSession);
+const isLocalMode = computed(() => !!localSession.value);
+
+const {
+  showHiddenDbs,
+  showHiddenTables,
+  togglePinDb,
+  isDbPinned,
+  toggleHideDb,
+  isDbHidden,
+  togglePinTable,
+  isTablePinned,
+  toggleHideTable,
+  isTableHidden,
+  toggleExpanded,
+  isDbExpanded,
+  expandDb,
+} = useSqliteSidebarSettings();
+
+const serial = computed(
+  () => localSession.value?.serial ?? devicesStore.selectedDevice?.serial ?? "",
+);
 const selectedTarget = computed(() => {
+  if (localSession.value) return null;
   const target = targetsStore.selectedTarget;
   if (!target || target.source !== "adb") {
     return null;
@@ -29,7 +105,9 @@ const selectedTarget = computed(() => {
   }
   return target;
 });
-const selectedPackageName = computed(() => selectedTarget.value?.packageName?.trim() ?? "");
+const selectedPackageName = computed(
+  () => localSession.value?.package ?? selectedTarget.value?.packageName?.trim() ?? "",
+);
 
 const dbSearch = ref("");
 const isLoadingDbs = ref(false);
@@ -60,7 +138,132 @@ const hasMore = computed(() => {
   return queryResult.value.rowCount >= pageSize.value;
 });
 
+// Table tabs (Browse / Structure / SQL)
+const activeTab = ref<"browse" | "structure" | "sql">("browse");
+const structureColumns = shallowRef<SqliteColumnInfo[]>([]);
+const structureIndexes = shallowRef<SqliteIndexInfo[]>([]);
+const structureForeignKeys = shallowRef<SqliteForeignKeyInfo[]>([]);
+const isLoadingStructure = ref(false);
+const structureError = ref<string | null>(null);
+
+const sqlInput = ref("SELECT name, type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%';");
+const sqlResult = shallowRef<SqliteQueryResult | null>(null);
+const sqlError = ref<string | null>(null);
+const isRunningSql = ref(false);
+
+const currentTable = computed(() => tables.value.find((t) => t.name === tableName.value) ?? null);
+
+const columnInfo = shallowRef<SqliteColumnInfo[]>([]);
+const isLoadingColumnInfo = ref(false);
+const pkColumnsRef = computed(() =>
+  columnInfo.value.filter((c) => c.pk).sort((a, b) => a.cid - b.cid),
+);
+
+const changesStore = useSqliteChangesStore();
+const { getTableSummary, getDatabaseSummary } = useSqliteChangeIndex();
+
+const overlayDbPath = computed(() => currentDb.value?.path ?? "");
+const { changesByRowKey: tableChangesByRowKey, tableSummary: currentTableSummary } =
+  useSqliteTableChangeOverlay({
+    serial,
+    packageName: selectedPackageName,
+    dbPath: overlayDbPath,
+    tableName,
+    pkColumns: pkColumnsRef,
+  });
+
+async function fetchColumnInfo() {
+  if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) {
+    columnInfo.value = [];
+    return;
+  }
+  isLoadingColumnInfo.value = true;
+  try {
+    columnInfo.value = await tableColumns(
+      serial.value,
+      selectedPackageName.value,
+      currentDb.value.path,
+      tableName.value,
+    );
+  } catch (err) {
+    console.error("[SQLite] fetchColumnInfo failed:", err);
+    columnInfo.value = [];
+  } finally {
+    isLoadingColumnInfo.value = false;
+  }
+}
+
+async function fetchStructure() {
+  if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) {
+    structureColumns.value = [];
+    structureIndexes.value = [];
+    structureForeignKeys.value = [];
+    return;
+  }
+  isLoadingStructure.value = true;
+  structureError.value = null;
+  try {
+    const [cols, idx, fks] = await Promise.all([
+      tableColumns(serial.value, selectedPackageName.value, currentDb.value.path, tableName.value),
+      tableIndexes(serial.value, selectedPackageName.value, currentDb.value.path, tableName.value),
+      tableForeignKeys(
+        serial.value,
+        selectedPackageName.value,
+        currentDb.value.path,
+        tableName.value,
+      ),
+    ]);
+    structureColumns.value = cols;
+    structureIndexes.value = idx;
+    structureForeignKeys.value = fks;
+  } catch (err) {
+    structureError.value = String(err);
+  } finally {
+    isLoadingStructure.value = false;
+  }
+}
+
+async function runSql() {
+  if (!serial.value || !selectedPackageName.value || !currentDb.value) {
+    sqlError.value = "No active database";
+    return;
+  }
+  isRunningSql.value = true;
+  sqlError.value = null;
+  try {
+    sqlResult.value = await executeQuery(
+      serial.value,
+      selectedPackageName.value,
+      currentDb.value.path,
+      sqlInput.value,
+    );
+  } catch (err) {
+    sqlError.value = String(err);
+    sqlResult.value = null;
+  } finally {
+    isRunningSql.value = false;
+  }
+}
+
+function renderCell(value: unknown): { text: string; tone: "null" | "blob" | "value" } {
+  if (value === null || value === undefined) return { text: "NULL", tone: "null" };
+  if (typeof value === "string" && value.startsWith("[BLOB ")) return { text: value, tone: "blob" };
+  if (typeof value === "object") return { text: JSON.stringify(value), tone: "value" };
+  return { text: String(value), tone: "value" };
+}
+
 async function fetchDatabases() {
+  if (localSession.value) {
+    const s = localSession.value;
+    databases.value = [
+      {
+        name: s.fileName,
+        path: s.dbPath,
+        size: s.sizeBytes,
+      },
+    ];
+    return;
+  }
   if (!serial.value || !selectedPackageName.value) {
     databases.value = [];
     return;
@@ -145,10 +348,43 @@ function isTableActive(table: string): boolean {
 
 const visibleDatabases = computed(() => {
   const q = dbSearch.value.toLowerCase();
-  if (!q) return databases.value;
-  return databases.value.filter(
-    (db) => db.name.toLowerCase().includes(q) || db.path.toLowerCase().includes(q),
-  );
+  return databases.value
+    .filter((db) => {
+      if (isDbHidden(db.path) && !showHiddenDbs.value) return false;
+      if (q) {
+        const matchDb = db.name.toLowerCase().includes(q) || db.path.toLowerCase().includes(q);
+        const matchTable =
+          isDbExpanded(db.path) && tables.value.some((t) => t.name.toLowerCase().includes(q));
+        if (!matchDb && !matchTable) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const pa = isDbPinned(a.path) ? 0 : 1;
+      const pb = isDbPinned(b.path) ? 0 : 1;
+      return pa - pb || a.name.localeCompare(b.name);
+    });
+});
+
+function getVisibleTables(dbPath: string): SqliteTableInfo[] {
+  const q = dbSearch.value.toLowerCase();
+  return tables.value
+    .filter((t) => {
+      if (q && !t.name.toLowerCase().includes(q)) return false;
+      if (isTableHidden(dbPath, t.name) && !showHiddenTables.value) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const pa = isTablePinned(dbPath, a.name) ? 0 : 1;
+      const pb = isTablePinned(dbPath, b.name) ? 0 : 1;
+      return pa - pb || a.name.localeCompare(b.name);
+    });
+}
+
+const hiddenDbCount = computed(() => databases.value.filter((db) => isDbHidden(db.path)).length);
+const hiddenTableCount = computed(() => {
+  if (!currentDb.value) return 0;
+  return tables.value.filter((t) => isTableHidden(currentDb.value!.path, t.name)).length;
 });
 
 function prevPage() {
@@ -171,15 +407,246 @@ function handlePageSizeChange(size: number) {
   void fetchTableRows();
 }
 
+const { getDomain: getOpfsDomain } = useOPFS();
+
+async function refreshLocalSnapshot() {
+  const s = localSession.value;
+  if (!s || !s.sourceOpfsPath) return;
+  try {
+    const bytes = await getOpfsDomain().readSqliteBytes(s.sourceOpfsPath, {
+      stripSahPoolHeader: s.stripSahPoolHeader ?? false,
+    });
+    await sqlSessionStore.refreshLocalSession(bytes);
+  } catch (err) {
+    console.error("[SQLite] refreshLocalSnapshot failed:", err);
+  }
+}
+
 async function handleRefresh() {
+  if (localSession.value?.sourceOpfsPath) {
+    await refreshLocalSnapshot();
+  }
   if (currentDb.value && tableName.value) {
     await openDb(currentDb.value);
     await fetchTableRows();
+    await fetchColumnInfo();
+    if (activeTab.value === "structure") {
+      structureColumns.value = [];
+      await fetchStructure();
+    }
   } else if (currentDb.value) {
     await openDb(currentDb.value);
   } else {
     await fetchDatabases();
   }
+}
+
+const { enabled: liveEnabled, intervalMs: liveIntervalMs } = useLiveRefresh(handleRefresh, {
+  intervalMs: 5000,
+});
+
+function toggleLive() {
+  liveEnabled.value = !liveEnabled.value;
+}
+
+// ─── Destructive actions + cell edit ──────────────────────────────────────────
+const confirmDialog = ref<{
+  open: boolean;
+  title: string;
+  description: string;
+  action: () => Promise<void>;
+}>({ open: false, title: "", description: "", action: async () => {} });
+
+function openConfirm(title: string, description: string, action: () => Promise<void>) {
+  confirmDialog.value = { open: true, title, description, action };
+}
+
+async function runConfirmedAction() {
+  try {
+    await confirmDialog.value.action();
+  } catch (err) {
+    toast.error("Action failed", { description: String(err) });
+  } finally {
+    confirmDialog.value.open = false;
+  }
+}
+
+async function execAgainstCurrentDb(sql: string): Promise<void> {
+  if (!serial.value || !selectedPackageName.value || !currentDb.value) {
+    throw new Error("No active database");
+  }
+  await executeQuery(serial.value, selectedPackageName.value, currentDb.value.path, sql);
+}
+
+function handleClearTable(db: SqliteDbFile, table: string) {
+  openConfirm(
+    "Clear all rows",
+    `Delete every row in "${table}"? This cannot be undone.`,
+    async () => {
+      await execAgainstCurrentDb(`DELETE FROM ${quoteIdent(table)}`);
+      changesStore.recordSystemChange({
+        serial: serial.value,
+        packageName: selectedPackageName.value,
+        dbPath: db.path,
+        tableName: table,
+        message: `Cleared all rows from "${table}"`,
+      });
+      await handleRefresh();
+      toast.success(`Cleared "${table}"`);
+    },
+  );
+}
+
+function handleDropTable(db: SqliteDbFile, table: string) {
+  openConfirm(
+    "Drop table",
+    `Permanently drop the table "${table}" and all its data? The schema will lose this table.`,
+    async () => {
+      await execAgainstCurrentDb(`DROP TABLE ${quoteIdent(table)}`);
+      changesStore.recordSystemChange({
+        serial: serial.value,
+        packageName: selectedPackageName.value,
+        dbPath: db.path,
+        tableName: table,
+        message: `Dropped table "${table}"`,
+      });
+      if (tableName.value === table) {
+        await router.replace(`/storage/sqlite/${encodeURIComponent(dbName.value)}`);
+      }
+      await openDb(db);
+      toast.success(`Dropped "${table}"`);
+    },
+  );
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+function hasSummaryChanges(summary: SqliteChangeSummary) {
+  return summary.total > 0;
+}
+
+function getSummarySegments(summary: SqliteChangeSummary) {
+  return [
+    { key: "add", count: summary.add, class: "bg-emerald-500" },
+    { key: "update", count: summary.update, class: "bg-amber-500" },
+    { key: "delete", count: summary.delete, class: "bg-red-500" },
+  ].filter((entry) => entry.count > 0);
+}
+
+function getDatabaseSummaryStyle(summary: SqliteChangeSummary) {
+  if (summary.total === 0) return {};
+  const color = summary.delete > 0 ? "239,68,68" : summary.update > 0 ? "245,158,11" : "16,185,129";
+  return {
+    background: `linear-gradient(90deg, rgba(${color}, 0.12), rgba(${color}, 0.035) 42%, transparent 92%)`,
+  };
+}
+
+function formatSummary(summary: SqliteChangeSummary) {
+  return [
+    summary.add > 0 ? `${summary.add} added` : "",
+    summary.update > 0 ? `${summary.update} updated` : "",
+    summary.delete > 0 ? `${summary.delete} deleted` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function dbSummary(db: SqliteDbFile) {
+  return getDatabaseSummary(serial.value, selectedPackageName.value, db.path);
+}
+
+function tableSummary(db: SqliteDbFile, table: string) {
+  return getTableSummary(serial.value, selectedPackageName.value, db.path, table);
+}
+
+function quoteSqlValue(v: unknown): string {
+  if (v === null || v === undefined) return "NULL";
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "boolean") return v ? "1" : "0";
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  return `'${s.replace(/'/g, "''")}'`;
+}
+
+function pkColumns(): SqliteColumnInfo[] {
+  return columnInfo.value.filter((c) => c.pk).sort((a, b) => a.cid - b.cid);
+}
+
+async function handleRecordEdit(
+  original: Record<string, unknown>,
+  updated: Record<string, unknown>,
+) {
+  if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) return;
+  const pks = pkColumns();
+  if (pks.length === 0) {
+    toast.error("Cannot save", { description: "Table has no primary key." });
+    return;
+  }
+
+  const changed: string[] = [];
+  for (const col of columnInfo.value) {
+    if (pks.some((p) => p.name === col.name)) continue;
+    const before = original[col.name];
+    const after = updated[col.name];
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      changed.push(`${quoteIdent(col.name)} = ${quoteSqlValue(after)}`);
+    }
+  }
+  if (changed.length === 0) {
+    toast.info("Nothing to save", { description: "No editable fields changed." });
+    return;
+  }
+
+  const where = pks
+    .map((c) => `${quoteIdent(c.name)} = ${quoteSqlValue(original[c.name])}`)
+    .join(" AND ");
+
+  const sql = `UPDATE ${quoteIdent(tableName.value)} SET ${changed.join(", ")} WHERE ${where}`;
+  try {
+    await execAgainstCurrentDb(sql);
+    changesStore.recordChange({
+      operation: "update",
+      serial: serial.value,
+      packageName: selectedPackageName.value,
+      dbPath: currentDb.value.path,
+      tableName: tableName.value,
+      rowKey: buildRowKey(pkColumnsRef.value, original),
+      beforeValue: original,
+      afterValue: updated,
+    });
+    await fetchTableRows();
+    toast.success("Row saved");
+  } catch (err) {
+    toast.error("Save failed", { description: String(err) });
+  }
+}
+
+function handleRecordDelete(record: Record<string, unknown>) {
+  if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) return;
+  const pks = pkColumns();
+  if (pks.length === 0) {
+    toast.error("Cannot delete", { description: "Table has no primary key." });
+    return;
+  }
+  const where = pks
+    .map((c) => `${quoteIdent(c.name)} = ${quoteSqlValue(record[c.name])}`)
+    .join(" AND ");
+  openConfirm("Delete row", "Permanently delete this row? This cannot be undone.", async () => {
+    await execAgainstCurrentDb(`DELETE FROM ${quoteIdent(tableName.value)} WHERE ${where}`);
+    changesStore.recordChange({
+      operation: "delete",
+      serial: serial.value,
+      packageName: selectedPackageName.value,
+      dbPath: currentDb.value!.path,
+      tableName: tableName.value,
+      rowKey: buildRowKey(pkColumnsRef.value, record),
+      beforeValue: record,
+      afterValue: null,
+    });
+    await fetchTableRows();
+    toast.success("Row deleted");
+  });
 }
 
 // Watch for route changes
@@ -188,6 +655,12 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
   orderBy.value = null;
   orderDir.value = null;
   queryResult.value = null;
+  activeTab.value = "browse";
+  structureColumns.value = [];
+  structureIndexes.value = [];
+  structureForeignKeys.value = [];
+  structureError.value = null;
+  columnInfo.value = [];
 
   // Only clear tables when switching databases, not when selecting a table within the same DB
   if (newDb !== oldDb) {
@@ -200,7 +673,7 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
       if (newDb !== oldDb || tables.value.length === 0) {
         await openDb(dbFile);
       }
-      await fetchTableRows();
+      await Promise.all([fetchTableRows(), fetchColumnInfo()]);
     }
   } else if (newDb) {
     const dbFile = databases.value.find((d) => d.name === newDb);
@@ -251,6 +724,20 @@ watch([dbName, tableName], async () => {
     behavior: "smooth",
   });
 });
+
+watch(activeTab, (next) => {
+  if (next === "structure" && structureColumns.value.length === 0 && tableName.value) {
+    void fetchStructure();
+  }
+});
+
+watch(
+  currentDb,
+  (db) => {
+    if (db) expandDb(db.path);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -271,6 +758,38 @@ watch([dbName, tableName], async () => {
                 placeholder="Search databases…"
               />
             </div>
+          </div>
+
+          <div
+            v-if="hiddenDbCount > 0"
+            class="shrink-0 flex items-center justify-between px-3 py-1 border-b border-border/20 bg-surface-2/50"
+          >
+            <span class="text-[10px] text-muted-foreground/50">
+              {{ hiddenDbCount }} hidden database{{ hiddenDbCount > 1 ? "s" : "" }}
+            </span>
+            <button
+              class="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground/70 transition-colors"
+              @click="showHiddenDbs = !showHiddenDbs"
+            >
+              <component :is="showHiddenDbs ? Eye : EyeOff" :size="10" />
+              {{ showHiddenDbs ? "Hide" : "Show" }}
+            </button>
+          </div>
+
+          <div
+            v-if="hiddenTableCount > 0"
+            class="shrink-0 flex items-center justify-between px-3 py-1 border-b border-border/20 bg-surface-2/50"
+          >
+            <span class="text-[10px] text-muted-foreground/50">
+              {{ hiddenTableCount }} hidden table{{ hiddenTableCount > 1 ? "s" : "" }}
+            </span>
+            <button
+              class="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground/70 transition-colors"
+              @click="showHiddenTables = !showHiddenTables"
+            >
+              <component :is="showHiddenTables ? Eye : EyeOff" :size="10" />
+              {{ showHiddenTables ? "Hide" : "Show" }}
+            </button>
           </div>
 
           <!-- Database tree -->
@@ -311,44 +830,192 @@ watch([dbName, tableName], async () => {
             </div>
 
             <ul v-else class="py-1">
-              <li v-for="db in visibleDatabases" :key="db.path" class="group-db">
-                <button
-                  class="flex w-full items-center gap-2 py-1.5 pl-3 pr-3 text-xs transition-colors"
+              <li v-for="db in visibleDatabases" :key="db.path" class="group/db relative">
+                <div
+                  class="relative flex w-full items-center gap-1 px-2 py-1.5 text-xs transition-colors hover:bg-surface-3/50"
                   :class="
                     isDbActive(db.name)
-                      ? 'text-foreground font-medium bg-surface-3 border-l-2 border-foreground pl-[10px]'
-                      : 'text-foreground/60 hover:bg-surface-3/50 hover:text-foreground/80'
+                      ? 'bg-surface-3 text-foreground font-medium'
+                      : 'text-foreground/70'
                   "
-                  @click="navigateToDb(db)"
+                  :style="getDatabaseSummaryStyle(dbSummary(db))"
                 >
-                  <Database :size="12" class="shrink-0 opacity-40" />
-                  <span class="flex-1 truncate text-left">{{ db.name }}</span>
-                  <span class="text-[10px] font-mono text-muted-foreground/40">
-                    {{ (db.size / 1024).toFixed(0) }}KB
-                  </span>
-                </button>
+                  <div
+                    v-if="hasSummaryChanges(dbSummary(db))"
+                    class="pointer-events-none absolute left-0 top-1.5 bottom-1.5 z-10 flex w-1 overflow-hidden rounded-r"
+                    :title="formatSummary(dbSummary(db))"
+                  >
+                    <span
+                      v-for="segment in getSummarySegments(dbSummary(db))"
+                      :key="segment.key"
+                      class="min-h-1 flex-1"
+                      :class="segment.class"
+                    />
+                  </div>
+                  <button
+                    class="shrink-0 p-0.5 text-muted-foreground/50 hover:text-foreground"
+                    @click="toggleExpanded(db.path)"
+                  >
+                    <component
+                      :is="isDbExpanded(db.path) ? ChevronDown : ChevronRight"
+                      :size="12"
+                    />
+                  </button>
+                  <button class="flex flex-1 min-w-0 items-center gap-2" @click="navigateToDb(db)">
+                    <Database :size="12" class="shrink-0 opacity-40" />
+                    <span
+                      class="flex-1 truncate text-left"
+                      :class="{ 'opacity-40': isDbHidden(db.path) }"
+                    >
+                      {{ db.name }}
+                    </span>
+                    <span class="shrink-0 text-[10px] font-mono text-muted-foreground/40">
+                      {{ (db.size / 1024).toFixed(0) }}KB
+                    </span>
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <button
+                        class="shrink-0 rounded p-0.5 opacity-0 transition-colors hover:bg-surface-3 text-muted-foreground/40 hover:text-foreground/70 group-hover/db:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+                        title="Database actions"
+                        @click.stop
+                      >
+                        <MoreVertical :size="12" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-44">
+                      <DropdownMenuItem @click="togglePinDb(db.path)">
+                        <component
+                          :is="isDbPinned(db.path) ? PinOff : Pin"
+                          class="h-3.5 w-3.5 mr-2"
+                        />
+                        {{ isDbPinned(db.path) ? "Unpin database" : "Pin database" }}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @click="toggleHideDb(db.path)">
+                        <component
+                          :is="isDbHidden(db.path) ? Eye : EyeOff"
+                          class="h-3.5 w-3.5 mr-2"
+                        />
+                        {{ isDbHidden(db.path) ? "Unhide database" : "Hide database" }}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        :disabled="!hasSummaryChanges(dbSummary(db))"
+                        @click="
+                          changesStore.clearDatabaseChanges(serial, selectedPackageName, db.path)
+                        "
+                      >
+                        <Eraser class="h-3.5 w-3.5 mr-2" />
+                        Clear DB changes
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                <ul v-if="isDbActive(db.name) && tables.length">
+                <ul v-if="isDbExpanded(db.path) && isDbActive(db.name) && tables.length">
                   <li
-                    v-for="t in tables"
+                    v-for="t in getVisibleTables(db.path)"
                     :key="t.name"
+                    class="group/table relative"
                     :data-active-table="isTableActive(t.name) ? '' : undefined"
                   >
-                    <button
-                      class="flex w-full items-center gap-1.5 py-1 pl-[30px] pr-3 text-xs transition-colors"
+                    <div
+                      class="relative flex w-full items-center transition-colors"
                       :class="
                         isTableActive(t.name)
-                          ? 'text-foreground font-medium bg-surface-2 border-l-2 border-foreground pl-[28px]'
+                          ? 'bg-surface-2 text-foreground font-medium border-l-2 border-foreground'
                           : 'text-foreground/50 hover:bg-surface-2/50 hover:text-foreground/70'
                       "
-                      @click="navigateToTable(db, t.name)"
                     >
-                      <Table2 :size="10" class="shrink-0 opacity-40" />
-                      <span class="flex-1 truncate text-left">{{ t.name }}</span>
-                      <span class="text-[10px] font-mono text-muted-foreground/30">
-                        {{ t.rowCount }}
-                      </span>
-                    </button>
+                      <div
+                        v-if="hasSummaryChanges(tableSummary(db, t.name))"
+                        class="pointer-events-none absolute left-0 top-1 bottom-1 z-10 flex w-1 overflow-hidden rounded-r"
+                        :title="formatSummary(tableSummary(db, t.name))"
+                      >
+                        <span
+                          v-for="segment in getSummarySegments(tableSummary(db, t.name))"
+                          :key="segment.key"
+                          class="min-h-1 flex-1"
+                          :class="segment.class"
+                        />
+                      </div>
+                      <button
+                        class="flex flex-1 items-center gap-1.5 py-1 pl-[26px] pr-2 text-xs"
+                        @click="navigateToTable(db, t.name)"
+                      >
+                        <span
+                          v-if="isTablePinned(db.path, t.name)"
+                          class="shrink-0 w-1.5 h-1.5 rounded-full bg-foreground/30 mr-0.5"
+                        />
+                        <Table2 :size="10" class="shrink-0 opacity-40" />
+                        <span
+                          class="flex-1 truncate text-left"
+                          :class="{ 'opacity-40': isTableHidden(db.path, t.name) }"
+                        >
+                          {{ t.name }}
+                        </span>
+                        <span class="text-[10px] font-mono text-muted-foreground/30">
+                          {{ t.rowCount }}
+                        </span>
+                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                          <button
+                            class="shrink-0 rounded p-0.5 mr-1 opacity-0 transition-colors hover:bg-surface-3 text-muted-foreground/40 hover:text-foreground/70 group-hover/table:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+                            title="Table actions"
+                            @click.stop
+                          >
+                            <MoreVertical :size="12" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" class="w-40">
+                          <DropdownMenuItem @click="togglePinTable(db.path, t.name)">
+                            <component
+                              :is="isTablePinned(db.path, t.name) ? PinOff : Pin"
+                              class="h-3.5 w-3.5 mr-2"
+                            />
+                            {{ isTablePinned(db.path, t.name) ? "Unpin table" : "Pin table" }}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem @click="toggleHideTable(db.path, t.name)">
+                            <component
+                              :is="isTableHidden(db.path, t.name) ? Eye : EyeOff"
+                              class="h-3.5 w-3.5 mr-2"
+                            />
+                            {{ isTableHidden(db.path, t.name) ? "Unhide table" : "Hide table" }}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            :disabled="!hasSummaryChanges(tableSummary(db, t.name))"
+                            @click="
+                              changesStore.clearTableChanges(
+                                serial,
+                                selectedPackageName,
+                                db.path,
+                                t.name,
+                              )
+                            "
+                          >
+                            <Eraser class="h-3.5 w-3.5 mr-2" />
+                            Clear changes
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            class="text-error focus:text-error"
+                            @click="handleClearTable(db, t.name)"
+                          >
+                            <Eraser class="h-3.5 w-3.5 mr-2" />
+                            Clear all rows
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            class="text-error focus:text-error"
+                            @click="handleDropTable(db, t.name)"
+                          >
+                            <Trash2 class="h-3.5 w-3.5 mr-2" />
+                            Drop table
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </li>
                 </ul>
               </li>
@@ -388,41 +1055,326 @@ watch([dbName, tableName], async () => {
           />
         </template>
 
-        <!-- Table selected → show data -->
+        <!-- Table selected → tabbed view (Browse / Structure / SQL) -->
         <template v-else>
           <div class="flex flex-col h-full overflow-hidden">
-            <SqliteTableToolbar
-              :table-name="tableName"
-              :db-name="dbName"
-              :is-loading="isLoadingRecords"
-              :page="page"
-              :page-size="pageSize"
-              :has-more="hasMore"
-              :record-count="queryResult?.rowCount ?? 0"
-              @refresh="handleRefresh"
-              @prev="prevPage"
-              @next="nextPage"
-              @page-size-change="handlePageSizeChange"
-            />
-
             <div
-              v-if="error"
-              class="shrink-0 border-b border-border/30 bg-error/[0.06] px-4 py-2 text-xs text-error"
+              class="flex shrink-0 items-center gap-0.5 border-b border-border/20 bg-surface-1/40 px-2"
             >
-              {{ error }}
+              <Button
+                variant="ghost"
+                size="sm"
+                class="h-7 gap-1.5 px-3 text-[11px]"
+                :class="
+                  activeTab === 'browse'
+                    ? 'text-foreground bg-surface-3'
+                    : 'text-muted-foreground/60'
+                "
+                @click="activeTab = 'browse'"
+              >
+                <Table2 :size="11" /> Browse
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                class="h-7 gap-1.5 px-3 text-[11px]"
+                :class="
+                  activeTab === 'structure'
+                    ? 'text-foreground bg-surface-3'
+                    : 'text-muted-foreground/60'
+                "
+                @click="activeTab = 'structure'"
+              >
+                <KeyRound :size="11" /> Structure
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                class="h-7 gap-1.5 px-3 text-[11px]"
+                :class="
+                  activeTab === 'sql' ? 'text-foreground bg-surface-3' : 'text-muted-foreground/60'
+                "
+                @click="activeTab = 'sql'"
+              >
+                <Code :size="11" /> SQL
+              </Button>
             </div>
 
-            <SqliteTable
-              :columns="queryResult?.columns ?? []"
-              :rows="queryResult?.rows ?? []"
-              :is-loading="isLoadingRecords"
-              :table-name="tableName"
-              :db-name="dbName"
-              @refresh="handleRefresh"
-            />
+            <template v-if="activeTab === 'browse'">
+              <SqliteTableToolbar
+                :table-name="tableName"
+                :db-name="dbName"
+                :is-loading="isLoadingRecords"
+                :page="page"
+                :page-size="pageSize"
+                :has-more="hasMore"
+                :record-count="queryResult?.rowCount ?? 0"
+                :live-enabled="liveEnabled"
+                :live-interval-ms="liveIntervalMs"
+                @refresh="handleRefresh"
+                @prev="prevPage"
+                @next="nextPage"
+                @page-size-change="handlePageSizeChange"
+                @toggle-live="toggleLive"
+              />
+
+              <div
+                v-if="error"
+                class="shrink-0 border-b border-border/30 bg-error/[0.06] px-4 py-2 text-xs text-error"
+              >
+                {{ error }}
+              </div>
+
+              <SqliteTable
+                :columns="queryResult?.columns ?? []"
+                :rows="queryResult?.rows ?? []"
+                :is-loading="isLoadingRecords"
+                :table-name="tableName"
+                :db-name="dbName"
+                :column-info="columnInfo"
+                :changes-by-row-key="tableChangesByRowKey"
+                @refresh="handleRefresh"
+                @record-edit="handleRecordEdit"
+                @record-delete="handleRecordDelete"
+              />
+            </template>
+
+            <template v-else-if="activeTab === 'structure'">
+              <ScrollArea class="flex-1">
+                <div
+                  v-if="isLoadingStructure"
+                  class="flex items-center justify-center py-12 text-[11px] text-muted-foreground/50"
+                >
+                  <RefreshCw :size="14" class="mr-2 animate-spin" />
+                  Loading structure…
+                </div>
+
+                <div
+                  v-else-if="structureError"
+                  class="m-4 flex items-start gap-2 rounded-md border border-error/30 bg-error/[0.06] p-3 text-xs text-error"
+                >
+                  <AlertCircle :size="14" class="mt-0.5 shrink-0" />
+                  <span>{{ structureError }}</span>
+                </div>
+
+                <div v-else class="space-y-6 px-4 py-4 text-xs">
+                  <section>
+                    <div class="mb-2 flex items-center gap-2">
+                      <Table2 :size="12" class="text-muted-foreground/40" />
+                      <span
+                        class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                      >
+                        Columns
+                      </span>
+                    </div>
+                    <table v-if="structureColumns.length" class="w-full font-mono">
+                      <thead>
+                        <tr class="text-left text-muted-foreground/40">
+                          <th class="py-1.5 font-medium">#</th>
+                          <th class="py-1.5 font-medium">Name</th>
+                          <th class="py-1.5 font-medium">Type</th>
+                          <th class="py-1.5 font-medium">Null</th>
+                          <th class="py-1.5 font-medium">Default</th>
+                          <th class="py-1.5 font-medium">PK</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="col in structureColumns"
+                          :key="col.cid"
+                          class="border-t border-border/20 text-secondary-foreground"
+                        >
+                          <td class="py-1.5 text-muted-foreground/50">{{ col.cid }}</td>
+                          <td class="py-1.5">{{ col.name }}</td>
+                          <td class="py-1.5 text-muted-foreground/70">{{ col.colType || "—" }}</td>
+                          <td class="py-1.5 text-muted-foreground/70">
+                            {{ col.notnull ? "NOT NULL" : "—" }}
+                          </td>
+                          <td class="py-1.5 text-muted-foreground/70">
+                            {{ col.defaultValue ?? "—" }}
+                          </td>
+                          <td class="py-1.5 text-muted-foreground/70">
+                            {{ col.pk ? "yes" : "—" }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p v-else class="text-muted-foreground/40">No columns reported.</p>
+                  </section>
+
+                  <section v-if="structureIndexes.length">
+                    <div
+                      class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                    >
+                      Indexes
+                    </div>
+                    <table class="w-full font-mono">
+                      <thead>
+                        <tr class="text-left text-muted-foreground/40">
+                          <th class="py-1.5 font-medium">Name</th>
+                          <th class="py-1.5 font-medium">Unique</th>
+                          <th class="py-1.5 font-medium">Columns</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="idx in structureIndexes"
+                          :key="idx.name"
+                          class="border-t border-border/20 text-secondary-foreground"
+                        >
+                          <td class="py-1.5">{{ idx.name }}</td>
+                          <td class="py-1.5 text-muted-foreground/70">
+                            {{ idx.unique ? "yes" : "no" }}
+                          </td>
+                          <td class="py-1.5 text-muted-foreground/70">
+                            {{ idx.columns.join(", ") || "—" }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </section>
+
+                  <section v-if="structureForeignKeys.length">
+                    <div
+                      class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                    >
+                      Foreign keys
+                    </div>
+                    <table class="w-full font-mono">
+                      <thead>
+                        <tr class="text-left text-muted-foreground/40">
+                          <th class="py-1.5 font-medium">From</th>
+                          <th class="py-1.5 font-medium">→</th>
+                          <th class="py-1.5 font-medium">To</th>
+                          <th class="py-1.5 font-medium">On update</th>
+                          <th class="py-1.5 font-medium">On delete</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="fk in structureForeignKeys"
+                          :key="`${fk.id}-${fk.seq}`"
+                          class="border-t border-border/20 text-secondary-foreground"
+                        >
+                          <td class="py-1.5">{{ fk.fromColumn }}</td>
+                          <td class="py-1.5 text-muted-foreground/40">→</td>
+                          <td class="py-1.5">{{ fk.toTable }}.{{ fk.toColumn ?? "—" }}</td>
+                          <td class="py-1.5 text-muted-foreground/70">
+                            {{ fk.onUpdate ?? "—" }}
+                          </td>
+                          <td class="py-1.5 text-muted-foreground/70">
+                            {{ fk.onDelete ?? "—" }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </section>
+
+                  <section v-if="currentTable?.sql">
+                    <div
+                      class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                    >
+                      CREATE statement
+                    </div>
+                    <pre
+                      class="overflow-x-auto rounded-md border border-border/30 bg-surface-3 p-3 font-mono text-[11px] text-secondary-foreground"
+                      >{{ currentTable.sql }}</pre
+                    >
+                  </section>
+                </div>
+              </ScrollArea>
+            </template>
+
+            <template v-else-if="activeTab === 'sql'">
+              <div class="flex shrink-0 flex-col gap-2 border-b border-border/20 px-3 py-2">
+                <textarea
+                  v-model="sqlInput"
+                  rows="4"
+                  spellcheck="false"
+                  class="w-full resize-y rounded-md border border-border/30 bg-surface-3 px-3 py-2 font-mono text-xs text-secondary-foreground outline-none focus:border-border/60"
+                  placeholder="SELECT * FROM …"
+                ></textarea>
+                <div class="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="h-7 gap-1.5 border border-border/30 bg-surface-3 px-3 text-[11px] text-foreground hover:bg-surface-2"
+                    :disabled="isRunningSql"
+                    @click="runSql"
+                  >
+                    <Play :size="11" /> Run
+                  </Button>
+                  <span v-if="isRunningSql" class="text-[11px] text-muted-foreground/50">
+                    Running…
+                  </span>
+                  <span v-else-if="sqlError" class="text-[11px] text-error">{{ sqlError }}</span>
+                  <span v-else-if="sqlResult" class="text-[11px] text-muted-foreground/50">
+                    {{ sqlResult.rowCount }} row(s)
+                  </span>
+                </div>
+              </div>
+
+              <ScrollArea class="flex-1">
+                <div
+                  v-if="!sqlResult && !sqlError"
+                  class="px-3 py-8 text-center text-[11px] text-muted-foreground/40"
+                >
+                  Run a query to see results.
+                </div>
+                <table v-else-if="sqlResult" class="w-full text-xs">
+                  <thead class="sticky top-0 z-10">
+                    <tr
+                      class="bg-surface-2 text-left uppercase tracking-wider text-muted-foreground/50 border-b border-border/30"
+                    >
+                      <th
+                        v-for="col in sqlResult.columns"
+                        :key="col"
+                        class="px-3 py-2 font-medium whitespace-nowrap"
+                      >
+                        {{ col }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(row, idx) in sqlResult.rows"
+                      :key="idx"
+                      class="border-b border-border/20 data-row"
+                    >
+                      <td
+                        v-for="(cell, ci) in row"
+                        :key="ci"
+                        class="px-3 py-1.5 font-mono align-top"
+                      >
+                        <span
+                          class="block max-w-md truncate"
+                          :class="{
+                            'italic text-muted-foreground/40': renderCell(cell).tone === 'null',
+                            'text-violet-300': renderCell(cell).tone === 'blob',
+                            'text-secondary-foreground': renderCell(cell).tone === 'value',
+                          }"
+                        >
+                          {{ renderCell(cell).text }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </ScrollArea>
+            </template>
           </div>
         </template>
       </ResizablePanel>
     </ResizablePanelGroup>
   </div>
+
+  <ConfirmDialog
+    v-model:open="confirmDialog.open"
+    :title="confirmDialog.title"
+    :description="confirmDialog.description"
+    confirm-text="Confirm"
+    cancel-text="Cancel"
+    variant="destructive"
+    @confirm="runConfirmedAction"
+  />
 </template>

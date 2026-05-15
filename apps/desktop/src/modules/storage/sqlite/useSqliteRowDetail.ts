@@ -6,6 +6,9 @@ import type { RowRecord } from "./useSqliteAdvancedFilters";
 interface UseSqliteRowDetailOptions {
   getFilteredRows: () => Row<RowRecord>[];
   columnNames: () => string[];
+  canEdit?: () => boolean;
+  onEdit?: (original: RowRecord, updated: Record<string, unknown>) => void;
+  onDelete?: (record: RowRecord) => void;
 }
 
 export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
@@ -21,6 +24,7 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
   const copiedRaw = ref(false);
 
   const isDirty = computed(() => editJson.value !== editOriginalJson.value);
+  const canEdit = computed(() => options.canEdit?.() ?? false);
 
   const badge = computed<null | "unsaved" | "invalid">(() => {
     if (!jsonEditorValid.value) return "invalid";
@@ -93,6 +97,41 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
     }
   }
 
+  function saveEdit() {
+    const original = selectedRow.value;
+    if (!original || !jsonEditorValid.value || !isDirty.value) return;
+    if (!canEdit.value) {
+      toast.error("Cannot save", {
+        description: "Table has no primary key — editing requires one to identify rows.",
+      });
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(editJson.value);
+    } catch {
+      return;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      toast.error("Cannot save", { description: "Row must be a JSON object." });
+      return;
+    }
+    options.onEdit?.(original, parsed as Record<string, unknown>);
+    editOriginalJson.value = editJson.value;
+  }
+
+  function deleteRow() {
+    const original = selectedRow.value;
+    if (!original) return;
+    if (!canEdit.value) {
+      toast.error("Cannot delete", {
+        description: "Table has no primary key — deletion requires one to identify rows.",
+      });
+      return;
+    }
+    options.onDelete?.(original);
+  }
+
   async function copyToClipboard(text: string) {
     await navigator.clipboard.writeText(text);
     copiedRaw.value = true;
@@ -110,6 +149,10 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
       e.preventDefault();
       navigateRow("next");
     }
+    if (e.ctrlKey && e.key === "s") {
+      e.preventDefault();
+      saveEdit();
+    }
   }
 
   onMounted(() => window.addEventListener("keydown", handleKeydown));
@@ -124,9 +167,13 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
     currentRowIndex,
     copiedRaw,
     badge,
+    canEdit,
+    isDirty,
     dialogEntrySize,
     openRowDetail,
     navigateRow,
     copyToClipboard,
+    saveEdit,
+    deleteRow,
   };
 }

@@ -21,6 +21,8 @@ import {
 } from "@tanstack/vue-table";
 import type { CheckboxCheckedState } from "reka-ui";
 import type { SqliteColumnInfo } from "@/types/sqlite.types";
+import type { SqliteRecordChange } from "@/types/sqliteChanges.types";
+import { buildRowKey } from "@/modules/storage/changes/useSqliteChangeOverlay";
 
 // UI components
 import { Button } from "@/components/ui/button";
@@ -69,11 +71,37 @@ const props = defineProps<{
   tableName: string;
   dbName: string;
   columnInfo?: SqliteColumnInfo[];
+  changesByRowKey?: Map<string, SqliteRecordChange>;
 }>();
 
 const emit = defineEmits<{
   refresh: [];
+  recordEdit: [original: Record<string, unknown>, updated: Record<string, unknown>];
+  recordDelete: [record: Record<string, unknown>];
 }>();
+
+const canEditRows = computed(() => (props.columnInfo ?? []).some((c) => c.pk));
+
+const pkColumns = computed(() =>
+  (props.columnInfo ?? []).filter((c) => c.pk).sort((a, b) => a.cid - b.cid),
+);
+
+function rowChangeFor(record: Record<string, unknown>): SqliteRecordChange | null {
+  const map = props.changesByRowKey;
+  if (!map || pkColumns.value.length === 0) return null;
+  const key = buildRowKey(pkColumns.value, record);
+  if (!key) return null;
+  return map.get(key) ?? null;
+}
+
+function rowChangeClass(record: Record<string, unknown>): string {
+  const change = rowChangeFor(record);
+  if (!change) return "";
+  if (change.operation === "add") return "bg-emerald-500/10";
+  if (change.operation === "update") return "bg-amber-500/10";
+  if (change.operation === "delete") return "bg-red-500/10 line-through opacity-70";
+  return "";
+}
 
 // ─── Table State ─────────────────────────────────────────────────────────────
 const sorting = ref<SortingState>([]);
@@ -314,19 +342,31 @@ const { exportSelectedToJSON } = useSqliteTableExport(
 );
 
 // ─── Row Detail Dialog ───────────────────────────────────────────────────────
+const jsonEditorValid = ref(true);
 const {
   isDetailOpen,
   editJson,
   editKey,
   currentRowIndex,
   copiedRaw,
+  badge,
   dialogEntrySize,
   openRowDetail,
   navigateRow,
   copyToClipboard,
+  saveEdit,
+  deleteRow,
+  jsonEditorValid: composableJsonValid,
 } = useSqliteRowDetail({
   getFilteredRows: () => table.getFilteredRowModel().rows,
   columnNames: () => props.columns,
+  canEdit: () => canEditRows.value,
+  onEdit: (original, updated) => emit("recordEdit", original, updated),
+  onDelete: (record) => emit("recordDelete", record),
+});
+
+watch(jsonEditorValid, (v) => {
+  composableJsonValid.value = v;
 });
 
 // ─── Computed Stats ──────────────────────────────────────────────────────────
@@ -628,11 +668,14 @@ function isBlob(val: unknown): boolean {
             <tr
               v-else
               class="group select-none border-b border-border/20 hover:bg-surface-2/50 transition-colors duration-75"
-              :class="{
-                'bg-surface-3/30': row.getIsGrouped(),
-                'pl-6': row.depth > 0,
-                'bg-accent/10!': row.getIsSelected(),
-              }"
+              :class="[
+                {
+                  'bg-surface-3/30': row.getIsGrouped(),
+                  'pl-6': row.depth > 0,
+                  'bg-accent/10!': row.getIsSelected(),
+                },
+                rowChangeClass(row.original),
+              ]"
             >
               <td
                 v-for="cell in row.getVisibleCells()"
@@ -709,8 +752,14 @@ function isBlob(val: unknown): boolean {
       :total-count="filteredRowCount"
       :dialog-entry-size="dialogEntrySize"
       :copied-raw="copiedRaw"
+      :badge="badge"
+      :can-edit="canEditRows"
+      :json-editor-valid="jsonEditorValid"
       @navigate="navigateRow"
       @copy="copyToClipboard(editJson)"
+      @save="saveEdit"
+      @delete="deleteRow"
+      @validity-change="jsonEditorValid = $event"
     />
   </div>
 </template>

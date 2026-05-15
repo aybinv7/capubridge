@@ -76,6 +76,12 @@ pub struct SqliteQueryResult {
 static DB_CACHE: LazyLock<Mutex<HashMap<String, PathBuf>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+pub const LOCAL_SERIAL: &str = "__local__";
+
+fn is_local(serial: &str) -> bool {
+    serial == LOCAL_SERIAL
+}
+
 fn cache_key(serial: &str, package: &str, db_path: &str) -> String {
     format!("{serial}::{package}::{db_path}")
 }
@@ -84,6 +90,120 @@ fn temp_dir() -> PathBuf {
     let dir = std::env::temp_dir().join("capubridge-sqlite");
     let _ = std::fs::create_dir_all(&dir);
     dir
+}
+
+fn obtain_local_path(
+    serial: &str,
+    package: &str,
+    db_path: &str,
+    force: bool,
+) -> Result<PathBuf, String> {
+    if is_local(serial) {
+        let p = PathBuf::from(db_path);
+        if !p.exists() {
+            return Err(format!("Local DB not found: {}", p.display()));
+        }
+        return Ok(p);
+    }
+    pull_db_to_temp(serial, package, db_path, force)
+}
+
+fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+fn local_table_columns(conn: &Connection, table: &str) -> Result<Vec<SqliteColumnInfo>, String> {
+    let sql = format!("PRAGMA table_info({})", quote_ident(table));
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(SqliteColumnInfo {
+                cid: row.get::<_, i64>(0)?,
+                name: row.get::<_, String>(1)?,
+                col_type: row.get::<_, String>(2).unwrap_or_default(),
+                notnull: row.get::<_, i64>(3).unwrap_or(0) == 1,
+                default_value: row.get::<_, Option<String>>(4).unwrap_or(None),
+                pk: row.get::<_, i64>(5).unwrap_or(0) > 0,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+fn local_table_indexes(conn: &Connection, table: &str) -> Result<Vec<SqliteIndexInfo>, String> {
+    let list_sql = format!("PRAGMA index_list({})", quote_ident(table));
+    let mut stmt = conn.prepare(&list_sql).map_err(|e| e.to_string())?;
+    let indexes_raw: Vec<(String, bool)> = stmt
+        .query_map([], |row| {
+            let name = row.get::<_, String>(1)?;
+            let unique = row.get::<_, i64>(2).unwrap_or(0) == 1;
+            Ok((name, unique))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut out = Vec::new();
+    for (name, unique) in indexes_raw {
+        let info_sql = format!("PRAGMA index_info({})", quote_ident(&name));
+        let cols: Vec<String> = conn
+            .prepare(&info_sql)
+            .ok()
+            .and_then(|mut s| {
+                s.query_map([], |row| row.get::<_, String>(2))
+                    .ok()
+                    .map(|it| it.filter_map(|r| r.ok()).collect::<Vec<_>>())
+            })
+            .unwrap_or_default();
+
+        let sql: Option<String> = conn
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE name = ?1",
+                [&name],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten();
+
+        out.push(SqliteIndexInfo {
+            name,
+            unique,
+            columns: cols,
+            sql,
+        });
+    }
+    Ok(out)
+}
+
+fn local_table_foreign_keys(
+    conn: &Connection,
+    table: &str,
+) -> Result<Vec<SqliteForeignKeyInfo>, String> {
+    let sql = format!("PRAGMA foreign_key_list({})", quote_ident(table));
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(SqliteForeignKeyInfo {
+                id: row.get::<_, i64>(0)?,
+                seq: row.get::<_, i64>(1)?,
+                to_table: row.get::<_, String>(2).unwrap_or_default(),
+                from_column: row.get::<_, String>(3).unwrap_or_default(),
+                to_column: row.get::<_, Option<String>>(4).unwrap_or(None),
+                on_update: row.get::<_, Option<String>>(5).unwrap_or(None),
+                on_delete: row.get::<_, Option<String>>(6).unwrap_or(None),
+                match_clause: row.get::<_, Option<String>>(7).unwrap_or(None),
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
 }
 
 // ─── On-device helpers ──────────────────────────────────────────────────────────
@@ -308,7 +428,7 @@ pub async fn sqlite_open_database(
             package,
             db_path
         );
-        let local = pull_db_to_temp(&serial, &package, &db_path, true)?;
+        let local = obtain_local_path(&serial, &package, &db_path, true)?;
         let pull_ms = start.elapsed().as_millis();
         let file_size = local.metadata().map(|m| m.len()).unwrap_or(0);
         log::info!(
@@ -374,6 +494,15 @@ pub async fn sqlite_table_columns(
     db_path: String,
     table_name: String,
 ) -> Result<Vec<SqliteColumnInfo>, String> {
+    if is_local(&serial) {
+        return tokio::task::spawn_blocking(move || {
+            let path = obtain_local_path(&serial, &package, &db_path, false)?;
+            let conn = open_db(&path)?;
+            local_table_columns(&conn, &table_name)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    }
     tokio::task::spawn_blocking(move || {
         let mut server = get_server().lock();
         let mut device = server
@@ -423,6 +552,15 @@ pub async fn sqlite_table_indexes(
     db_path: String,
     table_name: String,
 ) -> Result<Vec<SqliteIndexInfo>, String> {
+    if is_local(&serial) {
+        return tokio::task::spawn_blocking(move || {
+            let path = obtain_local_path(&serial, &package, &db_path, false)?;
+            let conn = open_db(&path)?;
+            local_table_indexes(&conn, &table_name)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    }
     tokio::task::spawn_blocking(move || {
         let mut server = get_server().lock();
         let mut device = server
@@ -494,6 +632,15 @@ pub async fn sqlite_table_foreign_keys(
     db_path: String,
     table_name: String,
 ) -> Result<Vec<SqliteForeignKeyInfo>, String> {
+    if is_local(&serial) {
+        return tokio::task::spawn_blocking(move || {
+            let path = obtain_local_path(&serial, &package, &db_path, false)?;
+            let conn = open_db(&path)?;
+            local_table_foreign_keys(&conn, &table_name)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    }
     tokio::task::spawn_blocking(move || {
         let mut server = get_server().lock();
         let mut device = server
@@ -563,7 +710,7 @@ pub async fn sqlite_table_rows(
     order_dir: Option<String>,
 ) -> Result<SqliteQueryResult, String> {
     tokio::task::spawn_blocking(move || {
-        let local = pull_db_to_temp(&serial, &package, &db_path, false)?;
+        let local = obtain_local_path(&serial, &package, &db_path, false)?;
         let conn = open_db(&local)?;
 
         let safe_table = table_name.replace('"', "\"\"");
@@ -630,7 +777,7 @@ pub async fn sqlite_execute_query(
     sql: String,
 ) -> Result<SqliteQueryResult, String> {
     tokio::task::spawn_blocking(move || {
-        let local = pull_db_to_temp(&serial, &package, &db_path, false)?;
+        let local = obtain_local_path(&serial, &package, &db_path, false)?;
         let conn = open_db(&local)?;
 
         let trimmed = sql.trim();
@@ -824,6 +971,78 @@ pub async fn sqlite_scan_all_databases(serial: String) -> Result<Vec<SqliteDbFil
 
         all_dbs.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(all_dbs)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn sqlite_save_local_bytes(name: String, base64_data: String) -> Result<String, String> {
+    use base64::Engine;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    tokio::task::spawn_blocking(move || {
+        static LOCAL_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("base64 decode failed: {e}"))?;
+        if bytes.len() < 16 {
+            return Err("File too small to be a valid SQLite database".to_string());
+        }
+        if &bytes[0..16] != b"SQLite format 3\0" {
+            return Err("Not a valid SQLite database (magic header mismatch)".to_string());
+        }
+
+        let safe: String = name
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        let id = LOCAL_DB_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let filename = format!("opfs-{now}-{id}-{safe}.db");
+        let path = temp_dir().join(filename);
+        std::fs::write(&path, &bytes).map_err(|e| format!("write failed: {e}"))?;
+        Ok(path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn sqlite_overwrite_local_bytes(
+    path: String,
+    base64_data: String,
+) -> Result<(), String> {
+    use base64::Engine;
+
+    tokio::task::spawn_blocking(move || {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&base64_data)
+            .map_err(|e| format!("base64 decode failed: {e}"))?;
+        if bytes.len() < 16 {
+            return Err("File too small to be a valid SQLite database".to_string());
+        }
+        if &bytes[0..16] != b"SQLite format 3\0" {
+            return Err("Not a valid SQLite database (magic header mismatch)".to_string());
+        }
+        let p = std::path::PathBuf::from(&path);
+        let parent = p.parent().ok_or_else(|| "Invalid path".to_string())?;
+        if parent != std::path::Path::new("") && !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("create_dir_all failed: {e}"))?;
+        }
+        std::fs::write(&p, &bytes).map_err(|e| format!("write failed: {e}"))?;
+        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?

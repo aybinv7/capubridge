@@ -11,8 +11,31 @@ export type {
   GetDataResult,
   StoreInfo,
 } from "./cdp/domains/indexeddb.js";
-export { LocalStorageDomain, CacheAPIDomain, OPFSDomain } from "./cdp/domains/storage.js";
-export type { LSOrigin, CacheName, CacheEntry, OPFSEntry } from "./cdp/domains/storage.js";
+export {
+  LocalStorageDomain,
+  CacheAPIDomain,
+  OPFSDomain,
+  SQLITE_MAGIC,
+  SAH_POOL_HEADER_PATH_MAX,
+  SAH_POOL_HEADER_FLAGS_OFFSET,
+  SAH_POOL_HEADER_FLAGS_SIZE,
+  SAH_POOL_HEADER_DIGEST_OFFSET,
+  SAH_POOL_HEADER_DIGEST_SIZE,
+  SAH_POOL_HEADER_DATA_OFFSET,
+  isSqliteMagic,
+  decodeSahPoolHeader,
+  detectStorageTechs,
+} from "./cdp/domains/storage.js";
+export type {
+  LSOrigin,
+  CacheName,
+  CacheEntry,
+  OPFSEntry,
+  SahPoolHeader,
+  SahPoolDatabase,
+  StorageTechId,
+  StorageTechHint,
+} from "./cdp/domains/storage.js";
 export { LocalForageDomain } from "./cdp/domains/localforage.js";
 export type { LocalForageEntry } from "./cdp/domains/localforage.js";
 export { DOMDomain } from "./cdp/domains/dom.js";

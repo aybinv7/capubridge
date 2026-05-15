@@ -3,9 +3,9 @@ import { ref } from "vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import JsonEditor from "@/modules/storage/localstorage/JsonEditor.vue";
-import { ChevronDown, Copy, Check, Info } from "lucide-vue-next";
+import { ChevronDown, Copy, Check, Info, Save, Trash2, AlertCircle, Pencil } from "lucide-vue-next";
 
-const props = defineProps<{
+defineProps<{
   open: boolean;
   editKey: string;
   editJson: string;
@@ -13,13 +13,19 @@ const props = defineProps<{
   totalCount: number;
   dialogEntrySize: string;
   copiedRaw: boolean;
+  badge: null | "unsaved" | "invalid";
+  canEdit: boolean;
+  jsonEditorValid: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:open": [value: boolean];
   "update:editJson": [value: string];
+  "validity-change": [valid: boolean];
   navigate: [direction: "prev" | "next"];
   copy: [];
+  save: [];
+  delete: [];
 }>();
 
 const jsonEditorRef = ref<InstanceType<typeof JsonEditor> | null>(null);
@@ -42,8 +48,8 @@ function handleKeydown(e: KeyboardEvent) {
       @keydown="handleKeydown"
     >
       <DialogHeader class="px-6 py-1.5 border-b border-border/30 shrink-0">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
             <button
               class="text-muted-foreground/40 hover:text-foreground transition-colors"
               @click="emit('navigate', 'prev')"
@@ -56,22 +62,65 @@ function handleKeydown(e: KeyboardEvent) {
             >
               <ChevronDown :size="16" />
             </button>
-            <DialogTitle class="text-base font-medium">
+            <DialogTitle class="text-base font-medium truncate">
               {{ editKey }}
             </DialogTitle>
-            <span class="text-xs text-muted-foreground/40">{{ dialogEntrySize }}</span>
-            <span class="text-[10px] text-muted-foreground/40 tabular-nums">
+            <span class="text-xs text-muted-foreground/40 shrink-0">{{ dialogEntrySize }}</span>
+            <span class="text-[10px] text-muted-foreground/40 tabular-nums shrink-0">
               {{ currentRowIndex >= 0 ? currentRowIndex + 1 : "-" }} / {{ totalCount }}
             </span>
 
             <span
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-3 text-muted-foreground/50 font-mono"
+              v-if="badge === 'unsaved'"
+              class="flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-mono text-amber-400"
+            >
+              <Pencil :size="9" />
+              unsaved
+            </span>
+            <span
+              v-else-if="badge === 'invalid'"
+              class="flex items-center gap-1 rounded-full bg-error/15 px-1.5 py-0.5 text-[10px] font-mono text-error"
+            >
+              <AlertCircle :size="9" />
+              invalid JSON
+            </span>
+            <span
+              v-else
+              class="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50"
             >
               row
             </span>
+
+            <span
+              v-if="!canEdit"
+              class="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-mono text-amber-400/80"
+              title="Table has no primary key — read-only"
+            >
+              read-only
+            </span>
           </div>
 
-          <div class="flex items-center">
+          <div class="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
+              :disabled="!canEdit || badge !== 'unsaved'"
+              @click="emit('save')"
+            >
+              <Save :size="12" />
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-error"
+              :disabled="!canEdit"
+              @click="emit('delete')"
+            >
+              <Trash2 :size="12" />
+              Delete
+            </Button>
             <Button
               variant="ghost"
               class="text-muted-foreground/40 hover:text-foreground transition-colors p-1"
@@ -92,6 +141,9 @@ function handleKeydown(e: KeyboardEvent) {
               >
                 <div class="space-y-1">
                   <div class="flex justify-between">
+                    <span>Save</span><kbd class="font-mono text-foreground/50">Ctrl+S</kbd>
+                  </div>
+                  <div class="flex justify-between">
                     <span>Search</span><kbd class="font-mono text-foreground/50">Ctrl+F</kbd>
                   </div>
                   <div class="flex justify-between">
@@ -109,6 +161,7 @@ function handleKeydown(e: KeyboardEvent) {
           ref="jsonEditorRef"
           :value="editJson"
           @update:value="emit('update:editJson', $event)"
+          @validity-change="emit('validity-change', $event)"
         />
       </div>
     </DialogContent>
