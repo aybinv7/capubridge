@@ -170,8 +170,7 @@ function getVisibleDatabases(): IDBDatabaseInfo[] {
   const q = storeSearch.value.toLowerCase();
   return databases.value
     .filter((db) => {
-      //exclude localforage gets it owns tab
-      if (db.name === "localforage") return false;
+      if (["localforage", "jeepSQLiteStore", "jeepSqliteStore"].includes(db.name)) return false;
       if (isDbHidden(db.origin, db.name) && !showHiddenDbs.value) return false;
       if (q) {
         const hasMatchingStore = db.objectStoreNames.some((s) => s.toLowerCase().includes(q));

@@ -38,6 +38,8 @@ export type {
 } from "./cdp/domains/storage.js";
 export { LocalForageDomain } from "./cdp/domains/localforage.js";
 export type { LocalForageEntry } from "./cdp/domains/localforage.js";
+export { JeepSqliteDomain } from "./cdp/domains/jeep-sqlite.js";
+export type { JeepSqliteDatabase } from "./cdp/domains/jeep-sqlite.js";
 export { DOMDomain } from "./cdp/domains/dom.js";
 export type { DOMNode, BoxModel, NodeForLocation } from "./cdp/domains/dom.js";
 export { CSSDomain } from "./cdp/domains/css.js";

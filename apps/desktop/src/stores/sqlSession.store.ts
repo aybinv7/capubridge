@@ -5,6 +5,20 @@ import { invoke } from "@tauri-apps/api/core";
 export const LOCAL_SQL_SERIAL = "__local__";
 export const LOCAL_SQL_PACKAGE = "opfs";
 
+export type SqliteSourceKind = "native-android" | "opfs" | "jeep-sqlite";
+
+export interface LocalSqlSessionSource {
+  kind: SqliteSourceKind;
+  label: string;
+  targetId?: string;
+  packageName?: string;
+  opfsPath?: string;
+  stripSahPoolHeader?: boolean;
+  idbName?: string;
+  storeName?: string;
+  key?: string;
+}
+
 export interface LocalSqlSession {
   serial: typeof LOCAL_SQL_SERIAL;
   package: string;
@@ -13,8 +27,14 @@ export interface LocalSqlSession {
   fileName: string;
   sizeBytes: number;
   createdAt: number;
+  sourceKind: SqliteSourceKind;
+  sourceLabel: string;
+  sourceTargetId?: string;
   sourceOpfsPath?: string;
   stripSahPoolHeader?: boolean;
+  sourceIdbName?: string;
+  sourceStoreName?: string;
+  sourceKey?: string;
 }
 
 export const useSqlSessionStore = defineStore("sql-session", () => {
@@ -23,7 +43,7 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
   async function startLocalSession(
     label: string,
     bytes: Uint8Array,
-    source?: { opfsPath: string; stripSahPoolHeader: boolean },
+    source?: LocalSqlSessionSource,
   ): Promise<LocalSqlSession> {
     const chunkSize = 32768;
     let binary = "";
@@ -39,16 +59,23 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
       base64Data,
     });
     const fileName = label.includes("/") ? label.slice(label.lastIndexOf("/") + 1) : label;
+    const sourceKind = source?.kind ?? "opfs";
     const session: LocalSqlSession = {
       serial: LOCAL_SQL_SERIAL,
-      package: LOCAL_SQL_PACKAGE,
+      package: source?.packageName ?? LOCAL_SQL_PACKAGE,
       dbPath: path,
       label,
       fileName: fileName || "database.db",
       sizeBytes: bytes.byteLength,
       createdAt: Date.now(),
+      sourceKind,
+      sourceLabel: source?.label ?? sourceKind,
+      sourceTargetId: source?.targetId,
       sourceOpfsPath: source?.opfsPath,
       stripSahPoolHeader: source?.stripSahPoolHeader,
+      sourceIdbName: source?.idbName,
+      sourceStoreName: source?.storeName,
+      sourceKey: source?.key,
     };
     localSession.value = session;
     return session;
@@ -70,7 +97,7 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
       );
     }
     const base64Data = btoa(binary);
-    await invoke("sqlite_overwrite_local_bytes", { path: session.dbPath, base64Data });
+    await invoke<void>("sqlite_overwrite_local_bytes", { path: session.dbPath, base64Data });
     localSession.value = {
       ...session,
       sizeBytes: bytes.byteLength,

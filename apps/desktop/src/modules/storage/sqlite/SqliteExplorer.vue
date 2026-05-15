@@ -17,6 +17,8 @@ import {
   PinOff,
   Eye,
   EyeOff,
+  Trash2,
+  Eraser,
 } from "lucide-vue-next";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -30,8 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "vue-sonner";
-import { Trash2, Eraser } from "lucide-vue-next";
-import { useOPFS } from "@/composables/useStorage";
+import { useOPFS, useJeepSqlite } from "@/composables/useStorage";
 import { useSQLite } from "@/composables/useSQLite";
 import { useLiveRefresh } from "@/composables/useLiveRefresh";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -71,6 +72,7 @@ const {
   tableForeignKeys,
   executeQuery,
 } = useSQLite();
+const { getDomain: getJeepSqliteDomain } = useJeepSqlite();
 
 const localSession = computed(() => sqlSessionStore.localSession);
 const isLocalMode = computed(() => !!localSession.value);
@@ -113,6 +115,7 @@ const dbSearch = ref("");
 const isLoadingDbs = ref(false);
 const isLoadingTables = ref(false);
 const isLoadingRecords = ref(false);
+const openingJeepDb = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 const databases = ref<SqliteDbFile[]>([]);
@@ -252,20 +255,67 @@ function renderCell(value: unknown): { text: string; tone: "null" | "blob" | "va
   return { text: String(value), tone: "value" };
 }
 
+function sourceNeedsLiveTarget(kind: string | undefined): boolean {
+  return kind === "opfs" || kind === "jeep-sqlite";
+}
+
+function isLocalSessionStale(): boolean {
+  const session = localSession.value;
+  if (!session) return false;
+  const needsLiveTarget =
+    sourceNeedsLiveTarget(session.sourceKind) || !!session.sourceOpfsPath || !!session.sourceKey;
+  if (!needsLiveTarget) return false;
+  if (!session.sourceTargetId) return true;
+  return session.sourceTargetId !== targetsStore.cdpTargetId;
+}
+
+async function fetchJeepSqliteDatabases(): Promise<SqliteDbFile[]> {
+  if (!targetsStore.cdpTargetId) return [];
+  try {
+    const dbs = await getJeepSqliteDomain().listDatabases();
+    return dbs.map((db) => ({
+      name: db.name,
+      path: `jeep-sqlite:${db.idbName}/${db.storeName}/${db.key}`,
+      size: db.size,
+      packageName: selectedPackageName.value || "jeep-sqlite",
+      sourceKind: "jeep-sqlite",
+      sourceLabel: "jeep-sqlite",
+      sourceTargetId: targetsStore.cdpTargetId,
+      sourceIdbName: db.idbName,
+      sourceStoreName: db.storeName,
+      sourceKey: db.key,
+    }));
+  } catch (err) {
+    console.error("[SQLite] fetchJeepSqliteDatabases failed:", err);
+    return [];
+  }
+}
+
 async function fetchDatabases() {
   if (localSession.value) {
+    if (isLocalSessionStale()) {
+      sqlSessionStore.clearLocalSession();
+      databases.value = [];
+      tables.value = [];
+      queryResult.value = null;
+      await router.replace("/storage/sqlite");
+      return;
+    }
     const s = localSession.value;
     databases.value = [
       {
         name: s.fileName,
         path: s.dbPath,
         size: s.sizeBytes,
+        packageName: s.package,
+        sourceKind: s.sourceKind,
+        sourceLabel: s.sourceLabel,
+        sourceTargetId: s.sourceTargetId,
+        sourceIdbName: s.sourceIdbName,
+        sourceStoreName: s.sourceStoreName,
+        sourceKey: s.sourceKey,
       },
     ];
-    return;
-  }
-  if (!serial.value || !selectedPackageName.value) {
-    databases.value = [];
     return;
   }
 
@@ -273,7 +323,30 @@ async function fetchDatabases() {
   error.value = null;
 
   try {
-    databases.value = await listDatabases(serial.value, selectedPackageName.value);
+    const shouldListNative = !!serial.value && !!selectedPackageName.value;
+    const [nativeResult, jeepResult] = await Promise.allSettled([
+      shouldListNative
+        ? listDatabases(serial.value, selectedPackageName.value)
+        : Promise.resolve<SqliteDbFile[]>([]),
+      fetchJeepSqliteDatabases(),
+    ]);
+    if (nativeResult.status === "rejected" && jeepResult.status === "rejected") {
+      throw nativeResult.reason;
+    }
+    if (nativeResult.status === "rejected") {
+      error.value = String(nativeResult.reason);
+    }
+    const nativeDbs = nativeResult.status === "fulfilled" ? nativeResult.value : [];
+    const jeepDbs = jeepResult.status === "fulfilled" ? jeepResult.value : [];
+    databases.value = [
+      ...nativeDbs.map((db) => ({
+        ...db,
+        packageName: db.packageName ?? selectedPackageName.value,
+        sourceKind: db.sourceKind ?? "native-android",
+        sourceLabel: db.sourceLabel ?? "native",
+      })),
+      ...jeepDbs,
+    ];
   } catch (err) {
     error.value = String(err);
     databases.value = [];
@@ -330,7 +403,35 @@ async function fetchTableRows() {
   }
 }
 
+async function openJeepSqliteDb(db: SqliteDbFile) {
+  const key = db.sourceKey ?? db.name;
+  const idbName = db.sourceIdbName ?? "jeepSQLiteStore";
+  const storeName = db.sourceStoreName ?? "databases";
+  openingJeepDb.value = db.path;
+  try {
+    const bytes = await getJeepSqliteDomain().readDatabaseBytes({ key, idbName, storeName });
+    const session = await sqlSessionStore.startLocalSession(db.name, bytes, {
+      kind: "jeep-sqlite",
+      label: "jeep-sqlite",
+      targetId: db.sourceTargetId ?? targetsStore.cdpTargetId,
+      packageName: "jeep-sqlite",
+      idbName,
+      storeName,
+      key,
+    });
+    await router.push(`/storage/sqlite/${encodeURIComponent(session.fileName)}`);
+  } catch (err) {
+    toast.error("Failed to open jeep-sqlite database", { description: String(err) });
+  } finally {
+    openingJeepDb.value = null;
+  }
+}
+
 function navigateToDb(db: SqliteDbFile) {
+  if (db.sourceKind === "jeep-sqlite") {
+    void openJeepSqliteDb(db);
+    return;
+  }
   void router.push(`/storage/sqlite/${encodeURIComponent(db.name)}`);
 }
 
@@ -344,6 +445,19 @@ function isDbActive(name: string): boolean {
 
 function isTableActive(table: string): boolean {
   return tableName.value === table;
+}
+
+function sourceLabel(db: SqliteDbFile): string {
+  if (db.sourceKind === "jeep-sqlite") return "jeep";
+  if (db.sourceKind === "opfs") return "opfs";
+  return "native";
+}
+
+function sourceBadgeClass(db: SqliteDbFile): string {
+  if (db.sourceKind === "jeep-sqlite")
+    return "border-violet-500/25 text-violet-300 bg-violet-500/10";
+  if (db.sourceKind === "opfs") return "border-info/25 text-info bg-info/10";
+  return "border-emerald-500/20 text-emerald-300 bg-emerald-500/10";
 }
 
 const visibleDatabases = computed(() => {
@@ -383,8 +497,9 @@ function getVisibleTables(dbPath: string): SqliteTableInfo[] {
 
 const hiddenDbCount = computed(() => databases.value.filter((db) => isDbHidden(db.path)).length);
 const hiddenTableCount = computed(() => {
-  if (!currentDb.value) return 0;
-  return tables.value.filter((t) => isTableHidden(currentDb.value!.path, t.name)).length;
+  const db = currentDb.value;
+  if (!db) return 0;
+  return tables.value.filter((t) => isTableHidden(db.path, t.name)).length;
 });
 
 function prevPage() {
@@ -411,11 +526,30 @@ const { getDomain: getOpfsDomain } = useOPFS();
 
 async function refreshLocalSnapshot() {
   const s = localSession.value;
-  if (!s || !s.sourceOpfsPath) return;
+  if (!s) return;
+  if (isLocalSessionStale()) {
+    sqlSessionStore.clearLocalSession();
+    databases.value = [];
+    tables.value = [];
+    queryResult.value = null;
+    await router.replace("/storage/sqlite");
+    return;
+  }
   try {
-    const bytes = await getOpfsDomain().readSqliteBytes(s.sourceOpfsPath, {
-      stripSahPoolHeader: s.stripSahPoolHeader ?? false,
-    });
+    let bytes: Uint8Array | null = null;
+    if (s.sourceKind === "opfs" && s.sourceOpfsPath) {
+      bytes = await getOpfsDomain().readSqliteBytes(s.sourceOpfsPath, {
+        stripSahPoolHeader: s.stripSahPoolHeader ?? false,
+      });
+    }
+    if (s.sourceKind === "jeep-sqlite" && s.sourceKey) {
+      bytes = await getJeepSqliteDomain().readDatabaseBytes({
+        key: s.sourceKey,
+        idbName: s.sourceIdbName,
+        storeName: s.sourceStoreName,
+      });
+    }
+    if (!bytes) return;
     await sqlSessionStore.refreshLocalSession(bytes);
   } catch (err) {
     console.error("[SQLite] refreshLocalSnapshot failed:", err);
@@ -423,7 +557,10 @@ async function refreshLocalSnapshot() {
 }
 
 async function handleRefresh() {
-  if (localSession.value?.sourceOpfsPath) {
+  if (
+    localSession.value?.sourceKind === "opfs" ||
+    localSession.value?.sourceKind === "jeep-sqlite"
+  ) {
     await refreshLocalSnapshot();
   }
   if (currentDb.value && tableName.value) {
@@ -623,7 +760,8 @@ async function handleRecordEdit(
 }
 
 function handleRecordDelete(record: Record<string, unknown>) {
-  if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) return;
+  const db = currentDb.value;
+  if (!serial.value || !selectedPackageName.value || !db || !tableName.value) return;
   const pks = pkColumns();
   if (pks.length === 0) {
     toast.error("Cannot delete", { description: "Table has no primary key." });
@@ -638,7 +776,7 @@ function handleRecordDelete(record: Record<string, unknown>) {
       operation: "delete",
       serial: serial.value,
       packageName: selectedPackageName.value,
-      dbPath: currentDb.value!.path,
+      dbPath: db.path,
       tableName: tableName.value,
       rowKey: buildRowKey(pkColumnsRef.value, record),
       beforeValue: record,
@@ -684,7 +822,7 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
 });
 
 watch(
-  [serial, selectedPackageName],
+  [serial, selectedPackageName, () => targetsStore.cdpTargetId],
   async () => {
     databases.value = [];
     tables.value = [];
@@ -692,13 +830,6 @@ watch(
     page.value = 0;
     orderBy.value = null;
     orderDir.value = null;
-
-    if (!serial.value || !selectedPackageName.value) {
-      if (dbName.value || tableName.value) {
-        await router.replace("/storage/sqlite");
-      }
-      return;
-    }
 
     await fetchDatabases();
 
@@ -737,6 +868,18 @@ watch(
     if (db) expandDb(db.path);
   },
   { immediate: true },
+);
+
+watch(
+  () => targetsStore.cdpTargetId,
+  () => {
+    if (!isLocalSessionStale()) return;
+    sqlSessionStore.clearLocalSession();
+    databases.value = [];
+    tables.value = [];
+    queryResult.value = null;
+    void router.replace("/storage/sqlite");
+  },
 );
 </script>
 
@@ -869,6 +1012,17 @@ watch(
                     >
                       {{ db.name }}
                     </span>
+                    <span
+                      class="shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-mono leading-none"
+                      :class="sourceBadgeClass(db)"
+                    >
+                      {{ sourceLabel(db) }}
+                    </span>
+                    <RefreshCw
+                      v-if="openingJeepDb === db.path"
+                      :size="10"
+                      class="shrink-0 animate-spin text-muted-foreground/40"
+                    />
                     <span class="shrink-0 text-[10px] font-mono text-muted-foreground/40">
                       {{ (db.size / 1024).toFixed(0) }}KB
                     </span>

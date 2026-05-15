@@ -1,6 +1,6 @@
 import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { LocalStorageDomain, CacheAPIDomain, OPFSDomain } from "utils";
+import { LocalStorageDomain, CacheAPIDomain, OPFSDomain, JeepSqliteDomain } from "utils";
 import { useCDP } from "./useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 
@@ -111,4 +111,29 @@ export function useOPFS() {
   }
 
   return { targetId, useDirectory, useSahPoolDatabases, getDomain };
+}
+
+export function useJeepSqlite() {
+  const { getClient } = useCDP();
+  const targetsStore = useTargetsStore();
+  const targetId = computed(() => targetsStore.cdpTargetId);
+
+  function getDomain() {
+    const client = getClient(targetId.value);
+    if (!client) throw new Error("No active CDP connection");
+    return new JeepSqliteDomain(client);
+  }
+
+  function useDatabases() {
+    return useQuery({
+      queryKey: computed(() => ["jeep-sqlite-databases", targetId.value]),
+      queryFn: async () => {
+        const domain = getDomain();
+        return domain.listDatabases();
+      },
+      enabled: computed(() => !!targetId.value),
+    });
+  }
+
+  return { targetId, useDatabases, getDomain };
 }

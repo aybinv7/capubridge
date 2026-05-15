@@ -35,8 +35,9 @@ const selectedFile = ref<string | null>(null);
 const currentPath = ref("");
 const view = ref<"raw" | "decoded">("raw");
 
-const { useDirectory, useSahPoolDatabases, getDomain } = useOPFS();
+const { targetId, useDirectory, useSahPoolDatabases, getDomain } = useOPFS();
 const { data: entries, isLoading, isError, refetch } = useDirectory(currentPath);
+const activeEntries = computed(() => (targetId.value ? entries.value : undefined));
 
 const router = useRouter();
 const sqlSessionStore = useSqlSessionStore();
@@ -49,6 +50,9 @@ async function openInExplorer(opts: { path: string; label: string; stripSahPool:
       stripSahPoolHeader: opts.stripSahPool,
     });
     const session = await sqlSessionStore.startLocalSession(opts.label, bytes, {
+      kind: "opfs",
+      label: opts.stripSahPool ? "opfs sah-pool" : "opfs",
+      targetId: targetId.value,
       opfsPath: opts.path,
       stripSahPoolHeader: opts.stripSahPool,
     });
@@ -61,7 +65,7 @@ async function openInExplorer(opts: { path: string; label: string; stripSahPool:
 }
 
 const techHints = computed<StorageTechHint[]>(() =>
-  entries.value ? detectStorageTechs(entries.value) : [],
+  activeEntries.value ? detectStorageTechs(activeEntries.value) : [],
 );
 const sahPoolHint = computed(() =>
   techHints.value.find((h) => h.id === "sqlite-wasm-sah-pool" && h.inspectable),
@@ -76,10 +80,10 @@ const {
 } = useSahPoolDatabases(currentPath, sahPoolEnabled);
 
 const filtered = computed<OPFSEntry[]>(() => {
-  if (!entries.value) return [];
-  if (!filter.value) return entries.value;
+  if (!activeEntries.value) return [];
+  if (!filter.value) return activeEntries.value;
   const q = filter.value.toLowerCase();
-  return entries.value.filter(
+  return activeEntries.value.filter(
     (e) => e.name.toLowerCase().includes(q) || e.kind.toLowerCase().includes(q),
   );
 });
@@ -134,6 +138,14 @@ function badgeClass(tone: "sqlite" | "journal" | "opaque" | "neutral"): string {
   if (tone === "journal") return "bg-amber-500/10 text-amber-400 border-amber-500/20";
   if (tone === "opaque") return "bg-violet-500/10 text-violet-300 border-violet-500/20";
   return "bg-surface-3 text-muted-foreground/60 border-border/30";
+}
+
+function entryBadgeLabel(entry: OPFSEntry): string {
+  return entryBadge(entry)?.label ?? "";
+}
+
+function entryBadgeTone(entry: OPFSEntry): "sqlite" | "journal" | "opaque" | "neutral" {
+  return entryBadge(entry)?.tone ?? "neutral";
 }
 
 function confidenceClass(c: StorageTechHint["confidence"]): string {
@@ -459,9 +471,9 @@ async function deleteEntry(name: string) {
                           v-if="entryBadge(entry)"
                           variant="outline"
                           class="ml-1 h-4 border px-1.5 text-[9px] font-mono uppercase tracking-wider"
-                          :class="badgeClass(entryBadge(entry)!.tone)"
+                          :class="badgeClass(entryBadgeTone(entry))"
                         >
-                          {{ entryBadge(entry)!.label }}
+                          {{ entryBadgeLabel(entry) }}
                         </Badge>
                       </div>
                     </td>

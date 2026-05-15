@@ -3,6 +3,12 @@ export interface SqliteDbFile {
   path: string;
   size: number;
   packageName?: string;
+  sourceKind?: "native-android" | "opfs" | "jeep-sqlite";
+  sourceLabel?: string;
+  sourceTargetId?: string;
+  sourceIdbName?: string;
+  sourceStoreName?: string;
+  sourceKey?: string;
 }
 
 export interface SqliteTableInfo {
