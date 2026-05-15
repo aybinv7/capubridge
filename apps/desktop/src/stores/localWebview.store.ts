@@ -47,6 +47,20 @@ async function injectScrollbarHide(webview: Webview) {
   await invoke("local_webview_inject_scrollbar_hide", { label: webview.label }).catch(() => null);
 }
 
+async function fetchLocalCdpTarget(url: string) {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const info = await invoke<{ webSocketDebuggerUrl?: string } | null>(
+      "local_webview_fetch_cdp_target",
+      { targetUrl: url },
+    ).catch(() => null);
+    if (info?.webSocketDebuggerUrl) {
+      return info;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 150));
+  }
+  return null;
+}
+
 export const useLocalWebviewStore = defineStore("local-webview", () => {
   const targetsStore = useTargetsStore();
   const activeTargetId = ref<string | null>(null);
@@ -129,17 +143,14 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     webviews.value = next;
 
     const creation = new Promise<Webview>((resolve, reject) => {
-      void webview.once("tauri://created", () => {
+      void webview.once("tauri://created", async () => {
         setEntry(target, { status: "ready", error: null });
         void webview.hide().catch(() => null);
-        void injectScrollbarHide(webview);
-        void invoke<{ webSocketDebuggerUrl?: string } | null>("local_webview_fetch_cdp_target", {
-          targetUrl: target.url,
-        }).then((info) => {
-          if (info?.webSocketDebuggerUrl) {
-            targetsStore.updateLocalTargetCdp(target.id, info.webSocketDebuggerUrl);
-          }
-        });
+        await injectScrollbarHide(webview);
+        const info = await fetchLocalCdpTarget(target.url);
+        if (info?.webSocketDebuggerUrl) {
+          targetsStore.updateLocalTargetCdp(target.id, info.webSocketDebuggerUrl);
+        }
         resolve(webview);
       });
       void webview.once<string>("tauri://error", (event) => {
@@ -204,12 +215,35 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     if (activeTargetId.value === target.id) {
       activeTargetId.value = null;
     }
+    targetsStore.removeTarget(target.id);
   }
 
   async function hideAll() {
     const pending = Array.from(webviews.value.values()).map((webview) => parkWebview(webview));
     await Promise.all(pending);
     activeTargetId.value = null;
+  }
+
+  async function ensureCdpTarget(target: CDPTarget) {
+    if (!isLocalTarget(target)) {
+      throw new Error("Target is not a local webview target.");
+    }
+    await ensureWebview(target);
+    const current = targetsStore.targets.find((entry) => entry.id === target.id) ?? target;
+    if (current.webSocketDebuggerUrl) {
+      return current;
+    }
+    const info = await fetchLocalCdpTarget(target.url);
+    if (info?.webSocketDebuggerUrl) {
+      targetsStore.updateLocalTargetCdp(target.id, info.webSocketDebuggerUrl);
+      return (
+        targetsStore.targets.find((entry) => entry.id === target.id) ?? {
+          ...current,
+          webSocketDebuggerUrl: info.webSocketDebuggerUrl,
+        }
+      );
+    }
+    return current;
   }
 
   async function closeTarget(target: CDPTarget | null | undefined) {
@@ -254,6 +288,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     activeEntry,
     entries,
     ensureWebview,
+    ensureCdpTarget,
     attachToElement,
     resizeToElement,
     hideTarget,

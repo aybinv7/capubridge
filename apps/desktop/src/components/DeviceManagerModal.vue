@@ -188,17 +188,38 @@ async function connectRemoteTarget(target: CDPTarget) {
   await connectionStore.connect(target);
 }
 
+async function connectLocalTarget(target: CDPTarget) {
+  const prevId = connectionStore.selectedTargetId;
+  if (prevId && prevId !== target.id) {
+    await connectionStore.disconnectTarget(prevId);
+  }
+  targetsStore.selectTarget(target);
+  await localWebviewStore.ensureWebview(target);
+}
+
+async function warmLocalTargetCdp(targetId: string) {
+  const target = targetsStore.targets.find((entry) => entry.id === targetId);
+  if (!target || target.source !== "local") return;
+  try {
+    const readyTarget = await localWebviewStore.ensureCdpTarget(target);
+    await connectionStore.connect(readyTarget);
+    if (targetsStore.selectedTarget?.id === targetId) {
+      targetsStore.selectTarget(readyTarget);
+    }
+  } catch (err) {
+    toast.error("Local DevTools connection failed", { description: String(err) });
+  }
+}
+
 async function handleSelectTarget(target: CDPTarget) {
   const wasPolling = devicesStore.isPolling;
   if (wasPolling) devicesStore.stopPolling();
   try {
     if (target.source === "local") {
-      if (connectionStore.selectedTargetId) {
-        await connectionStore.disconnectTarget(connectionStore.selectedTargetId);
-      }
-      targetsStore.selectTarget(target);
+      await connectLocalTarget(target);
       mirrorStore.open();
       emit("close");
+      void warmLocalTargetCdp(target.id);
       return;
     }
 
@@ -214,12 +235,10 @@ async function handleInspectTarget(target: CDPTarget, event: Event) {
   event.stopPropagation();
   try {
     if (target.source === "local") {
-      if (connectionStore.selectedTargetId) {
-        await connectionStore.disconnectTarget(connectionStore.selectedTargetId);
-      }
-      targetsStore.selectTarget(target);
+      await connectLocalTarget(target);
       mirrorStore.open();
       emit("close");
+      void warmLocalTargetCdp(target.id);
       await localWebviewStore.openDevtools(target);
       return;
     }
