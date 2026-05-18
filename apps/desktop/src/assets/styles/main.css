@@ -4,116 +4,88 @@
 @import "@vue-flow/core/dist/style.css";
 @import "@vue-flow/core/dist/theme-default.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme-mode="dark"] *));
+
+/* -----------------------------------------------------------------------
+ * Theme tokens are written at runtime by applyTheme() (themes/registry.ts).
+ * The variables below are LEGACY ALIASES that map old names → new Layer-B
+ * vars so existing components keep working during the migration.
+ * Do NOT add new consumers of these; read --bg-*, --fg-*, --border-*,
+ * --state-*, --accent directly instead.
+ * --------------------------------------------------------------------- */
 
 :root {
-  --background: #fafaf7;
-  --foreground: #121212;
-  --surface-0: #ffffff;
-  --surface-1: #f6f5f0;
-  --surface-2: #eeede7;
-  --surface-3: #e4e2da;
-  --card: #ffffff;
-  --card-foreground: #121212;
-  --popover: #ffffff;
-  --popover-foreground: #121212;
-  --primary: #1a1a1a;
-  --primary-foreground: #fafaf7;
-  --secondary: #eeede7;
-  --secondary-foreground: #121212;
-  --muted: #eeede7;
-  --muted-foreground: #6a6a66;
-  --accent: #e8765a;
-  --accent-hover: #ef8367;
-  --accent-soft: #fde8e2;
-  --accent-foreground: #ffffff;
-  --destructive: #b3261e;
-  --destructive-foreground: #ffffff;
-  --border: #d9d7ce;
-  --border-subtle: #e4e2da;
-  --border-active: #bfbcb1;
-  --input: #d9d7ce;
-  --ring: #e8765a;
-  --success: #3d8b55;
-  --success-bg: #e6f4ec;
-  --warning: #b07d1a;
-  --warning-bg: #fef3cd;
-  --info: #2563eb;
-  --info-bg: #eff6ff;
-  --error: #b91c1c;
-  --error-bg: #fee2e2;
-  --sidebar: #f4f3ee;
-  --sidebar-foreground: #121212;
-  --sidebar-primary: #1a1a1a;
-  --sidebar-primary-foreground: #fafaf7;
-  --sidebar-accent: #e4e2da;
-  --sidebar-accent-foreground: #121212;
-  --sidebar-border: #d9d7ce;
-  --sidebar-ring: #e8765a;
-  --font-sans: "Geist", ui-sans-serif, sans-serif, system-ui;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-  --font-serif: ui-serif, serif;
-  --radius: 0.625rem;
-  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.08);
-  --shadow-sm: 0 2px 4px -1px rgb(0 0 0 / 0.1);
-  --shadow: 0 4px 12px -2px rgb(0 0 0 / 0.12);
-  --shadow-md: 0 8px 24px -4px rgb(0 0 0 / 0.14);
-  --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.16);
-  --shadow-xl: 0 24px 56px -12px rgb(0 0 0 / 0.2);
-  --shadow-2xl: 0 32px 64px -16px rgb(0 0 0 / 0.24);
-  --tracking-normal: 0em;
-  --spacing: 0.25rem;
-}
+  /* New Layer-B vars start with safe fallbacks so SSR/static rendering
+     before applyTheme() runs doesn't show a flash of unstyled content. */
+  --bg-app: #0e0e10;
+  --bg-chrome: #0e0e10;
+  --bg-surface: #121214;
+  --bg-surface-raised: #1c1c20;
+  --bg-overlay: rgba(8, 8, 10, 0.72);
 
-.dark {
-  --background: #0e0e10;
-  --surface-0: #121214;
-  --surface-1: #161619;
-  --surface-2: #1c1c20;
-  --surface-3: #232328;
-  --foreground: #f2efe9;
-  --card: #161619;
-  --card-foreground: #eae7e0;
-  --popover: #1c1c20;
-  --popover-foreground: #eae7e0;
-  --primary: #edeae3;
-  --primary-foreground: #0e0e10;
-  --secondary: #1f1f23;
-  --secondary-foreground: #f2efe9;
-  --muted: #1a1a1e;
-  --muted-foreground: #8a8880;
+  --fg-default: #f2efe9;
+  --fg-muted: #a8a59c;
+  --fg-subtle: #6f6c63;
+  --fg-on-accent: #ffffff;
+
+  --border-default: #2a2a2f;
+  --border-strong: #3a3a40;
+  --border-subtle: #1f1f23;
+
   --accent: #e8765a;
   --accent-hover: #ef8367;
   --accent-soft: #2a1d17;
-  --accent-foreground: #ffffff;
-  --destructive: #c94c3c;
+  --ring: var(--accent);
+
+  --state-success: #4fb06a;
+  --state-warning: #e0a528;
+  --state-danger: #d75a4a;
+  --state-info: #6c9be0;
+
+  /* Legacy aliases — components currently read these. */
+  --background: var(--bg-app);
+  --foreground: var(--fg-default);
+  --surface-0: var(--bg-surface);
+  --surface-1: var(--bg-chrome);
+  --surface-2: var(--bg-surface-raised);
+  --surface-3: var(--bg-surface-raised);
+  --card: var(--bg-surface);
+  --card-foreground: var(--fg-default);
+  --popover: var(--bg-surface-raised);
+  --popover-foreground: var(--fg-default);
+  --primary: var(--fg-default);
+  --primary-foreground: var(--bg-app);
+  --secondary: var(--bg-surface-raised);
+  --secondary-foreground: var(--fg-default);
+  --muted: var(--bg-surface-raised);
+  --muted-foreground: var(--fg-muted);
+  --accent-foreground: var(--fg-on-accent);
+  --destructive: var(--state-danger);
   --destructive-foreground: #ffffff;
-  --border: #2a2a2f;
-  --border-subtle: #1f1f23;
-  --border-active: #3a3a40;
-  --input: #2a2a2f;
-  --ring: #e8765a;
-  --success: #4fb06a;
-  --success-bg: #143321;
-  --warning: #e0a528;
-  --warning-bg: #2e2511;
-  --info: #6c9be0;
-  --info-bg: #132235;
-  --error: #d75a4a;
-  --error-bg: #2e1815;
-  --sidebar: #0e0e10;
-  --sidebar-foreground: #f2efe9;
-  --sidebar-primary: #edeae3;
-  --sidebar-primary-foreground: #0e0e10;
-  --sidebar-accent: #1a1a1e;
-  --sidebar-accent-foreground: #f2efe9;
-  --sidebar-border: #1f1f23;
-  --sidebar-ring: #e8765a;
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --success: var(--state-success);
+  --warning: var(--state-warning);
+  --info: var(--state-info);
+  --error: var(--state-danger);
+
+  /* Sidebar legacy aliases. */
+  --sidebar: var(--bg-chrome);
+  --sidebar-foreground: var(--fg-default);
+  --sidebar-primary: var(--fg-default);
+  --sidebar-primary-foreground: var(--bg-app);
+  --sidebar-accent: var(--bg-surface-raised);
+  --sidebar-accent-foreground: var(--fg-default);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--accent);
+
+  /* Typography + radii (unchanged from before). */
   --font-sans: "Geist", ui-sans-serif, sans-serif, system-ui;
   --font-mono: "Geist Mono", ui-monospace, monospace;
   --font-serif: ui-serif, serif;
   --radius: 0.625rem;
+
+  /* Shadows (unchanged). */
   --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.2);
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-sm: 0 2px 4px -1px rgb(0 0 0 / 0.35);
@@ -122,52 +94,55 @@
   --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.5);
   --shadow-xl: 0 24px 56px -12px rgb(0 0 0 / 0.55);
   --shadow-2xl: 0 32px 64px -16px rgb(0 0 0 / 0.6);
+
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface-0: var(--surface-0);
-  --color-surface-1: var(--surface-1);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+  --color-background: var(--bg-app);
+  --color-foreground: var(--fg-default);
+  --color-surface-0: var(--bg-surface);
+  --color-surface-1: var(--bg-chrome);
+  --color-surface-2: var(--bg-surface-raised);
+  --color-surface-3: var(--bg-surface-raised);
+  --color-card: var(--bg-surface);
+  --color-card-foreground: var(--fg-default);
+  --color-popover: var(--bg-surface-raised);
+  --color-popover-foreground: var(--fg-default);
+  --color-primary: var(--fg-default);
+  --color-primary-foreground: var(--bg-app);
+  --color-secondary: var(--bg-surface-raised);
+  --color-secondary-foreground: var(--fg-default);
+  --color-muted: var(--bg-surface-raised);
+  --color-muted-foreground: var(--fg-muted);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
+  --color-accent-foreground: var(--fg-on-accent);
+  --color-destructive: var(--state-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--border-default);
   --color-border-subtle: var(--border-subtle);
-  --color-border-active: var(--border-active);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-success: var(--success);
-  --color-success-bg: var(--success-bg);
-  --color-warning: var(--warning);
-  --color-warning-bg: var(--warning-bg);
-  --color-info: var(--info);
-  --color-info-bg: var(--info-bg);
-  --color-error: var(--error);
-  --color-error-bg: var(--error-bg);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-border-active: var(--border-strong);
+  --color-input: var(--border-default);
+  --color-ring: var(--accent);
+  --color-success: var(--state-success);
+  --color-success-bg: color-mix(in srgb, var(--state-success) 16%, var(--bg-surface));
+  --color-warning: var(--state-warning);
+  --color-warning-bg: color-mix(in srgb, var(--state-warning) 16%, var(--bg-surface));
+  --color-info: var(--state-info);
+  --color-info-bg: color-mix(in srgb, var(--state-info) 16%, var(--bg-surface));
+  --color-error: var(--state-danger);
+  --color-error-bg: color-mix(in srgb, var(--state-danger) 16%, var(--bg-surface));
+  --color-sidebar: var(--bg-chrome);
+  --color-sidebar-foreground: var(--fg-default);
+  --color-sidebar-primary: var(--fg-default);
+  --color-sidebar-primary-foreground: var(--bg-app);
+  --color-sidebar-accent: var(--bg-surface-raised);
+  --color-sidebar-accent-foreground: var(--fg-default);
+  --color-sidebar-border: var(--border-subtle);
+  --color-sidebar-ring: var(--accent);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
@@ -210,10 +185,10 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--border-default);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-foreground);
+    background: var(--fg-muted);
   }
   ::-webkit-scrollbar-corner {
     background: transparent;
@@ -228,13 +203,13 @@
       color 120ms ease;
   }
   .surface-interactive:hover {
-    background-color: var(--surface-2);
+    background-color: var(--bg-surface-raised);
   }
 
   .data-row {
     transition: background-color 80ms ease;
   }
   .data-row:hover {
-    background-color: var(--surface-2);
+    background-color: var(--bg-surface-raised);
   }
 }
