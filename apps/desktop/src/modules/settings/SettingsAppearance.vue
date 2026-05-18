@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { useTheme } from "@/composables/useTheme";
 import ThemeCard from "./components/ThemeCard.vue";
+import AccentSwatch from "./components/AccentSwatch.vue";
 
-const { themeId, availableThemes, setTheme } = useTheme();
+const {
+  themeId,
+  accentId,
+  customAccentHex,
+  availableThemes,
+  availableAccents,
+  setTheme,
+  setAccent,
+  setCustomAccent,
+} = useTheme();
 </script>
 
 <template>
@@ -26,7 +36,32 @@ const { themeId, availableThemes, setTheme } = useTheme();
         </div>
       </section>
 
-      <!-- Accent picker arrives in Task 12. -->
+      <section>
+        <header class="mb-3">
+          <h2 class="text-sm font-medium text-[var(--fg-default)]">Accent</h2>
+          <p class="text-xs text-[var(--fg-muted)]">
+            The accent is the active-thing color — focus rings, active tabs, primary buttons.
+          </p>
+        </header>
+        <div class="flex flex-wrap items-center gap-3">
+          <AccentSwatch
+            v-for="accent in availableAccents"
+            :key="accent.id"
+            :accent="accent"
+            :active="accentId === accent.id"
+            @select="setAccent"
+          />
+          <label class="ml-2 inline-flex items-center gap-2 text-xs text-[var(--fg-muted)]">
+            <span>Custom</span>
+            <input
+              type="color"
+              class="h-9 w-9 cursor-pointer rounded-md border border-[var(--border-default)] bg-transparent"
+              :value="customAccentHex ?? '#3b82f6'"
+              @input="(e) => setCustomAccent((e.target as HTMLInputElement).value)"
+            />
+          </label>
+        </div>
+      </section>
     </div>
   </div>
 </template>
