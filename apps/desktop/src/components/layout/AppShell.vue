@@ -212,7 +212,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen overflow-hidden bg-background dark">
+  <div class="flex flex-col h-screen overflow-hidden bg-background">
     <TitleBar @open-command-palette="commandPaletteOpen = true" />
 
     <div
