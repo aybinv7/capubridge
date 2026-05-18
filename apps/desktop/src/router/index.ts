@@ -226,7 +226,7 @@ const routes: RouteRecordRaw[] = [
   // ── Settings ─────────────────────────────────────────────────────────────
   {
     path: "/settings",
-    component: () => import("@/modules/settings/SettingsPanel.vue"),
+    component: () => import("@/modules/settings/SettingsModal.vue"),
     redirect: "/settings/general",
     children: [
       {
