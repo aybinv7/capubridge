@@ -14,6 +14,8 @@ import {
   MoreVertical,
   Eraser,
   Trash2,
+  Download,
+  Upload,
 } from "lucide-vue-next";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -38,14 +40,36 @@ import {
   useIndexedDBTableChangeOverlay,
 } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 import type { IndexedDBChangeSummary } from "@/types/storageChanges.types";
-import type { IDBDatabaseInfo, IDBRecord } from "utils";
+import type { IDBDatabaseInfo, IDBRecord, StoreInfo } from "utils";
 import { IDBDomain } from "utils";
 import IDBTable from "./IDBTable.vue";
 import IDBTableToolbar from "./IDBTableToolbar.vue";
 import IDBDatabaseOverview from "./IDBDatabaseOverview.vue";
+import {
+  exportDatabaseToJson,
+  saveIdbExportToFile,
+  pickIdbExport,
+  importDatabaseReplace,
+} from "./idbImportExport";
+import { useIdbSnapshotStore } from "./useIdbSnapshotStore";
+import { toast } from "vue-sonner";
 
 const route = useRoute();
 const router = useRouter();
+const snapshotStore = useIdbSnapshotStore();
+
+// Same component serves two routes: the live CDP explorer and a read-only
+// view over imported JSON snapshots. Mode is decided by the route name.
+const isSnapshotMode = computed(() => route.name === "storage-indexeddb-snapshot");
+const routePrefix = computed(() =>
+  isSnapshotMode.value ? "/storage/indexeddb-snapshot" : "/storage/indexeddb",
+);
+
+function readonlyToast() {
+  toast.info("Snapshot is read-only", {
+    description: "Connect a CDP target to mutate this database.",
+  });
+}
 
 const storeSearch = ref("");
 const filter = ref("");
@@ -88,24 +112,99 @@ const { useDatabases, useRecords, useStoreInfo, useStorageEstimate } = useIDB();
 const { useTotalStorageSize } = useStorageSize();
 const { getClient } = useCDP();
 
+// CDP-backed queries (gated by targetId — naturally idle in snapshot mode).
 const {
-  data: databases,
-  isLoading: isLoadingDbs,
-  isFetching: isFetchingDbs,
+  data: liveDatabases,
+  isLoading: liveIsLoadingDbs,
+  isFetching: liveIsFetchingDbs,
   refetch: refetchDbs,
 } = useDatabases();
 
 const {
-  data: recordsData,
-  isLoading: isLoadingRecords,
-  isFetching: isFetchingRecords,
-  isError,
+  data: liveRecordsData,
+  isLoading: liveIsLoadingRecords,
+  isFetching: liveIsFetchingRecords,
+  isError: liveIsError,
   refetch: refetchRecords,
 } = useRecords(selectedOrigin, dbName, storeName, page, pageSize);
 
-// Find the DB info for the currently selected DB
+// Snapshot-derived counterparts. In snapshot mode the `dbName` route param
+// IS the snapshot id (collision-free across imports with the same DB name).
+const snapshotDatabases = computed<IDBDatabaseInfo[]>(() =>
+  snapshotStore.snapshots.map((s) => ({
+    name: s.data.database.name,
+    version: s.data.database.version,
+    origin: s.id,
+    objectStoreNames: s.data.database.stores.map((store) => store.name),
+  })),
+);
+
+function jsonByteSize(value: unknown): number {
+  try {
+    return new Blob([JSON.stringify(value)]).size;
+  } catch {
+    return 0;
+  }
+}
+
+const snapshotStoreInfo = computed<StoreInfo[]>(() => {
+  const snap = snapshotStore.getById(dbName.value);
+  if (!snap) return [];
+  return snap.data.database.stores.map((s) => ({
+    name: s.name,
+    keyPath: s.keyPath,
+    autoIncrement: s.autoIncrement,
+    recordCount: s.records.length,
+    indexCount: s.indexes.length,
+    indexes: s.indexes.map((i) => ({
+      name: i.name,
+      keyPath: i.keyPath,
+      unique: i.unique,
+      multiEntry: i.multiEntry,
+    })),
+    estimatedSize: s.records.reduce((sum, r) => sum + jsonByteSize(r.value), 0),
+  }));
+});
+
+const snapshotAllRecords = computed<IDBRecord[]>(() => {
+  const snap = snapshotStore.getById(dbName.value);
+  if (!snap || !storeName.value) return [];
+  const store = snap.data.database.stores.find((s) => s.name === storeName.value);
+  return (store?.records ?? []).map((r) => ({
+    key: r.key as IDBValidKey,
+    value: r.value,
+  }));
+});
+
+const snapshotRecordsData = computed(() => {
+  const all = snapshotAllRecords.value;
+  const start = page.value * pageSize.value;
+  return {
+    records: all.slice(start, start + pageSize.value),
+    hasMore: start + pageSize.value < all.length,
+  };
+});
+
+// Unified surface used by the rest of the script + template.
+const databases = computed(() =>
+  isSnapshotMode.value ? snapshotDatabases.value : liveDatabases.value,
+);
+const recordsData = computed(() =>
+  isSnapshotMode.value ? snapshotRecordsData.value : liveRecordsData.value,
+);
+const isLoadingDbs = computed(() => !isSnapshotMode.value && liveIsLoadingDbs.value);
+const isFetchingDbs = computed(() => !isSnapshotMode.value && liveIsFetchingDbs.value);
+const isLoadingRecords = computed(() => !isSnapshotMode.value && liveIsLoadingRecords.value);
+const isFetchingRecords = computed(() => !isSnapshotMode.value && liveIsFetchingRecords.value);
+const isError = computed(() => !isSnapshotMode.value && liveIsError.value);
+
+// Find the DB info for the currently selected DB. In snapshot mode the route
+// `db` param is a snapshot id (matched via the synthesized `origin`).
 const selectedDbInfo = computed<IDBDatabaseInfo | undefined>(() => {
   if (!dbName.value || !databases.value) return undefined;
+  if (isSnapshotMode.value) {
+    return databases.value.find((db) => db.origin === dbName.value);
+  }
   return (
     databases.value.find((db) => db.name === dbName.value && db.origin === selectedOrigin.value) ??
     databases.value.find((db) => db.name === dbName.value)
@@ -115,13 +214,24 @@ const selectedDbInfo = computed<IDBDatabaseInfo | undefined>(() => {
 const activeDbOrigin = computed(() => selectedOrigin.value || selectedDbInfo.value?.origin || "");
 
 const {
-  data: storeInfoData,
-  isLoading: isLoadingStoreInfo,
-  isError: isStoreInfoError,
+  data: liveStoreInfoData,
+  isLoading: liveIsLoadingStoreInfo,
+  isError: liveIsStoreInfoError,
   refetch: refetchStoreInfo,
 } = useStoreInfo(dbName, selectedOrigin);
 
-const { data: storageSizeData } = useTotalStorageSize(selectedOrigin);
+const { data: liveStorageSizeData } = useTotalStorageSize(selectedOrigin);
+
+const storeInfoData = computed(() =>
+  isSnapshotMode.value ? snapshotStoreInfo.value : liveStoreInfoData.value,
+);
+const isLoadingStoreInfo = computed(() => !isSnapshotMode.value && liveIsLoadingStoreInfo.value);
+const isStoreInfoError = computed(() => !isSnapshotMode.value && liveIsStoreInfoError.value);
+const storageSizeData = computed(() =>
+  isSnapshotMode.value
+    ? { idb: snapshotStoreInfo.value.reduce((a, s) => a + (s.estimatedSize ?? 0), 0) }
+    : liveStorageSizeData.value,
+);
 
 const isLoading = computed(() => isLoadingRecords.value || isFetchingRecords.value);
 const hasMore = computed(() => recordsData.value?.hasMore ?? false);
@@ -186,15 +296,25 @@ function getVisibleDatabases(): IDBDatabaseInfo[] {
 }
 
 function navigateToStore(db: IDBDatabaseInfo, store: string) {
+  if (isSnapshotMode.value) {
+    void router.push(
+      `${routePrefix.value}/${encodeURIComponent(db.origin)}/${encodeURIComponent(store)}`,
+    );
+    return;
+  }
   selectedOrigin.value = db.origin;
   void router.push(
-    `/storage/indexeddb/${encodeURIComponent(db.name)}/${encodeURIComponent(store)}`,
+    `${routePrefix.value}/${encodeURIComponent(db.name)}/${encodeURIComponent(store)}`,
   );
 }
 
 function navigateToDbOverview(db: IDBDatabaseInfo) {
+  if (isSnapshotMode.value) {
+    void router.push(`${routePrefix.value}/${encodeURIComponent(db.origin)}`);
+    return;
+  }
   selectedOrigin.value = db.origin;
-  void router.push(`/storage/indexeddb/${encodeURIComponent(db.name)}`);
+  void router.push(`${routePrefix.value}/${encodeURIComponent(db.name)}`);
 }
 
 function handleSelectStore(storeName: string) {
@@ -254,6 +374,9 @@ function handlePageSizeChange(size: number) {
 }
 
 async function fetchSingleRecord(index: number): Promise<IDBRecord | null> {
+  if (isSnapshotMode.value) {
+    return snapshotAllRecords.value[index] ?? null;
+  }
   const client = getClient(targetId.value);
   if (!client) return null;
 
@@ -278,6 +401,10 @@ function getDomain(): IDBDomain | null {
 }
 
 async function handleRecordEdit(record: IDBRecord) {
+  if (isSnapshotMode.value) {
+    readonlyToast();
+    return;
+  }
   const domain = getDomain();
   if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
   try {
@@ -289,6 +416,10 @@ async function handleRecordEdit(record: IDBRecord) {
 }
 
 async function handleRecordDelete(key: IDBValidKey) {
+  if (isSnapshotMode.value) {
+    readonlyToast();
+    return;
+  }
   const domain = getDomain();
   if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
   try {
@@ -300,6 +431,10 @@ async function handleRecordDelete(key: IDBValidKey) {
 }
 
 async function handleRecordDeleteBulk(keys: IDBValidKey[]) {
+  if (isSnapshotMode.value) {
+    readonlyToast();
+    return;
+  }
   const domain = getDomain();
   if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
   try {
@@ -330,6 +465,10 @@ async function runConfirmedAction() {
 }
 
 function handleClearStore(db: IDBDatabaseInfo, store: string) {
+  if (isSnapshotMode.value) {
+    readonlyToast();
+    return;
+  }
   openConfirm(
     "Clear all records",
     `Delete every record in "${store}"? This cannot be undone.`,
@@ -348,6 +487,10 @@ function handleClearStore(db: IDBDatabaseInfo, store: string) {
 }
 
 function handleDeleteStore(db: IDBDatabaseInfo, store: string) {
+  if (isSnapshotMode.value) {
+    readonlyToast();
+    return;
+  }
   openConfirm(
     "Delete table",
     `Permanently delete the object store "${store}" and all its data? The database schema will be migrated.`,
@@ -368,7 +511,90 @@ function handleDeleteStore(db: IDBDatabaseInfo, store: string) {
   );
 }
 
+async function handleExportDatabase(db: IDBDatabaseInfo) {
+  // In snapshot mode the data is already in memory — just re-serialize it.
+  if (isSnapshotMode.value) {
+    const snap = snapshotStore.getById(db.origin);
+    if (!snap) return;
+    const promise = saveIdbExportToFile(snap.data, `${db.name}.idb`);
+    toast.promise(promise, {
+      loading: `Exporting "${db.name}"…`,
+      success: (saved) => (saved ? `Exported to ${saved}` : "Export cancelled"),
+      error: (err: unknown) => `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    return;
+  }
+  const client = getClient(targetId.value);
+  if (!client) {
+    toast.error("No active CDP target");
+    return;
+  }
+  const promise = (async () => {
+    const exported = await exportDatabaseToJson(client, db.origin, db.name);
+    const saved = await saveIdbExportToFile(exported, `${db.name}.idb`);
+    return saved;
+  })();
+  toast.promise(promise, {
+    loading: `Exporting "${db.name}"…`,
+    success: (saved) => (saved ? `Exported "${db.name}" to ${saved}` : "Export cancelled"),
+    error: (err: unknown) => `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+  });
+}
+
+async function handleImportDatabase() {
+  let picked;
+  try {
+    picked = await pickIdbExport();
+  } catch (err) {
+    toast.error("Could not read import file", { description: String(err) });
+    return;
+  }
+  if (!picked) return;
+
+  const client = getClient(targetId.value);
+  // No live target, or already in snapshot mode → keep on the snapshot route.
+  if (!client || isSnapshotMode.value) {
+    const entry = snapshotStore.addSnapshot(picked.path, picked.data);
+    toast.success(`Opened "${picked.data.database.name}" as a snapshot`);
+    void router.push(`/storage/indexeddb-snapshot/${encodeURIComponent(entry.id)}`);
+    return;
+  }
+
+  const dbName = picked.data.database.name;
+  const storeCount = picked.data.database.stores.length;
+  const recordCount = picked.data.database.stores.reduce((n, s) => n + s.records.length, 0);
+  openConfirm(
+    "Import database (replace)",
+    `Replace database "${dbName}" with ${storeCount} store(s) and ${recordCount} record(s) from this file? Any existing data in "${dbName}" will be deleted.`,
+    async () => {
+      const promise = importDatabaseReplace(client, picked.data).then(() => {
+        void refetchDbs();
+        return dbName;
+      });
+      await toast.promise(promise, {
+        loading: `Importing "${dbName}"…`,
+        success: (name) => `Imported "${name}"`,
+        error: (err: unknown) =>
+          `Import failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    },
+  );
+}
+
 function handleDeleteDatabase(db: IDBDatabaseInfo) {
+  if (isSnapshotMode.value) {
+    openConfirm(
+      "Remove snapshot",
+      `Remove "${db.name}" from imported snapshots? The source file on disk is not touched.`,
+      async () => {
+        snapshotStore.removeSnapshot(db.origin);
+        if (dbName.value === db.origin) {
+          await router.replace("/storage/indexeddb-snapshot");
+        }
+      },
+    );
+    return;
+  }
   openConfirm(
     "Delete database",
     `Permanently delete the entire database "${db.name}" and all its stores? This cannot be undone.`,
@@ -400,10 +626,12 @@ watch([dbName, storeName], async () => {
   showChangesOnly.value = false;
 });
 
-// Sync selectedOrigin when selectedDbInfo changes
+// Sync selectedOrigin when selectedDbInfo changes (live mode only — in
+// snapshot mode `origin` is a synthetic snapshot id, not a security origin).
 watch(
   selectedDbInfo,
   (db) => {
+    if (isSnapshotMode.value) return;
     if (db?.origin && selectedOrigin.value !== db.origin) {
       selectedOrigin.value = db.origin;
     }
@@ -451,9 +679,9 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
         <!-- Sidebar: full height flex column, no overflow on outer -->
         <div class="flex h-full flex-col border-r border-border/30 min-h-0">
           <!-- Store search -->
-          <div class="shrink-0 border-b border-border/20">
+          <div class="shrink-0 border-b border-border/20 flex items-center gap-1 px-1">
             <div
-              class="flex items-center gap-2 bg-surface-3 rounded-md px-2 py-2 border border-border/30 focus-within:border-border/60 transition-colors"
+              class="flex flex-1 items-center gap-2 bg-surface-3 rounded-md px-2 py-2 border border-border/30 focus-within:border-border/60 transition-colors"
             >
               <Search class="w-3 h-3 text-muted-foreground/50 shrink-0" />
               <Input
@@ -462,7 +690,23 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                 placeholder="Search databases or stores…"
               />
             </div>
+            <button
+              class="shrink-0 p-1.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-surface-3 transition-colors"
+              title="Import database from JSON"
+              @click="handleImportDatabase()"
+            >
+              <Upload :size="12" />
+            </button>
           </div>
+
+          <!-- Back to live IDB (snapshot mode only) -->
+          <button
+            v-if="isSnapshotMode"
+            class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-[10px] text-muted-foreground/60 hover:text-foreground/80 border-b border-border/20 hover:bg-surface-3/50 transition-colors"
+            @click="router.push('/storage/indexeddb')"
+          >
+            ← Back to live IndexedDB
+          </button>
 
           <!-- Hidden databases toggle (only when some are hidden) -->
           <div
@@ -509,7 +753,16 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <Database :size="16" class="text-muted-foreground/30 mb-2" />
-              <p class="text-[11px] text-muted-foreground/40">No IndexedDB databases found</p>
+              <p class="text-[11px] text-muted-foreground/40">
+                {{ isSnapshotMode ? "No snapshots imported" : "No IndexedDB databases found" }}
+              </p>
+              <button
+                class="mt-3 flex items-center gap-1.5 rounded border border-border/30 bg-surface-3 px-2.5 py-1 text-[10px] text-foreground/70 hover:bg-surface-2 transition-colors"
+                @click="handleImportDatabase()"
+              >
+                <Upload :size="10" />
+                Import JSON snapshot
+              </button>
             </div>
 
             <ul v-else class="py-1">
@@ -586,7 +839,17 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                         {{ isDbHidden(db.origin, db.name) ? "Unhide database" : "Hide database" }}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem @click="handleExportDatabase(db)">
+                        <Download class="h-3.5 w-3.5 mr-2" />
+                        Export database (JSON)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @click="handleImportDatabase()">
+                        <Upload class="h-3.5 w-3.5 mr-2" />
+                        Import database (replace)
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator v-if="!isSnapshotMode" />
                       <DropdownMenuItem
+                        v-if="!isSnapshotMode"
                         :disabled="!hasSummaryChanges(getDatabaseSummary(db.origin, db.name))"
                         @click="changesStore.clearDatabaseChanges(db.origin, db.name)"
                       >
@@ -599,7 +862,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                         @click="handleDeleteDatabase(db)"
                       >
                         <Trash2 class="h-3.5 w-3.5 mr-2" />
-                        Delete database
+                        {{ isSnapshotMode ? "Remove snapshot" : "Delete database" }}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -677,31 +940,33 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                             />
                             {{ isHidden(db.name, storeItem) ? "Unhide table" : "Hide table" }}
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            :disabled="
-                              !hasSummaryChanges(getStoreSummary(db.origin, db.name, storeItem))
-                            "
-                            @click="changesStore.clearStoreChanges(db.origin, db.name, storeItem)"
-                          >
-                            <Eraser class="h-3.5 w-3.5 mr-2" />
-                            Clear changes
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            class="text-error focus:text-error"
-                            @click="handleClearStore(db, storeItem)"
-                          >
-                            <Eraser class="h-3.5 w-3.5 mr-2" />
-                            Clear all records
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            class="text-error focus:text-error"
-                            @click="handleDeleteStore(db, storeItem)"
-                          >
-                            <Trash2 class="h-3.5 w-3.5 mr-2" />
-                            Delete table
-                          </DropdownMenuItem>
+                          <template v-if="!isSnapshotMode">
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              :disabled="
+                                !hasSummaryChanges(getStoreSummary(db.origin, db.name, storeItem))
+                              "
+                              @click="changesStore.clearStoreChanges(db.origin, db.name, storeItem)"
+                            >
+                              <Eraser class="h-3.5 w-3.5 mr-2" />
+                              Clear changes
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              class="text-error focus:text-error"
+                              @click="handleClearStore(db, storeItem)"
+                            >
+                              <Eraser class="h-3.5 w-3.5 mr-2" />
+                              Clear all records
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              class="text-error focus:text-error"
+                              @click="handleDeleteStore(db, storeItem)"
+                            >
+                              <Trash2 class="h-3.5 w-3.5 mr-2" />
+                              Delete table
+                            </DropdownMenuItem>
+                          </template>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

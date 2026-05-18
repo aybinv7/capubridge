@@ -730,3 +730,14 @@ pub async fn save_base64_file(path: String, data: String) -> Result<(), String> 
     .await
     .map_err(|e| e.to_string())?
 }
+
+/// Read a file from the host machine, returning the contents as base64.
+#[tauri::command]
+pub async fn read_local_file_base64(path: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let bytes = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
+        Ok(general_purpose::STANDARD.encode(&bytes))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

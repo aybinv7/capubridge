@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 export const LOCAL_SQL_SERIAL = "__local__";
 export const LOCAL_SQL_PACKAGE = "opfs";
 
-export type SqliteSourceKind = "native-android" | "opfs" | "jeep-sqlite";
+export type SqliteSourceKind = "native-android" | "opfs" | "jeep-sqlite" | "imported";
 
 export interface LocalSqlSessionSource {
   kind: SqliteSourceKind;

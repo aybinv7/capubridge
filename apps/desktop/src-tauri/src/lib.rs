@@ -16,7 +16,7 @@ use commands::chrome::{
 };
 use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
-    adb_read_file, save_base64_file, show_in_folder,
+    adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
 };
 use commands::local_webview::{
     local_device_name, local_webview_fetch_cdp_target, local_webview_inject_scrollbar_hide,
@@ -44,10 +44,10 @@ use commands::recording::{
 };
 use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
 use commands::sqlite::{
-    sqlite_close_database, sqlite_execute_query, sqlite_list_databases, sqlite_open_database,
-    sqlite_overwrite_local_bytes, sqlite_refresh_database, sqlite_save_local_bytes,
-    sqlite_scan_all_databases, sqlite_table_columns,
-    sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
+    sqlite_close_database, sqlite_execute_query, sqlite_execute_write, sqlite_export_bytes,
+    sqlite_list_databases, sqlite_open_database, sqlite_overwrite_local_bytes,
+    sqlite_refresh_database, sqlite_save_local_bytes, sqlite_scan_all_databases,
+    sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
 };
 use session::{
     cache_store::SessionCacheStore,
@@ -213,6 +213,7 @@ pub fn run() {
             adb_delete_file,
             show_in_folder,
             save_base64_file,
+            read_local_file_base64,
             sqlite_list_databases,
             sqlite_scan_all_databases,
             sqlite_open_database,
@@ -225,6 +226,8 @@ pub fn run() {
             sqlite_table_foreign_keys,
             sqlite_table_rows,
             sqlite_execute_query,
+            sqlite_execute_write,
+            sqlite_export_bytes,
             mock_server_start,
             mock_server_stop,
             mock_server_sync_rules,

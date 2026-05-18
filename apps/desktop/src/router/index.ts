@@ -72,6 +72,11 @@ const routes: RouteRecordRaw[] = [
         name: "storage-indexeddb",
         component: () => import("@/modules/storage/indexeddb/IDBExplorer.vue"),
       },
+      {
+        path: "indexeddb-snapshot/:db?/:store?",
+        name: "storage-indexeddb-snapshot",
+        component: () => import("@/modules/storage/indexeddb/IDBExplorer.vue"),
+      },
 
       {
         path: "localforage",

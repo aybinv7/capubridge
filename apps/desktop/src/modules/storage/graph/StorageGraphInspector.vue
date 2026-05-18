@@ -101,14 +101,12 @@ function saveNode() {
   <div
     class="flex h-fit flex-col bg-[linear-gradient(180deg,var(--color-surface-1),var(--color-surface-0))]"
   >
-    <div class="min-h-0 flex-1 overflow-auto px-4 py-4">
+    <div class="min-h-0 flex-1 overflow-auto p-3">
       <div v-if="selectedNodeData" class="space-y-4">
-        <div
-          class="overflow-hidden rounded-[28px] border border-border/25 bg-surface-0 shadow-[0_18px_60px_-36px_rgba(0,0,0,0.68)]"
-        >
-          <div class="border-b border-border/15 px-4 py-4">
+        <div class="">
+          <div class="">
             <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
+              <div class="w-full">
                 <div class="flex items-center gap-2">
                   <Badge variant="outline" class="gap-1 rounded-full">
                     <component :is="isNoteNode ? StickyNote : Database" :size="12" />
@@ -139,10 +137,7 @@ function saveNode() {
             </div>
           </div>
 
-          <div
-            v-if="selectedNodeData.nodeKind === 'entity'"
-            class="grid grid-cols-3 gap-2 px-4 py-4"
-          >
+          <div v-if="selectedNodeData.nodeKind === 'entity'" class="grid grid-cols-3 gap-2">
             <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
               <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
                 Fields

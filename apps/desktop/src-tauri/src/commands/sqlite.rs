@@ -1047,3 +1047,59 @@ pub async fn sqlite_overwrite_local_bytes(
     .await
     .map_err(|e| e.to_string())?
 }
+
+/// Read the raw bytes of the current SQLite database (cached pull for native
+/// android, the local file otherwise) and return as base64 — used to export
+/// a `.sqlite` file to the host filesystem.
+#[tauri::command]
+pub async fn sqlite_export_bytes(
+    serial: String,
+    package: String,
+    db_path: String,
+) -> Result<String, String> {
+    use base64::Engine;
+    tokio::task::spawn_blocking(move || {
+        let local = obtain_local_path(&serial, &package, &db_path, false)?;
+        let bytes = std::fs::read(&local).map_err(|e| format!("read failed: {e}"))?;
+        Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Execute one or more SQL statements against the database with write
+/// permissions. For native android targets this writes to the pulled cache
+/// file only — changes are NOT pushed back to the device. For local sessions
+/// it mutates the live temp file used by the explorer.
+#[tauri::command]
+pub async fn sqlite_execute_write(
+    serial: String,
+    package: String,
+    db_path: String,
+    sql: String,
+) -> Result<SqliteQueryResult, String> {
+    tokio::task::spawn_blocking(move || {
+        let local = obtain_local_path(&serial, &package, &db_path, false)?;
+        let conn = Connection::open_with_flags(
+            &local,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .map_err(|e| format!("Failed to open database (rw): {e}"))?;
+
+        let start = std::time::Instant::now();
+        conn.execute_batch(&sql)
+            .map_err(|e| format!("SQL error: {e}"))?;
+        let duration_ms = start.elapsed().as_millis() as u64;
+        let changes = conn.changes();
+
+        Ok(SqliteQueryResult {
+            columns: Vec::new(),
+            rows: Vec::new(),
+            row_count: 0,
+            changes,
+            duration_ms,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

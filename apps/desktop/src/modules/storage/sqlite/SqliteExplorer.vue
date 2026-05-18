@@ -19,6 +19,9 @@ import {
   EyeOff,
   Trash2,
   Eraser,
+  Download,
+  Upload,
+  FileCode,
 } from "lucide-vue-next";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -61,6 +64,13 @@ import SqliteDatabaseOverview from "./SqliteDatabaseOverview.vue";
 import SqliteChangeDiffDialog from "./SqliteChangeDiffDialog.vue";
 import { diffSqliteSnapshots } from "./diffSqliteSnapshots";
 import { useModalGuard } from "@/composables/useModalGuard";
+import {
+  exportSqliteFile,
+  exportSqlDump,
+  pickSqliteFile,
+  pickSqlDump,
+  importSqlDump,
+} from "./sqliteImportExport";
 
 const route = useRoute();
 const router = useRouter();
@@ -484,6 +494,7 @@ function isTableActive(table: string): boolean {
 function sourceLabel(db: SqliteDbFile): string {
   if (db.sourceKind === "jeep-sqlite") return "jeep";
   if (db.sourceKind === "opfs") return "opfs";
+  if (db.sourceKind === "imported") return "file";
   return "native";
 }
 
@@ -491,6 +502,7 @@ function sourceBadgeClass(db: SqliteDbFile): string {
   if (db.sourceKind === "jeep-sqlite")
     return "border-violet-500/25 text-violet-300 bg-violet-500/10";
   if (db.sourceKind === "opfs") return "border-info/25 text-info bg-info/10";
+  if (db.sourceKind === "imported") return "border-amber-500/25 text-amber-300 bg-amber-500/10";
   return "border-emerald-500/20 text-emerald-300 bg-emerald-500/10";
 }
 
@@ -802,6 +814,10 @@ async function forceReleaseAndDelete(opfsPath: string, db: SqliteDbFile): Promis
 
 async function deleteDatabaseAtSource(db: SqliteDbFile): Promise<void> {
   const s = localSession.value;
+  if (db.sourceKind === "imported") {
+    // Imported files have no live source — just drop the in-memory session.
+    return;
+  }
   if (db.sourceKind === "jeep-sqlite") {
     const key = db.sourceKey ?? s?.sourceKey ?? db.name;
     await getJeepSqliteDomain().deleteDatabase({
@@ -848,6 +864,110 @@ async function deleteDatabaseAtSource(db: SqliteDbFile): Promise<void> {
   }
   throw new Error(
     `Deleting "${db.sourceLabel ?? db.sourceKind ?? "unknown"}" databases isn't supported yet.`,
+  );
+}
+
+async function handleExportSqliteFile(db: SqliteDbFile) {
+  const target = resolveDbTarget(db);
+  if (!target) return;
+  const promise = exportSqliteFile(target.serial, target.pkg, db.path, db.name);
+  toast.promise(promise, {
+    loading: `Exporting "${db.name}"…`,
+    success: (saved) => (saved ? `Exported "${db.name}" to ${saved}` : "Export cancelled"),
+    error: (err: unknown) => `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+  });
+}
+
+async function handleExportSqlDump(db: SqliteDbFile) {
+  const target = resolveDbTarget(db);
+  if (!target) return;
+  let tableList: SqliteTableInfo[] = tables.value;
+  if (currentDb.value?.path !== db.path || tableList.length === 0) {
+    try {
+      tableList = await openDatabase(target.serial, target.pkg, db.path);
+    } catch (err) {
+      toast.error("Could not enumerate tables", { description: String(err) });
+      return;
+    }
+  }
+  const promise = exportSqlDump(target.serial, target.pkg, db.path, tableList, db.name);
+  toast.promise(promise, {
+    loading: `Building SQL dump for "${db.name}"…`,
+    success: (saved) => (saved ? `Exported "${db.name}.sql" to ${saved}` : "Export cancelled"),
+    error: (err: unknown) => `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+  });
+}
+
+function resolveDbTarget(db: SqliteDbFile): { serial: string; pkg: string } | null {
+  const pkg = db.packageName ?? selectedPackageName.value;
+  if (!serial.value || !pkg) {
+    toast.error("No active database", {
+      description: "Select a target package or import a local file first.",
+    });
+    return null;
+  }
+  return { serial: serial.value, pkg };
+}
+
+async function handleImportSqliteFile() {
+  let picked;
+  try {
+    picked = await pickSqliteFile();
+  } catch (err) {
+    toast.error("Could not read file", { description: String(err) });
+    return;
+  }
+  if (!picked) return;
+  try {
+    const session = await sqlSessionStore.startLocalSession(picked.name, picked.bytes, {
+      kind: "imported",
+      label: "file",
+    });
+    await router.push(`/storage/sqlite/${encodeURIComponent(session.fileName)}`);
+    toast.success(`Opened "${picked.name}" as a local session`);
+  } catch (err) {
+    toast.error("Import failed", { description: String(err) });
+  }
+}
+
+async function handleImportSqlDumpInto(db: SqliteDbFile) {
+  const target = resolveDbTarget(db);
+  if (!target) return;
+  let picked;
+  try {
+    picked = await pickSqlDump();
+  } catch (err) {
+    toast.error("Could not read SQL file", { description: String(err) });
+    return;
+  }
+  if (!picked) return;
+
+  openConfirm(
+    "Import SQL dump (replace)",
+    `Drop all user tables in "${db.name}" and replay "${picked.name}"? ` +
+      (localSession.value
+        ? "This rewrites the local snapshot."
+        : "Native Android DBs are mutated in the local cache only — changes do not push back to the device."),
+    async () => {
+      let existing = tables.value;
+      if (currentDb.value?.path !== db.path || existing.length === 0) {
+        try {
+          existing = await openDatabase(target.serial, target.pkg, db.path);
+        } catch (err) {
+          toast.error("Could not list existing tables", { description: String(err) });
+          return;
+        }
+      }
+      const promise = importSqlDump(target.serial, target.pkg, db.path, existing, picked.sql)
+        .then(() => handleRefresh())
+        .then(() => picked.name);
+      await toast.promise(promise, {
+        loading: `Replaying "${picked.name}"…`,
+        success: (name) => `Imported "${name}"`,
+        error: (err: unknown) =>
+          `Import failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    },
   );
 }
 
@@ -1115,9 +1235,9 @@ watch(
       <ResizablePanel :default-size="15" :min-size="10" :max-size="30" class="min-h-0">
         <div class="flex h-full flex-col border-r border-border/30 min-h-0">
           <!-- Search -->
-          <div class="shrink-0 border-b border-border/20 p-2">
+          <div class="shrink-0 border-b border-border/20 p-2 flex items-center gap-1">
             <div
-              class="flex items-center gap-2 bg-surface-3 rounded-md px-2 py-2 border border-border/30 focus-within:border-border/60 transition-colors"
+              class="flex flex-1 items-center gap-2 bg-surface-3 rounded-md px-2 py-2 border border-border/30 focus-within:border-border/60 transition-colors"
             >
               <Search class="w-3 h-3 text-muted-foreground/50 shrink-0" />
               <input
@@ -1126,6 +1246,13 @@ watch(
                 placeholder="Search databases…"
               />
             </div>
+            <button
+              class="shrink-0 p-1.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-surface-3 transition-colors"
+              title="Import .sqlite file (opens as local session)"
+              @click="handleImportSqliteFile()"
+            >
+              <Upload :size="12" />
+            </button>
           </div>
 
           <div
@@ -1192,9 +1319,16 @@ watch(
                 {{
                   selectedPackageName
                     ? "The selected target package does not expose databases/"
-                    : "Pick a debuggable app target in Device Manager first"
+                    : "Pick a debuggable app target — or import a .sqlite file to explore"
                 }}
               </p>
+              <button
+                class="mt-3 flex items-center gap-1.5 rounded border border-border/30 bg-surface-3 px-2.5 py-1 text-[10px] text-foreground/70 hover:bg-surface-2 transition-colors"
+                @click="handleImportSqliteFile()"
+              >
+                <Upload :size="10" />
+                Import .sqlite file
+              </button>
             </div>
 
             <ul v-else class="py-1">
@@ -1276,6 +1410,19 @@ watch(
                           class="h-3.5 w-3.5 mr-2"
                         />
                         {{ isDbHidden(db.path) ? "Unhide database" : "Hide database" }}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem @click="handleExportSqliteFile(db)">
+                        <Download class="h-3.5 w-3.5 mr-2" />
+                        Export .sqlite file
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @click="handleExportSqlDump(db)">
+                        <FileCode class="h-3.5 w-3.5 mr-2" />
+                        Export SQL dump
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @click="handleImportSqlDumpInto(db)">
+                        <Upload class="h-3.5 w-3.5 mr-2" />
+                        Import SQL dump (replace)
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem

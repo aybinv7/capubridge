@@ -12,6 +12,9 @@ import ReplayNetworkPanel from "./ReplayNetworkPanel.vue";
 import ReplayConsoleLane from "./ReplayConsoleLane.vue";
 import ReplayPerformanceLane from "./ReplayPerformanceLane.vue";
 import ReplayElementsPanel from "./ReplayElementsPanel.vue";
+import ReplaySessionPicker from "./ReplaySessionPicker.vue";
+
+const pickerOpen = ref(false);
 
 const route = useRoute();
 const { session, isLoading, error, load } = useReplaySession();
@@ -75,7 +78,11 @@ watch(
   },
 );
 
-async function openPicker() {
+function openPicker() {
+  pickerOpen.value = true;
+}
+
+async function openFromDisk() {
   const selected = await openFilePicker({
     title: "Open .capu session",
     filters: [{ name: "Capu sessions", extensions: ["capu"] }],
@@ -83,6 +90,10 @@ async function openPicker() {
     directory: false,
   });
   if (typeof selected === "string") await loadFile(selected);
+}
+
+function handlePickerSelect(filePath: string) {
+  void loadFile(filePath);
 }
 
 function onSeek(ms: number) {
@@ -320,5 +331,11 @@ function formatDuration(ms: number) {
         @pause="onPause"
       />
     </template>
+
+    <ReplaySessionPicker
+      v-model:open="pickerOpen"
+      @select="handlePickerSelect"
+      @open-from-disk="openFromDisk"
+    />
   </div>
 </template>

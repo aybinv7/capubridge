@@ -110,6 +110,32 @@ export function useSQLite() {
     });
   }
 
+  async function executeWrite(
+    serial: string,
+    pkg: string,
+    dbPath: string,
+    sql: string,
+  ): Promise<SqliteQueryResult> {
+    return invoke<SqliteQueryResult>("sqlite_execute_write", {
+      serial,
+      package: pkg,
+      dbPath,
+      sql,
+    });
+  }
+
+  async function exportBytes(serial: string, pkg: string, dbPath: string): Promise<Uint8Array> {
+    const base64 = await invoke<string>("sqlite_export_bytes", {
+      serial,
+      package: pkg,
+      dbPath,
+    });
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
   async function refreshDatabase(
     serial: string,
     pkg: string,
@@ -139,6 +165,8 @@ export function useSQLite() {
     tableForeignKeys,
     tableRows,
     executeQuery,
+    executeWrite,
+    exportBytes,
     refreshDatabase,
     closeDatabase,
   };
