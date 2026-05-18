@@ -273,7 +273,7 @@ export function classifyContrast(ratio: number): ContrastBand {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `vp test apps/desktop/src/themes/__tests__/contrast.test.ts --run`
-Expected: PASS (all 12 tests).
+Expected: PASS (all 11 tests).
 
 - [ ] **Step 5: Type/lint**
 
@@ -948,7 +948,7 @@ export function applyTheme(theme: Theme, accent: AccentRamp): void {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `vp test apps/desktop/src/themes/__tests__/registry.test.ts --run`
-Expected: PASS (10 tests).
+Expected: PASS (9 tests).
 
 - [ ] **Step 5: Type/lint**
 
