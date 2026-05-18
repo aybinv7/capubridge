@@ -31,12 +31,16 @@ import {
   Moon,
 } from "lucide-vue-next";
 
-import { useUIStore } from "@/stores/ui.store";
+import { useThemeStore } from "@/stores/theme.store";
 
 const route = useRoute();
 const router = useRouter();
 const inspectPlugins = useInspectPlugins();
-const uiStore = useUIStore();
+const themeStore = useThemeStore();
+
+function toggleThemeMode() {
+  themeStore.setTheme(themeStore.mode === "dark" ? "codex-light" : "codex-dark");
+}
 
 const iconMap: Record<string, typeof Smartphone> = {
   "devices-overview": Smartphone,
@@ -154,10 +158,10 @@ function isActive(tabPath: string): boolean {
     <div v-if="route.path.startsWith('/settings')" class="ml-auto flex items-center pr-1">
       <button
         class="w-8 h-7 flex items-center justify-center rounded-md transition-colors duration-[120ms] text-muted-foreground/50 hover:text-foreground hover:bg-surface-2"
-        :title="uiStore.theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'"
-        @click="uiStore.toggleTheme()"
+        :title="themeStore.mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'"
+        @click="toggleThemeMode()"
       >
-        <Sun v-if="uiStore.theme === 'dark'" :size="14" />
+        <Sun v-if="themeStore.mode === 'dark'" :size="14" />
         <Moon v-else :size="14" />
       </button>
     </div>

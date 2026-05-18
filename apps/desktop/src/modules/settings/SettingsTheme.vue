@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { Sun, Moon, Monitor } from "lucide-vue-next";
+import { Sun, Moon } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
-import { useUIStore } from "@/stores/ui.store";
+import { useThemeStore } from "@/stores/theme.store";
 
-const uiStore = useUIStore();
+const themeStore = useThemeStore();
+
+function selectMode(mode: "light" | "dark") {
+  themeStore.setTheme(mode === "dark" ? "codex-dark" : "codex-light");
+}
 </script>
 
 <template>
@@ -18,10 +22,10 @@ const uiStore = useUIStore();
               { icon: Moon, label: 'Dark', value: 'dark' as const },
             ]"
             :key="mode.value"
-            :variant="uiStore.theme === mode.value ? 'default' : 'outline'"
+            :variant="themeStore.mode === mode.value ? 'default' : 'outline'"
             size="lg"
             class="flex flex-col items-center gap-2 h-auto py-6"
-            @click="uiStore.setTheme(mode.value)"
+            @click="selectMode(mode.value)"
           >
             <component :is="mode.icon" class="w-5 h-5" />
             <span class="text-xs font-medium">{{ mode.label }}</span>
