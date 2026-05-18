@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "bundle:adb": "node ./scripts/sync-platform-tools.mjs",
+    "check:contrast": "node --import tsx ./scripts/check-contrast.ts",
     "dev": "vp dev",
     "build": "tsc && vp build",
     "preview": "vp preview",
@@ -52,6 +53,7 @@
     "@unocss/transformer-variant-group": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "happy-dom": "catalog:",
+    "tsx": "catalog:",
     "tw-animate-css": "catalog:",
     "typescript": "~5.9.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.15",

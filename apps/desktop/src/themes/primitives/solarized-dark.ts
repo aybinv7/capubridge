@@ -12,21 +12,21 @@ export const solarizedDark: Theme = {
     bgOverlay: "rgba(0, 18, 22, 0.7)",
 
     fgDefault: "#eee8d5",
-    fgMuted: "#93a1a1",
-    fgSubtle: "#586e75",
+    fgMuted: "#a8b6b6",
+    fgSubtle: "#7d9295",
     fgOnAccent: "#002b36",
 
     borderDefault: "#1a4452",
-    borderStrong: "#2c5867",
+    borderStrong: "#658086",
     borderSubtle: "#093945",
 
     accentSoft: "#0f3a44",
     ring: "var(--accent)",
 
-    stateSuccess: "#859900",
-    stateWarning: "#b58900",
-    stateDanger: "#dc322f",
-    stateInfo: "#268bd2",
+    stateSuccess: "#a8c34a",
+    stateWarning: "#dcb14a",
+    stateDanger: "#f37270",
+    stateInfo: "#5cb0e6",
   },
   meta: { contrastClass: "AA" },
 };

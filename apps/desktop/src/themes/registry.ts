@@ -1,4 +1,5 @@
 import type { Theme, AccentRamp } from "./types";
+import { contrastRatio } from "./contrast";
 import { codexDark } from "./primitives/codex-dark";
 import { codexLight } from "./primitives/codex-light";
 import { tokyoNight } from "./primitives/tokyo-night";
@@ -63,10 +64,35 @@ export function applyTheme(theme: Theme, accent: AccentRamp): void {
     html.style.setProperty(SEMANTIC_TO_CSS_VAR[key], theme.semantics[key]);
   }
 
-  // Accent ramp (Layer A) and primary aliases.
+  // Accent ramp (Layer A) and primary aliases. The "primary" step is the one
+  // with the strongest contrast against bgSurface — usually step[4], but on
+  // themes whose bgSurface is lighter/darker than codex, a neighbouring step
+  // may pop better.
   accent.steps.forEach((step, i) => {
     html.style.setProperty(`--accent-${i}`, step);
   });
-  html.style.setProperty("--accent", accent.steps[4]);
-  html.style.setProperty("--accent-hover", accent.steps[3]);
+  const primaryIndex = pickAccentPrimaryIndex(accent, theme.semantics.bgSurface);
+  html.style.setProperty("--accent", accent.steps[primaryIndex]);
+  html.style.setProperty("--accent-hover", accent.steps[Math.max(0, primaryIndex - 1)]);
+}
+
+/**
+ * Choose the accent step whose contrast against the given surface is highest.
+ * Prefers step[4] (the brand-canonical mid-tone) when it already passes 3:1.
+ */
+function pickAccentPrimaryIndex(accent: AccentRamp, surface: string): number {
+  const canonical = 4;
+  const canonicalRatio = contrastRatio(accent.steps[canonical], surface);
+  if (canonicalRatio >= 3.0) return canonical;
+
+  let best = canonical;
+  let bestRatio = canonicalRatio;
+  for (let i = 0; i < accent.steps.length; i++) {
+    const r = contrastRatio(accent.steps[i], surface);
+    if (r > bestRatio) {
+      best = i;
+      bestRatio = r;
+    }
+  }
+  return best;
 }

@@ -13,11 +13,11 @@ export const tokyoNight: Theme = {
 
     fgDefault: "#c0caf5",
     fgMuted: "#8a93c2",
-    fgSubtle: "#565f89",
+    fgSubtle: "#6b75a0",
     fgOnAccent: "#0f111a",
 
     borderDefault: "#2b2d40",
-    borderStrong: "#3b3e57",
+    borderStrong: "#6b6e8a",
     borderSubtle: "#222433",
 
     accentSoft: "#1c2540",

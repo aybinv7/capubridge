@@ -17,7 +17,7 @@ export const codexLight: Theme = {
     fgOnAccent: "#ffffff",
 
     borderDefault: "#d9d7ce",
-    borderStrong: "#bfbcb1",
+    borderStrong: "#8a8780",
     borderSubtle: "#e4e2da",
 
     accentSoft: "#fde8e2",

@@ -17,7 +17,7 @@ export const codexDark: Theme = {
     fgOnAccent: "#ffffff",
 
     borderDefault: "#2a2a2f",
-    borderStrong: "#3a3a40",
+    borderStrong: "#62626a",
     borderSubtle: "#1f1f23",
 
     accentSoft: "#2a1d17",
