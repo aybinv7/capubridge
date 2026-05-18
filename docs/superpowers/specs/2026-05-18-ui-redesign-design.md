@@ -140,7 +140,9 @@ is removed.
 ### Contrast verification
 
 `scripts/check-contrast.ts` walks every theme × every semantic token pair
-and asserts AA/AAA. Runs in CI. Failing theme blocks merge.
+and asserts AA/AAA. Wired into the existing Vite+ pipeline as a step in
+`vp run ready` (and called from CI on PRs touching `apps/desktop/src/themes/**`
+or `apps/desktop/src/assets/styles/**`). Failing theme blocks merge.
 
 ## §3 — Shell anatomy
 
@@ -311,6 +313,12 @@ creates one. Deep links like
 `capubridge://open?tool=storage&serial=…&webview=…` map to
 `tabsStore.openTab(...)`.
 
+**Sequencing trap:** on cold start the router must wait for `tabs.json`
+rehydration before resolving the initial route. If it doesn't, a stable
+`/tabs/{tabId}` URL bookmarked from a previous run will 404 before the tab
+exists. Mitigation: an async router guard on the first navigation that
+awaits `tabsStore.ready`.
+
 ### §4.5 — Persistence
 
 Tabs + state serialise to `tabs.json` in app data dir (Tauri filesystem
@@ -324,8 +332,11 @@ for forward-compat.
 ### §4.6 — Cross-tab concerns
 
 - CDP clients are per-target, shared by all tabs for that target. Closing
-  the last tab for a target prompts: "Disconnect from <device>?" — default
-  Yes after 10s.
+  the last tab for a target starts a 10s grace timer: if a new tab on the
+  same target is opened during that window, the existing CDP client is
+  reused; if not, the client disconnects automatically (no modal — a toast
+  with an "Undo" action covers the rare case where the user wanted to keep
+  it alive).
 - TanStack Query keys include `tabId` for tab-scoped state and exclude it
   for target-scoped state (e.g. the DB list for a target caches once).
 - Keyboard: `⌘T` new-tab picker · `⌘W` close · `⌘⇧W` close others ·
@@ -336,8 +347,10 @@ for forward-compat.
 - Any `currentTool` / `activeTool` global state in existing stores.
 - Module-internal Pinia state (replaced by `tabStateStore` slices).
 - Hardcoded `dark` class on `AppShell.vue` root.
-- `components/layout/ConnectionBar.vue` (if present), `StatusBar.vue`,
-  legacy console route subtree.
+- `components/layout/ConnectionBar.vue` (if present), `StatusBar.vue`.
+- Legacy console route subtree: `src/modules/console/` and any
+  `router/index.ts` routes mounting it. Console functionality is folded
+  into the bottom dock (§3.4); the standalone route is removed.
 
 ## §5 — Standard module shell
 
