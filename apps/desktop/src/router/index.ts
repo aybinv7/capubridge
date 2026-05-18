@@ -245,9 +245,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/modules/settings/SettingsChrome.vue"),
       },
       {
+        path: "appearance",
+        name: "settings-appearance",
+        component: () => import("@/modules/settings/SettingsAppearance.vue"),
+      },
+      {
         path: "theme",
-        name: "settings-theme",
-        component: () => import("@/modules/settings/SettingsTheme.vue"),
+        redirect: { name: "settings-appearance" },
       },
       {
         path: "shortcuts",

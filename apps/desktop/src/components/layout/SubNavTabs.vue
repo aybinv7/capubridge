@@ -71,7 +71,7 @@ const iconMap: Record<string, typeof Smartphone> = {
   "settings-general": Settings,
   "settings-adb": Wrench,
   "settings-chrome": Globe,
-  "settings-theme": Palette,
+  "settings-appearance": Palette,
   "settings-shortcuts": Keyboard,
   "inspect-elements": Crosshair,
 };
