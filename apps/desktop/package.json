@@ -51,6 +51,7 @@
     "@unocss/transformer-directives": "catalog:",
     "@unocss/transformer-variant-group": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
+    "happy-dom": "catalog:",
     "tw-animate-css": "catalog:",
     "typescript": "~5.9.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.15",
