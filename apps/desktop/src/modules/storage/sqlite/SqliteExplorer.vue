@@ -33,6 +33,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "vue-sonner";
 import { useOPFS, useJeepSqlite } from "@/composables/useStorage";
+import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useSQLite } from "@/composables/useSQLite";
 import { useLiveRefresh } from "@/composables/useLiveRefresh";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -57,6 +58,9 @@ import type {
 import SqliteTable from "./SqliteTable.vue";
 import SqliteTableToolbar from "./SqliteTableToolbar.vue";
 import SqliteDatabaseOverview from "./SqliteDatabaseOverview.vue";
+import SqliteChangeDiffDialog from "./SqliteChangeDiffDialog.vue";
+import { diffSqliteSnapshots } from "./diffSqliteSnapshots";
+import { useModalGuard } from "@/composables/useModalGuard";
 
 const route = useRoute();
 const router = useRouter();
@@ -73,6 +77,7 @@ const {
   executeQuery,
 } = useSQLite();
 const { getDomain: getJeepSqliteDomain } = useJeepSqlite();
+const localWebviewStore = useLocalWebviewStore();
 
 const localSession = computed(() => sqlSessionStore.localSession);
 const isLocalMode = computed(() => !!localSession.value);
@@ -174,6 +179,35 @@ const { changesByRowKey: tableChangesByRowKey, tableSummary: currentTableSummary
     tableName,
     pkColumns: pkColumnsRef,
   });
+
+const showChangesOnly = ref(false);
+
+function toggleChangesOnly() {
+  showChangesOnly.value = !showChangesOnly.value;
+}
+
+const diffChangeId = ref<string | null>(null);
+
+function openRowDiff(rowKey: string) {
+  const match = changesStore.changes.find(
+    (c) =>
+      c.kind === "record" &&
+      c.tableName === tableName.value &&
+      c.dbPath === (currentDb.value?.path ?? "") &&
+      c.rowKey === rowKey,
+  );
+  if (match) diffChangeId.value = match.id;
+}
+
+function closeRowDiff() {
+  diffChangeId.value = null;
+}
+
+const diffChange = computed(() => {
+  if (!diffChangeId.value) return null;
+  const c = changesStore.changes.find((entry) => entry.id === diffChangeId.value);
+  return c && c.kind === "record" ? c : null;
+});
 
 async function fetchColumnInfo() {
   if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) {
@@ -536,6 +570,22 @@ async function refreshLocalSnapshot() {
     return;
   }
   try {
+    let nextHash: string | null = null;
+    if (s.sourceKind === "opfs" && s.sourceOpfsPath) {
+      nextHash = await getOpfsDomain().hashSqliteBytes(s.sourceOpfsPath, {
+        stripSahPoolHeader: s.stripSahPoolHeader ?? false,
+      });
+    } else if (s.sourceKind === "jeep-sqlite" && s.sourceKey) {
+      nextHash = await getJeepSqliteDomain().hashDatabaseBytes({
+        key: s.sourceKey,
+        idbName: s.sourceIdbName,
+        storeName: s.sourceStoreName,
+      });
+    }
+    if (nextHash && nextHash === sqlSessionStore.lastSourceHash) {
+      return;
+    }
+
     let bytes: Uint8Array | null = null;
     if (s.sourceKind === "opfs" && s.sourceOpfsPath) {
       bytes = await getOpfsDomain().readSqliteBytes(s.sourceOpfsPath, {
@@ -550,6 +600,35 @@ async function refreshLocalSnapshot() {
       });
     }
     if (!bytes) return;
+    sqlSessionStore.setLastSourceHash(nextHash);
+    const previous = sqlSessionStore.swapSnapshot(bytes);
+    if (previous && previous.byteLength > 0 && bytes.byteLength > 0) {
+      try {
+        const diff = await diffSqliteSnapshots(previous, bytes);
+        for (const op of diff.changes) {
+          changesStore.recordChange({
+            operation: op.operation,
+            serial: serial.value,
+            packageName: selectedPackageName.value,
+            dbPath: s.dbPath,
+            tableName: op.tableName,
+            rowKey: op.rowKey,
+            beforeValue: op.beforeValue,
+            afterValue: op.afterValue,
+          });
+        }
+        if (diff.truncated) {
+          changesStore.recordSystemChange({
+            serial: serial.value,
+            packageName: selectedPackageName.value,
+            dbPath: s.dbPath,
+            message: `Snapshot diff truncated — more than ${diff.changes.length} ops detected`,
+          });
+        }
+      } catch (err) {
+        console.error("[SQLite] snapshot diff failed:", err);
+      }
+    }
     await sqlSessionStore.refreshLocalSession(bytes);
   } catch (err) {
     console.error("[SQLite] refreshLocalSnapshot failed:", err);
@@ -593,6 +672,9 @@ const confirmDialog = ref<{
   description: string;
   action: () => Promise<void>;
 }>({ open: false, title: "", description: "", action: async () => {} });
+
+useModalGuard(computed(() => confirmDialog.value.open));
+useModalGuard(computed(() => !!diffChange.value));
 
 function openConfirm(title: string, description: string, action: () => Promise<void>) {
   confirmDialog.value = { open: true, title, description, action };
@@ -658,6 +740,147 @@ function handleDropTable(db: SqliteDbFile, table: string) {
 
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
+}
+
+function describeDbSource(db: SqliteDbFile): string {
+  if (db.sourceKind === "jeep-sqlite") {
+    return `Capacitor jeep-sqlite database "${db.name}" (IndexedDB ${db.sourceIdbName ?? "jeepSQLiteStore"} / ${db.sourceStoreName ?? "databases"})`;
+  }
+  if (db.sourceKind === "opfs") {
+    return `OPFS database "${db.name}" (${db.path})`;
+  }
+  return `Database "${db.name}"`;
+}
+
+function describeOpfsDeleteError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/NoModificationAllowedError|not allowed/i.test(message)) {
+    return (
+      "The file is currently held by the running app (SAH-Pool / WebSQL " +
+      "wrapper / OPFS access handle). Close or reload that app first, then " +
+      "retry — or try the SAH-Pool soft release path."
+    );
+  }
+  if (/NotFoundError|not found/i.test(message)) {
+    return "File no longer exists at that OPFS path.";
+  }
+  return message;
+}
+
+function findSourceWebviewInfo(db: SqliteDbFile): { label: string; url: string } | null {
+  const s = localSession.value;
+  const targetId = db.sourceTargetId ?? s?.sourceTargetId;
+  if (!targetId) return null;
+  const target = targetsStore.targets.find((t) => t.id === targetId);
+  if (!target?.localWebviewLabel || !target.url) return null;
+  return { label: target.localWebviewLabel, url: target.url };
+}
+
+async function forceReleaseAndDelete(opfsPath: string, db: SqliteDbFile): Promise<void> {
+  const info = findSourceWebviewInfo(db);
+  if (!info) {
+    throw new Error(
+      "Can't force-release: source webview info missing. Close or reload the source app manually, then retry.",
+    );
+  }
+  const opfs = getOpfsDomain();
+  await localWebviewStore.navigateSource(info.label, "about:blank");
+  try {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 150));
+      try {
+        await opfs.deleteEntry(opfsPath);
+        return;
+      } catch (err) {
+        if (attempt === 5) throw err;
+      }
+    }
+  } finally {
+    void localWebviewStore.navigateSource(info.label, info.url).catch(() => null);
+  }
+}
+
+async function deleteDatabaseAtSource(db: SqliteDbFile): Promise<void> {
+  const s = localSession.value;
+  if (db.sourceKind === "jeep-sqlite") {
+    const key = db.sourceKey ?? s?.sourceKey ?? db.name;
+    await getJeepSqliteDomain().deleteDatabase({
+      key,
+      idbName: db.sourceIdbName ?? s?.sourceIdbName,
+      storeName: db.sourceStoreName ?? s?.sourceStoreName,
+    });
+    return;
+  }
+  if (db.sourceKind === "opfs") {
+    const opfsPath = db.sourceOpfsPath ?? s?.sourceOpfsPath;
+    if (!opfsPath) throw new Error("OPFS path not available for this database");
+    const isSahPoolSlot = db.stripSahPoolHeader ?? s?.stripSahPoolHeader ?? false;
+    const opfs = getOpfsDomain();
+    try {
+      await opfs.deleteEntry(opfsPath);
+      return;
+    } catch (err) {
+      const collected: string[] = [describeOpfsDeleteError(err)];
+      if (isSahPoolSlot) {
+        try {
+          const result = await opfs.releaseSahPoolSlot(opfsPath);
+          toast.info(
+            result.via === "sah"
+              ? "Released SAH-Pool slot — the pool will reclaim it on next maintenance."
+              : "Cleared SAH-Pool header via writable handle — slot is now free.",
+          );
+          return;
+        } catch (slotErr) {
+          collected.push(describeOpfsDeleteError(slotErr));
+        }
+      }
+      try {
+        await forceReleaseAndDelete(opfsPath, db);
+        toast.info("Force-released via about:blank — source webview restored.");
+        return;
+      } catch (forceErr) {
+        collected.push(describeOpfsDeleteError(forceErr));
+      }
+      throw new Error(
+        `Couldn't delete OPFS file. Tried: removeEntry, ${isSahPoolSlot ? "SAH-Pool soft release, " : ""}force navigate-to-blank. Details: ${collected.join(" | ")}`,
+      );
+    }
+  }
+  throw new Error(
+    `Deleting "${db.sourceLabel ?? db.sourceKind ?? "unknown"}" databases isn't supported yet.`,
+  );
+}
+
+function handleDeleteDatabase(db: SqliteDbFile) {
+  openConfirm(
+    "Delete database",
+    `Permanently delete ${describeDbSource(db)}? This removes it at the source and cannot be undone.`,
+    async () => {
+      try {
+        await deleteDatabaseAtSource(db);
+      } catch (err) {
+        toast.error("Delete failed", { description: String(err) });
+        return;
+      }
+      changesStore.recordSystemChange({
+        serial: serial.value,
+        packageName: selectedPackageName.value,
+        dbPath: db.path,
+        message: `Deleted database "${db.name}" at source`,
+      });
+      changesStore.clearDatabaseChanges(serial.value, selectedPackageName.value, db.path);
+      if (localSession.value && localSession.value.dbPath === db.path) {
+        sqlSessionStore.clearLocalSession();
+        await router.replace("/storage/sqlite");
+      } else if (dbName.value === db.name) {
+        await router.replace("/storage/sqlite");
+      }
+      databases.value = databases.value.filter((entry) => entry.path !== db.path);
+      tables.value = [];
+      queryResult.value = null;
+      toast.success(`Deleted "${db.name}"`);
+    },
+  );
 }
 
 function hasSummaryChanges(summary: SqliteChangeSummary) {
@@ -799,6 +1022,8 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
   structureForeignKeys.value = [];
   structureError.value = null;
   columnInfo.value = [];
+  showChangesOnly.value = false;
+  diffChangeId.value = null;
 
   // Only clear tables when switching databases, not when selecting a table within the same DB
   if (newDb !== oldDb) {
@@ -1062,6 +1287,14 @@ watch(
                         <Eraser class="h-3.5 w-3.5 mr-2" />
                         Clear DB changes
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        class="text-error focus:text-error"
+                        @click="handleDeleteDatabase(db)"
+                      >
+                        <Trash2 class="h-3.5 w-3.5 mr-2" />
+                        Delete database
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -1265,11 +1498,14 @@ watch(
                 :record-count="queryResult?.rowCount ?? 0"
                 :live-enabled="liveEnabled"
                 :live-interval-ms="liveIntervalMs"
+                :change-summary="currentTableSummary"
+                :show-changes-only="showChangesOnly"
                 @refresh="handleRefresh"
                 @prev="prevPage"
                 @next="nextPage"
                 @page-size-change="handlePageSizeChange"
                 @toggle-live="toggleLive"
+                @toggle-changes-only="toggleChangesOnly"
               />
 
               <div
@@ -1287,9 +1523,11 @@ watch(
                 :db-name="dbName"
                 :column-info="columnInfo"
                 :changes-by-row-key="tableChangesByRowKey"
+                :show-changes-only="showChangesOnly"
                 @refresh="handleRefresh"
                 @record-edit="handleRecordEdit"
                 @record-delete="handleRecordDelete"
+                @open-row-diff="openRowDiff"
               />
             </template>
 
@@ -1530,5 +1768,11 @@ watch(
     cancel-text="Cancel"
     variant="destructive"
     @confirm="runConfirmedAction"
+  />
+
+  <SqliteChangeDiffDialog
+    :open="!!diffChange"
+    :change="diffChange"
+    @update:open="(v) => (v ? null : closeRowDiff())"
   />
 </template>

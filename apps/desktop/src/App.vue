@@ -25,7 +25,7 @@ const DockDetachedWindow = isDockWindow
   <template v-else>
     <AppShell />
     <Toaster
-      position="bottom-right"
+      position="bottom-left"
       theme="dark"
       :rich-colors="true"
       :visible-toasts="5"

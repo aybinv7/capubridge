@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -39,6 +39,8 @@ export interface LocalSqlSession {
 
 export const useSqlSessionStore = defineStore("sql-session", () => {
   const localSession = ref<LocalSqlSession | null>(null);
+  const lastSourceBytes = shallowRef<Uint8Array | null>(null);
+  const lastSourceHash = ref<string | null>(null);
 
   async function startLocalSession(
     label: string,
@@ -78,11 +80,24 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
       sourceKey: source?.key,
     };
     localSession.value = session;
+    lastSourceBytes.value = bytes;
     return session;
   }
 
   function clearLocalSession() {
     localSession.value = null;
+    lastSourceBytes.value = null;
+    lastSourceHash.value = null;
+  }
+
+  function swapSnapshot(nextBytes: Uint8Array): Uint8Array | null {
+    const previous = lastSourceBytes.value;
+    lastSourceBytes.value = nextBytes;
+    return previous;
+  }
+
+  function setLastSourceHash(hash: string | null) {
+    lastSourceHash.value = hash;
   }
 
   async function refreshLocalSession(bytes: Uint8Array): Promise<void> {
@@ -104,5 +119,14 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
     };
   }
 
-  return { localSession, startLocalSession, clearLocalSession, refreshLocalSession };
+  return {
+    localSession,
+    lastSourceBytes,
+    lastSourceHash,
+    startLocalSession,
+    clearLocalSession,
+    refreshLocalSession,
+    swapSnapshot,
+    setLastSourceHash,
+  };
 });

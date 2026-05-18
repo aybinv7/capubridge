@@ -116,6 +116,145 @@ export class JeepSqliteDomain {
     return parsed as JeepSqliteDatabase[];
   }
 
+  async deleteDatabase(params: {
+    key: string;
+    idbName?: string;
+    storeName?: string;
+  }): Promise<void> {
+    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      expression: `
+        (async () => {
+          const idbName = ${JSON.stringify(params.idbName ?? "jeepSQLiteStore")};
+          const storeName = ${JSON.stringify(params.storeName ?? "databases")};
+          const key = ${JSON.stringify(params.key)};
+
+          const openDb = (name) =>
+            new Promise((resolve, reject) => {
+              const req = indexedDB.open(name);
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => reject(req.error?.message ?? "open failed");
+              req.onblocked = () => reject("open blocked");
+            });
+
+          const request = (req) =>
+            new Promise((resolve, reject) => {
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => reject(req.error?.message ?? "request failed");
+            });
+
+          try {
+            const db = await openDb(idbName);
+            try {
+              if (!db.objectStoreNames.contains(storeName)) {
+                throw new Error("jeep-sqlite store not found");
+              }
+              const tx = db.transaction(storeName, "readwrite");
+              await request(tx.objectStore(storeName).delete(key));
+              await new Promise((resolve, reject) => {
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => reject(tx.error?.message ?? "transaction failed");
+                tx.onabort = () => reject("transaction aborted");
+              });
+              return JSON.stringify({ ok: true });
+            } finally {
+              db.close();
+            }
+          } catch (e) {
+            return JSON.stringify({ __jeepSqliteError: e && e.message ? e.message : String(e) });
+          }
+        })()
+      `,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const value = (result.result as Record<string, unknown>).value as string;
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && "__jeepSqliteError" in parsed) {
+      throw new Error((parsed as { __jeepSqliteError: string }).__jeepSqliteError);
+    }
+  }
+
+  async hashDatabaseBytes(params: {
+    key: string;
+    idbName?: string;
+    storeName?: string;
+  }): Promise<string | null> {
+    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      expression: `
+        (async () => {
+          const idbName = ${JSON.stringify(params.idbName ?? "jeepSQLiteStore")};
+          const storeName = ${JSON.stringify(params.storeName ?? "databases")};
+          const key = ${JSON.stringify(params.key)};
+
+          const asBytes = async (value) => {
+            if (!value) return null;
+            if (value instanceof Blob) return new Uint8Array(await value.arrayBuffer());
+            if (value instanceof ArrayBuffer) return new Uint8Array(value);
+            if (ArrayBuffer.isView(value)) {
+              return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+            }
+            if (typeof value !== "object") return null;
+            const queue = [value.database, value.db, value.data, value.bytes, value.buffer, value.value, value._value, ...Object.values(value)];
+            const seen = new Set();
+            while (queue.length) {
+              const next = queue.shift();
+              if (!next || seen.has(next)) continue;
+              seen.add(next);
+              const bytes = await asBytes(next);
+              if (bytes) return bytes;
+              if (typeof next === "object") queue.push(...Object.values(next));
+            }
+            return null;
+          };
+
+          const openDb = (name) =>
+            new Promise((resolve, reject) => {
+              const req = indexedDB.open(name);
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => reject(req.error?.message ?? "open failed");
+              req.onblocked = () => reject("open blocked");
+            });
+
+          const request = (req) =>
+            new Promise((resolve, reject) => {
+              req.onsuccess = () => resolve(req.result);
+              req.onerror = () => reject(req.error?.message ?? "request failed");
+            });
+
+          try {
+            const db = await openDb(idbName);
+            try {
+              if (!db.objectStoreNames.contains(storeName)) return JSON.stringify({ hash: null });
+              const tx = db.transaction(storeName, "readonly");
+              const value = await request(tx.objectStore(storeName).get(key));
+              const bytes = await asBytes(value);
+              if (!bytes || bytes.byteLength === 0) return JSON.stringify({ hash: null });
+              const digest = await crypto.subtle.digest('SHA-256', bytes);
+              const view = new Uint8Array(digest);
+              let hex = '';
+              for (let i = 0; i < view.length; i++) {
+                hex += view[i].toString(16).padStart(2, '0');
+              }
+              return JSON.stringify({ hash: hex, size: bytes.byteLength });
+            } finally {
+              db.close();
+            }
+          } catch (e) {
+            return JSON.stringify({ __jeepSqliteError: e && e.message ? e.message : String(e) });
+          }
+        })()
+      `,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const value = (result.result as Record<string, unknown>).value as string;
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && "__jeepSqliteError" in parsed) {
+      throw new Error((parsed as { __jeepSqliteError: string }).__jeepSqliteError);
+    }
+    return (parsed as { hash: string | null }).hash;
+  }
+
   async readDatabaseBytes(params: {
     key: string;
     idbName?: string;

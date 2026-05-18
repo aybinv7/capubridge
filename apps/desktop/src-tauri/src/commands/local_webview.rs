@@ -46,6 +46,24 @@ pub fn local_webview_inject_scrollbar_hide(
 }
 
 #[tauri::command]
+pub fn local_webview_navigate(
+    app: tauri::AppHandle,
+    label: String,
+    url: String,
+) -> Result<(), String> {
+    let webview = app
+        .get_webview_window(&label)
+        .ok_or_else(|| format!("Local webview not found: {label}"))?;
+    let escaped = url
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "");
+    let script = format!("window.location.replace(\"{escaped}\");");
+    webview.eval(&script).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn local_webview_open_devtools(app: tauri::AppHandle, label: String) -> Result<(), String> {
     let webview = app
         .get_webview_window(&label)

@@ -7,8 +7,10 @@ interface UseSqliteRowDetailOptions {
   getFilteredRows: () => Row<RowRecord>[];
   columnNames: () => string[];
   canEdit?: () => boolean;
+  hasChange?: (record: RowRecord) => boolean;
   onEdit?: (original: RowRecord, updated: Record<string, unknown>) => void;
   onDelete?: (record: RowRecord) => void;
+  onViewDiff?: (record: RowRecord) => void;
 }
 
 export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
@@ -25,6 +27,13 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
 
   const isDirty = computed(() => editJson.value !== editOriginalJson.value);
   const canEdit = computed(() => options.canEdit?.() ?? false);
+  const hasChange = computed(() =>
+    selectedRow.value ? (options.hasChange?.(selectedRow.value) ?? false) : false,
+  );
+
+  function viewDiff() {
+    if (selectedRow.value) options.onViewDiff?.(selectedRow.value);
+  }
 
   const badge = computed<null | "unsaved" | "invalid">(() => {
     if (!jsonEditorValid.value) return "invalid";
@@ -168,6 +177,7 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
     copiedRaw,
     badge,
     canEdit,
+    hasChange,
     isDirty,
     dialogEntrySize,
     openRowDetail,
@@ -175,5 +185,6 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
     copyToClipboard,
     saveEdit,
     deleteRow,
+    viewDiff,
   };
 }

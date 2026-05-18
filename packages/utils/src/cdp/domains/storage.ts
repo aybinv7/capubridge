@@ -644,4 +644,98 @@ export class OPFSDomain {
     }
     return bytes;
   }
+
+  async hashSqliteBytes(
+    path: string,
+    opts?: { stripSahPoolHeader?: boolean },
+  ): Promise<string | null> {
+    const escaped = escapeJsString(path);
+    const offset = opts?.stripSahPoolHeader ? SAH_POOL_HEADER_DATA_OFFSET : 0;
+    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      expression: `
+        (async () => {
+          try {
+            const root = await navigator.storage.getDirectory();
+            const parts = '${escaped}'.split('/').filter(Boolean);
+            const name = parts.pop();
+            if (!name) throw new Error('Empty path');
+            let dir = root;
+            for (const p of parts) dir = await dir.getDirectoryHandle(p);
+            const fh = await dir.getFileHandle(name);
+            const file = await fh.getFile();
+            const off = ${offset};
+            if (file.size <= off) return JSON.stringify({ hash: null, size: file.size });
+            const blob = off === 0 ? file : file.slice(off);
+            const buf = await blob.arrayBuffer();
+            const digest = await crypto.subtle.digest('SHA-256', buf);
+            const view = new Uint8Array(digest);
+            let hex = '';
+            for (let i = 0; i < view.length; i++) {
+              hex += view[i].toString(16).padStart(2, '0');
+            }
+            return JSON.stringify({ hash: hex, size: buf.byteLength });
+          } catch (e) {
+            return JSON.stringify({ __opfsError: e && e.message ? e.message : String(e) });
+          }
+        })()
+      `,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const value = (result.result as Record<string, unknown>).value as string;
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && "__opfsError" in parsed) {
+      throw new Error((parsed as { __opfsError: string }).__opfsError);
+    }
+    return (parsed as { hash: string | null }).hash;
+  }
+
+  async releaseSahPoolSlot(path: string): Promise<{ released: boolean; via: "sah" | "writable" }> {
+    const escaped = escapeJsString(path);
+    const headerSize = SAH_POOL_HEADER_DATA_OFFSET;
+    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      expression: `
+        (async () => {
+          try {
+            const root = await navigator.storage.getDirectory();
+            const parts = '${escaped}'.split('/').filter(Boolean);
+            const name = parts.pop();
+            if (!name) throw new Error('Empty path');
+            let dir = root;
+            for (const p of parts) dir = await dir.getDirectoryHandle(p);
+            const fh = await dir.getFileHandle(name);
+
+            const zeroes = new Uint8Array(${headerSize});
+
+            try {
+              const sah = await fh.createSyncAccessHandle();
+              try {
+                sah.write(zeroes, { at: 0 });
+                sah.flush();
+              } finally {
+                sah.close();
+              }
+              return JSON.stringify({ via: 'sah' });
+            } catch {
+              const writable = await fh.createWritable({ keepExistingData: true });
+              await writable.write({ type: 'write', position: 0, data: zeroes });
+              await writable.close();
+              return JSON.stringify({ via: 'writable' });
+            }
+          } catch (e) {
+            return JSON.stringify({ __opfsError: e && e.message ? e.message : String(e) });
+          }
+        })()
+      `,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const value = (result.result as Record<string, unknown>).value as string;
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && "__opfsError" in parsed) {
+      throw new Error((parsed as { __opfsError: string }).__opfsError);
+    }
+    const via = (parsed as { via: "sah" | "writable" }).via;
+    return { released: true, via };
+  }
 }

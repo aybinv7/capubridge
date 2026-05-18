@@ -20,7 +20,7 @@ use commands::files::{
 };
 use commands::local_webview::{
     local_device_name, local_webview_fetch_cdp_target, local_webview_inject_scrollbar_hide,
-    local_webview_open_devtools,
+    local_webview_navigate, local_webview_open_devtools,
 };
 #[cfg(target_os = "windows")]
 use commands::local_webview::enable_webview2_remote_debugging;
@@ -240,6 +240,7 @@ pub fn run() {
             local_webview_open_devtools,
             local_webview_fetch_cdp_target,
             local_webview_inject_scrollbar_hide,
+            local_webview_navigate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

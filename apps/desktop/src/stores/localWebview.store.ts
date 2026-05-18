@@ -68,6 +68,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
   const entries = ref<Record<string, LocalWebviewEntry>>({});
   const webviews = shallowRef(new Map<string, Webview>());
   const creationPromises = new Map<string, Promise<Webview>>();
+  const modalGuardCount = ref(0);
 
   if (typeof window !== "undefined") {
     const destroyAll = () => {
@@ -282,11 +283,28 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     layoutRevision.value += 1;
   }
 
+  async function navigateSource(label: string, url: string): Promise<void> {
+    await invoke("local_webview_navigate", { label, url });
+  }
+
+  function acquireModalGuard() {
+    modalGuardCount.value += 1;
+    void hideAll();
+  }
+
+  function releaseModalGuard() {
+    modalGuardCount.value = Math.max(0, modalGuardCount.value - 1);
+    if (modalGuardCount.value === 0) {
+      layoutRevision.value += 1;
+    }
+  }
+
   return {
     activeTargetId,
     layoutRevision,
     activeEntry,
     entries,
+    modalGuardCount,
     ensureWebview,
     ensureCdpTarget,
     attachToElement,
@@ -297,5 +315,8 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     openDevtools,
     localDeviceName,
     requestLayoutSync,
+    acquireModalGuard,
+    releaseModalGuard,
+    navigateSource,
   };
 });

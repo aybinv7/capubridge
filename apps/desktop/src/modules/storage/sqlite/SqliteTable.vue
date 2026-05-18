@@ -23,6 +23,7 @@ import type { CheckboxCheckedState } from "reka-ui";
 import type { SqliteColumnInfo } from "@/types/sqlite.types";
 import type { SqliteRecordChange } from "@/types/sqliteChanges.types";
 import { buildRowKey } from "@/modules/storage/changes/useSqliteChangeOverlay";
+import { useModalGuard } from "@/composables/useModalGuard";
 
 // UI components
 import { Button } from "@/components/ui/button";
@@ -72,12 +73,14 @@ const props = defineProps<{
   dbName: string;
   columnInfo?: SqliteColumnInfo[];
   changesByRowKey?: Map<string, SqliteRecordChange>;
+  showChangesOnly?: boolean;
 }>();
 
 const emit = defineEmits<{
   refresh: [];
   recordEdit: [original: Record<string, unknown>, updated: Record<string, unknown>];
   recordDelete: [record: Record<string, unknown>];
+  openRowDiff: [rowKey: string];
 }>();
 
 const canEditRows = computed(() => (props.columnInfo ?? []).some((c) => c.pk));
@@ -137,13 +140,23 @@ watch(
 );
 
 // ─── Transform rows into objects ─────────────────────────────────────────────
-const tableData = computed<RowRecord[]>(() => {
+const rawTableData = computed<RowRecord[]>(() => {
   return props.rows.map((row) => {
     const obj: RowRecord = {};
     props.columns.forEach((col, i) => {
       obj[col] = row[i] ?? null;
     });
     return obj;
+  });
+});
+
+const tableData = computed<RowRecord[]>(() => {
+  if (!props.showChangesOnly) return rawTableData.value;
+  const map = props.changesByRowKey;
+  if (!map || pkColumns.value.length === 0) return rawTableData.value;
+  return rawTableData.value.filter((record) => {
+    const key = buildRowKey(pkColumns.value, record);
+    return key !== "" && map.has(key);
   });
 });
 
@@ -350,24 +363,33 @@ const {
   currentRowIndex,
   copiedRaw,
   badge,
+  hasChange,
   dialogEntrySize,
   openRowDetail,
   navigateRow,
   copyToClipboard,
   saveEdit,
   deleteRow,
+  viewDiff,
   jsonEditorValid: composableJsonValid,
 } = useSqliteRowDetail({
   getFilteredRows: () => table.getFilteredRowModel().rows,
   columnNames: () => props.columns,
   canEdit: () => canEditRows.value,
+  hasChange: (record) => !!rowChangeFor(record),
   onEdit: (original, updated) => emit("recordEdit", original, updated),
   onDelete: (record) => emit("recordDelete", record),
+  onViewDiff: (record) => {
+    const key = buildRowKey(pkColumns.value, record);
+    if (key) emit("openRowDiff", key);
+  },
 });
 
 watch(jsonEditorValid, (v) => {
   composableJsonValid.value = v;
 });
+
+useModalGuard(isDetailOpen);
 
 // ─── Computed Stats ──────────────────────────────────────────────────────────
 const filteredRowCount = computed(() => table.getFilteredRowModel().rows.length);
@@ -755,10 +777,12 @@ function isBlob(val: unknown): boolean {
       :badge="badge"
       :can-edit="canEditRows"
       :json-editor-valid="jsonEditorValid"
+      :has-change="hasChange"
       @navigate="navigateRow"
       @copy="copyToClipboard(editJson)"
       @save="saveEdit"
       @delete="deleteRow"
+      @view-diff="viewDiff"
       @validity-change="jsonEditorValid = $event"
     />
   </div>

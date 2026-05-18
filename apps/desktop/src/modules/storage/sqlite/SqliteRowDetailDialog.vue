@@ -3,7 +3,17 @@ import { ref } from "vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import JsonEditor from "@/modules/storage/localstorage/JsonEditor.vue";
-import { ChevronDown, Copy, Check, Info, Save, Trash2, AlertCircle, Pencil } from "lucide-vue-next";
+import {
+  ChevronDown,
+  Copy,
+  Check,
+  Info,
+  Save,
+  Trash2,
+  AlertCircle,
+  Pencil,
+  GitCompare,
+} from "lucide-vue-next";
 
 defineProps<{
   open: boolean;
@@ -16,6 +26,7 @@ defineProps<{
   badge: null | "unsaved" | "invalid";
   canEdit: boolean;
   jsonEditorValid: boolean;
+  hasChange?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -26,6 +37,7 @@ const emit = defineEmits<{
   copy: [];
   save: [];
   delete: [];
+  viewDiff: [];
 }>();
 
 const jsonEditorRef = ref<InstanceType<typeof JsonEditor> | null>(null);
@@ -101,6 +113,17 @@ function handleKeydown(e: KeyboardEvent) {
           </div>
 
           <div class="flex items-center gap-1">
+            <Button
+              v-if="hasChange"
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-[11px] text-amber-300 hover:text-amber-200"
+              title="View change diff"
+              @click="emit('viewDiff')"
+            >
+              <GitCompare :size="12" />
+              Diff
+            </Button>
             <Button
               variant="ghost"
               size="sm"
