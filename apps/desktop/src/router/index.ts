@@ -4,6 +4,11 @@ import { dispatchDockOpenRequest, queueDockOpenRequest } from "@/lib/dock-events
 
 const routes: RouteRecordRaw[] = [
   { path: "/", redirect: "/devices" },
+  {
+    path: "/start",
+    name: "start",
+    component: () => import("@/modules/start/EmptyState.vue"),
+  },
 
   // ── Devices ──────────────────────────────────────────────────────────────
   {

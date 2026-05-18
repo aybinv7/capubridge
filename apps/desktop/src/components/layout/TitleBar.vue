@@ -11,6 +11,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  Sun,
+  Moon,
+  Settings as SettingsIcon,
 } from "lucide-vue-next";
 import { useRouter } from "vue-router";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -18,7 +21,9 @@ import { useMirrorStore } from "@/stores/mirror.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useUIStore } from "@/stores/ui.store";
+import { useThemeStore } from "@/stores/theme.store";
 import ConnectionSummary from "./ConnectionSummary.vue";
+import TitleBarTabStrip from "./TitleBarTabStrip.vue";
 import RecordingButton from "@/modules/recording/RecordingButton.vue";
 
 const emit = defineEmits<{ openCommandPalette: [] }>();
@@ -29,6 +34,17 @@ const mirrorStore = useMirrorStore();
 const targetsStore = useTargetsStore();
 const dockStore = useDockStore();
 const uiStore = useUIStore();
+const themeStore = useThemeStore();
+
+function toggleThemeMode() {
+  themeStore.setTheme(themeStore.mode === "dark" ? "codex-light" : "codex-dark");
+}
+
+function openSettings() {
+  if (!router.currentRoute.value.path.startsWith("/settings")) {
+    void router.push("/settings");
+  }
+}
 
 const isMaximized = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,6 +125,11 @@ async function close() {
       </button>
     </div>
 
+    <!-- Tab strip stub (slice 2: shows the active module; slice 3 wires real tabs) -->
+    <div class="ml-2 flex-1 min-w-0 z-10" style="-webkit-app-region: no-drag">
+      <TitleBarTabStrip />
+    </div>
+
     <!-- Center: absolutely positioned connection pill -->
     <div
       class="absolute left-1/2 -translate-x-1/2 flex flex-row items-center"
@@ -120,8 +141,23 @@ async function close() {
       </div>
     </div>
 
-    <!-- Right: dock + mirror + ⌘K + window controls -->
+    <!-- Right: theme · settings · dock · mirror · window controls -->
     <div class="flex items-center gap-1 ml-auto z-10" style="-webkit-app-region: no-drag">
+      <button
+        class="flex items-center justify-center w-8 h-8 rounded-md transition-colors duration-[120ms] text-muted-foreground/50 hover:text-foreground hover:bg-surface-2"
+        :title="themeStore.mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'"
+        @click="toggleThemeMode"
+      >
+        <Sun v-if="themeStore.mode === 'dark'" class="w-3.5 h-3.5" />
+        <Moon v-else class="w-3.5 h-3.5" />
+      </button>
+      <button
+        class="flex items-center justify-center w-8 h-8 rounded-md transition-colors duration-[120ms] text-muted-foreground/50 hover:text-foreground hover:bg-surface-2"
+        title="Settings (⌘,)"
+        @click="openSettings"
+      >
+        <SettingsIcon class="w-3.5 h-3.5" />
+      </button>
       <button
         class="flex items-center justify-center w-8 h-8 rounded-md transition-colors duration-[120ms] relative"
         :class="

@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import BottomDock from "@/components/dock/BottomDock.vue";
 import TitleBar from "./TitleBar.vue";
-import Sidebar from "./Sidebar.vue";
+import LauncherSidebar from "./LauncherSidebar.vue";
 import CommandPalette from "@/components/CommandPalette.vue";
 import MirrorPanel from "@/modules/mirror/MirrorPanel.vue";
 import { clearDockOpenRequest, dockOpenEventName, readDockOpenRequest } from "@/lib/dock-events";
@@ -227,7 +227,7 @@ onUnmounted(() => {
         'flex-row-reverse': showMirrorLeft,
       }"
     >
-      <Sidebar />
+      <LauncherSidebar />
 
       <div class="relative flex flex-1 flex-col overflow-hidden min-w-0 bg-surface-0">
         <main ref="mainContentRef" tabindex="-1" class="flex-1 overflow-hidden outline-none">
