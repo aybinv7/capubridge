@@ -1,68 +1,108 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useRoute } from "vue-router";
-import {
-  Smartphone,
-  AppWindow,
-  Database,
-  Globe,
-  Crosshair,
-  MonitorPlay,
-  Settings as SettingsIcon,
-  type LucideIcon,
-} from "lucide-vue-next";
+import { ref } from "vue";
+import { X, Plus } from "lucide-vue-next";
+import { useTabsStore } from "@/stores/tabs.store";
+import type { Tab } from "@/types/tabs.types";
 
-const route = useRoute();
+const tabsStore = useTabsStore();
 
-/**
- * Slice-2 stub: derive a single "tab" from the active route. When slice 3
- * lands the real tabs system, this component is replaced by the real strip
- * sourced from tabsStore.
- */
+const dragFromIndex = ref<number | null>(null);
 
-type StubTab = {
-  label: string;
-  icon: LucideIcon;
-} | null;
+function onTabClick(id: string) {
+  tabsStore.focusTab(id);
+}
 
-const ROUTE_LABELS: Record<string, { label: string; icon: LucideIcon }> = {
-  "/devices": { label: "Devices", icon: Smartphone },
-  "/app": { label: "App", icon: AppWindow },
-  "/storage": { label: "Storage", icon: Database },
-  "/network": { label: "Network", icon: Globe },
-  "/inspect": { label: "Inspect", icon: Crosshair },
-  "/replay": { label: "Replay", icon: MonitorPlay },
-  "/browser-preview": { label: "Browser Preview", icon: AppWindow },
-  "/settings": { label: "Settings", icon: SettingsIcon },
-};
-
-const activeTab = computed<StubTab>(() => {
-  const path = route.path;
-  for (const prefix of Object.keys(ROUTE_LABELS)) {
-    if (path.startsWith(prefix)) return ROUTE_LABELS[prefix];
+function onMiddleClick(e: MouseEvent, id: string) {
+  if (e.button === 1) {
+    e.preventDefault();
+    tabsStore.closeTab(id);
   }
-  return null;
-});
+}
+
+function onCloseClick(e: MouseEvent, id: string) {
+  e.stopPropagation();
+  tabsStore.closeTab(id);
+}
+
+function onDragStart(e: DragEvent, index: number) {
+  dragFromIndex.value = index;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  }
+}
+
+function onDragOver(e: DragEvent) {
+  if (dragFromIndex.value === null) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+}
+
+function onDrop(e: DragEvent, toIndex: number) {
+  e.preventDefault();
+  if (dragFromIndex.value === null) return;
+  const tab = tabsStore.tabs[dragFromIndex.value];
+  if (tab) tabsStore.moveTab(tab.id, toIndex);
+  dragFromIndex.value = null;
+}
+
+function onDragEnd() {
+  dragFromIndex.value = null;
+}
+
+function tabAria(tab: Tab) {
+  return tabsStore.activeTabId === tab.id;
+}
 </script>
 
 <template>
-  <div
-    class="flex items-center gap-1 overflow-hidden"
-    role="tablist"
-    aria-label="Open tabs (preview)"
-  >
-    <div
-      v-if="activeTab"
-      class="relative flex h-7 max-w-[280px] items-center gap-1.5 truncate rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 text-xs text-[var(--fg-default)]"
+  <div class="flex h-full items-center gap-1 overflow-x-auto" role="tablist" aria-label="Open tabs">
+    <button
+      v-for="(tab, idx) in tabsStore.tabs"
+      :key="tab.id"
+      type="button"
       role="tab"
-      :aria-selected="true"
+      :aria-selected="tabAria(tab)"
+      :title="tab.title"
+      class="group relative flex h-7 max-w-[260px] shrink-0 items-center gap-1.5 truncate rounded-md border px-2.5 text-xs transition-colors duration-150"
+      :class="
+        tabsStore.activeTabId === tab.id
+          ? 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--fg-default)]'
+          : 'border-transparent text-[var(--fg-muted)] hover:bg-[var(--bg-surface-raised)] hover:text-[var(--fg-default)]'
+      "
+      draggable="true"
+      @click="onTabClick(tab.id)"
+      @mousedown="onMiddleClick($event, tab.id)"
+      @dragstart="onDragStart($event, idx)"
+      @dragover="onDragOver"
+      @drop="onDrop($event, idx)"
+      @dragend="onDragEnd"
     >
       <span
+        v-if="tabsStore.activeTabId === tab.id"
         class="absolute -bottom-px left-2 right-2 h-0.5 rounded-full bg-[var(--accent)]"
         aria-hidden="true"
       />
-      <component :is="activeTab.icon" :size="12" class="shrink-0 text-[var(--fg-muted)]" />
-      <span class="truncate">{{ activeTab.label }}</span>
-    </div>
+      <span class="truncate">{{ tab.title }}</span>
+      <span
+        class="inline-flex size-4 shrink-0 items-center justify-center rounded text-[var(--fg-subtle)] opacity-0 transition-opacity hover:bg-[var(--bg-surface-raised)] hover:text-[var(--fg-default)] group-hover:opacity-100"
+        :class="tabsStore.activeTabId === tab.id ? 'opacity-100' : ''"
+        role="button"
+        :aria-label="`Close ${tab.title}`"
+        @click="onCloseClick($event, tab.id)"
+      >
+        <X :size="11" />
+      </span>
+    </button>
+
+    <button
+      v-if="tabsStore.tabs.length > 0"
+      type="button"
+      class="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--fg-muted)] transition-colors hover:bg-[var(--bg-surface-raised)] hover:text-[var(--fg-default)]"
+      title="New tab"
+      aria-label="New tab"
+    >
+      <Plus :size="13" />
+    </button>
   </div>
 </template>

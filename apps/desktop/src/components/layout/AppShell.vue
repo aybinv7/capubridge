@@ -12,6 +12,7 @@ import { useInspectStore } from "@/stores/inspect.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useTabsStore } from "@/stores/tabs.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import type { ADBDevice } from "@/types/adb.types";
 import type { DockTab } from "@/types/dock.types";
@@ -24,6 +25,7 @@ const inspectStore = useInspectStore();
 const uiStore = useUIStore();
 const dockStore = useDockStore();
 const devicesStore = useDevicesStore();
+const tabsStore = useTabsStore();
 const router = useRouter();
 let unlistenInspectRequest: (() => void) | null = null;
 let unlistenInspectHover: (() => void) | null = null;
@@ -91,6 +93,28 @@ function onKeydown(e: KeyboardEvent) {
     if (!router.currentRoute.value.path.startsWith("/settings")) {
       void router.push("/settings");
     }
+  }
+
+  // Tab keyboard shortcuts.
+  if ((e.ctrlKey || e.metaKey) && e.key === "w") {
+    e.preventDefault();
+    if (tabsStore.activeTabId) tabsStore.closeTab(tabsStore.activeTabId);
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === "ArrowRight" || e.key === "Tab")) {
+    e.preventDefault();
+    tabsStore.nextTab();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === "ArrowLeft") {
+    e.preventDefault();
+    tabsStore.prevTab();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && /^[1-9]$/.test(e.key)) {
+    e.preventDefault();
+    tabsStore.jumpTo(parseInt(e.key, 10) - 1);
+    return;
   }
 }
 
