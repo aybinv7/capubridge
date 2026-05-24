@@ -72,6 +72,50 @@ export const useInspectStore = defineStore("inspect", () => {
     }
   }
 
+  function removeChildNode(parentId: number, nodeId: number) {
+    const parent = nodeMap.value.get(parentId);
+    if (parent?.children) {
+      parent.children = parent.children.filter((c) => c.nodeId !== nodeId);
+    }
+    nodeMap.value.delete(nodeId);
+    if (selectedNodeId.value === nodeId) selectedNodeId.value = null;
+  }
+
+  function updateNodeAttribute(nodeId: number, name: string, value: string) {
+    const node = nodeMap.value.get(nodeId);
+    if (!node) return;
+    const attrs = node.attributes ? node.attributes.slice() : [];
+    let found = -1;
+    for (let i = 0; i < attrs.length; i += 2) {
+      if (attrs[i] === name) {
+        found = i;
+        break;
+      }
+    }
+    if (found >= 0) {
+      attrs[found + 1] = value;
+    } else {
+      attrs.push(name, value);
+    }
+    node.attributes = attrs;
+  }
+
+  function removeNodeAttribute(nodeId: number, name: string) {
+    const node = nodeMap.value.get(nodeId);
+    if (!node?.attributes) return;
+    const next: string[] = [];
+    for (let i = 0; i < node.attributes.length; i += 2) {
+      if (node.attributes[i] !== name) next.push(node.attributes[i], node.attributes[i + 1]);
+    }
+    node.attributes = next;
+  }
+
+  function updateNodeValue(nodeId: number, value: string) {
+    const node = nodeMap.value.get(nodeId);
+    if (!node) return;
+    node.nodeValue = value;
+  }
+
   function setMirrorHoverPoint(x: number, y: number) {
     pointNonce += 1;
     mirrorHoverPoint.value = { x, y, nonce: pointNonce };
@@ -114,6 +158,10 @@ export const useInspectStore = defineStore("inspect", () => {
     expandToNode,
     setDocument,
     updateChildNodes,
+    removeChildNode,
+    updateNodeAttribute,
+    removeNodeAttribute,
+    updateNodeValue,
     setMirrorHoverPoint,
     clearMirrorHoverPoint,
     setMirrorSelectPoint,

@@ -31,24 +31,16 @@ export function useElementStyles() {
     { immediate: true },
   );
 
-  watch(selectedNodeId, async (nodeId) => {
-    if (!nodeId || !cssDomain || !domDomain) {
-      matchedStyles.value = null;
-      computedStyles.value = [];
-      boxModel.value = null;
-      return;
-    }
-
+  async function fetchStyles(nodeId: number) {
+    if (!cssDomain || !domDomain) return;
     isLoading.value = true;
     error.value = null;
-
     try {
       const [matched, computed, box] = await Promise.all([
         cssDomain.getMatchedStylesForNode(nodeId),
         cssDomain.getComputedStyleForNode(nodeId),
         domDomain.getBoxModel(nodeId).catch(() => null),
       ]);
-
       matchedStyles.value = matched;
       computedStyles.value = computed;
       boxModel.value = box;
@@ -57,7 +49,21 @@ export function useElementStyles() {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  watch(selectedNodeId, async (nodeId) => {
+    if (!nodeId) {
+      matchedStyles.value = null;
+      computedStyles.value = [];
+      boxModel.value = null;
+      return;
+    }
+    await fetchStyles(nodeId);
   });
+
+  async function refetch() {
+    if (selectedNodeId.value) await fetchStyles(selectedNodeId.value);
+  }
 
   return {
     matchedStyles,
@@ -65,5 +71,6 @@ export function useElementStyles() {
     boxModel,
     isLoading,
     error,
+    refetch,
   };
 }

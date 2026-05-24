@@ -210,9 +210,32 @@ export function useInspector() {
     );
 
     cleanups.push(
-      domDomain.onChildNodeRemoved(({ nodeId }) => {
-        console.log("[inspector] ChildNodeRemoved", nodeId);
-        store.nodeMap.delete(nodeId);
+      domDomain.onChildNodeRemoved(({ parentNodeId, nodeId }) => {
+        store.removeChildNode(parentNodeId, nodeId);
+      }),
+    );
+
+    cleanups.push(
+      domDomain.onAttributeModified(({ nodeId, name, value }) => {
+        store.updateNodeAttribute(nodeId, name, value);
+      }),
+    );
+
+    cleanups.push(
+      domDomain.onAttributeRemoved(({ nodeId, name }) => {
+        store.removeNodeAttribute(nodeId, name);
+      }),
+    );
+
+    cleanups.push(
+      domDomain.onCharacterDataModified(({ nodeId, characterData }) => {
+        store.updateNodeValue(nodeId, characterData);
+      }),
+    );
+
+    cleanups.push(
+      domDomain.onDocumentUpdated(() => {
+        void refreshDocument();
       }),
     );
 

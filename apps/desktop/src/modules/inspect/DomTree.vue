@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { Search, RefreshCw, Crosshair } from "lucide-vue-next";
 import { useInspectStore } from "@/stores/inspect.store";
 import DomTreeNode from "./DomTreeNode.vue";
+import EditAsHtmlDialog from "./EditAsHtmlDialog.vue";
+import { useElementMutations } from "./useElementMutations";
 
 const emit = defineEmits<{
   select: [nodeId: number];
@@ -14,12 +16,41 @@ const emit = defineEmits<{
 }>();
 
 const store = useInspectStore();
+const mutations = useElementMutations();
 
 const rootNodes = computed(() => {
   const doc = store.documentRoot;
   if (!doc) return [];
   return (doc.children ?? []).filter((c) => c.nodeType === 1);
 });
+
+const editDialogOpen = ref(false);
+const editDialogNodeId = ref<number | null>(null);
+const editDialogHtml = ref("");
+const editDialogSaving = ref(false);
+
+async function openEditAsHtml(nodeId: number) {
+  const html = await mutations.getOuterHTML(nodeId);
+  if (html == null) return;
+  editDialogNodeId.value = nodeId;
+  editDialogHtml.value = html;
+  editDialogOpen.value = true;
+}
+
+async function saveEditAsHtml(html: string) {
+  const nodeId = editDialogNodeId.value;
+  if (nodeId == null) return;
+  editDialogSaving.value = true;
+  try {
+    const ok = await mutations.setOuterHTML(nodeId, html);
+    if (ok) {
+      editDialogOpen.value = false;
+      emit("refresh");
+    }
+  } finally {
+    editDialogSaving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -65,11 +96,19 @@ const rootNodes = computed(() => {
           @expand="emit('expand', $event)"
           @hover="emit('hover', $event)"
           @unhover="emit('unhover')"
+          @edit-as-html="openEditAsHtml"
         />
       </template>
       <div v-else class="text-xs text-muted-foreground/40 px-4 py-8 text-center">
         No DOM tree loaded. Connect to a target first.
       </div>
     </div>
+
+    <EditAsHtmlDialog
+      v-model:open="editDialogOpen"
+      :initial-html="editDialogHtml"
+      :saving="editDialogSaving"
+      @save="saveEditAsHtml"
+    />
   </div>
 </template>

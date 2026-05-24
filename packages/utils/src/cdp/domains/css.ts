@@ -44,6 +44,17 @@ export interface MatchedStyles {
   }[];
 }
 
+export interface StyleEdit {
+  styleSheetId: string;
+  range: SourceRange;
+  text: string;
+}
+
+export interface SelectorList {
+  selectors: { text: string }[];
+  text: string;
+}
+
 export class CSSDomain {
   constructor(private client: CDPClient) {}
 
@@ -71,5 +82,39 @@ export class CSSDomain {
     nodeId: number,
   ): Promise<{ inlineStyle?: CSSStyle; attributesStyle?: CSSStyle }> {
     return this.client.send("CSS.getInlineStylesForNode", { nodeId });
+  }
+
+  async setStyleTexts(edits: StyleEdit[]): Promise<CSSStyle[]> {
+    const result = await this.client.send<{ styles: CSSStyle[] }>("CSS.setStyleTexts", { edits });
+    return result.styles;
+  }
+
+  async setRuleSelector(
+    styleSheetId: string,
+    range: SourceRange,
+    selector: string,
+  ): Promise<SelectorList> {
+    const result = await this.client.send<{ selectorList: SelectorList }>("CSS.setRuleSelector", {
+      styleSheetId,
+      range,
+      selector,
+    });
+    return result.selectorList;
+  }
+
+  async createStyleSheet(frameId: string): Promise<string> {
+    const result = await this.client.send<{ styleSheetId: string }>("CSS.createStyleSheet", {
+      frameId,
+    });
+    return result.styleSheetId;
+  }
+
+  async addRule(styleSheetId: string, ruleText: string, location: SourceRange): Promise<CSSRule> {
+    const result = await this.client.send<{ rule: CSSRule }>("CSS.addRule", {
+      styleSheetId,
+      ruleText,
+      location,
+    });
+    return result.rule;
   }
 }

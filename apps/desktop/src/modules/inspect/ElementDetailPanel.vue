@@ -9,7 +9,7 @@ import BoxModelDiagram from "./BoxModelDiagram.vue";
 
 const store = useInspectStore();
 const { activeDetailTab, selectedNodeId } = storeToRefs(store);
-const { matchedStyles, computedStyles, boxModel, isLoading } = useElementStyles();
+const { matchedStyles, computedStyles, boxModel, isLoading, refetch } = useElementStyles();
 
 const tabs = [
   { id: "styles" as const, label: "Styles" },
@@ -25,7 +25,6 @@ const selectedNode = computed(() => {
 
 <template>
   <div class="flex flex-col h-full border-t border-border/30">
-    <!-- Node summary -->
     <div
       v-if="selectedNode"
       class="h-7 flex items-center px-2 text-xs font-mono bg-surface-1 border-b border-border/20 shrink-0"
@@ -33,7 +32,6 @@ const selectedNode = computed(() => {
       <span class="text-purple-400">&lt;{{ selectedNode.localName }}&gt;</span>
     </div>
 
-    <!-- Tabs -->
     <div class="h-7 flex items-center gap-0 border-b border-border/20 shrink-0 px-1">
       <button
         v-for="tab in tabs"
@@ -50,12 +48,12 @@ const selectedNode = computed(() => {
       </button>
     </div>
 
-    <!-- Tab content -->
-    <div class="flex-1 overflow-hidden">
+    <div class="flex-1 min-h-0 overflow-hidden">
       <StylesTab
         v-if="activeDetailTab === 'styles'"
         :styles="matchedStyles"
         :is-loading="isLoading"
+        @refresh="refetch"
       />
       <ComputedTab
         v-if="activeDetailTab === 'computed'"

@@ -49,6 +49,9 @@ export type {
   CSSStyle,
   ComputedStyle,
   MatchedStyles,
+  SourceRange,
+  SelectorList,
+  StyleEdit,
 } from "./cdp/domains/css.js";
 export { OverlayDomain } from "./cdp/domains/overlay.js";
 export type { HighlightConfig, RGBA } from "./cdp/domains/overlay.js";

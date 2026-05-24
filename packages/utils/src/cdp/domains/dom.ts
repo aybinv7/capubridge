@@ -98,6 +98,39 @@ export class DOMDomain {
     await this.client.send("DOM.setAttributeValue", { nodeId, name, value });
   }
 
+  async setAttributesAsText(nodeId: number, text: string, name?: string): Promise<void> {
+    await this.client.send("DOM.setAttributesAsText", { nodeId, text, name });
+  }
+
+  async removeAttribute(nodeId: number, name: string): Promise<void> {
+    await this.client.send("DOM.removeAttribute", { nodeId, name });
+  }
+
+  async removeNode(nodeId: number): Promise<void> {
+    await this.client.send("DOM.removeNode", { nodeId });
+  }
+
+  async setNodeValue(nodeId: number, value: string): Promise<void> {
+    await this.client.send("DOM.setNodeValue", { nodeId, value });
+  }
+
+  async setOuterHTML(nodeId: number, outerHTML: string): Promise<void> {
+    await this.client.send("DOM.setOuterHTML", { nodeId, outerHTML });
+  }
+
+  async scrollIntoViewIfNeeded(nodeId: number): Promise<void> {
+    await this.client.send("DOM.scrollIntoViewIfNeeded", { nodeId });
+  }
+
+  async copyTo(nodeId: number, targetNodeId: number, insertBeforeNodeId?: number): Promise<number> {
+    const result = await this.client.send<{ nodeId: number }>("DOM.copyTo", {
+      nodeId,
+      targetNodeId,
+      insertBeforeNodeId,
+    });
+    return result.nodeId;
+  }
+
   async pushNodesByBackendIdsToFrontend(backendNodeIds: number[]): Promise<number[]> {
     const result = await this.client.send<{ nodeIds: number[] }>(
       "DOM.pushNodesByBackendIdsToFrontend",
@@ -126,5 +159,19 @@ export class DOMDomain {
     handler: (params: { nodeId: number; name: string; value: string }) => void,
   ): () => void {
     return this.client.on("DOM.attributeModified", handler as (p: unknown) => void);
+  }
+
+  onAttributeRemoved(handler: (params: { nodeId: number; name: string }) => void): () => void {
+    return this.client.on("DOM.attributeRemoved", handler as (p: unknown) => void);
+  }
+
+  onCharacterDataModified(
+    handler: (params: { nodeId: number; characterData: string }) => void,
+  ): () => void {
+    return this.client.on("DOM.characterDataModified", handler as (p: unknown) => void);
+  }
+
+  onDocumentUpdated(handler: () => void): () => void {
+    return this.client.on("DOM.documentUpdated", handler as (p: unknown) => void);
   }
 }
