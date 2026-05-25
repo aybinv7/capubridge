@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { Activity, Circle, Globe, Terminal, Wifi } from "lucide-vue-next";
+import { Activity, ChevronDown, Circle, Database, Globe, Terminal, Wifi } from "lucide-vue-next";
 import {
   Dialog,
   DialogContent,
@@ -12,15 +12,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRecordingSession } from "@/composables/useRecordingSession";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useCDP } from "@/composables/useCDP";
+import { useTargetsStore } from "@/stores/targets.store";
 import type { RecordingConfig } from "@/types/replay.types";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ "update:open": [value: boolean] }>();
 
 const recordingStore = useRecordingStore();
+const targetsStore = useTargetsStore();
 const { activeClient } = useCDP();
 const { start } = useRecordingSession();
 
@@ -29,13 +32,30 @@ const trackRrweb = ref(true);
 const trackNetwork = ref(true);
 const trackConsole = ref(true);
 const trackPerf = ref(true);
+const trackLocalStorage = ref(true);
+const trackIndexedDB = ref(true);
+const trackSqlite = ref(false);
+const storageOpen = ref(false);
 const reloadTarget = ref(false);
 
-const hasTarget = computed(() => activeClient.value !== null);
+const selectedCdpTarget = computed(() => {
+  const target = targetsStore.selectedTarget;
+  if (!target) return null;
+  if (target.source === "local" && !target.webSocketDebuggerUrl) return null;
+  return target.webSocketDebuggerUrl ? target : null;
+});
+const hasTarget = computed(() => activeClient.value !== null || selectedCdpTarget.value !== null);
+const hasDatabaseTrack = computed(
+  () => trackLocalStorage.value || trackIndexedDB.value || trackSqlite.value,
+);
 const canStart = computed(
   () =>
     !recordingStore.isRecording &&
-    (trackRrweb.value || trackNetwork.value || trackConsole.value || trackPerf.value),
+    (trackRrweb.value ||
+      trackNetwork.value ||
+      trackConsole.value ||
+      trackPerf.value ||
+      hasDatabaseTrack.value),
 );
 
 async function handleStart() {
@@ -47,6 +67,12 @@ async function handleStart() {
       network: trackNetwork.value,
       console: trackConsole.value,
       perf: trackPerf.value,
+      databases: hasDatabaseTrack.value,
+    },
+    databaseTracks: {
+      localStorage: trackLocalStorage.value,
+      indexedDB: trackIndexedDB.value,
+      sqlite: trackSqlite.value,
     },
     reloadTarget: reloadTarget.value,
   };
@@ -64,7 +90,7 @@ async function handleStart() {
           New Recording
         </DialogTitle>
         <DialogDescription>
-          Capture DOM replay, network, and console for this session.
+          Capture DOM replay, network, console, and storage for this session.
         </DialogDescription>
       </DialogHeader>
 
@@ -132,6 +158,96 @@ async function handleStart() {
             </div>
             <Switch :checked="trackPerf" @update:checked="trackPerf = $event" />
           </div>
+
+          <Collapsible v-model:open="storageOpen">
+            <div class="flex items-center justify-between px-2 py-1.5 rounded-sm">
+              <CollapsibleTrigger as-child>
+                <button type="button" class="flex min-w-0 items-center gap-2 text-left">
+                  <Database class="w-3.5 h-3.5 text-muted-foreground" />
+                  <div class="min-w-0">
+                    <p class="text-sm">Databases</p>
+                    <p class="text-[11px] text-muted-foreground">
+                      Web storage and package SQLite snapshots
+                    </p>
+                  </div>
+                  <ChevronDown
+                    class="ml-1 h-3.5 w-3.5 text-muted-foreground/50 transition-transform"
+                    :class="{ '-rotate-90': !storageOpen }"
+                  />
+                </button>
+              </CollapsibleTrigger>
+              <Switch
+                :checked="hasDatabaseTrack"
+                @update:checked="
+                  (value) => {
+                    trackLocalStorage = value;
+                    trackIndexedDB = value;
+                    trackSqlite = false;
+                  }
+                "
+              />
+            </div>
+            <CollapsibleContent>
+              <div class="ml-8 mr-2 mb-1 rounded border border-border/20 bg-surface-2/40">
+                <div class="flex items-center justify-between px-2 py-1.5">
+                  <div>
+                    <p class="text-xs">LocalStorage</p>
+                    <p class="text-[10px] text-muted-foreground/50">Snapshot + change states</p>
+                  </div>
+                  <Switch
+                    :checked="trackLocalStorage"
+                    @update:checked="
+                      (value) => {
+                        trackLocalStorage = value;
+                      }
+                    "
+                  />
+                </div>
+                <div
+                  class="flex items-center justify-between border-t border-border/20 px-2 py-1.5"
+                >
+                  <div>
+                    <p class="text-xs">IndexedDB</p>
+                    <p class="text-[10px] text-muted-foreground/50">
+                      SQLite artifact + timeline changes
+                    </p>
+                  </div>
+                  <Switch
+                    :checked="trackIndexedDB"
+                    @update:checked="
+                      (value) => {
+                        trackIndexedDB = value;
+                      }
+                    "
+                  />
+                </div>
+                <div
+                  class="flex items-center justify-between border-t border-border/20 px-2 py-1.5"
+                >
+                  <div>
+                    <p class="text-xs">Native SQLite</p>
+                    <p class="text-[10px] text-muted-foreground/50">
+                      Package databases, 5s polling
+                    </p>
+                  </div>
+                  <Switch
+                    :checked="trackSqlite"
+                    @update:checked="
+                      (value) => {
+                        trackSqlite = value;
+                      }
+                    "
+                  />
+                </div>
+                <div
+                  class="flex items-center justify-between border-t border-border/20 px-2 py-1.5 opacity-45"
+                >
+                  <span class="text-xs">localForage</span>
+                  <span class="text-[10px] text-muted-foreground/50">Next</span>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </div>
 

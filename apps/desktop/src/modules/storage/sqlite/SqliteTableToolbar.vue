@@ -14,6 +14,7 @@ defineProps<{
   liveIntervalMs?: number;
   changeSummary?: SqliteChangeSummary;
   showChangesOnly?: boolean;
+  showLiveControl?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -91,6 +92,7 @@ const pageSizes = [25, 50, 100, 250, 500];
       </button>
 
       <button
+        v-if="showLiveControl !== false"
         class="flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md border transition-colors"
         :class="
           liveEnabled

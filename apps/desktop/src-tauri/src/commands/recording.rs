@@ -7,7 +7,7 @@ use tauri::Manager;
 use zip::write::{SimpleFileOptions, ZipWriter};
 use zip::ZipArchive;
 
-fn sessions_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn sessions_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_data_dir()
@@ -19,7 +19,7 @@ fn sessions_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 /// Validates a session id: must be non-empty, no path separators, no leading dot.
 /// Returns the cleaned id or an error message.
-fn validate_session_id(session_id: &str) -> Result<&str, String> {
+pub(crate) fn validate_session_id(session_id: &str) -> Result<&str, String> {
     let trimmed = session_id.trim();
     if trimmed.is_empty() {
         return Err("session_id is empty — recording state is corrupted".to_string());
@@ -33,7 +33,10 @@ fn validate_session_id(session_id: &str) -> Result<&str, String> {
     Ok(trimmed)
 }
 
-fn session_work_dir(app: &tauri::AppHandle, session_id: &str) -> Result<PathBuf, String> {
+pub(crate) fn session_work_dir(
+    app: &tauri::AppHandle,
+    session_id: &str,
+) -> Result<PathBuf, String> {
     let id = validate_session_id(session_id)?;
     let dir = sessions_dir(app)?.join(format!("{}_work", id));
     Ok(dir)
@@ -47,8 +50,7 @@ pub async fn recording_session_start(
 ) -> Result<(), String> {
     let work_dir = session_work_dir(&app, &session_id)?;
     let tracks_dir = work_dir.join("tracks");
-    fs::create_dir_all(&tracks_dir)
-        .map_err(|e| format!("Failed to create session dir: {}", e))?;
+    fs::create_dir_all(&tracks_dir).map_err(|e| format!("Failed to create session dir: {}", e))?;
     Ok(())
 }
 
@@ -98,12 +100,11 @@ pub async fn recording_session_stop(
 
     // Create the .capu zip file (manifest.json written directly — no temp disk write needed)
     let capu_path = sessions_dir.join(format!("{}.capu", validated_id));
-    let capu_file = fs::File::create(&capu_path)
-        .map_err(|e| format!("Failed to create .capu file: {}", e))?;
+    let capu_file =
+        fs::File::create(&capu_path).map_err(|e| format!("Failed to create .capu file: {}", e))?;
 
     let mut zip = ZipWriter::new(capu_file);
-    let options =
-        SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
     // Add manifest.json directly from the string — no redundant disk write
     zip.start_file("manifest.json", options)
@@ -121,14 +122,24 @@ pub async fn recording_session_stop(
             let file_name = entry.file_name();
             let name_str = file_name.to_string_lossy();
             if name_str.ends_with(".ndjson") {
-                let content = fs::read(&entry.path())
-                    .map_err(|e| format!("Failed to read track: {}", e))?;
+                let content =
+                    fs::read(&entry.path()).map_err(|e| format!("Failed to read track: {}", e))?;
                 zip.start_file(format!("tracks/{}", name_str), options)
                     .map_err(|e| format!("zip error: {}", e))?;
                 zip.write_all(&content)
                     .map_err(|e| format!("zip write error: {}", e))?;
             }
         }
+    }
+
+    let databases_path = work_dir.join("databases.sqlite");
+    if databases_path.exists() {
+        let content = fs::read(&databases_path)
+            .map_err(|e| format!("Failed to read database artifact: {}", e))?;
+        zip.start_file("artifacts/databases.sqlite", options)
+            .map_err(|e| format!("zip error: {}", e))?;
+        zip.write_all(&content)
+            .map_err(|e| format!("zip write error: {}", e))?;
     }
 
     zip.finish()
@@ -141,6 +152,7 @@ pub async fn recording_session_stop(
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RustSessionListItem {
     pub session_id: String,
     pub label: String,
@@ -161,8 +173,8 @@ pub async fn recording_list_sessions(
     let sessions_dir = sessions_dir(&app)?;
     let mut items = Vec::new();
 
-    let entries = fs::read_dir(&sessions_dir)
-        .map_err(|e| format!("Failed to read sessions dir: {}", e))?;
+    let entries =
+        fs::read_dir(&sessions_dir).map_err(|e| format!("Failed to read sessions dir: {}", e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -218,8 +230,7 @@ pub async fn recording_delete_session(
 ) -> Result<(), String> {
     let capu_path = sessions_dir(&app)?.join(format!("{}.capu", session_id));
     if capu_path.exists() {
-        fs::remove_file(&capu_path)
-            .map_err(|e| format!("Failed to delete session: {}", e))?;
+        fs::remove_file(&capu_path).map_err(|e| format!("Failed to delete session: {}", e))?;
     }
     // Also clean up any leftover work dir
     let work_dir = session_work_dir(&app, &session_id)?;
@@ -233,6 +244,7 @@ pub async fn recording_delete_session(
 pub struct RustSessionContents {
     pub manifest_json: String,
     pub tracks: HashMap<String, String>,
+    pub database_path: Option<String>,
 }
 
 /// Removes orphaned recording artifacts:
@@ -301,12 +313,14 @@ pub async fn recording_cleanup_orphans(app: tauri::AppHandle) -> Result<u32, Str
 /// Reads a .capu file and returns the manifest + all track NDJSON as strings.
 /// The frontend is responsible for parsing NDJSON into typed objects.
 #[tauri::command]
-pub async fn recording_read_session(file_path: String) -> Result<RustSessionContents, String> {
-    let file = std::fs::File::open(&file_path)
-        .map_err(|e| format!("Cannot open session file: {}", e))?;
+pub async fn recording_read_session(
+    app: tauri::AppHandle,
+    file_path: String,
+) -> Result<RustSessionContents, String> {
+    let file =
+        std::fs::File::open(&file_path).map_err(|e| format!("Cannot open session file: {}", e))?;
 
-    let mut archive =
-        ZipArchive::new(file).map_err(|e| format!("Invalid .capu file: {}", e))?;
+    let mut archive = ZipArchive::new(file).map_err(|e| format!("Invalid .capu file: {}", e))?;
 
     let manifest_json = {
         let mut manifest_file = archive
@@ -319,7 +333,7 @@ pub async fn recording_read_session(file_path: String) -> Result<RustSessionCont
     };
 
     let mut tracks = HashMap::new();
-    let track_names = ["rrweb", "network", "console", "perf"];
+    let track_names = ["rrweb", "network", "console", "perf", "databases"];
 
     for track in &track_names {
         let zip_path = format!("tracks/{}.ndjson", track);
@@ -331,8 +345,30 @@ pub async fn recording_read_session(file_path: String) -> Result<RustSessionCont
         }
     }
 
+    let database_path = if let Ok(mut database_file) = archive.by_name("artifacts/databases.sqlite")
+    {
+        let cache_dir = sessions_dir(&app)?.join("read_cache");
+        fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+        let stem = PathBuf::from(&file_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("session")
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+            .collect::<String>();
+        let out_path = cache_dir.join(format!("{}_databases.sqlite", stem));
+        let mut out = fs::File::create(&out_path)
+            .map_err(|e| format!("Failed to create database cache: {}", e))?;
+        std::io::copy(&mut database_file, &mut out)
+            .map_err(|e| format!("Failed to extract database cache: {}", e))?;
+        Some(out_path.to_string_lossy().into_owned())
+    } else {
+        None
+    };
+
     Ok(RustSessionContents {
         manifest_json,
         tracks,
+        database_path,
     })
 }

@@ -6,17 +6,24 @@ import { useSessionWriter } from "./useSessionWriter";
 import { useRrwebRecorder } from "./useRrwebRecorder";
 import { useNetworkRecorder } from "./useNetworkRecorder";
 import { usePerfRecorder } from "./usePerfRecorder";
+import { useLocalStorageRecorder } from "./useLocalStorageRecorder";
+import { useIndexedDBRecorder } from "./useIndexedDBRecorder";
+import { useSqliteRecorder } from "./useSqliteRecorder";
 import { useCDP } from "./useCDP";
 import type { RecordingConfig, SessionManifest, ConsoleArgRecord } from "@/types/replay.types";
 import type { ConsoleArg } from "@/types/console.types";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { toast } from "vue-sonner";
+import type { CDPClient } from "utils";
 
 let writer: ReturnType<typeof useSessionWriter> | null = null;
 let rrwebRecorder: ReturnType<typeof useRrwebRecorder> | null = null;
 let networkRecorder: ReturnType<typeof useNetworkRecorder> | null = null;
 let perfRecorder: ReturnType<typeof usePerfRecorder> | null = null;
+let localStorageRecorder: ReturnType<typeof useLocalStorageRecorder> | null = null;
+let indexedDBRecorder: ReturnType<typeof useIndexedDBRecorder> | null = null;
+let sqliteRecorder: ReturnType<typeof useSqliteRecorder> | null = null;
 let consoleUnwatch: (() => void) | null = null;
 let consoleLeasedByRecorder = false;
 let startedAt = 0;
@@ -44,7 +51,28 @@ export function useRecordingSession() {
   const consoleStore = useConsoleStore();
   const devicesStore = useDevicesStore();
   const targetsStore = useTargetsStore();
-  const { activeClient } = useCDP();
+  const { activeClient, connectToTarget, connectionStore } = useCDP();
+
+  async function ensureCdpClient(): Promise<CDPClient | null> {
+    const selectedTarget = targetsStore.selectedTarget;
+    if (
+      selectedTarget &&
+      selectedTarget.webSocketDebuggerUrl &&
+      connectionStore.selectedTargetId !== selectedTarget.id
+    ) {
+      return connectToTarget(selectedTarget);
+    }
+
+    if (activeClient.value) {
+      return activeClient.value;
+    }
+
+    if (selectedTarget?.webSocketDebuggerUrl) {
+      return connectToTarget(selectedTarget);
+    }
+
+    return null;
+  }
 
   async function start(config: RecordingConfig): Promise<void> {
     if (recordingStore.isRecording) return;
@@ -72,11 +100,27 @@ export function useRecordingSession() {
     writer = useSessionWriter(sessionId, startedAt);
     writer.start();
 
+    let cdpClient: CDPClient | null = null;
+    if (
+      config.tracks.network ||
+      config.tracks.rrweb ||
+      config.databaseTracks?.localStorage ||
+      config.databaseTracks?.indexedDB
+    ) {
+      try {
+        cdpClient = await ensureCdpClient();
+      } catch (err) {
+        const msg = `CDP connection failed: ${String(err)}`;
+        console.error("[recording]", msg);
+        toast.error(msg);
+      }
+    }
+
     if (config.tracks.network) {
-      if (!activeClient.value) {
+      if (!cdpClient) {
         toast.warning("Network track skipped: no CDP target connected");
       } else {
-        networkRecorder = useNetworkRecorder(activeClient.value, writer);
+        networkRecorder = useNetworkRecorder(cdpClient, writer);
         try {
           await networkRecorder.start();
           console.log("[recording] network recorder started");
@@ -132,7 +176,7 @@ export function useRecordingSession() {
       if (!serial) {
         toast.warning("Performance track skipped: no device selected");
       } else {
-        perfRecorder = usePerfRecorder(serial, activeClient.value, writer, startedAt);
+        perfRecorder = usePerfRecorder(serial, cdpClient ?? activeClient.value, writer, startedAt);
         try {
           await perfRecorder.start();
           console.log("[recording] perf recorder started");
@@ -145,11 +189,65 @@ export function useRecordingSession() {
       }
     }
 
+    if (config.tracks.databases && config.databaseTracks?.localStorage) {
+      if (!cdpClient) {
+        toast.warning("LocalStorage capture skipped: no CDP target connected");
+      } else {
+        localStorageRecorder = useLocalStorageRecorder(cdpClient, writer);
+        try {
+          await localStorageRecorder.start();
+        } catch (err) {
+          const msg = `LocalStorage recorder failed: ${String(err)}`;
+          console.error("[recording]", msg);
+          toast.error(msg);
+          localStorageRecorder = null;
+        }
+      }
+    }
+
+    if (config.tracks.databases && config.databaseTracks?.indexedDB) {
+      if (!cdpClient) {
+        toast.warning("IndexedDB capture skipped: no CDP target connected");
+      } else {
+        indexedDBRecorder = useIndexedDBRecorder(cdpClient, sessionId, startedAt);
+        try {
+          await indexedDBRecorder.start();
+        } catch (err) {
+          const msg = `IndexedDB recorder failed: ${String(err)}`;
+          console.error("[recording]", msg);
+          toast.error(msg);
+          indexedDBRecorder = null;
+        }
+      }
+    }
+
+    if (config.tracks.databases && config.databaseTracks?.sqlite) {
+      const serial =
+        devicesStore.selectedDevice?.serial ?? targetsStore.selectedTarget?.deviceSerial ?? "";
+      const packageName =
+        targetsStore.selectedTarget?.source === "adb"
+          ? (targetsStore.selectedTarget.packageName?.trim() ?? "")
+          : "";
+      if (!serial || !packageName) {
+        toast.warning("SQLite capture skipped: no Android package target selected");
+      } else {
+        sqliteRecorder = useSqliteRecorder(sessionId, startedAt, serial, packageName);
+        try {
+          await sqliteRecorder.start();
+        } catch (err) {
+          const msg = `SQLite recorder failed: ${String(err)}`;
+          console.error("[recording]", msg);
+          toast.error(msg);
+          sqliteRecorder = null;
+        }
+      }
+    }
+
     if (config.tracks.rrweb) {
-      if (!activeClient.value) {
+      if (!cdpClient) {
         toast.warning("DOM track skipped: no CDP target connected");
       } else {
-        rrwebRecorder = useRrwebRecorder(activeClient.value, writer);
+        rrwebRecorder = useRrwebRecorder(cdpClient, writer);
         try {
           await rrwebRecorder.start({ reloadTarget: config.reloadTarget });
         } catch (err) {
@@ -184,6 +282,15 @@ export function useRecordingSession() {
     await perfRecorder?.stop();
     perfRecorder = null;
 
+    await localStorageRecorder?.stop();
+    localStorageRecorder = null;
+
+    await indexedDBRecorder?.stop();
+    indexedDBRecorder = null;
+
+    await sqliteRecorder?.stop();
+    sqliteRecorder = null;
+
     consoleUnwatch?.();
     consoleUnwatch = null;
 
@@ -213,7 +320,9 @@ export function useRecordingSession() {
         network: false,
         console: false,
         perf: false,
+        databases: false,
       },
+      databaseTracks: recordingStore.config?.databaseTracks,
     };
 
     let capuPath: string | null = null;

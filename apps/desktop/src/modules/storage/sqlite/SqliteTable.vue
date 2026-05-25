@@ -74,6 +74,8 @@ const props = defineProps<{
   columnInfo?: SqliteColumnInfo[];
   changesByRowKey?: Map<string, SqliteRecordChange>;
   showChangesOnly?: boolean;
+  readOnly?: boolean;
+  rowKeyResolver?: (record: Record<string, unknown>) => string;
 }>();
 
 const emit = defineEmits<{
@@ -83,7 +85,7 @@ const emit = defineEmits<{
   openRowDiff: [rowKey: string];
 }>();
 
-const canEditRows = computed(() => (props.columnInfo ?? []).some((c) => c.pk));
+const canEditRows = computed(() => !props.readOnly && (props.columnInfo ?? []).some((c) => c.pk));
 
 const pkColumns = computed(() =>
   (props.columnInfo ?? []).filter((c) => c.pk).sort((a, b) => a.cid - b.cid),
@@ -91,8 +93,8 @@ const pkColumns = computed(() =>
 
 function rowChangeFor(record: Record<string, unknown>): SqliteRecordChange | null {
   const map = props.changesByRowKey;
-  if (!map || pkColumns.value.length === 0) return null;
-  const key = buildRowKey(pkColumns.value, record);
+  if (!map) return null;
+  const key = props.rowKeyResolver?.(record) ?? buildRowKey(pkColumns.value, record);
   if (!key) return null;
   return map.get(key) ?? null;
 }
@@ -153,9 +155,9 @@ const rawTableData = computed<RowRecord[]>(() => {
 const tableData = computed<RowRecord[]>(() => {
   if (!props.showChangesOnly) return rawTableData.value;
   const map = props.changesByRowKey;
-  if (!map || pkColumns.value.length === 0) return rawTableData.value;
+  if (!map) return rawTableData.value;
   return rawTableData.value.filter((record) => {
-    const key = buildRowKey(pkColumns.value, record);
+    const key = props.rowKeyResolver?.(record) ?? buildRowKey(pkColumns.value, record);
     return key !== "" && map.has(key);
   });
 });
@@ -380,7 +382,7 @@ const {
   onEdit: (original, updated) => emit("recordEdit", original, updated),
   onDelete: (record) => emit("recordDelete", record),
   onViewDiff: (record) => {
-    const key = buildRowKey(pkColumns.value, record);
+    const key = props.rowKeyResolver?.(record) ?? buildRowKey(pkColumns.value, record);
     if (key) emit("openRowDiff", key);
   },
 });

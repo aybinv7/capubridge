@@ -79,6 +79,7 @@ const props = defineProps<{
   storeInfo?: StoreInfo[];
   fetchRecord?: (index: number) => Promise<IDBRecord | null>;
   showChangesOnly?: boolean;
+  readOnly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -267,7 +268,7 @@ function handleCellClick(row: Row<IDBRecord>, columnId: string) {
   if (clickTimer !== null) {
     clearTimeout(clickTimer);
     clickTimer = null;
-    if (columnId === "key") return;
+    if (props.readOnly || columnId === "key") return;
     editingCell.value = {
       rowId: row.id,
       columnId,
@@ -612,6 +613,7 @@ const {
     props.showChangesOnly ? table.getFilteredRowModel().rows.length : props.totalRecords,
   fetchRecord: () => (props.showChangesOnly ? undefined : props.fetchRecord),
   onEdit: (record) => {
+    if (props.readOnly) return;
     const currentRow = table
       .getRowModel()
       .rows.find((r) => recordKeyStr(r.original.key) === recordKeyStr(record.key));
@@ -621,8 +623,10 @@ const {
     next.set(recordKeyStr(record.key), beforeValue);
     locallyModifiedData.value = next;
   },
-  onDelete: (key) => emit("recordDelete", key),
-  canMutate: (record) => !isDeletedChange(record as IDBRecord),
+  onDelete: (key) => {
+    if (!props.readOnly) emit("recordDelete", key);
+  },
+  canMutate: (record) => !props.readOnly && !isDeletedChange(record as IDBRecord),
 });
 
 const selectedRecordChange = computed(() => getRecordChange(selectedRow.value));
@@ -712,6 +716,7 @@ function confirmBulkDelete() {
       :store-name="storeName"
       :total-records="totalRecords"
       :advanced-filters="advancedFilters"
+      :read-only="readOnly"
       @update:grouping="grouping = $event"
       @record-delete-bulk="handleBulkDelete"
       @update:filters="updateFilters"
@@ -1058,7 +1063,7 @@ function confirmBulkDelete() {
       :copied-raw="copiedRaw"
       :json-editor-valid="jsonEditorValid"
       :change="selectedRecordChange"
-      :read-only="isDeletedChange(selectedRow)"
+      :read-only="readOnly || isDeletedChange(selectedRow)"
       :locally-modified="isSelectedRowLocallyModified"
       :local-before-value="selectedRowLocalBeforeValue"
       @navigate="navigateRow"

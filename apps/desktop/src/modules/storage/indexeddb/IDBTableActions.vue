@@ -39,6 +39,7 @@ const props = defineProps<{
   storeName?: string;
   totalRecords?: number;
   advancedFilters?: AdvancedFilter[];
+  readOnly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -178,6 +179,7 @@ function resetColumnLayout() {
 
       <div class="flex items-center gap-0.5 border-l border-warning/30 pl-2 ml-1">
         <Button
+          v-if="!readOnly"
           variant="ghost"
           size="icon-sm"
           class="h-6 w-6 text-muted-foreground hover:text-foreground"

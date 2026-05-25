@@ -1,5 +1,12 @@
 /** Track names supported in Phase 1 */
-export type TrackName = "rrweb" | "network" | "console" | "perf";
+export type TrackName = "rrweb" | "network" | "console" | "perf" | "databases";
+
+export interface DatabaseTrackConfig {
+  localStorage: boolean;
+  indexedDB?: boolean;
+  localForage?: boolean;
+  sqlite?: boolean;
+}
 
 /** Per-track enable flags in a recording config */
 export interface TrackConfig {
@@ -7,6 +14,7 @@ export interface TrackConfig {
   network: boolean;
   console: boolean;
   perf?: boolean;
+  databases?: boolean;
 }
 
 /** Written as manifest.json at the root of the .capu zip */
@@ -20,6 +28,7 @@ export interface SessionManifest {
   targetUrl: string | null;
   appPackage: string | null;
   tracks: TrackConfig;
+  databaseTracks?: DatabaseTrackConfig;
 }
 
 /** Minimal metadata for the session library (read from manifest without loading tracks) */
@@ -119,6 +128,65 @@ export interface PerfCapuSample {
 
 export type PerfCapuEvent = CapuEvent<PerfCapuSample>;
 
+export interface LocalStorageReplayEntry {
+  key: string;
+  value: string;
+}
+
+export type DatabaseCapuEvent = CapuEvent<{
+  kind: "localStorage";
+  origin: string;
+  entries: LocalStorageReplayEntry[];
+  reason: "initial" | "change" | "final";
+}>;
+
+export interface ReplayDatabaseSource {
+  id: string;
+  kind: "indexedDB" | "sqlite";
+  origin: string;
+  databaseName: string;
+  storeName: string;
+  label: string;
+  recordCount: number;
+  metadataJson: string | null;
+  firstSeenMs: number | null;
+  lastSeenMs: number | null;
+}
+
+export interface ReplayDatabaseRow {
+  keyJson: string;
+  valueJson: string;
+}
+
+export interface ReplayDatabaseRowsResult {
+  rows: ReplayDatabaseRow[];
+  total: number;
+}
+
+export interface ReplayDatabaseChange {
+  id: number;
+  sourceId: string;
+  tMs: number;
+  operation: "add" | "update" | "delete";
+  keyHash: string;
+  keyJson: string;
+  beforeJson: string | null;
+  afterJson: string | null;
+}
+
+export interface ReplayDatabaseChangesResult {
+  changes: ReplayDatabaseChange[];
+  total: number;
+}
+
+export interface ReplayDatabaseChangeSummary {
+  add: number;
+  update: number;
+  delete: number;
+  total: number;
+  latestMs: number | null;
+}
+
 /** rrweb events are passed through as-is from the rrweb recorder */
 export type RrwebCapuEvent = CapuEvent<unknown>; // rrweb types its own events internally
 
@@ -126,6 +194,7 @@ export type RrwebCapuEvent = CapuEvent<unknown>; // rrweb types its own events i
 export interface RecordingConfig {
   label: string;
   tracks: TrackConfig;
+  databaseTracks?: DatabaseTrackConfig;
   reloadTarget: boolean; // whether to reload the target page for clean rrweb init
 }
 

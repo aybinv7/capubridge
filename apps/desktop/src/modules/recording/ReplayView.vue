@@ -12,6 +12,7 @@ import ReplayNetworkPanel from "./ReplayNetworkPanel.vue";
 import ReplayConsoleLane from "./ReplayConsoleLane.vue";
 import ReplayPerformanceLane from "./ReplayPerformanceLane.vue";
 import ReplayElementsPanel from "./ReplayElementsPanel.vue";
+import ReplayDatabasesPanel from "./ReplayDatabasesPanel.vue";
 import ReplaySessionPicker from "./ReplaySessionPicker.vue";
 
 const pickerOpen = ref(false);
@@ -22,7 +23,7 @@ const { session, isLoading, error, load } = useReplaySession();
 const clock = useTimelineClock(0);
 
 const playerRef = ref<InstanceType<typeof ReplayPlayer> | null>(null);
-const activePane = ref<"network" | "console" | "performance" | "elements">("network");
+const activePane = ref<"network" | "console" | "performance" | "databases" | "elements">("network");
 const inspectActive = ref(false);
 /** Raw Element reference from the replay iframe, set on player click or tree click */
 const selectedIframeEl = shallowRef<Element | null>(null);
@@ -244,6 +245,22 @@ function formatDuration(ms: number) {
             <button
               class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
               :class="
+                activePane === 'databases'
+                  ? 'text-foreground border-b-2 border-accent'
+                  : 'text-muted-foreground/50 hover:text-foreground'
+              "
+              @click="activePane = 'databases'"
+            >
+              Databases
+              <span
+                v-if="session.databaseEvents.length || session.databasePath"
+                class="ml-1 text-muted-foreground/40 text-[10px]"
+                >{{ session.databaseEvents.length || "db" }}</span
+              >
+            </button>
+            <button
+              class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
+              :class="
                 activePane === 'console'
                   ? 'text-foreground border-b-2 border-accent'
                   : 'text-muted-foreground/50 hover:text-foreground'
@@ -309,6 +326,13 @@ function formatDuration(ms: number) {
               :network-events="session.networkEvents"
               :position-ms="clock.positionMs.value"
               :duration="session.manifest.duration"
+              class="h-full"
+            />
+            <ReplayDatabasesPanel
+              v-else-if="activePane === 'databases'"
+              :events="session.databaseEvents"
+              :database-path="session.databasePath"
+              :position-ms="clock.positionMs.value"
               class="h-full"
             />
             <ReplayElementsPanel

@@ -37,6 +37,23 @@ interface SessionListItem {
   fileSizeBytes: number;
 }
 
+interface RawSessionListItem {
+  sessionId?: string;
+  session_id?: string;
+  label?: string;
+  startedAt?: number;
+  started_at?: number;
+  duration?: number;
+  deviceSerial?: string | null;
+  device_serial?: string | null;
+  targetUrl?: string | null;
+  target_url?: string | null;
+  filePath?: string;
+  file_path?: string;
+  fileSizeBytes?: number;
+  file_size_bytes?: number;
+}
+
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{
   "update:open": [value: boolean];
@@ -59,13 +76,31 @@ async function refresh() {
   isLoading.value = true;
   error.value = null;
   try {
-    const items = await invoke<SessionListItem[]>("recording_list_sessions");
-    sessions.value = items;
+    const items = await invoke<RawSessionListItem[]>("recording_list_sessions");
+    sessions.value = items
+      .map(normalizeSession)
+      .filter((item): item is SessionListItem => item !== null);
   } catch (err) {
     error.value = String(err);
   } finally {
     isLoading.value = false;
   }
+}
+
+function normalizeSession(item: RawSessionListItem): SessionListItem | null {
+  const filePath = item.filePath ?? item.file_path;
+  const sessionId = item.sessionId ?? item.session_id;
+  if (!filePath || !sessionId) return null;
+  return {
+    sessionId,
+    label: item.label ?? "",
+    startedAt: item.startedAt ?? item.started_at ?? 0,
+    duration: item.duration ?? 0,
+    deviceSerial: item.deviceSerial ?? item.device_serial ?? null,
+    targetUrl: item.targetUrl ?? item.target_url ?? null,
+    filePath,
+    fileSizeBytes: item.fileSizeBytes ?? item.file_size_bytes ?? 0,
+  };
 }
 
 watch(
@@ -170,7 +205,8 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function shortPath(p: string): string {
+function shortPath(p: string | null | undefined): string {
+  if (!p) return "Unknown file";
   const parts = p.split(/[\\/]/);
   return parts[parts.length - 1] ?? p;
 }

@@ -42,6 +42,12 @@ use commands::recording::{
     recording_read_session, recording_session_append, recording_session_start,
     recording_session_stop,
 };
+use commands::recording_db::{
+    recording_database_change_summary, recording_database_changed_rows,
+    recording_database_changes_for_keys, recording_database_snapshot_begin,
+    recording_database_snapshot_finish, recording_database_snapshot_page,
+    recording_database_sources, recording_database_table_rows,
+};
 use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
 use commands::sqlite::{
     sqlite_close_database, sqlite_execute_query, sqlite_execute_write, sqlite_export_bytes,
@@ -239,6 +245,14 @@ pub fn run() {
             recording_delete_session,
             recording_read_session,
             recording_cleanup_orphans,
+            recording_database_snapshot_begin,
+            recording_database_snapshot_page,
+            recording_database_snapshot_finish,
+            recording_database_sources,
+            recording_database_table_rows,
+            recording_database_changed_rows,
+            recording_database_change_summary,
+            recording_database_changes_for_keys,
             local_device_name,
             local_webview_open_devtools,
             local_webview_fetch_cdp_target,

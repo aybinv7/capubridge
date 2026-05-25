@@ -6,6 +6,7 @@ import type {
   ConsoleCapuEvent,
   RrwebCapuEvent,
   PerfCapuEvent,
+  DatabaseCapuEvent,
 } from "@/types/replay.types";
 
 export interface LoadedSession {
@@ -14,6 +15,8 @@ export interface LoadedSession {
   networkEvents: NetworkCapuEvent[];
   consoleEvents: ConsoleCapuEvent[];
   perfEvents: PerfCapuEvent[];
+  databaseEvents: DatabaseCapuEvent[];
+  databasePath: string | null;
 }
 
 // Module-level singletons — survive route navigation
@@ -36,10 +39,11 @@ export function useReplaySession() {
     session.value = null;
 
     try {
-      const raw = await invoke<{ manifest_json: string; tracks: Record<string, string> }>(
-        "recording_read_session",
-        { filePath },
-      );
+      const raw = await invoke<{
+        manifest_json: string;
+        tracks: Record<string, string>;
+        database_path?: string | null;
+      }>("recording_read_session", { filePath });
 
       const manifest = JSON.parse(raw.manifest_json) as SessionManifest;
       console.log("[replay] manifest:", manifest);
@@ -55,6 +59,9 @@ export function useReplaySession() {
         ? parseNdjson<ConsoleCapuEvent>(raw.tracks["console"])
         : [];
       const perfEvents = raw.tracks["perf"] ? parseNdjson<PerfCapuEvent>(raw.tracks["perf"]) : [];
+      const databaseEvents = raw.tracks["databases"]
+        ? parseNdjson<DatabaseCapuEvent>(raw.tracks["databases"])
+        : [];
 
       console.log("[replay] rrweb:", rrwebEvents.length, "events");
       console.log("[replay] network:", networkEvents.length, "events");
@@ -72,7 +79,15 @@ export function useReplaySession() {
         );
       }
 
-      session.value = { manifest, rrwebEvents, networkEvents, consoleEvents, perfEvents };
+      session.value = {
+        manifest,
+        rrwebEvents,
+        networkEvents,
+        consoleEvents,
+        perfEvents,
+        databaseEvents,
+        databasePath: raw.database_path ?? null,
+      };
     } catch (err) {
       error.value = String(err);
       console.error("[replay] load failed:", err);
