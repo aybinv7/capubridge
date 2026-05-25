@@ -5,6 +5,8 @@ import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
+import { useLocalWebviewStore } from "@/stores/localWebview.store";
+import { useCDP } from "@/composables/useCDP";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
 import { getDetachedMirrorLayoutMetrics } from "./detachedMirrorLayout";
@@ -18,6 +20,8 @@ const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
 const inspectStore = useInspectStore();
 const targetsStore = useTargetsStore();
+const localWebviewStore = useLocalWebviewStore();
+const { connectToTarget } = useCDP();
 const {
   useScrcpyCanvas,
   isAndroidStream,
@@ -54,6 +58,47 @@ function syncLocalViewportSize() {
   mirrorStore.setDeviceSize(1280, 800);
 }
 
+async function applyLocalWebviewViewportMode() {
+  const target = selectedTarget.value;
+  if (!target || target.source !== "local") return;
+
+  const readyTarget = await localWebviewStore.ensureCdpTarget(target);
+  if (!readyTarget.webSocketDebuggerUrl) return;
+  const client = await connectToTarget(readyTarget);
+
+  if (mirrorStore.settings.chromeViewportMode === "phone") {
+    await Promise.allSettled([
+      client.send("Emulation.setDeviceMetricsOverride", {
+        width: 390,
+        height: 844,
+        deviceScaleFactor: 2.75,
+        mobile: true,
+      }),
+      client.send("Emulation.setTouchEmulationEnabled", {
+        enabled: true,
+        maxTouchPoints: 1,
+      }),
+      client.send("Emulation.setEmitTouchEventsForMouse", {
+        enabled: true,
+        configuration: "mobile",
+      }),
+    ]);
+    return;
+  }
+
+  await Promise.allSettled([
+    client.send("Emulation.clearDeviceMetricsOverride"),
+    client.send("Emulation.setTouchEmulationEnabled", {
+      enabled: false,
+      maxTouchPoints: 0,
+    }),
+    client.send("Emulation.setEmitTouchEventsForMouse", {
+      enabled: false,
+      configuration: "desktop",
+    }),
+  ]);
+}
+
 function startResize(e: MouseEvent) {
   isResizing.value = true;
   const startX = e.clientX;
@@ -83,12 +128,42 @@ function handleStreamNavigation(action: "back" | "home") {
   void sendKey(action === "back" ? AndroidKey.BACK : AndroidKey.HOME);
 }
 
+async function handleRefresh() {
+  if (isLocalTarget.value) {
+    const target = selectedTarget.value;
+    if (!target || target.source !== "local") return;
+    try {
+      const readyTarget = await localWebviewStore.ensureCdpTarget(target);
+      if (readyTarget.webSocketDebuggerUrl) {
+        const client = await connectToTarget(readyTarget);
+        await client.send("Page.reload", { ignoreCache: true });
+        await applyLocalWebviewViewportMode();
+        return;
+      }
+      if (target.localWebviewLabel) {
+        await localWebviewStore.navigateSource(target.localWebviewLabel, target.url);
+      }
+    } catch (err) {
+      toast.error("Failed to refresh local webview", { description: String(err) });
+    }
+    return;
+  }
+
+  if (mirrorStore.isOpen && !mirrorStore.isDetached) {
+    await stopStream();
+    await startStream();
+  }
+}
+
 watch(
   () => mirrorStore.isOpen,
   (open) => {
     if (open && !mirrorStore.isDetached) {
       if (isLocalTarget.value) {
-        void stopStream().then(syncLocalViewportSize);
+        void stopStream().then(async () => {
+          syncLocalViewportSize();
+          await applyLocalWebviewViewportMode();
+        });
         return;
       }
       void startStream();
@@ -116,7 +191,10 @@ watch(
   () => {
     if (mirrorStore.isOpen && !mirrorStore.isDetached) {
       if (isLocalTarget.value) {
-        void stopStream().then(syncLocalViewportSize);
+        void stopStream().then(async () => {
+          syncLocalViewportSize();
+          await applyLocalWebviewViewportMode();
+        });
         return;
       }
       void stopStream().then(() => startStream());
@@ -150,6 +228,7 @@ watch(
     }
     if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
       syncLocalViewportSize();
+      void applyLocalWebviewViewportMode();
     }
   },
 );
@@ -268,6 +347,7 @@ function toggleRecord() {
         @toggle-side="mirrorStore.setSide(mirrorStore.side === 'right' ? 'left' : 'right')"
         @toggle-detach="handleDetach"
         @launch-scrcpy="launchExternalScrcpy"
+        @refresh="handleRefresh"
         @maximize="handleMaximize"
         @update:settings-open="settingsOpen = $event"
       />

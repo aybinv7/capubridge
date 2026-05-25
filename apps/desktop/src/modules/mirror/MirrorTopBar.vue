@@ -4,6 +4,7 @@ import {
   Video,
   Zap,
   Settings2,
+  RefreshCw,
   PanelRightOpen,
   PanelLeftOpen,
   ExternalLink,
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   toggleSide: [];
   toggleDetach: [];
   launchScrcpy: [];
+  refresh: [];
   "update:settingsOpen": [val: boolean];
   maximize: [];
 }>();
@@ -113,6 +115,14 @@ const emit = defineEmits<{
     </button>
 
     <!-- Settings popover trigger -->
+    <button
+      class="w-6 h-6 flex items-center justify-center rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-colors"
+      title="Refresh mirror"
+      @click="emit('refresh')"
+    >
+      <RefreshCw class="w-3.5 h-3.5" />
+    </button>
+
     <button
       class="w-6 h-6 flex items-center justify-center rounded transition-colors"
       :class="
