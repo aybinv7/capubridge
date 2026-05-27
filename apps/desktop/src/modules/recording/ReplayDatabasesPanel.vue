@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 import { computed, ref, shallowRef, watch } from "vue";
-import { Database, Globe2, RefreshCw } from "lucide-vue-next";
+import { Check, ChevronDown, Database, RefreshCw, Search } from "lucide-vue-next";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import IDBTable from "@/modules/storage/indexeddb/IDBTable.vue";
 import IDBTableToolbar from "@/modules/storage/indexeddb/IDBTableToolbar.vue";
 import SqliteTable from "@/modules/storage/sqlite/SqliteTable.vue";
@@ -22,6 +25,7 @@ import type {
   ReplayDatabaseChangesResult,
   ReplayDatabaseRowsResult,
   ReplayDatabaseSource,
+  ReplayDatabaseSourceChangeSummary,
 } from "@/types/replay.types";
 import type {
   IndexedDBChangeSummary,
@@ -49,17 +53,21 @@ interface LocalReplayStorageSource {
 
 type ReplayStorageSource = LocalReplayStorageSource | ReplayDatabaseSource;
 type ReplayDatabaseKind = ReplayStorageSource["kind"];
+type IndexedDBGroup = "all" | "app" | "localforage" | "dexie" | "blob" | "cache" | "sqlite";
 
 const selectedId = ref("");
 const selectedKind = ref<ReplayDatabaseKind>("indexedDB");
+const selectedIndexedDBGroup = ref<IndexedDBGroup>("all");
+const sourceSearch = ref("");
 const page = ref(0);
 const pageSize = ref(50);
 const isLoadingRows = ref(false);
 const isLoadingSources = ref(false);
 const databaseError = ref<string | null>(null);
 const showChangesOnly = ref(false);
-const queryPositionMs = ref(props.positionMs);
+const queryPositionMs = ref(normalizePositionMs(props.positionMs));
 const replaySources = shallowRef<ReplayDatabaseSource[]>([]);
+const sourceChangeSummaries = shallowRef<Map<string, IndexedDBChangeSummary>>(new Map());
 const idbRows = shallowRef<IDBRecord[]>([]);
 const idbRecordCount = ref(0);
 const idbChangeSummary = shallowRef<IndexedDBChangeSummary>({
@@ -84,7 +92,12 @@ const sqliteChangeSummary = shallowRef<SqliteChangeSummary>({
 const sqliteDiffRowKey = ref("");
 
 let rowRequest = 0;
+let sourceSummaryRequest = 0;
 let positionTimer: ReturnType<typeof setTimeout> | null = null;
+
+function normalizePositionMs(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
 
 const sortedEvents = computed(() => [...props.events].sort((a, b) => a.t - b.t));
 
@@ -95,7 +108,7 @@ const localSources = computed<LocalReplayStorageSource[]>(() => {
   for (const event of sortedEvents.value) {
     if (event.data.kind !== "localStorage") continue;
     if (!firstByOrigin.has(event.data.origin)) firstByOrigin.set(event.data.origin, event);
-    if (event.t <= props.positionMs) byOrigin.set(event.data.origin, event);
+    if (event.t <= normalizePositionMs(props.positionMs)) byOrigin.set(event.data.origin, event);
   }
 
   for (const [origin, first] of firstByOrigin) {
@@ -120,8 +133,92 @@ const sources = computed<ReplayStorageSource[]>(() => [
   ...localSources.value,
 ]);
 
+function indexedDBGroup(source: ReplayStorageSource): IndexedDBGroup {
+  if (source.kind !== "indexedDB") return "all";
+  const haystack = `${source.databaseName} ${source.storeName} ${source.label}`.toLowerCase();
+
+  if (haystack.includes("localforage") || haystack.includes("keyvaluepairs")) {
+    return "localforage";
+  }
+  if (
+    haystack.includes("jeepsqlite") ||
+    haystack.includes("jeep-sqlite") ||
+    haystack.includes("sqlite")
+  ) {
+    return "sqlite";
+  }
+  if (haystack.includes("dexie")) {
+    return "dexie";
+  }
+  if (
+    haystack.includes("blob") ||
+    haystack.includes("file") ||
+    haystack.includes("image") ||
+    haystack.includes("media") ||
+    haystack.includes("binary") ||
+    haystack.includes("attachment")
+  ) {
+    return "blob";
+  }
+  if (
+    haystack.includes("cache") ||
+    haystack.includes("offline") ||
+    haystack.includes("request") ||
+    haystack.includes("response")
+  ) {
+    return "cache";
+  }
+  return "app";
+}
+
+const indexedDBGroupOptions = computed(() => {
+  const counts = replaySources.value
+    .filter((source) => source.kind === "indexedDB")
+    .reduce<Record<IndexedDBGroup, number>>(
+      (acc, source) => {
+        acc.all += 1;
+        acc[indexedDBGroup(source)] += 1;
+        return acc;
+      },
+      {
+        all: 0,
+        app: 0,
+        localforage: 0,
+        dexie: 0,
+        blob: 0,
+        cache: 0,
+        sqlite: 0,
+      },
+    );
+
+  return [
+    { value: "all", label: "All", count: counts.all },
+    { value: "app", label: "App DBs", count: counts.app },
+    { value: "localforage", label: "LocalForage", count: counts.localforage },
+    { value: "sqlite", label: "SQLite bridges", count: counts.sqlite },
+    { value: "blob", label: "Blob/File stores", count: counts.blob },
+    { value: "cache", label: "Cache/Offline", count: counts.cache },
+    { value: "dexie", label: "Dexie", count: counts.dexie },
+  ] satisfies Array<{ value: IndexedDBGroup; label: string; count: number }>;
+});
+
 const visibleSources = computed<ReplayStorageSource[]>(() =>
-  sources.value.filter((source) => source.kind === selectedKind.value),
+  sources.value.filter((source) => {
+    if (source.kind !== selectedKind.value) return false;
+    if (
+      source.kind === "indexedDB" &&
+      selectedIndexedDBGroup.value !== "all" &&
+      indexedDBGroup(source) !== selectedIndexedDBGroup.value
+    ) {
+      return false;
+    }
+    const q = sourceSearch.value.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      sourceLabel(source).toLowerCase().includes(q) ||
+      sourceSubLabel(source).toLowerCase().includes(q)
+    );
+  }),
 );
 
 const typeOptions = computed(() => {
@@ -148,6 +245,29 @@ const typeOptions = computed(() => {
   }>;
 });
 
+const activeTypeLabel = computed(() => {
+  if (selectedKind.value !== "indexedDB") {
+    return (
+      typeOptions.value.find((option) => option.value === selectedKind.value)?.label ??
+      "Database type"
+    );
+  }
+
+  const group =
+    indexedDBGroupOptions.value.find((option) => option.value === selectedIndexedDBGroup.value)
+      ?.label ?? "All";
+
+  return `IndexedDB / ${group}`;
+});
+
+const indexedDBTypeCount = computed(
+  () => typeOptions.value.find((option) => option.value === "indexedDB")?.count ?? 0,
+);
+
+const nonIndexedDBTypeOptions = computed(() =>
+  typeOptions.value.filter((option) => option.value !== "indexedDB"),
+);
+
 const selectedSource = computed(
   () =>
     visibleSources.value.find((source) => source.id === selectedId.value) ??
@@ -158,6 +278,12 @@ const selectedSource = computed(
 const isIndexedDBSource = computed(() => selectedSource.value?.kind === "indexedDB");
 const isReplaySqliteSource = computed(() => selectedSource.value?.kind === "sqlite");
 const usesReplayDatabase = computed(() => isIndexedDBSource.value || isReplaySqliteSource.value);
+
+const activeIdbChangeSummary = computed(() => {
+  const source = selectedSource.value;
+  if (!source || source.kind !== "indexedDB") return idbChangeSummary.value;
+  return sourceChangeSummaries.value.get(source.id) ?? idbChangeSummary.value;
+});
 
 const localVisibleRecords = computed(() => {
   const source = selectedSource.value;
@@ -203,7 +329,22 @@ function sourceSubLabel(source: ReplayStorageSource): string {
   return source.origin;
 }
 
+function selectKind(kind: ReplayDatabaseKind) {
+  selectedKind.value = kind;
+  if (kind !== "indexedDB") selectedIndexedDBGroup.value = "all";
+}
+
+function selectIndexedDBGroup(group: IndexedDBGroup) {
+  selectedKind.value = "indexedDB";
+  selectedIndexedDBGroup.value = group;
+}
+
 function sourceChangeSummary(source: ReplayStorageSource) {
+  if (source.kind === "localStorage") return null;
+
+  const summary = sourceChangeSummaries.value.get(source.id);
+  if (summary) return summary;
+
   if (source.id !== selectedSource.value?.id) return null;
   if (source.kind === "indexedDB") return idbChangeSummary.value;
   if (source.kind === "sqlite") return sqliteChangeSummary.value;
@@ -489,6 +630,7 @@ function resetRemoteRows() {
 async function loadSources() {
   if (!props.databasePath) {
     replaySources.value = [];
+    sourceChangeSummaries.value = new Map();
     return;
   }
 
@@ -510,16 +652,44 @@ async function loadSources() {
   }
 }
 
+async function loadSourceChangeSummaries() {
+  const databasePath = props.databasePath;
+  const request = ++sourceSummaryRequest;
+
+  if (!databasePath) {
+    sourceChangeSummaries.value = new Map();
+    return;
+  }
+
+  try {
+    const summaries = await invoke<ReplayDatabaseSourceChangeSummary[]>(
+      "recording_database_change_summaries",
+      {
+        databasePath,
+        positionMs: normalizePositionMs(queryPositionMs.value),
+      },
+    );
+
+    if (request !== sourceSummaryRequest) return;
+    sourceChangeSummaries.value = new Map(
+      summaries.map((summary) => [summary.sourceId, toIdbChangeSummary(summary)]),
+    );
+  } catch {
+    if (request === sourceSummaryRequest) sourceChangeSummaries.value = new Map();
+  }
+}
+
 async function loadIndexedDbRows(
   source: ReplayDatabaseSource,
   databasePath: string,
   request: number,
 ) {
   const offset = page.value * pageSize.value;
+  const positionMs = normalizePositionMs(queryPositionMs.value);
   const summaryPromise = invoke<ReplayDatabaseChangeSummary>("recording_database_change_summary", {
     databasePath,
     sourceId: source.id,
-    positionMs: queryPositionMs.value,
+    positionMs,
   });
 
   if (showChangesOnly.value) {
@@ -527,7 +697,7 @@ async function loadIndexedDbRows(
       invoke<ReplayDatabaseChangesResult>("recording_database_changed_rows", {
         databasePath,
         sourceId: source.id,
-        positionMs: queryPositionMs.value,
+        positionMs,
         offset,
         limit: pageSize.value,
       }),
@@ -544,7 +714,7 @@ async function loadIndexedDbRows(
   const result = await invoke<ReplayDatabaseRowsResult>("recording_database_table_rows", {
     databasePath,
     sourceId: source.id,
-    positionMs: queryPositionMs.value,
+    positionMs,
     offset,
     limit: pageSize.value,
   });
@@ -554,7 +724,7 @@ async function loadIndexedDbRows(
     invoke<ReplayDatabaseChange[]>("recording_database_changes_for_keys", {
       databasePath,
       sourceId: source.id,
-      positionMs: queryPositionMs.value,
+      positionMs,
       keyJsons,
     }),
     summaryPromise,
@@ -579,10 +749,11 @@ async function loadIndexedDbRows(
 
 async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string, request: number) {
   const offset = page.value * pageSize.value;
+  const positionMs = normalizePositionMs(queryPositionMs.value);
   const summaryPromise = invoke<ReplayDatabaseChangeSummary>("recording_database_change_summary", {
     databasePath,
     sourceId: source.id,
-    positionMs: queryPositionMs.value,
+    positionMs,
   });
 
   if (showChangesOnly.value) {
@@ -590,7 +761,7 @@ async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string
       invoke<ReplayDatabaseChangesResult>("recording_database_changed_rows", {
         databasePath,
         sourceId: source.id,
-        positionMs: queryPositionMs.value,
+        positionMs,
         offset,
         limit: pageSize.value,
       }),
@@ -620,7 +791,7 @@ async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string
   const result = await invoke<ReplayDatabaseRowsResult>("recording_database_table_rows", {
     databasePath,
     sourceId: source.id,
-    positionMs: queryPositionMs.value,
+    positionMs,
     offset,
     limit: pageSize.value,
   });
@@ -633,7 +804,7 @@ async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string
     invoke<ReplayDatabaseChange[]>("recording_database_changes_for_keys", {
       databasePath,
       sourceId: source.id,
-      positionMs: queryPositionMs.value,
+      positionMs,
       keyJsons,
     }),
     summaryPromise,
@@ -710,7 +881,7 @@ function closeSqliteDiff() {
 }
 
 async function refresh() {
-  await loadSources();
+  await Promise.all([loadSources(), loadSourceChangeSummaries()]);
   await loadRows();
 }
 
@@ -723,10 +894,11 @@ async function fetchIdbRecord(index: number): Promise<IDBRecord | null> {
   if (source.kind !== "indexedDB" || !databasePath) return null;
 
   if (showChangesOnly.value) {
+    const positionMs = normalizePositionMs(queryPositionMs.value);
     const result = await invoke<ReplayDatabaseChangesResult>("recording_database_changed_rows", {
       databasePath,
       sourceId: source.id,
-      positionMs: queryPositionMs.value,
+      positionMs,
       offset: index,
       limit: 1,
     });
@@ -734,10 +906,11 @@ async function fetchIdbRecord(index: number): Promise<IDBRecord | null> {
     return change ? idbChangeToRecord(source, change) : null;
   }
 
+  const positionMs = normalizePositionMs(queryPositionMs.value);
   const rowResult = await invoke<ReplayDatabaseRowsResult>("recording_database_table_rows", {
     databasePath,
     sourceId: source.id,
-    positionMs: queryPositionMs.value,
+    positionMs,
     offset: index,
     limit: 1,
   });
@@ -747,7 +920,7 @@ async function fetchIdbRecord(index: number): Promise<IDBRecord | null> {
   const changes = await invoke<ReplayDatabaseChange[]>("recording_database_changes_for_keys", {
     databasePath,
     sourceId: source.id,
-    positionMs: queryPositionMs.value,
+    positionMs,
     keyJsons: [row.keyJson],
   });
 
@@ -766,7 +939,7 @@ watch(
   (value) => {
     if (positionTimer !== null) clearTimeout(positionTimer);
     positionTimer = setTimeout(() => {
-      queryPositionMs.value = value;
+      queryPositionMs.value = normalizePositionMs(value);
       positionTimer = null;
     }, 140);
   },
@@ -775,9 +948,14 @@ watch(
 
 watch(
   () => props.databasePath,
-  () => void loadSources(),
+  () => {
+    void loadSources();
+    void loadSourceChangeSummaries();
+  },
   { immediate: true },
 );
+
+watch(queryPositionMs, () => void loadSourceChangeSummaries());
 
 watch(
   sources,
@@ -800,6 +978,17 @@ watch(
 );
 
 watch(selectedKind, () => {
+  if (selectedKind.value !== "indexedDB") selectedIndexedDBGroup.value = "all";
+  selectedId.value = visibleSources.value[0]?.id ?? "";
+});
+
+watch(indexedDBGroupOptions, (options) => {
+  if (selectedIndexedDBGroup.value === "all") return;
+  const selected = options.find((option) => option.value === selectedIndexedDBGroup.value);
+  if (!selected?.count) selectedIndexedDBGroup.value = "all";
+});
+
+watch(selectedIndexedDBGroup, () => {
   selectedId.value = visibleSources.value[0]?.id ?? "";
 });
 
@@ -817,32 +1006,73 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
 <template>
   <div class="flex h-full min-h-0 overflow-hidden">
     <aside class="flex w-64 shrink-0 flex-col border-r border-border/20 bg-surface-1/50">
-      <div class="flex h-9 shrink-0 items-center gap-2 border-b border-border/20 px-3">
-        <Database class="h-3.5 w-3.5 text-muted-foreground/50" />
-        <span class="text-xs font-medium text-foreground/75">Databases</span>
-        <span class="ml-auto text-[10px] text-muted-foreground/40">{{ sources.length }}</span>
-      </div>
-      <div class="border-b border-border/20 p-2">
-        <Select v-model="selectedKind">
-          <SelectTrigger class="h-8 w-full border-border/30 bg-surface-3 text-xs">
-            <SelectValue placeholder="Database type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              v-for="option in typeOptions"
-              :key="option.value"
-              :value="option.value"
-              class="text-xs"
+      <div class="shrink-0 space-y-2 border-b border-border/20 p-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <button
+              type="button"
+              class="flex h-8 w-full items-center justify-between gap-2 rounded-md border border-border/30 bg-surface-3 px-2 text-left text-xs transition-colors hover:border-border/50 hover:bg-surface-3/80"
             >
-              <span class="flex w-full items-center justify-between gap-3">
-                <span>{{ option.label }}</span>
-                <span class="text-[10px] text-muted-foreground/50">
-                  {{ option.count.toLocaleString() }}
+              <span class="truncate">{{ activeTypeLabel }}</span>
+              <ChevronDown class="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" class="w-56">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger class="text-xs">
+                <span class="flex min-w-0 flex-1 items-center gap-2">
+                  <Check v-if="selectedKind === 'indexedDB'" class="h-3 w-3 shrink-0" />
+                  <span v-else class="h-3 w-3 shrink-0" />
+                  <span class="truncate">IndexedDB</span>
+                  <span class="ml-auto text-[10px] text-muted-foreground/50">
+                    {{ indexedDBTypeCount.toLocaleString() }}
+                  </span>
                 </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent class="w-52">
+                <DropdownMenuItem
+                  v-for="option in indexedDBGroupOptions"
+                  :key="option.value"
+                  class="text-xs"
+                  @click="selectIndexedDBGroup(option.value)"
+                >
+                  <Check
+                    v-if="selectedKind === 'indexedDB' && selectedIndexedDBGroup === option.value"
+                    class="mr-2 h-3 w-3 shrink-0"
+                  />
+                  <span v-else class="mr-2 h-3 w-3 shrink-0" />
+                  <span class="truncate">{{ option.label }}</span>
+                  <span class="ml-auto text-[10px] text-muted-foreground/50">
+                    {{ option.count.toLocaleString() }}
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem
+              v-for="option in nonIndexedDBTypeOptions"
+              :key="option.value"
+              class="text-xs"
+              @click="selectKind(option.value)"
+            >
+              <Check v-if="selectedKind === option.value" class="mr-2 h-3 w-3 shrink-0" />
+              <span v-else class="mr-2 h-3 w-3 shrink-0" />
+              <span class="truncate">{{ option.label }}</span>
+              <span class="ml-auto text-[10px] text-muted-foreground/50">
+                {{ option.count.toLocaleString() }}
               </span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div
+          class="flex items-center gap-2 rounded-md border border-border/30 bg-surface-3 px-2 py-1.5 transition-colors focus-within:border-border/60"
+        >
+          <Search class="h-3 w-3 shrink-0 text-muted-foreground/50" />
+          <Input
+            v-model="sourceSearch"
+            class="h-5 border-0 bg-transparent px-0 font-mono text-xs placeholder:text-muted-foreground/40 focus-visible:ring-0"
+            placeholder="Search tables…"
+          />
+        </div>
       </div>
       <ScrollArea class="min-h-0 flex-1">
         <div
@@ -857,7 +1087,9 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
           class="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center text-muted-foreground/40"
         >
           <Database class="h-5 w-5 opacity-40" />
-          <p class="text-[11px]">No {{ selectedKind }} data captured</p>
+          <p class="text-[11px]">
+            {{ sourceSearch.trim() ? "No matching tables" : `No ${selectedKind} data captured` }}
+          </p>
         </div>
         <template v-else>
           <button
@@ -875,9 +1107,6 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="truncate text-xs font-medium">{{ sourceLabel(source) }}</span>
-                <!-- <span class="text-[10px] uppercase text-muted-foreground/30">
-                  {{ source.kind === "indexedDB" ? "idb" : source.kind }}
-                </span> -->
                 <span class="ml-auto text-[10px] text-muted-foreground/40">
                   {{
                     source.kind === "localStorage"
@@ -971,7 +1200,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
             :page-size="pageSize"
             :has-more="hasMore"
             :record-count="recordCount"
-            :change-summary="isIndexedDBSource ? idbChangeSummary : undefined"
+            :change-summary="isIndexedDBSource ? activeIdbChangeSummary : undefined"
             :show-changes-only="showChangesOnly"
             @refresh="refresh"
             @prev="prevPage"

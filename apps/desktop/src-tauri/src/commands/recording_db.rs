@@ -83,6 +83,17 @@ pub struct ReplayDatabaseChangeSummary {
     pub latest_ms: Option<i64>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayDatabaseSourceChangeSummary {
+    pub source_id: String,
+    pub add: i64,
+    pub update: i64,
+    pub delete: i64,
+    pub total: i64,
+    pub latest_ms: Option<i64>,
+}
+
 struct ActiveVersion {
     id: i64,
     value_json: String,
@@ -774,6 +785,77 @@ pub async fn recording_database_change_summary(
         }
 
         Ok(summary)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn recording_database_change_summaries(
+    database_path: String,
+    position_ms: i64,
+) -> Result<Vec<ReplayDatabaseSourceChangeSummary>, String> {
+    tokio::task::spawn_blocking(move || {
+        let conn = open_read_database(&database_path)?;
+        let mut stmt = conn
+            .prepare(
+                "
+                SELECT c.source_id, c.operation, COUNT(*), MAX(c.t_ms)
+                FROM replay_changes c
+                JOIN (
+                  SELECT MAX(id) AS id
+                  FROM replay_changes
+                  WHERE t_ms <= ?1
+                  GROUP BY source_id, key_hash
+                ) latest ON latest.id = c.id
+                GROUP BY c.source_id, c.operation
+                ",
+            )
+            .map_err(sqlite_error)?;
+
+        let rows = stmt
+            .query_map(params![position_ms], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Option<i64>>(3)?,
+                ))
+            })
+            .map_err(sqlite_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(sqlite_error)?;
+
+        let mut summaries =
+            std::collections::BTreeMap::<String, ReplayDatabaseSourceChangeSummary>::new();
+
+        for (source_id, operation, count, latest_ms) in rows {
+            let summary =
+                summaries
+                    .entry(source_id.clone())
+                    .or_insert(ReplayDatabaseSourceChangeSummary {
+                        source_id,
+                        add: 0,
+                        update: 0,
+                        delete: 0,
+                        total: 0,
+                        latest_ms: None,
+                    });
+
+            match operation.as_str() {
+                "add" => summary.add = count,
+                "update" => summary.update = count,
+                "delete" => summary.delete = count,
+                _ => {}
+            }
+
+            summary.total += count;
+            if latest_ms > summary.latest_ms {
+                summary.latest_ms = latest_ms;
+            }
+        }
+
+        Ok(summaries.into_values().collect())
     })
     .await
     .map_err(|e| e.to_string())?

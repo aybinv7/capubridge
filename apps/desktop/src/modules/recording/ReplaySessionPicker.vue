@@ -214,7 +214,7 @@ function shortPath(p: string | null | undefined): string {
 
 <template>
   <Dialog :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogContent class="max-w-4xl p-0 overflow-hidden">
+    <DialogContent class="w-8xl p-0 overflow-hidden">
       <DialogHeader class="px-5 pt-5 pb-3 border-b border-border/30">
         <DialogTitle class="flex items-center gap-2">
           <FolderOpen class="w-4 h-4 text-muted-foreground/70" />

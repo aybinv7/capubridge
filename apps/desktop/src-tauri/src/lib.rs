@@ -43,7 +43,8 @@ use commands::recording::{
     recording_session_stop,
 };
 use commands::recording_db::{
-    recording_database_change_summary, recording_database_changed_rows,
+    recording_database_change_summaries, recording_database_change_summary,
+    recording_database_changed_rows,
     recording_database_changes_for_keys, recording_database_snapshot_begin,
     recording_database_snapshot_finish, recording_database_snapshot_page,
     recording_database_sources, recording_database_table_rows,
@@ -251,6 +252,7 @@ pub fn run() {
             recording_database_sources,
             recording_database_table_rows,
             recording_database_changed_rows,
+            recording_database_change_summaries,
             recording_database_change_summary,
             recording_database_changes_for_keys,
             local_device_name,

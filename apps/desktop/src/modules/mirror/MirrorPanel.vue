@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { toast } from "vue-sonner";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -43,6 +43,7 @@ const {
 const settingsOpen = ref(false);
 const isResizing = ref(false);
 const streamAreaRef = ref<HTMLElement | null>(null);
+const mirrorFrameRef = ref<HTMLElement | null>(null);
 const { panelWidth } = useMirrorViewportWidth(streamAreaRef);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
@@ -66,12 +67,18 @@ async function applyLocalWebviewViewportMode() {
   if (!readyTarget.webSocketDebuggerUrl) return;
   const client = await connectToTarget(readyTarget);
 
-  if (mirrorStore.settings.chromeViewportMode === "phone") {
+  await nextTick();
+  const frame = mirrorFrameRef.value;
+
+  if (mirrorStore.settings.chromeViewportMode === "phone" && frame) {
+    const rect = frame.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
     await Promise.allSettled([
       client.send("Emulation.setDeviceMetricsOverride", {
-        width: 390,
-        height: 844,
-        deviceScaleFactor: 2.75,
+        width,
+        height,
+        deviceScaleFactor: 1,
         mobile: true,
       }),
       client.send("Emulation.setTouchEmulationEnabled", {
@@ -198,6 +205,15 @@ watch(
         return;
       }
       void stopStream().then(() => startStream());
+    }
+  },
+);
+
+watch(
+  () => [panelWidth.value, mirrorStore.deviceWidth, mirrorStore.deviceHeight] as const,
+  () => {
+    if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
+      void applyLocalWebviewViewportMode();
     }
   },
 );
@@ -368,9 +384,10 @@ function toggleRecord() {
         class="flex-1 overflow-hidden flex items-center justify-center p-2 bg-zinc-950"
       >
         <div
-          class="w-full overflow-hidden rounded-lg shadow-2xl ring-1 ring-white/5"
+          ref="mirrorFrameRef"
+          class="h-full max-w-full overflow-hidden rounded-lg shadow-2xl ring-1 ring-white/5"
           :style="{
-            maxHeight: '100%',
+            width: 'auto',
             aspectRatio: `${mirrorStore.deviceWidth || 9} / ${mirrorStore.deviceHeight || 19.5}`,
           }"
         >

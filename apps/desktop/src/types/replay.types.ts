@@ -187,6 +187,10 @@ export interface ReplayDatabaseChangeSummary {
   latestMs: number | null;
 }
 
+export interface ReplayDatabaseSourceChangeSummary extends ReplayDatabaseChangeSummary {
+  sourceId: string;
+}
+
 /** rrweb events are passed through as-is from the rrweb recorder */
 export type RrwebCapuEvent = CapuEvent<unknown>; // rrweb types its own events internally
 
