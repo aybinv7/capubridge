@@ -1,61 +1,28 @@
 <script setup lang="ts">
-import { Palette, Languages, Bell } from "lucide-vue-next";
+import { Languages, Bell } from "lucide-vue-next";
+import SettingsSection from "./components/SettingsSection.vue";
+import SettingsRow from "./components/SettingsRow.vue";
 </script>
 
 <template>
-  <div class="flex-1 overflow-y-auto p-5">
-    <div class="max-w-xl space-y-6">
-      <div>
-        <h3 class="text-sm font-medium text-foreground mb-3">Appearance</h3>
-        <div class="space-y-3">
-          <div class="flex items-center justify-between p-3 bg-accent border border-border">
-            <div class="flex items-center gap-3">
-              <Palette class="w-4 h-4 text-muted-foreground" />
-              <div>
-                <span class="text-xs font-medium text-foreground">Theme</span>
-                <p class="text-2xs text-muted-foreground">Choose your preferred color scheme</p>
-              </div>
-            </div>
-            <span class="text-2xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded"
-              >Dark</span
-            >
-          </div>
-        </div>
-      </div>
+  <div class="mx-auto max-w-3xl space-y-8 p-6">
+    <SettingsSection title="General" description="Application-wide preferences.">
+      <SettingsRow label="Display language" description="Set the UI language">
+        <span class="inline-flex items-center gap-2 text-xs text-[var(--fg-muted)]">
+          <Languages :size="14" />
+          English
+        </span>
+      </SettingsRow>
 
-      <div>
-        <h3 class="text-sm font-medium text-foreground mb-3">Language</h3>
-        <div class="flex items-center justify-between p-3 bg-accent border border-border">
-          <div class="flex items-center gap-3">
-            <Languages class="w-4 h-4 text-muted-foreground" />
-            <div>
-              <span class="text-xs font-medium text-foreground">Display Language</span>
-              <p class="text-2xs text-muted-foreground">Set the UI language</p>
-            </div>
-          </div>
-          <span class="text-2xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded"
-            >English</span
-          >
-        </div>
-      </div>
-
-      <div>
-        <h3 class="text-sm font-medium text-foreground mb-3">Notifications</h3>
-        <div class="flex items-center justify-between p-3 bg-accent border border-border">
-          <div class="flex items-center gap-3">
-            <Bell class="w-4 h-4 text-muted-foreground" />
-            <div>
-              <span class="text-xs font-medium text-foreground">Desktop Notifications</span>
-              <p class="text-2xs text-muted-foreground">
-                Show system notifications for device events
-              </p>
-            </div>
-          </div>
-          <span class="text-2xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded"
-            >Off</span
-          >
-        </div>
-      </div>
-    </div>
+      <SettingsRow
+        label="Desktop notifications"
+        description="Show system notifications for device events"
+      >
+        <span class="inline-flex items-center gap-2 text-xs text-[var(--fg-muted)]">
+          <Bell :size="14" />
+          Off
+        </span>
+      </SettingsRow>
+    </SettingsSection>
   </div>
 </template>

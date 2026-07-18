@@ -89,6 +89,12 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     uiStore.toggleSidebar();
   }
+  if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+    e.preventDefault();
+    if (!router.currentRoute.value.path.startsWith("/settings")) {
+      void router.push("/settings");
+    }
+  }
 }
 
 function onResize() {
