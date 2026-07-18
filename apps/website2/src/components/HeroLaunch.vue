@@ -4,6 +4,7 @@ import BlurText from "@/components/BlurText/BlurText.vue";
 import Grainient from "@/components/Grainient/Grainient.vue";
 import HeroModeTabs from "@/components/HeroModeTabs.vue";
 import HeroStagePanel from "@/components/HeroStagePanel.vue";
+import HeroDownloadCTA from "@/components/HeroDownloadCTA.vue";
 import TextType from "@/components/TextType/TextType.vue";
 import type { HeroMode } from "@/data/marketing";
 
@@ -65,7 +66,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="relative h-[100svh] min-h-[680px] overflow-hidden px-3 pb-3 pt-[4.25rem] md:min-h-[760px] md:px-5 md:pb-5 md:pt-[4.6rem]"
+    class="relative h-[100svh] min-h-[680px] overflow-hidden px-3 pb-3 pt-6 md:min-h-[760px] md:px-5 md:pb-5 md:pt-8"
   >
     <div
       class="absolute inset-0 bg-[linear-gradient(180deg,#09090b_0%,#0b0f14_45%,#09090b_100%)]"
@@ -151,6 +152,8 @@ onBeforeUnmount(() => {
               cursor-class-name="text-[var(--accent)]"
             />
           </div>
+
+          <HeroDownloadCTA />
         </div>
 
         <div class="relative min-h-0">

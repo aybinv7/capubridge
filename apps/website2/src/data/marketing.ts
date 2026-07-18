@@ -30,11 +30,6 @@ export interface BentoCard {
   accent: string;
 }
 
-export const navItems = [
-  { label: "Features", href: "#features" },
-  { label: "Download", href: "#download" },
-];
-
 export const screenshots: Screenshot[] = [
   {
     src: "/screenshots/Screenshot%202026-04-28%20203814.png",
