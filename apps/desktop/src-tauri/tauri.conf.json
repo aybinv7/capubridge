@@ -7,7 +7,7 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173/",
     "beforeDevCommand": "vp dev",
-    "beforeBuildCommand": "vp run \"@capubridge/cdp-protocol#build\" && vp build"
+    "beforeBuildCommand": "vp run @capubridge/cdp-protocol#build && vp build"
   },
   "app": {
     "windows": [
