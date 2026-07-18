@@ -165,7 +165,9 @@ const setup = () => {
     webgl: 2,
     alpha: true,
     antialias: false,
-    dpr: Math.min(window.devicePixelRatio || 1, 2),
+    // Cap DPR — a soft background gradient doesn't need full retina density,
+    // and the fragment shader cost scales with pixel count.
+    dpr: Math.min(window.devicePixelRatio || 1, 1.5),
   });
 
   const gl = renderer.gl;
@@ -220,22 +222,56 @@ const setup = () => {
     res[1] = gl.drawingBufferHeight;
   };
 
-  const ro = new ResizeObserver(setSize);
+  const t0 = performance.now();
+  const renderFrame = (tMs: number) => {
+    (program.uniforms.iTime as { value: number }).value = (tMs - t0) * 0.001;
+    renderer.render({ scene: mesh });
+  };
+
+  const ro = new ResizeObserver(() => {
+    setSize();
+    // Keep a correct frame when we're paused/static and won't loop.
+    renderFrame(performance.now());
+  });
   ro.observe(container);
   setSize();
 
+  // Respect reduced-motion: render one static frame, never animate.
+  const prefersReduced =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Only animate while the canvas is actually on screen and the tab is visible.
+  let onScreen = true;
+  const io = new IntersectionObserver((entries) => {
+    onScreen = entries[0]?.isIntersecting ?? true;
+  });
+  io.observe(container);
+
+  // Cap the framerate — a subtle background doesn't need 60fps, and this
+  // roughly halves the shader's GPU cost.
+  const frameInterval = 1000 / 30;
+  let lastFrame = 0;
   let raf = 0;
-  const t0 = performance.now();
+
   const loop = (t: number) => {
-    (program.uniforms.iTime as { value: number }).value = (t - t0) * 0.001;
-    renderer.render({ scene: mesh });
     raf = requestAnimationFrame(loop);
+    if (!onScreen || document.hidden) return;
+    if (t - lastFrame < frameInterval) return;
+    lastFrame = t;
+    renderFrame(t);
   };
-  raf = requestAnimationFrame(loop);
+
+  if (prefersReduced) {
+    renderFrame(performance.now());
+  } else {
+    raf = requestAnimationFrame(loop);
+  }
 
   cleanup = () => {
     cancelAnimationFrame(raf);
     ro.disconnect();
+    io.disconnect();
     try {
       container.removeChild(canvas);
     } catch {

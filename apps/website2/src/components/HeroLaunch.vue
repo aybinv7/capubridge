@@ -66,7 +66,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="relative h-[100svh] min-h-[680px] overflow-hidden px-3 pb-3 pt-6 md:min-h-[760px] md:px-5 md:pb-5 md:pt-8"
+    class="relative flex min-h-[100svh] flex-col overflow-hidden px-3 pb-10 pt-6 md:px-5 md:pb-14 md:pt-8"
   >
     <div
       class="absolute inset-0 bg-[linear-gradient(180deg,#09090b_0%,#0b0f14_45%,#09090b_100%)]"
@@ -109,7 +109,7 @@ onBeforeUnmount(() => {
       class="absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,transparent,rgba(9,9,11,0.96))]"
     />
 
-    <div class="relative z-10 mx-auto grid h-full max-w-[1440px] grid-rows-[auto_1fr_auto] gap-3">
+    <div class="relative z-10 mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-6">
       <div class="flex items-center justify-between gap-3">
         <div
           class="flex items-center gap-2 rounded-full border border-white/[0.1] bg-black/[0.22] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-white/[0.54] backdrop-blur-xl"
@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
         <HeroModeTabs :modes="modes" :active-key="activeModeKey" @select="selectMode" />
       </div>
 
-      <div class="grid min-h-0 items-center gap-5 xl:grid-cols-[0.48fr_1.52fr]">
+      <div class="grid flex-1 items-center gap-8 lg:grid-cols-2 xl:grid-cols-[0.48fr_1.52fr]">
         <div class="relative z-20">
           <h1 class="sr-only">Capubridge turns Android WebView debugging into team evidence.</h1>
           <BlurText
@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
             animate-by="words"
             direction="top"
             :delay="105"
-            class-name="font-[var(--font-display)] text-[44px] leading-[0.88] text-white md:text-[66px] xl:text-[84px]"
+            class-name="font-[var(--font-display)] text-[38px] leading-[0.9] text-white sm:text-[46px] md:text-[60px] xl:text-[84px]"
           />
 
           <Transition name="hero-copy-swap" mode="out-in">
