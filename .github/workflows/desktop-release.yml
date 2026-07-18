@@ -35,6 +35,9 @@ jobs:
       - name: install workspace dependencies
         run: vp install
 
+      - name: build workspace packages
+        run: vp run "@capubridge/cdp-protocol#build"
+
       - name: check workspace
         run: vp check
 
