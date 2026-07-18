@@ -4,8 +4,13 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  fmt: {},
-  lint: { options: { typeAware: true, typeCheck: true } },
+  // Build-tool artifacts (Vercel's generated .vercel/ manifest, build output)
+  // must not be scanned by `vp check` — they break the deploy build otherwise.
+  fmt: { ignorePatterns: ["**/.vercel/**", "**/dist/**"] },
+  lint: {
+    ignorePatterns: ["**/.vercel/**", "**/dist/**"],
+    options: { typeAware: true, typeCheck: true },
+  },
   run: {
     cache: true,
     tasks: {
