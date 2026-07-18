@@ -162,7 +162,7 @@ Each device session runs at one of three temperatures:
 
 ## Status
 
-**v1.16.0** — active beta. Core session model, ADB management, CDP inspection, storage explorer, logcat, performance monitor, screen mirror, recording, and replay are functional. Experimental surfaces remain hidden until their complete workflows are ready.
+**v1.16.1** — active beta. Core session model, ADB management, CDP inspection, storage explorer, logcat, performance monitor, screen mirror, recording, and replay are functional. Experimental surfaces remain hidden until their complete workflows are ready.
 
 ---
 

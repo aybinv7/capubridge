@@ -1,6 +1,6 @@
 {
   "name": "@capubridge/cdp-protocol",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "description": "Typed Chrome DevTools Protocol client and domains for CapuBridge.",
   "homepage": "https://github.com/inventor7/capubridge#readme",
   "bugs": {
