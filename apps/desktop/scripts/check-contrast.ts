@@ -73,11 +73,9 @@ for (const theme of themes) {
 // the step that pops best against bgSurface, defaulting to step[4]. So
 // the check matches the actual color that will be rendered as --accent.
 //
-// NOTE: fgOnAccent is theme-wide today (white in dark themes, etc.) which
-// means strict text contrast on accent buttons is hard to guarantee across
-// every (theme, accent) combination. Slice 6 polish item: move fgOnAccent
-// into AccentRamp so each accent picks its own. For Slice 1 we treat
-// button labels as AA-large (3:1) — fine for 14px+ medium-weight text.
+// Brand buttons render --brand-foreground (= --bg-app) on the accent step,
+// not the theme-wide white --fg-on-accent, so text-on-accent is now checked
+// against the actually-rendered pairing below.
 function pickPrimaryStep(steps: readonly string[], surface: string): string {
   const canonical = steps[4];
   if (contrastRatio(canonical, surface) >= 3.0) return canonical;
