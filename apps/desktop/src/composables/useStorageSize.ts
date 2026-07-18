@@ -1,6 +1,11 @@
 import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { IDBDomain, LocalStorageDomain, CacheAPIDomain, OPFSDomain } from "utils";
+import {
+  IDBDomain,
+  LocalStorageDomain,
+  CacheAPIDomain,
+  OPFSDomain,
+} from "@capubridge/cdp-protocol";
 import { useCDP } from "./useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 
@@ -52,13 +57,22 @@ export function useStorageSize() {
             .then((e) => e.idbUsage),
           getLocalStorageDomain()
             .getStorageSize(origin.value)
-            .catch(() => 0),
+            .catch((error) => {
+              console.warn("Failed to measure LocalStorage usage", error);
+              return 0;
+            }),
           getCacheAPIDomain()
             .getStorageSize()
-            .catch(() => 0),
+            .catch((error) => {
+              console.warn("Failed to measure Cache API usage", error);
+              return 0;
+            }),
           getOPFSDomain()
             .getStorageSize()
-            .catch(() => 0),
+            .catch((error) => {
+              console.warn("Failed to measure OPFS usage", error);
+              return 0;
+            }),
         ]);
 
         return {

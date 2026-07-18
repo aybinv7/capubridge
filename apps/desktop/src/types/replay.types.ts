@@ -226,9 +226,4 @@ export interface ReplayInspectElement {
 }
 
 // ipc.types.ts signatures reference (Tauri commands added by recording.rs):
-// invoke<void>('recording_session_start', { sessionId: string }): Promise<void>
-// invoke<void>('recording_session_append', { sessionId: string, track: string, ndjsonBatch: string }): Promise<void>
-// invoke<string>('recording_session_stop', { sessionId: string, manifestJson: string }): Promise<string>
-// invoke<RustSessionListItem[]>('recording_list_sessions'): Promise<RustSessionListItem[]>
-// invoke<void>('recording_delete_session', { sessionId: string }): Promise<void>
 // invoke<{ manifest_json: string; tracks: Record<string, string> }>('recording_read_session', { filePath: string })

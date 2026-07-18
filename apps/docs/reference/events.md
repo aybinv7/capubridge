@@ -1,31 +1,35 @@
 # Session Events
 
-Capubridge emits typed events on the `capubridge:session-event` channel.
+CapuBridge emits the `SessionEvent` union on the `capubridge:session-event` channel. Event payloads are defined once in the Rust and TypeScript IPC contracts.
 
-## Event types
+## Event union
 
 ```typescript
-// src/types/session.types.ts
 type SessionEvent =
-  | { type: "registryUpdated"; payload: RegistrySnapshot }
-  | { type: "leaseStateChanged"; payload: { serial: string; kind: LeaseKind; state: LeaseState } }
-  | { type: "logcatEntry"; payload: LogcatEntry }
-  | { type: "logcatError"; payload: { serial: string; error: string } }
-  | { type: "perfMetrics"; payload: PerfMetrics }
-  | { type: "perfError"; payload: { serial: string; error: string } };
+  | { type: "registryUpdated"; snapshot: SessionRegistrySnapshot }
+  | { type: "leaseStateChanged"; lease: SessionLeaseState }
+  | { type: "logcatEntry"; serial: string; entry: LogcatEntry }
+  | { type: "logcatError"; serial: string; message: string }
+  | { type: "perfMetrics"; serial: string; metrics: PerfMetrics }
+  | { type: "perfError"; serial: string; message: string };
 ```
 
-## Listening to events
+`registryUpdated` includes the complete registry revision and optional per-device health snapshot. Consumers should replace their registry view with the newest revision instead of merging individual fields speculatively.
+
+## Typed subscription
+
+Application code subscribes through the central IPC adapter:
 
 ```typescript
-import { listen } from "@tauri-apps/api/event";
-const unlisten = await listen("capubridge:session-event", (event: SessionEvent) => {
-  switch (event.type) {
-    case "registryUpdated":
-      /* ... */ break;
-    case "logcatEntry":
-      /* ... */ break;
+import { listenEvent } from "@/runtime/ipc";
+
+const stop = await listenEvent("capubridge:session-event", (event) => {
+  if (event.type === "registryUpdated") {
+    devicesStore.applySnapshot(event.snapshot);
   }
 });
-onUnmounted(() => unlisten());
+
+onUnmounted(stop);
 ```
+
+Direct imports from `@tauri-apps/api/event` are reserved for the adapter. This keeps payload typing and error normalization consistent across every module.

@@ -19,7 +19,7 @@ import {
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import JsonViewer from "@/modules/storage/localstorage/JsonViewer.vue";
+import JsonViewer from "@/shared/components/data/JsonViewer.vue";
 import type { NetworkCapuEvent, NetworkCapuTiming } from "@/types/replay.types";
 
 const TYPE_FILTERS = ["All", "XHR/Fetch", "WS", "Doc", "Img", "Script", "Other"] as const;

@@ -14,13 +14,6 @@ import {
   HardDrive,
   Archive,
   Globe,
-  Terminal,
-  Zap,
-  Shield,
-  Link,
-  FileJson,
-  Settings,
-  Wrench,
   Palette,
   Keyboard,
   DatabaseZap,
@@ -45,7 +38,6 @@ const iconMap: Record<string, typeof Smartphone> = {
   "devices-performance": Gauge,
   "app-overview": AppWindow,
   "app-performance": Gauge,
-  "app-permissions": Shield,
   "app-data-usage": Battery,
   "storage-indexeddb": HardDrive,
   "storage-localforage": Database,
@@ -56,17 +48,7 @@ const iconMap: Record<string, typeof Smartphone> = {
   "storage-graph": Database,
   "storage-changes": Diff,
   "network-requests": Globe,
-  "network-websocket": Terminal,
-  "network-throttle": Gauge,
   "network-mock": Archive,
-  "capacitor-bridge": Zap,
-  "capacitor-plugins": Package,
-  "capacitor-config": FileJson,
-  "capacitor-permissions": Shield,
-  "capacitor-deeplinks": Link,
-  "settings-general": Settings,
-  "settings-adb": Wrench,
-  "settings-chrome": Globe,
   "settings-theme": Palette,
   "settings-shortcuts": Keyboard,
   "inspect-elements": Crosshair,
@@ -108,7 +90,8 @@ const subTabs = computed(() => {
 
   return parentRoute.children
     .filter((r) => {
-      if (!r.path || r.path.startsWith(":") || !r.name) return false;
+      if (!r.path || r.path.startsWith(":") || !r.name || r.meta?.navigation === false)
+        return false;
       return true;
     })
     .map((r) => {
@@ -118,7 +101,7 @@ const subTabs = computed(() => {
       const name = r.name as string;
       return {
         name,
-        label: formatLabel(name),
+        label: typeof r.meta?.label === "string" ? r.meta.label : formatLabel(name),
         path: fullPath,
         icon: iconMap[name] ?? null,
       };
@@ -154,10 +137,10 @@ function isActive(tabPath: string): boolean {
     <div v-if="route.path.startsWith('/settings')" class="ml-auto flex items-center pr-1">
       <button
         class="w-8 h-7 flex items-center justify-center rounded-md transition-colors duration-[120ms] text-muted-foreground/50 hover:text-foreground hover:bg-surface-2"
-        :title="uiStore.theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'"
+        :title="uiStore.resolvedTheme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'"
         @click="uiStore.toggleTheme()"
       >
-        <Sun v-if="uiStore.theme === 'dark'" :size="14" />
+        <Sun v-if="uiStore.resolvedTheme === 'dark'" :size="14" />
         <Moon v-else :size="14" />
       </button>
     </div>

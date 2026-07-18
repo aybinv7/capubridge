@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "dock-windows",
+  "description": "Minimal event and window permissions for detached dock panels",
+  "webviews": ["dock-*"],
+  "permissions": ["core:event:default", "core:window:allow-close"]
+}

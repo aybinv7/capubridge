@@ -1,46 +1,65 @@
-# IPC Contract
+# IPC contract
 
-All Tauri commands are defined in Rust with `#[tauri::command]` and typed in TypeScript.
+CapuBridge maintains a canonical TypeScript contract for every command registered by Rust. A contract test compares the 130 command names with Tauri's `generate_handler!` registration and fails on additions, removals, duplicates, or drift.
 
-## Registry/Device commands
+## Contract layout
 
-| Command                      | Rust                                | TS                      |
-| ---------------------------- | ----------------------------------- | ----------------------- |
-| `session_get_registry_state` | `src-tauri/src/session/registry.rs` | `invoke<RegistryState>` |
-| `session_list_devices`       | `src-tauri/src/session/registry.rs` | `invoke<ADBDevice[]>`   |
-| `session_refresh_devices`    | `src-tauri/src/session/registry.rs` | `invoke<ADBDevice[]>`   |
-| `session_set_active_device`  | `src-tauri/src/session/registry.rs` | `invoke<void>`          |
-| `session_get_device_info`    | `src-tauri/src/commands/adb.rs`     | `invoke<DeviceInfo>`    |
-| `session_shell_command`      | `src-tauri/src/commands/adb.rs`     | `invoke<string>`        |
+`src/runtime/ipc/contracts` groups commands by capability:
 
-## Snapshot commands
+- Session
+- Device and ADB
+- Connection and CDP proxy
+- Mirror and performance
+- Storage and files
+- Recording and replay
+- Mock server
 
-| Command                        | Description              | Return             |
-| ------------------------------ | ------------------------ | ------------------ |
-| `session_list_targets`         | List CDP targets         | `CDPTarget[]`      |
-| `session_refresh_targets`      | Refresh target snapshot  | `CDPTarget[]`      |
-| `session_list_packages`        | List installed packages  | `AppPackage[]`     |
-| `session_refresh_packages`     | Refresh package snapshot | `AppPackage[]`     |
-| `session_cancel_list_packages` | Cancel package listing   | `void`             |
-| `session_list_webview_sockets` | List WebView sockets     | `string[]`         |
-| `session_list_reverse`         | List reverse forwards    | `ReverseForward[]` |
-| `session_reverse`              | Add reverse forward      | `void`             |
-| `session_remove_reverse`       | Remove reverse forward   | `void`             |
+Each command defines its input object and result type. No-argument commands are represented separately so callers cannot accidentally send an invalid payload.
 
-## Lease commands
+## Calling commands
 
-| Command                         | Description                |
-| ------------------------------- | -------------------------- |
-| `session_start_logcat_lease`    | Start logcat stream        |
-| `session_stop_logcat_lease`     | Stop logcat stream         |
-| `session_start_perf_lease`      | Start perf metrics stream  |
-| `session_stop_perf_lease`       | Stop perf metrics stream   |
-| `session_start_mirror_lease`    | Start screen mirror        |
-| `session_stop_mirror_lease`     | Stop screen mirror         |
-| `session_attach_console_target` | Attach console to target   |
-| `session_detach_console_target` | Detach console from target |
+```typescript
+import { invokeCommand } from "@/runtime/ipc";
 
-## Event channel
+const devices = await invokeCommand("session_list_devices");
+const targets = await invokeCommand("session_list_targets", { serial });
+await invokeCommand("session_remove_reverse", { serial, remotePort });
+```
 
-- Name: `capubridge:session-event`
-- Payload: typed `SessionEvent` union
+The command name selects the permitted argument and inferred result types. Feature code does not supply a generic result independently of the command.
+
+## Listening to events
+
+```typescript
+import { listenEvent } from "@/runtime/ipc";
+
+const stop = await listenEvent("capubridge:session-event", (event) => {
+  sessionStore.applyEvent(event);
+});
+
+stop();
+```
+
+The event map covers session, mirror, recording, local preview, and application events used by the frontend.
+
+## Effect workflows
+
+Scoped Effect code uses `invokeCommandEffect` and `listenEventEffect` from the same contract. `runtime/session.ts` provides the authoritative session service and live layer.
+
+## Errors
+
+Promise and Effect wrappers normalize failures into `IpcError` with:
+
+- Operation type
+- Command or event name
+- Stable category
+- Error code
+- Retryability
+- Safe message
+- Original cause
+
+Categories currently cover cancellation, validation, not found, permission, conflict, timeout, unavailable resources, transport, command failure, and unknown failures. Structured backend codes take precedence; message classification remains a compatibility fallback while Rust commands migrate from string errors.
+
+## Migration rule
+
+Direct imports of Tauri `invoke` and `listen` are forbidden in migrated feature code. New commands must update Rust registration, the typed contract, error behavior, call sites, and tests in the same change.

@@ -5,6 +5,17 @@ export type SessionTrackerStatus = "stopped" | "starting" | "running" | "error";
 
 export type SessionTemperature = "cold" | "warm" | "hot";
 
+export type SessionCleanupState = "active" | "shuttingDown" | "detached" | "stopped";
+
+export interface SessionHealthSnapshot {
+  queueDepth: number;
+  queueCapacity: number;
+  activeOperation: string | null;
+  lastTerminalFailure: string | null;
+  connectionAgeMs: number;
+  cleanupState: SessionCleanupState;
+}
+
 export type SessionDeviceStatus =
   | "online"
   | "offline"
@@ -31,6 +42,7 @@ export interface SessionDeviceSnapshot {
   isStale: boolean;
   lastSeenAt: number | null;
   lastUpdatedAt: number;
+  health?: SessionHealthSnapshot | null;
 }
 
 export interface SessionRegistrySnapshot {

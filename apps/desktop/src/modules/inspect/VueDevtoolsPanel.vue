@@ -16,7 +16,9 @@ async function boot() {
 
   try {
     await start();
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to start Vue DevTools bridge", error);
+  }
 }
 
 watch(

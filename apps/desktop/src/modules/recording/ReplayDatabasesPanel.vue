@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
 import { computed, ref, shallowRef, watch } from "vue";
 import { Check, ChevronDown, Database, RefreshCw, Search } from "lucide-vue-next";
+import { invokeCommand } from "@/runtime/ipc/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,11 +13,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import IDBTable from "@/modules/storage/indexeddb/IDBTable.vue";
-import IDBTableToolbar from "@/modules/storage/indexeddb/IDBTableToolbar.vue";
-import SqliteTable from "@/modules/storage/sqlite/SqliteTable.vue";
-import SqliteTableToolbar from "@/modules/storage/sqlite/SqliteTableToolbar.vue";
-import SqliteChangeDiffDialog from "@/modules/storage/sqlite/SqliteChangeDiffDialog.vue";
+import ReplayDatabaseToolbar from "./ReplayDatabaseToolbar.vue";
+import ReplayIndexedDbTable from "./ReplayIndexedDbTable.vue";
+import ReplaySqliteChangeDialog from "./ReplaySqliteChangeDialog.vue";
+import ReplaySqliteTable from "./ReplaySqliteTable.vue";
 import type {
   DatabaseCapuEvent,
   ReplayDatabaseChange,
@@ -31,10 +30,9 @@ import type {
   IndexedDBChangeSummary,
   IndexedDBRecordChangeEntry,
 } from "@/types/storageChanges.types";
-import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 import type { SqliteChangeSummary, SqliteRecordChange } from "@/types/sqliteChanges.types";
 import type { SqliteColumnInfo } from "@/types/sqlite.types";
-import type { IDBRecord, StoreInfo } from "utils";
+import type { IDBRecord } from "@capubridge/cdp-protocol";
 
 const props = defineProps<{
   events: DatabaseCapuEvent[];
@@ -54,6 +52,13 @@ interface LocalReplayStorageSource {
 type ReplayStorageSource = LocalReplayStorageSource | ReplayDatabaseSource;
 type ReplayDatabaseKind = ReplayStorageSource["kind"];
 type IndexedDBGroup = "all" | "app" | "localforage" | "dexie" | "blob" | "cache" | "sqlite";
+type ReplayDecoratedRecord = IDBRecord & {
+  __changeId?: string;
+  __changeOperation?: IndexedDBRecordChangeEntry["operation"];
+  __changeObservedAt?: string;
+  __changeDeleted?: boolean;
+  __recordChange?: IndexedDBRecordChangeEntry;
+};
 
 const selectedId = ref("");
 const selectedKind = ref<ReplayDatabaseKind>("indexedDB");
@@ -387,45 +392,6 @@ const statusText = computed(() => {
   return `Rows at ${Math.max(0, queryPositionMs.value).toLocaleString()} ms`;
 });
 
-const idbStoreInfo = computed<StoreInfo[]>(() => {
-  const source = selectedSource.value;
-  if (!source) return [];
-
-  if (source.kind === "localStorage") {
-    return [
-      {
-        name: "entries",
-        keyPath: "key",
-        autoIncrement: false,
-        recordCount: source.records.length,
-        indexCount: 0,
-        indexes: [],
-        estimatedSize: source.records.reduce(
-          (sum, record) => sum + new Blob([String(record.key), String(record.value)]).size,
-          0,
-        ),
-      },
-    ];
-  }
-
-  if (source.kind !== "indexedDB") return [];
-
-  const metadata = parseMetadata(source.metadataJson);
-  const indexes = Array.isArray(metadata.indexes) ? metadata.indexes : [];
-
-  return [
-    {
-      name: source.storeName,
-      keyPath: isKeyPath(metadata.keyPath) ? metadata.keyPath : null,
-      autoIncrement: typeof metadata.autoIncrement === "boolean" ? metadata.autoIncrement : false,
-      recordCount: recordCount.value,
-      indexCount: indexes.length,
-      indexes: indexes as StoreInfo["indexes"],
-      estimatedSize: typeof metadata.estimatedSize === "number" ? metadata.estimatedSize : 0,
-    },
-  ];
-});
-
 const sqliteDiffChange = computed(() =>
   sqliteDiffRowKey.value ? (sqliteChangesByRowKey.value.get(sqliteDiffRowKey.value) ?? null) : null,
 );
@@ -438,10 +404,6 @@ function parseMetadata(raw: string | null): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-function isKeyPath(value: unknown): value is string | string[] | null {
-  return value === null || typeof value === "string" || Array.isArray(value);
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -540,7 +502,7 @@ function decorateIdbRecord(
     __changeObservedAt: entry.observedAt,
     __changeDeleted: entry.operation === "delete",
     __recordChange: entry,
-  } satisfies IndexedDBDecoratedRecord;
+  } satisfies ReplayDecoratedRecord;
 }
 
 function idbChangeToRecord(source: ReplayDatabaseSource, change: ReplayDatabaseChange): IDBRecord {
@@ -638,7 +600,7 @@ async function loadSources() {
   databaseError.value = null;
 
   try {
-    const next = await invoke<ReplayDatabaseSource[]>("recording_database_sources", {
+    const next = await invokeCommand("recording_database_sources", {
       databasePath: props.databasePath,
     });
     replaySources.value = next.filter(
@@ -662,13 +624,10 @@ async function loadSourceChangeSummaries() {
   }
 
   try {
-    const summaries = await invoke<ReplayDatabaseSourceChangeSummary[]>(
-      "recording_database_change_summaries",
-      {
-        databasePath,
-        positionMs: normalizePositionMs(queryPositionMs.value),
-      },
-    );
+    const summaries = await invokeCommand("recording_database_change_summaries", {
+      databasePath,
+      positionMs: normalizePositionMs(queryPositionMs.value),
+    });
 
     if (request !== sourceSummaryRequest) return;
     sourceChangeSummaries.value = new Map(
@@ -686,7 +645,7 @@ async function loadIndexedDbRows(
 ) {
   const offset = page.value * pageSize.value;
   const positionMs = normalizePositionMs(queryPositionMs.value);
-  const summaryPromise = invoke<ReplayDatabaseChangeSummary>("recording_database_change_summary", {
+  const summaryPromise = invokeCommand("recording_database_change_summary", {
     databasePath,
     sourceId: source.id,
     positionMs,
@@ -694,7 +653,7 @@ async function loadIndexedDbRows(
 
   if (showChangesOnly.value) {
     const [result, summary] = await Promise.all([
-      invoke<ReplayDatabaseChangesResult>("recording_database_changed_rows", {
+      invokeCommand("recording_database_changed_rows", {
         databasePath,
         sourceId: source.id,
         positionMs,
@@ -711,7 +670,7 @@ async function loadIndexedDbRows(
     return;
   }
 
-  const result = await invoke<ReplayDatabaseRowsResult>("recording_database_table_rows", {
+  const result = await invokeCommand("recording_database_table_rows", {
     databasePath,
     sourceId: source.id,
     positionMs,
@@ -721,7 +680,7 @@ async function loadIndexedDbRows(
 
   const keyJsons = result.rows.map((row) => row.keyJson);
   const [changes, summary] = await Promise.all([
-    invoke<ReplayDatabaseChange[]>("recording_database_changes_for_keys", {
+    invokeCommand("recording_database_changes_for_keys", {
       databasePath,
       sourceId: source.id,
       positionMs,
@@ -750,7 +709,7 @@ async function loadIndexedDbRows(
 async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string, request: number) {
   const offset = page.value * pageSize.value;
   const positionMs = normalizePositionMs(queryPositionMs.value);
-  const summaryPromise = invoke<ReplayDatabaseChangeSummary>("recording_database_change_summary", {
+  const summaryPromise = invokeCommand("recording_database_change_summary", {
     databasePath,
     sourceId: source.id,
     positionMs,
@@ -758,7 +717,7 @@ async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string
 
   if (showChangesOnly.value) {
     const [result, summary] = await Promise.all([
-      invoke<ReplayDatabaseChangesResult>("recording_database_changed_rows", {
+      invokeCommand("recording_database_changed_rows", {
         databasePath,
         sourceId: source.id,
         positionMs,
@@ -788,7 +747,7 @@ async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string
     return;
   }
 
-  const result = await invoke<ReplayDatabaseRowsResult>("recording_database_table_rows", {
+  const result = await invokeCommand("recording_database_table_rows", {
     databasePath,
     sourceId: source.id,
     positionMs,
@@ -801,7 +760,7 @@ async function loadSqliteRows(source: ReplayDatabaseSource, databasePath: string
     .filter((record): record is Record<string, unknown> => !!record);
   const keyJsons = result.rows.map((row) => row.keyJson);
   const [changes, summary] = await Promise.all([
-    invoke<ReplayDatabaseChange[]>("recording_database_changes_for_keys", {
+    invokeCommand("recording_database_changes_for_keys", {
       databasePath,
       sourceId: source.id,
       positionMs,
@@ -851,8 +810,6 @@ async function loadRows() {
   }
 }
 
-function noop(..._args: unknown[]) {}
-
 function prevPage() {
   if (page.value > 0) page.value -= 1;
 }
@@ -883,55 +840,6 @@ function closeSqliteDiff() {
 async function refresh() {
   await Promise.all([loadSources(), loadSourceChangeSummaries()]);
   await loadRows();
-}
-
-async function fetchIdbRecord(index: number): Promise<IDBRecord | null> {
-  const source = selectedSource.value;
-  const databasePath = props.databasePath;
-
-  if (!source) return null;
-  if (source.kind === "localStorage") return source.records[index] ?? null;
-  if (source.kind !== "indexedDB" || !databasePath) return null;
-
-  if (showChangesOnly.value) {
-    const positionMs = normalizePositionMs(queryPositionMs.value);
-    const result = await invoke<ReplayDatabaseChangesResult>("recording_database_changed_rows", {
-      databasePath,
-      sourceId: source.id,
-      positionMs,
-      offset: index,
-      limit: 1,
-    });
-    const change = result.changes[0];
-    return change ? idbChangeToRecord(source, change) : null;
-  }
-
-  const positionMs = normalizePositionMs(queryPositionMs.value);
-  const rowResult = await invoke<ReplayDatabaseRowsResult>("recording_database_table_rows", {
-    databasePath,
-    sourceId: source.id,
-    positionMs,
-    offset: index,
-    limit: 1,
-  });
-  const row = rowResult.rows[0];
-  if (!row) return null;
-
-  const changes = await invoke<ReplayDatabaseChange[]>("recording_database_changes_for_keys", {
-    databasePath,
-    sourceId: source.id,
-    positionMs,
-    keyJsons: [row.keyJson],
-  });
-
-  return decorateIdbRecord(
-    {
-      key: parseJson(row.keyJson) as IDBValidKey,
-      value: parseJson(row.valueJson),
-    },
-    source,
-    changes[0],
-  );
 }
 
 watch(
@@ -1146,9 +1054,9 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
       </div>
       <div v-else class="flex h-full flex-col overflow-hidden">
         <template v-if="isReplaySqliteSource">
-          <SqliteTableToolbar
+          <ReplayDatabaseToolbar
             :table-name="activeStoreName"
-            :db-name="activeDatabaseName"
+            :database-name="activeDatabaseName"
             :is-loading="isLoadingRows"
             :page="page"
             :page-size="pageSize"
@@ -1156,12 +1064,10 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
             :record-count="recordCount"
             :change-summary="sqliteChangeSummary"
             :show-changes-only="showChangesOnly"
-            :show-live-control="false"
             @refresh="refresh"
-            @prev="prevPage"
+            @previous="prevPage"
             @next="nextPage"
             @page-size-change="handlePageSizeChange"
-            @toggle-live="noop"
             @toggle-changes-only="toggleChangesOnly"
           />
           <div
@@ -1173,28 +1079,20 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
               databaseError
             }}</span>
           </div>
-          <SqliteTable
+          <ReplaySqliteTable
             :columns="sqliteColumns"
             :rows="sqliteRows"
             :is-loading="isLoadingRows"
-            :table-name="activeStoreName"
-            :db-name="activeDatabaseName"
-            :column-info="sqliteColumnInfo"
             :changes-by-row-key="sqliteChangesByRowKey"
-            :show-changes-only="showChangesOnly"
             :row-key-resolver="sqliteRowKey"
-            read-only
-            @refresh="refresh"
-            @record-edit="noop"
-            @record-delete="noop"
             @open-row-diff="openSqliteRowDiff"
           />
         </template>
 
         <template v-else>
-          <IDBTableToolbar
-            :store-name="activeStoreName"
-            :db-name="activeDatabaseName"
+          <ReplayDatabaseToolbar
+            :table-name="activeStoreName"
+            :database-name="activeDatabaseName"
             :is-loading="isLoadingRows"
             :page="page"
             :page-size="pageSize"
@@ -1203,7 +1101,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
             :change-summary="isIndexedDBSource ? activeIdbChangeSummary : undefined"
             :show-changes-only="showChangesOnly"
             @refresh="refresh"
-            @prev="prevPage"
+            @previous="prevPage"
             @next="nextPage"
             @page-size-change="handlePageSizeChange"
             @toggle-changes-only="toggleChangesOnly"
@@ -1217,26 +1115,12 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
               databaseError
             }}</span>
           </div>
-          <IDBTable
-            :records="idbTableRecords"
-            :is-loading="isLoadingRows"
-            :store-name="activeStoreName"
-            :db-name="activeDatabaseName"
-            :total-records="recordCount"
-            :store-info="idbStoreInfo"
-            :fetch-record="fetchIdbRecord"
-            :show-changes-only="showChangesOnly"
-            read-only
-            @refresh="refresh"
-            @record-edit="noop"
-            @record-delete="noop"
-            @record-delete-bulk="noop"
-          />
+          <ReplayIndexedDbTable :records="idbTableRecords" :is-loading="isLoadingRows" />
         </template>
       </div>
     </main>
 
-    <SqliteChangeDiffDialog
+    <ReplaySqliteChangeDialog
       :open="!!sqliteDiffChange"
       :change="sqliteDiffChange"
       @update:open="(value) => (value ? null : closeSqliteDiff())"

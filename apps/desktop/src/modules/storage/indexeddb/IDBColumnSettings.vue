@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { IDBRecord, StoreInfo } from "utils";
+import type { IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
 
 const props = defineProps<{
   table: Table<IDBRecord>;

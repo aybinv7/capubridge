@@ -28,7 +28,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useLocalForage } from "@/composables/useLocalForage";
-import JsonEditor from "../localstorage/JsonEditor.vue";
+import JsonEditor from "@/shared/components/data/JsonEditor.vue";
+import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ const showExpandedDialog = ref(false);
 const copiedRaw = ref(false);
 const dialogEntryIdx = ref(-1);
 const jsonEditorRef = ref<InstanceType<typeof JsonEditor> | null>(null);
+const tableScrollEl = ref<HTMLElement | null>(null);
 
 const isCreate = ref(false);
 const editKey = ref("");
@@ -84,7 +86,7 @@ function inferType(raw: string): ValueType {
       JSON.parse(v);
       return "json";
     } catch {
-      /* fall through */
+      return "string";
     }
   }
   return "string";
@@ -157,6 +159,12 @@ const filtered = computed(() => {
     (e) => e.key.toLowerCase().includes(q) || e.value.toLowerCase().includes(q),
   );
 });
+
+const {
+  items: virtualEntries,
+  topSpacerHeight,
+  bottomSpacerHeight,
+} = useFixedVirtualList(filtered, tableScrollEl, { itemHeight: 41, overscan: 10 });
 
 const dialogEntry = computed(() =>
   dialogEntryIdx.value >= 0 ? filtered.value[dialogEntryIdx.value] : null,
@@ -262,8 +270,8 @@ async function saveEdit() {
   if (originalType.value === "json" || (isCreate.value && inferType(editValue.value) === "json")) {
     try {
       editValue.value = JSON.stringify(JSON.parse(editValue.value), null, 2);
-    } catch {
-      /* save raw */
+    } catch (error) {
+      console.warn("LocalForage value is not valid JSON; preserving raw input", error);
     }
   }
   editSaving.value = true;
@@ -405,7 +413,7 @@ watch(origins, (newOrigins) => {
               </Button>
             </div>
 
-            <div class="flex-1 overflow-auto">
+            <div ref="tableScrollEl" class="flex-1 overflow-auto">
               <div v-if="isLoadingEntries" class="flex items-center justify-center py-8">
                 <RefreshCw :size="14" class="animate-spin text-muted-foreground/40" />
               </div>
@@ -431,8 +439,11 @@ watch(origins, (newOrigins) => {
                   </tr>
                 </thead>
                 <tbody>
+                  <tr v-if="topSpacerHeight > 0" aria-hidden="true">
+                    <td :colspan="4" :style="{ height: `${topSpacerHeight}px` }" />
+                  </tr>
                   <tr
-                    v-for="(entry, idx) in filtered"
+                    v-for="{ data: entry, index: idx } in virtualEntries"
                     :key="entry.key"
                     class="border-b border-border/20 cursor-pointer transition-colors data-row group"
                     @dblclick="openDialog(idx)"
@@ -488,6 +499,9 @@ watch(origins, (newOrigins) => {
                         </Button>
                       </div>
                     </td>
+                  </tr>
+                  <tr v-if="bottomSpacerHeight > 0" aria-hidden="true">
+                    <td :colspan="4" :style="{ height: `${bottomSpacerHeight}px` }" />
                   </tr>
                 </tbody>
               </table>

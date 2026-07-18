@@ -1,5 +1,5 @@
-import { LocalStorageDomain } from "utils";
-import type { CDPClient } from "utils";
+import { LocalStorageDomain } from "@capubridge/cdp-protocol";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { useSessionWriter } from "./useSessionWriter";
 
 type SessionWriter = ReturnType<typeof useSessionWriter>;

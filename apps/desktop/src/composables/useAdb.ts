@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invokeCommand } from "@/runtime/ipc/client";
 import {
   cancelListPackagesEffect,
   getDeviceInfoEffect,
@@ -43,7 +43,7 @@ export interface DeviceOverview {
 
 export function useAdb() {
   async function refreshDevices(): Promise<ADBDevice[]> {
-    return await invoke<ADBDevice[]>("adb_list_devices");
+    return await invokeCommand("adb_list_devices");
   }
 
   async function getDeviceOverview(
@@ -90,15 +90,15 @@ export function useAdb() {
   }
 
   async function connectDevice(host: string, port: number) {
-    await invoke("adb_connect_device", { host, port });
+    await invokeCommand("adb_connect_device", { host, port });
   }
 
   async function disconnectDevice(host: string, port: number) {
-    await invoke("adb_disconnect_device", { host, port });
+    await invokeCommand("adb_disconnect_device", { host, port });
   }
 
   async function pairDevice(host: string, port: number, code: string) {
-    await invoke("adb_pair_device", { host, port, code });
+    await invokeCommand("adb_pair_device", { host, port, code });
   }
 
   async function tcpip(serial: string, port = 5555) {
@@ -120,7 +120,7 @@ export function useAdb() {
   }
 
   async function restartServer() {
-    await invoke<string>("adb_restart_server");
+    await invokeCommand("adb_restart_server");
   }
 
   async function listPackages(
@@ -148,7 +148,7 @@ export function useAdb() {
     serial: string,
     packageName: string,
   ): Promise<AdbPackageDetails> {
-    return invoke<AdbPackageDetails>("adb_get_package_details", { serial, packageName });
+    return invokeCommand("adb_get_package_details", { serial, packageName });
   }
 
   async function openPackage(serial: string, packageName: string): Promise<string> {
@@ -167,8 +167,9 @@ export function useAdb() {
     });
   }
 
-  async function forward(serial: string, local: string, _remote: string) {
-    await invoke("adb_forward_cdp", { serial, localPort: parseInt(local.replace("tcp:", ""), 10) });
+  async function forward(serial: string, _local: string, remote: string) {
+    const socketName = remote.replace(/^localabstract:/, "") || undefined;
+    await invokeCommand("adb_forward_cdp", { serial, socketName });
   }
 
   async function reverse(serial: string, remotePort: number, localPort: number): Promise<void> {

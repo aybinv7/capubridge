@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { IDBRecord, StoreInfo } from "utils";
+import type { IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
 import { toast } from "vue-sonner";
 import { useAdvancedFilters, type AdvancedFilter } from "./useAdvancedFilters";
 import { useIDBTableExport } from "./useIDBTableExport";

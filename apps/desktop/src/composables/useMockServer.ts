@@ -1,11 +1,10 @@
 import { computed, onUnmounted, watch } from "vue";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { invokeCommand, listenEvent } from "@/runtime/ipc";
 import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useMockStore } from "@/modules/network/stores/useMockStore";
-import { FetchDomain } from "utils";
-import type { RequestPausedEvent } from "utils";
+import { FetchDomain } from "@capubridge/cdp-protocol";
+import type { RequestPausedEvent } from "@capubridge/cdp-protocol";
 import type { MockLogEntry } from "@/types/mock.types";
 
 function toBase64(str: string): string {
@@ -52,7 +51,9 @@ export function useMockServer() {
       unsubPaused = null;
     }
     if (fetchDomain) {
-      await fetchDomain.disable().catch(() => {});
+      await fetchDomain.disable().catch((error) => {
+        console.warn("Failed to disable CDP request interception", error);
+      });
       fetchDomain = null;
     }
   }
@@ -77,7 +78,9 @@ export function useMockServer() {
     store.addLogEntry(logEntry);
 
     if (!matched || matched.passThrough) {
-      await fetchDomain?.continueRequest({ requestId: e.requestId }).catch(() => {});
+      await fetchDomain?.continueRequest({ requestId: e.requestId }).catch((error) => {
+        console.warn("Failed to continue intercepted request", e.requestId, error);
+      });
       return;
     }
 
@@ -99,24 +102,20 @@ export function useMockServer() {
         responseHeaders: headers,
         body: matched.responseBody ? toBase64(matched.responseBody) : undefined,
       })
-      .catch(() => {
-        void fetchDomain?.continueRequest({ requestId: e.requestId }).catch(() => {});
+      .catch((fulfillError) => {
+        console.warn("Failed to fulfill mocked request; continuing original request", fulfillError);
+        void fetchDomain?.continueRequest({ requestId: e.requestId }).catch((continueError) => {
+          console.warn("Failed to recover intercepted request", e.requestId, continueError);
+        });
       });
   }
 
   async function startHTTP() {
     await stopHTTP();
     try {
-      await invoke("mock_server_start", { port: store.httpPort });
+      await invokeCommand("mock_server_start", { port: store.httpPort });
       store.httpServerRunning = true;
-      unsubHttpEvent = await listen<{
-        ruleId: string;
-        method: string;
-        url: string;
-        statusCode: number;
-        timestamp: number;
-      }>("mock-server-request", (event) => {
-        const d = event.payload;
+      unsubHttpEvent = await listenEvent("mock-server-request", (d) => {
         const matched = store.rules.find((r) => r.id === d.ruleId) ?? null;
         store.addLogEntry({
           id: crypto.randomUUID(),
@@ -133,8 +132,9 @@ export function useMockServer() {
         });
         if (matched) store.incrementHitCount(matched.id);
       });
-    } catch {
+    } catch (error) {
       store.httpServerRunning = false;
+      console.error("Failed to start HTTP mock server", error);
     }
   }
 
@@ -144,9 +144,9 @@ export function useMockServer() {
       unsubHttpEvent = null;
     }
     try {
-      await invoke("mock_server_stop");
-    } catch {
-      // ignore
+      await invokeCommand("mock_server_stop");
+    } catch (error) {
+      console.warn("Failed to stop HTTP mock server", error);
     }
     store.httpServerRunning = false;
   }
@@ -154,20 +154,20 @@ export function useMockServer() {
   async function syncHTTPRules() {
     if (!store.httpServerRunning) return;
     try {
-      await invoke("mock_server_sync_rules", {
+      await invokeCommand("mock_server_sync_rules", {
         rules: store.activeRules.map((r) => ({
           id: r.id,
           method: r.method,
           url_pattern: r.urlPattern,
           url_match_type: r.urlMatchType,
           status_code: r.statusCode,
-          response_headers: r.responseHeaders.map((h) => [h.name, h.value]),
+          response_headers: r.responseHeaders.map((h): [string, string] => [h.name, h.value]),
           response_body: r.responseBody,
           delay_ms: r.delayMs,
         })),
       });
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error("Failed to synchronize HTTP mock rules", error);
     }
   }
 

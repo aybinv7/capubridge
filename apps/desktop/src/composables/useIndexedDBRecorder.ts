@@ -1,6 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { IDBDomain } from "utils";
-import type { CDPClient, IDBDatabaseInfo, IDBRecord, StoreInfo } from "utils";
+import { IDBDomain } from "@capubridge/cdp-protocol";
+import type { CDPClient, IDBDatabaseInfo, IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
 
 type SnapshotReason = "initial" | "change" | "final";
 
@@ -333,7 +332,7 @@ export function useIndexedDBRecorder(client: CDPClient, sessionId: string, start
       .toString(36)
       .slice(2, 8)}`;
 
-    await invoke<void>("recording_database_snapshot_begin", {
+    await invokeCommand("recording_database_snapshot_begin", {
       sessionId,
       source,
       snapshotId,
@@ -353,7 +352,7 @@ export function useIndexedDBRecorder(client: CDPClient, sessionId: string, start
         valueJson: safeJson(record.value),
       }));
 
-      await invoke<void>("recording_database_snapshot_page", {
+      await invokeCommand("recording_database_snapshot_page", {
         sessionId,
         snapshotId,
         sourceId: source.id,
@@ -365,7 +364,7 @@ export function useIndexedDBRecorder(client: CDPClient, sessionId: string, start
       if (!page.hasMore || page.records.length === 0) break;
     }
 
-    await invoke<void>("recording_database_snapshot_finish", {
+    await invokeCommand("recording_database_snapshot_finish", {
       sessionId,
       snapshotId,
       sourceId: source.id,
@@ -378,7 +377,9 @@ export function useIndexedDBRecorder(client: CDPClient, sessionId: string, start
     const key = source.id;
     const previous = sourceRuns.get(key) ?? Promise.resolve();
     const next = previous
-      .catch(() => undefined)
+      .catch((error) => {
+        console.warn("[indexeddb-recorder] previous snapshot failed", source.label, error);
+      })
       .then(async () => {
         if (!active && reason !== "final") return;
         await writeSnapshot(source, reason);
@@ -512,3 +513,4 @@ export function useIndexedDBRecorder(client: CDPClient, sessionId: string, start
 
   return { start, stop };
 }
+import { invokeCommand } from "@/runtime/ipc/client";

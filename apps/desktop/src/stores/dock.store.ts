@@ -52,7 +52,7 @@ function readPersistedDockState(): PersistedDockState | null {
       : [];
 
     return {
-      activeTab: normalizePersistedTab(parsed.activeTab) ?? "assistant",
+      activeTab: normalizePersistedTab(parsed.activeTab) ?? "logcat",
       heightPx: clampHeight(
         typeof parsed.heightPx === "number" ? parsed.heightPx : dockDefaultHeight,
       ),
@@ -68,11 +68,10 @@ export const useDockStore = defineStore("dock", () => {
   const persistedState = readPersistedDockState();
 
   const isOpen = ref(persistedState?.isOpen ?? false);
-  const activeTab = ref<DockTab>(persistedState?.activeTab ?? "assistant");
+  const activeTab = ref<DockTab>(persistedState?.activeTab ?? "logcat");
   const heightPx = ref(clampHeight(persistedState?.heightPx ?? dockDefaultHeight));
   const isFocused = ref(false);
   const unreadByTab = ref<Record<DockTab, boolean>>({
-    assistant: false,
     logcat: false,
     repl: false,
     console: false,
@@ -91,7 +90,7 @@ export const useDockStore = defineStore("dock", () => {
       return activeTab.value;
     }
 
-    return visibleTabs.value[0] ?? "assistant";
+    return visibleTabs.value[0] ?? "logcat";
   }
 
   function persistState() {

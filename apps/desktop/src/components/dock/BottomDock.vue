@@ -25,7 +25,7 @@ const currentTab = computed(() => {
     return activeTab.value;
   }
 
-  return visibleTabs.value[0] ?? "assistant";
+  return visibleTabs.value[0] ?? "logcat";
 });
 
 function focusDock() {

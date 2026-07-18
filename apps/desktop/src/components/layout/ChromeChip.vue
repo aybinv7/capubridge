@@ -77,7 +77,9 @@ async function handleDisconnect() {
 }
 
 onMounted(() => {
-  tryAutoConnect().catch(() => {});
+  tryAutoConnect().catch((error) => {
+    console.warn("Failed to auto-connect Chrome", error);
+  });
 });
 </script>
 

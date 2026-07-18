@@ -5,7 +5,7 @@ import { useConnectionStore } from "@/stores/connection.store";
 import { useSourceStore } from "@/stores/source.store";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { ConnectionSource } from "@/types/connection.types";
-import { CDPClient } from "utils";
+import { CDPClient } from "@capubridge/cdp-protocol";
 
 export function useCDP() {
   const devicesStore = useDevicesStore();

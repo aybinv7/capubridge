@@ -35,6 +35,5 @@ vp run ready
 ## ADB bundle
 
 ```bash
-# In apps/desktop/package.json
-pnpm run bundle:adb  # Downloads platform-tools
+vp run desktop#bundle:adb
 ```

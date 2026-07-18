@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import JsonEditor from "@/modules/storage/localstorage/JsonEditor.vue";
+import JsonEditor from "@/shared/components/data/JsonEditor.vue";
 
 type DiffKind = "same" | "add" | "remove" | "change" | "empty";
 

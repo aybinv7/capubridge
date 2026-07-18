@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import type { Table } from "@tanstack/vue-table";
-import type { IDBRecord, StoreInfo } from "utils";
+import type { IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
 import type { AdvancedFilter, FilterOperator } from "./useAdvancedFilters";
 import { OPERATORS } from "./useAdvancedFilters";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

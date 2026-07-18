@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { TrackName } from "@/types/replay.types";
+import { invokeCommand } from "@/runtime/ipc/client";
 
 interface BufferedEvent {
   t: number;
@@ -16,6 +16,7 @@ export function useSessionWriter(sessionId: string, startedAt: number, flushInte
   };
 
   let intervalId: ReturnType<typeof setInterval> | null = null;
+  let flushQueue: Promise<void> = Promise.resolve();
 
   function push(track: TrackName, data: unknown) {
     pushAt(track, data, Date.now());
@@ -34,28 +35,44 @@ export function useSessionWriter(sessionId: string, startedAt: number, flushInte
     return events.map((e) => JSON.stringify(e)).join("\n") + "\n";
   }
 
-  async function flush() {
+  async function flushBuffers() {
     const tracks = Object.entries(buffers) as [TrackName, BufferedEvent[]][];
+    const failures: string[] = [];
     for (const [track, events] of tracks) {
       if (events.length === 0) continue;
       const batch = events.splice(0);
       const ndjson = batch.map((e) => JSON.stringify(e)).join("\n") + "\n";
       try {
-        await invoke<void>("recording_session_append", {
+        await invokeCommand("recording_session_append", {
           sessionId,
           track,
           ndjsonBatch: ndjson,
         });
       } catch (err) {
         events.unshift(...batch);
-        console.error(`[SessionWriter] flush failed for track ${track}:`, err);
+        failures.push(`${track}: ${String(err)}`);
       }
     }
+    if (failures.length > 0) {
+      throw new Error(`Recording flush failed (${failures.join("; ")})`);
+    }
+  }
+
+  function flush() {
+    const pending = flushQueue.then(flushBuffers);
+    flushQueue = pending.catch((error) => {
+      console.error("[SessionWriter] flush failed", error);
+    });
+    return pending;
   }
 
   function start() {
     if (intervalId !== null) return;
-    intervalId = setInterval(flush, flushIntervalMs);
+    intervalId = setInterval(() => {
+      void flush().catch((error) => {
+        console.error("[SessionWriter] scheduled flush failed", error);
+      });
+    }, flushIntervalMs);
   }
 
   async function stop() {
@@ -64,6 +81,9 @@ export function useSessionWriter(sessionId: string, startedAt: number, flushInte
       intervalId = null;
     }
     await flush();
+    if (bufferSize() > 0) {
+      throw new Error(`Recording stopped with ${bufferSize()} buffered events`);
+    }
   }
 
   return { push, pushAt, flush, start, stop, bufferSize, drainAsNdjson };

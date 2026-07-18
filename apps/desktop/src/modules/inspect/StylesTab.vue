@@ -2,7 +2,7 @@
 import { ref, computed } from "vue";
 import { Search } from "lucide-vue-next";
 import { storeToRefs } from "pinia";
-import type { MatchedStyles, CSSProperty, CSSRule, SourceRange } from "utils";
+import type { MatchedStyles, CSSProperty, CSSRule, SourceRange } from "@capubridge/cdp-protocol";
 import { useInspectStore } from "@/stores/inspect.store";
 import StyleRuleBlock from "./StyleRuleBlock.vue";
 import { useElementMutations } from "./useElementMutations";

@@ -1,40 +1,21 @@
-# Keyboard Shortcuts
+# Keyboard shortcuts
 
-Customize keyboard shortcuts in **Settings → Shortcuts**.
+Settings lists shortcuts currently registered by the application. Shortcut customization is not shipped.
 
-## Default shortcuts
+## Application
 
-### Navigation
+| Action               | Windows and Linux | macOS       |
+| -------------------- | ----------------- | ----------- |
+| Open command palette | `Ctrl+K`          | `Command+K` |
+| Toggle bottom dock   | `Ctrl+J`          | `Command+J` |
+| Toggle sidebar       | `Ctrl+B`          | `Command+B` |
 
-| Action               | Windows | macOS |
-| -------------------- | ------- | ----- |
-| Toggle sidebar       | `⌘B`    | `⌘B`  |
-| Open command palette | `⌘K`    | `⌘K`  |
-| Toggle dock          | `⌘J`    | `⌘J`  |
+## Focused dock
 
-### Device
+| Action                       | Shortcut                  |
+| ---------------------------- | ------------------------- |
+| Select dock tabs             | `Ctrl+1` through `Ctrl+4` |
+| Resize dock                  | `Ctrl+Up` or `Ctrl+Down`  |
+| Return focus to main content | `Escape`                  |
 
-| Action              | Windows | macOS |
-| ------------------- | ------- | ----- |
-| Open device manager | `⌘D`    | `⌘D`  |
-| Refresh targets     | `⌘R`    | `⌘R`  |
-| Refresh packages    | `⌘⇧R`   | `⌘⇧R` |
-
-### Module actions
-
-| Action              | Windows | macOS |
-| ------------------- | ------- | ----- |
-| Search              | `⌘F`    | `⌘F`  |
-| Export              | `⌘E`    | `⌘E`  |
-| Toggle filter panel | `⌘⇧F`   | `⌘⇧F` |
-
-## Customizing shortcuts
-
-1. Go to **Settings → Shortcuts**
-2. Click the shortcut you want to change
-3. Press the new key combination
-4. Press `Enter` to save
-
-## Reset to defaults
-
-Click **Reset to defaults** to restore all default shortcuts.
+Individual editors and tables may expose contextual shortcuts while focused. Those shortcuts do not register global application actions.

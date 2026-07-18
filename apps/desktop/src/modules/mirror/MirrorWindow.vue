@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { toast } from "vue-sonner";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import type { ADBDevice } from "@/types/adb.types";
+import { listenEvent } from "@/runtime/ipc/client";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
 import {
   getDetachedMirrorLayoutMetrics,
@@ -46,6 +48,7 @@ const streamAreaRef = ref<HTMLElement | null>(null);
 const streamAreaSize = ref({ width: 0, height: 0 });
 let appWindow: any = null;
 let unlistenInspectMode: (() => void) | null = null;
+let unlistenWindowResize: (() => void) | null = null;
 let streamAreaObserver: ResizeObserver | null = null;
 
 const deviceLabel = computed(() => {
@@ -133,19 +136,24 @@ function pickStartupDevice(devices: ADBDevice[]) {
 async function bootstrapRuntime() {
   try {
     await devicesStore.refreshDevices();
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to refresh devices in detached mirror", error);
+  }
 
   const startupDevice = devicesStore.selectedDevice ?? pickStartupDevice(devicesStore.devices);
   if (startupDevice && devicesStore.selectedDevice?.serial !== startupDevice.serial) {
-    await devicesStore.selectDevice(startupDevice).catch(() => null);
+    await devicesStore.selectDevice(startupDevice).catch((error) => {
+      console.warn("Failed to restore detached mirror device", error);
+    });
   }
 }
 
 async function syncWindowChromeState() {
   try {
     isWindowMaximized.value = (await appWindow?.isMaximized()) ?? false;
-  } catch {
+  } catch (error) {
     isWindowMaximized.value = false;
+    console.warn("Failed to read detached mirror window state", error);
   }
 }
 
@@ -157,7 +165,10 @@ async function setImmersiveMode(nextValue: boolean) {
 
   try {
     await appWindow?.setFullscreen(nextValue);
-  } catch {}
+  } catch (error) {
+    immersiveMode.value = !nextValue;
+    toast.error("Failed to change fullscreen mode", { description: String(error) });
+  }
 }
 
 async function syncDetachedWindowSize() {
@@ -169,7 +180,9 @@ async function syncDetachedWindowSize() {
     const width = detachedLayoutMetrics.value.windowWidth;
     const height = detachedLayoutMetrics.value.windowHeight;
     await appWindow.setSize(new LogicalSize(width, height));
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to resize detached mirror window", error);
+  }
 }
 
 function handleWindowKeydown(event: KeyboardEvent) {
@@ -188,21 +201,19 @@ onMounted(async () => {
     if (mirrorStore.alwaysOnTop) {
       await appWindow.setAlwaysOnTop(true);
     }
-    appWindow.onResized(() => {
+    unlistenWindowResize = await appWindow.onResized(() => {
       void syncWindowChromeState();
     });
 
-    const { listen } = await import("@tauri-apps/api/event");
-    unlistenInspectMode = await listen<{ enabled: boolean }>(
-      "capubridge:set-inspect-mode",
-      (event) => {
-        inspectStore.inspectMode = event.payload.enabled;
-        if (!event.payload.enabled) {
-          inspectStore.clearMirrorHoverPoint();
-        }
-      },
-    );
-  } catch {}
+    unlistenInspectMode = await listenEvent("capubridge:set-inspect-mode", (payload) => {
+      inspectStore.inspectMode = payload.enabled;
+      if (!payload.enabled) {
+        inspectStore.clearMirrorHoverPoint();
+      }
+    });
+  } catch (error) {
+    console.error("Failed to initialize detached mirror window", error);
+  }
 
   syncStreamAreaSize();
   if (typeof ResizeObserver !== "undefined") {
@@ -230,6 +241,10 @@ onUnmounted(() => {
   if (unlistenInspectMode) {
     unlistenInspectMode();
     unlistenInspectMode = null;
+  }
+  if (unlistenWindowResize) {
+    unlistenWindowResize();
+    unlistenWindowResize = null;
   }
   if (immersiveMode.value) {
     void setImmersiveMode(false);
@@ -286,7 +301,8 @@ watch(
   (next, prev) => {
     if (next === prev) return;
     if (mirrorStore.isDetached && mirrorStore.isStreaming && !isAndroidStream.value) {
-      void applyChromeViewportMode().catch(() => {
+      void applyChromeViewportMode().catch((error) => {
+        console.warn("Failed to update detached Chrome viewport; restarting stream", error);
         void stopStream().then(() => startStream());
       });
     }
@@ -301,13 +317,17 @@ async function handleClose() {
   mirrorStore.close();
   try {
     await appWindow?.close();
-  } catch {}
+  } catch (error) {
+    toast.error("Failed to close mirror window", { description: String(error) });
+  }
 }
 
 async function handleMinimize() {
   try {
     await appWindow?.minimize();
-  } catch {}
+  } catch (error) {
+    toast.error("Failed to minimize mirror window", { description: String(error) });
+  }
 }
 
 async function handleMaximize() {
@@ -316,14 +336,20 @@ async function handleMaximize() {
     if (isMax) await appWindow?.unmaximize();
     else await appWindow?.maximize();
     await syncWindowChromeState();
-  } catch {}
+  } catch (error) {
+    toast.error("Failed to resize mirror window", { description: String(error) });
+  }
 }
 
 async function handleToggleAlwaysOnTop() {
-  mirrorStore.alwaysOnTop = !mirrorStore.alwaysOnTop;
+  const previous = mirrorStore.alwaysOnTop;
+  mirrorStore.alwaysOnTop = !previous;
   try {
     await appWindow?.setAlwaysOnTop(mirrorStore.alwaysOnTop);
-  } catch {}
+  } catch (error) {
+    mirrorStore.alwaysOnTop = previous;
+    toast.error("Failed to change always-on-top mode", { description: String(error) });
+  }
 }
 
 async function emitInspectEventToMain(event: string, payload?: { x: number; y: number }) {
@@ -333,7 +359,9 @@ async function emitInspectEventToMain(event: string, payload?: { x: number; y: n
     if (!mainWindow) return;
     if (payload) await mainWindow.emit(event, payload);
     else await mainWindow.emit(event);
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to forward inspect event to main window", event, error);
+  }
 }
 
 function handleInspectHover(x: number, y: number) {

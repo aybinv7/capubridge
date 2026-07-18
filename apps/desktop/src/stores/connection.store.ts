@@ -1,8 +1,8 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { invoke } from "@tauri-apps/api/core";
 import type { CDPTarget, CDPConnection } from "@/types/cdp.types";
-import { CDPClient } from "utils";
+import { CDPClient } from "@capubridge/cdp-protocol";
+import { invokeCommand } from "@/runtime/ipc/client";
 
 export const useConnectionStore = defineStore("connection", () => {
   const connections = ref<Map<string, CDPConnection>>(new Map());
@@ -73,7 +73,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
         let wsUrl = target.webSocketDebuggerUrl;
         if (target.source === "adb") {
-          const proxy = await invoke<{ wsUrl: string; localPort: number }>("cdp_start_proxy", {
+          const proxy = await invokeCommand("cdp_start_proxy", {
             wsUrl: target.webSocketDebuggerUrl,
           });
           wsUrl = proxy.wsUrl;
@@ -149,7 +149,7 @@ export const useConnectionStore = defineStore("connection", () => {
     const wsUrl = targetToWsUrl.get(targetId);
     if (wsUrl) {
       try {
-        await invoke("cdp_stop_proxy", { wsUrl });
+        await invokeCommand("cdp_stop_proxy", { wsUrl });
         logConnection("disconnect:proxy-stopped", { targetId, wsUrl });
       } catch (e) {
         console.warn("[connection] Failed to stop proxy:", e);

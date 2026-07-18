@@ -238,7 +238,8 @@ watch(
       mirrorStore.isStreaming &&
       !androidMode.value
     ) {
-      void applyChromeViewportMode().catch(() => {
+      void applyChromeViewportMode().catch((error) => {
+        console.warn("Failed to update Chrome mirror viewport; restarting stream", error);
         void stopStream().then(() => startStream());
       });
     }
@@ -280,16 +281,26 @@ async function handleDetach() {
       alwaysOnTop: mirrorStore.alwaysOnTop,
     });
 
-    win.once("tauri://destroyed", () => {
-      mirrorStore.isDetached = false;
-      if (mirrorStore.isOpen) void startStream();
-    });
+    void win
+      .once("tauri://destroyed", () => {
+        mirrorStore.isDetached = false;
+        if (mirrorStore.isOpen) void startStream();
+      })
+      .catch((error) => {
+        console.warn("Failed to subscribe to detached mirror close event", error);
+      });
 
-    win.once("tauri://error", () => {
-      mirrorStore.isDetached = false;
-      toast.error("Failed to open mirror window");
-      void startStream();
-    });
+    void win
+      .once("tauri://error", () => {
+        mirrorStore.isDetached = false;
+        toast.error("Failed to open mirror window");
+        void startStream();
+      })
+      .catch((error) => {
+        mirrorStore.isDetached = false;
+        toast.error("Failed to monitor mirror window startup", { description: String(error) });
+        void startStream();
+      });
   } catch (e) {
     mirrorStore.isDetached = false;
     toast.error("Failed to detach mirror", { description: String(e) });
@@ -308,7 +319,9 @@ async function handleMaximize() {
     const isMax = await win.isMaximized();
     if (isMax) win.unmaximize();
     else win.maximize();
-  } catch {}
+  } catch (error) {
+    toast.error("Failed to resize mirror window", { description: String(error) });
+  }
 }
 
 function handleInspectHover(x: number, y: number) {

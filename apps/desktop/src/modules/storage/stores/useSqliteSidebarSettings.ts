@@ -24,8 +24,8 @@ function load(): SqliteSidebarSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch {
-    /* ignore parse errors */
+  } catch (error) {
+    console.warn("Failed to restore SQLite sidebar settings", error);
   }
   return {
     pinnedDbs: [],

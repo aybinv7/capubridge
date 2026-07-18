@@ -52,11 +52,11 @@ capubridge/
 │   ├── docs/           # VitePress documentation app
 │   └── website2/       # Marketing/docs website (Vite)
 ├── packages/
-│   └── utils/          # Shared TypeScript utilities (imported as "utils" workspace dep)
+│   └── cdp-protocol/   # Typed CDP client and domain adapters
 └── vite.config.ts      # Root Vite+ config (fmt, lint, staged hooks)
 ```
 
-The `desktop` app imports `utils` as `import { ... } from "utils"` via workspace.
+The `desktop` app imports the CDP package as `import { ... } from "@capubridge/cdp-protocol"` via workspace.
 
 ---
 

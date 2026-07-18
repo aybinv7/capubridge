@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { effectScope, watch } from "vue";
+import { invokeCommand } from "@/runtime/ipc/client";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useConsoleStore } from "@/stores/console.store";
 import { useSessionWriter } from "./useSessionWriter";
@@ -15,7 +15,7 @@ import type { ConsoleArg } from "@/types/console.types";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { toast } from "vue-sonner";
-import type { CDPClient } from "utils";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 
 let writer: ReturnType<typeof useSessionWriter> | null = null;
 let rrwebRecorder: ReturnType<typeof useRrwebRecorder> | null = null;
@@ -25,6 +25,7 @@ let localStorageRecorder: ReturnType<typeof useLocalStorageRecorder> | null = nu
 let indexedDBRecorder: ReturnType<typeof useIndexedDBRecorder> | null = null;
 let sqliteRecorder: ReturnType<typeof useSqliteRecorder> | null = null;
 let consoleUnwatch: (() => void) | null = null;
+let connectionUnwatch: (() => void) | null = null;
 let consoleLeasedByRecorder = false;
 let startedAt = 0;
 let activeSessionId = "";
@@ -84,7 +85,7 @@ export function useRecordingSession() {
     recordingStore.setConfig(config);
 
     try {
-      await invoke<void>("recording_session_start", { sessionId });
+      await invokeCommand("recording_session_start", { sessionId });
     } catch (err) {
       activeSessionId = "";
       const msg = `Failed to start session: ${String(err)}`;
@@ -114,6 +115,24 @@ export function useRecordingSession() {
         console.error("[recording]", msg);
         toast.error(msg);
       }
+    }
+
+    const recordedTargetId = connectionStore.selectedTargetId;
+    if (cdpClient && recordedTargetId) {
+      connectionUnwatch?.();
+      connectionUnwatch = watch(
+        () => connectionStore.connections.get(recordedTargetId)?.status,
+        (status, previousStatus) => {
+          if (
+            previousStatus === "connected" &&
+            (status === "disconnected" || status === "error") &&
+            recordingStore.isRecording
+          ) {
+            toast.warning("Recording stopped because the target disconnected");
+            void stop();
+          }
+        },
+      );
     }
 
     if (config.tracks.network) {
@@ -273,38 +292,68 @@ export function useRecordingSession() {
     const sessionStartedAt = startedAt;
     console.log("[recording] stopping", sessionId);
 
-    await rrwebRecorder?.stop();
+    connectionUnwatch?.();
+    connectionUnwatch = null;
+
+    const finalizationErrors: string[] = [];
+    async function finalizeCapture(name: string, capture: { stop: () => Promise<void> } | null) {
+      if (!capture) return;
+      try {
+        await capture.stop();
+      } catch (error) {
+        finalizationErrors.push(name + ": " + String(error));
+      }
+    }
+
+    await finalizeCapture("DOM", rrwebRecorder);
     rrwebRecorder = null;
-
-    await networkRecorder?.stop();
+    await finalizeCapture("network", networkRecorder);
     networkRecorder = null;
-
-    await perfRecorder?.stop();
+    await finalizeCapture("performance", perfRecorder);
     perfRecorder = null;
-
-    await localStorageRecorder?.stop();
+    await finalizeCapture("LocalStorage", localStorageRecorder);
     localStorageRecorder = null;
-
-    await indexedDBRecorder?.stop();
+    await finalizeCapture("IndexedDB", indexedDBRecorder);
     indexedDBRecorder = null;
-
-    await sqliteRecorder?.stop();
+    await finalizeCapture("SQLite", sqliteRecorder);
     sqliteRecorder = null;
 
-    consoleUnwatch?.();
+    try {
+      consoleUnwatch?.();
+    } catch (error) {
+      console.warn("[recording] failed to stop console watcher", error);
+    }
     consoleUnwatch = null;
 
     if (consoleLeasedByRecorder) {
       consoleLeasedByRecorder = false;
       try {
         await consoleStore.releaseLease();
-      } catch {
-        void 0;
+      } catch (error) {
+        console.warn("[recording] failed to release console lease", error);
       }
     }
 
-    await writer?.stop();
+    try {
+      await writer?.stop();
+    } catch (error) {
+      finalizationErrors.push("writer: " + String(error));
+    }
     writer = null;
+
+    if (finalizationErrors.length > 0) {
+      try {
+        await invokeCommand("recording_delete_session", { sessionId });
+      } catch (error) {
+        finalizationErrors.push("cleanup: " + String(error));
+      }
+      const msg = "Recording finalization failed: " + finalizationErrors.join("; ");
+      activeSessionId = "";
+      startedAt = 0;
+      recordingStore.setError(msg);
+      toast.error("Recording could not be finalized", { description: msg });
+      return null;
+    }
 
     const manifest: SessionManifest = {
       version: 1,
@@ -327,7 +376,7 @@ export function useRecordingSession() {
 
     let capuPath: string | null = null;
     try {
-      capuPath = await invoke<string>("recording_session_stop", {
+      capuPath = await invokeCommand("recording_session_stop", {
         sessionId,
         manifestJson: JSON.stringify(manifest),
       });
@@ -335,6 +384,11 @@ export function useRecordingSession() {
     } catch (err) {
       const msg = `Failed to package session: ${String(err)}`;
       console.error("[recording]", msg);
+      try {
+        await invokeCommand("recording_delete_session", { sessionId });
+      } catch (cleanupError) {
+        console.warn("[recording] failed to clean unfinalized session", cleanupError);
+      }
       recordingStore.setError(msg);
       toast.error(msg);
       activeSessionId = "";

@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import JsonEditor from "@/modules/storage/localstorage/JsonEditor.vue";
+import JsonEditor from "@/shared/components/data/JsonEditor.vue";
 import {
   ChevronDown,
   Copy,

@@ -328,7 +328,7 @@ The project uses shadcn-vue **New York** style. Installed components and their d
 **When adding new shadcn-vue components:**
 
 ```bash
-npx shadcn-vue@latest add <component-name> -c apps/desktop
+vp dlx shadcn-vue@latest add <component-name> -c apps/desktop
 ```
 
 ---

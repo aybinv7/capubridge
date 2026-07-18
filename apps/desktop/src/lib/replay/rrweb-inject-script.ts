@@ -20,7 +20,10 @@ export function buildInjectionScript(): string {
     try {
       window.__capuEmit(JSON.stringify(__capuBuffer));
       __capuBuffer = [];
-    } catch (e) {}
+    } catch (e) {
+      __capuTimer = setTimeout(__capuFlush, 100);
+      return;
+    }
     __capuTimer = null;
   }
 
@@ -32,7 +35,7 @@ export function buildInjectionScript(): string {
 
   if (typeof rrweb === 'undefined' || typeof rrweb.record !== 'function') {
     if (typeof window.__capuEmit === 'function') {
-      try { window.__capuEmit(JSON.stringify([{ __capuError: 'rrweb global not found' }])); } catch (e) {}
+      try { window.__capuEmit(JSON.stringify([{ __capuError: 'rrweb global not found' }])); } catch (e) { console.warn('[capubridge] Failed to report rrweb injection error', e); }
     }
     return;
   }

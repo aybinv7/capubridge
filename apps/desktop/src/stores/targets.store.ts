@@ -1,27 +1,19 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
-import { invoke } from "@tauri-apps/api/core";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { ConnectionSource } from "@/types/connection.types";
 import type { SessionTargetSnapshot } from "@/types/session.types";
 import { listTargetsEffect, refreshTargetsEffect, runSessionEffect } from "@/runtime/session";
 import { useSourceStore } from "@/stores/source.store";
 import { useConnectionStore } from "@/stores/connection.store";
+import { invokeCommand } from "@/runtime/ipc/client";
+import type { CdpJsonTarget } from "@/runtime/ipc/contracts/common";
 import {
   restoreSelectedTargetUrl,
   saveSelectedTargetUrl,
 } from "@/composables/useSessionPersistence";
 
-interface RawCDPTarget {
-  id: string;
-  type: string;
-  title: string;
-  url: string;
-  devtoolsFrontendUrl?: string;
-  webSocketDebuggerUrl: string;
-  faviconUrl?: string;
-  packageName?: string;
-}
+type RawCDPTarget = CdpJsonTarget & { packageName?: string };
 
 function mapRawTargetToCDP(source: ConnectionSource, target: RawCDPTarget): CDPTarget {
   return {
@@ -29,11 +21,11 @@ function mapRawTargetToCDP(source: ConnectionSource, target: RawCDPTarget): CDPT
     type: (target.type as CDPTarget["type"]) || "page",
     title: target.title,
     url: target.url,
-    devtoolsFrontendUrl: target.devtoolsFrontendUrl,
+    devtoolsFrontendUrl: target.devtoolsFrontendUrl ?? undefined,
     webSocketDebuggerUrl: target.webSocketDebuggerUrl,
     source: source.type,
     deviceSerial: source.type === "adb" ? source.serial : undefined,
-    faviconUrl: target.faviconUrl,
+    faviconUrl: target.faviconUrl ?? undefined,
     packageName: target.packageName,
   };
 }
@@ -79,7 +71,9 @@ export const useTargetsStore = defineStore("targets", () => {
     try {
       const parsed = new URL(url);
       title = parsed.host || url;
-    } catch {}
+    } catch {
+      title = url;
+    }
 
     return {
       id: `local:${id}`,
@@ -182,7 +176,7 @@ export const useTargetsStore = defineStore("targets", () => {
       let raw: RawCDPTarget[] = [];
 
       if (source.type === "chrome") {
-        raw = await invoke<RawCDPTarget[]>("chrome_fetch_targets", {
+        raw = await invokeCommand("chrome_fetch_targets", {
           port: source.port,
         });
       } else {
@@ -217,7 +211,7 @@ export const useTargetsStore = defineStore("targets", () => {
   }
 
   async function createChromeTarget(url: string, port: number) {
-    const rawTarget = await invoke<RawCDPTarget>("chrome_open_target", {
+    const rawTarget = await invokeCommand("chrome_open_target", {
       port,
       url,
     });

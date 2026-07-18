@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import VirtualDataTable from "@/shared/components/data/VirtualDataTable.vue";
 import { useSqliteWasm, type SqlExecResult, type SqlObject } from "./useSqliteWasm";
 
 const props = defineProps<{
@@ -110,13 +111,6 @@ function runSql() {
     sqlResults.value = [];
     sqlError.value = e instanceof Error ? e.message : String(e);
   }
-}
-
-function renderCell(value: unknown): { text: string; tone: "null" | "blob" | "value" } {
-  if (value === null || value === undefined) return { text: "NULL", tone: "null" };
-  if (value instanceof Uint8Array) return { text: `<blob ${value.byteLength} B>`, tone: "blob" };
-  if (typeof value === "object") return { text: JSON.stringify(value), tone: "value" };
-  return { text: String(value), tone: "value" };
 }
 
 function close() {
@@ -299,43 +293,13 @@ load();
               </span>
             </div>
 
-            <div class="flex-1 overflow-auto">
-              <table v-if="rows.columns.length" class="w-full text-xs">
-                <thead class="sticky top-0 z-10">
-                  <tr
-                    class="bg-surface-2 text-left uppercase tracking-wider text-muted-foreground/50 border-b border-border/30"
-                  >
-                    <th
-                      v-for="col in rows.columns"
-                      :key="col"
-                      class="px-3 py-2 font-medium whitespace-nowrap"
-                    >
-                      {{ col }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="(row, idx) in rows.rows"
-                    :key="idx"
-                    class="border-b border-border/20 data-row"
-                  >
-                    <td v-for="(cell, ci) in row" :key="ci" class="px-3 py-1.5 font-mono align-top">
-                      <span
-                        class="block max-w-md truncate"
-                        :class="{
-                          'italic text-muted-foreground/40': renderCell(cell).tone === 'null',
-                          'text-violet-300': renderCell(cell).tone === 'blob',
-                          'text-secondary-foreground': renderCell(cell).tone === 'value',
-                        }"
-                      >
-                        {{ renderCell(cell).text }}
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
+            <div class="flex min-h-0 flex-1 flex-col">
+              <VirtualDataTable
+                v-if="rows.columns.length"
+                class="min-h-0 flex-1"
+                :columns="rows.columns"
+                :rows="rows.rows"
+              />
               <div
                 v-else
                 class="flex h-full items-center justify-center text-[11px] text-muted-foreground/40"
@@ -506,45 +470,7 @@ load();
                 Run a query to see results here.
               </div>
               <div v-for="(rs, rsi) in sqlResults" :key="rsi" class="border-b border-border/30">
-                <table class="w-full text-xs">
-                  <thead class="sticky top-0 z-10">
-                    <tr
-                      class="bg-surface-2 text-left uppercase tracking-wider text-muted-foreground/50 border-b border-border/30"
-                    >
-                      <th
-                        v-for="col in rs.columns"
-                        :key="col"
-                        class="px-3 py-2 font-medium whitespace-nowrap"
-                      >
-                        {{ col }}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(row, idx) in rs.rows"
-                      :key="idx"
-                      class="border-b border-border/20 data-row"
-                    >
-                      <td
-                        v-for="(cell, ci) in row"
-                        :key="ci"
-                        class="px-3 py-1.5 font-mono align-top"
-                      >
-                        <span
-                          class="block max-w-md truncate"
-                          :class="{
-                            'italic text-muted-foreground/40': renderCell(cell).tone === 'null',
-                            'text-violet-300': renderCell(cell).tone === 'blob',
-                            'text-secondary-foreground': renderCell(cell).tone === 'value',
-                          }"
-                        >
-                          {{ renderCell(cell).text }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                <VirtualDataTable class="max-h-96" :columns="rs.columns" :rows="rs.rows" />
               </div>
             </ScrollArea>
           </template>

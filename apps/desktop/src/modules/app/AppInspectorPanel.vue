@@ -125,7 +125,6 @@ const dialogDescription = computed(() => {
           @browse-external="void panel.openFiles(externalPath)"
           @open-indexed-db="void panel.openIndexedDb()"
           @open-sqlite="void panel.openSqlite()"
-          @open-capacitor="void panel.openCapacitor()"
           @refresh-permissions="void refreshPermissions()"
         />
       </div>

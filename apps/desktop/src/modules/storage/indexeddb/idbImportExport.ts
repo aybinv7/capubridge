@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import type { CDPClient } from "utils";
+import { invokeCommand } from "@/runtime/ipc/client";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 
 interface CdpKeyPath {
   type: "null" | "string" | "array";
@@ -191,7 +191,7 @@ export async function saveIdbExportToFile(
   });
   if (!dest) return null;
   const json = JSON.stringify(exported, null, 2);
-  await invoke<void>("save_base64_file", { path: dest, data: textToBase64(json) });
+  await invokeCommand("save_base64_file", { path: dest, data: textToBase64(json) });
   return dest;
 }
 
@@ -207,7 +207,7 @@ export async function pickIdbExport(): Promise<PickedIdbExport | null> {
     filters: [{ name: "IndexedDB JSON export", extensions: ["json"] }],
   });
   if (!picked || Array.isArray(picked)) return null;
-  const base64 = await invoke<string>("read_local_file_base64", { path: picked });
+  const base64 = await invokeCommand("read_local_file_base64", { path: picked });
   const text = new TextDecoder("utf-8").decode(base64ToBytes(base64));
   const data = JSON.parse(text) as IdbExportedDatabase;
   if (data.format !== "capubridge-idb-export") {

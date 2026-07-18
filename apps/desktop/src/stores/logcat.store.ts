@@ -125,7 +125,9 @@ export const useLogcatStore = defineStore("logcat", () => {
       await runSessionEffect(stopLogcatLeaseEffect(targetSerial), {
         operation: "session.stopLogcatLease",
       });
-    } catch {}
+    } catch (error) {
+      console.warn("Failed to release logcat session lease", error);
+    }
 
     if (serial.value === targetSerial) {
       isStreaming.value = false;

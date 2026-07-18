@@ -5,8 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use parking_lot::RwLock;
 use tauri::{AppHandle, State};
 
+use crate::error::{AppError, AppResult, AppResultExt};
 use crate::commands::adb::{
-    adb_list_devices, AdbDevice, DeviceInfo, PackageListScope, ReverseRule, WebViewSocket,
+    adb_cancel_list_packages_inner, adb_list_devices, AdbDevice, DeviceInfo, PackageListScope,
+    ReverseRule, WebViewSocket,
 };
 use crate::session::cache_store::SessionCacheStore;
 use crate::session::device_session::DeviceSession;
@@ -67,6 +69,7 @@ fn to_session_device(
         is_stale: false,
         last_seen_at: Some(timestamp),
         last_updated_at: timestamp,
+        health: None,
     }
 }
 
@@ -118,8 +121,24 @@ impl SessionRegistry {
     }
 
     pub fn snapshot(&self) -> SessionRegistrySnapshot {
-        let inner = self.inner.read();
-        let mut devices = inner.devices.values().cloned().collect::<Vec<_>>();
+        let (mut devices, active_serial, tracker_status, revision, last_error, updated_at) = {
+            let inner = self.inner.read();
+            (
+                inner.devices.values().cloned().collect::<Vec<_>>(),
+                inner.active_serial.clone(),
+                inner.tracker_status.clone(),
+                inner.revision,
+                inner.last_error.clone(),
+                inner.updated_at,
+            )
+        };
+        let sessions = self.sessions.read();
+        for device in &mut devices {
+            if let Some(session) = sessions.get(&device.serial) {
+                device.health = Some(session.health_snapshot());
+            }
+        }
+        drop(sessions);
         devices.sort_by(|left, right| {
             device_rank(left)
                 .cmp(&device_rank(right))
@@ -127,11 +146,11 @@ impl SessionRegistry {
         });
         SessionRegistrySnapshot {
             devices,
-            active_serial: inner.active_serial.clone(),
-            tracker_status: inner.tracker_status.clone(),
-            revision: inner.revision,
-            last_error: inner.last_error.clone(),
-            updated_at: inner.updated_at,
+            active_serial,
+            tracker_status,
+            revision,
+            last_error,
+            updated_at,
         }
     }
 
@@ -148,15 +167,10 @@ impl SessionRegistry {
     }
 
     pub fn ensure_session(&self, serial: &str) -> Arc<DeviceSession> {
-        if let Some(session) = self.session_for_serial(serial) {
-            return session;
-        }
-
-        let session = DeviceSession::new(serial.to_string());
         let mut sessions = self.sessions.write();
         sessions
             .entry(serial.to_string())
-            .or_insert_with(|| session.clone())
+            .or_insert_with(|| DeviceSession::new(serial.to_string()))
             .clone()
     }
 
@@ -217,7 +231,7 @@ impl SessionRegistry {
 
     pub fn replace_devices(&self, devices: Vec<AdbDevice>) -> SessionRegistrySnapshot {
         let timestamp = now_millis();
-        {
+        let stale_serials = {
             let mut inner = self.inner.write();
             let active_serial = inner.active_serial.clone();
             let fresh_serials = devices
@@ -258,6 +272,29 @@ impl SessionRegistry {
             inner.last_error = None;
             inner.revision += 1;
             inner.updated_at = timestamp;
+            inner
+                .devices
+                .values()
+                .filter(|device| device.is_stale)
+                .map(|device| device.serial.clone())
+                .collect::<Vec<_>>()
+        };
+        let stale_sessions = {
+            let mut sessions = self.sessions.write();
+            stale_serials
+                .iter()
+                .filter_map(|serial| {
+                    sessions
+                        .remove(serial)
+                        .map(|session| (serial.clone(), session))
+                })
+                .collect::<Vec<_>>()
+        };
+        for (serial, session) in stale_sessions {
+            session.shutdown();
+            if let Some(device) = self.inner.write().devices.get_mut(&serial) {
+                device.health = Some(session.health_snapshot());
+            }
         }
         let snapshot = self.snapshot();
         self.persist_snapshot(&snapshot);
@@ -404,14 +441,14 @@ fn session_for_online_serial(
 #[tauri::command]
 pub fn session_list_devices(
     state: State<'_, SessionRegistryState>,
-) -> Result<Vec<SessionDeviceSnapshot>, String> {
+) -> AppResult<Vec<SessionDeviceSnapshot>> {
     Ok(state.registry().list_devices())
 }
 
 #[tauri::command]
 pub fn session_get_registry_state(
     state: State<'_, SessionRegistryState>,
-) -> Result<SessionRegistrySnapshot, String> {
+) -> AppResult<SessionRegistrySnapshot> {
     Ok(state.registry().snapshot())
 }
 
@@ -419,8 +456,11 @@ pub fn session_get_registry_state(
 pub fn session_refresh_devices(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
-) -> Result<SessionRegistrySnapshot, String> {
-    let snapshot = state.registry().refresh_from_adb()?;
+) -> AppResult<SessionRegistrySnapshot> {
+    let snapshot = state
+        .registry()
+        .refresh_from_adb()
+        .app_context("session_refresh_devices")?;
     emit_registry_snapshot(&app, snapshot.clone());
     Ok(snapshot)
 }
@@ -429,8 +469,10 @@ pub fn session_refresh_devices(
 pub fn session_get_device_info(
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<DeviceInfo, String> {
-    session_for_online_serial(&state, &serial)?.get_device_info()
+) -> AppResult<DeviceInfo> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.get_device_info())
+        .app_context("session_get_device_info")
 }
 
 #[tauri::command]
@@ -438,8 +480,10 @@ pub fn session_shell_command(
     state: State<'_, SessionRegistryState>,
     serial: String,
     command: String,
-) -> Result<String, String> {
-    session_for_online_serial(&state, &serial)?.shell_command(command)
+) -> AppResult<String> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.shell_command(command))
+        .app_context("session_shell_command")
 }
 
 #[tauri::command]
@@ -447,16 +491,20 @@ pub fn session_tcpip(
     state: State<'_, SessionRegistryState>,
     serial: String,
     port: u16,
-) -> Result<(), String> {
-    session_for_online_serial(&state, &serial)?.tcpip(port)
+) -> AppResult<()> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.tcpip(port))
+        .app_context("session_tcpip")
 }
 
 #[tauri::command]
 pub fn session_root(
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<(), String> {
-    session_for_online_serial(&state, &serial)?.root()
+) -> AppResult<()> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.root())
+        .app_context("session_root")
 }
 
 #[tauri::command]
@@ -464,8 +512,10 @@ pub fn session_reboot(
     state: State<'_, SessionRegistryState>,
     serial: String,
     mode: Option<String>,
-) -> Result<(), String> {
-    session_for_online_serial(&state, &serial)?.reboot(mode)
+) -> AppResult<()> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.reboot(mode))
+        .app_context("session_reboot")
 }
 
 #[tauri::command]
@@ -473,12 +523,20 @@ pub fn session_list_packages(
     state: State<'_, SessionRegistryState>,
     serial: String,
     scope: Option<PackageListScope>,
-) -> Result<Vec<crate::commands::adb::AdbPackage>, String> {
+) -> AppResult<Vec<crate::commands::adb::AdbPackage>> {
     if state.registry().device_snapshot(&serial).is_none() {
-        return Err(format!("Unknown device serial: {serial}"));
+        return Err(AppError::from_legacy(
+            "session_list_packages",
+            format!("Unknown device serial: {serial}"),
+        ));
     }
 
-    state.registry().ensure_session(&serial).list_packages(scope)
+    state
+        .registry()
+        .session_for_serial(&serial)
+        .map(|session| session.list_packages(scope))
+        .unwrap_or_else(|| Ok(Vec::new()))
+        .app_context("session_list_packages")
 }
 
 #[tauri::command]
@@ -486,16 +544,24 @@ pub fn session_refresh_packages(
     state: State<'_, SessionRegistryState>,
     serial: String,
     scope: Option<PackageListScope>,
-) -> Result<Vec<crate::commands::adb::AdbPackage>, String> {
-    session_for_online_serial(&state, &serial)?.refresh_packages(scope)
+) -> AppResult<Vec<crate::commands::adb::AdbPackage>> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.refresh_packages(scope))
+        .app_context("session_refresh_packages")
 }
 
 #[tauri::command]
 pub fn session_cancel_list_packages(
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<(), String> {
-    state.registry().ensure_session(&serial).cancel_packages()
+) -> AppResult<()> {
+    if let Some(session) = state.registry().session_for_serial(&serial) {
+        return session
+            .cancel_packages()
+            .app_context("session_cancel_list_packages");
+    }
+    adb_cancel_list_packages_inner(&serial);
+    Ok(())
 }
 
 #[tauri::command]
@@ -503,8 +569,10 @@ pub fn session_open_package(
     state: State<'_, SessionRegistryState>,
     serial: String,
     package_name: String,
-) -> Result<String, String> {
-    session_for_online_serial(&state, &serial)?.open_package(package_name)
+) -> AppResult<String> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.open_package(package_name))
+        .app_context("session_open_package")
 }
 
 #[tauri::command]
@@ -513,8 +581,10 @@ pub fn session_reverse(
     serial: String,
     remote_port: u16,
     local_port: u16,
-) -> Result<(), String> {
-    session_for_online_serial(&state, &serial)?.reverse(remote_port, local_port)
+) -> AppResult<()> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.reverse(remote_port, local_port))
+        .app_context("session_reverse")
 }
 
 #[tauri::command]
@@ -522,33 +592,42 @@ pub fn session_remove_reverse(
     state: State<'_, SessionRegistryState>,
     serial: String,
     remote_port: u16,
-) -> Result<(), String> {
-    session_for_online_serial(&state, &serial)?.remove_reverse(remote_port)
+) -> AppResult<()> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.remove_reverse(remote_port))
+        .app_context("session_remove_reverse")
 }
 
 #[tauri::command]
 pub fn session_list_reverse(
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<Vec<ReverseRule>, String> {
-    session_for_online_serial(&state, &serial)?.list_reverse()
+) -> AppResult<Vec<ReverseRule>> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.list_reverse())
+        .app_context("session_list_reverse")
 }
 
 #[tauri::command]
 pub fn session_list_webview_sockets(
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<Vec<WebViewSocket>, String> {
-    session_for_online_serial(&state, &serial)?.list_webview_sockets()
+) -> AppResult<Vec<WebViewSocket>> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.list_webview_sockets())
+        .app_context("session_list_webview_sockets")
 }
 
 #[tauri::command]
 pub fn session_list_targets(
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<Vec<SessionTargetSnapshot>, String> {
+) -> AppResult<Vec<SessionTargetSnapshot>> {
     if state.registry().device_snapshot(&serial).is_none() {
-        return Err(format!("Unknown device serial: {serial}"));
+        return Err(AppError::from_legacy(
+            "session_list_targets",
+            format!("Unknown device serial: {serial}"),
+        ));
     }
 
     Ok(state
@@ -562,8 +641,10 @@ pub fn session_list_targets(
 pub fn session_refresh_targets(
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<Vec<SessionTargetSnapshot>, String> {
-    session_for_online_serial(&state, &serial)?.refresh_targets()
+) -> AppResult<Vec<SessionTargetSnapshot>> {
+    session_for_online_serial(&state, &serial)
+        .and_then(|session| session.refresh_targets())
+        .app_context("session_refresh_targets")
 }
 
 #[tauri::command]
@@ -571,8 +652,11 @@ pub fn session_set_active_device(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: Option<String>,
-) -> Result<SessionRegistrySnapshot, String> {
-    let snapshot = state.registry().set_active_serial(serial)?;
+) -> AppResult<SessionRegistrySnapshot> {
+    let snapshot = state
+        .registry()
+        .set_active_serial(serial)
+        .app_context("session_set_active_device")?;
     emit_registry_snapshot(&app, snapshot.clone());
     Ok(snapshot)
 }

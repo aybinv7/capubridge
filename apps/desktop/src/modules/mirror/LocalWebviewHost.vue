@@ -37,7 +37,9 @@ async function resize() {
   const target = props.target;
   const host = hostRef.value;
   if (!target || target.source !== "local" || !host) return;
-  await localWebviewStore.resizeToElement(target, host).catch(() => null);
+  await localWebviewStore.resizeToElement(target, host).catch((error) => {
+    console.warn("Failed to resize local preview webview", error);
+  });
 }
 
 onMounted(() => {

@@ -1,21 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
+import type { Component } from "vue";
 import { useRouter } from "vue-router";
-import {
-  Search,
-  Smartphone,
-  Database,
-  Globe,
-  Terminal,
-  Zap,
-  Settings,
-  ScreenShare,
-  RefreshCw,
-  Wifi,
-  Camera,
-  Power,
-} from "lucide-vue-next";
+import { Search, Terminal } from "lucide-vue-next";
+import { commandPaletteFeatures } from "@/app/feature-registry";
 import { useDockStore } from "@/stores/dock.store";
+import type { FeatureMaturity } from "@/app/feature-registry";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
@@ -27,61 +17,31 @@ const selected = ref(0);
 const inputRef = ref<HTMLInputElement>();
 const listRef = ref<HTMLDivElement>();
 
-const commands = [
-  {
+interface PaletteCommand {
+  group: string;
+  icon: Component;
+  label: string;
+  action: () => void | Promise<unknown>;
+  keys: string;
+  maturity?: FeatureMaturity;
+}
+
+const commands: PaletteCommand[] = [
+  ...commandPaletteFeatures.map((feature) => ({
     group: "Navigate",
-    icon: Smartphone,
-    label: "Devices",
-    action: () => router.push("/devices"),
-    keys: "D",
-  },
+    icon: feature.icon,
+    label: feature.label,
+    action: () => router.push(feature.path),
+    keys: "",
+    maturity: feature.maturity,
+  })),
   {
-    group: "Navigate",
-    icon: Database,
-    label: "Storage",
-    action: () => router.push("/storage"),
-    keys: "S",
-  },
-  {
-    group: "Navigate",
-    icon: Globe,
-    label: "Network",
-    action: () => router.push("/network"),
-    keys: "N",
-  },
-  {
-    group: "Navigate",
-    icon: Globe,
-    label: "Preview",
-    action: () => router.push("/preview"),
-    keys: "P",
-  },
-  {
-    group: "Navigate",
+    group: "Dock",
     icon: Terminal,
     label: "Dock Console",
     action: () => dockStore.openDock("console"),
-    keys: "J",
+    keys: "Ctrl+J",
   },
-  {
-    group: "Navigate",
-    icon: Zap,
-    label: "Capacitor",
-    action: () => router.push("/capacitor"),
-    keys: "",
-  },
-  {
-    group: "Navigate",
-    icon: Settings,
-    label: "Settings",
-    action: () => router.push("/settings"),
-    keys: "",
-  },
-  { group: "Device", icon: ScreenShare, label: "Take Screenshot", action: () => {}, keys: "" },
-  { group: "Device", icon: RefreshCw, label: "Restart ADB", action: () => {}, keys: "" },
-  { group: "Device", icon: Wifi, label: "Enable WiFi Debug", action: () => {}, keys: "" },
-  { group: "Device", icon: Camera, label: "Start Screen Record", action: () => {}, keys: "" },
-  { group: "Device", icon: Power, label: "Reboot Device", action: () => {}, keys: "" },
 ];
 
 const filtered = computed(() => {
@@ -95,8 +55,12 @@ const filtered = computed(() => {
 const grouped = computed(() => {
   const map = new Map<string, typeof commands>();
   for (const cmd of filtered.value) {
-    if (!map.has(cmd.group)) map.set(cmd.group, []);
-    map.get(cmd.group)!.push(cmd);
+    const group = map.get(cmd.group);
+    if (group) {
+      group.push(cmd);
+    } else {
+      map.set(cmd.group, [cmd]);
+    }
   }
   return map;
 });
@@ -226,6 +190,12 @@ watch(
               >
                 <component :is="cmd.icon" class="w-4 h-4 shrink-0 opacity-70" />
                 <span class="flex-1 text-left text-sm">{{ cmd.label }}</span>
+                <span
+                  v-if="cmd.maturity && cmd.maturity !== 'stable'"
+                  class="rounded-full border border-border/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/65"
+                >
+                  {{ cmd.maturity }}
+                </span>
                 <span
                   v-if="cmd.keys"
                   class="text-[10px] font-mono text-muted-foreground/60 bg-surface-2 px-2 py-0.5 border border-border/30 rounded-md"

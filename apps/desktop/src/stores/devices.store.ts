@@ -1,7 +1,7 @@
 import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
-import { invoke } from "@tauri-apps/api/core";
 import type { ADBDevice } from "@/types/adb.types";
+import { invokeCommand } from "@/runtime/ipc/client";
 import { useSessionStore } from "@/stores/session.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useConnectionStore } from "@/stores/connection.store";
@@ -73,13 +73,14 @@ export const useDevicesStore = defineStore("devices", () => {
     }
 
     statusOverride.value = "starting";
-    serverStartPromise = invoke<string>("adb_start_server")
+    serverStartPromise = invokeCommand("adb_start_server")
       .then(() => {
         statusOverride.value = "running";
         return true;
       })
-      .catch(() => {
+      .catch((error) => {
         statusOverride.value = "error";
+        console.warn("Failed to start ADB server", error);
         return false;
       })
       .finally(() => {

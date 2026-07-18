@@ -10,7 +10,7 @@ import {
 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import JsonViewer from "@/modules/storage/localstorage/JsonViewer.vue";
+import JsonViewer from "@/shared/components/data/JsonViewer.vue";
 import {
   fileIcon,
   fileIconClass,

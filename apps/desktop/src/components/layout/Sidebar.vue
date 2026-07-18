@@ -2,36 +2,19 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import {
-  Smartphone,
-  Database,
-  Globe,
-  Crosshair,
-  Settings,
-  MonitorPlay,
-  AppWindow,
-} from "lucide-vue-next";
-import {
   SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { primaryNavigationFeatures, utilityNavigationFeatures } from "@/app/feature-registry";
 import { useUIStore } from "@/stores/ui.store";
 
 const uiStore = useUIStore();
 const route = useRoute();
 
 const isCollapsed = computed(() => uiStore.sidebarCollapsed);
-
-const navItems = [
-  { to: "/devices", icon: Smartphone, label: "Devices" },
-  { to: "/app", icon: AppWindow, label: "App" },
-  { to: "/storage", icon: Database, label: "Storage" },
-  { to: "/network", icon: Globe, label: "Network" },
-  { to: "/inspect", icon: Crosshair, label: "Inspect" },
-  { to: "/replay", icon: MonitorPlay, label: "Replay" },
-] as const;
 
 function isActive(path: string) {
   return route.path.startsWith(path);
@@ -48,30 +31,40 @@ function isActive(path: string) {
     >
       <SidebarContent class="px-2 py-2">
         <SidebarMenu>
-          <SidebarMenuItem v-for="item in navItems" :key="item.to" class="relative">
+          <SidebarMenuItem
+            v-for="feature in primaryNavigationFeatures"
+            :key="feature.id"
+            class="relative"
+          >
             <div
-              v-if="isActive(item.to)"
+              v-if="isActive(feature.path)"
               class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-full z-10"
             />
             <Tooltip>
               <TooltipTrigger as-child>
                 <RouterLink
-                  :to="item.to"
+                  :to="feature.path"
                   class="flex items-center gap-3 w-full rounded-md px-3 py-2 text-sm transition-colors duration-[120ms] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
                   :class="
-                    isActive(item.to)
+                    isActive(feature.path)
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
                       : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
                   "
                 >
-                  <component :is="item.icon" :size="16" class="shrink-0" />
-                  <span class="group-data-[collapsible=icon]:hidden truncate">
-                    {{ item.label }}
+                  <component :is="feature.icon" :size="16" class="shrink-0" />
+                  <span class="group-data-[collapsible=icon]:hidden min-w-0 flex-1 truncate">
+                    {{ feature.label }}
+                  </span>
+                  <span
+                    v-if="feature.maturity !== 'stable'"
+                    class="group-data-[collapsible=icon]:hidden rounded-full border border-border/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/65"
+                  >
+                    {{ feature.maturity }}
                   </span>
                 </RouterLink>
               </TooltipTrigger>
               <TooltipContent v-if="isCollapsed" side="right" :side-offset="8">
-                {{ item.label }}
+                {{ feature.label }} · {{ feature.maturity }}
               </TooltipContent>
             </Tooltip>
           </SidebarMenuItem>
@@ -82,28 +75,34 @@ function isActive(path: string) {
         <SidebarSeparator class="mx-0" />
 
         <SidebarMenu class="mt-1">
-          <SidebarMenuItem class="relative">
+          <SidebarMenuItem
+            v-for="feature in utilityNavigationFeatures"
+            :key="feature.id"
+            class="relative"
+          >
             <div
-              v-if="isActive('/settings')"
+              v-if="isActive(feature.path)"
               class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-full z-10"
             />
             <Tooltip>
               <TooltipTrigger as-child>
                 <RouterLink
-                  to="/settings"
+                  :to="feature.path"
                   class="flex items-center gap-3 w-full rounded-md px-3 py-2 text-sm transition-colors duration-[120ms] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
                   :class="
-                    isActive('/settings')
+                    isActive(feature.path)
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
                       : 'text-sidebar-foreground/55 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
                   "
                 >
-                  <Settings :size="16" class="shrink-0" />
-                  <span class="group-data-[collapsible=icon]:hidden truncate">Settings</span>
+                  <component :is="feature.icon" :size="16" class="shrink-0" />
+                  <span class="group-data-[collapsible=icon]:hidden truncate">
+                    {{ feature.label }}
+                  </span>
                 </RouterLink>
               </TooltipTrigger>
               <TooltipContent v-if="isCollapsed" side="right" :side-offset="8">
-                Settings
+                {{ feature.label }}
               </TooltipContent>
             </Tooltip>
           </SidebarMenuItem>

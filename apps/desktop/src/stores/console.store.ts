@@ -74,7 +74,9 @@ function buildSourceLabel(
   try {
     const parsed = new URL(url);
     label = parsed.pathname.split("/").filter(Boolean).at(-1) ?? parsed.host ?? url;
-  } catch {}
+  } catch {
+    label = url;
+  }
 
   if (lineNumber == null) {
     return label;
@@ -485,7 +487,9 @@ export const useConsoleStore = defineStore("console", () => {
       await runSessionEffect(detachConsoleTargetEffect(serial), {
         operation: "session.detachConsoleTarget",
       });
-    } catch {}
+    } catch (error) {
+      console.warn("Failed to detach console session lease", error);
+    }
   }
 
   async function syncLease(target: CDPTarget | null) {

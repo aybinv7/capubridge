@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview"
+    "dev": "vp exec vitepress dev",
+    "build": "vp exec vitepress build",
+    "preview": "vp exec vitepress preview"
   },
   "dependencies": {
     "oxc-minify": "catalog:"

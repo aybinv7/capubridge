@@ -1,5 +1,5 @@
 import { buildInjectionScript } from "@/lib/replay/rrweb-inject-script";
-import type { CDPClient } from "utils";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { useSessionWriter } from "./useSessionWriter";
 import { toast } from "vue-sonner";
 

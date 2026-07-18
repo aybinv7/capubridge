@@ -6,13 +6,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use tauri::{AppHandle, Emitter};
 
-use crate::commands::adb::{get_server, map_adb_server_err};
+use crate::commands::adb::get_adb_device;
 
 fn get_device(serial: &str) -> Result<ADBServerDevice, String> {
-    let mut server = get_server().lock();
-    server
-        .get_device_by_name(serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))
+    get_adb_device(serial)
 }
 
 fn shell(device: &mut ADBServerDevice, cmd: &str) -> Result<String, String> {

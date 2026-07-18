@@ -1,6 +1,6 @@
 import { computed, onUnmounted, ref, watch } from "vue";
 import type { ComputedRef, Ref } from "vue";
-import type { CDPClient } from "utils";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 import { useConnectionStore } from "@/stores/connection.store";
 
 const HISTORY = 36;
@@ -82,7 +82,9 @@ export function useAppWebMetrics(targetId: Ref<string>, enabled: ComputedRef<boo
         if (Number.isFinite(metricsMap["Nodes"])) {
           nextDomNodes = metricsMap["Nodes"];
         }
-      } catch {}
+      } catch {
+        usedFallback = true;
+      }
     }
 
     if (nextHeapUsed === null || nextHeapTotal === null) {
@@ -98,7 +100,9 @@ export function useAppWebMetrics(targetId: Ref<string>, enabled: ComputedRef<boo
           nextHeapTotal = heapUsage.totalSize / 1024 / 1024;
         }
         usedFallback = true;
-      } catch {}
+      } catch {
+        usedFallback = true;
+      }
     }
 
     if (nextDomNodes === null) {
@@ -110,7 +114,9 @@ export function useAppWebMetrics(targetId: Ref<string>, enabled: ComputedRef<boo
           nextDomNodes = counters.nodes;
           usedFallback = true;
         }
-      } catch {}
+      } catch {
+        usedFallback = true;
+      }
     }
 
     tickCount.value += 1;
@@ -154,11 +160,15 @@ export function useAppWebMetrics(targetId: Ref<string>, enabled: ComputedRef<boo
     try {
       await client.send("Performance.enable", {});
       performanceEnabled = true;
-    } catch {}
+    } catch (error) {
+      console.warn("Performance metrics domain unavailable; using runtime fallback", error);
+    }
 
     try {
       await client.send("Runtime.enable", {});
-    } catch {}
+    } catch (error) {
+      console.warn("Runtime metrics domain could not be enabled", error);
+    }
 
     timer = setInterval(() => {
       const liveConnection = connectionStore.connections.get(targetId.value);

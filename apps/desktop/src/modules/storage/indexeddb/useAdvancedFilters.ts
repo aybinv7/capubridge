@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import type { Ref } from "vue";
-import type { IDBRecord } from "utils";
+import type { IDBRecord } from "@capubridge/cdp-protocol";
 
 export type FilterOperator =
   | "contains"

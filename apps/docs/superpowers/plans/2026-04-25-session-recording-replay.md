@@ -1075,7 +1075,7 @@ Handles the full CDP injection lifecycle: add binding, inject script, handle inc
 ```typescript
 // apps/desktop/src/composables/useRrwebRecorder.ts
 import { buildInjectionScript } from "@/lib/replay/rrweb-inject-script";
-import type { CDPClient } from "utils";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { useSessionWriter } from "./useSessionWriter";
 
 type Writer = ReturnType<typeof useSessionWriter>;

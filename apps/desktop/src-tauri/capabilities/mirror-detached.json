@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mirror-detached",
+  "description": "Window, event, path, and clipboard permissions for the detached device mirror",
+  "webviews": ["mirror-detached"],
+  "permissions": [
+    "core:path:default",
+    "core:event:default",
+    "core:window:allow-get-all-windows",
+    "core:window:allow-close",
+    "core:window:allow-set-size",
+    "core:window:allow-set-always-on-top",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text"
+  ]
+}

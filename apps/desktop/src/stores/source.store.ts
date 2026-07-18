@@ -1,9 +1,9 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { invoke } from "@tauri-apps/api/core";
-import type { ChromeLaunchResult, ChromeSource, ConnectionSource } from "@/types/connection.types";
+import type { ChromeSource, ConnectionSource } from "@/types/connection.types";
 import { CHROME_CDP_PORT } from "@/config/ports";
 import { useSessionStore } from "@/stores/session.store";
+import { invokeCommand } from "@/runtime/ipc/client";
 
 export const useSourceStore = defineStore("source", () => {
   const sessionStore = useSessionStore();
@@ -52,7 +52,7 @@ export const useSourceStore = defineStore("source", () => {
     chromeNeedsRelaunch.value = false;
 
     try {
-      const res = await invoke<boolean>("chrome_verify_port", {
+      const res = await invokeCommand("chrome_verify_port", {
         port: CHROME_CDP_PORT,
       });
       if (res) {
@@ -64,12 +64,12 @@ export const useSourceStore = defineStore("source", () => {
         chromeStatus.value = "running";
         return "connected";
       }
-    } catch {
-      // port not listening, continue
+    } catch (error) {
+      console.info("Chrome CDP port unavailable during auto-connect", error);
     }
 
     try {
-      const isRunning = await invoke<boolean>("chrome_is_running");
+      const isRunning = await invokeCommand("chrome_is_running");
       if (isRunning) {
         chromeNeedsRelaunch.value = true;
         chromeStatus.value = "idle";
@@ -90,21 +90,21 @@ export const useSourceStore = defineStore("source", () => {
 
     try {
       try {
-        const isRunning = await invoke<boolean>("chrome_is_running");
+        const isRunning = await invokeCommand("chrome_is_running");
         if (isRunning) {
-          await invoke("chrome_kill_all");
+          await invokeCommand("chrome_kill_all");
           // Poll until all Chrome processes are gone (max 6s)
           for (let i = 0; i < 30; i++) {
             await new Promise((r) => setTimeout(r, 200));
-            const stillRunning = await invoke<boolean>("chrome_is_running");
+            const stillRunning = await invokeCommand("chrome_is_running");
             if (!stillRunning) break;
           }
         }
-      } catch {
-        // chrome_is_running unavailable — binary needs rebuild, skip pre-kill
+      } catch (error) {
+        console.warn("Failed to check Chrome process state before launch", error);
       }
 
-      const result = await invoke<ChromeLaunchResult>("chrome_launch", {
+      const result = await invokeCommand("chrome_launch", {
         port: CHROME_CDP_PORT,
       });
 
@@ -130,7 +130,8 @@ export const useSourceStore = defineStore("source", () => {
     chromeError.value = null;
 
     try {
-      await invoke("chrome_verify_port", { port });
+      const verified = await invokeCommand("chrome_verify_port", { port });
+      if (!verified) throw new Error(`Nothing is listening on Chrome debugging port ${port}`);
 
       chromeSource.value = {
         type: "chrome",

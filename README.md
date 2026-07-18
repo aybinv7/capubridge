@@ -48,6 +48,13 @@ Capubridge replaces this fragmented workflow with a single desktop app that spea
 - **OPFS** — browse origin private file system
 - **SQLite** — list, scan, and query `.db` files pulled from the device; full SQL console with Monaco editor
 
+### Network Inspector
+
+- Capture supported HTTP request lifecycles from the selected target
+- Inspect headers, payloads, responses, redirects, timing, and failures
+- Bound request history and retained payload data for long sessions
+- Experimental request mocking backed by the local mock server
+
 ### Logcat
 
 - Live log streaming with lease-based lifecycle (stops automatically when you leave)
@@ -149,19 +156,19 @@ Each device session runs at one of three temperatures:
 | ADB (Rust)        | `adb_client` crate                        |
 | SQLite (Rust)     | `rusqlite` (bundled static)               |
 | WebSocket         | `tokio-tungstenite`                       |
-| Monorepo          | pnpm workspaces + Vite+                   |
+| Monorepo          | Vite+ managed workspace                   |
 
 ---
 
 ## Status
 
-**v1.0.0-beta.1** — first public beta. Core session model, ADB management, CDP inspection, storage explorer, logcat, performance monitor, and screen mirror are all functional. Expect rough edges; APIs and IPC contracts may still shift before v1.0.0 stable.
+**v1.15.0** — active beta. Core session model, ADB management, CDP inspection, storage explorer, logcat, performance monitor, screen mirror, recording, and replay are functional. Experimental surfaces remain hidden until their complete workflows are ready.
 
 ---
 
 ## Roadmap
 
-### v1.0.0 — Beta (current)
+### v1.15.0 — Beta (current)
 
 - [x] Session model with hot/warm/cold device states
 - [x] Rust device tracker + per-device session workers
@@ -182,7 +189,7 @@ Each device session runs at one of three temperatures:
 
 ### v1.x — Planned
 
-- [ ] Network inspector — real-time HTTP/WebSocket traffic inspection (recorded sessions have basic network capture)
+- [ ] WebSocket frame inspection and network throttling
 - [ ] Capacitor plugin inspector — inspect plugin bridge calls and responses live
 - [ ] Crash symbolication — decode native Android stack traces using source maps
 - [ ] iOS support — WebKit inspector protocol (under investigation)
@@ -217,8 +224,8 @@ Grab the latest release for your platform from the [Releases](../../releases) pa
 ### Build from Source
 
 ```bash
-# Install Vite+ globally
-npm i -g vite-plus
+# Install Vite+ on Windows
+irm https://vite.plus/ps1 | iex
 
 # Clone and install
 git clone https://github.com/inventor7/capubridge
@@ -232,7 +239,7 @@ vp run tauri
 vp run -r build
 ```
 
-**Requirements:** Node 22+, pnpm 10+, Rust stable toolchain. `libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev`.
+**Requirements:** Vite+, Node 22+, and a Rust stable toolchain. Linux builds also require `libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev`.
 
 ---
 

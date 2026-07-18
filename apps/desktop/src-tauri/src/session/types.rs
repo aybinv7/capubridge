@@ -19,6 +19,27 @@ pub enum SessionTemperature {
     Hot,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SessionCleanupState {
+    #[default]
+    Active,
+    ShuttingDown,
+    Detached,
+    Stopped,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHealthSnapshot {
+    pub queue_depth: usize,
+    pub queue_capacity: usize,
+    pub active_operation: Option<String>,
+    pub last_terminal_failure: Option<String>,
+    pub connection_age_ms: u64,
+    pub cleanup_state: SessionCleanupState,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionDeviceSnapshot {
@@ -32,6 +53,8 @@ pub struct SessionDeviceSnapshot {
     pub is_stale: bool,
     pub last_seen_at: Option<u64>,
     pub last_updated_at: u64,
+    #[serde(default)]
+    pub health: Option<SessionHealthSnapshot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

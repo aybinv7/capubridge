@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, watch } from "vue";
-import { IDBDomain } from "utils";
+import { IDBDomain } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
@@ -86,7 +86,9 @@ export function useIndexedDBChangesTracking() {
           .send("Storage.untrackIndexedDBForOrigin", {
             origin: previousOrigin,
           })
-          .catch(() => {});
+          .catch((error) => {
+            console.warn("Failed to stop IndexedDB change tracking", previousOrigin, error);
+          });
       }
     }
   }

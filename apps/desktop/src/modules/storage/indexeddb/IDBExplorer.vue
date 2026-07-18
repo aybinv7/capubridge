@@ -34,14 +34,15 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { useStorageSize } from "@/composables/useStorageSize";
 import { useSidebarSettings } from "@/modules/storage/stores/useSidebarSettingsStore";
 import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
+import { indexedDbProtocolPageSize } from "./idbPaging";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
 import {
   useIndexedDBChangeIndex,
   useIndexedDBTableChangeOverlay,
 } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 import type { IndexedDBChangeSummary } from "@/types/storageChanges.types";
-import type { IDBDatabaseInfo, IDBRecord, StoreInfo } from "utils";
-import { IDBDomain } from "utils";
+import type { IDBDatabaseInfo, IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
+import { IDBDomain } from "@capubridge/cdp-protocol";
 import IDBTable from "./IDBTable.vue";
 import IDBTableToolbar from "./IDBTableToolbar.vue";
 import IDBDatabaseOverview from "./IDBDatabaseOverview.vue";
@@ -74,7 +75,7 @@ function readonlyToast() {
 const storeSearch = ref("");
 const filter = ref("");
 const page = ref(0);
-const pageSize = ref(50);
+const pageSize = ref(indexedDbProtocolPageSize(50));
 const showChangesOnly = ref(false);
 
 const dbName = computed(() => decodeURIComponent((route.params["db"] as string) ?? ""));
@@ -369,7 +370,7 @@ function nextPage() {
   if (hasMore.value) page.value++;
 }
 function handlePageSizeChange(size: number) {
-  pageSize.value = size;
+  pageSize.value = indexedDbProtocolPageSize(size);
   page.value = 0;
 }
 

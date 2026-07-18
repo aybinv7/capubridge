@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { useSQLite } from "@/composables/useSQLite";
+import { invokeCommand } from "@/runtime/ipc/client";
 import type { SqliteQueryResult, SqliteTableInfo } from "@/types/sqlite.types";
 
 function quoteIdent(name: string): string {
@@ -53,7 +53,7 @@ export async function exportSqliteFile(
 
   const { exportBytes } = useSQLite();
   const bytes = await exportBytes(serial, pkg, dbPath);
-  await invoke<void>("save_base64_file", { path: dest, data: bytesToBase64(bytes) });
+  await invokeCommand("save_base64_file", { path: dest, data: bytesToBase64(bytes) });
   return dest;
 }
 
@@ -125,7 +125,7 @@ export async function exportSqlDump(
   if (!dest) return null;
 
   const dump = await buildSqlDump(serial, pkg, dbPath, tables);
-  await invoke<void>("save_base64_file", { path: dest, data: textToBase64(dump) });
+  await invokeCommand("save_base64_file", { path: dest, data: textToBase64(dump) });
   return dest;
 }
 
@@ -142,7 +142,7 @@ export async function pickSqliteFile(): Promise<PickedSqliteFile | null> {
     filters: [{ name: "SQLite database", extensions: ["sqlite", "db", "db3", "sqlite3"] }],
   });
   if (!picked || Array.isArray(picked)) return null;
-  const base64 = await invoke<string>("read_local_file_base64", { path: picked });
+  const base64 = await invokeCommand("read_local_file_base64", { path: picked });
   const bytes = base64ToBytes(base64);
   const name = picked.split(/[\\/]/).pop() || "imported.sqlite";
   return { path: picked, name, bytes };
@@ -161,7 +161,7 @@ export async function pickSqlDump(): Promise<PickedSqlDump | null> {
     filters: [{ name: "SQL dump", extensions: ["sql", "txt"] }],
   });
   if (!picked || Array.isArray(picked)) return null;
-  const base64 = await invoke<string>("read_local_file_base64", { path: picked });
+  const base64 = await invokeCommand("read_local_file_base64", { path: picked });
   const bytes = base64ToBytes(base64);
   const sql = new TextDecoder("utf-8").decode(bytes);
   const name = picked.split(/[\\/]/).pop() || "imported.sql";

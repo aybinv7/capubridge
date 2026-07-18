@@ -15,6 +15,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import type { ADBDevice } from "@/types/adb.types";
 import type { DockTab } from "@/types/dock.types";
+import { invokeCommand, listenEvent } from "@/runtime/ipc";
 
 const commandPaletteOpen = ref(false);
 const mainContentRef = ref<HTMLElement | null>(null);
@@ -44,7 +45,9 @@ async function syncInspectModeToDetached(enabled: boolean) {
   try {
     const { emitTo } = await import("@tauri-apps/api/event");
     await emitTo("mirror-detached", "capubridge:set-inspect-mode", { enabled });
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to synchronize detached inspect mode", error);
+  }
 }
 
 function focusMainContent() {
@@ -107,7 +110,9 @@ function pickStartupDevice(devices: ADBDevice[]) {
 async function bootstrapRuntime() {
   try {
     await devicesStore.refreshDevices();
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to refresh devices during app startup", error);
+  }
 
   const startupDevice = pickStartupDevice(devicesStore.devices);
   if (startupDevice) {
@@ -134,9 +139,9 @@ onMounted(() => {
   // left behind by a previous crashed/buggy recording session.
   void (async () => {
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke<number>("recording_cleanup_orphans");
-    } catch {
+      await invokeCommand("recording_cleanup_orphans");
+    } catch (error) {
+      console.warn("Failed to clean orphaned recording files", error);
       // Non-fatal — user can still record
     }
   })();
@@ -144,34 +149,29 @@ onMounted(() => {
 
 onMounted(async () => {
   try {
-    const { listen } = await import("@tauri-apps/api/event");
-    unlistenInspectRequest = await listen("capubridge:open-inspect", async () => {
+    unlistenInspectRequest = await listenEvent("capubridge:open-inspect", async () => {
       await router.push("/inspect/elements");
       inspectStore.inspectMode = true;
     });
-    unlistenInspectHover = await listen<{ x: number; y: number }>(
-      "capubridge:inspect-hover",
-      (event) => {
-        if (!inspectStore.inspectMode) return;
-        inspectStore.setMirrorHoverPoint(event.payload.x, event.payload.y);
-      },
-    );
-    unlistenInspectSelect = await listen<{ x: number; y: number }>(
-      "capubridge:inspect-select",
-      (event) => {
-        if (!inspectStore.inspectMode) return;
-        inspectStore.setMirrorSelectPoint(event.payload.x, event.payload.y);
-      },
-    );
-    unlistenInspectLeave = await listen("capubridge:inspect-leave", () => {
+    unlistenInspectHover = await listenEvent("capubridge:inspect-hover", (point) => {
+      if (!inspectStore.inspectMode) return;
+      inspectStore.setMirrorHoverPoint(point.x, point.y);
+    });
+    unlistenInspectSelect = await listenEvent("capubridge:inspect-select", (point) => {
+      if (!inspectStore.inspectMode) return;
+      inspectStore.setMirrorSelectPoint(point.x, point.y);
+    });
+    unlistenInspectLeave = await listenEvent("capubridge:inspect-leave", () => {
       if (!inspectStore.inspectMode) return;
       inspectStore.clearMirrorHoverPoint();
     });
-    unlistenInspectClose = await listen("capubridge:close-inspect", () => {
+    unlistenInspectClose = await listenEvent("capubridge:close-inspect", () => {
       inspectStore.clearMirrorHoverPoint();
       inspectStore.inspectMode = false;
     });
-  } catch {}
+  } catch (error) {
+    console.error("Failed to subscribe to detached inspect events", error);
+  }
 });
 
 watch(
@@ -212,7 +212,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen overflow-hidden bg-background dark">
+  <div class="flex flex-col h-screen overflow-hidden bg-background">
     <TitleBar @open-command-palette="commandPaletteOpen = true" />
 
     <div

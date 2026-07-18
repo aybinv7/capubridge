@@ -9,7 +9,6 @@ import {
   Globe,
   Package2,
   Play,
-  ShieldCheck,
   SquareStack,
   StopCircle,
   Trash2,
@@ -24,7 +23,7 @@ import type {
   AppNetworkStats,
   AppPermissionsData,
 } from "@/types/app-inspector.types";
-import AppIcon from "@/modules/devices/AppIcon.vue";
+import AppIcon from "./AppIcon.vue";
 import AppPermissionsTab from "./AppPermissionsTab.vue";
 
 const props = defineProps<{
@@ -52,7 +51,6 @@ const emit = defineEmits<{
   browseExternal: [];
   openIndexedDb: [];
   openSqlite: [];
-  openCapacitor: [];
   refreshPermissions: [];
 }>();
 
@@ -326,15 +324,6 @@ const infoRows = computed(() => [
               @click="emit('openSqlite')"
             >
               <AppWindow class="h-3.5 w-3.5" />SQLite
-            </Button>
-            <Button
-              v-if="capacitorInfo?.isCapacitor"
-              variant="outline"
-              size="sm"
-              class="h-7 justify-start gap-1.5 text-xs"
-              @click="emit('openCapacitor')"
-            >
-              <ShieldCheck class="h-3.5 w-3.5" />Capacitor
             </Button>
           </div>
           <div class="border-t border-border/20">

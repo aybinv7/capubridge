@@ -1,6 +1,6 @@
 import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { IDBDomain, type StoreInfo } from "utils";
+import { IDBDomain, type StoreInfo } from "@capubridge/cdp-protocol";
 import { useCDP } from "./useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 

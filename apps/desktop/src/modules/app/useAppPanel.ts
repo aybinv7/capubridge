@@ -84,10 +84,6 @@ export function useAppPanel() {
     await router.push("/storage/sqlite");
   }
 
-  async function openCapacitor() {
-    await router.push("/capacitor/bridge");
-  }
-
   return {
     selectedTarget,
     serial,
@@ -101,6 +97,5 @@ export function useAppPanel() {
     openFiles,
     openIndexedDb,
     openSqlite,
-    openCapacitor,
   };
 }

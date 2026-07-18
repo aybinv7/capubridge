@@ -1,7 +1,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { toast } from "vue-sonner";
 import type { Row } from "@tanstack/vue-table";
-import type { IDBRecord } from "utils";
+import type { IDBRecord } from "@capubridge/cdp-protocol";
 
 interface UseIDBRowDetailOptions {
   getFilteredRows: () => Row<IDBRecord>[];
@@ -121,8 +121,8 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
       onEdit(record);
       editOriginalJson.value = editJson.value;
       toast.success("Record saved", { description: `Key: ${editKey.value}` });
-    } catch {
-      // Invalid JSON — editor already marks it invalid
+    } catch (error) {
+      toast.error("Record contains invalid JSON", { description: String(error) });
     }
   }
 

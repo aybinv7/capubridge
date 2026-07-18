@@ -1,6 +1,11 @@
 import { computed } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { runSessionEffect, listPackagesEffect, refreshPackagesEffect } from "@/runtime/session";
+import {
+  cancelListPackagesEffect,
+  listPackagesEffect,
+  refreshPackagesEffect,
+  runSessionEffect,
+} from "@/runtime/session";
 import type { SessionRequestOptions } from "@/runtime/effect/cancellation";
 import type { AdbPackage } from "@/types/adb.types";
 
@@ -143,10 +148,22 @@ export function useAppPackages(serial: { value: string } | string) {
       return [];
     }
 
-    const packages = await runSessionEffect(refreshPackagesEffect(currentSerial, scope), {
-      operation: "session.refreshPackages",
-      signal: options?.signal,
-    });
+    const cancelScan = () => {
+      void runSessionEffect(cancelListPackagesEffect(currentSerial), {
+        operation: "session.cancelListPackages",
+      }).catch((error) => console.warn("Failed to cancel package scan", error));
+    };
+    options?.signal?.addEventListener("abort", cancelScan, { once: true });
+
+    let packages: AdbPackage[];
+    try {
+      packages = await runSessionEffect(refreshPackagesEffect(currentSerial, scope), {
+        operation: "session.refreshPackages",
+        signal: options?.signal,
+      });
+    } finally {
+      options?.signal?.removeEventListener("abort", cancelScan);
+    }
 
     writePackagesCache(currentSerial, scope, packages);
     return packages;

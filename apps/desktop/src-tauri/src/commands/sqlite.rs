@@ -1,4 +1,4 @@
-use crate::commands::adb::get_server;
+use crate::commands::adb::get_adb_device;
 use crate::commands::files::shell_escape;
 use adb_client::ADBDeviceExt;
 use parking_lot::Mutex;
@@ -285,10 +285,7 @@ fn pull_db_to_temp(
 }
 
 fn pull_db_bytes(serial: &str, package: &str, path: &str) -> Result<Vec<u8>, String> {
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(serial)
-        .map_err(|e| format!("Device not found: {e}"))?;
+    let mut device = get_adb_device(serial)?;
 
     let safe_name = path.replace('/', "_").trim_start_matches('_').to_string();
     let tmp_path = format!("/data/local/tmp/_capu_{safe_name}");
@@ -356,10 +353,7 @@ pub async fn sqlite_list_databases(
     package: String,
 ) -> Result<Vec<SqliteDbFile>, String> {
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {e}"))?;
+        let mut device = get_adb_device(&serial)?;
 
         let db_dir = format!("/data/data/{package}/databases");
         let cmd = format!(
@@ -504,10 +498,7 @@ pub async fn sqlite_table_columns(
         .map_err(|e| e.to_string())?;
     }
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {e}"))?;
+        let mut device = get_adb_device(&serial)?;
 
         let safe_table = table_name.replace('"', "\"\"");
         let sql = format!("PRAGMA table_info(\"{safe_table}\");");
@@ -562,10 +553,7 @@ pub async fn sqlite_table_indexes(
         .map_err(|e| e.to_string())?;
     }
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {e}"))?;
+        let mut device = get_adb_device(&serial)?;
 
         let safe_table = table_name.replace('"', "\"\"");
         let sql = format!("PRAGMA index_list(\"{safe_table}\");");
@@ -642,10 +630,7 @@ pub async fn sqlite_table_foreign_keys(
         .map_err(|e| e.to_string())?;
     }
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {e}"))?;
+        let mut device = get_adb_device(&serial)?;
 
         let safe_table = table_name.replace('"', "\"\"");
         let sql = format!("PRAGMA foreign_key_list(\"{safe_table}\");");
@@ -861,10 +846,7 @@ pub fn sqlite_close_database(serial: String, package: String, db_path: String) {
 #[tauri::command]
 pub async fn sqlite_scan_all_databases(serial: String) -> Result<Vec<SqliteDbFile>, String> {
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {e}"))?;
+        let mut device = get_adb_device(&serial)?;
 
         // Get list of third-party packages
         let mut pm_stdout = Vec::new();

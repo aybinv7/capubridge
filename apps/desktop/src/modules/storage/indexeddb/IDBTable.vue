@@ -20,7 +20,7 @@ import {
   type ColumnSizingState,
   type Row,
 } from "@tanstack/vue-table";
-import type { IDBRecord, StoreInfo } from "utils";
+import type { IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
 import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 
 // UI components
@@ -42,6 +42,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDate } from "@internationalized/date";
 import type { CheckboxCheckedState, DateValue } from "reka-ui";
+import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 
 // Module composables & components
 import { useAdvancedFilters, type AdvancedFilter } from "./useAdvancedFilters";
@@ -307,7 +308,7 @@ function commitInlineEdit() {
     try {
       parsed = JSON.parse(value);
     } catch {
-      /* keep as string */
+      parsed = value;
     }
     record.value = {
       ...(record.value as Record<string, unknown>),
@@ -643,6 +644,11 @@ const selectedRowLocalBeforeValue = computed(() =>
 const filteredRowCount = computed(() => table.getFilteredRowModel().rows.length);
 const selectedRowCount = computed(() => table.getSelectedRowModel().rows.length);
 const visibleRows = computed(() => table.getRowModel().rows);
+const {
+  items: virtualRows,
+  topSpacerHeight,
+  bottomSpacerHeight,
+} = useFixedVirtualList(visibleRows, tableScrollEl, { itemHeight: 36, overscan: 10 });
 
 // ─── Grouping Helpers ────────────────────────────────────────────────────────
 const isColumnGrouped = (columnId: string) => grouping.value.includes(columnId);
@@ -940,7 +946,13 @@ function confirmBulkDelete() {
         </thead>
 
         <tbody>
-          <template v-for="row in visibleRows" :key="row.id">
+          <tr v-if="topSpacerHeight > 0" aria-hidden="true">
+            <td
+              :colspan="table.getVisibleLeafColumns().length"
+              :style="{ height: `${topSpacerHeight}px` }"
+            />
+          </tr>
+          <template v-for="{ data: row } in virtualRows" :key="row.id">
             <!-- Group header -->
             <tr v-if="row.getIsGrouped()" class="bg-surface-3/30 border-b border-border/20">
               <td :colspan="row.getVisibleCells().length" class="px-3 py-2">
@@ -1018,6 +1030,12 @@ function confirmBulkDelete() {
               </td>
             </tr>
           </template>
+          <tr v-if="bottomSpacerHeight > 0" aria-hidden="true">
+            <td
+              :colspan="table.getVisibleLeafColumns().length"
+              :style="{ height: `${bottomSpacerHeight}px` }"
+            />
+          </tr>
         </tbody>
       </table>
     </div>

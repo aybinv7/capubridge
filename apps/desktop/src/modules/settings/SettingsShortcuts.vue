@@ -2,20 +2,12 @@
 import { Keyboard } from "lucide-vue-next";
 
 const shortcuts = [
-  { keys: "Ctrl+1-5", action: "Switch to panel 1-5" },
+  { keys: "Ctrl+K", action: "Open command palette" },
   { keys: "Ctrl+J", action: "Toggle bottom dock" },
   { keys: "Ctrl+B", action: "Toggle sidebar" },
-  { keys: "Ctrl+1-5 (dock)", action: "Jump dock tabs while dock is focused" },
+  { keys: "Ctrl+1-4 (dock)", action: "Jump dock tabs while dock is focused" },
   { keys: "Ctrl+↑ / Ctrl+↓", action: "Resize dock while dock is focused" },
   { keys: "Esc", action: "Return focus from dock to main content" },
-  { keys: "Ctrl+R", action: "Refresh active panel data" },
-  { keys: "Ctrl+Enter", action: "Run query in active console" },
-  { keys: "Ctrl+S", action: "Save current snapshot" },
-  { keys: "Ctrl+F", action: "Focus search in active panel" },
-  { keys: "Ctrl+Shift+C", action: "Clear active log/network/console" },
-  { keys: "Ctrl+,", action: "Open settings" },
-  { keys: "F5", action: "Reconnect to selected target" },
-  { keys: "Ctrl+K", action: "Open command palette" },
 ];
 </script>
 

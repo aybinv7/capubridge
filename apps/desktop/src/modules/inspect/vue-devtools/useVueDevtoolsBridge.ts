@@ -8,7 +8,7 @@ import {
 } from "@vue/devtools-kit";
 import { useCDP } from "@/composables/useCDP";
 import type { CDPTarget } from "@/types/cdp.types";
-import type { CDPClient } from "utils";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 import userAppBundle from "@vue/devtools-electron/dist/user-app.iife.js?raw";
 import devtoolsPanelScriptUrl from "@vue/devtools-electron/client/devtools-panel.js?url";
 import devtoolsPanelStyleUrl from "@vue/devtools-electron/client/devtools-panel.css?url";
@@ -95,7 +95,9 @@ function refreshIframeClient(_reason: string) {
     if (typeof reloadClient === "function") {
       reloadClient();
     }
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to refresh Vue DevTools iframe client", error);
+  }
 }
 
 function deserializeTransportMessage(message: string) {
@@ -137,7 +139,7 @@ function isRpcPacket(message: unknown) {
 
 function buildTargetRuntimeSource() {
   const shim = `var __capubridgeGlobal=typeof globalThis!=="undefined"?globalThis:window;if(!__capubridgeGlobal.process)__capubridgeGlobal.process={env:{NODE_ENV:"production"}};if(!__capubridgeGlobal.process.env)__capubridgeGlobal.process.env={NODE_ENV:"production"};if(!__capubridgeGlobal.process.env.NODE_ENV)__capubridgeGlobal.process.env.NODE_ENV="production";var process=__capubridgeGlobal.process;`;
-  const replacement = `function j3(){var t=typeof globalThis!=="undefined"?globalThis:window;var b=${JSON.stringify(TARGET_BINDING_NAME)};var v=${JSON.stringify(TARGET_RECEIVE_NAME)};var p=${JSON.stringify(PROXY_TO_SERVER_SOURCE)};var h=${JSON.stringify(SERVER_TO_PROXY_SOURCE)};var k1="__capubridgeVueDevtoolsProxyListener";var k2="__capubridgeVueDevtoolsServerForwarder";function e(i){try{if(i&&typeof i==="object"&&typeof i.t==="string")return i;if(typeof i!=="string")i=JSON.stringify(i);var n=JSON.parse(i);if(n&&typeof n==="object"){if(typeof n.t==="string")return n;if("json" in n){var r=n.json;if(r&&typeof r==="object"&&typeof r.t==="string")return r}}}catch(o){}}function s(i){try{return JSON.stringify(i)}catch(o){return""}}function n(i){if(typeof i!=="string"){i=s(i)}if(!i)return;t[b](i)}function r(){return{post:function(i){if(!i||typeof i!=="object"||typeof i.t!=="string")return;t.postMessage({source:h,payload:s(i)},"*")},on:function(i){t[v]=function(o){var a=e(o);if(a&&typeof a.t==="string")i(a)};if(!t[k1]){t[k1]=!0;t.addEventListener("message",function(o){var a=o&&o.data;if(!a||a.source!==p)return;var l=e(a.payload);if(l&&typeof l.t==="string")i(l)})}if(!t[k2]){t[k2]=!0;t.addEventListener("message",function(o){var a=o&&o.data;if(!a||a.source!==h)return;n(a.payload)})}}}}_t.init();o0(uv,{channel:r()});uv.initDevToolsServerListener();var o={};o[${JSON.stringify(TARGET_READY_FLAG)}]=!0;n(o)}j3();`;
+  const replacement = `function j3(){var t=typeof globalThis!=="undefined"?globalThis:window;var b=${JSON.stringify(TARGET_BINDING_NAME)};var v=${JSON.stringify(TARGET_RECEIVE_NAME)};var p=${JSON.stringify(PROXY_TO_SERVER_SOURCE)};var h=${JSON.stringify(SERVER_TO_PROXY_SOURCE)};var k1="__capubridgeVueDevtoolsProxyListener";var k2="__capubridgeVueDevtoolsServerForwarder";function e(i){try{if(i&&typeof i==="object"&&typeof i.t==="string")return i;if(typeof i!=="string")i=JSON.stringify(i);var n=JSON.parse(i);if(n&&typeof n==="object"){if(typeof n.t==="string")return n;if("json" in n){var r=n.json;if(r&&typeof r==="object"&&typeof r.t==="string")return r}}}catch(o){return null}}function s(i){try{return JSON.stringify(i)}catch(o){return""}}function n(i){if(typeof i!=="string"){i=s(i)}if(!i)return;t[b](i)}function r(){return{post:function(i){if(!i||typeof i!=="object"||typeof i.t!=="string")return;t.postMessage({source:h,payload:s(i)},"*")},on:function(i){t[v]=function(o){var a=e(o);if(a&&typeof a.t==="string")i(a)};if(!t[k1]){t[k1]=!0;t.addEventListener("message",function(o){var a=o&&o.data;if(!a||a.source!==p)return;var l=e(a.payload);if(l&&typeof l.t==="string")i(l)})}if(!t[k2]){t[k2]=!0;t.addEventListener("message",function(o){var a=o&&o.data;if(!a||a.source!==h)return;n(a.payload)})}}}}_t.init();o0(uv,{channel:r()});uv.initDevToolsServerListener();var o={};o[${JSON.stringify(TARGET_READY_FLAG)}]=!0;n(o)}j3();`;
   const patchedBundle = userAppBundle.replace(
     /function j3\(t\)\{[\s\S]*?j3\(K3\.default\);/,
     replacement,
@@ -246,13 +248,17 @@ async function dispatchMessageToTarget(client: CDPClient, message: string) {
   const result = await client.send<{ result: { value?: unknown } }>("Runtime.evaluate", {
     expression: `(() => {
       const payload = ${message};
+      let posted = false;
       try {
         window.postMessage({
           source: ${JSON.stringify(PROXY_TO_SERVER_SOURCE)},
           payload,
         }, "*");
-        return true;
-      } catch {}
+        posted = true;
+      } catch {
+        posted = false;
+      }
+      if (posted) return true;
       const receiver = globalThis[${JSON.stringify(TARGET_RECEIVE_NAME)}];
       if (typeof receiver !== "function") return false;
       receiver(payload);
@@ -295,7 +301,9 @@ async function tryReloadTarget(client: CDPClient) {
   try {
     await client.send("Page.reload", { ignoreCache: true });
     return true;
-  } catch {}
+  } catch (error) {
+    console.warn("Page.reload unavailable; using runtime reload fallback", error);
+  }
 
   try {
     await client.send("Runtime.evaluate", {
@@ -422,11 +430,15 @@ async function ensureTargetRuntime(client: CDPClient, target: CDPTarget) {
 
   try {
     await client.send("Page.enable", {});
-  } catch {}
+  } catch (error) {
+    console.warn("Vue DevTools could not enable the Page domain", error);
+  }
 
   try {
     await client.send("Runtime.addBinding", { name: TARGET_BINDING_NAME });
-  } catch {}
+  } catch (error) {
+    console.warn("Vue DevTools could not register the runtime binding", error);
+  }
 
   const targetChannel = createTargetChannel(client);
   targetChannelCleanup = targetChannel.cleanup;

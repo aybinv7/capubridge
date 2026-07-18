@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { Database, RefreshCw, AlertCircle, ChevronRight, ArrowRight } from "lucide-vue-next";
-import type { StoreInfo } from "utils";
+import type { StoreInfo } from "@capubridge/cdp-protocol";
 
 const props = defineProps<{
   dbName: string;

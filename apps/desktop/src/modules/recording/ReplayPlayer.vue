@@ -55,8 +55,8 @@ function injectBaseTag() {
     const base = doc.createElement("base");
     base.href = origin + "/";
     doc.head.prepend(base);
-  } catch {
-    /* URL parse / sandbox — ignore */
+  } catch (error) {
+    console.warn("Failed to inject replay base URL", error);
   }
 }
 

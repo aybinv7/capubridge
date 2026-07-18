@@ -2,7 +2,7 @@ import { computed, onUnmounted, watch } from "vue";
 import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useNetworkStore } from "@/modules/network/stores/useNetworkStore";
-import { NetworkDomain } from "utils";
+import { NetworkDomain } from "@capubridge/cdp-protocol";
 import type { NetworkEntry, NetworkResourceType } from "@/types/network.types";
 
 export function useNetwork() {
@@ -179,7 +179,9 @@ export function useNetwork() {
     for (const unsub of unsubscribers) unsub();
     unsubscribers = [];
     if (activeDomain) {
-      await activeDomain.disable().catch(() => {});
+      await activeDomain.disable().catch((error) => {
+        console.warn("Failed to disable network capture domain", error);
+      });
       activeDomain = null;
     }
   }

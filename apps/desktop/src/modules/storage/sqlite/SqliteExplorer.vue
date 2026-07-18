@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import VirtualDataTable from "@/shared/components/data/VirtualDataTable.vue";
 import { toast } from "vue-sonner";
 import { useOPFS, useJeepSqlite } from "@/composables/useStorage";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
@@ -290,13 +291,6 @@ async function runSql() {
   } finally {
     isRunningSql.value = false;
   }
-}
-
-function renderCell(value: unknown): { text: string; tone: "null" | "blob" | "value" } {
-  if (value === null || value === undefined) return { text: "NULL", tone: "null" };
-  if (typeof value === "string" && value.startsWith("[BLOB ")) return { text: value, tone: "blob" };
-  if (typeof value === "object") return { text: JSON.stringify(value), tone: "value" };
-  return { text: String(value), tone: "value" };
 }
 
 function sourceNeedsLiveTarget(kind: string | undefined): boolean {
@@ -808,7 +802,9 @@ async function forceReleaseAndDelete(opfsPath: string, db: SqliteDbFile): Promis
       }
     }
   } finally {
-    void localWebviewStore.navigateSource(info.label, info.url).catch(() => null);
+    void localWebviewStore.navigateSource(info.label, info.url).catch((error) => {
+      toast.error("Failed to restore source webview", { description: String(error) });
+    });
   }
 }
 
@@ -1853,53 +1849,20 @@ watch(
                 </div>
               </div>
 
-              <ScrollArea class="flex-1">
+              <div class="min-h-0 flex-1 overflow-hidden">
                 <div
                   v-if="!sqlResult && !sqlError"
                   class="px-3 py-8 text-center text-[11px] text-muted-foreground/40"
                 >
                   Run a query to see results.
                 </div>
-                <table v-else-if="sqlResult" class="w-full text-xs">
-                  <thead class="sticky top-0 z-10">
-                    <tr
-                      class="bg-surface-2 text-left uppercase tracking-wider text-muted-foreground/50 border-b border-border/30"
-                    >
-                      <th
-                        v-for="col in sqlResult.columns"
-                        :key="col"
-                        class="px-3 py-2 font-medium whitespace-nowrap"
-                      >
-                        {{ col }}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(row, idx) in sqlResult.rows"
-                      :key="idx"
-                      class="border-b border-border/20 data-row"
-                    >
-                      <td
-                        v-for="(cell, ci) in row"
-                        :key="ci"
-                        class="px-3 py-1.5 font-mono align-top"
-                      >
-                        <span
-                          class="block max-w-md truncate"
-                          :class="{
-                            'italic text-muted-foreground/40': renderCell(cell).tone === 'null',
-                            'text-violet-300': renderCell(cell).tone === 'blob',
-                            'text-secondary-foreground': renderCell(cell).tone === 'value',
-                          }"
-                        >
-                          {{ renderCell(cell).text }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </ScrollArea>
+                <VirtualDataTable
+                  v-else-if="sqlResult"
+                  class="h-full"
+                  :columns="sqlResult.columns"
+                  :rows="sqlResult.rows"
+                />
+              </div>
             </template>
           </div>
         </template>

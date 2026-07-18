@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { invokeCommand } from "@/runtime/ipc/client";
 import {
   FolderOpen,
   RefreshCw,
@@ -76,7 +76,7 @@ async function refresh() {
   isLoading.value = true;
   error.value = null;
   try {
-    const items = await invoke<RawSessionListItem[]>("recording_list_sessions");
+    const items = await invokeCommand("recording_list_sessions");
     sessions.value = items
       .map(normalizeSession)
       .filter((item): item is SessionListItem => item !== null);
@@ -151,7 +151,7 @@ async function deleteSession(item: SessionListItem, e: Event) {
   if (!confirm(`Delete "${item.label || item.sessionId}"? This cannot be undone.`)) return;
   deletingId.value = item.sessionId;
   try {
-    await invoke("recording_delete_session", { sessionId: item.sessionId });
+    await invokeCommand("recording_delete_session", { sessionId: item.sessionId });
     sessions.value = sessions.value.filter((s) => s.sessionId !== item.sessionId);
     toast.success("Session deleted");
   } catch (err) {

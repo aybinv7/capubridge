@@ -1,5 +1,6 @@
 mod adb_runtime;
 mod commands;
+mod error;
 mod session;
 
 use commands::adb::{

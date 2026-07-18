@@ -1,6 +1,6 @@
 import { ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
-import { invoke } from "@tauri-apps/api/core";
+import { invokeCommand } from "@/runtime/ipc/client";
 
 export const LOCAL_SQL_SERIAL = "__local__";
 export const LOCAL_SQL_PACKAGE = "opfs";
@@ -56,7 +56,7 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
       );
     }
     const base64Data = btoa(binary);
-    const path = await invoke<string>("sqlite_save_local_bytes", {
+    const path = await invokeCommand("sqlite_save_local_bytes", {
       name: label,
       base64Data,
     });
@@ -112,7 +112,7 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
       );
     }
     const base64Data = btoa(binary);
-    await invoke<void>("sqlite_overwrite_local_bytes", { path: session.dbPath, base64Data });
+    await invokeCommand("sqlite_overwrite_local_bytes", { path: session.dbPath, base64Data });
     localSession.value = {
       ...session,
       sizeBytes: bytes.byteLength,

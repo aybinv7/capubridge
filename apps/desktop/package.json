@@ -1,17 +1,19 @@
 {
   "name": "desktop",
-  "version": "0.0.0",
+  "version": "1.15.0",
   "private": true,
   "type": "module",
   "scripts": {
     "bundle:adb": "node ./scripts/sync-platform-tools.mjs",
     "dev": "vp dev",
-    "build": "tsc && vp build",
+    "build": "vp check && vp build",
     "preview": "vp preview",
+    "test": "vp test",
     "tauri": "vpx tauri.cmd dev"
   },
   "dependencies": {
     "@babel/parser": "catalog:",
+    "@capubridge/cdp-protocol": "workspace:*",
     "@devicefarmer/adbkit": "^3.3.8",
     "@internationalized/date": "catalog:",
     "@tailwindcss/vite": "catalog:",
@@ -40,7 +42,6 @@
     "sql.js": "catalog:",
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
-    "utils": "workspace:*",
     "vue": "catalog:",
     "vue-router": "catalog:",
     "vue-sonner": "catalog:"

@@ -1,6 +1,6 @@
 import { computed, type Ref } from "vue";
 import { storeToRefs } from "pinia";
-import type { IDBRecord } from "utils";
+import type { IDBRecord } from "@capubridge/cdp-protocol";
 import type {
   IndexedDBChangeOperation,
   IndexedDBChangeEntry,

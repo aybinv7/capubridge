@@ -78,6 +78,7 @@ impl SessionCacheStore {
                 status: "offline".to_string(),
                 temperature: SessionTemperature::Cold,
                 is_stale: true,
+                health: None,
                 ..device
             })
             .collect();

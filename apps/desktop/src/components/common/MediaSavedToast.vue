@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
 import { ArrowUpRight } from "lucide-vue-next";
+import { invokeCommand } from "@/runtime/ipc/client";
 
 const props = defineProps<{
   type: "video" | "screenshot";
@@ -11,7 +11,7 @@ const props = defineProps<{
 
 async function openInFolder() {
   try {
-    await invoke("show_in_folder", { path: props.path });
+    await invokeCommand("show_in_folder", { path: props.path });
   } catch (err) {
     console.error("Failed to open folder:", err);
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from "vue";
-import type { CSSProperty } from "utils";
+import type { CSSProperty } from "@capubridge/cdp-protocol";
 
 const props = defineProps<{
   property: CSSProperty;

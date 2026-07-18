@@ -1,49 +1,45 @@
-# Data Flow
+# Data flow
 
-How data flows from the Android device through the stack to the UI.
+## Device to Rust
 
-## Device → Rust
+ADB device operations use the shared managed ADB server connection. CapuBridge does not spawn a fresh `adb.exe` process for normal commands.
 
-Android device communication happens through two channels:![Screenshot showing the data flow diagram]### ADB channel
-Used for: device management, logcat, file operations, package listing.
+The session runtime turns device work into bounded operations:
 
-- `adb devices` → device list
-- `adb shell logcat` → log stream
-- `adb pull` → file download
-- `adb shell pm list packages` → package list
-  All ADB commands go through the **shared ADB server path**. No fresh `adb. exe` spawns for normal device work.### CDP WebSocket channel
-  Used for: target inspection, storage queries, DOM manipulation.
-- Forwarded TCP port to device CDP endpoint
-- WebSocket session to the selected target
-- CDP commands and events
+1. A command identifies the device session and operation class.
+2. The session scheduler applies priority, queue capacity, timeout, and cancellation policy.
+3. The transport accesses the ADB daemon or forwarded WebView socket.
+4. The session records a terminal result and emits updated state when required.
 
-## Rust → Vue
+CDP traffic uses the forwarded port assigned to the selected device. Each device receives a distinct port allocation managed by the session runtime.
 
-Rust emits typed session events on the `capubridge:session-event` channel.
-| Event | Payload | When |
-|-------|---------|------|
-| `registryUpdated` | Device list | Device attach/remove |
-| `leaseStateChanged` | Lease state | Lease start/stop |
-| `logcatEntry` | Log line | Logcat stream |
-| `perfMetrics` | Metrics object | Perf stream |### Snapshot commands
-Vue pulls snapshots explicitly:```typescript
-// List targets
-const targets = await invoke<CDPTarget[]>('session_list_targets', { serial });// List packages
-const packages = await invoke<AppPackage[]>('session_list_packages', { serial });
+## Rust to Vue
 
-````### Lease commands
-Vue starts/stops live features explicitly:```typescript
-// Start logcat lease
-await invoke('session_start_logcat_lease', { serial });// Stop logcat lease
-await invoke('session_stop_logcat_lease', { serial });
-```## Vue → Rust
-User actions send intents through invoke:```typescript// Select device
-await invoke('session_set_active_device', { serial });// Refresh targets
-await invoke('session_refresh_targets', { serial });// Refresh packages
-await invoke('session_refresh_packages', { serial });
-```## Vue → UI
-Stores update, Vue reactivity propagates, UI renders. No watcher-driven transport.
-## CDP commands
-CDP commands go through `useCDP. ts` composable:```typescriptconst cdp = useCDP(targetId);
-const databases = await cdp.send('IndexedDB.getDatabaseNames');```CDP writes go through `Runtime.evaluate` to ensure the target receives the change.
-````
+Request-response work uses typed Tauri commands. Background lifecycle changes use typed events. High-frequency streams use scoped channels or feature-specific streams where available.
+
+```typescript
+const devices = await invokeCommand("session_list_devices");
+const targets = await invokeCommand("session_list_targets", { serial });
+```
+
+The canonical contract determines each command's arguments and result. Direct feature imports from `@tauri-apps/api` are migrated to the runtime client.
+
+## Vue state flow
+
+```text
+Typed IPC result or event
+  → module service
+  → TanStack Query cache or owning Pinia store
+  → computed presentation state
+  → Vue component
+```
+
+Components send explicit intent. They do not synthesize device state or trigger transport work through mount chains.
+
+## Writes
+
+Storage writes travel to the selected target through CDP, including `Runtime.evaluate` where required by the storage implementation. A local cache mutation cannot represent success until the target confirms the write.
+
+## Cancellation and disconnect
+
+Package scans and other long work receive a cancellation generation or signal outside the normal queue path. A disconnect, timeout, cancellation, or shutdown produces an explicit terminal result and starts deterministic cleanup.

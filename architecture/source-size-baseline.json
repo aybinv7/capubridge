@@ -1,0 +1,107 @@
+{
+  "threshold": 800,
+  "exceptions": [
+    {
+      "path": "apps/desktop/src/modules/storage/sqlite/SqliteExplorer.vue",
+      "maxLines": 1888,
+      "owner": "Storage module",
+      "rationale": "Legacy SQLite orchestration combines discovery, routing, CRUD, import/export, change overlays, and SQL console responsibilities; approved only while SIZE-01 splitting proceeds."
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/commands/adb.rs",
+      "maxLines": 1950,
+      "owner": "Device runtime",
+      "rationale": "Legacy ADB command adapter still combines device, package, file, shell, reverse, and parsing capabilities; keep stable while capability command modules are extracted."
+    },
+    {
+      "path": "apps/desktop/src/data/mock-data.ts",
+      "maxLines": 1729,
+      "owner": "Application shell",
+      "rationale": "Legacy fixture corpus remains centralized during product-truth cleanup; it must move to capability-owned test fixtures or be removed before this exception closes."
+    },
+    {
+      "path": "apps/desktop/src/modules/devices/DeviceFiles.vue",
+      "maxLines": 1195,
+      "owner": "Devices module",
+      "rationale": "Device file explorer combines navigation, transfer, preview, editing, and archive workflows; approved pending separation into focused file services and views."
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/commands/mirror.rs",
+      "maxLines": 1236,
+      "owner": "Mirror runtime",
+      "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; MIR-01 owns the staged runtime split."
+    },
+    {
+      "path": "apps/desktop/src/modules/network/NetworkRequests.vue",
+      "maxLines": 1154,
+      "owner": "Network module",
+      "rationale": "Network surface combines capture lifecycle, filtering, virtual table, body loading, and request detail presentation; approved pending extraction of data and detail surfaces."
+    },
+    {
+      "path": "apps/desktop/src/modules/storage/indexeddb/IDBTable.vue",
+      "maxLines": 1105,
+      "owner": "Storage module",
+      "rationale": "IndexedDB table combines TanStack configuration, editing actions, change overlays, virtualization, and presentation; approved pending responsibility extraction."
+    },
+    {
+      "path": "apps/desktop/src/modules/recording/ReplayDatabasesPanel.vue",
+      "maxLines": 1129,
+      "owner": "Recording module",
+      "rationale": "Replay database surface coordinates IndexedDB and SQLite snapshots, changes, filters, dialogs, and tables; REC-01 owns further capability separation."
+    },
+    {
+      "path": "apps/desktop/src/components/DeviceManagerModal.vue",
+      "maxLines": 1062,
+      "owner": "Devices module",
+      "rationale": "Legacy device manager modal combines discovery, pairing, connection, package selection, target selection, and dialog presentation; approved pending module-owned workflow extraction."
+    },
+    {
+      "path": "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue",
+      "maxLines": 1073,
+      "owner": "Storage module",
+      "rationale": "IndexedDB explorer remains an orchestration surface for routing, metadata, paging, mutations, imports, exports, changes, and dialogs; approved pending focused composables."
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/commands/sqlite.rs",
+      "maxLines": 1087,
+      "owner": "Storage runtime",
+      "rationale": "SQLite backend currently combines discovery, queries, writes, metadata, export, and file synchronization adapters; approved pending service-oriented command extraction."
+    },
+    {
+      "path": "apps/desktop/src/modules/devices/DevicePerf.vue",
+      "maxLines": 876,
+      "owner": "Devices module",
+      "rationale": "Performance view combines metric sampling, chart preparation, process inspection, and presentation; narrow exception remains until monitoring services are extracted."
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/commands/recording_db.rs",
+      "maxLines": 900,
+      "owner": "Recording runtime",
+      "rationale": "Recording database adapter owns snapshot persistence, paging, schema conversion, and replay queries; REC-01 will split persistence from command adaptation."
+    },
+    {
+      "path": "apps/docs/.vitepress/theme/AppPreview.vue",
+      "maxLines": 1371,
+      "owner": "Documentation application",
+      "rationale": "Interactive documentation preview combines device, inspector, storage, console, and settings demonstrations; approved pending extraction into capability preview components."
+    },
+    {
+      "path": "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue",
+      "maxLines": 855,
+      "owner": "Storage module",
+      "rationale": "Storage graph surface combines graph discovery, layout, filtering, selection, and detail presentation; narrow exception remains pending graph service extraction."
+    },
+    {
+      "path": "apps/desktop/src/modules/network/NetworkMock.vue",
+      "maxLines": 831,
+      "owner": "Network module",
+      "rationale": "Network mock surface combines rule editing, persistence, interception mode, reverse setup, and request log presentation; approved pending editor and log extraction."
+    },
+    {
+      "path": "apps/desktop/src/modules/storage/sqlite/SqliteTable.vue",
+      "maxLines": 811,
+      "owner": "Storage module",
+      "rationale": "SQLite table combines column modeling, change overlays, row actions, virtualization, and table presentation; narrow exception remains pending action and overlay extraction."
+    }
+  ]
+}

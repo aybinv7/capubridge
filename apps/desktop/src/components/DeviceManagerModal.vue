@@ -127,8 +127,8 @@ async function loadDeviceInfo(serial: string) {
   try {
     const info = await getDeviceOverview(serial);
     if (info) deviceInfoCache[serial] = info;
-  } catch {
-    // info unavailable
+  } catch (error) {
+    console.warn("Failed to load device overview", serial, error);
   } finally {
     deviceInfoLoading.value = false;
   }
@@ -300,8 +300,8 @@ async function handleDisconnectDevice() {
       const port = parseInt(serial.slice(lastColon + 1), 10);
       try {
         await disconnectDevice(host, port);
-      } catch {
-        /* ignore */
+      } catch (error) {
+        console.warn("Failed to disconnect device during WiFi transition", serial, error);
       }
     }
   }

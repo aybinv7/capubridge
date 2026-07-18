@@ -1,14 +1,32 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { NetworkEntry, NetworkTypeFilter } from "@/types/network.types";
+import {
+  NETWORK_MAX_BODY_BYTES,
+  NETWORK_MAX_BODY_CACHE_BYTES,
+  NETWORK_MAX_CACHED_BODIES,
+  NETWORK_MAX_ENTRIES,
+  NETWORK_MAX_ENTRY_BYTES,
+  NETWORK_MAX_HISTORY_BYTES,
+  estimateSerializedBytes,
+  truncateUtf8,
+  utf8ByteLength,
+} from "../networkRetention";
 
-const MAX_ENTRIES = 5_000;
+interface CachedBody {
+  text: string;
+  bytes: number;
+}
 
 export const useNetworkStore = defineStore("network", () => {
   // Raw mutable data — not Vue-reactive directly; version counter drives updates
   const _entries = new Map<string, NetworkEntry>();
   const _order: string[] = [];
-  const _bodyCache = new Map<string, string>();
+  const _entryBytes = new Map<string, number>();
+  const _bodyCache = new Map<string, CachedBody>();
+  const _bodyOrder: string[] = [];
+  let _historyBytes = 0;
+  let _bodyBytes = 0;
 
   const _version = ref(0);
   let _rafPending = false;
@@ -89,8 +107,10 @@ export const useNetworkStore = defineStore("network", () => {
         if (inUrl || inMethod || inStatus || inMime) return true;
 
         if (scope === "all") {
-          const body = _bodyCache.get(e.requestId) ?? "";
-          const inBody = body.toLowerCase().includes(q);
+          const responseBody = _bodyCache.get(e.requestId)?.text ?? "";
+          const payloadBody = _bodyCache.get(`${e.requestId}:payload`)?.text ?? "";
+          const inBody =
+            responseBody.toLowerCase().includes(q) || payloadBody.toLowerCase().includes(q);
           const inReqHeaders = JSON.stringify(e.requestHeaders).toLowerCase().includes(q);
           const inResHeaders = JSON.stringify(e.responseHeaders).toLowerCase().includes(q);
           if (!inBody && !inReqHeaders && !inResHeaders) return false;
@@ -107,7 +127,69 @@ export const useNetworkStore = defineStore("network", () => {
     selectedId.value ? (_entries.get(selectedId.value) ?? null) : null,
   );
 
-  const requestCount = computed(() => _order.length);
+  const requestCount = computed(() => {
+    void _version.value;
+    return _order.length;
+  });
+  const retainedHistoryBytes = computed(() => {
+    void _version.value;
+    return _historyBytes;
+  });
+  const retainedBodyBytes = computed(() => {
+    void _version.value;
+    return _bodyBytes;
+  });
+  const retainedBodyCount = computed(() => {
+    void _version.value;
+    return _bodyOrder.length;
+  });
+
+  function deleteCachedBody(key: string) {
+    const cached = _bodyCache.get(key);
+    if (!cached) return;
+    _bodyBytes -= cached.bytes;
+    _bodyCache.delete(key);
+    const orderIndex = _bodyOrder.indexOf(key);
+    if (orderIndex >= 0) _bodyOrder.splice(orderIndex, 1);
+  }
+
+  function deleteEntry(requestId: string) {
+    _entries.delete(requestId);
+    const bytes = _entryBytes.get(requestId) ?? 0;
+    _historyBytes -= bytes;
+    _entryBytes.delete(requestId);
+    deleteCachedBody(requestId);
+    deleteCachedBody(`${requestId}:payload`);
+    if (selectedId.value === requestId) selectedId.value = null;
+  }
+
+  function enforceEntryRetention() {
+    while (_order.length > NETWORK_MAX_ENTRIES || _historyBytes > NETWORK_MAX_HISTORY_BYTES) {
+      const oldest = _order.shift();
+      if (!oldest) break;
+      deleteEntry(oldest);
+    }
+  }
+
+  function boundedEntry(entry: NetworkEntry): NetworkEntry {
+    if (estimateSerializedBytes(entry) <= NETWORK_MAX_ENTRY_BYTES) return entry;
+    const withoutHeaders = { ...entry, requestHeaders: {}, responseHeaders: {} };
+    if (estimateSerializedBytes(withoutHeaders) <= NETWORK_MAX_ENTRY_BYTES) return withoutHeaders;
+    return {
+      ...withoutHeaders,
+      url: truncateUtf8(withoutHeaders.url, 128 * 1024),
+      statusText: truncateUtf8(withoutHeaders.statusText, 8 * 1024),
+      mimeType: truncateUtf8(withoutHeaders.mimeType, 8 * 1024),
+      protocol: truncateUtf8(withoutHeaders.protocol, 8 * 1024),
+      remoteAddress: truncateUtf8(withoutHeaders.remoteAddress, 8 * 1024),
+      initiatorUrl: withoutHeaders.initiatorUrl
+        ? truncateUtf8(withoutHeaders.initiatorUrl, 128 * 1024)
+        : undefined,
+      errorText: withoutHeaders.errorText
+        ? truncateUtf8(withoutHeaders.errorText, 8 * 1024)
+        : undefined,
+    };
+  }
 
   const transferredBytes = computed(() => {
     void _version.value;
@@ -121,20 +203,31 @@ export const useNetworkStore = defineStore("network", () => {
   // Actions
   function addEntry(entry: NetworkEntry) {
     if (!isRecording.value) return;
-    if (_order.length >= MAX_ENTRIES) {
-      const oldest = _order.shift()!;
-      _entries.delete(oldest);
-      _bodyCache.delete(oldest);
+    const retained = boundedEntry(entry);
+    if (_entries.has(retained.requestId)) {
+      const orderIndex = _order.indexOf(retained.requestId);
+      if (orderIndex >= 0) _order.splice(orderIndex, 1);
+      deleteEntry(retained.requestId);
     }
-    _entries.set(entry.requestId, entry);
+    _entries.set(retained.requestId, retained);
+    const bytes = estimateSerializedBytes(retained);
+    _entryBytes.set(retained.requestId, bytes);
+    _historyBytes += bytes;
     _order.push(entry.requestId);
+    enforceEntryRetention();
     _scheduleFlush();
   }
 
   function patchEntry(requestId: string, patch: Partial<NetworkEntry>) {
     const existing = _entries.get(requestId);
     if (!existing) return;
-    _entries.set(requestId, { ...existing, ...patch });
+    const retained = boundedEntry({ ...existing, ...patch });
+    _historyBytes -= _entryBytes.get(requestId) ?? 0;
+    const bytes = estimateSerializedBytes(retained);
+    _entryBytes.set(requestId, bytes);
+    _historyBytes += bytes;
+    _entries.set(requestId, retained);
+    enforceEntryRetention();
     _scheduleFlush();
   }
 
@@ -143,13 +236,32 @@ export const useNetworkStore = defineStore("network", () => {
   }
 
   function cacheBody(requestId: string, text: string) {
-    _bodyCache.set(requestId, text);
+    deleteCachedBody(requestId);
+    const retained = truncateUtf8(text, NETWORK_MAX_BODY_BYTES);
+    const bytes = utf8ByteLength(retained);
+    _bodyCache.set(requestId, { text: retained, bytes });
+    _bodyOrder.push(requestId);
+    _bodyBytes += bytes;
+
+    while (
+      _bodyOrder.length > NETWORK_MAX_CACHED_BODIES ||
+      _bodyBytes > NETWORK_MAX_BODY_CACHE_BYTES
+    ) {
+      const oldest = _bodyOrder[0];
+      if (!oldest) break;
+      deleteCachedBody(oldest);
+    }
+    _scheduleFlush();
   }
 
   function clear() {
     _entries.clear();
     _order.length = 0;
+    _entryBytes.clear();
+    _historyBytes = 0;
     _bodyCache.clear();
+    _bodyOrder.length = 0;
+    _bodyBytes = 0;
     selectedId.value = null;
     _version.value++;
   }
@@ -175,6 +287,9 @@ export const useNetworkStore = defineStore("network", () => {
     filteredEntries,
     selectedEntry,
     requestCount,
+    retainedHistoryBytes,
+    retainedBodyBytes,
+    retainedBodyCount,
     transferredBytes,
     addEntry,
     patchEntry,

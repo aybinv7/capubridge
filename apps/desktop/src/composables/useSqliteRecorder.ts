@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useSQLite } from "@/composables/useSQLite";
+import { invokeCommand } from "@/runtime/ipc/client";
 import type { SqliteColumnInfo, SqliteDbFile, SqliteTableInfo } from "@/types/sqlite.types";
 
 type SnapshotReason = "initial" | "change" | "final";
@@ -110,7 +110,7 @@ export function useSqliteRecorder(
       .toString(36)
       .slice(2, 8)}`;
 
-    await invoke<void>("recording_database_snapshot_begin", {
+    await invokeCommand("recording_database_snapshot_begin", {
       sessionId,
       source,
       snapshotId,
@@ -134,7 +134,7 @@ export function useSqliteRecorder(
       });
 
       if (records.length > 0) {
-        await invoke<void>("recording_database_snapshot_page", {
+        await invokeCommand("recording_database_snapshot_page", {
           sessionId,
           snapshotId,
           sourceId: source.id,
@@ -146,7 +146,7 @@ export function useSqliteRecorder(
       if (result.rows.length < pageSize || offset >= table.rowCount) break;
     }
 
-    await invoke<void>("recording_database_snapshot_finish", {
+    await invokeCommand("recording_database_snapshot_finish", {
       sessionId,
       snapshotId,
       sourceId: source.id,
@@ -183,7 +183,9 @@ export function useSqliteRecorder(
 
   function queue(reason: SnapshotReason) {
     run = run
-      .catch(() => undefined)
+      .catch((error) => {
+        console.warn("[sqlite-recorder] previous capture failed", error);
+      })
       .then(() => captureAll(reason))
       .catch((err) => {
         console.warn("[sqlite-recorder] capture failed", err);
@@ -203,7 +205,9 @@ export function useSqliteRecorder(
       clearInterval(timer);
       timer = null;
     }
-    await run.catch(() => undefined);
+    await run.catch((error) => {
+      console.warn("[sqlite-recorder] pending capture failed during shutdown", error);
+    });
     await captureAll("final");
   }
 

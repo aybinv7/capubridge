@@ -1,9 +1,7 @@
 use tokio::runtime::Builder;
 
 use crate::commands::{
-    adb::{
-        adb_list_webview_sockets_inner, catch_adb_panic, get_server, map_adb_server_err,
-    },
+    adb::{adb_list_webview_sockets_inner, catch_adb_panic, get_adb_device},
     chrome::CDPJsonTarget,
 };
 
@@ -37,10 +35,7 @@ pub(crate) fn adb_forward_cdp_inner(
     let socket = socket_name.unwrap_or("chrome_devtools_remote");
     let remote = format!("localabstract:{socket}");
 
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+    let mut device = get_adb_device(serial)?;
 
     for attempt in 0..8 {
         let local_port = allocate_local_port()?;
@@ -95,8 +90,7 @@ pub async fn adb_remove_forward(_app: tauri::AppHandle, serial: String) -> Resul
     catch_adb_panic("adb_remove_forward", move || {
         log::info!("[adb_remove_forward] serial={}", serial);
 
-        let mut server = get_server().lock();
-        let device = server.get_device_by_name(&serial);
+        let device = get_adb_device(&serial);
         match device {
             Ok(mut d) => {
                 if let Err(e) = d.forward_remove_all() {
@@ -106,11 +100,11 @@ pub async fn adb_remove_forward(_app: tauri::AppHandle, serial: String) -> Resul
                     );
                 }
             }
-            Err(e) => {
+            Err(error) => {
                 log::info!(
                     "[adb_remove_forward] Device {} not found (likely offline), skipping: {}",
                     serial,
-                    map_adb_server_err(e)
+                    error
                 );
             }
         }

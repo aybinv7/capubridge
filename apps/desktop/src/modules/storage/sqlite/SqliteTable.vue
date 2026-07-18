@@ -24,6 +24,7 @@ import type { SqliteColumnInfo } from "@/types/sqlite.types";
 import type { SqliteRecordChange } from "@/types/sqliteChanges.types";
 import { buildRowKey } from "@/modules/storage/changes/useSqliteChangeOverlay";
 import { useModalGuard } from "@/composables/useModalGuard";
+import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 
 // UI components
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,7 @@ const columnPinning = ref<ColumnPinningState>({
 });
 const rowSelection = ref<Record<string, boolean>>({});
 const columnSizing = ref<ColumnSizingState>({});
+const tableScrollEl = ref<HTMLElement | null>(null);
 
 // Reset all state when table changes
 watch(
@@ -396,6 +398,12 @@ useModalGuard(isDetailOpen);
 // ─── Computed Stats ──────────────────────────────────────────────────────────
 const filteredRowCount = computed(() => table.getFilteredRowModel().rows.length);
 const selectedRowCount = computed(() => table.getSelectedRowModel().rows.length);
+const visibleRows = computed(() => table.getRowModel().rows);
+const {
+  items: virtualRows,
+  topSpacerHeight,
+  bottomSpacerHeight,
+} = useFixedVirtualList(visibleRows, tableScrollEl, { itemHeight: 36, overscan: 10 });
 
 // ─── Grouping Helpers ────────────────────────────────────────────────────────
 const isColumnGrouped = (columnId: string) => grouping.value.includes(columnId);
@@ -439,7 +447,7 @@ function isBlob(val: unknown): boolean {
     />
 
     <!-- ─── Table ────────────────────────────────────────────────────────── -->
-    <div class="flex-1 overflow-auto min-h-0 relative">
+    <div ref="tableScrollEl" class="flex-1 overflow-auto min-h-0 relative">
       <!-- Loading skeleton -->
       <div v-if="isLoading && rows.length === 0" class="flex flex-col gap-px p-1">
         <div
@@ -656,7 +664,13 @@ function isBlob(val: unknown): boolean {
         </thead>
 
         <tbody>
-          <template v-for="row in table.getRowModel().rows" :key="row.id">
+          <tr v-if="topSpacerHeight > 0" aria-hidden="true">
+            <td
+              :colspan="table.getVisibleLeafColumns().length"
+              :style="{ height: `${topSpacerHeight}px` }"
+            />
+          </tr>
+          <template v-for="{ data: row } in virtualRows" :key="row.id">
             <!-- Group header -->
             <tr v-if="row.getIsGrouped()" class="bg-surface-3/30 border-b border-border/20">
               <td :colspan="row.getVisibleCells().length" class="px-3 py-2">
@@ -736,6 +750,12 @@ function isBlob(val: unknown): boolean {
               </td>
             </tr>
           </template>
+          <tr v-if="bottomSpacerHeight > 0" aria-hidden="true">
+            <td
+              :colspan="table.getVisibleLeafColumns().length"
+              :style="{ height: `${bottomSpacerHeight}px` }"
+            />
+          </tr>
         </tbody>
       </table>
     </div>

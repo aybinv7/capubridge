@@ -5,6 +5,7 @@ use crate::commands::adb::{
 };
 use crate::commands::mirror::stop_mirror_session;
 use crate::commands::perf::{start_perf_session_with_callbacks, stop_perf_session};
+use crate::error::{AppResult, AppResultExt};
 use crate::session::events::{
     emit_lease_state, emit_logcat_entry, emit_logcat_error, emit_perf_error, emit_perf_metrics,
 };
@@ -28,8 +29,8 @@ pub fn session_start_logcat_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<SessionLeaseState, String> {
-    require_hot_session(&state, &serial)?;
+) -> AppResult<SessionLeaseState> {
+    require_hot_session(&state, &serial).app_context("session_start_logcat_lease")?;
 
     let registry = state.registry();
     let entry_app = app.clone();
@@ -50,9 +51,12 @@ pub fn session_start_logcat_lease(
                 emit_lease_state(&stopped_app, lease);
             }
         },
-    )?;
+    )
+    .app_context("session_start_logcat_lease")?;
 
-    let lease = registry.set_logcat_lease(&serial, true)?;
+    let lease = registry
+        .set_logcat_lease(&serial, true)
+        .app_context("session_start_logcat_lease")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }
@@ -62,9 +66,12 @@ pub fn session_stop_logcat_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<SessionLeaseState, String> {
+) -> AppResult<SessionLeaseState> {
     stop_logcat_session(&serial);
-    let lease = state.registry().set_logcat_lease(&serial, false)?;
+    let lease = state
+        .registry()
+        .set_logcat_lease(&serial, false)
+        .app_context("session_stop_logcat_lease")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }
@@ -74,8 +81,8 @@ pub async fn session_start_perf_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<SessionLeaseState, String> {
-    require_hot_session(&state, &serial)?;
+) -> AppResult<SessionLeaseState> {
+    require_hot_session(&state, &serial).app_context("session_start_perf_lease")?;
 
     let registry = state.registry();
     let metrics_app = app.clone();
@@ -99,9 +106,12 @@ pub async fn session_start_perf_lease(
             }
         },
     )
-    .await?;
+    .await
+    .app_context("session_start_perf_lease")?;
 
-    let lease = registry.set_perf_lease(&serial, true)?;
+    let lease = registry
+        .set_perf_lease(&serial, true)
+        .app_context("session_start_perf_lease")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }
@@ -111,9 +121,12 @@ pub fn session_stop_perf_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<SessionLeaseState, String> {
+) -> AppResult<SessionLeaseState> {
     stop_perf_session(&serial);
-    let lease = state.registry().set_perf_lease(&serial, false)?;
+    let lease = state
+        .registry()
+        .set_perf_lease(&serial, false)
+        .app_context("session_stop_perf_lease")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }
@@ -123,9 +136,12 @@ pub fn session_start_mirror_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<SessionLeaseState, String> {
-    require_hot_session(&state, &serial)?;
-    let lease = state.registry().set_mirror_lease(&serial, true)?;
+) -> AppResult<SessionLeaseState> {
+    require_hot_session(&state, &serial).app_context("session_start_mirror_lease")?;
+    let lease = state
+        .registry()
+        .set_mirror_lease(&serial, true)
+        .app_context("session_start_mirror_lease")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }
@@ -135,9 +151,14 @@ pub async fn session_stop_mirror_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<SessionLeaseState, String> {
-    stop_mirror_session(&serial).await?;
-    let lease = state.registry().set_mirror_lease(&serial, false)?;
+) -> AppResult<SessionLeaseState> {
+    stop_mirror_session(&serial)
+        .await
+        .app_context("session_stop_mirror_lease")?;
+    let lease = state
+        .registry()
+        .set_mirror_lease(&serial, false)
+        .app_context("session_stop_mirror_lease")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }
@@ -148,9 +169,12 @@ pub fn session_attach_console_target(
     state: State<'_, SessionRegistryState>,
     serial: String,
     target_id: String,
-) -> Result<SessionLeaseState, String> {
-    require_hot_session(&state, &serial)?;
-    let lease = state.registry().attach_console_target(&serial, target_id)?;
+) -> AppResult<SessionLeaseState> {
+    require_hot_session(&state, &serial).app_context("session_attach_console_target")?;
+    let lease = state
+        .registry()
+        .attach_console_target(&serial, target_id)
+        .app_context("session_attach_console_target")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }
@@ -160,8 +184,11 @@ pub fn session_detach_console_target(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
-) -> Result<SessionLeaseState, String> {
-    let lease = state.registry().detach_console_target(&serial)?;
+) -> AppResult<SessionLeaseState> {
+    let lease = state
+        .registry()
+        .detach_console_target(&serial)
+        .app_context("session_detach_console_target")?;
     emit_lease_state(&app, lease.clone());
     Ok(lease)
 }

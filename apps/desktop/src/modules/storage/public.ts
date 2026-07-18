@@ -1,0 +1,1 @@
+export { storageRoutes } from "./routes";

@@ -10,7 +10,7 @@ capubridge/
 │   │   └── src-tauri/
 │   └── website/
 ├── packages/
-│   └── utils/
+│   └── cdp-protocol/
 └── docs/
 ```
 

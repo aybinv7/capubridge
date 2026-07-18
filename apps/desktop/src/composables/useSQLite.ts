@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invokeCommand } from "@/runtime/ipc/client";
 import type {
   SqliteDbFile,
   SqliteTableInfo,
@@ -10,11 +10,11 @@ import type {
 
 export function useSQLite() {
   async function scanAllDatabases(serial: string): Promise<SqliteDbFile[]> {
-    return invoke<SqliteDbFile[]>("sqlite_scan_all_databases", { serial });
+    return invokeCommand("sqlite_scan_all_databases", { serial });
   }
 
   async function listDatabases(serial: string, pkg: string): Promise<SqliteDbFile[]> {
-    return invoke<SqliteDbFile[]>("sqlite_list_databases", {
+    return invokeCommand("sqlite_list_databases", {
       serial,
       package: pkg,
     });
@@ -25,7 +25,7 @@ export function useSQLite() {
     pkg: string,
     dbPath: string,
   ): Promise<SqliteTableInfo[]> {
-    return invoke<SqliteTableInfo[]>("sqlite_open_database", {
+    return invokeCommand("sqlite_open_database", {
       serial,
       package: pkg,
       dbPath,
@@ -38,7 +38,7 @@ export function useSQLite() {
     dbPath: string,
     tableName: string,
   ): Promise<SqliteColumnInfo[]> {
-    return invoke<SqliteColumnInfo[]>("sqlite_table_columns", {
+    return invokeCommand("sqlite_table_columns", {
       serial,
       package: pkg,
       dbPath,
@@ -52,7 +52,7 @@ export function useSQLite() {
     dbPath: string,
     tableName: string,
   ): Promise<SqliteIndexInfo[]> {
-    return invoke<SqliteIndexInfo[]>("sqlite_table_indexes", {
+    return invokeCommand("sqlite_table_indexes", {
       serial,
       package: pkg,
       dbPath,
@@ -66,7 +66,7 @@ export function useSQLite() {
     dbPath: string,
     tableName: string,
   ): Promise<SqliteForeignKeyInfo[]> {
-    return invoke<SqliteForeignKeyInfo[]>("sqlite_table_foreign_keys", {
+    return invokeCommand("sqlite_table_foreign_keys", {
       serial,
       package: pkg,
       dbPath,
@@ -84,15 +84,15 @@ export function useSQLite() {
     orderBy?: string,
     orderDir?: "ASC" | "DESC",
   ): Promise<SqliteQueryResult> {
-    return invoke<SqliteQueryResult>("sqlite_table_rows", {
+    return invokeCommand("sqlite_table_rows", {
       serial,
       package: pkg,
       dbPath,
       tableName,
       offset,
       limit,
-      orderBy: orderBy ?? null,
-      orderDir: orderDir ?? null,
+      orderBy: orderBy ?? undefined,
+      orderDir: orderDir ?? undefined,
     });
   }
 
@@ -102,7 +102,7 @@ export function useSQLite() {
     dbPath: string,
     sql: string,
   ): Promise<SqliteQueryResult> {
-    return invoke<SqliteQueryResult>("sqlite_execute_query", {
+    return invokeCommand("sqlite_execute_query", {
       serial,
       package: pkg,
       dbPath,
@@ -116,7 +116,7 @@ export function useSQLite() {
     dbPath: string,
     sql: string,
   ): Promise<SqliteQueryResult> {
-    return invoke<SqliteQueryResult>("sqlite_execute_write", {
+    return invokeCommand("sqlite_execute_write", {
       serial,
       package: pkg,
       dbPath,
@@ -125,7 +125,7 @@ export function useSQLite() {
   }
 
   async function exportBytes(serial: string, pkg: string, dbPath: string): Promise<Uint8Array> {
-    const base64 = await invoke<string>("sqlite_export_bytes", {
+    const base64 = await invokeCommand("sqlite_export_bytes", {
       serial,
       package: pkg,
       dbPath,
@@ -141,7 +141,7 @@ export function useSQLite() {
     pkg: string,
     dbPath: string,
   ): Promise<SqliteTableInfo[]> {
-    return invoke<SqliteQueryResult>("sqlite_refresh_database", {
+    return invokeCommand("sqlite_refresh_database", {
       serial,
       package: pkg,
       dbPath,
@@ -149,7 +149,7 @@ export function useSQLite() {
   }
 
   function closeDatabase(serial: string, pkg: string, dbPath: string): void {
-    void invoke("sqlite_close_database", {
+    void invokeCommand("sqlite_close_database", {
       serial,
       package: pkg,
       dbPath,

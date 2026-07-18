@@ -1,73 +1,62 @@
-# Architecture Overview
+# Architecture overview
 
-Capubridge's architecture is split between a **Rust backend** (Tauri 2) and a **Vue frontend** (Vue 3 + TypeScript). Rust owns operational state. Vue owns presentation.
-
-## System design
-
-The architecture follows the **session runtime** pattern: Rust is the source of truth for device/session/cache state. Vue renders snapshots and sends intents.
+CapuBridge uses a Rust-owned operational runtime and a modular Vue presentation layer. Rust owns device truth and resource lifecycles. Vue renders snapshots and sends explicit user intent.
 
 ```text
-Android device
-    ↕ ADB daemon / WebView sockets
-Rust session runtime
-    ├─ device tracker
-    ├─ registry
-    ├─ per-device sessions
-    ├─ cache store
-    └─ typed session events
-    ↕ Tauri command/event bridge
-Effect runtime wrappers
-    ↕ Pinia stores + Vue components
+Android devices
+  ↕ managed ADB daemon and WebView sockets
+Rust transport and session runtime
+  ↕ typed Tauri commands, channels, and events
+Typed frontend IPC client
+  ↕ module services, TanStack Query, and Pinia
+Vue feature modules
 ```
 
-## Ownership model
+## Dependency direction
 
-### Rust owns
+- The application shell composes feature public APIs.
+- Feature modules depend on the typed runtime and shared primitives.
+- Feature modules never import another module's internal files.
+- Shared code remains domain-neutral and cannot own feature state.
+- Tauri command adapters depend on session and transport services, not frontend concepts.
 
-- Device presence tracking
-- Per-device session lifecycle
-- Cache-only snapshot persistence
-- Target/package snapshot ownership
-- Live lease ownership
-- Typed session events
+The module-boundary quality gate rejects new cross-module imports. The current migration baseline is empty.
 
-### Vue owns
+## Ownership
 
-- Rendering snapshots
-- Visual selection
-- Local UX persistence
-- Explicit user intents
-- CDP connection UI state
+### Rust
+
+- Device discovery and connection state
+- Per-device sessions and work scheduling
+- Cancellation, timeouts, and terminal operation state
+- ADB/CDP port and transport resource lifecycles
+- Live feature leases and cleanup
+- Session health and operational events
+
+### Vue
+
+- Route and feature composition
+- Visual selection and workflow presentation
+- Persisted UI preferences
+- Query caches for remote data
+- Explicit commands sent through the typed IPC client
 
 ## Frontend state
 
-Vue state is organized into **Pinia setup stores**:
-| Store | Job |
-|-------|-----|
-| `session. store. ts` | Registry snapshot + active device |
-| `devices. store. ts` | Device UI intent layer |
-| `targets. store. ts` | Target snapshots + selected target |
-| `source. store. ts` | Derived ADB source + local Chrome source |
-| `connection. store. ts` | CDP WebSocket/proxy ownership |
-| `logcat. store. ts` | Logcat lease state + entries |
-| `console. store. ts` | Console target attach state |
-| `mirror. store. ts` | Mirror stream state |
-| `dock. store. ts` | Dock layout state |
+- TanStack Query owns cached remote and device data.
+- Setup Pinia stores own durable domain selection, workflow state, and preferences.
+- Components own short-lived presentation state.
+- Watchers do not own transport orchestration.
 
-## Backend modules
+## Trust zones
 
-Rust code is organized into:![Screenshot showing the Rust module structure]
-| Directory | Job |
-|----------|-----|
-| `commands/` | Tauri command adapters |
-| `session/` | Session runtime (registry, tracker, sessions) |
-| `runtime/` | Shared primitives (errors, paths) |
+The privileged application WebView and local preview content use separate capabilities. Production builds do not expose the main WebView through a remote-debugging port. Preview URLs and labels are validated before privileged operations.
 
-## CDP transport
+## More detail
 
-CDP transport is **frontend-facing but Rust-coordinated**:- Target discovery goes through the session snapshot flow
-
-- Local Chrome source is explicit
-- External DevTools preserve `devtoolsFrontendUrl`
-- Fallback synthetic targets without valid frontend metadata are not opened as external DevTools
-<div class="tip">The key rule: no watcher- driven transport orchestration. Frontend never invents device/session truth.</div>
+- [Data flow](./data-flow)
+- [Session runtime](./session)
+- [ADB integration](./adb)
+- [CDP transport](./cdp)
+- [Source-size governance](./source-size-governance)
+- [Architecture decisions](./decisions/)

@@ -26,9 +26,9 @@ features:
   - icon: 🔄
     title: Screen Mirror
     details: Stream the device screen directly to the desktop window. High FPS, low latency, with pause and quality controls.
-  - icon: 📦
-    title: Capacitor Support
-    details: First-class tooling for Capacitor apps. View plugins, permissions, deeplinks, and native configurations.
+  - icon: ✅
+    title: Truthful Feature Maturity
+    details: Stable and beta workflows stay visible. Mock, placeholder, and incomplete surfaces remain hidden until their real device behavior is ready.
   - icon: 🔒
     title: Session Runtime
     details: Rust-owned device sessions with explicit leases. No watcher-driven transport. Clean teardown when you leave a feature.

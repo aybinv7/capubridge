@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { toast } from "vue-sonner";
 import { ChevronRight, Search, Ban } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -138,7 +139,9 @@ function textClass(level: ConsoleEntryLevel): string {
 }
 
 function copyEntry(e: ConsoleEntry) {
-  void navigator.clipboard.writeText(e.message).catch(() => {});
+  void navigator.clipboard.writeText(e.message).catch((error) => {
+    toast.error("Failed to copy console entry", { description: String(error) });
+  });
 }
 
 const FILTER_LEVELS = [

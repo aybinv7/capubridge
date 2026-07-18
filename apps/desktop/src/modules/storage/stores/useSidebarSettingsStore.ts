@@ -16,7 +16,9 @@ function load(): SidebarSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch {}
+  } catch (error) {
+    console.warn("Failed to restore IndexedDB sidebar settings", error);
+  }
   return {
     pinnedDbs: [],
     hiddenDbs: [],

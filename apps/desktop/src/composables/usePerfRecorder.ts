@@ -4,7 +4,7 @@ import {
   stopPerfLeaseEffect,
   subscribeSessionEventsEffect,
 } from "@/runtime/session";
-import type { CDPClient } from "utils";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { useSessionWriter } from "./useSessionWriter";
 import type { PerfCapuSample } from "@/types/replay.types";
 import type { SessionEvent } from "@/types/session.types";

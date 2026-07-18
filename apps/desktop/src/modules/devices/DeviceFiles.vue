@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute } from "vue-router";
-import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { toast } from "vue-sonner";
+import { invokeCommand } from "@/runtime/ipc/client";
 import {
   Activity,
   AlertCircle,
@@ -136,7 +136,7 @@ const {
 } = useQuery({
   queryKey: computed(() => ["adb-dir", serial.value, selectedDir.value]),
   queryFn: () =>
-    invoke<FileEntry[]>("adb_list_dir", {
+    invokeCommand("adb_list_dir", {
       serial: serial.value,
       path: selectedDir.value,
     }),
@@ -343,13 +343,14 @@ async function loadTreeDir(path: string) {
   if (!serial.value || treeLoading.value.has(path) || treeContents.value.has(path)) return;
   treeLoading.value.add(path);
   try {
-    const value = await invoke<FileEntry[]>("adb_list_dir", {
+    const value = await invokeCommand("adb_list_dir", {
       serial: serial.value,
       path,
     });
     treeContents.value.set(path, value);
-  } catch {
+  } catch (error) {
     treeContents.value.set(path, []);
+    toast.error("Failed to load device directory", { description: String(error) });
   } finally {
     treeLoading.value.delete(path);
   }
@@ -427,7 +428,7 @@ function openParentDir() {
 async function openOnHost(entry: FileListEntry) {
   if (entry.entryType === "dir" || entry.entryType === "symlink") return;
   try {
-    await invoke("adb_open_file", {
+    await invokeCommand("adb_open_file", {
       serial: serial.value,
       path: entry.path,
     });
@@ -440,7 +441,7 @@ async function openOnHost(entry: FileListEntry) {
 }
 async function pullEntry(entry: FileListEntry) {
   try {
-    const saved = await invoke<string>("adb_pull_file", {
+    const saved = await invokeCommand("adb_pull_file", {
       serial: serial.value,
       path: entry.path,
     });
@@ -473,7 +474,7 @@ async function openInAppViewer(entry: FileListEntry) {
   fileViewerPendingEntry.value = entry;
   fileViewerContent.value = null;
   try {
-    const content = await invoke<DeviceFileContent>("adb_read_file", {
+    const content = await invokeCommand("adb_read_file", {
       serial: serial.value,
       path: entry.path,
     });
@@ -521,7 +522,7 @@ async function chooseUnsupportedApp() {
   if (!entry) return;
   unsupportedPopoverOpen.value = false;
   try {
-    await invoke("adb_open_file_picker", {
+    await invokeCommand("adb_open_file_picker", {
       serial: serial.value,
       path: entry.path,
     });
@@ -548,7 +549,7 @@ async function confirmDelete() {
   pendingDeleteFallbackIndex.value = Math.max(0, idx - 1);
   pendingDelete.value = null;
   try {
-    await invoke("adb_delete_file", {
+    await invokeCommand("adb_delete_file", {
       serial: serial.value,
       path: entry.path,
       isDir: entry.entryType === "dir",

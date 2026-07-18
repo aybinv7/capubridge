@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from "vue";
 import { ChevronDown } from "lucide-vue-next";
-import type { CSSProperty } from "utils";
+import type { CSSProperty } from "@capubridge/cdp-protocol";
 import StyleProperty from "./StyleProperty.vue";
 import { parseShorthandInput } from "./styleSerialize";
 

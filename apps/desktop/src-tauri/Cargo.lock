@@ -102,7 +102,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "0.1.0"
+version = "1.15.0"
 dependencies = [
  "adb_client",
  "axum",
@@ -125,6 +125,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-shell",
  "tempfile",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite",
  "tower",

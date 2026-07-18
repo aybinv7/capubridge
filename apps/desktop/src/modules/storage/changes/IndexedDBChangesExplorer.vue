@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useIDB } from "@/composables/useIDB";
 import { useTargetsStore } from "@/stores/targets.store";
@@ -28,7 +27,8 @@ import type {
 } from "@/types/storageChanges.types";
 import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
-import JsonViewer from "@/modules/storage/localstorage/JsonViewer.vue";
+import JsonViewer from "@/shared/components/data/JsonViewer.vue";
+import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 
 const targetsStore = useTargetsStore();
 const storageContextStore = useStorageContextStore();
@@ -54,6 +54,7 @@ const availableOrigins = computed(() => {
 });
 
 const search = ref("");
+const changesScrollEl = ref<HTMLElement | null>(null);
 const operationFilter = ref("all");
 const databaseFilter = ref("all");
 
@@ -118,6 +119,12 @@ const filteredChanges = computed(() => {
     return haystack.includes(query);
   });
 });
+
+const {
+  items: virtualChanges,
+  topSpacerHeight,
+  bottomSpacerHeight,
+} = useFixedVirtualList(filteredChanges, changesScrollEl, { itemHeight: 76, overscan: 8 });
 
 watch(
   availableOrigins,
@@ -307,7 +314,7 @@ const activeTargetTitle = computed(
 
     <ResizablePanelGroup direction="horizontal" class="flex-1 min-h-0">
       <ResizablePanel :default-size="46" :min-size="30" class="min-h-0">
-        <ScrollArea class="h-full">
+        <div ref="changesScrollEl" class="h-full overflow-auto">
           <div
             v-if="status === 'priming' && filteredChanges.length === 0"
             class="flex h-full min-h-[18rem] items-center justify-center px-6 text-sm text-muted-foreground/40"
@@ -323,8 +330,9 @@ const activeTargetTitle = computed(
           </div>
 
           <div v-else class="divide-y divide-border/20">
+            <div v-if="topSpacerHeight > 0" :style="{ height: `${topSpacerHeight}px` }" />
             <button
-              v-for="change in filteredChanges"
+              v-for="{ data: change } in virtualChanges"
               :key="change.id"
               class="w-full px-4 py-3 text-left transition-colors"
               :class="
@@ -375,8 +383,9 @@ const activeTargetTitle = computed(
                 </div>
               </div>
             </button>
+            <div v-if="bottomSpacerHeight > 0" :style="{ height: `${bottomSpacerHeight}px` }" />
           </div>
-        </ScrollArea>
+        </div>
       </ResizablePanel>
 
       <ResizableHandle with-handle />

@@ -2,7 +2,7 @@ import { ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useCDP } from "@/composables/useCDP";
-import { CSSDomain, DOMDomain } from "utils";
+import { CSSDomain, DOMDomain } from "@capubridge/cdp-protocol";
 import type { MatchedStyles, ComputedStyle, BoxModel } from "@/types/inspect.types";
 
 export function useElementStyles() {
@@ -25,7 +25,9 @@ export function useElementStyles() {
       if (client) {
         cssDomain = new CSSDomain(client);
         domDomain = new DOMDomain(client);
-        cssDomain.enable().catch(() => {});
+        cssDomain.enable().catch((cause) => {
+          error.value = `Failed to enable CSS inspection: ${String(cause)}`;
+        });
       }
     },
     { immediate: true },
@@ -39,7 +41,10 @@ export function useElementStyles() {
       const [matched, computed, box] = await Promise.all([
         cssDomain.getMatchedStylesForNode(nodeId),
         cssDomain.getComputedStyleForNode(nodeId),
-        domDomain.getBoxModel(nodeId).catch(() => null),
+        domDomain.getBoxModel(nodeId).catch((cause) => {
+          console.warn("Failed to load inspector box model", nodeId, cause);
+          return null;
+        }),
       ]);
       matchedStyles.value = matched;
       computedStyles.value = computed;

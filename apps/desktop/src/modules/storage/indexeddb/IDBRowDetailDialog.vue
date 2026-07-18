@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import JsonEditor from "@/modules/storage/localstorage/JsonEditor.vue";
+import JsonEditor from "@/shared/components/data/JsonEditor.vue";
 import JsonDiffViewer from "./JsonDiffViewer.vue";
 import type { IndexedDBRecordChangeEntry } from "@/types/storageChanges.types";
 import { ChevronDown, Copy, Check, Info, AlertTriangle, PencilLine } from "lucide-vue-next";

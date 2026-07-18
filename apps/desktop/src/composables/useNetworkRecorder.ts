@@ -1,4 +1,4 @@
-import type { CDPClient } from "utils";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { useSessionWriter } from "./useSessionWriter";
 import type { NetworkCapuTiming } from "@/types/replay.types";
 

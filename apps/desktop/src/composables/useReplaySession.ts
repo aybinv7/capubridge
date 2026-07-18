@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { ref } from "vue";
+import { invokeCommand } from "@/runtime/ipc/client";
 import type {
   SessionManifest,
   NetworkCapuEvent,
@@ -24,43 +24,90 @@ const session = ref<LoadedSession | null>(null);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 
-export function useReplaySession() {
-  function parseNdjson<T>(ndjson: string): T[] {
-    return ndjson
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as T);
+export function parseReplayManifest(raw: string): SessionManifest {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch (cause) {
+    throw new Error("Corrupt replay manifest JSON: " + String(cause));
   }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Corrupt replay manifest: expected an object");
+  }
+  const manifest = value as Partial<SessionManifest>;
+  if (
+    manifest.version !== 1 ||
+    typeof manifest.sessionId !== "string" ||
+    !manifest.sessionId ||
+    typeof manifest.label !== "string" ||
+    !Number.isFinite(manifest.startedAt) ||
+    !Number.isFinite(manifest.duration) ||
+    (manifest.duration ?? -1) < 0 ||
+    !manifest.tracks ||
+    typeof manifest.tracks !== "object"
+  ) {
+    throw new Error("Corrupt replay manifest: required fields are invalid");
+  }
+  return manifest as SessionManifest;
+}
 
+export function parseReplayNdjson<T>(track: string, ndjson: string): T[] {
+  const events: T[] = [];
+  const lines = ndjson.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+    if (!line) continue;
+    let value: unknown;
+    try {
+      value = JSON.parse(line);
+    } catch (cause) {
+      throw new Error(
+        "Corrupt " + track + " track at line " + String(index + 1) + ": " + String(cause),
+      );
+    }
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      !Number.isFinite((value as { t?: unknown }).t) ||
+      !Object.prototype.hasOwnProperty.call(value, "data")
+    ) {
+      throw new Error(
+        "Corrupt " + track + " track at line " + String(index + 1) + ": invalid event envelope",
+      );
+    }
+    events.push(value as T);
+  }
+  return events;
+}
+
+export function useReplaySession() {
   async function load(filePath: string): Promise<void> {
     isLoading.value = true;
     error.value = null;
     session.value = null;
 
     try {
-      const raw = await invoke<{
-        manifest_json: string;
-        tracks: Record<string, string>;
-        database_path?: string | null;
-      }>("recording_read_session", { filePath });
+      const raw = await invokeCommand("recording_read_session", { filePath });
 
-      const manifest = JSON.parse(raw.manifest_json) as SessionManifest;
+      const manifest = parseReplayManifest(raw.manifest_json);
       console.log("[replay] manifest:", manifest);
       console.log("[replay] available tracks:", Object.keys(raw.tracks));
 
       const rrwebEvents = raw.tracks["rrweb"]
-        ? parseNdjson<RrwebCapuEvent>(raw.tracks["rrweb"])
+        ? parseReplayNdjson<RrwebCapuEvent>("rrweb", raw.tracks["rrweb"])
         : [];
       const networkEvents = raw.tracks["network"]
-        ? parseNdjson<NetworkCapuEvent>(raw.tracks["network"])
+        ? parseReplayNdjson<NetworkCapuEvent>("network", raw.tracks["network"])
         : [];
       const consoleEvents = raw.tracks["console"]
-        ? parseNdjson<ConsoleCapuEvent>(raw.tracks["console"])
+        ? parseReplayNdjson<ConsoleCapuEvent>("console", raw.tracks["console"])
         : [];
-      const perfEvents = raw.tracks["perf"] ? parseNdjson<PerfCapuEvent>(raw.tracks["perf"]) : [];
+      const perfEvents = raw.tracks["perf"]
+        ? parseReplayNdjson<PerfCapuEvent>("perf", raw.tracks["perf"])
+        : [];
       const databaseEvents = raw.tracks["databases"]
-        ? parseNdjson<DatabaseCapuEvent>(raw.tracks["databases"])
+        ? parseReplayNdjson<DatabaseCapuEvent>("databases", raw.tracks["databases"])
         : [];
 
       console.log("[replay] rrweb:", rrwebEvents.length, "events");

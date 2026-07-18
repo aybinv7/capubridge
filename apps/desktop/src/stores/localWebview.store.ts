@@ -1,8 +1,9 @@
 import { computed, ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
-import { invoke } from "@tauri-apps/api/core";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import type { Webview } from "@tauri-apps/api/webview";
+import { invokeCommand } from "@/runtime/ipc/client";
+import type { JsonValue } from "@/runtime/ipc/contracts/common";
 import type { CDPTarget } from "@/types/cdp.types";
 import { useTargetsStore } from "@/stores/targets.store";
 
@@ -38,23 +39,42 @@ function readElementBounds(element: HTMLElement): LocalWebviewBounds {
 }
 
 async function parkWebview(webview: Webview) {
-  await webview.setSize(new LogicalSize(1, 1)).catch(() => null);
-  await webview.setPosition(new LogicalPosition(-32000, -32000)).catch(() => null);
-  await webview.hide().catch(() => null);
+  await webview.setSize(new LogicalSize(1, 1)).catch((error) => {
+    console.warn("Failed to minimize local preview webview", webview.label, error);
+  });
+  await webview.setPosition(new LogicalPosition(-32000, -32000)).catch((error) => {
+    console.warn("Failed to park local preview webview", webview.label, error);
+  });
+  await webview.hide().catch((error) => {
+    console.warn("Failed to hide local preview webview", webview.label, error);
+  });
 }
 
 async function injectScrollbarHide(webview: Webview) {
-  await invoke("local_webview_inject_scrollbar_hide", { label: webview.label }).catch(() => null);
+  await invokeCommand("local_webview_inject_scrollbar_hide", { label: webview.label }).catch(
+    (error) => {
+      console.warn("Failed to apply local preview styling", error);
+    },
+  );
+}
+
+function readWebSocketDebuggerUrl(value: JsonValue | null): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value["webSocketDebuggerUrl"];
+  return typeof candidate === "string" && candidate ? candidate : null;
 }
 
 async function fetchLocalCdpTarget(url: string) {
   for (let attempt = 0; attempt < 12; attempt++) {
-    const info = await invoke<{ webSocketDebuggerUrl?: string } | null>(
-      "local_webview_fetch_cdp_target",
-      { targetUrl: url },
-    ).catch(() => null);
-    if (info?.webSocketDebuggerUrl) {
-      return info;
+    const info = await invokeCommand("local_webview_fetch_cdp_target", { targetUrl: url }).catch(
+      (error) => {
+        console.warn("Failed to discover local preview CDP target", error);
+        return null;
+      },
+    );
+    const webSocketDebuggerUrl = readWebSocketDebuggerUrl(info);
+    if (webSocketDebuggerUrl) {
+      return { webSocketDebuggerUrl };
     }
     await new Promise<void>((resolve) => setTimeout(resolve, 150));
   }
@@ -73,11 +93,13 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
   if (typeof window !== "undefined") {
     const destroyAll = () => {
       for (const [, webview] of webviews.value) {
-        try {
-          void webview.close();
-        } catch {
-          /* webview may already be gone */
-        }
+        void webview.close().catch((error) => {
+          console.warn(
+            "Failed to close local preview webview during shutdown",
+            webview.label,
+            error,
+          );
+        });
       }
     };
     window.addEventListener("beforeunload", destroyAll);
@@ -144,21 +166,45 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     webviews.value = next;
 
     const creation = new Promise<Webview>((resolve, reject) => {
-      void webview.once("tauri://created", async () => {
-        setEntry(target, { status: "ready", error: null });
-        void webview.hide().catch(() => null);
-        await injectScrollbarHide(webview);
-        const info = await fetchLocalCdpTarget(target.url);
-        if (info?.webSocketDebuggerUrl) {
-          targetsStore.updateLocalTargetCdp(target.id, info.webSocketDebuggerUrl);
-        }
-        resolve(webview);
-      });
-      void webview.once<string>("tauri://error", (event) => {
-        const message = String(event.payload);
-        setEntry(target, { status: "error", error: message });
-        reject(new Error(message));
-      });
+      void webview
+        .once("tauri://created", async () => {
+          try {
+            setEntry(target, { status: "ready", error: null });
+            void webview.hide().catch((error) => {
+              console.warn(
+                "Failed to hide newly created local preview webview",
+                webview.label,
+                error,
+              );
+            });
+            await injectScrollbarHide(webview);
+            const info = await fetchLocalCdpTarget(target.url);
+            if (info?.webSocketDebuggerUrl) {
+              targetsStore.updateLocalTargetCdp(target.id, info.webSocketDebuggerUrl);
+            }
+            resolve(webview);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setEntry(target, { status: "error", error: message });
+            reject(error);
+          }
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          setEntry(target, { status: "error", error: message });
+          reject(error);
+        });
+      void webview
+        .once<string>("tauri://error", (event) => {
+          const message = String(event.payload);
+          setEntry(target, { status: "error", error: message });
+          reject(new Error(message));
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          setEntry(target, { status: "error", error: message });
+          reject(error);
+        });
     }).finally(() => {
       creationPromises.delete(target.localWebviewLabel);
     });
@@ -254,7 +300,9 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
 
     const webview = webviews.value.get(target.localWebviewLabel);
     if (webview) {
-      await webview.close().catch(() => null);
+      await webview.close().catch((error) => {
+        console.warn("Failed to close local preview webview", webview.label, error);
+      });
     }
     const next = new Map(webviews.value);
     next.delete(target.localWebviewLabel);
@@ -272,11 +320,11 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
       throw new Error("Target is not a local webview target.");
     }
     await ensureWebview(target);
-    await invoke<void>("local_webview_open_devtools", { label: target.localWebviewLabel });
+    await invokeCommand("local_webview_open_devtools", { label: target.localWebviewLabel });
   }
 
   async function localDeviceName() {
-    return invoke<string>("local_device_name");
+    return invokeCommand("local_device_name");
   }
 
   function requestLayoutSync() {
@@ -284,7 +332,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
   }
 
   async function navigateSource(label: string, url: string): Promise<void> {
-    await invoke("local_webview_navigate", { label, url });
+    await invokeCommand("local_webview_navigate", { label, url });
   }
 
   function acquireModalGuard() {

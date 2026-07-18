@@ -1,0 +1,1 @@
+export { recordingRoutes } from "./routes";

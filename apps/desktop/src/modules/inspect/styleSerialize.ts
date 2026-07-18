@@ -1,4 +1,4 @@
-import type { CSSProperty } from "utils";
+import type { CSSProperty } from "@capubridge/cdp-protocol";
 
 export function serializeProperties(properties: CSSProperty[]): string {
   const lines: string[] = [];

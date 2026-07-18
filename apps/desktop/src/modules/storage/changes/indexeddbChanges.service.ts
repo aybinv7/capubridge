@@ -1,5 +1,5 @@
-import { IDBDomain } from "utils";
-import type { IDBRecord, StoreInfo } from "utils";
+import { IDBDomain } from "@capubridge/cdp-protocol";
+import type { IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
 import type {
   IndexedDBChangeEntry,
   IndexedDBFieldDiff,
@@ -7,6 +7,7 @@ import type {
   IndexedDBStoreSnapshot,
   IndexedDBTrackedRecordSnapshot,
 } from "@/types/storageChanges.types";
+import { indexedDbProtocolPageSize } from "../indexeddb/idbPaging";
 
 export const IDB_CHANGE_SNAPSHOT_PAGE_SIZE = 250;
 export const IDB_CHANGE_MAX_TRACKED_RECORDS_PER_STORE = 1500;
@@ -155,7 +156,9 @@ export async function fetchOriginCatalog(
       for (const store of storeInfo) {
         storeInfoByName.set(store.name, store);
       }
-    } catch {}
+    } catch (error) {
+      console.warn("Failed to load IndexedDB store metadata", database.name, error);
+    }
 
     for (const objectStoreName of database.objectStoreNames) {
       catalog.push({
@@ -202,7 +205,7 @@ export async function captureStoreSnapshot(
         databaseName: descriptor.databaseName,
         objectStoreName: descriptor.objectStoreName,
         skipCount,
-        pageSize: IDB_CHANGE_SNAPSHOT_PAGE_SIZE,
+        pageSize: indexedDbProtocolPageSize(IDB_CHANGE_SNAPSHOT_PAGE_SIZE),
       });
 
       for (const record of response.records) {

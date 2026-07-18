@@ -2,7 +2,7 @@ import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
-import { LocalForageDomain } from "utils";
+import { LocalForageDomain } from "@capubridge/cdp-protocol";
 
 export function useLocalForage() {
   const { getClient } = useCDP();

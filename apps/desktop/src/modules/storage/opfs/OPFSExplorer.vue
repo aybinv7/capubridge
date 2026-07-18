@@ -20,7 +20,6 @@ import { useSqlSessionStore } from "@/stores/sqlSession.store";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useOPFS } from "@/composables/useStorage";
@@ -29,11 +28,15 @@ import {
   type OPFSEntry,
   type StorageTechHint,
   type SahPoolDatabase,
-} from "utils";
+} from "@capubridge/cdp-protocol";
+import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 const filter = ref("");
 const selectedFile = ref<string | null>(null);
 const currentPath = ref("");
 const view = ref<"raw" | "decoded">("raw");
+const sidebarScrollEl = ref<HTMLElement | null>(null);
+const fileTableScrollEl = ref<HTMLElement | null>(null);
+const sahTableScrollEl = ref<HTMLElement | null>(null);
 
 const { targetId, useDirectory, useSahPoolDatabases, getDomain } = useOPFS();
 const { data: entries, isLoading, isError, refetch } = useDirectory(currentPath);
@@ -96,6 +99,24 @@ const filteredSahPool = computed<SahPoolDatabase[]>(() => {
     (d) => d.logicalPath.toLowerCase().includes(q) || d.opaqueName.toLowerCase().includes(q),
   );
 });
+
+const {
+  items: virtualSidebarEntries,
+  topSpacerHeight: sidebarTopSpacerHeight,
+  bottomSpacerHeight: sidebarBottomSpacerHeight,
+} = useFixedVirtualList(filtered, sidebarScrollEl, { itemHeight: 36, overscan: 8 });
+
+const {
+  items: virtualFileEntries,
+  topSpacerHeight: fileTopSpacerHeight,
+  bottomSpacerHeight: fileBottomSpacerHeight,
+} = useFixedVirtualList(filtered, fileTableScrollEl, { itemHeight: 41, overscan: 10 });
+
+const {
+  items: virtualSahEntries,
+  topSpacerHeight: sahTopSpacerHeight,
+  bottomSpacerHeight: sahBottomSpacerHeight,
+} = useFixedVirtualList(filteredSahPool, sahTableScrollEl, { itemHeight: 41, overscan: 10 });
 
 const breadcrumbs = computed(() => {
   if (!currentPath.value) return [];
@@ -326,7 +347,7 @@ async function deleteEntry(name: string) {
               />
             </div>
 
-            <ScrollArea class="flex-1">
+            <div ref="sidebarScrollEl" class="flex-1 overflow-auto">
               <div v-if="isLoading" class="flex items-center justify-center py-8">
                 <RefreshCw :size="14" class="animate-spin text-muted-foreground/40" />
               </div>
@@ -347,8 +368,12 @@ async function deleteEntry(name: string) {
               </div>
 
               <div v-else class="py-1">
+                <div
+                  v-if="sidebarTopSpacerHeight > 0"
+                  :style="{ height: `${sidebarTopSpacerHeight}px` }"
+                />
                 <button
-                  v-for="entry in filtered"
+                  v-for="{ data: entry } in virtualSidebarEntries"
                   :key="entry.name"
                   class="mr-1 flex w-full items-center gap-2 rounded-r-lg px-3 py-2 text-xs transition-colors"
                   :class="
@@ -364,8 +389,12 @@ async function deleteEntry(name: string) {
                     formatSize(entry.size)
                   }}</span>
                 </button>
+                <div
+                  v-if="sidebarBottomSpacerHeight > 0"
+                  :style="{ height: `${sidebarBottomSpacerHeight}px` }"
+                />
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </ResizablePanel>
 
@@ -395,7 +424,7 @@ async function deleteEntry(name: string) {
                 No live databases inside this pool (all slots empty).
               </div>
 
-              <div v-else class="overflow-auto">
+              <div v-else ref="sahTableScrollEl" class="overflow-auto">
                 <table class="w-full text-xs">
                   <thead class="sticky top-0 z-10">
                     <tr
@@ -409,8 +438,11 @@ async function deleteEntry(name: string) {
                     </tr>
                   </thead>
                   <tbody>
+                    <tr v-if="sahTopSpacerHeight > 0" aria-hidden="true">
+                      <td :colspan="5" :style="{ height: `${sahTopSpacerHeight}px` }" />
+                    </tr>
                     <tr
-                      v-for="db in filteredSahPool"
+                      v-for="{ data: db } in virtualSahEntries"
                       :key="db.opaqueName"
                       class="cursor-pointer border-b border-border/20 transition-colors data-row"
                       @click="inspectSahPoolEntry(db)"
@@ -434,12 +466,15 @@ async function deleteEntry(name: string) {
                         {{ formatDate(db.lastModified) }}
                       </td>
                     </tr>
+                    <tr v-if="sahBottomSpacerHeight > 0" aria-hidden="true">
+                      <td :colspan="5" :style="{ height: `${sahBottomSpacerHeight}px` }" />
+                    </tr>
                   </tbody>
                 </table>
               </div>
             </template>
 
-            <div v-else class="flex-1 overflow-auto">
+            <div v-else ref="fileTableScrollEl" class="flex-1 overflow-auto">
               <table class="w-full text-xs">
                 <thead class="sticky top-0 z-10">
                   <tr
@@ -453,8 +488,11 @@ async function deleteEntry(name: string) {
                   </tr>
                 </thead>
                 <tbody>
+                  <tr v-if="fileTopSpacerHeight > 0" aria-hidden="true">
+                    <td :colspan="5" :style="{ height: `${fileTopSpacerHeight}px` }" />
+                  </tr>
                   <tr
-                    v-for="entry in filtered"
+                    v-for="{ data: entry } in virtualFileEntries"
                     :key="entry.name"
                     class="group cursor-pointer border-b border-border/20 transition-colors"
                     :class="selectedFile === entry.name ? 'bg-surface-3' : 'data-row'"
@@ -514,6 +552,9 @@ async function deleteEntry(name: string) {
                         </Button>
                       </div>
                     </td>
+                  </tr>
+                  <tr v-if="fileBottomSpacerHeight > 0" aria-hidden="true">
+                    <td :colspan="5" :style="{ height: `${fileBottomSpacerHeight}px` }" />
                   </tr>
                 </tbody>
               </table>

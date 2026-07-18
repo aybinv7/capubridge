@@ -1,4 +1,4 @@
-use crate::commands::adb::{get_server, map_adb_server_err};
+use crate::commands::adb::get_adb_device;
 use adb_client::ADBDeviceExt;
 use base64::{engine::general_purpose, Engine};
 use serde::{Deserialize, Serialize};
@@ -519,10 +519,7 @@ fn delete_permission_error(path: &str, output: &str) -> String {
 /// List directory contents on the device via `ls -la`.
 #[tauri::command]
 pub fn adb_list_dir(serial: String, path: String) -> Result<Vec<FileEntry>, String> {
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+    let mut device = get_adb_device(&serial)?;
 
     let normalized_path = normalize_path(&path);
     let command = format!("ls -la '{}'", shell_escape(&normalized_path));
@@ -574,10 +571,7 @@ pub fn adb_list_dir(serial: String, path: String) -> Result<Vec<FileEntry>, Stri
 #[tauri::command]
 pub async fn adb_pull_file(serial: String, path: String) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut device = get_adb_device(&serial)?;
 
         let bytes = read_file_bytes(&mut device, &path)?;
 
@@ -607,10 +601,7 @@ pub async fn adb_pull_file(serial: String, path: String) -> Result<String, Strin
 #[tauri::command]
 pub async fn adb_read_file(serial: String, path: String) -> Result<DeviceFileContent, String> {
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut device = get_adb_device(&serial)?;
 
         let bytes = read_file_bytes(&mut device, &path)?;
         let size = bytes.len();
@@ -626,10 +617,7 @@ pub async fn adb_read_file(serial: String, path: String) -> Result<DeviceFileCon
 #[tauri::command]
 pub async fn adb_open_file(serial: String, path: String) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut device = get_adb_device(&serial)?;
 
         let target_path = write_device_file_to_temp(&mut device, &path)?;
         open_with_default_app(&target_path)?;
@@ -643,10 +631,7 @@ pub async fn adb_open_file(serial: String, path: String) -> Result<String, Strin
 #[tauri::command]
 pub async fn adb_open_file_picker(serial: String, path: String) -> Result<String, String> {
     tokio::task::spawn_blocking(move || {
-        let mut server = get_server().lock();
-        let mut device = server
-            .get_device_by_name(&serial)
-            .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+        let mut device = get_adb_device(&serial)?;
 
         let target_path = write_device_file_to_temp(&mut device, &path)?;
         open_with_app_picker(&target_path)?;
@@ -660,10 +645,7 @@ pub async fn adb_open_file_picker(serial: String, path: String) -> Result<String
 /// Delete a file or directory on the device.
 #[tauri::command]
 pub fn adb_delete_file(serial: String, path: String, is_dir: bool) -> Result<(), String> {
-    let mut server = get_server().lock();
-    let mut device = server
-        .get_device_by_name(&serial)
-        .map_err(|e| format!("Device not found: {}", map_adb_server_err(e)))?;
+    let mut device = get_adb_device(&serial)?;
 
     let normalized_path = normalize_path(&path);
     let cmd = build_delete_command(&normalized_path, is_dir);

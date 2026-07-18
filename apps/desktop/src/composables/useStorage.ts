@@ -1,6 +1,11 @@
 import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { LocalStorageDomain, CacheAPIDomain, OPFSDomain, JeepSqliteDomain } from "utils";
+import {
+  LocalStorageDomain,
+  CacheAPIDomain,
+  OPFSDomain,
+  JeepSqliteDomain,
+} from "@capubridge/cdp-protocol";
 import { useCDP } from "./useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 

@@ -1,16 +1,20 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "enables the default permissions",
-  "windows": ["main", "mirror-detached"],
+  "identifier": "main-application",
+  "description": "Privileged permissions for the trusted main application webview",
+  "webviews": ["main"],
   "permissions": [
-    "core:default",
+    "core:path:default",
+    "core:event:default",
+    "core:window:allow-get-all-windows",
     "core:window:allow-minimize",
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",
     "core:window:allow-close",
     "core:window:allow-is-maximized",
     "core:window:allow-set-always-on-top",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
     "core:webview:allow-create-webview",
     "core:webview:allow-create-webview-window",
     "core:webview:allow-set-webview-position",
@@ -20,8 +24,6 @@
     "core:webview:allow-webview-show",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
-    "shell:allow-execute",
-    "shell:allow-spawn",
     "dialog:allow-open",
     "dialog:allow-save"
   ]

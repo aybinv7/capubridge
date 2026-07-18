@@ -14,11 +14,13 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useCacheAPI } from "@/composables/useStorage";
-import type { CacheEntry } from "utils";
+import type { CacheEntry } from "@capubridge/cdp-protocol";
+import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 
 const filter = ref("");
 const selectedUrl = ref<string | null>(null);
 const expandedCaches = ref<Set<string>>(new Set());
+const tableScrollEl = ref<HTMLElement | null>(null);
 
 const { useCacheNames, useCacheEntries } = useCacheAPI();
 
@@ -44,6 +46,12 @@ const filtered = computed(() => {
     (e) => e.url.toLowerCase().includes(q) || e.method.toLowerCase().includes(q),
   );
 });
+
+const {
+  items: virtualEntries,
+  topSpacerHeight,
+  bottomSpacerHeight,
+} = useFixedVirtualList(filtered, tableScrollEl, { itemHeight: 41, overscan: 10 });
 
 const selectedEntry = computed(() => {
   if (!selectedUrl.value) return null;
@@ -157,7 +165,7 @@ function refetch() {
               </Button>
             </div>
 
-            <div class="flex-1 overflow-auto">
+            <div ref="tableScrollEl" class="flex-1 overflow-auto">
               <div v-if="isLoadingEntries" class="flex items-center justify-center py-8">
                 <RefreshCw :size="14" class="animate-spin text-muted-foreground/40" />
               </div>
@@ -172,8 +180,11 @@ function refetch() {
                   </tr>
                 </thead>
                 <tbody>
+                  <tr v-if="topSpacerHeight > 0" aria-hidden="true">
+                    <td :colspan="2" :style="{ height: `${topSpacerHeight}px` }" />
+                  </tr>
                   <tr
-                    v-for="entry in filtered"
+                    v-for="{ data: entry } in virtualEntries"
                     :key="entry.url"
                     @click="selectedUrl = selectedUrl === entry.url ? null : entry.url"
                     class="border-b border-border/20 cursor-pointer transition-colors"
@@ -190,6 +201,9 @@ function refetch() {
                     <td class="px-4 py-2.5 text-muted-foreground/60 font-mono">
                       {{ entry.method }}
                     </td>
+                  </tr>
+                  <tr v-if="bottomSpacerHeight > 0" aria-hidden="true">
+                    <td :colspan="2" :style="{ height: `${bottomSpacerHeight}px` }" />
                   </tr>
                 </tbody>
               </table>

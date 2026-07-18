@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { watchDebounced } from "@vueuse/core";
-import { invoke } from "@tauri-apps/api/core";
 import {
   AlertTriangle,
   Check,
@@ -18,6 +17,7 @@ import {
   Zap,
 } from "lucide-vue-next";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { invokeCommand } from "@/runtime/ipc/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -34,6 +34,7 @@ import { useMockServer } from "@/composables/useMockServer";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { MockRule, MockInterceptMode, MockResponseHeader } from "@/types/mock.types";
 import { DEFAULT_RULE_TEMPLATES } from "@/types/mock.types";
+import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 
 useMockServer();
 
@@ -47,6 +48,8 @@ const draft = ref<MockRule | null>(null);
 const leftTab = ref<"rules" | "log">("rules");
 const ruleSearch = ref("");
 const showTemplates = ref(false);
+const rulesScrollEl = ref<HTMLElement | null>(null);
+const logScrollEl = ref<HTMLElement | null>(null);
 
 const selectedRule = computed(() => store.rules.find((r) => r.id === selectedId.value) ?? null);
 
@@ -57,6 +60,17 @@ const filteredRules = computed(() => {
     (r) => r.name.toLowerCase().includes(q) || r.urlPattern.toLowerCase().includes(q),
   );
 });
+const logEntries = computed(() => store.log);
+const {
+  items: virtualRules,
+  topSpacerHeight: rulesTopSpacerHeight,
+  bottomSpacerHeight: rulesBottomSpacerHeight,
+} = useFixedVirtualList(filteredRules, rulesScrollEl, { itemHeight: 48, overscan: 8 });
+const {
+  items: virtualLogEntries,
+  topSpacerHeight: logTopSpacerHeight,
+  bottomSpacerHeight: logBottomSpacerHeight,
+} = useFixedVirtualList(logEntries, logScrollEl, { itemHeight: 36, overscan: 8 });
 
 // Open draft when rule selected
 watch(selectedRule, (rule) => {
@@ -140,15 +154,15 @@ async function setMode(mode: MockInterceptMode) {
 // ADB reverse for HTTP mode
 async function setupAdbReverse() {
   const device = targetsStore.selectedTarget;
-  if (!device) return;
+  if (!device?.deviceSerial) return;
   try {
-    await invoke("session_reverse", {
-      serial: (device as Record<string, unknown>).serial ?? "",
-      remote: `tcp:${store.httpPort}`,
-      local: `tcp:${store.httpPort}`,
+    await invokeCommand("session_reverse", {
+      serial: device.deviceSerial,
+      remotePort: store.httpPort,
+      localPort: store.httpPort,
     });
-  } catch {
-    // ignore
+  } catch (error) {
+    console.warn("Failed to clear mock-server reverse port", device.deviceSerial, error);
   }
 }
 
@@ -380,10 +394,14 @@ function timeAgo(ts: number): string {
             </div>
 
             <!-- Rule list -->
-            <ScrollArea v-else class="min-h-0 flex-1">
+            <div v-else ref="rulesScrollEl" class="min-h-0 flex-1 overflow-auto">
               <div class="py-1">
                 <div
-                  v-for="rule in filteredRules"
+                  v-if="rulesTopSpacerHeight > 0"
+                  :style="{ height: `${rulesTopSpacerHeight}px` }"
+                />
+                <div
+                  v-for="{ data: rule } in virtualRules"
                   :key="rule.id"
                   class="group flex cursor-pointer items-center gap-2 px-2 py-1.5 transition-colors"
                   :class="selectedId === rule.id ? 'bg-surface-3' : 'hover:bg-surface-2/60'"
@@ -439,8 +457,12 @@ function timeAgo(ts: number): string {
                     <Trash2 class="h-3 w-3" />
                   </button>
                 </div>
+                <div
+                  v-if="rulesBottomSpacerHeight > 0"
+                  :style="{ height: `${rulesBottomSpacerHeight}px` }"
+                />
               </div>
-            </ScrollArea>
+            </div>
           </template>
 
           <!-- Log tab -->
@@ -452,10 +474,11 @@ function timeAgo(ts: number): string {
               <Clock class="h-7 w-7 opacity-30" />
               <span class="text-xs">No intercepted requests yet</span>
             </div>
-            <ScrollArea v-else class="min-h-0 flex-1">
+            <div v-else ref="logScrollEl" class="min-h-0 flex-1 overflow-auto">
               <div class="py-1 font-mono text-[10px]">
+                <div v-if="logTopSpacerHeight > 0" :style="{ height: `${logTopSpacerHeight}px` }" />
                 <div
-                  v-for="entry in store.log"
+                  v-for="{ data: entry } in virtualLogEntries"
                   :key="entry.id"
                   class="flex items-center gap-1.5 px-2 py-1.5 hover:bg-surface-2/50"
                 >
@@ -500,8 +523,12 @@ function timeAgo(ts: number): string {
                     {{ timeAgo(entry.timestamp) }}
                   </span>
                 </div>
+                <div
+                  v-if="logBottomSpacerHeight > 0"
+                  :style="{ height: `${logBottomSpacerHeight}px` }"
+                />
               </div>
-            </ScrollArea>
+            </div>
           </template>
         </div>
       </ResizablePanel>

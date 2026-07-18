@@ -1,6 +1,6 @@
 import type { Component } from "vue";
 
-export type { DOMNode, BoxModel, MatchedStyles, ComputedStyle } from "utils";
+export type { DOMNode, BoxModel, MatchedStyles, ComputedStyle } from "@capubridge/cdp-protocol";
 
 /** Parsed attribute pair from CDP's flat attribute array */
 export interface DOMAttribute {

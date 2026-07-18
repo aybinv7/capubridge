@@ -38,6 +38,7 @@ export default defineConfig({
 
     nav: [
       { text: "Guide", link: "/guide/", activeMatch: "/guide/" },
+      { text: "Specification", link: "/SPEC" },
       { text: "Modules", link: "/modules/", activeMatch: "/modules/" },
       {
         text: "Architecture",
@@ -53,7 +54,7 @@ export default defineConfig({
           { text: "Session Events", link: "/reference/events" },
         ],
       },
-      { text: "GitHub", link: "https://github.com/aybinv7/capubridge" },
+      { text: "GitHub", link: "https://github.com/inventor7/capubridge" },
     ],
 
     sidebar: {
@@ -96,9 +97,7 @@ export default defineConfig({
             { text: `${icons.storage}Storage`, link: "/modules/storage" },
             { text: `${icons.network}Network`, link: "/modules/network" },
             { text: `${icons.inspect}DOM Inspector`, link: "/modules/inspect" },
-            { text: `${icons.capacitor}Capacitor`, link: "/modules/capacitor" },
             { text: `${icons.recording}Recording & Replay`, link: "/modules/recording" },
-            { text: `${icons.hybrid}Hybrid Tools`, link: "/modules/hybrid" },
           ],
         },
         {
@@ -131,6 +130,18 @@ export default defineConfig({
             { text: "Session Runtime", link: "/architecture/session" },
             { text: "ADB Integration", link: "/architecture/adb" },
             { text: "CDP Transport", link: "/architecture/cdp" },
+          ],
+        },
+        {
+          text: "Decisions",
+          items: [
+            { text: "Decision index", link: "/architecture/decisions/" },
+            { text: "Trust zones", link: "/architecture/decisions/001-trust-zones" },
+            { text: "Frontend modules", link: "/architecture/decisions/002-frontend-modules" },
+            { text: "IPC contract", link: "/architecture/decisions/003-ipc-contract" },
+            { text: "Device sessions", link: "/architecture/decisions/004-device-sessions" },
+            { text: "State and Effect", link: "/architecture/decisions/005-state-and-effect" },
+            { text: "Version authority", link: "/architecture/decisions/006-version-authority" },
           ],
         },
       ],
@@ -172,7 +183,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: "https://github.com/aybinv7/capubridge/edit/main/apps/docs/:path",
+      pattern: "https://github.com/inventor7/capubridge/edit/main/apps/docs/:path",
       text: "Edit this page on GitHub",
     },
 
@@ -181,7 +192,7 @@ export default defineConfig({
       copyright: "Copyright © 2025-present Capubridge",
     },
 
-    socialLinks: [{ icon: "github", link: "https://github.com/aybinv7/capubridge" }],
+    socialLinks: [{ icon: "github", link: "https://github.com/inventor7/capubridge" }],
   },
 
   vite: {

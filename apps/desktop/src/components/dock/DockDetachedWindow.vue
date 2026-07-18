@@ -7,7 +7,7 @@ import { isDockTab } from "@/types/dock.types";
 
 const dockValue = new URLSearchParams(window.location.search).get("dock");
 
-const activeTab = computed(() => (isDockTab(dockValue) ? dockValue : "assistant"));
+const activeTab = computed(() => (isDockTab(dockValue) ? dockValue : "logcat"));
 const activeMeta = computed(() => dockTabMeta[activeTab.value]);
 
 const isMaximized = ref(false);
@@ -55,7 +55,7 @@ async function close() {
 
 <template>
   <div
-    class="flex h-screen flex-col overflow-hidden bg-background dark select-none"
+    class="flex h-screen flex-col overflow-hidden bg-background select-none"
     style="-webkit-app-region: drag"
   >
     <div

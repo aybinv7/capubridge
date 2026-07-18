@@ -1,0 +1,1 @@
+export { deviceRoutes } from "./routes";

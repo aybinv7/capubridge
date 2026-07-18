@@ -1,6 +1,6 @@
 import { toast } from "vue-sonner";
 import type { Table } from "@tanstack/vue-table";
-import type { IDBRecord } from "utils";
+import type { IDBRecord } from "@capubridge/cdp-protocol";
 
 function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });

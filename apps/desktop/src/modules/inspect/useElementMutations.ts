@@ -1,6 +1,6 @@
 import { ref } from "vue";
-import { CSSDomain, DOMDomain } from "utils";
-import type { SourceRange, CSSStyle } from "utils";
+import { CSSDomain, DOMDomain } from "@capubridge/cdp-protocol";
+import type { SourceRange, CSSStyle } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import { useInspectStore } from "@/stores/inspect.store";
 
@@ -242,7 +242,9 @@ export function useElementMutations() {
     if (!d) return;
     try {
       await d.dom.requestChildNodes(nodeId, 1);
-    } catch {}
+    } catch (cause) {
+      lastError.value = `refreshNode: ${cause instanceof Error ? cause.message : String(cause)}`;
+    }
     store.selectNode(nodeId);
   }
 

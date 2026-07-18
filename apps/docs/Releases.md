@@ -1,22 +1,26 @@
-Trigger — push a tag like v1.0.0 or v1.2.0-beta.1
+# Desktop releases
 
-git tag v1.0.0
-git push origin v1.0.0
+Root `package.json` is the release version source of truth. Before creating a release, synchronize the desktop package, Cargo manifest, Tauri configuration, visible status, and release notes with that version.
 
-What CI does — builds all 4 targets in parallel, uploads artifacts to a
-draft GitHub release. You then open it on GitHub, edit the notes, and hit
-Publish.
+## Readiness
 
-Auto notes — generateReleaseNotes: true pre-fills the draft with a commit
-changelog. Edit before publishing.
+```bash
+vp run check:versions
+vp run test:all
+vp run ready
+```
 
-Pre-release detection — tags with a - suffix (v1.0.0-beta.1) auto-mark as
-pre-release.
+`vp run ready` includes production builds and is the final maintainer-owned gate. The desktop build workflow can also be started manually without publishing a release.
 
-desktop-build.yml now only runs on workflow_dispatch (manual trigger).
+## Tag and publish
 
-ex:
+Create the version-bump commit before the tag. Use an annotated semantic-version tag:
 
-git push origin master
-git tag v1.0.0-beta.1
-git push origin v1.0.0-beta.1
+```bash
+git tag -a v1.15.0 -m "CapuBridge v1.15.0"
+git push origin v1.15.0
+```
+
+Pushing a matching tag starts the release workflow. CI verifies versions and tests first, then builds Linux, Windows, macOS Intel, and macOS Apple Silicon artifacts into a draft GitHub release.
+
+Tags containing a suffix such as `v1.16.0-beta.1` are marked as prereleases. Release notes must be reviewed and grouped by user-facing capability before the draft is published.

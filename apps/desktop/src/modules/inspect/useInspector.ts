@@ -2,8 +2,8 @@ import { watch, onUnmounted } from "vue";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useCDP } from "@/composables/useCDP";
-import { DOMDomain, OverlayDomain } from "utils";
-import type { CDPClient } from "utils";
+import { DOMDomain, OverlayDomain } from "@capubridge/cdp-protocol";
+import type { CDPClient } from "@capubridge/cdp-protocol";
 
 interface InspectViewportMetrics {
   width: number;
@@ -336,8 +336,12 @@ export function useInspector() {
     lastHoveredNodeId = null;
     currentClient = null;
     viewportMetrics = null;
-    domDomain?.disable().catch(() => {});
-    overlayDomain?.disable().catch(() => {});
+    domDomain?.disable().catch((error) => {
+      console.warn("Failed to disable inspector DOM domain", error);
+    });
+    overlayDomain?.disable().catch((error) => {
+      console.warn("Failed to disable inspector overlay domain", error);
+    });
     store.reset();
   }
 

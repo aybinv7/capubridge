@@ -2,7 +2,7 @@
 import { ref, computed, watch, nextTick, shallowRef } from "vue";
 import { Search, RefreshCw, MousePointer2 } from "lucide-vue-next";
 import type { ComputedStyle, BoxModel } from "@/types/inspect.types";
-import BoxModelDiagram from "@/modules/inspect/BoxModelDiagram.vue";
+import BoxModelDiagram from "@/shared/components/presentation/BoxModelDiagram.vue";
 
 const props = defineProps<{
   /** Getter for the live iframe Document — called on Refresh */

@@ -25,8 +25,8 @@ import { Switch } from "@/components/ui/switch";
 import { useNetworkStore } from "@/modules/network/stores/useNetworkStore";
 import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
-import { NetworkDomain } from "utils";
-import JsonViewer from "@/modules/storage/localstorage/JsonViewer.vue";
+import { NetworkDomain } from "@capubridge/cdp-protocol";
+import JsonViewer from "@/shared/components/data/JsonViewer.vue";
 import type { NetworkEntry } from "@/types/network.types";
 
 type DetailTab = "headers" | "payload" | "response" | "timing" | "cookies";
@@ -405,8 +405,8 @@ const prettyPostData = computed<string | null>(() => {
     try {
       const pairs = [...new URLSearchParams(data).entries()];
       if (pairs.length) return pairs.map(([k, v]) => `${k}: ${v}`).join("\n");
-    } catch {
-      // ignore
+    } catch (error) {
+      console.warn("Failed to parse request form data", error);
     }
     return data;
   }

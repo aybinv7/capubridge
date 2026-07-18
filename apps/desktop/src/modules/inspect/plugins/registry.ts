@@ -29,8 +29,8 @@ export async function detectPlugins(
       if (await plugin.detect(evaluate)) {
         detected.push(plugin);
       }
-    } catch {
-      // Detection failed — skip
+    } catch (error) {
+      console.warn("Inspect plugin detection failed", plugin.id, error);
     }
   }
   return detected;

@@ -6,7 +6,7 @@ import {
   type IDBDatabaseInfo,
   type IDBRecord,
   type StoreInfo,
-} from "utils";
+} from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import { useSQLite } from "@/composables/useSQLite";
 import { useDevicesStore } from "@/stores/devices.store";
