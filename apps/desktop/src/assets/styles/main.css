@@ -37,6 +37,12 @@
   --accent-soft: #2a1d17;
   --ring: var(--accent);
 
+  /* Brand button fallbacks (codex-dark + coral). applyTheme() overrides these
+     with the AA-optimal step/ink for the active theme × accent. */
+  --brand: #e8765a;
+  --brand-foreground: #0e0e10;
+  --brand-hover: #f08c70;
+
   --state-success: #4fb06a;
   --state-warning: #e0a528;
   --state-danger: #d75a4a;
@@ -125,12 +131,14 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-foreground: var(--fg-default);
   /* Brand accent (coral). Used deliberately for primary actions, active
-     indicators, and selected markers. --brand-foreground is DARK so filled
-     brand surfaces (buttons) clear AA against the light accent step. */
-  --color-brand: var(--accent);
-  --color-brand-hover: var(--accent-hover);
+     indicators, and selected markers. --brand / --brand-foreground / --brand-
+     hover are computed per theme×accent by applyTheme() (registry.ts) so the
+     button label clears strict AA; the fallbacks here keep pre-applyTheme
+     render sane. */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
   --color-brand-soft: var(--accent-soft);
-  --color-brand-foreground: var(--bg-app);
+  --color-brand-foreground: var(--brand-foreground);
   --color-destructive: var(--state-danger);
   --color-destructive-foreground: #ffffff;
   --color-border: var(--border-default);

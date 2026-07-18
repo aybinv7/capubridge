@@ -74,6 +74,78 @@ export function applyTheme(theme: Theme, accent: AccentRamp): void {
   const primaryIndex = pickAccentPrimaryIndex(accent, theme.semantics.bgSurface);
   html.style.setProperty("--accent", accent.steps[primaryIndex]);
   html.style.setProperty("--accent-hover", accent.steps[Math.max(0, primaryIndex - 1)]);
+
+  // Brand button surface. Unlike --accent (tuned to pop as a thin mark against
+  // the panel), the brand fill carries a text label, so it is chosen to clear
+  // strict AA with the theme's own dark/light ink.
+  const brand = pickBrandButton(accent, theme.semantics);
+  html.style.setProperty("--brand", brand.fill);
+  html.style.setProperty("--brand-foreground", brand.fg);
+  html.style.setProperty("--brand-hover", brand.hover);
+}
+
+/**
+ * Choose the accent step + ink for a brand-filled BUTTON so the label clears
+ * strict AA (4.5:1). Scans the mid range of the ramp (skips the two palest
+ * pastels), pairs each step with whichever of the theme's dark/light ends
+ * gives more contrast, and picks the qualifying step closest to the canonical
+ * mid-tone (index 4) so it still reads as the accent. There is always a
+ * qualifier because the ramp's dark and light ends sit near the luminance
+ * extremes. Hover shifts one step in the direction that raises label contrast.
+ */
+export function pickBrandButton(
+  accent: AccentRamp,
+  semantics: Theme["semantics"],
+): { fill: string; fg: string; hover: string } {
+  const darkInk = semantics.bgApp;
+  const lightInk = semantics.fgDefault;
+  const surface = semantics.bgSurface;
+  // A filled button must both carry a readable label (>= 4.5) AND stay visibly
+  // distinct from the panel it sits on (>= 2:1). On dark themes with dark
+  // accents this rules out the darkest steps (which blend into the panel) and
+  // steers the pick toward lighter steps that pop against the panel and take
+  // dark ink.
+  const MIN_LABEL = 4.5;
+  const MIN_VS_PANEL = 2.0;
+
+  let best: { i: number; fill: string; fg: string; ratio: number; dist: number } | null = null;
+  for (let i = 2; i <= 6; i++) {
+    const step = accent.steps[i];
+    const onDark = contrastRatio(darkInk, step);
+    const onLight = contrastRatio(lightInk, step);
+    const ratio = Math.max(onDark, onLight);
+    const fg = onDark >= onLight ? darkInk : lightInk;
+    const dist = Math.abs(i - 4);
+    if (ratio < MIN_LABEL) continue;
+    if (contrastRatio(step, surface) < MIN_VS_PANEL) continue;
+    if (!best || dist < best.dist || (dist === best.dist && ratio > best.ratio)) {
+      best = { i, fill: step, fg, ratio, dist };
+    }
+  }
+
+  if (!best) {
+    // Degenerate ramp (shouldn't happen for the curated presets): fall back to
+    // the highest-contrast step/ink pairing available.
+    let fbFill = accent.steps[4];
+    let fbFg = darkInk;
+    let fbRatio = 0;
+    for (const step of accent.steps) {
+      for (const ink of [darkInk, lightInk]) {
+        const r = contrastRatio(ink, step);
+        if (r > fbRatio) {
+          fbRatio = r;
+          fbFill = step;
+          fbFg = ink;
+        }
+      }
+    }
+    return { fill: fbFill, fg: fbFg, hover: fbFill };
+  }
+
+  // Hover: move one step toward higher label contrast (lighter fill under dark
+  // ink, darker fill under light ink), clamped to the ramp.
+  const hoverIdx = best.fg === darkInk ? Math.max(0, best.i - 1) : Math.min(6, best.i + 1);
+  return { fill: best.fill, fg: best.fg, hover: accent.steps[hoverIdx] };
 }
 
 /**

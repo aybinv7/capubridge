@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --import tsx
 
-import { themes } from "../src/themes/registry.ts";
+import { themes, pickBrandButton } from "../src/themes/registry.ts";
 import { presetAccents } from "../src/themes/accent-ramps.ts";
 import { contrastRatio, classifyContrast } from "../src/themes/contrast.ts";
 import type { Theme } from "../src/themes/types.ts";
@@ -93,12 +93,6 @@ function pickPrimaryStep(steps: readonly string[], surface: string): string {
 
 for (const theme of themes) {
   const bg = theme.semantics.bgSurface;
-  // Brand-filled buttons render dark/light --brand-foreground (= --bg-app) on
-  // the picked accent step — NOT white --fg-on-accent. Because bg-app tracks
-  // the surface luminance and the accent step is chosen to contrast the
-  // surface, dark-on-light-accent (dark themes) and light-on-dark-accent
-  // (light themes) both clear real AA. This retires the old fgOnAccent caveat.
-  const brandForeground = theme.semantics.bgApp;
   for (const accent of presetAccents) {
     const accentColor = pickPrimaryStep(accent.steps, bg);
 
@@ -113,20 +107,29 @@ for (const theme of themes) {
       });
     }
 
-    // Real check: the brand button's label (bg-app) on its accent fill.
-    // Button labels are 14px medium-weight → held to the project's AA-large
-    // (3:1) floor, same policy the theme uses for all button labels. The
-    // default codex-dark + coral pairing clears full AA (6.6:1); this floor
-    // guards the non-default accent/theme combinations. Critically it is well
-    // above the 2.93:1 that white-on-accent used to produce.
-    const btnRatio = contrastRatio(brandForeground, accentColor);
-    if (btnRatio < 3.0) {
+    // Brand button label: uses the SAME step/ink selection as applyTheme(), so
+    // the check reflects exactly what renders. Held to strict AA (4.5:1).
+    const brand = pickBrandButton(accent, theme.semantics);
+    const btnRatio = contrastRatio(brand.fg, brand.fill);
+    if (btnRatio < 4.5) {
       failures.push({
         theme: theme.id,
-        pair: `brand-foreground / accent[${accent.id}] primary (button text)`,
+        pair: `brand button label / fill [${accent.id}]`,
         ratio: Number(btnRatio.toFixed(2)),
         band: classifyContrast(btnRatio),
-        required: 3.0,
+        required: 4.5,
+      });
+    }
+
+    // Brand fill must also stay distinguishable from the panel it sits on.
+    const brandUi = contrastRatio(brand.fill, bg);
+    if (brandUi < 2.0) {
+      failures.push({
+        theme: theme.id,
+        pair: `brand fill / bgSurface [${accent.id}] (button vs panel)`,
+        ratio: Number(brandUi.toFixed(2)),
+        band: classifyContrast(brandUi),
+        required: 2.0,
       });
     }
   }
