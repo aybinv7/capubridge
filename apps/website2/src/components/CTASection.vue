@@ -1,10 +1,27 @@
 <script setup lang="ts">
+import { onMounted, reactive, ref } from "vue";
 import BlurText from "@/components/BlurText/BlurText.vue";
 import Grainient from "@/components/Grainient/Grainient.vue";
 import AnimatedContent from "@/components/AnimatedContent/AnimatedContent.vue";
 import { Motion } from "motion-v";
 
-const platforms = [
+const REPO = "aybinv7/capubridge";
+// Fallback target: the latest-release page always resolves to the newest
+// published stable release, so links work even before/without the API fetch.
+const RELEASES_LATEST = `https://github.com/${REPO}/releases/latest`;
+
+type PlatformKey = "macos-arm64" | "macos-x64" | "windows" | "linux";
+
+const platforms: {
+  key: PlatformKey;
+  label: string;
+  arch: string;
+  format: string;
+  status: string;
+  accent: string;
+  // Matches this platform's installer asset by file name.
+  match: (name: string) => boolean;
+}[] = [
   {
     key: "macos-arm64",
     label: "macOS",
@@ -12,6 +29,7 @@ const platforms = [
     format: ".dmg",
     status: "Ready",
     accent: "#e8765a",
+    match: (n) => n.endsWith(".dmg") && /aarch64|arm64/i.test(n),
   },
   {
     key: "macos-x64",
@@ -20,6 +38,7 @@ const platforms = [
     format: ".dmg",
     status: "Ready",
     accent: "#e8765a",
+    match: (n) => n.endsWith(".dmg") && /x64|x86_64|intel/i.test(n),
   },
   {
     key: "windows",
@@ -28,6 +47,7 @@ const platforms = [
     format: ".exe",
     status: "Ready",
     accent: "#71cbff",
+    match: (n) => n.endsWith("-setup.exe") || n.endsWith(".exe"),
   },
   {
     key: "linux",
@@ -36,8 +56,42 @@ const platforms = [
     format: ".AppImage",
     status: "Ready",
     accent: "#8f86ff",
+    match: (n) => n.endsWith(".AppImage"),
   },
 ];
+
+// Resolved download hrefs, keyed by platform. Default every platform to the
+// latest-release page so the buttons work immediately; the API fetch upgrades
+// them to direct installer links for the newest stable release.
+const downloads = reactive<Record<PlatformKey, string>>({
+  "macos-arm64": RELEASES_LATEST,
+  "macos-x64": RELEASES_LATEST,
+  windows: RELEASES_LATEST,
+  linux: RELEASES_LATEST,
+});
+const latestTag = ref<string | null>(null);
+
+type ReleaseAsset = { name: string; browser_download_url: string };
+type Release = { tag_name?: string; html_url?: string; assets?: ReleaseAsset[] };
+
+onMounted(async () => {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!res.ok) return;
+    const release = (await res.json()) as Release;
+    latestTag.value = release.tag_name ?? null;
+    const assets = release.assets ?? [];
+    for (const platform of platforms) {
+      const asset = assets.find((a) => platform.match(a.name));
+      // Direct installer if found, else this release's page, else keep default.
+      downloads[platform.key] = asset?.browser_download_url ?? release.html_url ?? RELEASES_LATEST;
+    }
+  } catch {
+    // Network/API failure: the default latest-release links already work.
+  }
+});
 </script>
 
 <template>
@@ -96,6 +150,14 @@ const platforms = [
         <p class="mx-auto mt-4 max-w-[480px] text-[14px] leading-6 text-white/[0.52]">
           No account required. No trial. Open source and free forever. ADB must be in your PATH.
         </p>
+        <a
+          :href="RELEASES_LATEST"
+          target="_blank"
+          rel="noopener"
+          class="mt-4 inline-block text-[11px] uppercase tracking-[0.16em] text-white/[0.4] transition-colors hover:text-[var(--accent)]"
+        >
+          {{ latestTag ? `Latest release · ${latestTag}` : "View all releases" }}
+        </a>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -107,7 +169,9 @@ const platforms = [
           :while-in-view="{ opacity: 1, y: 0, scale: 1 }"
           :viewport="{ once: true, margin: '-12px' }"
           :transition="{ duration: 0.42, delay: index * 0.07 }"
-          href="#"
+          :href="downloads[platform.key]"
+          target="_blank"
+          rel="noopener"
           class="group relative overflow-hidden rounded-xl border border-white/[0.1] bg-[#0c0e14]/[0.52] p-4 transition-all duration-300 hover:border-white/[0.22]"
         >
           <div
