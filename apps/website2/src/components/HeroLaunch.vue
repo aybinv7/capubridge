@@ -133,13 +133,19 @@ onBeforeUnmount(() => {
             class-name="font-[var(--font-display)] text-[38px] leading-[0.9] text-white sm:text-[46px] md:text-[60px] xl:text-[84px]"
           />
 
-          <Transition name="hero-copy-swap" mode="out-in">
-            <div v-if="activeMode" :key="activeMode.key" class="mt-5">
-              <p class="text-[14px] leading-7 text-white/[0.7] md:text-[16px]">
+          <!-- Reserve height so the auto-cycling summary swap (out-in) never
+               shifts the CTA below it — this was a CLS source. -->
+          <div class="mt-5 min-h-[96px] sm:min-h-[84px]">
+            <Transition name="hero-copy-swap" mode="out-in">
+              <p
+                v-if="activeMode"
+                :key="activeMode.key"
+                class="text-[14px] leading-7 text-white/[0.7] md:text-[16px]"
+              >
                 {{ activeMode.summary }}
               </p>
-            </div>
-          </Transition>
+            </Transition>
+          </div>
 
           <div class="mt-5 min-h-7 text-[12px] uppercase tracking-[0.18em] text-white/[0.42]">
             <TextType

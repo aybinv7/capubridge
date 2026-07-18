@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Syne:wght@500;600;700;800&display=swap");
+/* Google Fonts are loaded via <link rel="preconnect"> + <link rel="stylesheet">
+   in index.html (a CSS @import here would chain and block rendering). */
 @import "tailwindcss";
 
 @theme {

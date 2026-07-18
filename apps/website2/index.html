@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Fonts: preconnect + direct <link> (not a CSS @import, which chains and
+         blocks render). display=optional avoids a post-paint swap → no CLS. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Syne:wght@500;600;700;800&display=optional"
+    />
     <meta
       name="description"
       content="Capubridge unifies Android device control, WebView inspection, storage debugging, live logs, mirrors, and QA workflows for hybrid app teams."
