@@ -4,11 +4,17 @@
       v-for="(segment, index) in elements"
       :key="index"
       tag="span"
-      :initial="fromSnapshot"
-      :animate="inView ? buildKeyframes(fromSnapshot, toSnapshots) : fromSnapshot"
-      :transition="getTransition(index)"
+      :initial="motionDisabled ? visibleState : fromSnapshot"
+      :animate="
+        motionDisabled
+          ? visibleState
+          : inView
+            ? buildKeyframes(fromSnapshot, toSnapshots)
+            : fromSnapshot
+      "
+      :transition="motionDisabled ? { duration: 0 } : getTransition(index)"
       @animation-complete="handleAnimationComplete(index)"
-      style="display: inline-block; will-change: transform, filter, opacity"
+      style="display: inline-block"
     >
       {{ segment === " " ? "\u00A0" : segment }}
       <template v-if="animateBy === 'words' && index < elements.length - 1">&nbsp;</template>
@@ -63,6 +69,16 @@ const props = withDefaults(defineProps<BlurTextProps>(), {
 const inView = ref(false);
 const rootRef = useTemplateRef<HTMLParagraphElement>("rootRef");
 let observer: IntersectionObserver | null = null;
+
+// Render the text at its final, fully-visible state immediately on phones and
+// for reduced-motion — a per-word opacity animation on the hero headline is
+// otherwise a big LCP penalty on mobile. Desktop keeps the reveal.
+const visibleState = { filter: "blur(0px)", opacity: 1, y: 0 };
+const motionDisabled =
+  typeof window !== "undefined" &&
+  ((typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches) ||
+    window.innerWidth < 768);
 
 onMounted(() => {
   if (!rootRef.value) return;

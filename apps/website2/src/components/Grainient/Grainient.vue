@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { Mesh, Program, Renderer, Triangle } from "ogl";
-import { onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from "vue";
 
 interface GrainientProps {
   timeSpeed?: number;
@@ -157,8 +156,37 @@ const props = withDefaults(defineProps<GrainientProps>(), {
 
 const containerRef = useTemplateRef<HTMLDivElement>("containerRef");
 
+// Static CSS-gradient approximation of the shader, always painted on the
+// container. On phones / reduced-motion / no-WebGL this is all that renders —
+// no WebGL context, no `ogl`, no main-thread shader work.
+const fallbackStyle = computed(() => ({
+  background: `radial-gradient(120% 120% at 12% -10%, ${props.color1}2b, transparent 46%), linear-gradient(165deg, ${props.color2}, #0a0c10)`,
+}));
+
+/** Only run the WebGL background on capable, non-mobile, motion-OK devices. */
+const shouldRunWebgl = (): boolean => {
+  if (typeof window === "undefined") return false;
+  const reduced =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced) return false;
+  // Skip WebGL on phones — the CSS fallback covers them and this removes the
+  // biggest chunk of mobile main-thread cost.
+  if (window.innerWidth < 768) return false;
+  try {
+    return !!document.createElement("canvas").getContext("webgl2");
+  } catch {
+    return false;
+  }
+};
+
 let cleanup: (() => void) | null = null;
-const setup = () => {
+const setup = async () => {
+  if (!containerRef.value || !shouldRunWebgl()) return;
+
+  // Lazy-load ogl so the WebGL library ships in its own chunk, fetched only
+  // when the shader actually runs (desktop) — never on mobile.
+  const { Mesh, Program, Renderer, Triangle } = await import("ogl");
   if (!containerRef.value) return;
 
   const renderer = new Renderer({
@@ -321,5 +349,9 @@ watch(
 </script>
 
 <template>
-  <div ref="containerRef" :class="['relative h-full w-full overflow-hidden', className]" />
+  <div
+    ref="containerRef"
+    :class="['relative h-full w-full overflow-hidden', className]"
+    :style="fallbackStyle"
+  />
 </template>
