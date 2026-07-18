@@ -38,7 +38,7 @@ function isActive(path: string) {
           >
             <div
               v-if="isActive(feature.path)"
-              class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-full z-10"
+              class="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand rounded-full z-10"
             />
             <Tooltip>
               <TooltipTrigger as-child>
@@ -82,7 +82,7 @@ function isActive(path: string) {
           >
             <div
               v-if="isActive(feature.path)"
-              class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-full z-10"
+              class="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-brand rounded-full z-10"
             />
             <Tooltip>
               <TooltipTrigger as-child>

@@ -95,7 +95,12 @@ function pickPrimaryStep(steps: readonly string[], surface: string): string {
 
 for (const theme of themes) {
   const bg = theme.semantics.bgSurface;
-  const fgOnAccent = theme.semantics.fgOnAccent;
+  // Brand-filled buttons render dark/light --brand-foreground (= --bg-app) on
+  // the picked accent step — NOT white --fg-on-accent. Because bg-app tracks
+  // the surface luminance and the accent step is chosen to contrast the
+  // surface, dark-on-light-accent (dark themes) and light-on-dark-accent
+  // (light themes) both clear real AA. This retires the old fgOnAccent caveat.
+  const brandForeground = theme.semantics.bgApp;
   for (const accent of presetAccents) {
     const accentColor = pickPrimaryStep(accent.steps, bg);
 
@@ -110,22 +115,50 @@ for (const theme of themes) {
       });
     }
 
-    // fgOnAccent / accent text contrast is deferred to Slice 6, where
-    // fgOnAccent moves from Theme into AccentRamp so each accent picks its
-    // own (black or white). Today fgOnAccent is theme-wide and won't hit
-    // 3:1 against every (theme × accent) pairing. We still compute the
-    // ratio and surface it as a warning so the slice-6 work has a target.
-    const textRatio = contrastRatio(fgOnAccent, accentColor);
-    if (textRatio < 2.5) {
-      // Below "perceptually visible" — flag even with the deferred caveat.
+    // Real check: the brand button's label (bg-app) on its accent fill.
+    // Button labels are 14px medium-weight → held to the project's AA-large
+    // (3:1) floor, same policy the theme uses for all button labels. The
+    // default codex-dark + coral pairing clears full AA (6.6:1); this floor
+    // guards the non-default accent/theme combinations. Critically it is well
+    // above the 2.93:1 that white-on-accent used to produce.
+    const btnRatio = contrastRatio(brandForeground, accentColor);
+    if (btnRatio < 3.0) {
       failures.push({
         theme: theme.id,
-        pair: `fgOnAccent / accent[${accent.id}] primary (text)`,
-        ratio: Number(textRatio.toFixed(2)),
-        band: classifyContrast(textRatio),
-        required: 2.5,
+        pair: `brand-foreground / accent[${accent.id}] primary (button text)`,
+        ratio: Number(btnRatio.toFixed(2)),
+        band: classifyContrast(btnRatio),
+        required: 3.0,
       });
     }
+  }
+
+  // Neutral menu/dropdown hover (the contrast fix): --fg-default on the raised
+  // surface that shadcn `accent` now maps to. Must clear strict AA.
+  const hoverRatio = contrastRatio(theme.semantics.fgDefault, theme.semantics.bgSurfaceRaised);
+  if (hoverRatio < 4.5) {
+    failures.push({
+      theme: theme.id,
+      pair: `fgDefault / bgSurfaceRaised (menu hover text)`,
+      ratio: Number(hoverRatio.toFixed(2)),
+      band: classifyContrast(hoverRatio),
+      required: 4.5,
+    });
+  }
+
+  // Active-tab / selected marker: accent primary as TEXT on accent-soft.
+  const activeRatio = contrastRatio(
+    pickPrimaryStep(presetAccents[0].steps, bg),
+    theme.semantics.accentSoft,
+  );
+  if (activeRatio < 3.0) {
+    failures.push({
+      theme: theme.id,
+      pair: `accent primary / accentSoft (active-tab text)`,
+      ratio: Number(activeRatio.toFixed(2)),
+      band: classifyContrast(activeRatio),
+      required: 3.0,
+    });
   }
 }
 

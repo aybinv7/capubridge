@@ -217,7 +217,7 @@ function isRowLocallyModified(row: Row<IDBRecord>): boolean {
  *  Using a function (not a CSS-class object) avoids UnoCSS rule-order races
  *  where two bg-* utilities end up on the same element and the wrong one wins. */
 function getRowBgClass(row: Row<IDBRecord>): string {
-  if (row.getIsSelected()) return "bg-accent/10!";
+  if (row.getIsSelected()) return "bg-brand/10!";
   const op = getChangeOperation(row.original);
   if (op === "add") return "bg-emerald-500/4";
   if (op === "update") return "bg-amber-500/4";

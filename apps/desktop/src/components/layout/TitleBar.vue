@@ -126,7 +126,7 @@ async function close() {
         class="flex items-center justify-center w-8 h-8 rounded-md transition-colors duration-[120ms] relative"
         :class="
           dockStore.isOpen
-            ? 'text-accent bg-accent-soft'
+            ? 'text-brand bg-brand-soft'
             : 'text-muted-foreground/50 hover:text-foreground hover:bg-surface-2'
         "
         title="Toggle Dock (⌘J)"
@@ -135,7 +135,7 @@ async function close() {
         <Terminal class="w-3.5 h-3.5" />
         <span
           v-if="dockStore.hasUnread"
-          class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent"
+          class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-brand"
         />
       </button>
 
@@ -143,7 +143,7 @@ async function close() {
         class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] transition-all border ml-1"
         :class="
           mirrorStore.isOpen
-            ? 'bg-accent/10 border-accent/30 text-accent hover:bg-accent/20'
+            ? 'bg-brand/10 border-brand/30 text-brand hover:bg-brand/20'
             : mirrorEnabled
               ? 'border-border/25 text-muted-foreground/50 hover:text-foreground hover:border-border-active hover:bg-surface-2'
               : 'border-border/15 text-muted-foreground/20 cursor-not-allowed'
@@ -162,7 +162,7 @@ async function close() {
         <span>Mirror</span>
         <span
           v-if="mirrorStore.isOpen && mirrorStore.isStreaming"
-          class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"
+          class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"
         />
       </button>
 

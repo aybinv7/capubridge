@@ -116,10 +116,21 @@
   --color-secondary-foreground: var(--fg-default);
   --color-muted: var(--bg-surface-raised);
   --color-muted-foreground: var(--fg-muted);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
+  /* shadcn "accent" is the SURFACE role: subtle raised background for
+     hover/selected/highlighted states in menus, dropdowns, command items,
+     ghost/outline button hovers. It must stay neutral so text on it reads at
+     full contrast. The brand colour lives in --color-brand below. */
+  --color-accent: var(--bg-surface-raised);
+  --color-accent-hover: var(--bg-surface-raised);
   --color-accent-soft: var(--accent-soft);
-  --color-accent-foreground: var(--fg-on-accent);
+  --color-accent-foreground: var(--fg-default);
+  /* Brand accent (coral). Used deliberately for primary actions, active
+     indicators, and selected markers. --brand-foreground is DARK so filled
+     brand surfaces (buttons) clear AA against the light accent step. */
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-soft: var(--accent-soft);
+  --color-brand-foreground: var(--bg-app);
   --color-destructive: var(--state-danger);
   --color-destructive-foreground: #ffffff;
   --color-border: var(--border-default);

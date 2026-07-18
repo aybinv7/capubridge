@@ -131,11 +131,16 @@ function isActive(tabPath: string): boolean {
       class="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 rounded-xl"
       :class="
         isActive(tab.path)
-          ? 'text-foreground font-medium bg-surface-3 border border-border/30'
+          ? 'text-brand font-medium bg-brand-soft border border-brand/25'
           : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-surface-2'
       "
     >
-      <component v-if="tab.icon" :is="tab.icon" :size="13" class="shrink-0 opacity-50" />
+      <component
+        v-if="tab.icon"
+        :is="tab.icon"
+        :size="13"
+        :class="['shrink-0', isActive(tab.path) ? 'opacity-100' : 'opacity-50']"
+      />
       {{ tab.label }}
     </button>
     <div v-if="route.path.startsWith('/settings')" class="ml-auto flex items-center pr-1">

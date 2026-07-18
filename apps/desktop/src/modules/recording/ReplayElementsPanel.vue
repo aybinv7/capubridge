@@ -337,7 +337,7 @@ watch(
             class="flex-1 py-1 font-medium transition-colors"
             :class="
               dockTab === 'computed'
-                ? 'text-foreground border-b-2 border-accent'
+                ? 'text-foreground border-b-2 border-brand'
                 : 'text-muted-foreground/50 hover:text-foreground'
             "
             @click="dockTab = 'computed'"
@@ -348,7 +348,7 @@ watch(
             class="flex-1 py-1 font-medium transition-colors"
             :class="
               dockTab === 'boxmodel'
-                ? 'text-foreground border-b-2 border-accent'
+                ? 'text-foreground border-b-2 border-brand'
                 : 'text-muted-foreground/50 hover:text-foreground'
             "
             @click="dockTab = 'boxmodel'"
@@ -359,7 +359,7 @@ watch(
             class="flex-1 py-1 font-medium transition-colors"
             :class="
               dockTab === 'attrs'
-                ? 'text-foreground border-b-2 border-accent'
+                ? 'text-foreground border-b-2 border-brand'
                 : 'text-muted-foreground/50 hover:text-foreground'
             "
             @click="dockTab = 'attrs'"

@@ -110,7 +110,7 @@ function skipForward() {
       <!-- Track -->
       <div class="absolute inset-x-0 h-1.5 rounded-full bg-surface-2">
         <div
-          class="absolute left-0 top-0 h-full rounded-full bg-accent transition-none"
+          class="absolute left-0 top-0 h-full rounded-full bg-brand transition-none"
           :style="{ width: `${progressPercent}%` }"
         />
       </div>
@@ -142,7 +142,7 @@ function skipForward() {
 
       <!-- Playhead -->
       <div
-        class="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-accent shadow-md -translate-x-1/2 transition-none group-hover:scale-110"
+        class="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-brand shadow-md -translate-x-1/2 transition-none group-hover:scale-110"
         :style="{ left: `${progressPercent}%` }"
       />
     </div>

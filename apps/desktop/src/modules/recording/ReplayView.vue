@@ -232,7 +232,7 @@ function formatDuration(ms: number) {
               class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
               :class="
                 activePane === 'network'
-                  ? 'text-foreground border-b-2 border-accent'
+                  ? 'text-foreground border-b-2 border-brand'
                   : 'text-muted-foreground/50 hover:text-foreground'
               "
               @click="activePane = 'network'"
@@ -246,7 +246,7 @@ function formatDuration(ms: number) {
               class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
               :class="
                 activePane === 'databases'
-                  ? 'text-foreground border-b-2 border-accent'
+                  ? 'text-foreground border-b-2 border-brand'
                   : 'text-muted-foreground/50 hover:text-foreground'
               "
               @click="activePane = 'databases'"
@@ -262,7 +262,7 @@ function formatDuration(ms: number) {
               class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
               :class="
                 activePane === 'console'
-                  ? 'text-foreground border-b-2 border-accent'
+                  ? 'text-foreground border-b-2 border-brand'
                   : 'text-muted-foreground/50 hover:text-foreground'
               "
               @click="activePane = 'console'"
@@ -276,7 +276,7 @@ function formatDuration(ms: number) {
               class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
               :class="
                 activePane === 'performance'
-                  ? 'text-foreground border-b-2 border-accent'
+                  ? 'text-foreground border-b-2 border-brand'
                   : 'text-muted-foreground/50 hover:text-foreground'
               "
               @click="activePane = 'performance'"
@@ -292,7 +292,7 @@ function formatDuration(ms: number) {
               class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
               :class="
                 activePane === 'elements'
-                  ? 'text-foreground border-b-2 border-accent'
+                  ? 'text-foreground border-b-2 border-brand'
                   : 'text-muted-foreground/50 hover:text-foreground'
               "
               @click="activePane = 'elements'"
@@ -301,7 +301,7 @@ function formatDuration(ms: number) {
               <span
                 v-if="selectedIframeEl"
                 class="ml-1 text-[10px]"
-                :class="activePane === 'elements' ? 'text-accent' : 'text-muted-foreground/40'"
+                :class="activePane === 'elements' ? 'text-brand' : 'text-muted-foreground/40'"
                 >●</span
               >
             </button>

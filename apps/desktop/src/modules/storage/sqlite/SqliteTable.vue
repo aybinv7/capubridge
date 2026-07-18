@@ -710,7 +710,7 @@ function isBlob(val: unknown): boolean {
                 {
                   'bg-surface-3/30': row.getIsGrouped(),
                   'pl-6': row.depth > 0,
-                  'bg-accent/10!': row.getIsSelected(),
+                  'bg-brand/10!': row.getIsSelected(),
                 },
                 rowChangeClass(row.original),
               ]"

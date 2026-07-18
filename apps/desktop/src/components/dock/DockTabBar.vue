@@ -47,7 +47,7 @@ function handleTabChange(value: string | number) {
         >
           <component :is="dockTabMeta[tab].icon" class="size-3.5" />
           <span>{{ dockTabMeta[tab].label }}</span>
-          <span v-if="props.unreadByTab[tab]" class="size-1.5 rounded-full bg-accent" />
+          <span v-if="props.unreadByTab[tab]" class="size-1.5 rounded-full bg-brand" />
         </TabsTrigger>
       </TabsList>
     </Tabs>
