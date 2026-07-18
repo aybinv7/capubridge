@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.16.2"
+version = "1.17.0"
 description = "Desktop debugging toolkit for Android WebView applications"
 authors = ["CapuBridge contributors"]
 license = "MIT"
