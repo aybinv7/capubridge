@@ -33,7 +33,7 @@ export default defineConfig({
       },
       ready: {
         command:
-          "vp check && vp run check:versions && vp run check:modules && vp run check:ipc-boundary && vp run check:silent-errors && vp run check:source-size && vp run test:all && vp run -r build",
+          "vp check && vp run check:versions && vp run check:modules && vp run check:ipc-boundary && vp run check:silent-errors && vp run check:source-size && vp run desktop#check:contrast && vp run test:all && vp run -r build",
       },
     },
   },

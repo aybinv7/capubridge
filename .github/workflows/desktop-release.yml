@@ -56,6 +56,9 @@ jobs:
       - name: check source-size boundary
         run: vp run check:source-size
 
+      - name: check theme contrast
+        run: vp run desktop#check:contrast
+
       - name: test workspace
         run: vp run test:all
 
