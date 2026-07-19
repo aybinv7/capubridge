@@ -1,6 +1,7 @@
 import type { LogcatEntry, LogcatErrorPayload } from "@/types/console.types";
 import type { PerfMetrics } from "@/types/perf.types";
 import type { SessionEvent } from "@/types/session.types";
+import type { UpdaterProgressPayload } from "@/types/updater.types";
 
 export interface MockServerRequestEvent {
   ruleId: string;
@@ -36,6 +37,7 @@ export interface IpcEventMap {
   "perf:error": string;
   "perf:stopped": string;
   "mock-server-request": MockServerRequestEvent;
+  "updater://progress": UpdaterProgressPayload;
 }
 
 export type IpcEventName = keyof IpcEventMap;

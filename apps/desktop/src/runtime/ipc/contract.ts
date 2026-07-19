@@ -6,6 +6,7 @@ import type { MockCommandMap } from "@/runtime/ipc/contracts/mock";
 import type { RecordingCommandMap } from "@/runtime/ipc/contracts/recording";
 import type { SessionCommandMap } from "@/runtime/ipc/contracts/session";
 import type { StorageCommandMap } from "@/runtime/ipc/contracts/storage";
+import type { UpdaterCommandMap } from "@/runtime/ipc/contracts/updater";
 
 export interface IpcCommandMap
   extends
@@ -15,7 +16,8 @@ export interface IpcCommandMap
     MirrorCommandMap,
     StorageCommandMap,
     RecordingCommandMap,
-    MockCommandMap {}
+    MockCommandMap,
+    UpdaterCommandMap {}
 
 export type IpcCommandName = keyof IpcCommandMap;
 export type IpcCommandArgs<Name extends IpcCommandName> = IpcCommandMap[Name]["args"];
@@ -159,6 +161,8 @@ export const IPC_COMMAND_NAMES = [
   "local_webview_fetch_cdp_target",
   "local_webview_inject_scrollbar_hide",
   "local_webview_navigate",
+  "updater_check",
+  "updater_install",
 ] as const satisfies readonly IpcCommandName[];
 
 type MissingCommand = Exclude<IpcCommandName, (typeof IPC_COMMAND_NAMES)[number]>;

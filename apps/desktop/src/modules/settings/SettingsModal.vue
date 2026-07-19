@@ -1,11 +1,20 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { Settings as SettingsIcon, Palette, Wrench, Globe, Keyboard } from "lucide-vue-next";
+import {
+  Settings as SettingsIcon,
+  Palette,
+  Wrench,
+  Globe,
+  Keyboard,
+  Download,
+} from "lucide-vue-next";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useUpdaterStore } from "@/stores/updater.store";
 
 const route = useRoute();
 const router = useRouter();
+const updater = useUpdaterStore();
 
 const sections = [
   { name: "settings-general", label: "General", path: "/settings/general", icon: SettingsIcon },
@@ -18,6 +27,7 @@ const sections = [
   { name: "settings-adb", label: "ADB", path: "/settings/adb", icon: Wrench },
   { name: "settings-chrome", label: "Chrome", path: "/settings/chrome", icon: Globe },
   { name: "settings-shortcuts", label: "Shortcuts", path: "/settings/shortcuts", icon: Keyboard },
+  { name: "settings-updates", label: "Updates", path: "/settings/updates", icon: Download },
 ] as const;
 
 const isOpen = computed(() => route.path.startsWith("/settings"));
@@ -72,6 +82,11 @@ function handleOpenChange(open: boolean) {
         >
           <component :is="section.icon" :size="14" class="shrink-0" />
           {{ section.label }}
+          <span
+            v-if="section.name === 'settings-updates' && updater.updateAvailable"
+            class="ml-1 size-1.5 rounded-full bg-[var(--accent)]"
+            aria-label="Update available"
+          />
         </button>
       </nav>
 

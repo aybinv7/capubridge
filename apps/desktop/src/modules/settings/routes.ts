@@ -41,6 +41,12 @@ export const settingsRoutes = [
         component: () => import("./SettingsShortcuts.vue"),
         meta: { label: "Shortcuts" },
       },
+      {
+        path: "updates",
+        name: "settings-updates",
+        component: () => import("./SettingsUpdates.vue"),
+        meta: { label: "Updates" },
+      },
     ],
   },
 ] satisfies RouteRecordRaw[];

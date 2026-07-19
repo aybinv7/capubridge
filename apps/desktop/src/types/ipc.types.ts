@@ -8,3 +8,4 @@ export type * from "@/runtime/ipc/contracts/mock";
 export type * from "@/runtime/ipc/contracts/recording";
 export type * from "@/runtime/ipc/contracts/session";
 export type * from "@/runtime/ipc/contracts/storage";
+export type * from "@/runtime/ipc/contracts/updater";
