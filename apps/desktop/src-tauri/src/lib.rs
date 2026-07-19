@@ -57,6 +57,7 @@ use commands::sqlite::{
     sqlite_refresh_database, sqlite_save_local_bytes, sqlite_scan_all_databases,
     sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
 };
+use commands::updater::{updater_check, updater_install, PendingUpdate};
 use session::{
     cache_store::SessionCacheStore,
     session_attach_console_target, session_detach_console_target, session_start_logcat_lease,
@@ -99,8 +100,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(session_registry.clone())
         .manage(MockServerManager::new())
+        .manage(PendingUpdate::default())
         .plugin(tauri_plugin_shell::init())
         .setup(move |app| {
             if cfg!(debug_assertions) {
@@ -261,6 +264,8 @@ pub fn run() {
             local_webview_fetch_cdp_target,
             local_webview_inject_scrollbar_hide,
             local_webview_navigate,
+            updater_check,
+            updater_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
