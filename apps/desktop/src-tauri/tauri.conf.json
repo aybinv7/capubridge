@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "capubridge",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "identifier": "com.capubridge.io",
   "build": {
     "frontendDist": "../dist",
