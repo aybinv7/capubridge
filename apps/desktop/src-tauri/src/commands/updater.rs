@@ -15,7 +15,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 /// GitHub `owner/repo` the updater pulls releases from.
-const REPO: &str = "inventor7/capubridge";
+const REPO: &str = "aybinv7/capubridge";
 
 /// Holds the update resolved by [`updater_check`] until [`updater_install`]
 /// consumes it. Managed as Tauri state.
