@@ -54,3 +54,12 @@ tower-http = { version = "0.6", features = ["cors"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
+rmcp = { version = "2.2", features = [
+  "server",
+  "macros",
+  "transport-streamable-http-server",
+  "schemars",
+] }
+schemars = "1"
+tokio-util = "0.7"
+uuid = { version = "1", features = ["v4"] }
