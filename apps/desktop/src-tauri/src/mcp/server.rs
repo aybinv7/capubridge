@@ -151,4 +151,60 @@ mod tests {
 
         running.shutdown().await;
     }
+
+    /// End-to-end proof: a real rmcp client performs the full MCP handshake
+    /// (initialize + tools/list + call_tool) over Streamable HTTP against the
+    /// live server and sees the Phase 1 tools.
+    #[tokio::test]
+    async fn real_mcp_client_completes_handshake_and_calls_a_tool() {
+        use rmcp::model::CallToolRequestParams;
+        use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+        use rmcp::transport::StreamableHttpClientTransport;
+        use rmcp::ServiceExt;
+
+        // reqwest 0.13 (pulled by rmcp's client transport) uses rustls, which
+        // needs a process-default crypto provider installed before the client
+        // is built. Server side is unaffected.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
+        let running = start(Arc::new(SessionRegistry::new()))
+            .await
+            .expect("server should start");
+        let uri = format!("http://127.0.0.1:{}/mcp", running.port);
+
+        // rmcp applies this via reqwest's `.bearer_auth(..)`, which adds the
+        // `Bearer ` prefix itself — pass the raw token only.
+        let mut config = StreamableHttpClientTransportConfig::with_uri(uri);
+        config.auth_header = Some(running.token.clone());
+        let transport = StreamableHttpClientTransport::from_config(config);
+
+        // `serve` performs the initialize handshake.
+        let client = ().serve(transport).await.expect("mcp initialize handshake");
+        assert!(
+            client.peer_info().is_some(),
+            "client should receive server info from initialize"
+        );
+
+        // tools/list must expose the Phase 1 tools.
+        let tools = client.list_all_tools().await.expect("tools/list");
+        let names: Vec<&str> = tools.iter().map(|tool| tool.name.as_ref()).collect();
+        for expected in [
+            "get_active_session",
+            "list_devices",
+            "list_targets",
+            "select_device",
+        ] {
+            assert!(names.contains(&expected), "missing tool: {expected}");
+        }
+
+        // call_tool must succeed against the live registry.
+        let result = client
+            .call_tool(CallToolRequestParams::new("list_devices"))
+            .await
+            .expect("call_tool list_devices");
+        assert_ne!(result.is_error, Some(true), "list_devices should succeed");
+
+        client.cancel().await.expect("client shutdown");
+        running.shutdown().await;
+    }
 }

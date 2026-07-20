@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "desktop-frontend",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["run", "desktop#dev"],
+      "port": 5173
+    }
+  ]
+}

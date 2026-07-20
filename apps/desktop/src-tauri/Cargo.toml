@@ -63,3 +63,7 @@ rmcp = { version = "2.2", features = [
 schemars = "1"
 tokio-util = "0.7"
 uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+rmcp = { version = "2.2", features = ["client", "transport-streamable-http-client-reqwest"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
