@@ -131,24 +131,18 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "list_targets",
-        description = "List the debuggable WebView / CDP targets for one device serial. Call list_devices first to obtain valid serials.",
+        description = "Discover the debuggable WebView / CDP targets for one device serial (queries the device live — always fresh, not a cache read). Call list_devices first to obtain valid serials.",
         annotations(read_only_hint = true)
     )]
     async fn list_targets(
         &self,
         Parameters(SerialParams { serial }): Parameters<SerialParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        if self.registry.device_snapshot(&serial).is_none() {
-            return Err(ErrorData::invalid_params(
-                format!("Unknown device serial: {serial}"),
-                None,
-            ));
-        }
-        let targets = self
-            .registry
-            .session_for_serial(&serial)
-            .map(|session| session.list_targets())
-            .unwrap_or_default();
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        let targets = session
+            .refresh_targets()
+            .map_err(|error| ErrorData::internal_error(error, None))?;
         ok_json(&targets)
     }
 
