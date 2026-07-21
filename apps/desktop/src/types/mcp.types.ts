@@ -36,6 +36,11 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     description: "Run JavaScript in a connected WebView target via CDP. Requires confirm: true.",
     readOnly: false,
   },
+  {
+    name: "read_storage",
+    description: "Read localStorage, sessionStorage, or IndexedDB from a target.",
+    readOnly: true,
+  },
 ] as const;
 
 /** Status of the embedded MCP server, mirrored from the Rust `McpStatus`. */

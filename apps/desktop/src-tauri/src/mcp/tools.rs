@@ -14,7 +14,9 @@ use rmcp::{tool, tool_handler, tool_router, ErrorData, ServerHandler};
 use serde::Serialize;
 
 use super::cdp;
-use super::types::{EvaluateJsParams, SelectDeviceParams, SerialParams};
+use super::types::{
+    EvaluateJsParams, ReadStorageParams, SelectDeviceParams, SerialParams, StorageKind,
+};
 use crate::session::registry::SessionRegistry;
 
 /// Build a successful tool result carrying both a pretty-printed text block
@@ -138,10 +140,73 @@ impl CapuBridgeTools {
                 ErrorData::invalid_params(format!("Unknown target_id: {target_id}"), None)
             })?;
 
-        let result = cdp::evaluate(&target.web_socket_debugger_url, &expression)
+        let envelope = cdp::evaluate(&target.web_socket_debugger_url, &expression)
             .await
             .map_err(|error| ErrorData::internal_error(error, None))?;
-        ok_json(&result)
+        let value = cdp::evaluate_value(&envelope).map_err(|error| {
+            ErrorData::internal_error(format!("Expression threw: {error}"), None)
+        })?;
+        ok_json(&value)
+    }
+
+    #[tool(
+        name = "read_storage",
+        description = "Read localStorage, sessionStorage, or IndexedDB from a connected WebView target. Get target_id from list_targets. kind is one of local_storage, session_storage, indexeddb_databases, indexeddb_store. indexeddb_store additionally requires database and store, and supports limit (default 100, max 500) and offset for pagination. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_storage(
+        &self,
+        Parameters(ReadStorageParams {
+            serial,
+            target_id,
+            kind,
+            database,
+            store,
+            limit,
+            offset,
+        }): Parameters<ReadStorageParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let targets = self
+            .registry
+            .session_for_serial(&serial)
+            .map(|session| session.list_targets())
+            .unwrap_or_default();
+        let target = targets
+            .into_iter()
+            .find(|target| target.id == target_id)
+            .ok_or_else(|| {
+                ErrorData::invalid_params(format!("Unknown target_id: {target_id}"), None)
+            })?;
+
+        let script = match kind {
+            StorageKind::LocalStorage => cdp::local_storage_script().to_string(),
+            StorageKind::SessionStorage => cdp::session_storage_script().to_string(),
+            StorageKind::IndexeddbDatabases => cdp::indexeddb_databases_script().to_string(),
+            StorageKind::IndexeddbStore => {
+                let database = database.ok_or_else(|| {
+                    ErrorData::invalid_params(
+                        "kind=indexeddb_store requires 'database'".to_string(),
+                        None,
+                    )
+                })?;
+                let store = store.ok_or_else(|| {
+                    ErrorData::invalid_params(
+                        "kind=indexeddb_store requires 'store'".to_string(),
+                        None,
+                    )
+                })?;
+                let limit = limit.unwrap_or(100).clamp(1, 500);
+                let offset = offset.unwrap_or(0);
+                cdp::indexeddb_store_script(&database, &store, limit, offset)
+            }
+        };
+
+        let envelope = cdp::evaluate(&target.web_socket_debugger_url, &script)
+            .await
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        let value = cdp::evaluate_value(&envelope)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&value)
     }
 }
 
@@ -157,8 +222,9 @@ impl ServerHandler for CapuBridgeTools {
                 "CapuBridge exposes a live Android WebView debugging session. \
                  Call get_active_session first to see the active device and tracker status, \
                  then list_devices / list_targets to explore, and select_device to change the \
-                 active device. Read-only tools are safe to call freely. evaluate_js runs \
-                 JavaScript in a live page via CDP and requires confirm: true.",
+                 active device. Read-only tools (including read_storage) are safe to call \
+                 freely. evaluate_js runs JavaScript in a live page via CDP and requires \
+                 confirm: true.",
             )
     }
 }
@@ -233,6 +299,23 @@ mod tests {
             }))
             .await;
         let error = result.expect_err("unknown target must error, not attempt a connection");
+        assert!(error.message.contains("no-such-target"));
+    }
+
+    #[tokio::test]
+    async fn read_storage_unknown_target_errors() {
+        let result = tools()
+            .read_storage(Parameters(ReadStorageParams {
+                serial: "does-not-exist".into(),
+                target_id: "no-such-target".into(),
+                kind: StorageKind::LocalStorage,
+                database: None,
+                store: None,
+                limit: None,
+                offset: None,
+            }))
+            .await;
+        let error = result.expect_err("unknown target must error");
         assert!(error.message.contains("no-such-target"));
     }
 

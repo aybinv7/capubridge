@@ -87,6 +87,8 @@ where
 }
 
 /// Evaluate `expression` in the page context of the target at `ws_url`.
+/// Returns the raw `Runtime.evaluate` result envelope (`{ result, exceptionDetails? }`);
+/// pass it through [`evaluate_value`] to get the plain JS return value.
 pub async fn evaluate(ws_url: &str, expression: &str) -> Result<Value, String> {
     call(
         ws_url,
@@ -98,4 +100,188 @@ pub async fn evaluate(ws_url: &str, expression: &str) -> Result<Value, String> {
         }),
     )
     .await
+}
+
+/// Extract the plain JS value from a `Runtime.evaluate` result envelope, or an
+/// error message if the expression threw.
+pub fn evaluate_value(response: &Value) -> Result<Value, String> {
+    if let Some(exception) = response.get("exceptionDetails") {
+        let message = exception
+            .get("exception")
+            .and_then(|value| value.get("description").or_else(|| value.get("value")))
+            .and_then(|value| value.as_str())
+            .map(str::to_string)
+            .or_else(|| {
+                exception
+                    .get("text")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "JavaScript evaluation failed".to_string());
+        return Err(message);
+    }
+    Ok(response
+        .get("result")
+        .and_then(|result| result.get("value"))
+        .cloned()
+        .unwrap_or(Value::Null))
+}
+
+fn js_string_literal(value: &str) -> String {
+    serde_json::to_string(value).unwrap_or_else(|_| "\"\"".to_string())
+}
+
+/// Expression that collects every key/value pair from `localStorage`.
+pub fn local_storage_script() -> &'static str {
+    "(() => { const out = {}; for (let i = 0; i < localStorage.length; i++) { \
+     const k = localStorage.key(i); out[k] = localStorage.getItem(k); } return out; })()"
+}
+
+/// Expression that collects every key/value pair from `sessionStorage`.
+pub fn session_storage_script() -> &'static str {
+    "(() => { const out = {}; for (let i = 0; i < sessionStorage.length; i++) { \
+     const k = sessionStorage.key(i); out[k] = sessionStorage.getItem(k); } return out; })()"
+}
+
+/// Expression that lists IndexedDB databases visible to the page.
+pub fn indexeddb_databases_script() -> &'static str {
+    "(async () => { \
+        if (!indexedDB.databases) { \
+            throw new Error('indexedDB.databases() is not supported in this WebView'); \
+        } \
+        const dbs = await indexedDB.databases(); \
+        return dbs.map((db) => ({ name: db.name, version: db.version })); \
+    })()"
+}
+
+/// Expression that reads up to `limit` rows (after skipping `offset`) from one
+/// object store of one IndexedDB database, via a cursor so nothing is loaded
+/// beyond what's asked for.
+pub fn indexeddb_store_script(database: &str, store: &str, limit: u32, offset: u32) -> String {
+    let database = js_string_literal(database);
+    let store = js_string_literal(store);
+    format!(
+        "new Promise((resolve, reject) => {{ \
+            const req = indexedDB.open({database}); \
+            req.onerror = () => reject((req.error && req.error.message) || 'failed to open database'); \
+            req.onsuccess = () => {{ \
+                const db = req.result; \
+                if (!db.objectStoreNames.contains({store})) {{ \
+                    const available = Array.from(db.objectStoreNames).join(', '); \
+                    db.close(); \
+                    reject('Unknown object store: ' + {store} + '. Available stores: ' + available); \
+                    return; \
+                }} \
+                const tx = db.transaction({store}, 'readonly'); \
+                const objectStore = tx.objectStore({store}); \
+                const rows = []; \
+                let skipped = 0; \
+                const cursorReq = objectStore.openCursor(); \
+                cursorReq.onerror = () => reject((cursorReq.error && cursorReq.error.message) || 'cursor failed'); \
+                cursorReq.onsuccess = (event) => {{ \
+                    const cursor = event.target.result; \
+                    if (!cursor || rows.length >= {limit}) {{ \
+                        db.close(); \
+                        resolve({{ rows, truncated: !!cursor }}); \
+                        return; \
+                    }} \
+                    if (skipped < {offset}) {{ skipped++; cursor.continue(); return; }} \
+                    rows.push(cursor.value); \
+                    cursor.continue(); \
+                }}; \
+            }}; \
+        }})"
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::net::TcpListener;
+    use tokio_tungstenite::accept_async;
+
+    /// Bind an ephemeral localhost WebSocket server that accepts one CDP
+    /// connection, echoes `response_body` back with the request's `id`
+    /// spliced in, and returns its `ws://` URL.
+    async fn spawn_mock_cdp_server(response_body: Value) -> String {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.expect("bind");
+        let port = listener.local_addr().expect("local_addr").port();
+
+        tokio::spawn(async move {
+            let Ok((stream, _)) = listener.accept().await else {
+                return;
+            };
+            let Ok(mut socket) = accept_async(stream).await else {
+                return;
+            };
+            if let Some(Ok(Message::Text(text))) = socket.next().await {
+                let request: Value = serde_json::from_str(&text).expect("valid json request");
+                let mut response = response_body.clone();
+                response["id"] = request["id"].clone();
+                let _ = socket.send(Message::Text(response.to_string().into())).await;
+            }
+        });
+
+        format!("ws://127.0.0.1:{port}/")
+    }
+
+    #[tokio::test]
+    async fn call_returns_the_result_field_on_success() {
+        let url = spawn_mock_cdp_server(serde_json::json!({ "result": { "value": 42 } })).await;
+        let result = call(&url, "Runtime.evaluate", serde_json::json!({}))
+            .await
+            .expect("call should succeed");
+        assert_eq!(result, serde_json::json!({ "value": 42 }));
+    }
+
+    #[tokio::test]
+    async fn call_surfaces_a_cdp_level_error() {
+        let url = spawn_mock_cdp_server(serde_json::json!({ "error": { "message": "boom" } })).await;
+        let error = call(&url, "Runtime.evaluate", serde_json::json!({}))
+            .await
+            .expect_err("call should fail");
+        assert!(error.contains("boom"));
+    }
+
+    #[tokio::test]
+    async fn evaluate_returns_the_raw_envelope_for_evaluate_value_to_parse() {
+        // Real Runtime.evaluate responses double-nest: the JSON-RPC "result"
+        // field holds `{ result: RemoteObject, exceptionDetails? }`.
+        let url = spawn_mock_cdp_server(serde_json::json!({
+            "result": { "result": { "type": "number", "value": 7 } }
+        }))
+        .await;
+        let envelope = evaluate(&url, "1+6").await.expect("evaluate should succeed");
+        assert_eq!(evaluate_value(&envelope).expect("value"), serde_json::json!(7));
+    }
+
+    #[test]
+    fn evaluate_value_extracts_return_by_value_result() {
+        let response = serde_json::json!({ "result": { "type": "object", "value": { "a": 1 } } });
+        assert_eq!(evaluate_value(&response).unwrap(), serde_json::json!({ "a": 1 }));
+    }
+
+    #[test]
+    fn evaluate_value_surfaces_a_thrown_exception() {
+        let response = serde_json::json!({
+            "exceptionDetails": {
+                "text": "Uncaught",
+                "exception": { "description": "ReferenceError: x is not defined" }
+            }
+        });
+        let error = evaluate_value(&response).unwrap_err();
+        assert!(error.contains("ReferenceError"));
+    }
+
+    #[test]
+    fn indexeddb_store_script_escapes_names_safely() {
+        let script = indexeddb_store_script("my\"db", "store's", 50, 10);
+        // The generated script must be valid embeddable JS: names go through
+        // JSON string escaping, not raw interpolation.
+        assert!(script.contains("\\\"db"));
+        assert!(script.contains("store's"));
+        assert!(script.contains("50"));
+        assert!(script.contains("10"));
+        let _: Value = serde_json::json!(script); // sanity: it's a valid string at least
+    }
 }

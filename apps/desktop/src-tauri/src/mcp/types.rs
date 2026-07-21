@@ -35,3 +35,35 @@ pub struct EvaluateJsParams {
     #[serde(default)]
     pub confirm: bool,
 }
+
+/// Which storage to read via `read_storage`.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageKind {
+    LocalStorage,
+    SessionStorage,
+    IndexeddbDatabases,
+    IndexeddbStore,
+}
+
+/// Parameters for reading storage from a connected WebView target.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadStorageParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id from `list_targets`.
+    pub target_id: String,
+    pub kind: StorageKind,
+    /// Required when `kind` is `indexeddb_store`.
+    #[serde(default)]
+    pub database: Option<String>,
+    /// Required when `kind` is `indexeddb_store`.
+    #[serde(default)]
+    pub store: Option<String>,
+    /// Max rows to return for `indexeddb_store` (default 100, clamped to 500).
+    #[serde(default)]
+    pub limit: Option<u32>,
+    /// Rows to skip for `indexeddb_store` (default 0).
+    #[serde(default)]
+    pub offset: Option<u32>,
+}
