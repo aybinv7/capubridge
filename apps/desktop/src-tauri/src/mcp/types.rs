@@ -119,6 +119,13 @@ pub struct LaunchAppParams {
 pub struct ScreenshotParams {
     /// ADB serial of the device to screenshot.
     pub serial: String,
+    /// If `true`, return the PNG as a base64 string in the result instead of
+    /// writing it to a temp file. Off by default — a full-resolution
+    /// screenshot easily reaches hundreds of KB of base64 text, which can
+    /// exceed a client's per-call token budget. Only set this for MCP clients
+    /// that can't read a local file path.
+    #[serde(default)]
+    pub inline: bool,
 }
 
 /// Parameters for `tap`.

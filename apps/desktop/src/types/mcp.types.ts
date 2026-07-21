@@ -63,7 +63,8 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
   },
   {
     name: "take_screenshot",
-    description: "Capture a screenshot of the device screen (base64 PNG).",
+    description:
+      "Capture a screenshot of the device screen (writes a PNG to a temp file by default; pass inline: true for base64).",
     readOnly: true,
   },
   {

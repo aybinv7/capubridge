@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use base64::{engine::general_purpose, Engine as _};
 use rmcp::handler::server::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo};
@@ -30,14 +31,37 @@ use crate::session::types::SessionTargetSnapshot;
 /// Build a successful tool result carrying both a pretty-printed text block
 /// (rendered by every client) and structured JSON content (for clients that
 /// consume structured output).
+///
+/// Per the MCP spec, `structuredContent` must be a JSON object — a bare JSON
+/// array (e.g. from a `Vec<T>` payload) fails schema validation on strict
+/// clients, so it's only attached when the serialized payload is an object.
 fn ok_json<T: Serialize>(payload: &T) -> Result<CallToolResult, ErrorData> {
     let value = serde_json::to_value(payload)
         .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))?;
     let text = serde_json::to_string_pretty(&value)
         .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))?;
     let mut result = CallToolResult::success(vec![ContentBlock::text(text)]);
-    result.structured_content = Some(value);
+    if value.is_object() {
+        result.structured_content = Some(value);
+    }
     Ok(result)
+}
+
+/// Decode a base64 PNG and write it to a fresh file under the OS temp dir, so
+/// large screenshots don't have to travel through the tool result as base64
+/// text (easily hundreds of KB, which blows past a client's per-call token
+/// budget). Returns the absolute path and the decoded byte count.
+fn write_png_to_temp_file(png_base64: &str) -> Result<(std::path::PathBuf, usize), String> {
+    let bytes = general_purpose::STANDARD
+        .decode(png_base64)
+        .map_err(|error| format!("Failed to decode screenshot PNG: {error}"))?;
+    let dir = std::env::temp_dir().join("capubridge-mcp-screenshots");
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| format!("Failed to create screenshot temp dir: {error}"))?;
+    let path = dir.join(format!("{}.png", uuid::Uuid::new_v4()));
+    std::fs::write(&path, &bytes)
+        .map_err(|error| format!("Failed to write screenshot to {}: {error}", path.display()))?;
+    Ok((path, bytes.len()))
 }
 
 /// MCP tool handler bound to the live session registry and the (in-memory,
@@ -305,16 +329,24 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "take_screenshot",
-        description = "Capture a screenshot of the device screen. Returns a base64-encoded PNG. Read-only.",
+        description = "Capture a screenshot of the device screen. By default writes a PNG to a temp file and returns its path (read the file directly). Pass inline: true to instead get a base64-encoded PNG in the result — only do this if you can't read a local file path, since it's much larger. Read-only.",
         annotations(read_only_hint = true)
     )]
     async fn take_screenshot(
         &self,
-        Parameters(ScreenshotParams { serial }): Parameters<ScreenshotParams>,
+        Parameters(ScreenshotParams { serial, inline }): Parameters<ScreenshotParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let png_base64 = adb_mirror_screenshot(serial)
             .map_err(|error| ErrorData::internal_error(error, None))?;
-        ok_json(&serde_json::json!({ "pngBase64": png_base64 }))
+        if inline {
+            return ok_json(&serde_json::json!({ "pngBase64": png_base64 }));
+        }
+        let (path, size_bytes) = write_png_to_temp_file(&png_base64)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({
+            "path": path.display().to_string(),
+            "sizeBytes": size_bytes,
+        }))
     }
 
     #[tool(
@@ -476,13 +508,37 @@ mod tests {
         CapuBridgeTools::new(Arc::new(SessionRegistry::new()), CaptureRegistry::new())
     }
 
+    #[test]
+    fn write_png_to_temp_file_decodes_and_writes_the_real_bytes() {
+        let png_bytes: &[u8] = b"\x89PNG\r\n\x1a\nnot a real png but bytes are bytes";
+        let encoded = general_purpose::STANDARD.encode(png_bytes);
+        let (path, size_bytes) = write_png_to_temp_file(&encoded).expect("write should succeed");
+        assert_eq!(size_bytes, png_bytes.len());
+        let on_disk = std::fs::read(&path).expect("file should exist");
+        assert_eq!(on_disk, png_bytes);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn write_png_to_temp_file_rejects_invalid_base64() {
+        assert!(write_png_to_temp_file("not-base64!!!").is_err());
+    }
+
     #[tokio::test]
     async fn list_devices_on_empty_registry_is_ok_and_empty() {
         let result = tools().list_devices().await.expect("ok");
         assert_eq!(result.is_error, Some(false));
-        let structured = result.structured_content.expect("structured content");
-        assert!(structured.is_array());
-        assert_eq!(structured.as_array().unwrap().len(), 0);
+        // Array payloads must NOT populate structured_content (MCP requires
+        // it to be an object) — the array only appears in the text block.
+        assert!(result.structured_content.is_none());
+        let text = result.content[0]
+            .as_text()
+            .expect("text content block")
+            .text
+            .clone();
+        let value: serde_json::Value = serde_json::from_str(&text).expect("valid json");
+        assert!(value.is_array());
+        assert_eq!(value.as_array().unwrap().len(), 0);
     }
 
     #[tokio::test]
@@ -604,6 +660,7 @@ mod tests {
         let result = tools()
             .take_screenshot(Parameters(ScreenshotParams {
                 serial: "does-not-exist".into(),
+                inline: false,
             }))
             .await;
         assert!(result.is_err());
