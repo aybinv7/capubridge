@@ -76,3 +76,117 @@ pub struct ReadStorageParams {
     #[serde(default)]
     pub offset: Option<u32>,
 }
+
+/// Which packages to list via `list_packages`.
+#[derive(Debug, Deserialize, JsonSchema, Clone, Copy)]
+#[serde(rename_all = "kebab-case")]
+pub enum PackageScope {
+    /// User-installed apps only (excludes system packages). Default.
+    ThirdParty,
+    /// Every installed package, including system apps.
+    All,
+}
+
+impl Default for PackageScope {
+    fn default() -> Self {
+        Self::ThirdParty
+    }
+}
+
+/// Parameters for `list_packages`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListPackagesParams {
+    /// ADB serial of the device to list packages on.
+    pub serial: String,
+    #[serde(default)]
+    pub scope: PackageScope,
+}
+
+/// Parameters for `launch_app`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LaunchAppParams {
+    /// ADB serial of the device to launch the app on.
+    pub serial: String,
+    /// Package name to launch, e.g. `com.example.app`. Get valid names from `list_packages`.
+    pub package_name: String,
+    /// Must be `true` to actually launch the app.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// Parameters for `take_screenshot`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ScreenshotParams {
+    /// ADB serial of the device to screenshot.
+    pub serial: String,
+}
+
+/// Parameters for `tap`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TapParams {
+    pub serial: String,
+    /// X coordinate in device screen pixels. Get screen size from `get_screen_size`.
+    pub x: u32,
+    pub y: u32,
+    /// Must be `true` to actually perform the tap.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// Parameters for `swipe`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SwipeParams {
+    pub serial: String,
+    pub x1: u32,
+    pub y1: u32,
+    pub x2: u32,
+    pub y2: u32,
+    /// Swipe duration in milliseconds (default 300).
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
+    /// Must be `true` to actually perform the swipe.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// Parameters for `input_text`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct InputTextParams {
+    pub serial: String,
+    /// Text to type into the currently focused field.
+    pub text: String,
+    /// Must be `true` to actually type the text.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// Parameters for `press_key`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct PressKeyParams {
+    pub serial: String,
+    /// Android KeyEvent code, e.g. 3 = HOME, 4 = BACK, 66 = ENTER, 67 = DEL,
+    /// 187 = APP_SWITCH, 26 = POWER. See Android's KeyEvent reference for more.
+    pub keycode: u32,
+    /// Must be `true` to actually send the key event.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// Parameters for `get_screen_size`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetScreenSizeParams {
+    pub serial: String,
+}
+
+/// Parameters for `shell_command`. High-risk: runs an arbitrary command on
+/// the device via `adb shell`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ShellCommandParams {
+    pub serial: String,
+    /// The full shell command to run on the device, e.g. `pm list packages`.
+    pub command: String,
+    /// Must be `true` to actually run the command. This executes arbitrary
+    /// code on the device — review the command carefully before confirming.
+    #[serde(default)]
+    pub confirm: bool,
+}

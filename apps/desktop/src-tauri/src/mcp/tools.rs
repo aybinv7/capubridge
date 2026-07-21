@@ -15,10 +15,15 @@ use serde::Serialize;
 
 use super::capture::CaptureRegistry;
 use super::cdp;
+use super::device_control;
 use super::types::{
-    EvaluateJsParams, ReadStorageParams, SelectDeviceParams, SerialParams, StorageKind,
-    TargetParams,
+    EvaluateJsParams, GetScreenSizeParams, InputTextParams, LaunchAppParams, ListPackagesParams,
+    PackageScope, PressKeyParams, ReadStorageParams, ScreenshotParams, SelectDeviceParams,
+    SerialParams, ShellCommandParams, StorageKind, SwipeParams, TapParams, TargetParams,
 };
+use crate::commands::adb::PackageListScope;
+use crate::commands::mirror::{adb_mirror_get_screen_size, adb_mirror_screenshot};
+use crate::session::guards::require_online_session;
 use crate::session::registry::SessionRegistry;
 use crate::session::types::SessionTargetSnapshot;
 
@@ -66,6 +71,20 @@ impl CapuBridgeTools {
             .ok_or_else(|| {
                 ErrorData::invalid_params(format!("Unknown target_id: {target_id}"), None)
             })
+    }
+
+    /// Gate a mutating/physical-effect tool behind an explicit `confirm: true`.
+    fn require_confirm(confirm: bool, action: &str) -> Result<(), ErrorData> {
+        if confirm {
+            return Ok(());
+        }
+        Err(ErrorData::invalid_params(
+            format!(
+                "{action} requires confirm: true. Re-call with confirm: true once you intend \
+                 to perform this action on the real device."
+            ),
+            None,
+        ))
     }
 
     #[tool(
@@ -240,6 +259,189 @@ impl CapuBridgeTools {
             .ensure(&target_id, &target.web_socket_debugger_url);
         ok_json(&session.network_snapshot())
     }
+
+    #[tool(
+        name = "list_packages",
+        description = "List installed packages on a device. scope is third-party (default, user-installed apps) or all (includes system packages). Get serial from list_devices.",
+        annotations(read_only_hint = true)
+    )]
+    async fn list_packages(
+        &self,
+        Parameters(ListPackagesParams { serial, scope }): Parameters<ListPackagesParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        let scope = match scope {
+            PackageScope::ThirdParty => PackageListScope::ThirdParty,
+            PackageScope::All => PackageListScope::All,
+        };
+        let packages = session
+            .list_packages(Some(scope))
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&packages)
+    }
+
+    #[tool(
+        name = "launch_app",
+        description = "Launch an app by package name on a device. Get package_name from list_packages. Requires confirm: true.",
+        annotations(read_only_hint = false)
+    )]
+    async fn launch_app(
+        &self,
+        Parameters(LaunchAppParams {
+            serial,
+            package_name,
+            confirm,
+        }): Parameters<LaunchAppParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "launch_app")?;
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        let activity = session
+            .open_package(package_name)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({ "launchedActivity": activity }))
+    }
+
+    #[tool(
+        name = "take_screenshot",
+        description = "Capture a screenshot of the device screen. Returns a base64-encoded PNG. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn take_screenshot(
+        &self,
+        Parameters(ScreenshotParams { serial }): Parameters<ScreenshotParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let png_base64 = adb_mirror_screenshot(serial)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({ "pngBase64": png_base64 }))
+    }
+
+    #[tool(
+        name = "get_screen_size",
+        description = "Get the device's physical screen size in pixels, for computing tap/swipe coordinates. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn get_screen_size(
+        &self,
+        Parameters(GetScreenSizeParams { serial }): Parameters<GetScreenSizeParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let size = adb_mirror_get_screen_size(serial)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&size)
+    }
+
+    #[tool(
+        name = "tap",
+        description = "Tap the device screen at (x, y) in screen pixels. Get screen bounds from get_screen_size. Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn tap(
+        &self,
+        Parameters(TapParams { serial, x, y, confirm }): Parameters<TapParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "tap")?;
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        session
+            .shell_command(device_control::tap_command(x, y))
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({ "ok": true }))
+    }
+
+    #[tool(
+        name = "swipe",
+        description = "Swipe the device screen from (x1, y1) to (x2, y2) over duration_ms (default 300). Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn swipe(
+        &self,
+        Parameters(SwipeParams {
+            serial,
+            x1,
+            y1,
+            x2,
+            y2,
+            duration_ms,
+            confirm,
+        }): Parameters<SwipeParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "swipe")?;
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        session
+            .shell_command(device_control::swipe_command(
+                x1,
+                y1,
+                x2,
+                y2,
+                duration_ms.unwrap_or(300),
+            ))
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({ "ok": true }))
+    }
+
+    #[tool(
+        name = "input_text",
+        description = "Type text into the currently focused field on the device. Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn input_text(
+        &self,
+        Parameters(InputTextParams { serial, text, confirm }): Parameters<InputTextParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "input_text")?;
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        session
+            .shell_command(device_control::input_text_command(&text))
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({ "ok": true }))
+    }
+
+    #[tool(
+        name = "press_key",
+        description = "Send an Android KeyEvent code to the device (3=HOME, 4=BACK, 66=ENTER, 67=DEL, 82=MENU, 187=APP_SWITCH, 26=POWER, 24/25=VOLUME_UP/DOWN). Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn press_key(
+        &self,
+        Parameters(PressKeyParams {
+            serial,
+            keycode,
+            confirm,
+        }): Parameters<PressKeyParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "press_key")?;
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        session
+            .shell_command(device_control::keyevent_command(keycode))
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({ "ok": true }))
+    }
+
+    #[tool(
+        name = "shell_command",
+        description = "Run an arbitrary command on the device via `adb shell`. High risk: this executes verbatim on the connected device with no restrictions — review the command carefully. Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true, open_world_hint = true)
+    )]
+    async fn shell_command(
+        &self,
+        Parameters(ShellCommandParams {
+            serial,
+            command,
+            confirm,
+        }): Parameters<ShellCommandParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "shell_command")?;
+        let session = require_online_session(&self.registry, &serial)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        let output = session
+            .shell_command(command)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&serde_json::json!({ "output": output }))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
@@ -251,13 +453,17 @@ impl ServerHandler for CapuBridgeTools {
                 env!("CARGO_PKG_VERSION"),
             ))
             .with_instructions(
-                "CapuBridge exposes a live Android WebView debugging session. \
+                "CapuBridge exposes a live Android WebView debugging session and device control. \
                  Call get_active_session first to see the active device and tracker status, \
                  then list_devices / list_targets to explore, and select_device to change the \
-                 active device. Read-only tools (read_storage, read_console, read_network) are \
-                 safe to call freely; the latter two start capturing on first call for a target, \
-                 so call again after a moment to see accumulated data. evaluate_js runs \
-                 JavaScript in a live page via CDP and requires confirm: true.",
+                 active device. Read-only tools (read_storage, read_console, read_network, \
+                 list_packages, take_screenshot, get_screen_size) are safe to call freely; \
+                 read_console/read_network start capturing on first call for a target, so call \
+                 again after a moment to see accumulated data. evaluate_js, launch_app, tap, \
+                 swipe, input_text, press_key, and shell_command all act on a real device and \
+                 require confirm: true. shell_command runs an arbitrary command verbatim — \
+                 prefer the specific tools (tap/swipe/input_text/press_key/launch_app) when they \
+                 cover what's needed, and review the command carefully before confirming.",
             )
     }
 }
@@ -285,6 +491,132 @@ mod tests {
         let structured = result.structured_content.expect("structured content");
         assert!(structured.get("activeSerial").is_some());
         assert!(structured["activeSerial"].is_null());
+    }
+
+    #[tokio::test]
+    async fn list_packages_unknown_device_errors() {
+        let result = tools()
+            .list_packages(Parameters(ListPackagesParams {
+                serial: "does-not-exist".into(),
+                scope: PackageScope::ThirdParty,
+            }))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn launch_app_without_confirm_is_rejected_before_touching_the_device() {
+        let result = tools()
+            .launch_app(Parameters(LaunchAppParams {
+                serial: "does-not-exist".into(),
+                package_name: "com.example.app".into(),
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn launch_app_with_confirm_but_unknown_device_errors() {
+        let result = tools()
+            .launch_app(Parameters(LaunchAppParams {
+                serial: "does-not-exist".into(),
+                package_name: "com.example.app".into(),
+                confirm: true,
+            }))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn tap_without_confirm_is_rejected() {
+        let result = tools()
+            .tap(Parameters(TapParams {
+                serial: "does-not-exist".into(),
+                x: 0,
+                y: 0,
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn swipe_without_confirm_is_rejected() {
+        let result = tools()
+            .swipe(Parameters(SwipeParams {
+                serial: "does-not-exist".into(),
+                x1: 0,
+                y1: 0,
+                x2: 1,
+                y2: 1,
+                duration_ms: None,
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn input_text_without_confirm_is_rejected() {
+        let result = tools()
+            .input_text(Parameters(InputTextParams {
+                serial: "does-not-exist".into(),
+                text: "hello".into(),
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn press_key_without_confirm_is_rejected() {
+        let result = tools()
+            .press_key(Parameters(PressKeyParams {
+                serial: "does-not-exist".into(),
+                keycode: 4,
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn shell_command_without_confirm_is_rejected() {
+        let result = tools()
+            .shell_command(Parameters(ShellCommandParams {
+                serial: "does-not-exist".into(),
+                command: "echo hi".into(),
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn take_screenshot_unknown_device_errors() {
+        let result = tools()
+            .take_screenshot(Parameters(ScreenshotParams {
+                serial: "does-not-exist".into(),
+            }))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_screen_size_unknown_device_errors() {
+        let result = tools()
+            .get_screen_size(Parameters(GetScreenSizeParams {
+                serial: "does-not-exist".into(),
+            }))
+            .await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]

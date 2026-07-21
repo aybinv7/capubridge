@@ -10,6 +10,7 @@ pub mod capture;
 pub mod cdp;
 pub mod commands;
 pub mod config;
+pub mod device_control;
 pub mod discovery;
 pub mod server;
 pub mod tools;

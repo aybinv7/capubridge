@@ -51,6 +51,51 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     description: "Read captured network requests for a target (starts capturing on first call).",
     readOnly: true,
   },
+  {
+    name: "list_packages",
+    description: "List installed packages on a device.",
+    readOnly: true,
+  },
+  {
+    name: "launch_app",
+    description: "Launch an app by package name. Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "take_screenshot",
+    description: "Capture a screenshot of the device screen (base64 PNG).",
+    readOnly: true,
+  },
+  {
+    name: "get_screen_size",
+    description: "Get the device's screen size in pixels.",
+    readOnly: true,
+  },
+  {
+    name: "tap",
+    description: "Tap the screen at (x, y). Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "swipe",
+    description: "Swipe the screen between two points. Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "input_text",
+    description: "Type text into the focused field. Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "press_key",
+    description: "Send an Android key event (HOME, BACK, ENTER, ...). Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "shell_command",
+    description: "Run an arbitrary adb shell command. High risk. Requires confirm: true.",
+    readOnly: false,
+  },
 ] as const;
 
 /** Status of the embedded MCP server, mirrored from the Rust `McpStatus`. */
