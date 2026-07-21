@@ -13,7 +13,8 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{tool, tool_handler, tool_router, ErrorData, ServerHandler};
 use serde::Serialize;
 
-use super::types::{SelectDeviceParams, SerialParams};
+use super::cdp;
+use super::types::{EvaluateJsParams, SelectDeviceParams, SerialParams};
 use crate::session::registry::SessionRegistry;
 
 /// Build a successful tool result carrying both a pretty-printed text block
@@ -101,6 +102,47 @@ impl CapuBridgeTools {
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         ok_json(&snapshot)
     }
+
+    #[tool(
+        name = "evaluate_js",
+        description = "Execute a JavaScript expression in a connected WebView target via CDP Runtime.evaluate. Get target_id from list_targets. Mutates a live page: requires confirm: true, or the call fails with an explanation instead of running anything.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn evaluate_js(
+        &self,
+        Parameters(EvaluateJsParams {
+            serial,
+            target_id,
+            expression,
+            confirm,
+        }): Parameters<EvaluateJsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if !confirm {
+            return Err(ErrorData::invalid_params(
+                "evaluate_js runs JavaScript in a live page and requires confirm: true. \
+                 Re-call with confirm: true once you intend to run this expression."
+                    .to_string(),
+                None,
+            ));
+        }
+
+        let targets = self
+            .registry
+            .session_for_serial(&serial)
+            .map(|session| session.list_targets())
+            .unwrap_or_default();
+        let target = targets
+            .into_iter()
+            .find(|target| target.id == target_id)
+            .ok_or_else(|| {
+                ErrorData::invalid_params(format!("Unknown target_id: {target_id}"), None)
+            })?;
+
+        let result = cdp::evaluate(&target.web_socket_debugger_url, &expression)
+            .await
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&result)
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
@@ -115,7 +157,8 @@ impl ServerHandler for CapuBridgeTools {
                 "CapuBridge exposes a live Android WebView debugging session. \
                  Call get_active_session first to see the active device and tracker status, \
                  then list_devices / list_targets to explore, and select_device to change the \
-                 active device. Read-only tools are safe to call freely.",
+                 active device. Read-only tools are safe to call freely. evaluate_js runs \
+                 JavaScript in a live page via CDP and requires confirm: true.",
             )
     }
 }
@@ -163,6 +206,34 @@ mod tests {
             }))
             .await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn evaluate_js_without_confirm_is_rejected() {
+        let result = tools()
+            .evaluate_js(Parameters(EvaluateJsParams {
+                serial: "does-not-matter".into(),
+                target_id: "does-not-matter".into(),
+                expression: "1+1".into(),
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn evaluate_js_with_confirm_but_unknown_target_errors() {
+        let result = tools()
+            .evaluate_js(Parameters(EvaluateJsParams {
+                serial: "does-not-exist".into(),
+                target_id: "no-such-target".into(),
+                expression: "1+1".into(),
+                confirm: true,
+            }))
+            .await;
+        let error = result.expect_err("unknown target must error, not attempt a connection");
+        assert!(error.message.contains("no-such-target"));
     }
 
     #[tokio::test]

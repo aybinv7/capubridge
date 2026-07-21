@@ -42,6 +42,12 @@ export const settingsRoutes = [
         meta: { label: "Shortcuts" },
       },
       {
+        path: "mcp",
+        name: "settings-mcp",
+        component: () => import("./SettingsMcp.vue"),
+        meta: { label: "AI / MCP" },
+      },
+      {
         path: "updates",
         name: "settings-updates",
         component: () => import("./SettingsUpdates.vue"),

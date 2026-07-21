@@ -59,8 +59,9 @@ use commands::sqlite::{
     sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
 };
 use commands::updater::{updater_check, updater_install, PendingUpdate};
-use mcp::commands::{mcp_get_status, mcp_set_enabled};
+use mcp::commands::{mcp_get_status, mcp_regenerate_token, mcp_set_enabled, mcp_set_port};
 use mcp::McpServerState;
+use tauri::Manager;
 use session::{
     cache_store::SessionCacheStore,
     session_attach_console_target, session_detach_console_target, session_start_logcat_lease,
@@ -135,10 +136,37 @@ pub fn run() {
 
             start_device_tracker(app.handle().clone(), session_registry.registry());
 
-            // MCP access is off by default; clear any manifest left behind by a
-            // previous run so it never advertises a dead port/token.
-            if let Err(error) = mcp::discovery::remove_manifest(&app.handle()) {
-                log::warn!("[mcp] failed to clear stale discovery manifest: {error}");
+            // Auto-start the MCP server if the user left it enabled; otherwise
+            // clear any stale discovery manifest from a previous run.
+            {
+                let app_handle = app.handle().clone();
+                let registry = session_registry.registry();
+                tauri::async_runtime::spawn(async move {
+                    let cfg = match mcp::config::load(&app_handle) {
+                        Ok(cfg) => cfg,
+                        Err(error) => {
+                            log::warn!("[mcp] failed to load config: {error}");
+                            return;
+                        }
+                    };
+                    if cfg.enabled && cfg.has_token() {
+                        match mcp::server::start(registry, cfg.port, cfg.token.clone()).await {
+                            Ok(running) => {
+                                let port = running.port;
+                                app_handle.state::<McpServerState>().set_running(running);
+                                if let Err(error) =
+                                    mcp::discovery::write_manifest(&app_handle, port, &cfg.token)
+                                {
+                                    log::warn!("[mcp] manifest write failed: {error}");
+                                }
+                                log::info!("[mcp] auto-started on launch (port {port})");
+                            }
+                            Err(error) => log::warn!("[mcp] auto-start failed: {error}"),
+                        }
+                    } else if let Err(error) = mcp::discovery::remove_manifest(&app_handle) {
+                        log::warn!("[mcp] failed to clear stale discovery manifest: {error}");
+                    }
+                });
             }
 
             Ok(())
@@ -278,6 +306,8 @@ pub fn run() {
             updater_install,
             mcp_get_status,
             mcp_set_enabled,
+            mcp_set_port,
+            mcp_regenerate_token,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

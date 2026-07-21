@@ -6,6 +6,7 @@ export * from "@/runtime/ipc/events";
 export type * from "@/runtime/ipc/contracts/common";
 export type * from "@/runtime/ipc/contracts/connection";
 export type * from "@/runtime/ipc/contracts/device";
+export type * from "@/runtime/ipc/contracts/mcp";
 export type * from "@/runtime/ipc/contracts/mirror";
 export type * from "@/runtime/ipc/contracts/mock";
 export type * from "@/runtime/ipc/contracts/recording";

@@ -56,10 +56,12 @@ async fn require_bearer(State(token): State<Arc<str>>, request: Request, next: N
     }
 }
 
-/// Start the MCP server bound to an ephemeral localhost port.
-pub async fn start(registry: Arc<SessionRegistry>) -> Result<RunningServer, String> {
-    let token = auth::generate_token();
-
+/// Start the MCP server on `port` (0 = ephemeral) with the given bearer token.
+pub async fn start(
+    registry: Arc<SessionRegistry>,
+    port: u16,
+    token: String,
+) -> Result<RunningServer, String> {
     // Default config already restricts Host to loopback; keep stateful mode for
     // client reconnection support.
     let config = StreamableHttpServerConfig::default().with_stateful_mode(true);
@@ -77,9 +79,9 @@ pub async fn start(registry: Arc<SessionRegistry>) -> Result<RunningServer, Stri
         axum::middleware::from_fn_with_state(token_state, require_bearer),
     );
 
-    let listener = TcpListener::bind(("127.0.0.1", 0))
+    let listener = TcpListener::bind(("127.0.0.1", port))
         .await
-        .map_err(|error| format!("Failed to bind MCP port: {error}"))?;
+        .map_err(|error| format!("Failed to bind MCP port {port}: {error}"))?;
     let port = listener
         .local_addr()
         .map_err(|error| format!("Failed to read MCP local address: {error}"))?
@@ -110,7 +112,7 @@ mod tests {
 
     #[tokio::test]
     async fn server_binds_and_enforces_bearer_token() {
-        let running = start(Arc::new(SessionRegistry::new()))
+        let running = start(Arc::new(SessionRegistry::new()), 0, auth::generate_token())
             .await
             .expect("server should start");
         let url = format!("http://127.0.0.1:{}/mcp", running.port);
@@ -167,7 +169,7 @@ mod tests {
         // is built. Server side is unaffected.
         let _ = rustls::crypto::ring::default_provider().install_default();
 
-        let running = start(Arc::new(SessionRegistry::new()))
+        let running = start(Arc::new(SessionRegistry::new()), 0, auth::generate_token())
             .await
             .expect("server should start");
         let uri = format!("http://127.0.0.1:{}/mcp", running.port);

@@ -20,3 +20,18 @@ pub struct SelectDeviceParams {
     #[serde(default)]
     pub serial: Option<String>,
 }
+
+/// Parameters for executing JavaScript in a connected WebView target.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct EvaluateJsParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id from `list_targets`.
+    pub target_id: String,
+    /// JavaScript expression to evaluate in the page context.
+    pub expression: String,
+    /// Must be `true` to actually run the expression; this tool mutates a live
+    /// page. Call without confirm first to see this requirement echoed back.
+    #[serde(default)]
+    pub confirm: bool,
+}

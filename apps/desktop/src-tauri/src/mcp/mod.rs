@@ -6,7 +6,9 @@
 //! [`commands::mcp_set_enabled`].
 
 pub mod auth;
+pub mod cdp;
 pub mod commands;
+pub mod config;
 pub mod discovery;
 pub mod server;
 pub mod tools;
