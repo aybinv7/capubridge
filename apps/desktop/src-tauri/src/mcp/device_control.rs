@@ -29,6 +29,24 @@ pub fn keyevent_command(keycode: u32) -> String {
     format!("input keyevent {keycode}")
 }
 
+/// Validate that `(x, y)` falls within a `width`×`height` screen.
+///
+/// `adb shell input tap`/`swipe` silently do nothing when given an
+/// out-of-bounds coordinate — no error, no signal, the command just exits 0.
+/// That's indistinguishable from "the coordinate was valid but nothing was
+/// there to hit" unless we catch the out-of-bounds case ourselves first and
+/// turn it into a loud, actionable error instead of a silent no-op.
+pub fn validate_point(x: u32, y: u32, width: u32, height: u32) -> Result<(), String> {
+    if x >= width || y >= height {
+        return Err(format!(
+            "Tap/swipe coordinate ({x}, {y}) is outside the {width}x{height} screen bounds. \
+             Call get_screen_size again and double-check you didn't swap width/height or use a \
+             stale size — an out-of-bounds tap is silently dropped by the device with no error."
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,5 +92,25 @@ mod tests {
     #[test]
     fn keyevent_command_uses_the_numeric_code() {
         assert_eq!(keyevent_command(4), "input keyevent 4");
+    }
+
+    #[test]
+    fn validate_point_accepts_in_bounds_coordinates() {
+        assert!(validate_point(0, 0, 1080, 2400).is_ok());
+        assert!(validate_point(1079, 2399, 1080, 2400).is_ok(), "max valid coordinate");
+    }
+
+    #[test]
+    fn validate_point_rejects_coordinates_at_or_past_the_edge() {
+        assert!(validate_point(1080, 0, 1080, 2400).is_err(), "x == width is out of bounds");
+        assert!(validate_point(0, 2400, 1080, 2400).is_err(), "y == height is out of bounds");
+        assert!(validate_point(5000, 5000, 1080, 2400).is_err());
+    }
+
+    #[test]
+    fn validate_point_error_names_the_actual_bounds() {
+        let error = validate_point(2000, 100, 1080, 2400).unwrap_err();
+        assert!(error.contains("2000"));
+        assert!(error.contains("1080x2400"));
     }
 }

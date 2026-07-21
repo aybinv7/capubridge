@@ -365,7 +365,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "tap",
-        description = "Tap the device screen at (x, y) in screen pixels. Get screen bounds from get_screen_size. Requires confirm: true.",
+        description = "Tap the device screen at (x, y) in screen pixels. Get screen bounds from get_screen_size. Rejected with an error if (x, y) is outside the current screen bounds. Note: a tap that lands in-bounds but on empty space still reports success — the device has no way to report whether anything was actually hit, so verify the effect with take_screenshot afterward. Requires confirm: true.",
         annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn tap(
@@ -373,6 +373,10 @@ impl CapuBridgeTools {
         Parameters(TapParams { serial, x, y, confirm }): Parameters<TapParams>,
     ) -> Result<CallToolResult, ErrorData> {
         Self::require_confirm(confirm, "tap")?;
+        let size = adb_mirror_get_screen_size(serial.clone())
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        device_control::validate_point(x, y, size.width, size.height)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
         let session = require_online_session(&self.registry, &serial)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         session
@@ -383,7 +387,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "swipe",
-        description = "Swipe the device screen from (x1, y1) to (x2, y2) over duration_ms (default 300). Requires confirm: true.",
+        description = "Swipe the device screen from (x1, y1) to (x2, y2) over duration_ms (default 300). Both endpoints are rejected with an error if outside the current screen bounds (get bounds from get_screen_size). Requires confirm: true.",
         annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn swipe(
@@ -399,6 +403,12 @@ impl CapuBridgeTools {
         }): Parameters<SwipeParams>,
     ) -> Result<CallToolResult, ErrorData> {
         Self::require_confirm(confirm, "swipe")?;
+        let size = adb_mirror_get_screen_size(serial.clone())
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        device_control::validate_point(x1, y1, size.width, size.height)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
+        device_control::validate_point(x2, y2, size.width, size.height)
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
         let session = require_online_session(&self.registry, &serial)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         session
@@ -600,6 +610,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn tap_with_confirm_but_unknown_device_errors() {
+        // Proves the new get_screen_size-based bounds check doesn't change
+        // the outcome for an unreachable device — it still errors cleanly
+        // rather than panicking or hanging.
+        let result = tools()
+            .tap(Parameters(TapParams {
+                serial: "does-not-exist".into(),
+                x: 0,
+                y: 0,
+                confirm: true,
+            }))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
     async fn swipe_without_confirm_is_rejected() {
         let result = tools()
             .swipe(Parameters(SwipeParams {
@@ -614,6 +640,22 @@ mod tests {
             .await;
         let error = result.expect_err("must be rejected without confirm");
         assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn swipe_with_confirm_but_unknown_device_errors() {
+        let result = tools()
+            .swipe(Parameters(SwipeParams {
+                serial: "does-not-exist".into(),
+                x1: 0,
+                y1: 0,
+                x2: 1,
+                y2: 1,
+                duration_ms: None,
+                confirm: true,
+            }))
+            .await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]
