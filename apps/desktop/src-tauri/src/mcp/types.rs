@@ -99,19 +99,14 @@ pub struct ReadStorageParams {
 }
 
 /// Which packages to list via `list_packages`.
-#[derive(Debug, Deserialize, JsonSchema, Clone, Copy)]
+#[derive(Debug, Default, Deserialize, JsonSchema, Clone, Copy)]
 #[serde(rename_all = "kebab-case")]
 pub enum PackageScope {
     /// User-installed apps only (excludes system packages). Default.
+    #[default]
     ThirdParty,
     /// Every installed package, including system apps.
     All,
-}
-
-impl Default for PackageScope {
-    fn default() -> Self {
-        Self::ThirdParty
-    }
 }
 
 /// Parameters for `list_packages`.
