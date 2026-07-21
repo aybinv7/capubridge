@@ -31,3 +31,5 @@ dist-ssr
 .codex-*
 .history
 Releases.md.worktrees/
+
+opencode.json
