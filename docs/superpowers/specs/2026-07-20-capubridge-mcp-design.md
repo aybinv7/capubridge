@@ -1,8 +1,11 @@
 # CapuBridge MCP Server — Design
 
-Status: Approved design, implementation in progress
-Date: 2026-07-20
-Branch: `feat/mcp-server`
+Status: Shipped (v2.0.0) — Phases 1 and 2 complete, plus device control (originally
+scoped as part of Phase 3) and a `click_element` tool added beyond the original design.
+Remaining Phase 3 items (state-mutating storage/app-lifecycle tools, mirror/recording)
+are not yet built — see "Remaining / future work" below.
+Date: 2026-07-20 (design) — 2026-07-21 (shipped)
+Branch: `feat/mcp-server` (merged to `master`)
 Author: brainstormed with Claude Code
 
 ## Summary
@@ -138,22 +141,50 @@ using only trivial, safe, already-extracted registry calls.
 Plus infra: `mcp` module, axum + `StreamableHttpService` wiring, auth, discovery file,
 `McpServerState`, control commands, Settings toggle + indicator.
 
-### Phase 2 — CDP read tools (next increment)
+### Phase 2 — CDP read tools (shipped)
 
-Requires a small, self-contained Rust CDP client (open the target's
-`web_socket_debugger_url` via `tokio-tungstenite`, as `cdp_proxy.rs` already does; send a
-JSON command; await the matching `id`). `evaluate_js` is the foundational primitive;
-storage reads are expressed on top of it (matching CLAUDE.md's Runtime.evaluate pattern) or
-via CDP storage domains later.
+Built the planned self-contained Rust CDP client (`mcp/cdp.rs`): a one-shot
+connect/send/await-matching-`id` client (`call`/`evaluate`) for request-response CDP calls,
+plus a second, persistent-connection path (`mcp/capture.rs`) for CDP _events_
+(console/network don't fit a request-response model — they're unsolicited notifications
+over a long-lived connection).
 
-- `evaluate_js` (gated), `read_storage` (IndexedDB/LocalStorage/cookies, paginated),
-  `read_console`, `read_network`.
+- `evaluate_js` (gated) — the foundational primitive; `read_storage` is expressed on top of
+  it via injected JS (`local_storage_script`, `session_storage_script`,
+  `indexeddb_databases_script`, `indexeddb_store_script` — cursor-paginated, not the CDP
+  IndexedDB domain).
+- `read_console` / `read_network` — backed by `CaptureRegistry`: one background loop per
+  target enables `Log`/`Runtime`/`Network` and buffers events into bounded (200-entry) ring
+  buffers. Capture starts lazily on first call for a target; that first call waits up to
+  ~500ms for initial data before returning, so it isn't guaranteed-empty.
 
-### Phase 3 — gated writes & mirror/recording
+### Phase 3 — device control (shipped, read/interact tier only)
 
-- `write_storage` / `delete_storage`, `clear_app_data`, `launch_app` / `stop_app` /
-  `uninstall_app`, `reboot` (all destructive + `confirm: true`).
-- `screenshot`, mirror input, recording start/stop.
+Originally scoped as "gated writes & mirror/recording." What shipped is the device
+**interaction** tier — everything needed to see the screen and drive it — reusing existing
+session/mirror logic with no new ADB plumbing:
+
+- `list_packages`, `launch_app`, `take_screenshot` (writes to a temp file by default —
+  inline base64 blew the token budget on typical screenshots — `inline: true` opts back in),
+  `get_screen_size`.
+- `tap` / `swipe` — go through the device's managed shell-command queue
+  (`adb shell input ...`), validated against `get_screen_size` bounds first (an
+  out-of-bounds tap/swipe is silently dropped by the device with no error otherwise).
+- `input_text` / `press_key` — same queue; `input_text` is POSIX-shell-quoted
+  (`device_control::shell_quote`) so free-text input can't break out into a second shell
+  command.
+- `shell_command` — arbitrary command via the same queue. Explicit, asked-for choice
+  alongside the bounded primitives above, despite the risk; flagged high-risk in its
+  description.
+- `click_element` (added beyond the original design, from live-testing feedback) — finds a
+  DOM element by CSS selector and/or visible text and dispatches a synthetic
+  pointer/mouse-click sequence on it via CDP. More reliable than `tap` for WebView UI: it
+  either finds the exact element or reports `found: false`, instead of a screen coordinate
+  that can silently miss.
+
+**Not shipped from the original Phase 3 scope** (see "Remaining / future work"):
+`write_storage`/`delete_storage`, `clear_app_data`, `stop_app`/`uninstall_app`, `reboot`
+(exposing the `mcp` tool), mirror video/recording tools.
 
 ## Single source of truth
 
@@ -193,6 +224,50 @@ Validation runs through `vp check` and the root Vite+ Rust test task.
 - Discovery-file location on macOS/Linux differs from Windows (`%APPDATA%`); use Tauri's
   app-config dir resolver rather than hardcoding. (Windows is the current dev target.)
 
-```
+## Shipped tool surface (v2.0.0)
 
-```
+16 tools across four groups:
+
+| Group          | Tools                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Session/device | `get_active_session`, `list_devices`, `list_targets`, `select_device`                                                           |
+| Web/CDP (read) | `read_storage`, `read_console`, `read_network`                                                                                  |
+| Web/CDP (act)  | `evaluate_js`, `click_element`                                                                                                  |
+| Device control | `list_packages`, `launch_app`, `take_screenshot`, `get_screen_size`, `tap`, `swipe`, `input_text`, `press_key`, `shell_command` |
+
+Every mutating/physical-effect tool (`select_device` excepted — a non-destructive state
+change) requires `confirm: true`; without it the call fails with an explanation instead of
+performing the action. Bugs found and fixed during live testing along the way:
+`structuredContent` must be a JSON object per the MCP spec (array payloads only appear in
+the text block now); `list_targets` was reading a cache nothing ever populated headlessly
+(now calls `refresh_targets()` directly); `launch_app` misclassified Android's benign
+"brought to front" warning as a failure; `tap`/`swipe` now reject out-of-bounds coordinates
+instead of silently no-op'ing.
+
+## Remaining / future work
+
+- **Phase 3 writes**: `write_storage`/`delete_storage`, `clear_app_data`,
+  `stop_app`/`uninstall_app`, `reboot`. None of the underlying ADB operations exist in the
+  Rust backend yet (confirmed by search) — each needs new plumbing, not just a tool wrapper,
+  unlike everything shipped so far which reused existing session/mirror logic.
+- **Mirror/recording tools**: screen-video and session-recording control were in the
+  original Phase 3 scope; not started.
+- **SQLite query path for Capacitor apps**: live testing found `CapacitorSQLite.query()`
+  fails with "No available connection for database" when called via `evaluate_js` — the
+  app's own SQLite connection isn't reusable from outside, and `CapacitorSQLite.isConnection()`
+  isn't implemented on Android at all. This is a plugin/architecture gap, not a bug in this
+  server; fixing it would need either an in-app debug bridge or a documented
+  connection-reopen convention. Not attempted — no way to verify a fix without a live device
+  and app in front of us.
+- **`structuredContent` for array-returning tools**: `list_devices`, `list_targets`,
+  `list_packages`, `read_console`, `read_network` currently return their array only in the
+  text content block (`structuredContent` is spec'd as object-only, so it's omitted for
+  these). Wrapping each array in a named field (e.g. `{ "devices": [...] }`) would let
+  `structuredContent` populate for these tools too, improving compatibility with MCP clients
+  that specifically consume structured output. Deliberately not done during the bug-fixing
+  session — it would change an already-shipped, already-tested response shape without being
+  asked for, which is exactly the kind of unrequested churn to avoid. Worth doing later as
+  its own scoped change if a client actually needs it.
+- **Stale port convention in `CLAUDE.md`**: it documents a fixed CDP port scheme ("Device 1 →
+  9222"); live testing observed dynamic forwarded ports (53972, 60883, ...). Should be
+  corrected so future agents don't waste a round-trip guessing port 9222.

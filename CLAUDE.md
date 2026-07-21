@@ -205,13 +205,13 @@ storageStore.records.push(newRecord); // local mutation only, not on device
 
 ### CDP port per device
 
-Each ADB-connected Android device gets its own forwarded port:
-
-- Device 1 (first selected): port 9222
-- Device 2: port 9223
-- etc.
-
-Port assignment is managed in `useTargetsStore`. Never hardcode 9222 directly in components.
+Each ADB-connected Android device gets its own forwarded port, but the port number is
+**not** a fixed/predictable scheme — `adb_forward_cdp_inner` (`commands/port_forward.rs`)
+allocates an OS-assigned ephemeral port per forward (`TcpListener::bind("127.0.0.1:0")`),
+so real ports look like `53972`, `60883`, `60891`, not `9222`/`9223`. Never hardcode 9222 (or
+any other fixed port) in components or scripts — always read the assigned port from
+`targets.store.ts` / the session's target snapshot (`webSocketDebuggerUrl` already contains
+it), or call `adb forward --list` to discover it live.
 
 ### Virtual scrolling for all long lists
 
