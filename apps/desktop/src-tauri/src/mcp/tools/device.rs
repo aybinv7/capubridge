@@ -40,7 +40,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "launch_app",
-        description = "Launch an app by package name on a device. Get package_name from list_packages. Requires confirm: true.",
+        description = "Launch an app by package name on a device, or bring it to the foreground if already running (Android reports this as success, not an error). Get package_name from list_packages. This is also the way to prepare a target for evaluate_js/click_element/read_storage/read_console/read_network: those all require their target's app to be in the foreground, and Android can freeze a backgrounded app's process, so switching to another app mid-session means calling launch_app to bring the first one back before querying it again. Requires confirm: true.",
         annotations(read_only_hint = false)
     )]
     async fn launch_app(

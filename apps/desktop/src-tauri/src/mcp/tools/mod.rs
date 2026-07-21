@@ -149,7 +149,22 @@ impl ServerHandler for CapuBridgeTools {
                  reports success even when it hit nothing. shell_command runs an arbitrary \
                  command verbatim — prefer the specific tools \
                  (tap/swipe/input_text/press_key/launch_app) when they cover what's needed, and \
-                 review the command carefully before confirming.",
+                 review the command carefully before confirming.\n\n\
+                 Two things that will otherwise cost you a debugging cycle: (1) evaluate_js, \
+                 click_element, read_storage, read_console, and read_network all require the \
+                 target's app to be in the FOREGROUND — Android can freeze a backgrounded app's \
+                 entire process, which hangs/times out any CDP call to it. Use launch_app to \
+                 bring a target forward before querying it, and re-call list_targets after \
+                 switching apps since targets can go stale. There is no reliable automatic \
+                 fix for this from here (the only override is a device-wide adb setting plus a \
+                 reboot), so plan around it: switch, wait, query, switch back — don't try to \
+                 query two backgrounded apps at once. (2) read_storage covers localStorage, \
+                 sessionStorage, and IndexedDB, but NOT a Capacitor app's own SQLite database. \
+                 For that, use evaluate_js with \
+                 window.Capacitor.Plugins.CapacitorSQLite.query({ database, statement, values }) \
+                 — the database must be the plugin's LOGICAL name (e.g. 'presalio'), not the \
+                 on-disk filename (e.g. 'presalioSQLite.db'); the wrong name silently returns \
+                 empty results instead of erroring.",
             )
     }
 }

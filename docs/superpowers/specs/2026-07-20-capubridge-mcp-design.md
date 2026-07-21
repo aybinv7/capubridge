@@ -252,13 +252,19 @@ instead of silently no-op'ing.
   unlike everything shipped so far which reused existing session/mirror logic.
 - **Mirror/recording tools**: screen-video and session-recording control were in the
   original Phase 3 scope; not started.
-- **SQLite query path for Capacitor apps**: live testing found `CapacitorSQLite.query()`
-  fails with "No available connection for database" when called via `evaluate_js` — the
-  app's own SQLite connection isn't reusable from outside, and `CapacitorSQLite.isConnection()`
-  isn't implemented on Android at all. This is a plugin/architecture gap, not a bug in this
-  server; fixing it would need either an in-app debug bridge or a documented
-  connection-reopen convention. Not attempted — no way to verify a fix without a live device
-  and app in front of us.
+- **No dedicated `read_storage` kind for Capacitor SQLite** — corrected from an earlier,
+  wrong claim in this doc that it was unreachable. Live use proved
+  `window.Capacitor.Plugins.CapacitorSQLite.query({ database, statement, values })` works
+  fine via `evaluate_js`, as long as `database` is the plugin's _logical_ name (e.g.
+  `presalio`), not the on-disk filename (e.g. `presalioSQLite.db`) — the wrong name silently
+  returns empty results instead of erroring, which is what looked like a hard failure
+  originally. `CapacitorSQLite.isConnection()` is still unimplemented on Android, but
+  `query()` doesn't need it. The actual gap is narrower than first thought: no first-class
+  `read_storage` kind wraps this pattern yet, so it's evaluate_js-only for now (documented in
+  evaluate_js's and get_info's descriptions). A `capacitor_sqlite` kind, and a convenience for
+  "row/table count across every table/store in one call" (the two things every real usage of
+  this so far has hand-rolled per query), are the next reasonable additions if this keeps
+  coming up.
 - **`structuredContent` for array-returning tools**: `list_devices`, `list_targets`,
   `list_packages`, `read_console`, `read_network` currently return their array only in the
   text content block (`structuredContent` is spec'd as object-only, so it's omitted for

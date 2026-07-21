@@ -31,7 +31,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "list_targets",
-        description = "Discover the debuggable WebView / CDP targets for one device serial (queries the device live — always fresh, not a cache read). Call list_devices first to obtain valid serials.",
+        description = "Discover the debuggable WebView / CDP targets for one device serial (queries the device live — always fresh, not a cache read). Call list_devices first to obtain valid serials. Re-call this after switching which app is in the foreground before reusing a target_id — CDP targets can go stale or be replaced by a new one across an app switch.",
         annotations(read_only_hint = true)
     )]
     async fn list_targets(
