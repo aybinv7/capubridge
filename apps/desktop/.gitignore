@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Guard against a literal "~" directory ever being created/tracked here again
+# (an earlier `git add -A` accidentally committed apps/desktop/~/.tauri/*.pub —
+# a mis-expanded home-dir path from a signing command run in this directory).
+/~/
