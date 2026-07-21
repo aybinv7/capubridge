@@ -1453,6 +1453,25 @@ pub fn adb_open_package(serial: String, package_name: String) -> Result<String, 
     })
 }
 
+/// Classify raw `am start` output as success or failure.
+///
+/// Deliberately does NOT match bare "Activity not started" — Android emits
+/// that phrase in the benign "Warning: Activity not started, its current
+/// task has been brought to the front" case too (the app was already
+/// running; the launch still succeeded). Real failures already surface as
+/// "Error" or "Exception" (e.g. "Error: Activity not started, unable to
+/// resolve Intent"), which this still catches.
+fn classify_am_start_output(trimmed: &str) -> Result<String, String> {
+    if trimmed.contains("Error") || trimmed.contains("Exception") {
+        return Err(if trimmed.is_empty() {
+            "Failed to launch app".to_string()
+        } else {
+            trimmed.to_string()
+        });
+    }
+    Ok(trimmed.to_string())
+}
+
 pub(crate) fn adb_open_package_inner(serial: &str, package_name: &str) -> Result<String, String> {
     let mut device = get_adb_device(serial)?;
 
@@ -1466,18 +1485,7 @@ pub(crate) fn adb_open_package_inner(serial: &str, package_name: &str) -> Result
                 shell_escape(&activity)
             ),
         );
-        let trimmed = output.trim();
-        if trimmed.contains("Error")
-            || trimmed.contains("Exception")
-            || trimmed.contains("Activity not started")
-        {
-            return Err(if trimmed.is_empty() {
-                "Failed to launch app".to_string()
-            } else {
-                trimmed.to_string()
-            });
-        }
-        return Ok(trimmed.to_string());
+        return classify_am_start_output(output.trim());
     }
 
     let output = shell_output(
@@ -1925,6 +1933,33 @@ mod tests {
         request_package_scan_cancel("test-next-generation");
         let cancellation = begin_package_scan("test-next-generation");
         assert!(!cancellation.is_cancelled());
+    }
+
+    #[test]
+    fn classify_am_start_output_treats_brought_to_front_as_success() {
+        // Real message adb emits when the app is already running: launching
+        // it again just brings the existing task to front. Not a failure.
+        let output = "Warning: Activity not started, its current task \
+                       has been brought to the front";
+        assert!(classify_am_start_output(output).is_ok());
+    }
+
+    #[test]
+    fn classify_am_start_output_still_catches_real_errors() {
+        let output = "Error: Activity not started, unable to resolve Intent";
+        assert!(classify_am_start_output(output).is_err());
+
+        let output = "java.lang.SecurityException: Permission Denial";
+        assert!(classify_am_start_output(output).is_err());
+    }
+
+    #[test]
+    fn classify_am_start_output_succeeds_on_normal_start() {
+        let output = "Starting: Intent { cmp=com.example.app/.MainActivity }";
+        assert_eq!(
+            classify_am_start_output(output).unwrap(),
+            "Starting: Intent { cmp=com.example.app/.MainActivity }"
+        );
     }
 
     #[test]

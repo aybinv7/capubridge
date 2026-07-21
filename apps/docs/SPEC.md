@@ -1,7 +1,7 @@
 # CapuBridge product specification
 
 Status: Active beta specification  
-Application version: 1.15.0
+Application version: 2.0.0
 
 ## Product goal
 
@@ -83,13 +83,19 @@ Primary users build or debug Android applications that embed a WebView, includin
 - Replay partial artifacts safely and report corrupt or unsupported data.
 - Use shared read-only presentation primitives instead of importing another module's private UI.
 
+### AI access (MCP)
+
+- Expose an embedded Model Context Protocol server so an AI assistant can drive the active device/session directly, off by default.
+- Bind localhost only; require a per-launch bearer token on every request; reject non-loopback hosts.
+- Every mutating or physical-effect tool requires an explicit `confirm: true` argument; without it the call fails with an explanation instead of acting.
+- Surface enable/disable, connection status, and the endpoint URL/token in Settings.
+
 ## Hidden capabilities
 
 The following surfaces remain hidden from production until a separate specification and complete implementation exist:
 
 - Mock-only Capacitor plugin, permission, deep-link, configuration, or bridge data.
 - Duplicate Hybrid tooling without a distinct workflow.
-- Assistant placeholder or AI workflow without a privacy model.
 - Network tabs and controls that do not alter or inspect real target behavior.
 - Settings that do not affect runtime behavior.
 
@@ -157,6 +163,6 @@ The frontend uses the category to choose retry, recovery guidance, or terminal m
 ## Non-goals
 
 - Cloud accounts or remote device sharing before local security is complete.
-- AI features before data handling and privacy are specified.
+- AI features beyond localhost, single-device, opt-in MCP access (e.g. cloud AI accounts, remote agents, multi-device orchestration) before a further security review.
 - iOS inspection before a WebKit transport and lifecycle specification exists.
 - A big-bang rewrite of Vue, Rust, Tauri, Pinia, TanStack Query, or the ADB transport.

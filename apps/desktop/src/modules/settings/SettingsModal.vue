@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   Settings as SettingsIcon,
@@ -8,13 +8,16 @@ import {
   Globe,
   Keyboard,
   Download,
+  Bot,
 } from "lucide-vue-next";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useUpdaterStore } from "@/stores/updater.store";
+import { useMcpStore } from "@/stores/mcp.store";
 
 const route = useRoute();
 const router = useRouter();
 const updater = useUpdaterStore();
+const mcp = useMcpStore();
 
 const sections = [
   { name: "settings-general", label: "General", path: "/settings/general", icon: SettingsIcon },
@@ -27,8 +30,13 @@ const sections = [
   { name: "settings-adb", label: "ADB", path: "/settings/adb", icon: Wrench },
   { name: "settings-chrome", label: "Chrome", path: "/settings/chrome", icon: Globe },
   { name: "settings-shortcuts", label: "Shortcuts", path: "/settings/shortcuts", icon: Keyboard },
+  { name: "settings-mcp", label: "AI / MCP", path: "/settings/mcp", icon: Bot },
   { name: "settings-updates", label: "Updates", path: "/settings/updates", icon: Download },
 ] as const;
+
+onMounted(() => {
+  void mcp.refresh();
+});
 
 const isOpen = computed(() => route.path.startsWith("/settings"));
 
@@ -78,7 +86,7 @@ function handleOpenChange(open: boolean) {
               ? 'border-[var(--accent)] font-medium text-[var(--fg-default)]'
               : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg-default)]',
           ]"
-          @click="router.push(section.path)"
+          @click="router.replace(section.path)"
         >
           <component :is="section.icon" :size="14" class="shrink-0" />
           {{ section.label }}
@@ -86,6 +94,11 @@ function handleOpenChange(open: boolean) {
             v-if="section.name === 'settings-updates' && updater.updateAvailable"
             class="ml-1 size-1.5 rounded-full bg-[var(--accent)]"
             aria-label="Update available"
+          />
+          <span
+            v-if="section.name === 'settings-mcp' && mcp.running"
+            class="ml-1 size-1.5 rounded-full bg-[var(--accent)]"
+            aria-label="MCP running"
           />
         </button>
       </nav>

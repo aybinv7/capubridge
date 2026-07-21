@@ -1,6 +1,7 @@
 import type { ConnectionCommandMap } from "@/runtime/ipc/contracts/connection";
 import type { DeviceCommandMap } from "@/runtime/ipc/contracts/device";
 import type { IpcCommand } from "@/runtime/ipc/contracts/common";
+import type { McpCommandMap } from "@/runtime/ipc/contracts/mcp";
 import type { MirrorCommandMap } from "@/runtime/ipc/contracts/mirror";
 import type { MockCommandMap } from "@/runtime/ipc/contracts/mock";
 import type { RecordingCommandMap } from "@/runtime/ipc/contracts/recording";
@@ -17,6 +18,7 @@ export interface IpcCommandMap
     StorageCommandMap,
     RecordingCommandMap,
     MockCommandMap,
+    McpCommandMap,
     UpdaterCommandMap {}
 
 export type IpcCommandName = keyof IpcCommandMap;
@@ -163,6 +165,10 @@ export const IPC_COMMAND_NAMES = [
   "local_webview_navigate",
   "updater_check",
   "updater_install",
+  "mcp_get_status",
+  "mcp_set_enabled",
+  "mcp_set_port",
+  "mcp_regenerate_token",
 ] as const satisfies readonly IpcCommandName[];
 
 type MissingCommand = Exclude<IpcCommandName, (typeof IPC_COMMAND_NAMES)[number]>;
