@@ -67,9 +67,14 @@ pub async fn start(
     let config = StreamableHttpServerConfig::default().with_stateful_mode(true);
     let cancel = config.cancellation_token.clone();
 
+    // Shared across every MCP client session so captured console/network data
+    // (and in-flight capture loops) survive a client reconnecting, not just a
+    // single connection.
+    let captures = super::capture::CaptureRegistry::new();
     let factory_registry = registry.clone();
+    let factory_captures = captures.clone();
     let service = StreamableHttpService::new(
-        move || Ok(CapuBridgeTools::new(factory_registry.clone())),
+        move || Ok(CapuBridgeTools::new(factory_registry.clone(), factory_captures.clone())),
         Arc::new(LocalSessionManager::default()),
         config,
     );

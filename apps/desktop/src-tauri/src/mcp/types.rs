@@ -21,6 +21,15 @@ pub struct SelectDeviceParams {
     pub serial: Option<String>,
 }
 
+/// Parameters for a tool that targets a single connected WebView target.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TargetParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id from `list_targets`.
+    pub target_id: String,
+}
+
 /// Parameters for executing JavaScript in a connected WebView target.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct EvaluateJsParams {

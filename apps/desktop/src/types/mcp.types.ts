@@ -41,6 +41,16 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     description: "Read localStorage, sessionStorage, or IndexedDB from a target.",
     readOnly: true,
   },
+  {
+    name: "read_console",
+    description: "Read captured console messages for a target (starts capturing on first call).",
+    readOnly: true,
+  },
+  {
+    name: "read_network",
+    description: "Read captured network requests for a target (starts capturing on first call).",
+    readOnly: true,
+  },
 ] as const;
 
 /** Status of the embedded MCP server, mirrored from the Rust `McpStatus`. */

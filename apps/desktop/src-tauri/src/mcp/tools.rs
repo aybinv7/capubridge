@@ -13,11 +13,14 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{tool, tool_handler, tool_router, ErrorData, ServerHandler};
 use serde::Serialize;
 
+use super::capture::CaptureRegistry;
 use super::cdp;
 use super::types::{
     EvaluateJsParams, ReadStorageParams, SelectDeviceParams, SerialParams, StorageKind,
+    TargetParams,
 };
 use crate::session::registry::SessionRegistry;
+use crate::session::types::SessionTargetSnapshot;
 
 /// Build a successful tool result carrying both a pretty-printed text block
 /// (rendered by every client) and structured JSON content (for clients that
@@ -32,20 +35,37 @@ fn ok_json<T: Serialize>(payload: &T) -> Result<CallToolResult, ErrorData> {
     Ok(result)
 }
 
-/// MCP tool handler bound to the live session registry.
+/// MCP tool handler bound to the live session registry and the (in-memory,
+/// per-server-lifetime) CDP capture registry backing `read_console`/`read_network`.
 #[derive(Clone)]
 pub struct CapuBridgeTools {
     registry: Arc<SessionRegistry>,
+    captures: Arc<CaptureRegistry>,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl CapuBridgeTools {
-    pub fn new(registry: Arc<SessionRegistry>) -> Self {
+    pub fn new(registry: Arc<SessionRegistry>, captures: Arc<CaptureRegistry>) -> Self {
         Self {
             registry,
+            captures,
             tool_router: Self::tool_router(),
         }
+    }
+
+    /// Resolve `target_id` on `serial` against the live session, or an error
+    /// naming the target so the caller knows to re-check `list_targets`.
+    fn find_target(&self, serial: &str, target_id: &str) -> Result<SessionTargetSnapshot, ErrorData> {
+        self.registry
+            .session_for_serial(serial)
+            .map(|session| session.list_targets())
+            .unwrap_or_default()
+            .into_iter()
+            .find(|target| target.id == target_id)
+            .ok_or_else(|| {
+                ErrorData::invalid_params(format!("Unknown target_id: {target_id}"), None)
+            })
     }
 
     #[tool(
@@ -128,17 +148,7 @@ impl CapuBridgeTools {
             ));
         }
 
-        let targets = self
-            .registry
-            .session_for_serial(&serial)
-            .map(|session| session.list_targets())
-            .unwrap_or_default();
-        let target = targets
-            .into_iter()
-            .find(|target| target.id == target_id)
-            .ok_or_else(|| {
-                ErrorData::invalid_params(format!("Unknown target_id: {target_id}"), None)
-            })?;
+        let target = self.find_target(&serial, &target_id)?;
 
         let envelope = cdp::evaluate(&target.web_socket_debugger_url, &expression)
             .await
@@ -166,17 +176,7 @@ impl CapuBridgeTools {
             offset,
         }): Parameters<ReadStorageParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let targets = self
-            .registry
-            .session_for_serial(&serial)
-            .map(|session| session.list_targets())
-            .unwrap_or_default();
-        let target = targets
-            .into_iter()
-            .find(|target| target.id == target_id)
-            .ok_or_else(|| {
-                ErrorData::invalid_params(format!("Unknown target_id: {target_id}"), None)
-            })?;
+        let target = self.find_target(&serial, &target_id)?;
 
         let script = match kind {
             StorageKind::LocalStorage => cdp::local_storage_script().to_string(),
@@ -208,6 +208,38 @@ impl CapuBridgeTools {
             .map_err(|error| ErrorData::internal_error(error, None))?;
         ok_json(&value)
     }
+
+    #[tool(
+        name = "read_console",
+        description = "Read captured console messages for a connected WebView target. Capture starts on the first call for a target, so an early call may return few or no entries — call again after a moment to see more. Bounded to the most recent 200 entries. Get target_id from list_targets. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_console(
+        &self,
+        Parameters(TargetParams { serial, target_id }): Parameters<TargetParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let target = self.find_target(&serial, &target_id)?;
+        let session = self
+            .captures
+            .ensure(&target_id, &target.web_socket_debugger_url);
+        ok_json(&session.console_snapshot())
+    }
+
+    #[tool(
+        name = "read_network",
+        description = "Read captured network requests for a connected WebView target. Capture starts on the first call for a target, so an early call may return few or no entries — call again after a moment to see more. Bounded to the most recent 200 requests. Get target_id from list_targets. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_network(
+        &self,
+        Parameters(TargetParams { serial, target_id }): Parameters<TargetParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let target = self.find_target(&serial, &target_id)?;
+        let session = self
+            .captures
+            .ensure(&target_id, &target.web_socket_debugger_url);
+        ok_json(&session.network_snapshot())
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
@@ -222,9 +254,10 @@ impl ServerHandler for CapuBridgeTools {
                 "CapuBridge exposes a live Android WebView debugging session. \
                  Call get_active_session first to see the active device and tracker status, \
                  then list_devices / list_targets to explore, and select_device to change the \
-                 active device. Read-only tools (including read_storage) are safe to call \
-                 freely. evaluate_js runs JavaScript in a live page via CDP and requires \
-                 confirm: true.",
+                 active device. Read-only tools (read_storage, read_console, read_network) are \
+                 safe to call freely; the latter two start capturing on first call for a target, \
+                 so call again after a moment to see accumulated data. evaluate_js runs \
+                 JavaScript in a live page via CDP and requires confirm: true.",
             )
     }
 }
@@ -234,7 +267,7 @@ mod tests {
     use super::*;
 
     fn tools() -> CapuBridgeTools {
-        CapuBridgeTools::new(Arc::new(SessionRegistry::new()))
+        CapuBridgeTools::new(Arc::new(SessionRegistry::new()), CaptureRegistry::new())
     }
 
     #[tokio::test]
@@ -313,6 +346,30 @@ mod tests {
                 store: None,
                 limit: None,
                 offset: None,
+            }))
+            .await;
+        let error = result.expect_err("unknown target must error");
+        assert!(error.message.contains("no-such-target"));
+    }
+
+    #[tokio::test]
+    async fn read_console_unknown_target_errors() {
+        let result = tools()
+            .read_console(Parameters(TargetParams {
+                serial: "does-not-exist".into(),
+                target_id: "no-such-target".into(),
+            }))
+            .await;
+        let error = result.expect_err("unknown target must error");
+        assert!(error.message.contains("no-such-target"));
+    }
+
+    #[tokio::test]
+    async fn read_network_unknown_target_errors() {
+        let result = tools()
+            .read_network(Parameters(TargetParams {
+                serial: "does-not-exist".into(),
+                target_id: "no-such-target".into(),
             }))
             .await;
         let error = result.expect_err("unknown target must error");

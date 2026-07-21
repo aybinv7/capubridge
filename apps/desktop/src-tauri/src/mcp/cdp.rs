@@ -11,11 +11,16 @@ use std::time::Duration;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::Value;
+use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_ID: u32 = 1;
+
+/// A connected CDP WebSocket, ready to send/receive JSON-RPC frames.
+pub type CdpSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 #[derive(Debug, Deserialize)]
 struct CdpResponseEnvelope {
@@ -31,9 +36,9 @@ struct CdpErrorPayload {
     message: String,
 }
 
-/// Open a one-shot CDP connection to `ws_url`, send `method`/`params`, and
-/// return the `result` field of the matching response.
-pub async fn call(ws_url: &str, method: &str, params: Value) -> Result<Value, String> {
+/// Open a CDP WebSocket connection to `ws_url`, stripping the headers Android
+/// CDP endpoints 403 on (same trick as `commands::cdp_proxy`).
+pub async fn connect(ws_url: &str) -> Result<CdpSocket, String> {
     let mut request = ws_url
         .into_client_request()
         .map_err(|error| format!("Invalid CDP target URL: {error}"))?;
@@ -41,9 +46,16 @@ pub async fn call(ws_url: &str, method: &str, params: Value) -> Result<Value, St
         request.headers_mut().remove(header);
     }
 
-    let (mut socket, _) = tokio_tungstenite::connect_async(request)
+    let (socket, _) = tokio_tungstenite::connect_async(request)
         .await
         .map_err(|error| format!("Failed to connect to CDP target: {error}"))?;
+    Ok(socket)
+}
+
+/// Open a one-shot CDP connection to `ws_url`, send `method`/`params`, and
+/// return the `result` field of the matching response.
+pub async fn call(ws_url: &str, method: &str, params: Value) -> Result<Value, String> {
+    let mut socket = connect(ws_url).await?;
 
     let payload = serde_json::json!({ "id": REQUEST_ID, "method": method, "params": params });
     socket
