@@ -122,10 +122,15 @@ impl CaptureRegistry {
 
     /// Get the session for `target_id`, starting a fresh capture loop against
     /// `ws_url` if none exists yet or the previous one died.
-    pub fn ensure(&self, target_id: &str, ws_url: &str) -> Arc<CaptureSession> {
+    ///
+    /// Returns `(session, is_new)` — `is_new` is `true` when this call just
+    /// created the session, so the caller can decide whether to give the
+    /// background loop a brief moment to connect and receive its first
+    /// events before reading an otherwise-guaranteed-empty snapshot.
+    pub fn ensure(&self, target_id: &str, ws_url: &str) -> (Arc<CaptureSession>, bool) {
         if let Some(session) = self.sessions.read().get(target_id) {
             if session.is_alive() {
-                return session.clone();
+                return (session.clone(), false);
             }
         }
         let session = CaptureSession::new();
@@ -133,7 +138,7 @@ impl CaptureRegistry {
             .write()
             .insert(target_id.to_string(), session.clone());
         tokio::spawn(run_capture_loop(session.clone(), ws_url.to_string()));
-        session
+        (session, true)
     }
 }
 
@@ -423,7 +428,8 @@ mod tests {
         .await;
 
         let registry = CaptureRegistry::new();
-        let session = registry.ensure("target-1", &url);
+        let (session, is_new) = registry.ensure("target-1", &url);
+        assert!(is_new, "first ensure() for a target must report is_new");
 
         let mut entries = Vec::new();
         for _ in 0..50 {
@@ -444,8 +450,10 @@ mod tests {
         // A dead socket URL still lets us prove the identity behavior without
         // waiting on a network connection: two ensure() calls in the same
         // tick return the same Arc before the background loop can run.
-        let first = registry.ensure("target-1", "ws://127.0.0.1:1/");
-        let second = registry.ensure("target-1", "ws://127.0.0.1:1/");
+        let (first, first_is_new) = registry.ensure("target-1", "ws://127.0.0.1:1/");
+        let (second, second_is_new) = registry.ensure("target-1", "ws://127.0.0.1:1/");
         assert!(Arc::ptr_eq(&first, &second));
+        assert!(first_is_new);
+        assert!(!second_is_new, "reusing an alive session must report is_new: false");
     }
 }

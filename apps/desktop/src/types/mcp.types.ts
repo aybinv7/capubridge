@@ -37,6 +37,12 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     readOnly: false,
   },
   {
+    name: "click_element",
+    description:
+      "Click a DOM element by CSS selector and/or visible text (more reliable than tap for WebView UI). Requires confirm: true.",
+    readOnly: false,
+  },
+  {
     name: "read_storage",
     description: "Read localStorage, sessionStorage, or IndexedDB from a target.",
     readOnly: true,

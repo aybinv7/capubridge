@@ -45,6 +45,27 @@ pub struct EvaluateJsParams {
     pub confirm: bool,
 }
 
+/// Parameters for clicking a DOM element in a connected WebView target.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ClickElementParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id from `list_targets`.
+    pub target_id: String,
+    /// CSS selector to find the element. Tried before `text` if both given.
+    #[serde(default)]
+    pub selector: Option<String>,
+    /// Visible text to find the element by, if `selector` doesn't match (or
+    /// is omitted). Matches an exact or substring match against a candidate
+    /// element's trimmed text content; the most specific (deepest) match wins.
+    #[serde(default)]
+    pub text: Option<String>,
+    /// Must be `true` to actually click; this mutates a live page. Call
+    /// without confirm first to see this requirement echoed back.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
 /// Which storage to read via `read_storage`.
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]

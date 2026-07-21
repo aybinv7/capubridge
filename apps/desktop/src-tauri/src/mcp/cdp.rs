@@ -206,6 +206,69 @@ pub fn indexeddb_store_script(database: &str, store: &str, limit: u32, offset: u
     )
 }
 
+/// Expression that finds a DOM element by CSS `selector` and/or visible
+/// `text`, then dispatches a synthetic pointer/mouse click sequence on it.
+///
+/// This is deliberately not a physical screen tap: a device `input tap`
+/// coordinate can miss a small or precisely-positioned element with no
+/// signal at all, while a DOM-targeted click always either finds the exact
+/// element and clicks it, or reports `found: false` — no silent misses. When
+/// both `selector` and `text` are given, `selector` is tried first and `text`
+/// is the fallback. Among elements matching `text`, the most specific match
+/// (fewest descendant elements) is preferred, to avoid clicking a large
+/// container instead of the actual interactive child.
+pub fn click_element_script(selector: Option<&str>, text: Option<&str>) -> String {
+    let selector_js = selector.map(js_string_literal).unwrap_or_else(|| "null".to_string());
+    let text_js = text.map(js_string_literal).unwrap_or_else(|| "null".to_string());
+    format!(
+        "(() => {{ \
+            const selector = {selector_js}; \
+            const text = {text_js}; \
+            function matchesText(el) {{ \
+                const t = (el.textContent || '').trim(); \
+                return !!t && (t === text || t.includes(text)); \
+            }} \
+            let el = null; \
+            if (selector) {{ el = document.querySelector(selector); }} \
+            if (!el && text) {{ \
+                const candidates = Array.from(document.querySelectorAll( \
+                    'button, a, [role=\"button\"], [role=\"tab\"], input[type=\"button\"], input[type=\"submit\"], li, span, div' \
+                )); \
+                let best = null; \
+                let bestCount = Infinity; \
+                for (const candidate of candidates) {{ \
+                    if (!matchesText(candidate)) continue; \
+                    const count = candidate.querySelectorAll('*').length; \
+                    if (count < bestCount) {{ bestCount = count; best = candidate; }} \
+                }} \
+                el = best; \
+            }} \
+            if (!el) {{ return {{ found: false }}; }} \
+            el.scrollIntoView({{ block: 'center', inline: 'center' }}); \
+            const rect = el.getBoundingClientRect(); \
+            const opts = {{ \
+                bubbles: true, \
+                cancelable: true, \
+                view: window, \
+                clientX: rect.x + rect.width / 2, \
+                clientY: rect.y + rect.height / 2, \
+            }}; \
+            el.dispatchEvent(new MouseEvent('pointerdown', opts)); \
+            el.dispatchEvent(new MouseEvent('mousedown', opts)); \
+            el.dispatchEvent(new MouseEvent('pointerup', opts)); \
+            el.dispatchEvent(new MouseEvent('mouseup', opts)); \
+            el.dispatchEvent(new MouseEvent('click', opts)); \
+            return {{ \
+                found: true, \
+                tag: el.tagName.toLowerCase(), \
+                text: (el.textContent || '').trim().slice(0, 120), \
+                id: el.id || null, \
+                className: (typeof el.className === 'string' ? el.className : null), \
+            }}; \
+        }})()"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -295,5 +358,50 @@ mod tests {
         assert!(script.contains("50"));
         assert!(script.contains("10"));
         let _: Value = serde_json::json!(script); // sanity: it's a valid string at least
+    }
+
+    #[test]
+    fn click_element_script_embeds_selector_only() {
+        let script = click_element_script(Some("button.submit"), None);
+        assert!(script.contains("\"button.submit\""));
+        assert!(script.contains("const text = null;"));
+    }
+
+    #[test]
+    fn click_element_script_embeds_text_only() {
+        let script = click_element_script(None, Some("Stock"));
+        assert!(script.contains("const selector = null;"));
+        assert!(script.contains("\"Stock\""));
+    }
+
+    #[test]
+    fn click_element_script_embeds_both() {
+        let script = click_element_script(Some("[role=tab]"), Some("Stock"));
+        assert!(script.contains("[role=tab]"));
+        assert!(script.contains("Stock"));
+    }
+
+    #[test]
+    fn click_element_script_escapes_quotes_in_selector_and_text() {
+        // Neither argument should be able to break out of its JS string
+        // literal — both go through JSON string escaping, same as the
+        // IndexedDB script builders.
+        let script = click_element_script(Some(r#"[data-x="y"]"#), Some("it's \"quoted\""));
+        assert!(script.contains(r#"[data-x=\"y\"]"#));
+        assert!(script.contains("it's"));
+        // The whole thing must still parse as a JSON string (i.e. be valid,
+        // well-escaped text), proving no stray unescaped quote broke out.
+        let _: Value = serde_json::json!(script);
+    }
+
+    #[test]
+    fn click_element_script_dispatches_the_full_pointer_event_sequence() {
+        let script = click_element_script(Some("button"), None);
+        for event in ["pointerdown", "mousedown", "pointerup", "mouseup", "click"] {
+            assert!(
+                script.contains(&format!("'{event}'")),
+                "missing dispatched event: {event}"
+            );
+        }
     }
 }

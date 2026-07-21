@@ -18,9 +18,10 @@ use super::capture::CaptureRegistry;
 use super::cdp;
 use super::device_control;
 use super::types::{
-    EvaluateJsParams, GetScreenSizeParams, InputTextParams, LaunchAppParams, ListPackagesParams,
-    PackageScope, PressKeyParams, ReadStorageParams, ScreenshotParams, SelectDeviceParams,
-    SerialParams, ShellCommandParams, StorageKind, SwipeParams, TapParams, TargetParams,
+    ClickElementParams, EvaluateJsParams, GetScreenSizeParams, InputTextParams, LaunchAppParams,
+    ListPackagesParams, PackageScope, PressKeyParams, ReadStorageParams, ScreenshotParams,
+    SelectDeviceParams, SerialParams, ShellCommandParams, StorageKind, SwipeParams, TapParams,
+    TargetParams,
 };
 use crate::commands::adb::PackageListScope;
 use crate::commands::mirror::{adb_mirror_get_screen_size, adb_mirror_screenshot};
@@ -62,6 +63,24 @@ fn write_png_to_temp_file(png_base64: &str) -> Result<(std::path::PathBuf, usize
     std::fs::write(&path, &bytes)
         .map_err(|error| format!("Failed to write screenshot to {}: {error}", path.display()))?;
     Ok((path, bytes.len()))
+}
+
+/// If a capture session was *just* created (`is_new`), give its background
+/// loop a brief window (up to ~500ms, polled every 50ms) to connect and
+/// receive its first events, so the very first `read_console`/`read_network`
+/// call for a target has a real chance of returning something instead of a
+/// guaranteed-empty snapshot. No-op when the session already existed — an
+/// empty result there is a legitimate "nothing new since last time".
+async fn warm_up_new_capture_session(is_new: bool, mut has_data: impl FnMut() -> bool) {
+    if !is_new {
+        return;
+    }
+    for _ in 0..10 {
+        if has_data() {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
 }
 
 /// MCP tool handler bound to the live session registry and the (in-memory,
@@ -197,6 +216,40 @@ impl CapuBridgeTools {
     }
 
     #[tool(
+        name = "click_element",
+        description = "Click a DOM element in a connected WebView target by CSS selector and/or visible text, using synthetic pointer/mouse events dispatched directly on the element — NOT a physical screen tap. Prefer this over tap for interacting with a specific button/link/nav item in a Capacitor/WebView app: it either finds the exact element and clicks it, or reports found: false, so there's no silent miss the way an off-target screen coordinate has. Provide selector and/or text (selector is tried first); at least one is required. Get target_id from list_targets. Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn click_element(
+        &self,
+        Parameters(ClickElementParams {
+            serial,
+            target_id,
+            selector,
+            text,
+            confirm,
+        }): Parameters<ClickElementParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "click_element")?;
+        if selector.is_none() && text.is_none() {
+            return Err(ErrorData::invalid_params(
+                "click_element requires at least one of selector or text".to_string(),
+                None,
+            ));
+        }
+
+        let target = self.find_target(&serial, &target_id)?;
+        let script = cdp::click_element_script(selector.as_deref(), text.as_deref());
+        let envelope = cdp::evaluate(&target.web_socket_debugger_url, &script)
+            .await
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        let value = cdp::evaluate_value(&envelope).map_err(|error| {
+            ErrorData::internal_error(format!("Expression threw: {error}"), None)
+        })?;
+        ok_json(&value)
+    }
+
+    #[tool(
         name = "read_storage",
         description = "Read localStorage, sessionStorage, or IndexedDB from a connected WebView target. Get target_id from list_targets. kind is one of local_storage, session_storage, indexeddb_databases, indexeddb_store. indexeddb_store additionally requires database and store, and supports limit (default 100, max 500) and offset for pagination. Read-only.",
         annotations(read_only_hint = true)
@@ -248,7 +301,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "read_console",
-        description = "Read captured console messages for a connected WebView target. Capture starts on the first call for a target, so an early call may return few or no entries — call again after a moment to see more. Bounded to the most recent 200 entries. Get target_id from list_targets. Read-only.",
+        description = "Read captured console messages for a connected WebView target. Capture starts on the first call for a target; that first call waits briefly (up to ~500ms) for initial data, but may still return few or no entries if the page has been quiet — call again after triggering activity to see more. Bounded to the most recent 200 entries. Get target_id from list_targets. Read-only.",
         annotations(read_only_hint = true)
     )]
     async fn read_console(
@@ -256,15 +309,16 @@ impl CapuBridgeTools {
         Parameters(TargetParams { serial, target_id }): Parameters<TargetParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let target = self.find_target(&serial, &target_id)?;
-        let session = self
+        let (session, is_new) = self
             .captures
             .ensure(&target_id, &target.web_socket_debugger_url);
+        warm_up_new_capture_session(is_new, || !session.console_snapshot().is_empty()).await;
         ok_json(&session.console_snapshot())
     }
 
     #[tool(
         name = "read_network",
-        description = "Read captured network requests for a connected WebView target. Capture starts on the first call for a target, so an early call may return few or no entries — call again after a moment to see more. Bounded to the most recent 200 requests. Get target_id from list_targets. Read-only.",
+        description = "Read captured network requests for a connected WebView target. Capture starts on the first call for a target; that first call waits briefly (up to ~500ms) for initial data, but may still return few or no requests if nothing is in flight — call again after triggering activity to see more. Bounded to the most recent 200 requests. Get target_id from list_targets. Read-only.",
         annotations(read_only_hint = true)
     )]
     async fn read_network(
@@ -272,9 +326,10 @@ impl CapuBridgeTools {
         Parameters(TargetParams { serial, target_id }): Parameters<TargetParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let target = self.find_target(&serial, &target_id)?;
-        let session = self
+        let (session, is_new) = self
             .captures
             .ensure(&target_id, &target.web_socket_debugger_url);
+        warm_up_new_capture_session(is_new, || !session.network_snapshot().is_empty()).await;
         ok_json(&session.network_snapshot())
     }
 
@@ -495,11 +550,16 @@ impl ServerHandler for CapuBridgeTools {
                  active device. Read-only tools (read_storage, read_console, read_network, \
                  list_packages, take_screenshot, get_screen_size) are safe to call freely; \
                  read_console/read_network start capturing on first call for a target, so call \
-                 again after a moment to see accumulated data. evaluate_js, launch_app, tap, \
-                 swipe, input_text, press_key, and shell_command all act on a real device and \
-                 require confirm: true. shell_command runs an arbitrary command verbatim — \
-                 prefer the specific tools (tap/swipe/input_text/press_key/launch_app) when they \
-                 cover what's needed, and review the command carefully before confirming.",
+                 again after a moment to see accumulated data. evaluate_js, click_element, \
+                 launch_app, tap, swipe, input_text, press_key, and shell_command all act on a \
+                 real device and require confirm: true. For clicking a specific button/link/nav \
+                 item inside a WebView, prefer click_element (CSS selector and/or visible text) \
+                 over tap: it targets the DOM element directly and reports found: false instead \
+                 of silently missing, whereas a physical tap at the wrong screen coordinate \
+                 reports success even when it hit nothing. shell_command runs an arbitrary \
+                 command verbatim — prefer the specific tools \
+                 (tap/swipe/input_text/press_key/launch_app) when they cover what's needed, and \
+                 review the command carefully before confirming.",
             )
     }
 }
@@ -526,6 +586,39 @@ mod tests {
     #[test]
     fn write_png_to_temp_file_rejects_invalid_base64() {
         assert!(write_png_to_temp_file("not-base64!!!").is_err());
+    }
+
+    #[tokio::test]
+    async fn warm_up_is_a_no_op_when_the_session_was_not_just_created() {
+        let mut calls = 0;
+        warm_up_new_capture_session(false, || {
+            calls += 1;
+            false
+        })
+        .await;
+        assert_eq!(calls, 0, "must not poll when is_new is false");
+    }
+
+    #[tokio::test]
+    async fn warm_up_stops_as_soon_as_data_appears() {
+        let mut calls = 0;
+        warm_up_new_capture_session(true, || {
+            calls += 1;
+            calls >= 3
+        })
+        .await;
+        assert_eq!(calls, 3, "must stop polling on the first call that reports data");
+    }
+
+    #[tokio::test]
+    async fn warm_up_gives_up_after_ten_attempts() {
+        let mut calls = 0;
+        warm_up_new_capture_session(true, || {
+            calls += 1;
+            false
+        })
+        .await;
+        assert_eq!(calls, 10, "must not poll forever when data never appears");
     }
 
     #[tokio::test]
@@ -753,6 +846,51 @@ mod tests {
                 serial: "does-not-exist".into(),
                 target_id: "no-such-target".into(),
                 expression: "1+1".into(),
+                confirm: true,
+            }))
+            .await;
+        let error = result.expect_err("unknown target must error, not attempt a connection");
+        assert!(error.message.contains("no-such-target"));
+    }
+
+    #[tokio::test]
+    async fn click_element_without_confirm_is_rejected() {
+        let result = tools()
+            .click_element(Parameters(ClickElementParams {
+                serial: "does-not-matter".into(),
+                target_id: "does-not-matter".into(),
+                selector: Some("button".into()),
+                text: None,
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn click_element_requires_selector_or_text() {
+        let result = tools()
+            .click_element(Parameters(ClickElementParams {
+                serial: "does-not-matter".into(),
+                target_id: "does-not-matter".into(),
+                selector: None,
+                text: None,
+                confirm: true,
+            }))
+            .await;
+        let error = result.expect_err("neither selector nor text given");
+        assert!(error.message.contains("selector") && error.message.contains("text"));
+    }
+
+    #[tokio::test]
+    async fn click_element_with_confirm_and_selector_but_unknown_target_errors() {
+        let result = tools()
+            .click_element(Parameters(ClickElementParams {
+                serial: "does-not-exist".into(),
+                target_id: "no-such-target".into(),
+                selector: Some("button".into()),
+                text: None,
                 confirm: true,
             }))
             .await;
