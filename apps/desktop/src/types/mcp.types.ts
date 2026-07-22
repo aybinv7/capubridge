@@ -103,6 +103,26 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     description: "Run an arbitrary adb shell command. High risk. Requires confirm: true.",
     readOnly: false,
   },
+  {
+    name: "list_recordings",
+    description: "List saved replay recordings (.capu sessions).",
+    readOnly: true,
+  },
+  {
+    name: "read_recording",
+    description: "Read a saved recording's manifest, track index, and database sources.",
+    readOnly: true,
+  },
+  {
+    name: "read_recording_track",
+    description: "Page through one event track (rrweb/network/console/perf) of a recording.",
+    readOnly: true,
+  },
+  {
+    name: "read_recording_db",
+    description: "Inspect a recording's captured database state at a point on the timeline.",
+    readOnly: true,
+  },
 ] as const;
 
 /** Status of the embedded MCP server, mirrored from the Rust `McpStatus`. */

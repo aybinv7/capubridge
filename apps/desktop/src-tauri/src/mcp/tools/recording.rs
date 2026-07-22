@@ -1,0 +1,210 @@
+//! Recording / replay tools: consult saved `.capu` sessions and scrub their
+//! recorded database state along the timeline.
+//!
+//! These are read-only and reuse the existing recording command core fns
+//! (`list_sessions_in`, `read_session_from`) and the replay database query
+//! commands. Recording *capture* (starting a new recording) is orchestrated by
+//! the frontend and is not exposed here — see the design doc.
+
+use rmcp::handler::server::wrapper::Parameters;
+use rmcp::model::CallToolResult;
+use rmcp::{tool, tool_router, ErrorData};
+
+use super::{ok_json, CapuBridgeTools};
+use crate::commands::recording::{list_sessions_in, read_session_from};
+use crate::commands::recording_db;
+use crate::mcp::types::{ReadRecordingDbParams, ReadRecordingParams, ReadRecordingTrackParams};
+
+const TRACK_NAMES: [&str; 5] = ["rrweb", "network", "console", "perf", "databases"];
+
+#[tool_router(router = recording_tool_router, vis = "pub(crate)")]
+impl CapuBridgeTools {
+    #[tool(
+        name = "list_recordings",
+        description = "List saved replay recordings (.capu sessions), newest first: id, label, start time, duration (ms), device serial, target URL, file path, and size. Use read_recording next to inspect one. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn list_recordings(&self) -> Result<CallToolResult, ErrorData> {
+        let sessions = list_sessions_in(&self.sessions_dir)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        ok_json(&sessions)
+    }
+
+    #[tool(
+        name = "read_recording",
+        description = "Read a saved recording's overview from its file_path (from list_recordings): the parsed manifest, an index of captured event tracks (name + byte size + event count) — rrweb (DOM), network, console, perf — plus databasePath and the recorded database sources. Does NOT return raw track events (they can be large); use read_recording_track to page through a track, and read_recording_db to inspect recorded DB state along the timeline. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_recording(
+        &self,
+        Parameters(ReadRecordingParams { file_path }): Parameters<ReadRecordingParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let read_cache_dir = self.sessions_dir.join("read_cache");
+        let contents = read_session_from(&file_path, &read_cache_dir)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+
+        let manifest: serde_json::Value = serde_json::from_str(&contents.manifest_json)
+            .map_err(|error| ErrorData::internal_error(format!("bad manifest: {error}"), None))?;
+
+        let tracks: Vec<serde_json::Value> = contents
+            .tracks
+            .iter()
+            .map(|(name, body)| {
+                let events = body.lines().filter(|line| !line.trim().is_empty()).count();
+                serde_json::json!({ "name": name, "bytes": body.len(), "events": events })
+            })
+            .collect();
+
+        let database_sources = match &contents.database_path {
+            Some(path) => recording_db::recording_database_sources(path.clone())
+                .await
+                .map_err(|error| ErrorData::internal_error(error, None))?,
+            None => Vec::new(),
+        };
+
+        ok_json(&serde_json::json!({
+            "manifest": manifest,
+            "tracks": tracks,
+            "databasePath": contents.database_path,
+            "databaseSources": database_sources,
+        }))
+    }
+
+    #[tool(
+        name = "read_recording_track",
+        description = "Page through one event track of a saved recording. track is one of rrweb, network, console, perf, databases. Each event carries a timestamp, so this is the recorded timeline for that track. Supports offset (default 0) and limit (default 100, max 500). Get file_path from list_recordings and track names from read_recording. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_recording_track(
+        &self,
+        Parameters(ReadRecordingTrackParams {
+            file_path,
+            track,
+            offset,
+            limit,
+        }): Parameters<ReadRecordingTrackParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if !TRACK_NAMES.contains(&track.as_str()) {
+            return Err(ErrorData::invalid_params(
+                format!(
+                    "Unknown track '{track}'. Valid tracks: {}",
+                    TRACK_NAMES.join(", ")
+                ),
+                None,
+            ));
+        }
+
+        let read_cache_dir = self.sessions_dir.join("read_cache");
+        let contents = read_session_from(&file_path, &read_cache_dir)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+
+        let body = contents.tracks.get(&track).cloned().unwrap_or_default();
+        let all_lines: Vec<&str> = body.lines().filter(|line| !line.trim().is_empty()).collect();
+        let total = all_lines.len();
+        let offset = offset.unwrap_or(0) as usize;
+        let limit = limit.unwrap_or(100).clamp(1, 500) as usize;
+
+        let events: Vec<serde_json::Value> = all_lines
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|line| {
+                serde_json::from_str::<serde_json::Value>(line)
+                    .unwrap_or_else(|_| serde_json::Value::String((*line).to_string()))
+            })
+            .collect();
+
+        let returned = events.len();
+        ok_json(&serde_json::json!({
+            "track": track,
+            "totalEvents": total,
+            "offset": offset,
+            "returned": returned,
+            "truncated": offset + returned < total,
+            "events": events,
+        }))
+    }
+
+    #[tool(
+        name = "read_recording_db",
+        description = "Inspect a recording's captured database state at a point on the timeline. database_path comes from read_recording's databasePath; position_ms is the timeline position. Omit source_id to get a per-source change summary at that position (the timeline overview: how many rows added/updated/deleted per source so far). Provide a source_id (from read_recording's databaseSources) to get the actual rows of that source at that position, paged with offset (default 0) and limit (default 100, max 500). Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn read_recording_db(
+        &self,
+        Parameters(ReadRecordingDbParams {
+            database_path,
+            position_ms,
+            source_id,
+            offset,
+            limit,
+        }): Parameters<ReadRecordingDbParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        match source_id {
+            Some(source_id) => {
+                let rows = recording_db::recording_database_table_rows(
+                    database_path,
+                    source_id,
+                    position_ms,
+                    offset.unwrap_or(0).max(0),
+                    limit.unwrap_or(100).clamp(1, 500),
+                )
+                .await
+                .map_err(|error| ErrorData::internal_error(error, None))?;
+                ok_json(&rows)
+            }
+            None => {
+                let summaries =
+                    recording_db::recording_database_change_summaries(database_path, position_ms)
+                        .await
+                        .map_err(|error| ErrorData::internal_error(error, None))?;
+                ok_json(&summaries)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mcp::tools::fixture::tools;
+
+    #[tokio::test]
+    async fn list_recordings_on_empty_dir_is_ok_and_empty() {
+        // The fixture points sessions_dir at the OS temp dir; there may or may
+        // not be stray files, but the call must succeed and return a JSON array.
+        let result = tools().list_recordings().await.expect("ok");
+        assert_eq!(result.is_error, Some(false));
+        let text = result.content[0]
+            .as_text()
+            .expect("text content block")
+            .text
+            .clone();
+        let value: serde_json::Value = serde_json::from_str(&text).expect("valid json");
+        assert!(value.is_array());
+    }
+
+    #[tokio::test]
+    async fn read_recording_track_rejects_unknown_track() {
+        let result = tools()
+            .read_recording_track(Parameters(ReadRecordingTrackParams {
+                file_path: "does-not-matter".into(),
+                track: "not-a-track".into(),
+                offset: None,
+                limit: None,
+            }))
+            .await;
+        let error = result.expect_err("unknown track must be rejected");
+        assert!(error.message.contains("Unknown track"));
+    }
+
+    #[tokio::test]
+    async fn read_recording_missing_file_errors() {
+        let result = tools()
+            .read_recording(Parameters(ReadRecordingParams {
+                file_path: "C:/nonexistent/session.capu".into(),
+            }))
+            .await;
+        assert!(result.is_err());
+    }
+}

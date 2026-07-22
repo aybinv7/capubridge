@@ -8,9 +8,11 @@
 //! via `ToolRouter`'s `Add` impl.
 
 mod device;
+mod recording;
 mod session;
 mod web;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use base64::{engine::general_purpose, Engine as _};
@@ -82,17 +84,26 @@ async fn warm_up_new_capture_session(is_new: bool, mut has_data: impl FnMut() ->
 pub struct CapuBridgeTools {
     registry: Arc<SessionRegistry>,
     captures: Arc<CaptureRegistry>,
+    /// The app's recording sessions directory, used by the recording tools to
+    /// list and read saved `.capu` sessions.
+    sessions_dir: PathBuf,
     tool_router: rmcp::handler::server::tool::ToolRouter<Self>,
 }
 
 impl CapuBridgeTools {
-    pub fn new(registry: Arc<SessionRegistry>, captures: Arc<CaptureRegistry>) -> Self {
+    pub fn new(
+        registry: Arc<SessionRegistry>,
+        captures: Arc<CaptureRegistry>,
+        sessions_dir: PathBuf,
+    ) -> Self {
         Self {
             registry,
             captures,
+            sessions_dir,
             tool_router: Self::session_tool_router()
                 + Self::web_tool_router()
-                + Self::device_tool_router(),
+                + Self::device_tool_router()
+                + Self::recording_tool_router(),
         }
     }
 
@@ -164,7 +175,14 @@ impl ServerHandler for CapuBridgeTools {
                  window.Capacitor.Plugins.CapacitorSQLite.query({ database, statement, values }) \
                  — the database must be the plugin's LOGICAL name (e.g. 'presalio'), not the \
                  on-disk filename (e.g. 'presalioSQLite.db'); the wrong name silently returns \
-                 empty results instead of erroring.",
+                 empty results instead of erroring.\n\n\
+                 To inspect PAST sessions the user recorded in CapuBridge's Replay feature (no \
+                 device needed, no foreground requirement): list_recordings shows saved \
+                 sessions, read_recording opens one (manifest + track index + database \
+                 sources), read_recording_track pages through a track's timestamped events \
+                 (rrweb DOM / network / console / perf), and read_recording_db scrubs the \
+                 recorded database state to any timeline position. Starting a NEW recording is \
+                 not available through MCP — that's driven from the app UI.",
             )
     }
 }
@@ -177,9 +195,15 @@ mod fixture {
     use crate::mcp::capture::CaptureRegistry;
     use crate::session::registry::SessionRegistry;
 
-    /// Shared test fixture used by every submodule's test suite.
+    /// Shared test fixture used by every submodule's test suite. Recording
+    /// tools that need a real sessions directory take one explicitly in their
+    /// own tests; this default points at the OS temp dir.
     pub fn tools() -> CapuBridgeTools {
-        CapuBridgeTools::new(Arc::new(SessionRegistry::new()), CaptureRegistry::new())
+        CapuBridgeTools::new(
+            Arc::new(SessionRegistry::new()),
+            CaptureRegistry::new(),
+            std::env::temp_dir(),
+        )
     }
 }
 

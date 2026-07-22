@@ -150,7 +150,16 @@ pub fn run() {
                         }
                     };
                     if cfg.enabled && cfg.has_token() {
-                        match mcp::server::start(registry, cfg.port, cfg.token.clone()).await {
+                        let sessions_dir = match commands::recording::sessions_dir(&app_handle) {
+                            Ok(dir) => dir,
+                            Err(error) => {
+                                log::warn!("[mcp] failed to resolve sessions dir: {error}");
+                                return;
+                            }
+                        };
+                        match mcp::server::start(registry, cfg.port, cfg.token.clone(), sessions_dir)
+                            .await
+                        {
                             Ok(running) => {
                                 let port = running.port;
                                 app_handle.state::<McpServerState>().set_running(running);

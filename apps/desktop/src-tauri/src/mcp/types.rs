@@ -213,3 +213,47 @@ pub struct ShellCommandParams {
     #[serde(default)]
     pub confirm: bool,
 }
+
+/// Parameters for `read_recording` — read one saved session's overview.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadRecordingParams {
+    /// Absolute path to the `.capu` session file (from `list_recordings`).
+    pub file_path: String,
+}
+
+/// Parameters for `read_recording_track` — page through one event track.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadRecordingTrackParams {
+    /// Absolute path to the `.capu` session file (from `list_recordings`).
+    pub file_path: String,
+    /// Track name: one of rrweb, network, console, perf, databases.
+    pub track: String,
+    /// Events to skip from the start of the track (default 0).
+    #[serde(default)]
+    pub offset: Option<u32>,
+    /// Max events to return (default 100, clamped to 500).
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+/// Parameters for `read_recording_db` — inspect recorded database state at a
+/// point on the session timeline.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadRecordingDbParams {
+    /// Path to the recording's extracted SQLite database, from
+    /// `read_recording`'s `databasePath` field.
+    pub database_path: String,
+    /// Timeline position in milliseconds (relative to the recording start).
+    pub position_ms: i64,
+    /// A specific source id (from `read_recording`'s `databaseSources`) to read
+    /// rows for. Omit to get a per-source change summary at this position
+    /// (the timeline overview) instead of rows.
+    #[serde(default)]
+    pub source_id: Option<String>,
+    /// Rows to skip when `source_id` is given (default 0).
+    #[serde(default)]
+    pub offset: Option<i64>,
+    /// Max rows to return when `source_id` is given (default 100, max 500).
+    #[serde(default)]
+    pub limit: Option<i64>,
+}
