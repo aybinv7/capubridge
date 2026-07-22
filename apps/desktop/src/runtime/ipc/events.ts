@@ -21,6 +21,15 @@ export interface MirrorPointEvent {
   y: number;
 }
 
+/** A request from the MCP server (Rust) for the frontend to perform an action
+ * it alone can do (see `useMcpBridge`). Answered via the `mcp_bridge_respond`
+ * command carrying the same `requestId`. */
+export interface McpBridgeRequestEvent {
+  requestId: string;
+  action: string;
+  payload: unknown;
+}
+
 export interface IpcEventMap {
   "capubridge:session-event": SessionEvent;
   "capubridge:mirror-device-clipboard": MirrorClipboardEvent;
@@ -38,6 +47,7 @@ export interface IpcEventMap {
   "perf:stopped": string;
   "mock-server-request": MockServerRequestEvent;
   "updater://progress": UpdaterProgressPayload;
+  "mcp://bridge/request": McpBridgeRequestEvent;
 }
 
 export type IpcEventName = keyof IpcEventMap;

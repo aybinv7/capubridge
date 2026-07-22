@@ -32,6 +32,12 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     readOnly: false,
   },
   {
+    name: "select_target",
+    description:
+      "Select + connect a CDP target in the app UI (needed before recording). Requires the app window open.",
+    readOnly: false,
+  },
+  {
     name: "evaluate_js",
     description: "Run JavaScript in a connected WebView target via CDP. Requires confirm: true.",
     readOnly: false,

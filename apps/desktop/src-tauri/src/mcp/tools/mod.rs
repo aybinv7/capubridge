@@ -8,6 +8,7 @@
 //! via `ToolRouter`'s `Add` impl.
 
 mod device;
+mod frontend;
 mod recording;
 mod session;
 mod web;
@@ -87,6 +88,10 @@ pub struct CapuBridgeTools {
     /// The app's recording sessions directory, used by the recording tools to
     /// list and read saved `.capu` sessions.
     sessions_dir: PathBuf,
+    /// Handle to the running app, used by frontend-bridge tools (e.g.
+    /// `select_target`) to emit bridge requests. `None` in unit tests, where no
+    /// real `AppHandle` exists; those tools then return a clear error.
+    app: Option<tauri::AppHandle>,
     tool_router: rmcp::handler::server::tool::ToolRouter<Self>,
 }
 
@@ -95,16 +100,30 @@ impl CapuBridgeTools {
         registry: Arc<SessionRegistry>,
         captures: Arc<CaptureRegistry>,
         sessions_dir: PathBuf,
+        app: Option<tauri::AppHandle>,
     ) -> Self {
         Self {
             registry,
             captures,
             sessions_dir,
+            app,
             tool_router: Self::session_tool_router()
                 + Self::web_tool_router()
                 + Self::device_tool_router()
-                + Self::recording_tool_router(),
+                + Self::recording_tool_router()
+                + Self::frontend_tool_router(),
         }
+    }
+
+    /// Emit a bridge request to the frontend and await its JSON result, or a
+    /// clear error if there's no app handle (unit tests) or no window responds.
+    async fn bridge_call(&self, action: &str, payload: serde_json::Value) -> Result<serde_json::Value, ErrorData> {
+        let app = self.app.as_ref().ok_or_else(|| {
+            ErrorData::internal_error("This tool requires the running app and is unavailable here", None)
+        })?;
+        super::bridge::call(app, action, payload)
+            .await
+            .map_err(|error| ErrorData::internal_error(error, None))
     }
 
     /// Resolve `target_id` on `serial` against the live session, or an error
@@ -181,8 +200,11 @@ impl ServerHandler for CapuBridgeTools {
                  sessions, read_recording opens one (manifest + track index + database \
                  sources), read_recording_track pages through a track's timestamped events \
                  (rrweb DOM / network / console / perf), and read_recording_db scrubs the \
-                 recorded database state to any timeline position. Starting a NEW recording is \
-                 not available through MCP — that's driven from the app UI.",
+                 recorded database state to any timeline position. To connect the app UI to a \
+                 target (the precondition for recording), select_target drives the app window \
+                 to select + connect a CDP target by serial + target_id. Tools that drive the \
+                 app UI (select_target) require the CapuBridge window to be open and return a \
+                 clear error if it isn't.",
             )
     }
 }
@@ -203,6 +225,7 @@ mod fixture {
             Arc::new(SessionRegistry::new()),
             CaptureRegistry::new(),
             std::env::temp_dir(),
+            None,
         )
     }
 }

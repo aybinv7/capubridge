@@ -47,8 +47,14 @@ async fn start_from_config(
     cfg: &config::McpConfig,
 ) -> Result<(), String> {
     let sessions_dir = crate::commands::recording::sessions_dir(app)?;
-    let running =
-        server::start(registry.registry(), cfg.port, cfg.token.clone(), sessions_dir).await?;
+    let running = server::start(
+        registry.registry(),
+        cfg.port,
+        cfg.token.clone(),
+        sessions_dir,
+        Some(app.clone()),
+    )
+    .await?;
     let port = running.port;
     discovery::write_manifest(app, port, &running.token)?;
     state.set_running(running);

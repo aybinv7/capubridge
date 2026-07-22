@@ -257,3 +257,13 @@ pub struct ReadRecordingDbParams {
     #[serde(default)]
     pub limit: Option<i64>,
 }
+
+/// Parameters for `select_target` — drive the app UI to select + connect a
+/// CDP target so the frontend has a live connection (e.g. before recording).
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SelectTargetParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id to select and connect, from `list_targets`.
+    pub target_id: String,
+}

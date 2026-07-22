@@ -66,6 +66,7 @@ pub async fn start(
     port: u16,
     token: String,
     sessions_dir: std::path::PathBuf,
+    app: Option<tauri::AppHandle>,
 ) -> Result<RunningServer, String> {
     // Default config already restricts Host to loopback; keep stateful mode for
     // client reconnection support.
@@ -79,12 +80,14 @@ pub async fn start(
     let factory_registry = registry.clone();
     let factory_captures = captures.clone();
     let factory_sessions_dir = sessions_dir.clone();
+    let factory_app = app.clone();
     let service = StreamableHttpService::new(
         move || {
             Ok(CapuBridgeTools::new(
                 factory_registry.clone(),
                 factory_captures.clone(),
                 factory_sessions_dir.clone(),
+                factory_app.clone(),
             ))
         },
         Arc::new(LocalSessionManager::default()),
@@ -134,6 +137,7 @@ mod tests {
             0,
             auth::generate_token(),
             std::env::temp_dir(),
+            None,
         )
             .await
             .expect("server should start");
@@ -196,6 +200,7 @@ mod tests {
             0,
             auth::generate_token(),
             std::env::temp_dir(),
+            None,
         )
             .await
             .expect("server should start");

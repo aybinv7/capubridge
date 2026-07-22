@@ -169,6 +169,7 @@ export const IPC_COMMAND_NAMES = [
   "mcp_set_enabled",
   "mcp_set_port",
   "mcp_regenerate_token",
+  "mcp_bridge_respond",
 ] as const satisfies readonly IpcCommandName[];
 
 type MissingCommand = Exclude<IpcCommandName, (typeof IPC_COMMAND_NAMES)[number]>;
