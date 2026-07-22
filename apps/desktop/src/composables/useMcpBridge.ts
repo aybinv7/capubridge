@@ -1,7 +1,10 @@
 import { invokeCommand, listenEvent } from "@/runtime/ipc/client";
 import { useTargetsStore } from "@/stores/targets.store";
+import { useRecordingStore } from "@/stores/recording.store";
 import { useCDP } from "./useCDP";
+import { useRecordingSession } from "./useRecordingSession";
 import type { McpBridgeRequestEvent } from "@/runtime/ipc/events";
+import type { RecordingConfig } from "@/types/replay.types";
 
 /**
  * Frontend half of the MCP → frontend bridge (see `mcp/bridge.rs`). The MCP
@@ -12,6 +15,8 @@ import type { McpBridgeRequestEvent } from "@/runtime/ipc/events";
  */
 export function useMcpBridge() {
   const targetsStore = useTargetsStore();
+  const recordingStore = useRecordingStore();
+  const recording = useRecordingSession();
   const { connectToTarget } = useCDP();
 
   async function selectTarget(payload: unknown): Promise<unknown> {
@@ -38,8 +43,48 @@ export function useMcpBridge() {
     };
   }
 
+  async function startRecording(payload: unknown): Promise<unknown> {
+    if (recordingStore.isRecording) {
+      throw new Error(`Already recording (session ${recordingStore.sessionId ?? "?"})`);
+    }
+    if (!targetsStore.selectedTarget) {
+      throw new Error("No target selected — call select_target first");
+    }
+
+    const config = payload as RecordingConfig;
+    await recording.start(config);
+
+    if (recordingStore.errorMessage) {
+      throw new Error(recordingStore.errorMessage);
+    }
+    if (!recordingStore.isRecording) {
+      throw new Error("Recording did not start");
+    }
+    return { started: true, sessionId: recordingStore.sessionId };
+  }
+
+  async function stopRecording(): Promise<unknown> {
+    if (!recordingStore.isRecording) {
+      return { stopped: false, reason: "No recording in progress" };
+    }
+    const filePath = await recording.stop();
+    return { stopped: true, filePath };
+  }
+
+  function recordingStatus(): Promise<unknown> {
+    return Promise.resolve({
+      recording: recordingStore.isRecording,
+      phase: recordingStore.phase,
+      sessionId: recordingStore.sessionId,
+      startedAt: recordingStore.startedAt,
+    });
+  }
+
   const handlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     select_target: selectTarget,
+    start_recording: startRecording,
+    stop_recording: stopRecording,
+    recording_status: recordingStatus,
   };
 
   async function handleRequest(event: McpBridgeRequestEvent): Promise<void> {

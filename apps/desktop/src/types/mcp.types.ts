@@ -129,6 +129,22 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     description: "Inspect a recording's captured database state at a point on the timeline.",
     readOnly: true,
   },
+  {
+    name: "start_recording",
+    description:
+      "Start a replay recording on the connected target (via the app UI). Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "stop_recording",
+    description: "Stop the recording in progress and finalize the session file.",
+    readOnly: false,
+  },
+  {
+    name: "get_recording_status",
+    description: "Whether a recording is in progress in the app UI.",
+    readOnly: true,
+  },
 ] as const;
 
 /** Status of the embedded MCP server, mirrored from the Rust `McpStatus`. */

@@ -70,6 +70,30 @@ struct BridgeRequestEvent {
     payload: Value,
 }
 
+/// Bring the CapuBridge window to the foreground (show + unminimize + focus).
+///
+/// Bridge actions run in the frontend WebView, which the OS can suspend while
+/// the window is hidden or minimized — so a bridge request to a
+/// backgrounded window would just time out. Every bridge call surfaces the
+/// window first so the frontend is live to service it. Best-effort: any step
+/// failing is logged, not fatal (the request still goes out).
+fn bring_window_to_front(app: &tauri::AppHandle) {
+    let window = app
+        .get_webview_window("main")
+        .or_else(|| app.webview_windows().into_values().next());
+    let Some(window) = window else {
+        log::warn!("[mcp] no app window to bring to front for a bridge request");
+        return;
+    };
+    let _ = window.unminimize();
+    if let Err(error) = window.show() {
+        log::warn!("[mcp] failed to show app window: {error}");
+    }
+    if let Err(error) = window.set_focus() {
+        log::warn!("[mcp] failed to focus app window: {error}");
+    }
+}
+
 /// Emit a bridge request to the frontend and await its response, with a
 /// timeout that maps a silent (no-window) frontend to a clear error.
 pub async fn call(
@@ -77,6 +101,9 @@ pub async fn call(
     action: &str,
     payload: Value,
 ) -> Result<Value, String> {
+    // Surface the window so its WebView is active to handle the request.
+    bring_window_to_front(app);
+
     let bridge = app.state::<FrontendBridge>();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
     let rx = bridge.register(request_id.clone());

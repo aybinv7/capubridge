@@ -200,11 +200,13 @@ impl ServerHandler for CapuBridgeTools {
                  sessions, read_recording opens one (manifest + track index + database \
                  sources), read_recording_track pages through a track's timestamped events \
                  (rrweb DOM / network / console / perf), and read_recording_db scrubs the \
-                 recorded database state to any timeline position. To connect the app UI to a \
-                 target (the precondition for recording), select_target drives the app window \
-                 to select + connect a CDP target by serial + target_id. Tools that drive the \
-                 app UI (select_target) require the CapuBridge window to be open and return a \
-                 clear error if it isn't.",
+                 recorded database state to any timeline position. To capture a NEW session: \
+                 select_target (serial + target_id) connects the app UI to a target, then \
+                 start_recording begins capture (DOM+network+console by default; perf/databases \
+                 opt-in), stop_recording finalizes and returns the .capu path, and \
+                 get_recording_status reports progress. These four tools drive the app UI, so \
+                 they require the CapuBridge window to be open (it's brought to the foreground \
+                 automatically) and return a clear error if it isn't.",
             )
     }
 }

@@ -267,3 +267,43 @@ pub struct SelectTargetParams {
     /// Target id to select and connect, from `list_targets`.
     pub target_id: String,
 }
+
+/// Parameters for `start_recording` — start a replay recording in the app UI
+/// on the currently selected+connected target. Track flags default to a
+/// lightweight DOM+network+console capture; heavier tracks are opt-in.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct StartRecordingParams {
+    /// Human-readable label for the session (default "AI recording").
+    #[serde(default)]
+    pub label: Option<String>,
+    /// Capture DOM (rrweb) — the visual replay track. Default true.
+    #[serde(default)]
+    pub rrweb: Option<bool>,
+    /// Capture network requests. Default true.
+    #[serde(default)]
+    pub network: Option<bool>,
+    /// Capture console output. Default true.
+    #[serde(default)]
+    pub console: Option<bool>,
+    /// Capture performance metrics. Default false (heavier).
+    #[serde(default)]
+    pub perf: Option<bool>,
+    /// Capture database snapshots/changes. Default false (heavier). When true,
+    /// enable the specific db tracks below.
+    #[serde(default)]
+    pub databases: Option<bool>,
+    /// Capture localStorage changes (requires databases). Default false.
+    #[serde(default)]
+    pub local_storage: Option<bool>,
+    /// Capture IndexedDB changes (requires databases). Default false.
+    #[serde(default)]
+    pub indexed_db: Option<bool>,
+    /// Reload the target page first for a clean rrweb DOM snapshot. Disruptive
+    /// (reloads the live page); default false.
+    #[serde(default)]
+    pub reload_target: Option<bool>,
+    /// Must be `true` to actually start recording (it acts on the live app,
+    /// and reload_target reloads the page).
+    #[serde(default)]
+    pub confirm: bool,
+}
