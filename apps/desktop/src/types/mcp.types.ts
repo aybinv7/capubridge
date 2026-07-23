@@ -130,6 +130,12 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     readOnly: true,
   },
   {
+    name: "query_recording",
+    description:
+      "Filter a recording track (network/console/…) and correlate across tracks by timestamp.",
+    readOnly: true,
+  },
+  {
     name: "start_recording",
     description:
       "Start a replay recording on the connected target (via the app UI). Requires confirm: true.",

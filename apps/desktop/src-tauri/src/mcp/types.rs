@@ -307,3 +307,56 @@ pub struct StartRecordingParams {
     #[serde(default)]
     pub confirm: bool,
 }
+
+/// Parameters for `query_recording` — filter one track of a saved session and
+/// optionally correlate matches against another track by a timestamp window.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct QueryRecordingParams {
+    /// Absolute path to the `.capu` session file (from `list_recordings`).
+    pub file_path: String,
+    /// Track to filter: network, console, rrweb, perf, or databases.
+    pub track: String,
+    /// Network: minimum HTTP status (e.g. 400 for errors). Events without a
+    /// status (failed/no-response) do not match a numeric threshold.
+    #[serde(default)]
+    pub min_status: Option<i64>,
+    /// Network: maximum HTTP status.
+    #[serde(default)]
+    pub max_status: Option<i64>,
+    /// Network: case-insensitive substring match on the request URL.
+    #[serde(default)]
+    pub url_pattern: Option<String>,
+    /// Network: case-insensitive exact match on resource type (e.g. XHR, Fetch).
+    #[serde(default)]
+    pub resource_type: Option<String>,
+    /// Network: case-insensitive exact match on HTTP method.
+    #[serde(default)]
+    pub method: Option<String>,
+    /// Console: case-insensitive exact match on level (error, warning, log, ...).
+    #[serde(default)]
+    pub level: Option<String>,
+    /// Only include events at or after this ms offset from the recording start.
+    #[serde(default)]
+    pub start_ms: Option<i64>,
+    /// Only include events at or before this ms offset.
+    #[serde(default)]
+    pub end_ms: Option<i64>,
+    /// Max matches to return (default 50, clamped to 200). Results are compact
+    /// projections, not full payloads — set verbose for full data.
+    #[serde(default)]
+    pub limit: Option<u32>,
+    /// Matches to skip (default 0).
+    #[serde(default)]
+    pub offset: Option<u32>,
+    /// Return each event's full `data` instead of the compact projection.
+    /// Off by default — network bodies/headers are large.
+    #[serde(default)]
+    pub verbose: Option<bool>,
+    /// Correlate each match against this other track (e.g. query network with
+    /// correlate_track=console to see console output around each request).
+    #[serde(default)]
+    pub correlate_track: Option<String>,
+    /// Correlation window in ms on either side of a match (default 500).
+    #[serde(default)]
+    pub correlate_window_ms: Option<i64>,
+}

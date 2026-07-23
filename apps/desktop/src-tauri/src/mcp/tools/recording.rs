@@ -13,7 +13,10 @@ use rmcp::{tool, tool_router, ErrorData};
 use super::{ok_json, CapuBridgeTools};
 use crate::commands::recording::{list_sessions_in, read_session_from};
 use crate::commands::recording_db;
-use crate::mcp::types::{ReadRecordingDbParams, ReadRecordingParams, ReadRecordingTrackParams};
+use crate::mcp::recording_query::{self, Filter};
+use crate::mcp::types::{
+    QueryRecordingParams, ReadRecordingDbParams, ReadRecordingParams, ReadRecordingTrackParams,
+};
 
 const TRACK_NAMES: [&str; 5] = ["rrweb", "network", "console", "perf", "databases"];
 
@@ -72,7 +75,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "read_recording_track",
-        description = "Page through one event track of a saved recording. track is one of rrweb, network, console, perf, databases. Each event carries a timestamp, so this is the recorded timeline for that track. Supports offset (default 0) and limit (default 100, max 500). Get file_path from list_recordings and track names from read_recording. Read-only.",
+        description = "Page through one event track of a saved recording in raw order. track is one of rrweb, network, console, perf, databases. Each event carries a timestamp, so this is the recorded timeline for that track. Supports offset (default 0) and limit (default 100, max 500). To FILTER (by status/url/level/time) or CORRELATE across tracks instead of paging raw events, prefer query_recording — a raw network track can be huge. Get file_path from list_recordings and track names from read_recording. Read-only.",
         annotations(read_only_hint = true)
     )]
     async fn read_recording_track(
@@ -162,6 +165,107 @@ impl CapuBridgeTools {
             }
         }
     }
+
+    #[tool(
+        name = "query_recording",
+        description = "Search one track of a saved recording with filters and optional cross-track correlation — the way to inspect a recording without dumping whole tracks. Filter network by min_status/max_status (e.g. min_status=400 for failures), url_pattern (substring), resource_type, method; console by level; any track by start_ms/end_ms. Results are COMPACT projections (network drops bodies/headers; set verbose=true for full data), paged with limit (default 50, max 200) and offset. Set correlate_track (e.g. query track=network with correlate_track=console) to attach that track's events within correlate_window_ms (default 500) of each match — e.g. console errors around a failed request — so you don't hand-align timestamps across separate dumps. Read-only.",
+        annotations(read_only_hint = true)
+    )]
+    async fn query_recording(
+        &self,
+        Parameters(QueryRecordingParams {
+            file_path,
+            track,
+            min_status,
+            max_status,
+            url_pattern,
+            resource_type,
+            method,
+            level,
+            start_ms,
+            end_ms,
+            limit,
+            offset,
+            verbose,
+            correlate_track,
+            correlate_window_ms,
+        }): Parameters<QueryRecordingParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        if !TRACK_NAMES.contains(&track.as_str()) {
+            return Err(ErrorData::invalid_params(
+                format!("Unknown track '{track}'. Valid tracks: {}", TRACK_NAMES.join(", ")),
+                None,
+            ));
+        }
+        if let Some(ct) = &correlate_track {
+            if !TRACK_NAMES.contains(&ct.as_str()) {
+                return Err(ErrorData::invalid_params(
+                    format!("Unknown correlate_track '{ct}'. Valid tracks: {}", TRACK_NAMES.join(", ")),
+                    None,
+                ));
+            }
+        }
+
+        let read_cache_dir = self.sessions_dir.join("read_cache");
+        let contents = read_session_from(&file_path, &read_cache_dir)
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+
+        let filter = Filter {
+            min_status,
+            max_status,
+            url_substr: url_pattern,
+            resource_type,
+            method,
+            level,
+            start_ms,
+            end_ms,
+        };
+        let verbose = verbose.unwrap_or(false);
+        let limit = limit.unwrap_or(50).clamp(1, 200) as usize;
+        let offset = offset.unwrap_or(0) as usize;
+
+        let events = recording_query::parse_track(contents.tracks.get(&track).map_or("", |s| s));
+        let matched: Vec<&recording_query::Event> =
+            events.iter().filter(|event| recording_query::matches(event, &filter)).collect();
+        let total = matched.len();
+
+        // Correlation source (parsed once, compact-projected per match).
+        let correlate = correlate_track.as_deref().map(|ct| {
+            let window = correlate_window_ms.unwrap_or(500);
+            let source = recording_query::parse_track(contents.tracks.get(ct).map_or("", |s| s));
+            (ct.to_string(), window, source)
+        });
+
+        let results: Vec<serde_json::Value> = matched
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|event| {
+                let mut projected = recording_query::project(&track, event, verbose);
+                if let Some((ct, window, source)) = &correlate {
+                    let near: Vec<serde_json::Value> = recording_query::correlate(event.t, source, *window)
+                        .iter()
+                        .map(|other| recording_query::project(ct, other, false))
+                        .collect();
+                    if let Some(map) = projected.as_object_mut() {
+                        map.insert("correlated".to_string(), serde_json::json!(near));
+                    }
+                }
+                projected
+            })
+            .collect();
+
+        let returned = results.len();
+        ok_json(&serde_json::json!({
+            "track": track,
+            "totalMatched": total,
+            "offset": offset,
+            "returned": returned,
+            "truncated": offset + returned < total,
+            "correlateTrack": correlate_track,
+            "results": results,
+        }))
+    }
 }
 
 #[cfg(test)]
@@ -204,6 +308,53 @@ mod tests {
             .read_recording(Parameters(ReadRecordingParams {
                 file_path: "C:/nonexistent/session.capu".into(),
             }))
+            .await;
+        assert!(result.is_err());
+    }
+
+    fn query_params(track: &str, correlate: Option<&str>) -> QueryRecordingParams {
+        QueryRecordingParams {
+            file_path: "does-not-matter".into(),
+            track: track.into(),
+            min_status: None,
+            max_status: None,
+            url_pattern: None,
+            resource_type: None,
+            method: None,
+            level: None,
+            start_ms: None,
+            end_ms: None,
+            limit: None,
+            offset: None,
+            verbose: None,
+            correlate_track: correlate.map(str::to_string),
+            correlate_window_ms: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn query_recording_rejects_unknown_track() {
+        let result = tools()
+            .query_recording(Parameters(query_params("not-a-track", None)))
+            .await;
+        assert!(result.expect_err("bad track").message.contains("Unknown track"));
+    }
+
+    #[tokio::test]
+    async fn query_recording_rejects_unknown_correlate_track() {
+        let result = tools()
+            .query_recording(Parameters(query_params("network", Some("bogus"))))
+            .await;
+        assert!(result
+            .expect_err("bad correlate track")
+            .message
+            .contains("Unknown correlate_track"));
+    }
+
+    #[tokio::test]
+    async fn query_recording_missing_file_errors() {
+        let result = tools()
+            .query_recording(Parameters(query_params("network", None)))
             .await;
         assert!(result.is_err());
     }

@@ -148,7 +148,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "read_network",
-        description = "Read captured network requests for a connected WebView target. Capture starts on the first call for a target; that first call waits briefly (up to ~500ms) for initial data, but may still return few or no requests if nothing is in flight — call again after triggering activity to see more. Bounded to the most recent 200 requests. Get target_id from list_targets. The target's app must be in the foreground to produce new requests (a backgrounded app can be frozen by Android — see evaluate_js's description). Read-only.",
+        description = "Read captured network requests for a connected WebView target. Capture starts on the first call for a target; that first call waits briefly (up to ~500ms) for initial data, but may still return few or no requests if nothing is in flight — call again after triggering activity to see more. Bounded to the most recent 200 requests. Get target_id from list_targets. The target's app must be in the foreground to produce new requests (a backgrounded app can be frozen by Android — see evaluate_js's description). Scope caveat: this is CDP's Network domain, so it sees only the WebView's own fetch/XHR — NOT traffic from native HTTP plugins (e.g. Capacitor's @capacitor/http / CapacitorHttp), which bypass the WebView. If a request seems missing, it likely went through native HTTP; a full recording (which can capture more) or on-device inspection is the fallback. Read-only.",
         annotations(read_only_hint = true)
     )]
     async fn read_network(

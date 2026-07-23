@@ -200,7 +200,11 @@ impl ServerHandler for CapuBridgeTools {
                  sessions, read_recording opens one (manifest + track index + database \
                  sources), read_recording_track pages through a track's timestamped events \
                  (rrweb DOM / network / console / perf), and read_recording_db scrubs the \
-                 recorded database state to any timeline position. To capture a NEW session: \
+                 recorded database state to any timeline position. To find something specific \
+                 in a recording, prefer query_recording over paging raw tracks: it filters \
+                 (network by status/url/type, console by level, any track by time) and can \
+                 correlate matches against another track by timestamp window (e.g. console \
+                 errors around a failed request) — a raw network track can be megabytes. To capture a NEW session: \
                  select_target (serial + target_id) connects the app UI to a target, then \
                  start_recording begins capture (DOM+network+console by default; perf/databases \
                  opt-in), stop_recording finalizes and returns the .capu path, and \
