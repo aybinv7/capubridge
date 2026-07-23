@@ -176,7 +176,10 @@ impl ServerHandler for CapuBridgeTools {
                  item inside a WebView, prefer click_element (CSS selector and/or visible text) \
                  over tap: it targets the DOM element directly and reports found: false instead \
                  of silently missing, whereas a physical tap at the wrong screen coordinate \
-                 reports success even when it hit nothing. shell_command runs an arbitrary \
+                 reports success even when it hit nothing. For a long-press on a WebView element, \
+                 use long_press (same selector/text targeting) rather than swipe with identical \
+                 start/end coordinates — that fake is unreliable and can hit Android's \
+                 status-bar gesture zone near the top of the screen. shell_command runs an arbitrary \
                  command verbatim — prefer the specific tools \
                  (tap/swipe/input_text/press_key/launch_app) when they cover what's needed, and \
                  review the command carefully before confirming.\n\n\

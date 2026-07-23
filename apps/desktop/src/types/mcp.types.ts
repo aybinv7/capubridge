@@ -49,6 +49,12 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     readOnly: false,
   },
   {
+    name: "long_press",
+    description:
+      "Long-press a DOM element by CSS selector and/or visible text (held pointer events, not a physical gesture). Requires confirm: true.",
+    readOnly: false,
+  },
+  {
     name: "read_storage",
     description: "Read localStorage, sessionStorage, or IndexedDB from a target.",
     readOnly: true,

@@ -120,7 +120,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "swipe",
-        description = "Swipe the device screen from (x1, y1) to (x2, y2) over duration_ms (default 300). Both endpoints are rejected with an error if outside the current screen bounds (get bounds from get_screen_size). Requires confirm: true.",
+        description = "Swipe the device screen from (x1, y1) to (x2, y2) over duration_ms (default 300). Both endpoints are rejected with an error if outside the current screen bounds (get bounds from get_screen_size). Do not use identical start/end coordinates to fake a long-press — that's an unreliable gesture stand-in and near the top of the screen can land in Android's status-bar zone and pull down the notification shade; use long_press instead for a WebView element. Requires confirm: true.",
         annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn swipe(

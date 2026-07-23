@@ -66,6 +66,29 @@ pub struct ClickElementParams {
     pub confirm: bool,
 }
 
+/// Parameters for long-pressing a DOM element in a connected WebView target.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LongPressParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id from `list_targets`.
+    pub target_id: String,
+    /// CSS selector to find the element. Tried before `text` if both given.
+    #[serde(default)]
+    pub selector: Option<String>,
+    /// Visible text to find the element by, if `selector` doesn't match (or
+    /// is omitted). Same matching rules as `click_element`.
+    #[serde(default)]
+    pub text: Option<String>,
+    /// How long to hold the press, in milliseconds (default 600).
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
+    /// Must be `true` to actually perform the long press; this mutates a live
+    /// page. Call without confirm first to see this requirement echoed back.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
 /// Which storage to read via `read_storage`.
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
