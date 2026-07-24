@@ -6,12 +6,14 @@
 //! [`commands::mcp_set_enabled`].
 
 pub mod auth;
+pub mod bridge;
 pub mod capture;
 pub mod cdp;
 pub mod commands;
 pub mod config;
 pub mod device_control;
 pub mod discovery;
+pub mod recording_query;
 pub mod server;
 pub mod tools;
 pub mod types;

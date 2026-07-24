@@ -120,7 +120,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "swipe",
-        description = "Swipe the device screen from (x1, y1) to (x2, y2) over duration_ms (default 300). Both endpoints are rejected with an error if outside the current screen bounds (get bounds from get_screen_size). Requires confirm: true.",
+        description = "Swipe the device screen from (x1, y1) to (x2, y2) over duration_ms (default 300). Both endpoints are rejected with an error if outside the current screen bounds (get bounds from get_screen_size). Do not use identical start/end coordinates to fake a long-press — that's an unreliable gesture stand-in and near the top of the screen can land in Android's status-bar zone and pull down the notification shade; use long_press instead for a WebView element. Requires confirm: true.",
         annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn swipe(
@@ -158,7 +158,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "input_text",
-        description = "Type text into the currently focused field on the device. Requires confirm: true.",
+        description = "Type text into the currently focused field on the device (sends `adb shell input text`). Requires confirm: true. Caveat: if the field was focused by click_element's synthetic DOM click (not a real tap), the soft keyboard may never open and this silently no-ops — the text goes nowhere with no error. Focus the field with a physical tap first, then verify with take_screenshot. For WebView inputs, setting the element's value via evaluate_js and dispatching an input event is often more reliable than IME text.",
         annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn input_text(

@@ -8,9 +8,12 @@
 //! via `ToolRouter`'s `Add` impl.
 
 mod device;
+mod frontend;
+mod recording;
 mod session;
 mod web;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use base64::{engine::general_purpose, Engine as _};
@@ -82,18 +85,45 @@ async fn warm_up_new_capture_session(is_new: bool, mut has_data: impl FnMut() ->
 pub struct CapuBridgeTools {
     registry: Arc<SessionRegistry>,
     captures: Arc<CaptureRegistry>,
+    /// The app's recording sessions directory, used by the recording tools to
+    /// list and read saved `.capu` sessions.
+    sessions_dir: PathBuf,
+    /// Handle to the running app, used by frontend-bridge tools (e.g.
+    /// `select_target`) to emit bridge requests. `None` in unit tests, where no
+    /// real `AppHandle` exists; those tools then return a clear error.
+    app: Option<tauri::AppHandle>,
     tool_router: rmcp::handler::server::tool::ToolRouter<Self>,
 }
 
 impl CapuBridgeTools {
-    pub fn new(registry: Arc<SessionRegistry>, captures: Arc<CaptureRegistry>) -> Self {
+    pub fn new(
+        registry: Arc<SessionRegistry>,
+        captures: Arc<CaptureRegistry>,
+        sessions_dir: PathBuf,
+        app: Option<tauri::AppHandle>,
+    ) -> Self {
         Self {
             registry,
             captures,
+            sessions_dir,
+            app,
             tool_router: Self::session_tool_router()
                 + Self::web_tool_router()
-                + Self::device_tool_router(),
+                + Self::device_tool_router()
+                + Self::recording_tool_router()
+                + Self::frontend_tool_router(),
         }
+    }
+
+    /// Emit a bridge request to the frontend and await its JSON result, or a
+    /// clear error if there's no app handle (unit tests) or no window responds.
+    async fn bridge_call(&self, action: &str, payload: serde_json::Value) -> Result<serde_json::Value, ErrorData> {
+        let app = self.app.as_ref().ok_or_else(|| {
+            ErrorData::internal_error("This tool requires the running app and is unavailable here", None)
+        })?;
+        super::bridge::call(app, action, payload)
+            .await
+            .map_err(|error| ErrorData::internal_error(error, None))
     }
 
     /// Resolve `target_id` on `serial` against the live session, or an error
@@ -146,7 +176,10 @@ impl ServerHandler for CapuBridgeTools {
                  item inside a WebView, prefer click_element (CSS selector and/or visible text) \
                  over tap: it targets the DOM element directly and reports found: false instead \
                  of silently missing, whereas a physical tap at the wrong screen coordinate \
-                 reports success even when it hit nothing. shell_command runs an arbitrary \
+                 reports success even when it hit nothing. For a long-press on a WebView element, \
+                 use long_press (same selector/text targeting) rather than swipe with identical \
+                 start/end coordinates — that fake is unreliable and can hit Android's \
+                 status-bar gesture zone near the top of the screen. shell_command runs an arbitrary \
                  command verbatim — prefer the specific tools \
                  (tap/swipe/input_text/press_key/launch_app) when they cover what's needed, and \
                  review the command carefully before confirming.\n\n\
@@ -164,7 +197,23 @@ impl ServerHandler for CapuBridgeTools {
                  window.Capacitor.Plugins.CapacitorSQLite.query({ database, statement, values }) \
                  — the database must be the plugin's LOGICAL name (e.g. 'presalio'), not the \
                  on-disk filename (e.g. 'presalioSQLite.db'); the wrong name silently returns \
-                 empty results instead of erroring.",
+                 empty results instead of erroring.\n\n\
+                 To inspect PAST sessions the user recorded in CapuBridge's Replay feature (no \
+                 device needed, no foreground requirement): list_recordings shows saved \
+                 sessions, read_recording opens one (manifest + track index + database \
+                 sources), read_recording_track pages through a track's timestamped events \
+                 (rrweb DOM / network / console / perf), and read_recording_db scrubs the \
+                 recorded database state to any timeline position. To find something specific \
+                 in a recording, prefer query_recording over paging raw tracks: it filters \
+                 (network by status/url/type, console by level, any track by time) and can \
+                 correlate matches against another track by timestamp window (e.g. console \
+                 errors around a failed request) — a raw network track can be megabytes. To capture a NEW session: \
+                 select_target (serial + target_id) connects the app UI to a target, then \
+                 start_recording begins capture (DOM+network+console by default; perf/databases \
+                 opt-in), stop_recording finalizes and returns the .capu path, and \
+                 get_recording_status reports progress. These four tools drive the app UI, so \
+                 they require the CapuBridge window to be open (it's brought to the foreground \
+                 automatically) and return a clear error if it isn't.",
             )
     }
 }
@@ -177,9 +226,16 @@ mod fixture {
     use crate::mcp::capture::CaptureRegistry;
     use crate::session::registry::SessionRegistry;
 
-    /// Shared test fixture used by every submodule's test suite.
+    /// Shared test fixture used by every submodule's test suite. Recording
+    /// tools that need a real sessions directory take one explicitly in their
+    /// own tests; this default points at the OS temp dir.
     pub fn tools() -> CapuBridgeTools {
-        CapuBridgeTools::new(Arc::new(SessionRegistry::new()), CaptureRegistry::new())
+        CapuBridgeTools::new(
+            Arc::new(SessionRegistry::new()),
+            CaptureRegistry::new(),
+            std::env::temp_dir(),
+            None,
+        )
     }
 }
 

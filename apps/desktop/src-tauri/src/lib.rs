@@ -108,6 +108,7 @@ pub fn run() {
         .manage(session_registry.clone())
         .manage(MockServerManager::new())
         .manage(McpServerState::new())
+        .manage(mcp::bridge::FrontendBridge::new())
         .manage(PendingUpdate::default())
         .plugin(tauri_plugin_shell::init())
         .setup(move |app| {
@@ -150,7 +151,22 @@ pub fn run() {
                         }
                     };
                     if cfg.enabled && cfg.has_token() {
-                        match mcp::server::start(registry, cfg.port, cfg.token.clone()).await {
+                        let sessions_dir = match commands::recording::sessions_dir(&app_handle) {
+                            Ok(dir) => dir,
+                            Err(error) => {
+                                log::warn!("[mcp] failed to resolve sessions dir: {error}");
+                                return;
+                            }
+                        };
+                        match mcp::server::start(
+                            registry,
+                            cfg.port,
+                            cfg.token.clone(),
+                            sessions_dir,
+                            Some(app_handle.clone()),
+                        )
+                        .await
+                        {
                             Ok(running) => {
                                 let port = running.port;
                                 app_handle.state::<McpServerState>().set_running(running);
@@ -308,6 +324,7 @@ pub fn run() {
             mcp_set_enabled,
             mcp_set_port,
             mcp_regenerate_token,
+            mcp::bridge::mcp_bridge_respond,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

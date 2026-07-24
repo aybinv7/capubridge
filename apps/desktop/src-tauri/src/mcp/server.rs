@@ -57,10 +57,16 @@ async fn require_bearer(State(token): State<Arc<str>>, request: Request, next: N
 }
 
 /// Start the MCP server on `port` (0 = ephemeral) with the given bearer token.
+///
+/// `sessions_dir` is the app's recording sessions directory, resolved by the
+/// caller (which holds the `AppHandle`) and passed in as a plain path so the
+/// tool layer stays free of Tauri handles and remains unit-testable.
 pub async fn start(
     registry: Arc<SessionRegistry>,
     port: u16,
     token: String,
+    sessions_dir: std::path::PathBuf,
+    app: Option<tauri::AppHandle>,
 ) -> Result<RunningServer, String> {
     // Default config already restricts Host to loopback; keep stateful mode for
     // client reconnection support.
@@ -73,8 +79,17 @@ pub async fn start(
     let captures = super::capture::CaptureRegistry::new();
     let factory_registry = registry.clone();
     let factory_captures = captures.clone();
+    let factory_sessions_dir = sessions_dir.clone();
+    let factory_app = app.clone();
     let service = StreamableHttpService::new(
-        move || Ok(CapuBridgeTools::new(factory_registry.clone(), factory_captures.clone())),
+        move || {
+            Ok(CapuBridgeTools::new(
+                factory_registry.clone(),
+                factory_captures.clone(),
+                factory_sessions_dir.clone(),
+                factory_app.clone(),
+            ))
+        },
         Arc::new(LocalSessionManager::default()),
         config,
     );
@@ -117,7 +132,13 @@ mod tests {
 
     #[tokio::test]
     async fn server_binds_and_enforces_bearer_token() {
-        let running = start(Arc::new(SessionRegistry::new()), 0, auth::generate_token())
+        let running = start(
+            Arc::new(SessionRegistry::new()),
+            0,
+            auth::generate_token(),
+            std::env::temp_dir(),
+            None,
+        )
             .await
             .expect("server should start");
         let url = format!("http://127.0.0.1:{}/mcp", running.port);
@@ -174,7 +195,13 @@ mod tests {
         // is built. Server side is unaffected.
         let _ = rustls::crypto::ring::default_provider().install_default();
 
-        let running = start(Arc::new(SessionRegistry::new()), 0, auth::generate_token())
+        let running = start(
+            Arc::new(SessionRegistry::new()),
+            0,
+            auth::generate_token(),
+            std::env::temp_dir(),
+            None,
+        )
             .await
             .expect("server should start");
         let uri = format!("http://127.0.0.1:{}/mcp", running.port);

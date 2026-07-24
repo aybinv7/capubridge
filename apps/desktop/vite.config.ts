@@ -13,7 +13,11 @@ export default defineConfig({
   },
   server: {
     watch: {
-      ignored: ["**/pnpm-workspace.yaml", "**/pnpm-lock.yaml"],
+      // Never watch the Rust build output. Chokidar recursively walks the
+      // project, and watching src-tauri/target/**/app.exe races with `cargo`
+      // rewriting it during `tauri dev`, throwing EBUSY and killing the dev
+      // server. Vite has no reason to watch compiled Rust artifacts anyway.
+      ignored: ["**/pnpm-workspace.yaml", "**/pnpm-lock.yaml", "**/src-tauri/target/**"],
     },
   },
 });

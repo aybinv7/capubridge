@@ -66,6 +66,29 @@ pub struct ClickElementParams {
     pub confirm: bool,
 }
 
+/// Parameters for long-pressing a DOM element in a connected WebView target.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LongPressParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id from `list_targets`.
+    pub target_id: String,
+    /// CSS selector to find the element. Tried before `text` if both given.
+    #[serde(default)]
+    pub selector: Option<String>,
+    /// Visible text to find the element by, if `selector` doesn't match (or
+    /// is omitted). Same matching rules as `click_element`.
+    #[serde(default)]
+    pub text: Option<String>,
+    /// How long to hold the press, in milliseconds (default 600).
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
+    /// Must be `true` to actually perform the long press; this mutates a live
+    /// page. Call without confirm first to see this requirement echoed back.
+    #[serde(default)]
+    pub confirm: bool,
+}
+
 /// Which storage to read via `read_storage`.
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -212,4 +235,151 @@ pub struct ShellCommandParams {
     /// code on the device — review the command carefully before confirming.
     #[serde(default)]
     pub confirm: bool,
+}
+
+/// Parameters for `read_recording` — read one saved session's overview.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadRecordingParams {
+    /// Absolute path to the `.capu` session file (from `list_recordings`).
+    pub file_path: String,
+}
+
+/// Parameters for `read_recording_track` — page through one event track.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadRecordingTrackParams {
+    /// Absolute path to the `.capu` session file (from `list_recordings`).
+    pub file_path: String,
+    /// Track name: one of rrweb, network, console, perf, databases.
+    pub track: String,
+    /// Events to skip from the start of the track (default 0).
+    #[serde(default)]
+    pub offset: Option<u32>,
+    /// Max events to return (default 100, clamped to 500).
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+/// Parameters for `read_recording_db` — inspect recorded database state at a
+/// point on the session timeline.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadRecordingDbParams {
+    /// Path to the recording's extracted SQLite database, from
+    /// `read_recording`'s `databasePath` field.
+    pub database_path: String,
+    /// Timeline position in milliseconds (relative to the recording start).
+    pub position_ms: i64,
+    /// A specific source id (from `read_recording`'s `databaseSources`) to read
+    /// rows for. Omit to get a per-source change summary at this position
+    /// (the timeline overview) instead of rows.
+    #[serde(default)]
+    pub source_id: Option<String>,
+    /// Rows to skip when `source_id` is given (default 0).
+    #[serde(default)]
+    pub offset: Option<i64>,
+    /// Max rows to return when `source_id` is given (default 100, max 500).
+    #[serde(default)]
+    pub limit: Option<i64>,
+}
+
+/// Parameters for `select_target` — drive the app UI to select + connect a
+/// CDP target so the frontend has a live connection (e.g. before recording).
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SelectTargetParams {
+    /// ADB serial of the device that owns the target.
+    pub serial: String,
+    /// Target id to select and connect, from `list_targets`.
+    pub target_id: String,
+}
+
+/// Parameters for `start_recording` — start a replay recording in the app UI
+/// on the currently selected+connected target. Track flags default to a
+/// lightweight DOM+network+console capture; heavier tracks are opt-in.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct StartRecordingParams {
+    /// Human-readable label for the session (default "AI recording").
+    #[serde(default)]
+    pub label: Option<String>,
+    /// Capture DOM (rrweb) — the visual replay track. Default true.
+    #[serde(default)]
+    pub rrweb: Option<bool>,
+    /// Capture network requests. Default true.
+    #[serde(default)]
+    pub network: Option<bool>,
+    /// Capture console output. Default true.
+    #[serde(default)]
+    pub console: Option<bool>,
+    /// Capture performance metrics. Default false (heavier).
+    #[serde(default)]
+    pub perf: Option<bool>,
+    /// Capture database snapshots/changes. Default false (heavier). When true,
+    /// enable the specific db tracks below.
+    #[serde(default)]
+    pub databases: Option<bool>,
+    /// Capture localStorage changes (requires databases). Default false.
+    #[serde(default)]
+    pub local_storage: Option<bool>,
+    /// Capture IndexedDB changes (requires databases). Default false.
+    #[serde(default)]
+    pub indexed_db: Option<bool>,
+    /// Reload the target page first for a clean rrweb DOM snapshot. Disruptive
+    /// (reloads the live page); default false.
+    #[serde(default)]
+    pub reload_target: Option<bool>,
+    /// Must be `true` to actually start recording (it acts on the live app,
+    /// and reload_target reloads the page).
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+/// Parameters for `query_recording` — filter one track of a saved session and
+/// optionally correlate matches against another track by a timestamp window.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct QueryRecordingParams {
+    /// Absolute path to the `.capu` session file (from `list_recordings`).
+    pub file_path: String,
+    /// Track to filter: network, console, rrweb, perf, or databases.
+    pub track: String,
+    /// Network: minimum HTTP status (e.g. 400 for errors). Events without a
+    /// status (failed/no-response) do not match a numeric threshold.
+    #[serde(default)]
+    pub min_status: Option<i64>,
+    /// Network: maximum HTTP status.
+    #[serde(default)]
+    pub max_status: Option<i64>,
+    /// Network: case-insensitive substring match on the request URL.
+    #[serde(default)]
+    pub url_pattern: Option<String>,
+    /// Network: case-insensitive exact match on resource type (e.g. XHR, Fetch).
+    #[serde(default)]
+    pub resource_type: Option<String>,
+    /// Network: case-insensitive exact match on HTTP method.
+    #[serde(default)]
+    pub method: Option<String>,
+    /// Console: case-insensitive exact match on level (error, warning, log, ...).
+    #[serde(default)]
+    pub level: Option<String>,
+    /// Only include events at or after this ms offset from the recording start.
+    #[serde(default)]
+    pub start_ms: Option<i64>,
+    /// Only include events at or before this ms offset.
+    #[serde(default)]
+    pub end_ms: Option<i64>,
+    /// Max matches to return (default 50, clamped to 200). Results are compact
+    /// projections, not full payloads — set verbose for full data.
+    #[serde(default)]
+    pub limit: Option<u32>,
+    /// Matches to skip (default 0).
+    #[serde(default)]
+    pub offset: Option<u32>,
+    /// Return each event's full `data` instead of the compact projection.
+    /// Off by default — network bodies/headers are large.
+    #[serde(default)]
+    pub verbose: Option<bool>,
+    /// Correlate each match against this other track (e.g. query network with
+    /// correlate_track=console to see console output around each request).
+    #[serde(default)]
+    pub correlate_track: Option<String>,
+    /// Correlation window in ms on either side of a match (default 500).
+    #[serde(default)]
+    pub correlate_window_ms: Option<i64>,
 }

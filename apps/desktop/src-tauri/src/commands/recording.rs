@@ -256,10 +256,20 @@ pub async fn recording_list_sessions(
     app: tauri::AppHandle,
 ) -> Result<Vec<RustSessionListItem>, String> {
     let sessions_dir = sessions_dir(&app)?;
+    list_sessions_in(&sessions_dir)
+}
+
+/// Scan `sessions_dir` for `.capu` recordings and return their manifests,
+/// newest first. Split out of the Tauri command so it can be called with a
+/// plain path (e.g. by the MCP recording tools) and unit-tested with a
+/// tempdir.
+pub(crate) fn list_sessions_in(
+    sessions_dir: &std::path::Path,
+) -> Result<Vec<RustSessionListItem>, String> {
     let mut items = Vec::new();
 
     let entries =
-        fs::read_dir(&sessions_dir).map_err(|e| format!("Failed to read sessions dir: {}", e))?;
+        fs::read_dir(sessions_dir).map_err(|e| format!("Failed to read sessions dir: {}", e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -406,8 +416,20 @@ pub async fn recording_read_session(
     app: tauri::AppHandle,
     file_path: String,
 ) -> Result<RustSessionContents, String> {
+    let read_cache_dir = sessions_dir(&app)?.join("read_cache");
+    read_session_from(&file_path, &read_cache_dir)
+}
+
+/// Read a `.capu` session archive: manifest, event tracks, and (if present)
+/// the recorded SQLite database extracted into `read_cache_dir`. Split out of
+/// the Tauri command so it can be called with plain paths (e.g. by the MCP
+/// recording tools) and unit-tested without an `AppHandle`.
+pub(crate) fn read_session_from(
+    file_path: &str,
+    read_cache_dir: &std::path::Path,
+) -> Result<RustSessionContents, String> {
     let file =
-        std::fs::File::open(&file_path).map_err(|e| format!("Cannot open session file: {}", e))?;
+        std::fs::File::open(file_path).map_err(|e| format!("Cannot open session file: {}", e))?;
 
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Invalid .capu file: {}", e))?;
 
@@ -446,9 +468,9 @@ pub async fn recording_read_session(
 
     let database_path = match archive.by_name("artifacts/databases.sqlite") {
         Ok(mut database_file) => {
-            let cache_dir = sessions_dir(&app)?.join("read_cache");
-            fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
-            let stem = PathBuf::from(&file_path)
+            let cache_dir = read_cache_dir;
+            fs::create_dir_all(cache_dir).map_err(|e| e.to_string())?;
+            let stem = PathBuf::from(file_path)
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("session")
@@ -527,5 +549,51 @@ mod tests {
             .read_to_string(&mut track)
             .expect("track read");
         assert_eq!(track, "{\"t\":0,\"data\":{}}\n");
+    }
+
+    /// Build a `.capu` at `dir/<id>.capu` with a single network track.
+    fn write_capu(dir: &std::path::Path, id: &str) -> std::path::PathBuf {
+        let work_dir = dir.join(format!("{id}_work"));
+        let tracks_dir = work_dir.join("tracks");
+        fs::create_dir_all(&tracks_dir).expect("tracks directory");
+        fs::write(tracks_dir.join("network.ndjson"), "{\"t\":0,\"data\":{}}\n")
+            .expect("track write");
+        let output = dir.join(format!("{id}.capu"));
+        write_session_archive(&work_dir, &output, &manifest(id)).expect("archive write");
+        output
+    }
+
+    #[test]
+    fn list_sessions_in_reads_manifests_from_capu_files() {
+        let temp = tempdir().expect("temp directory");
+        write_capu(temp.path(), "session_one");
+
+        let items = list_sessions_in(temp.path()).expect("list");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].session_id, "session_one");
+        assert_eq!(items[0].label, "Test");
+    }
+
+    #[test]
+    fn list_sessions_in_empty_dir_is_empty() {
+        let temp = tempdir().expect("temp directory");
+        assert!(list_sessions_in(temp.path()).expect("list").is_empty());
+    }
+
+    #[test]
+    fn read_session_from_returns_manifest_and_tracks() {
+        let temp = tempdir().expect("temp directory");
+        let capu = write_capu(temp.path(), "session_two");
+        let cache = temp.path().join("read_cache");
+
+        let contents =
+            read_session_from(&capu.to_string_lossy(), &cache).expect("read session");
+        assert!(contents.manifest_json.contains("session_two"));
+        assert_eq!(
+            contents.tracks.get("network").map(String::as_str),
+            Some("{\"t\":0,\"data\":{}}\n")
+        );
+        // No database artifact was written, so there's no extracted DB path.
+        assert!(contents.database_path.is_none());
     }
 }

@@ -269,6 +269,74 @@ pub fn click_element_script(selector: Option<&str>, text: Option<&str>) -> Strin
     )
 }
 
+/// Expression that finds a DOM element the same way [`click_element_script`]
+/// does, then holds a synthetic long-press on it for `duration_ms` before
+/// releasing — a `pointerdown`/`touchstart` immediately, then (after the
+/// delay) `pointerup`/`touchend` plus a synthetic `contextmenu` event, since
+/// that's what most touch UIs (including Android WebView defaults) listen
+/// for to distinguish a long-press from a tap.
+///
+/// Exists because a physical `adb shell input swipe` with identical start/end
+/// coordinates is an unreliable long-press stand-in: on top of not being
+/// guaranteed to register as a "hold" by the page's gesture handling, a press
+/// near the top of the screen can land in Android's status-bar gesture zone
+/// and pull down the notification shade instead of hitting the app at all.
+/// Dispatching directly on the element sidesteps both problems the same way
+/// `click_element` sidesteps tap's coordinate-miss problem.
+pub fn long_press_script(selector: Option<&str>, text: Option<&str>, duration_ms: u32) -> String {
+    let selector_js = selector.map(js_string_literal).unwrap_or_else(|| "null".to_string());
+    let text_js = text.map(js_string_literal).unwrap_or_else(|| "null".to_string());
+    format!(
+        "new Promise((resolve) => {{ \
+            const selector = {selector_js}; \
+            const text = {text_js}; \
+            function matchesText(el) {{ \
+                const t = (el.textContent || '').trim(); \
+                return !!t && (t === text || t.includes(text)); \
+            }} \
+            let el = null; \
+            if (selector) {{ el = document.querySelector(selector); }} \
+            if (!el && text) {{ \
+                const candidates = Array.from(document.querySelectorAll( \
+                    'button, a, [role=\"button\"], [role=\"tab\"], input[type=\"button\"], input[type=\"submit\"], li, span, div' \
+                )); \
+                let best = null; \
+                let bestCount = Infinity; \
+                for (const candidate of candidates) {{ \
+                    if (!matchesText(candidate)) continue; \
+                    const count = candidate.querySelectorAll('*').length; \
+                    if (count < bestCount) {{ bestCount = count; best = candidate; }} \
+                }} \
+                el = best; \
+            }} \
+            if (!el) {{ resolve({{ found: false }}); return; }} \
+            el.scrollIntoView({{ block: 'center', inline: 'center' }}); \
+            const rect = el.getBoundingClientRect(); \
+            const opts = {{ \
+                bubbles: true, \
+                cancelable: true, \
+                view: window, \
+                clientX: rect.x + rect.width / 2, \
+                clientY: rect.y + rect.height / 2, \
+            }}; \
+            el.dispatchEvent(new MouseEvent('pointerdown', opts)); \
+            el.dispatchEvent(new MouseEvent('mousedown', opts)); \
+            setTimeout(() => {{ \
+                el.dispatchEvent(new MouseEvent('pointerup', opts)); \
+                el.dispatchEvent(new MouseEvent('mouseup', opts)); \
+                el.dispatchEvent(new MouseEvent('contextmenu', opts)); \
+                resolve({{ \
+                    found: true, \
+                    tag: el.tagName.toLowerCase(), \
+                    text: (el.textContent || '').trim().slice(0, 120), \
+                    id: el.id || null, \
+                    className: (typeof el.className === 'string' ? el.className : null), \
+                }}); \
+            }}, {duration_ms}); \
+        }})"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -403,5 +471,42 @@ mod tests {
                 "missing dispatched event: {event}"
             );
         }
+    }
+
+    #[test]
+    fn long_press_script_embeds_selector_and_duration() {
+        let script = long_press_script(Some("button.item"), None, 800);
+        assert!(script.contains("\"button.item\""));
+        assert!(script.contains("const text = null;"));
+        assert!(script.contains("}, 800);"));
+    }
+
+    #[test]
+    fn long_press_script_holds_down_before_releasing() {
+        let script = long_press_script(Some("button"), None, 600);
+        let down_pos = script.find("'pointerdown'").expect("pointerdown present");
+        let timeout_pos = script.find("setTimeout").expect("setTimeout present");
+        let up_pos = script.find("'pointerup'").expect("pointerup present");
+        assert!(down_pos < timeout_pos, "press must start before the delay");
+        assert!(timeout_pos < up_pos, "release must happen inside the delayed callback");
+        assert!(script.contains("'contextmenu'"), "must fire contextmenu on release");
+    }
+
+    #[test]
+    fn long_press_script_reports_not_found_without_resolving_via_timeout() {
+        // found:false must resolve immediately (no setTimeout in that branch),
+        // so a missing element doesn't make the caller wait out duration_ms.
+        let script = long_press_script(Some("button"), None, 5000);
+        let not_found = script.find("resolve({ found: false })").expect("not-found branch present");
+        let timeout_call = script.find("setTimeout").expect("setTimeout present");
+        assert!(not_found < timeout_call, "not-found resolve must precede the setTimeout branch");
+    }
+
+    #[test]
+    fn long_press_script_escapes_quotes_in_selector_and_text() {
+        let script = long_press_script(Some(r#"[data-x="y"]"#), Some("it's \"quoted\""), 600);
+        assert!(script.contains(r#"[data-x=\"y\"]"#));
+        assert!(script.contains("it's"));
+        let _: Value = serde_json::json!(script);
     }
 }

@@ -32,6 +32,12 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     readOnly: false,
   },
   {
+    name: "select_target",
+    description:
+      "Select + connect a CDP target in the app UI (needed before recording). Requires the app window open.",
+    readOnly: false,
+  },
+  {
     name: "evaluate_js",
     description: "Run JavaScript in a connected WebView target via CDP. Requires confirm: true.",
     readOnly: false,
@@ -40,6 +46,12 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     name: "click_element",
     description:
       "Click a DOM element by CSS selector and/or visible text (more reliable than tap for WebView UI). Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "long_press",
+    description:
+      "Long-press a DOM element by CSS selector and/or visible text (held pointer events, not a physical gesture). Requires confirm: true.",
     readOnly: false,
   },
   {
@@ -102,6 +114,48 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     name: "shell_command",
     description: "Run an arbitrary adb shell command. High risk. Requires confirm: true.",
     readOnly: false,
+  },
+  {
+    name: "list_recordings",
+    description: "List saved replay recordings (.capu sessions).",
+    readOnly: true,
+  },
+  {
+    name: "read_recording",
+    description: "Read a saved recording's manifest, track index, and database sources.",
+    readOnly: true,
+  },
+  {
+    name: "read_recording_track",
+    description: "Page through one event track (rrweb/network/console/perf) of a recording.",
+    readOnly: true,
+  },
+  {
+    name: "read_recording_db",
+    description: "Inspect a recording's captured database state at a point on the timeline.",
+    readOnly: true,
+  },
+  {
+    name: "query_recording",
+    description:
+      "Filter a recording track (network/console/…) and correlate across tracks by timestamp.",
+    readOnly: true,
+  },
+  {
+    name: "start_recording",
+    description:
+      "Start a replay recording on the connected target (via the app UI). Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "stop_recording",
+    description: "Stop the recording in progress and finalize the session file.",
+    readOnly: false,
+  },
+  {
+    name: "get_recording_status",
+    description: "Whether a recording is in progress in the app UI.",
+    readOnly: true,
   },
 ] as const;
 

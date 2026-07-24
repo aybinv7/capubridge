@@ -1,4 +1,4 @@
-//! Web/CDP tools: `evaluate_js`, `click_element`, `read_storage`,
+//! Web/CDP tools: `evaluate_js`, `click_element`, `long_press`, `read_storage`,
 //! `read_console`, `read_network`.
 
 use rmcp::handler::server::wrapper::Parameters;
@@ -7,7 +7,9 @@ use rmcp::{tool, tool_router, ErrorData};
 
 use super::{ok_json, warm_up_new_capture_session, CapuBridgeTools};
 use crate::mcp::cdp;
-use crate::mcp::types::{ClickElementParams, EvaluateJsParams, ReadStorageParams, StorageKind, TargetParams};
+use crate::mcp::types::{
+    ClickElementParams, EvaluateJsParams, LongPressParams, ReadStorageParams, StorageKind, TargetParams,
+};
 
 #[tool_router(router = web_tool_router, vis = "pub(crate)")]
 impl CapuBridgeTools {
@@ -70,6 +72,42 @@ impl CapuBridgeTools {
 
         let target = self.find_target(&serial, &target_id)?;
         let script = cdp::click_element_script(selector.as_deref(), text.as_deref());
+        let envelope = cdp::evaluate(&target.web_socket_debugger_url, &script)
+            .await
+            .map_err(|error| ErrorData::internal_error(error, None))?;
+        let value = cdp::evaluate_value(&envelope).map_err(|error| {
+            ErrorData::internal_error(format!("Expression threw: {error}"), None)
+        })?;
+        ok_json(&value)
+    }
+
+    #[tool(
+        name = "long_press",
+        description = "Long-press a DOM element in a connected WebView target by CSS selector and/or visible text, using synthetic pointer events held for duration_ms (default 600) then released with a contextmenu event — the same DOM-targeting approach as click_element, not a physical screen gesture. Prefer this over faking a long-press with swipe (identical start/end coordinates): a physical touch near the top of the screen can land in Android's status-bar gesture zone and pull down the notification shade instead of hitting the app, and there's no guarantee the page's gesture handling even registers a held swipe as a 'long press' the way it does a real touch-and-hold. Provide selector and/or text (selector is tried first); at least one is required. Reports found: false if no element matched, so there's no silent miss. Get target_id from list_targets. Requires the target's app to be in the foreground, same as evaluate_js. Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn long_press(
+        &self,
+        Parameters(LongPressParams {
+            serial,
+            target_id,
+            selector,
+            text,
+            duration_ms,
+            confirm,
+        }): Parameters<LongPressParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::require_confirm(confirm, "long_press")?;
+        if selector.is_none() && text.is_none() {
+            return Err(ErrorData::invalid_params(
+                "long_press requires at least one of selector or text".to_string(),
+                None,
+            ));
+        }
+
+        let target = self.find_target(&serial, &target_id)?;
+        let duration_ms = duration_ms.unwrap_or(600);
+        let script = cdp::long_press_script(selector.as_deref(), text.as_deref(), duration_ms);
         let envelope = cdp::evaluate(&target.web_socket_debugger_url, &script)
             .await
             .map_err(|error| ErrorData::internal_error(error, None))?;
@@ -148,7 +186,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "read_network",
-        description = "Read captured network requests for a connected WebView target. Capture starts on the first call for a target; that first call waits briefly (up to ~500ms) for initial data, but may still return few or no requests if nothing is in flight — call again after triggering activity to see more. Bounded to the most recent 200 requests. Get target_id from list_targets. The target's app must be in the foreground to produce new requests (a backgrounded app can be frozen by Android — see evaluate_js's description). Read-only.",
+        description = "Read captured network requests for a connected WebView target. Capture starts on the first call for a target; that first call waits briefly (up to ~500ms) for initial data, but may still return few or no requests if nothing is in flight — call again after triggering activity to see more. Bounded to the most recent 200 requests. Get target_id from list_targets. The target's app must be in the foreground to produce new requests (a backgrounded app can be frozen by Android — see evaluate_js's description). Scope caveat: this is CDP's Network domain, so it sees only the WebView's own fetch/XHR — NOT traffic from native HTTP plugins (e.g. Capacitor's @capacitor/http / CapacitorHttp), which bypass the WebView. If a request seems missing, it likely went through native HTTP; a full recording (which can capture more) or on-device inspection is the fallback. Read-only.",
         annotations(read_only_hint = true)
     )]
     async fn read_network(
@@ -235,6 +273,54 @@ mod tests {
                 target_id: "no-such-target".into(),
                 selector: Some("button".into()),
                 text: None,
+                confirm: true,
+            }))
+            .await;
+        let error = result.expect_err("unknown target must error, not attempt a connection");
+        assert!(error.message.contains("no-such-target"));
+    }
+
+    #[tokio::test]
+    async fn long_press_without_confirm_is_rejected() {
+        let result = tools()
+            .long_press(Parameters(LongPressParams {
+                serial: "does-not-matter".into(),
+                target_id: "does-not-matter".into(),
+                selector: Some("button".into()),
+                text: None,
+                duration_ms: None,
+                confirm: false,
+            }))
+            .await;
+        let error = result.expect_err("must be rejected without confirm");
+        assert!(error.message.contains("confirm: true"));
+    }
+
+    #[tokio::test]
+    async fn long_press_requires_selector_or_text() {
+        let result = tools()
+            .long_press(Parameters(LongPressParams {
+                serial: "does-not-matter".into(),
+                target_id: "does-not-matter".into(),
+                selector: None,
+                text: None,
+                duration_ms: None,
+                confirm: true,
+            }))
+            .await;
+        let error = result.expect_err("neither selector nor text given");
+        assert!(error.message.contains("selector") && error.message.contains("text"));
+    }
+
+    #[tokio::test]
+    async fn long_press_with_confirm_and_selector_but_unknown_target_errors() {
+        let result = tools()
+            .long_press(Parameters(LongPressParams {
+                serial: "does-not-exist".into(),
+                target_id: "no-such-target".into(),
+                selector: Some("button".into()),
+                text: None,
+                duration_ms: None,
                 confirm: true,
             }))
             .await;
