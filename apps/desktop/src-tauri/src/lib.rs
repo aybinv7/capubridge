@@ -16,6 +16,7 @@ use commands::chrome::{
     chrome_activate_target, chrome_fetch_targets, chrome_find, chrome_is_running, chrome_kill_all,
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
 };
+use commands::emulator::{emulator_launch_avd, emulator_list_avds};
 use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
     adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
@@ -251,6 +252,8 @@ pub fn run() {
             chrome_open_devtools_url,
             chrome_open_target,
             chrome_activate_target,
+            emulator_list_avds,
+            emulator_launch_avd,
             adb_mirror_scrcpy_start,
             adb_mirror_scrcpy_stop,
             adb_mirror_launch_scrcpy,

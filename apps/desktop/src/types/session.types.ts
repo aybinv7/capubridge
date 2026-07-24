@@ -31,11 +31,14 @@ export type SessionDeviceStatus =
   | "detached"
   | "rescue";
 
+export type SessionDeviceKind = "physical" | "emulator";
+
 export interface SessionDeviceSnapshot {
   serial: string;
   model: string;
   product: string;
   transportId: string;
+  deviceKind: SessionDeviceKind;
   connectionType: string;
   status: SessionDeviceStatus;
   temperature: SessionTemperature;

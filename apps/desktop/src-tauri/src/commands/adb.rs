@@ -105,8 +105,17 @@ pub struct AdbDevice {
     pub model: String,
     pub product: String,
     pub transport_id: String,
+    pub device_kind: DeviceKind,
     pub connection_type: String,
     pub status: String,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum DeviceKind {
+    #[default]
+    Physical,
+    Emulator,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -152,6 +161,14 @@ fn connection_type_from_serial(serial: &str) -> String {
         "wifi".to_string()
     } else {
         "usb".to_string()
+    }
+}
+
+fn device_kind_from_serial(serial: &str) -> DeviceKind {
+    if serial.starts_with("emulator-") {
+        DeviceKind::Emulator
+    } else {
+        DeviceKind::Physical
     }
 }
 
@@ -639,6 +656,7 @@ fn parse_device_long(dl: &DeviceLong) -> AdbDevice {
         model,
         product,
         transport_id: dl.transport_id.to_string(),
+        device_kind: device_kind_from_serial(&dl.identifier),
         connection_type,
         status,
     }
@@ -1919,6 +1937,12 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![(3000, 4000), (5000, 6000)]
         );
+    }
+
+    #[test]
+    fn device_kind_distinguishes_android_emulator_serials() {
+        assert_eq!(device_kind_from_serial("emulator-5554"), DeviceKind::Emulator);
+        assert_eq!(device_kind_from_serial("R5CT12345AB"), DeviceKind::Physical);
     }
 
     #[test]

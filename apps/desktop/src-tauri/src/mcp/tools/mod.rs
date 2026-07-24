@@ -8,6 +8,7 @@
 //! via `ToolRouter`'s `Add` impl.
 
 mod device;
+mod emulator;
 mod frontend;
 mod recording;
 mod session;
@@ -111,7 +112,8 @@ impl CapuBridgeTools {
                 + Self::web_tool_router()
                 + Self::device_tool_router()
                 + Self::recording_tool_router()
-                + Self::frontend_tool_router(),
+                + Self::frontend_tool_router()
+                + Self::emulator_tool_router(),
         }
     }
 
@@ -167,7 +169,12 @@ impl ServerHandler for CapuBridgeTools {
                 "CapuBridge exposes a live Android WebView debugging session and device control. \
                  Call get_active_session first to see the active device and tracker status, \
                  then list_devices / list_targets to explore, and select_device to change the \
-                 active device. Read-only tools (read_storage, read_console, read_network, \
+                 active device. list_devices identifies deviceKind (physical or emulator) \
+                 separately from connectionType (USB or Wi-Fi); an Android Emulator that is \
+                 already running and visible to ADB can use the same tools as a physical device. \
+                 list_emulators finds installed AVDs that are not yet running; launch_emulator \
+                 opens one when explicitly confirmed, then list_devices shows it when ADB is ready. \
+                 Read-only tools (read_storage, read_console, read_network, \
                  list_packages, take_screenshot, get_screen_size) are safe to call freely; \
                  read_console/read_network start capturing on first call for a target, so call \
                  again after a moment to see accumulated data. evaluate_js, click_element, \

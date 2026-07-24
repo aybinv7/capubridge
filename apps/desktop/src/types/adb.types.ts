@@ -9,6 +9,7 @@ export interface ADBDevice {
   model: string;
   product: string;
   transportId: string;
+  deviceKind: "physical" | "emulator";
   connectionType: "usb" | "wifi";
   status: "online" | "offline" | "unauthorized" | "no-permissions";
   isStale?: boolean;

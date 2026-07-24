@@ -1,6 +1,7 @@
 pub mod adb;
 pub mod cdp_proxy;
 pub mod chrome;
+pub mod emulator;
 pub mod files;
 pub mod local_webview;
 pub mod mirror;

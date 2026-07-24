@@ -12,6 +12,7 @@ import {
   Plus,
   WifiOff,
   Monitor,
+  MonitorSmartphone,
   Crosshair,
   Trash2,
 } from "lucide-vue-next";
@@ -28,6 +29,7 @@ import type { CDPTarget } from "@/types/cdp.types";
 import AdbReversePopover from "@/components/layout/AdbReversePopover.vue";
 import { ChevronRight } from "lucide-vue-next";
 import AppIcon from "@/modules/devices/AppIcon.vue";
+import EmulatorLauncherPanel from "@/modules/devices/EmulatorLauncherPanel.vue";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: []; selectDevice: [serial: string] }>();
@@ -40,7 +42,7 @@ const localWebviewStore = useLocalWebviewStore();
 const mirrorStore = useMirrorStore();
 const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, pairDevice } = useAdb();
 
-type Panel = "device" | "local" | "connect";
+type Panel = "device" | "local" | "connect" | "emulators";
 const activePanel = ref<Panel>("device");
 const selectedSerial = ref<string | null>(null);
 const { getCachedPackage } = useAppPackages(selectedSerial);
@@ -587,6 +589,12 @@ watch(
                     {{ d.model || d.serial }}
                   </span>
                   <span
+                    v-if="d.deviceKind === 'emulator'"
+                    class="ml-auto rounded border border-info/25 bg-info/10 px-1.5 py-0.5 text-[9px] font-medium text-info"
+                  >
+                    Emulator
+                  </span>
+                  <span
                     v-if="d.isStale"
                     class="ml-auto text-[9px] px-1.5 py-0.5 rounded-full border border-border/20 bg-surface-2 text-muted-foreground/45"
                   >
@@ -611,6 +619,20 @@ watch(
             </div>
 
             <div class="px-2 pb-2 space-y-1 border-t border-border/15 pt-2">
+              <button
+                @click="activePanel = 'emulators'"
+                class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
+                :class="
+                  activePanel === 'emulators'
+                    ? 'bg-surface-2 border border-border/30'
+                    : 'hover:bg-surface-2/50 border border-transparent'
+                "
+              >
+                <div class="flex items-center gap-1.5 text-muted-foreground/40">
+                  <MonitorSmartphone :size="11" class="shrink-0" />
+                  <span class="text-[11px]">Launch emulator</span>
+                </div>
+              </button>
               <button
                 @click="activePanel = 'connect'"
                 class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
@@ -972,6 +994,10 @@ watch(
                   Add a URL to create a local child webview target.
                 </div>
               </div>
+            </template>
+
+            <template v-else-if="activePanel === 'emulators'">
+              <EmulatorLauncherPanel @launched="void handleRefreshDevices()" />
             </template>
 
             <!-- ── CONNECT NEW PANEL ── -->
