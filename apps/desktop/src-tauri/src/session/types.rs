@@ -1,4 +1,4 @@
-use crate::commands::adb::LogcatEntryPayload;
+use crate::commands::adb::{DeviceKind, LogcatEntryPayload};
 use crate::commands::perf::PerfMetrics;
 use serde::{Deserialize, Serialize};
 
@@ -47,6 +47,8 @@ pub struct SessionDeviceSnapshot {
     pub model: String,
     pub product: String,
     pub transport_id: String,
+    #[serde(default)]
+    pub device_kind: DeviceKind,
     pub connection_type: String,
     pub status: String,
     pub temperature: SessionTemperature,

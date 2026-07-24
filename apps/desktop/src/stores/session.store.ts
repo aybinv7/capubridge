@@ -39,6 +39,7 @@ function toAdbDevice(device: SessionDeviceSnapshot): ADBDevice {
     model: device.model,
     product: device.product,
     transportId: device.transportId,
+    deviceKind: device.deviceKind,
     connectionType: device.connectionType === "wifi" ? "wifi" : "usb",
     status: normalizeStatus(device.status),
     isStale: device.isStale,

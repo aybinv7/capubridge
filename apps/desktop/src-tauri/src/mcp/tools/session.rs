@@ -13,7 +13,7 @@ use crate::session::guards::require_online_session;
 impl CapuBridgeTools {
     #[tool(
         name = "get_active_session",
-        description = "Get the current CapuBridge session: the active device serial, ADB tracker status, and all known devices. Call this first to see what the user has selected.",
+        description = "Get the current CapuBridge session: the active device serial, ADB tracker status, and all known devices. Each device identifies its kind (physical or emulator) separately from its connection type (USB or Wi-Fi). Call this first to see what the user has selected.",
         annotations(read_only_hint = true)
     )]
     async fn get_active_session(&self) -> Result<CallToolResult, ErrorData> {
@@ -22,7 +22,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "list_devices",
-        description = "List every ADB device CapuBridge is tracking, with connection status, staleness, and which one is active.",
+        description = "List every ADB device CapuBridge is tracking, including local physical devices and Android Emulators. Each result has deviceKind (physical or emulator) and connectionType (USB or Wi-Fi), so choose by runtime type independently of how ADB reaches it. Emulators already running and visible to ADB are fully eligible for the same target discovery and device-control tools.",
         annotations(read_only_hint = true)
     )]
     async fn list_devices(&self) -> Result<CallToolResult, ErrorData> {

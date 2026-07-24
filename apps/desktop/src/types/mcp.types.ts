@@ -13,12 +13,12 @@ export interface McpToolInfo {
 export const MCP_TOOLS: readonly McpToolInfo[] = [
   {
     name: "get_active_session",
-    description: "The active device, tracker status, and all known devices.",
+    description: "The active device, tracker status, and device kind/connection details.",
     readOnly: true,
   },
   {
     name: "list_devices",
-    description: "Every tracked ADB device with connection status.",
+    description: "Physical devices and running Android Emulators, with device kind and ADB connection type.",
     readOnly: true,
   },
   {
@@ -29,6 +29,16 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
   {
     name: "select_device",
     description: "Set or clear the active device.",
+    readOnly: false,
+  },
+  {
+    name: "list_emulators",
+    description: "Installed Android Virtual Devices available to launch.",
+    readOnly: true,
+  },
+  {
+    name: "launch_emulator",
+    description: "Open an installed Android Virtual Device. Requires confirm: true.",
     readOnly: false,
   },
   {

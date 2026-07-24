@@ -63,6 +63,7 @@ fn to_session_device(
         model: device.model,
         product: device.product,
         transport_id: device.transport_id,
+        device_kind: device.device_kind,
         connection_type: device.connection_type,
         status: device.status,
         temperature: session_temperature(&device.serial, active_serial, false),

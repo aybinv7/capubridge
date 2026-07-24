@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { ADBDevice } from "@/types/adb.types";
-import { Usb, Wifi, XCircle } from "lucide-vue-next";
+import { MonitorSmartphone, Usb, Wifi, XCircle } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { useAdb } from "@/composables/useAdb";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -73,12 +73,18 @@ async function handleDisconnect(event: Event) {
   >
     <!-- Top row: model name + status badge -->
     <div class="flex items-center justify-between gap-2 mb-1.5">
-      <span
-        class="text-sm font-medium truncate text-foreground"
-        :class="{ 'text-foreground': props.isSelected }"
-      >
-        {{ props.device.model || props.device.serial }}
-      </span>
+      <div class="flex min-w-0 items-center gap-1.5">
+        <MonitorSmartphone v-if="props.device.deviceKind === 'emulator'" :size="13" class="shrink-0 text-info" />
+        <span class="truncate text-sm font-medium text-foreground">
+          {{ props.device.model || props.device.serial }}
+        </span>
+        <span
+          class="shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-medium"
+          :class="props.device.deviceKind === 'emulator' ? 'border-info/25 bg-info/10 text-info' : 'border-border/20 bg-surface-2 text-muted-foreground/45'"
+        >
+          {{ props.device.deviceKind === 'emulator' ? 'Emulator' : 'Physical' }}
+        </span>
+      </div>
       <span class="text-[10px] font-semibold shrink-0" :class="currentStatusClass">
         {{ currentStatusLabel }}
       </span>

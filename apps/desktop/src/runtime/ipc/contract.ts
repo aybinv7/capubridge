@@ -33,6 +33,8 @@ export type IpcArgsCommand = Exclude<IpcCommandName, IpcNoArgsCommand>;
 export type IpcCommandDefinition = IpcCommand<object | undefined, unknown>;
 
 export const IPC_COMMAND_NAMES = [
+  "emulator_list_avds",
+  "emulator_launch_avd",
   "session_list_devices",
   "session_get_registry_state",
   "session_refresh_devices",
