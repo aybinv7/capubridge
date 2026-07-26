@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useNetworkStore } from "@/modules/network/stores/useNetworkStore";
-import { useNetwork } from "@/composables/useNetwork";
 import { useMockServer } from "@/composables/useMockServer";
 import type { NetworkTypeFilter } from "@/types/network.types";
 
@@ -32,7 +31,6 @@ const TYPE_FILTERS: NetworkTypeFilter[] = [
 
 const HTTP_METHODS = ["All", "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
 
-useNetwork();
 useMockServer();
 
 const store = useNetworkStore();
@@ -85,6 +83,20 @@ function formatBytes(bytes: number): string {
         />
         <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/50" />
       </button>
+
+      <span
+        class="ml-1 rounded-full border px-2 py-0.5 font-mono text-[10px]"
+        :class="
+          store.captureStatus === 'live'
+            ? 'border-success/30 bg-success/10 text-success'
+            : store.captureStatus === 'error'
+              ? 'border-error/30 bg-error/10 text-error'
+              : 'border-border/40 bg-surface-3 text-muted-foreground'
+        "
+        :title="store.captureError ?? undefined"
+      >
+        {{ store.captureStatus }}
+      </span>
 
       <!-- Clear -->
       <button

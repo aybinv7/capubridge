@@ -18,6 +18,8 @@ interface CachedBody {
   bytes: number;
 }
 
+export type NetworkCaptureStatus = "idle" | "connecting" | "live" | "error";
+
 export const useNetworkStore = defineStore("network", () => {
   // Raw mutable data — not Vue-reactive directly; version counter drives updates
   const _entries = new Map<string, NetworkEntry>();
@@ -49,6 +51,9 @@ export const useNetworkStore = defineStore("network", () => {
   const searchScope = ref<"url" | "all">("url");
   const preserveLog = ref(true);
   const focusSearchTrigger = ref(0);
+  const captureStatus = ref<NetworkCaptureStatus>("idle");
+  const captureTargetId = ref<string | null>(null);
+  const captureError = ref<string | null>(null);
 
   // Derived
   const allEntries = computed<NetworkEntry[]>(() => {
@@ -274,6 +279,16 @@ export const useNetworkStore = defineStore("network", () => {
     focusSearchTrigger.value++;
   }
 
+  function setCaptureState(
+    status: NetworkCaptureStatus,
+    targetId: string | null,
+    error: string | null = null,
+  ) {
+    captureStatus.value = status;
+    captureTargetId.value = targetId;
+    captureError.value = error;
+  }
+
   return {
     isRecording,
     selectedId,
@@ -283,6 +298,9 @@ export const useNetworkStore = defineStore("network", () => {
     searchScope,
     preserveLog,
     focusSearchTrigger,
+    captureStatus,
+    captureTargetId,
+    captureError,
     allEntries,
     filteredEntries,
     selectedEntry,
@@ -298,5 +316,6 @@ export const useNetworkStore = defineStore("network", () => {
     clear,
     select,
     triggerFocusSearch,
+    setCaptureState,
   };
 });

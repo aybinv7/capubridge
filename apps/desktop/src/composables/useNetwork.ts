@@ -3,119 +3,165 @@ import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useNetworkStore } from "@/modules/network/stores/useNetworkStore";
 import { NetworkDomain } from "@capubridge/cdp-protocol";
+import type { CDPClient } from "@capubridge/cdp-protocol";
+import type { CDPTarget } from "@/types/cdp.types";
 import type { NetworkEntry, NetworkResourceType } from "@/types/network.types";
+
+const initialRetryDelay = 500;
+const maximumRetryDelay = 8_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
 export function useNetwork() {
   const store = useNetworkStore();
-  const { getClient } = useCDP();
+  const { getClient, connectToTarget, connectionStore } = useCDP();
   const targetsStore = useTargetsStore();
-
-  const targetId = computed(() => targetsStore.cdpTargetId);
+  const target = computed(() => {
+    const selected = targetsStore.selectedTarget;
+    return selected && targetsStore.cdpTargetId ? selected : null;
+  });
 
   let unsubscribers: Array<() => void> = [];
   let activeDomain: NetworkDomain | null = null;
+  let activeTargetId: string | null = null;
+  let bindingTargetId: string | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryDelay = initialRetryDelay;
+  let revision = 0;
 
-  async function startCapture() {
-    const client = getClient(targetId.value);
-    if (!client) return;
+  function clearRetry() {
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  }
 
-    const domain = new NetworkDomain(client);
-    activeDomain = domain;
+  async function clearBindings() {
+    for (const unsubscribe of unsubscribers) unsubscribe();
+    unsubscribers = [];
+    const domain = activeDomain;
+    activeDomain = null;
+    activeTargetId = null;
+    if (domain) {
+      await domain.disable().catch(() => undefined);
+    }
+  }
 
+  function scheduleRetry(nextTarget: CDPTarget) {
+    clearRetry();
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      if (targetsStore.selectedTarget?.id === nextTarget.id) {
+        void startCapture(nextTarget);
+      }
+    }, retryDelay);
+    retryDelay = Math.min(retryDelay * 2, maximumRetryDelay);
+  }
+
+  function attachListeners(client: CDPClient, domain: NetworkDomain, targetId: string) {
     unsubscribers = [
-      domain.onRequestWillBeSent((e) => {
-        if (!store.isRecording) return;
+      client.on("Page.frameNavigated", (payload) => {
+        if (activeTargetId !== targetId || store.preserveLog) return;
+        const params = isRecord(payload) ? payload : {};
+        const frame = isRecord(params.frame) ? params.frame : {};
+        if (!frame.parentId) {
+          store.clear();
+        }
+      }),
+      domain.onRequestWillBeSent((event) => {
+        if (activeTargetId !== targetId || !store.isRecording) return;
 
-        // Handle redirect — patch the existing entry, then add the new one
-        if (e.redirectResponse) {
-          store.patchEntry(e.requestId, {
-            httpStatus: e.redirectResponse.status,
-            statusText: e.redirectResponse.statusText,
+        if (event.redirectResponse) {
+          store.patchEntry(event.requestId, {
+            httpStatus: event.redirectResponse.status,
+            statusText: event.redirectResponse.statusText,
             state: "finished",
-            finishedTimestamp: e.timestamp,
+            finishedTimestamp: event.timestamp,
           });
         }
 
         const entry: NetworkEntry = {
-          requestId: e.requestId,
-          url: e.request.url,
-          method: e.request.method,
-          requestHeaders: e.request.headers,
-          hasPostData: !!e.request.hasPostData || !!e.request.postData,
+          requestId: event.requestId,
+          url: event.request.url,
+          method: event.request.method,
+          requestHeaders: event.request.headers,
+          hasPostData: !!event.request.hasPostData || !!event.request.postData,
           httpStatus: null,
           statusText: "",
           responseHeaders: {},
           mimeType: "",
           protocol: "",
           remoteAddress: "",
-          startedAt: e.wallTime * 1000,
-          startTimestamp: e.timestamp,
+          startedAt: event.wallTime * 1000,
+          startTimestamp: event.timestamp,
           responseTimestamp: null,
           finishedTimestamp: null,
           timing: null,
           transferSize: 0,
           state: "pending",
-          resourceType: (e.type as NetworkResourceType) ?? "Other",
+          resourceType: (event.type as NetworkResourceType) ?? "Other",
           fromDiskCache: false,
           fromServiceWorker: false,
           fromPrefetchCache: false,
-          initiatorType: e.initiator.type,
-          initiatorUrl: e.initiator.url,
-          initiatorLine: e.initiator.lineNumber,
+          initiatorType: event.initiator.type,
+          initiatorUrl: event.initiator.url,
+          initiatorLine: event.initiator.lineNumber,
           isWebSocket: false,
           wsFrameCount: 0,
         };
 
         store.addEntry(entry);
       }),
-
-      domain.onResponseReceived((e) => {
-        store.patchEntry(e.requestId, {
-          httpStatus: e.response.status,
-          statusText: e.response.statusText,
-          responseHeaders: e.response.headers,
-          mimeType: e.response.mimeType,
-          protocol: e.response.protocol ?? "",
-          remoteAddress: e.response.remoteIPAddress
-            ? `${e.response.remoteIPAddress}:${e.response.remotePort ?? ""}`
+      domain.onResponseReceived((event) => {
+        if (activeTargetId !== targetId) return;
+        store.patchEntry(event.requestId, {
+          httpStatus: event.response.status,
+          statusText: event.response.statusText,
+          responseHeaders: event.response.headers,
+          mimeType: event.response.mimeType,
+          protocol: event.response.protocol ?? "",
+          remoteAddress: event.response.remoteIPAddress
+            ? `${event.response.remoteIPAddress}:${event.response.remotePort ?? ""}`
             : "",
-          fromDiskCache: !!e.response.fromDiskCache,
-          fromServiceWorker: !!e.response.fromServiceWorker,
-          fromPrefetchCache: !!e.response.fromPrefetchCache,
-          timing: e.response.timing ?? null,
-          resourceType: (e.type as NetworkResourceType) ?? "Other",
-          responseTimestamp: e.timestamp,
-          state: e.response.fromDiskCache ? "cached" : "pending",
+          fromDiskCache: !!event.response.fromDiskCache,
+          fromServiceWorker: !!event.response.fromServiceWorker,
+          fromPrefetchCache: !!event.response.fromPrefetchCache,
+          timing: event.response.timing ?? null,
+          resourceType: (event.type as NetworkResourceType) ?? "Other",
+          responseTimestamp: event.timestamp,
+          state: event.response.fromDiskCache ? "cached" : "pending",
         });
       }),
-
-      domain.onLoadingFinished((e) => {
-        store.patchEntry(e.requestId, {
-          transferSize: e.encodedDataLength,
-          finishedTimestamp: e.timestamp,
+      domain.onLoadingFinished((event) => {
+        if (activeTargetId !== targetId) return;
+        store.patchEntry(event.requestId, {
+          transferSize: event.encodedDataLength,
+          finishedTimestamp: event.timestamp,
           state: "finished",
         });
       }),
-
-      domain.onLoadingFailed((e) => {
-        store.patchEntry(e.requestId, {
-          finishedTimestamp: e.timestamp,
+      domain.onLoadingFailed((event) => {
+        if (activeTargetId !== targetId) return;
+        store.patchEntry(event.requestId, {
+          finishedTimestamp: event.timestamp,
           state: "failed",
-          errorText: e.errorText,
-          canceled: e.canceled,
-          blocked: !!e.blockedReason,
+          errorText: event.errorText,
+          canceled: event.canceled,
+          blocked: !!event.blockedReason,
         });
       }),
-
-      domain.onRequestServedFromCache((e) => {
-        store.patchEntry(e.requestId, { state: "cached" });
+      domain.onRequestServedFromCache((event) => {
+        if (activeTargetId === targetId) {
+          store.patchEntry(event.requestId, { state: "cached" });
+        }
       }),
-
-      domain.onWebSocketCreated((e) => {
-        if (!store.isRecording) return;
-        const entry: NetworkEntry = {
-          requestId: e.requestId,
-          url: e.url,
+      domain.onWebSocketCreated((event) => {
+        if (activeTargetId !== targetId || !store.isRecording) return;
+        store.addEntry({
+          requestId: event.requestId,
+          url: event.url,
           method: "WS",
           requestHeaders: {},
           hasPostData: false,
@@ -125,8 +171,8 @@ export function useNetwork() {
           mimeType: "",
           protocol: "websocket",
           remoteAddress: "",
-          startedAt: e.timestamp * 1000,
-          startTimestamp: e.timestamp,
+          startedAt: event.timestamp * 1000,
+          startTimestamp: event.timestamp,
           responseTimestamp: null,
           finishedTimestamp: null,
           timing: null,
@@ -136,65 +182,131 @@ export function useNetwork() {
           fromDiskCache: false,
           fromServiceWorker: false,
           fromPrefetchCache: false,
-          initiatorType: e.initiator?.type ?? "other",
-          initiatorUrl: e.initiator?.url,
+          initiatorType: event.initiator?.type ?? "other",
+          initiatorUrl: event.initiator?.url,
           isWebSocket: true,
           wsFrameCount: 0,
-        };
-        store.addEntry(entry);
-      }),
-
-      domain.onWebSocketHandshakeResponseReceived((e) => {
-        store.patchEntry(e.requestId, {
-          httpStatus: e.response.status,
-          statusText: e.response.statusText,
-          responseHeaders: e.response.headers,
-          state: "finished",
-          responseTimestamp: e.timestamp,
         });
       }),
-
-      domain.onWebSocketClosed((e) => {
-        store.patchEntry(e.requestId, {
-          finishedTimestamp: e.timestamp,
+      domain.onWebSocketHandshakeResponseReceived((event) => {
+        if (activeTargetId !== targetId) return;
+        store.patchEntry(event.requestId, {
+          httpStatus: event.response.status,
+          statusText: event.response.statusText,
+          responseHeaders: event.response.headers,
+          state: "finished",
+          responseTimestamp: event.timestamp,
+        });
+      }),
+      domain.onWebSocketClosed((event) => {
+        if (activeTargetId !== targetId) return;
+        store.patchEntry(event.requestId, {
+          finishedTimestamp: event.timestamp,
           state: "finished",
         });
       }),
-
-      domain.onWebSocketFrameSent((e) => {
-        const existing = store.getEntry(e.requestId);
-        if (existing) store.patchEntry(e.requestId, { wsFrameCount: existing.wsFrameCount + 1 });
+      domain.onWebSocketFrameSent((event) => {
+        if (activeTargetId !== targetId) return;
+        const existing = store.getEntry(event.requestId);
+        if (existing) {
+          store.patchEntry(event.requestId, { wsFrameCount: existing.wsFrameCount + 1 });
+        }
       }),
-
-      domain.onWebSocketFrameReceived((e) => {
-        const existing = store.getEntry(e.requestId);
-        if (existing) store.patchEntry(e.requestId, { wsFrameCount: existing.wsFrameCount + 1 });
+      domain.onWebSocketFrameReceived((event) => {
+        if (activeTargetId !== targetId) return;
+        const existing = store.getEntry(event.requestId);
+        if (existing) {
+          store.patchEntry(event.requestId, { wsFrameCount: existing.wsFrameCount + 1 });
+        }
       }),
     ];
-
-    await domain.enable({ maxPostDataSize: 65_536 });
   }
 
-  async function stopCapture() {
-    for (const unsub of unsubscribers) unsub();
-    unsubscribers = [];
-    if (activeDomain) {
-      await activeDomain.disable().catch((error) => {
-        console.warn("Failed to disable network capture domain", error);
-      });
-      activeDomain = null;
+  async function startCapture(nextTarget = target.value) {
+    if (!nextTarget) {
+      await stopCapture();
+      return;
+    }
+    if (bindingTargetId === nextTarget.id) return;
+    if (
+      activeTargetId === nextTarget.id &&
+      store.captureStatus === "live" &&
+      getClient(nextTarget.id)
+    ) {
+      return;
+    }
+
+    clearRetry();
+    const attempt = ++revision;
+    bindingTargetId = nextTarget.id;
+    store.setCaptureState("connecting", nextTarget.id);
+
+    try {
+      await clearBindings();
+      const client = getClient(nextTarget.id) ?? (await connectToTarget(nextTarget));
+      if (attempt !== revision || targetsStore.selectedTarget?.id !== nextTarget.id) return;
+
+      const domain = new NetworkDomain(client);
+      activeDomain = domain;
+      activeTargetId = nextTarget.id;
+      attachListeners(client, domain, nextTarget.id);
+      const [networkEnable] = await Promise.allSettled([
+        domain.enable({
+          maxTotalBufferSize: 16 * 1024 * 1024,
+          maxResourceBufferSize: 2 * 1024 * 1024,
+          maxPostDataSize: 64 * 1024,
+        }),
+        client.send("Page.enable", {}),
+      ]);
+      if (networkEnable.status === "rejected") {
+        throw networkEnable.reason;
+      }
+
+      if (attempt !== revision) return;
+      retryDelay = initialRetryDelay;
+      store.setCaptureState("live", nextTarget.id);
+    } catch (error) {
+      if (attempt !== revision) return;
+      await clearBindings();
+      const message = error instanceof Error ? error.message : String(error);
+      store.setCaptureState("error", nextTarget.id, message);
+      scheduleRetry(nextTarget);
+    } finally {
+      if (attempt === revision) {
+        bindingTargetId = null;
+      }
     }
   }
 
-  // Auto start/stop when target changes
+  async function stopCapture() {
+    revision += 1;
+    bindingTargetId = null;
+    clearRetry();
+    await clearBindings();
+    store.setCaptureState("idle", null);
+  }
+
   watch(
-    targetId,
-    async (id, prevId) => {
-      if (prevId) {
-        await stopCapture();
-        if (!store.preserveLog) store.clear();
+    () =>
+      [
+        target.value?.id ?? null,
+        target.value?.webSocketDebuggerUrl ?? null,
+        target.value
+          ? (connectionStore.connections.get(target.value.id)?.status ?? "disconnected")
+          : "disconnected",
+      ] as const,
+    ([targetId], previous) => {
+      const previousTargetId = previous?.[0] ?? null;
+      const nextTarget = target.value;
+      if (targetId !== previousTargetId) {
+        store.clear();
+        retryDelay = initialRetryDelay;
       }
-      if (id) await startCapture();
+      if (nextTarget) {
+        void startCapture(nextTarget);
+      } else {
+        void stopCapture();
+      }
     },
     { immediate: true },
   );
@@ -203,5 +315,5 @@ export function useNetwork() {
     void stopCapture();
   });
 
-  return { store, targetId, startCapture, stopCapture };
+  return { store, target, startCapture, stopCapture };
 }

@@ -109,4 +109,20 @@ describe("network retention", () => {
       NETWORK_MAX_BODY_BYTES,
     );
   });
+
+  test("reports capture lifecycle and failures", () => {
+    const store = useNetworkStore();
+
+    store.setCaptureState("connecting", "target-1");
+    expect(store.captureStatus).toBe("connecting");
+    expect(store.captureTargetId).toBe("target-1");
+
+    store.setCaptureState("error", "target-1", "connection lost");
+    expect(store.captureStatus).toBe("error");
+    expect(store.captureError).toBe("connection lost");
+
+    store.setCaptureState("live", "target-1");
+    expect(store.captureStatus).toBe("live");
+    expect(store.captureError).toBeNull();
+  });
 });
