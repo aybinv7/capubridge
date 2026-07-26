@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { Loader2, Play, Trash2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,22 +12,6 @@ const consoleStore = useConsoleStore();
 const expression = ref("");
 const isRunning = ref(false);
 const localError = ref<string | null>(null);
-
-onMounted(() => {
-  void consoleStore.initialize();
-  void consoleStore.acquireLease();
-});
-
-watch(
-  () => consoleStore.activeTarget?.id ?? null,
-  () => {
-    void consoleStore.syncLease(consoleStore.activeTarget ?? null);
-  },
-);
-
-onUnmounted(() => {
-  void consoleStore.releaseLease();
-});
 
 const canRun = computed(
   () => !!consoleStore.boundTargetId && !!expression.value.trim() && !isRunning.value,

@@ -21,8 +21,11 @@ import { parseRemoteValue, flattenArgsForMessage } from "@/lib/console-parse";
 const maxConsoleEntries = 500;
 const maxExceptionEntries = 160;
 const maxReplEntries = 80;
+const initialRetryDelay = 500;
+const maximumRetryDelay = 8_000;
 
 type ClientCleanup = () => void;
+type ConsoleCaptureStatus = "idle" | "connecting" | "live" | "error";
 
 function normalizeTimestamp(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -159,6 +162,7 @@ export const useConsoleStore = defineStore("console", () => {
   const leaseConsumers = ref(0);
   const isReady = ref(false);
   const error = ref<string | null>(null);
+  const captureStatus = ref<ConsoleCaptureStatus>("idle");
 
   const activeTarget = computed(() => targetsStore.selectedTarget);
   const activeTargetLabel = computed(
@@ -170,6 +174,17 @@ export const useConsoleStore = defineStore("console", () => {
   let clientCleanups: ClientCleanup[] = [];
   let groupStack: string[] = [];
   let idCounter = 0;
+  let bindingPromise: Promise<void> | null = null;
+  let bindingTargetId: string | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryDelay = initialRetryDelay;
+
+  function clearRetry() {
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  }
 
   function clearClientBindings() {
     clientCleanups.forEach((cleanup) => cleanup());
@@ -177,11 +192,14 @@ export const useConsoleStore = defineStore("console", () => {
   }
 
   function resetTargetState(targetId: string | null) {
+    clearRetry();
+    retryDelay = initialRetryDelay;
     boundTargetId.value = targetId;
     entries.value = [];
     exceptions.value = [];
     replHistory.value = [];
     error.value = null;
+    captureStatus.value = targetId ? "connecting" : "idle";
     groupStack = [];
   }
 
@@ -391,7 +409,18 @@ export const useConsoleStore = defineStore("console", () => {
     );
   }
 
-  async function bindLeasedClient() {
+  function scheduleRetry(targetId: string) {
+    clearRetry();
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      if (leasedTargetId.value === targetId && leaseConsumers.value > 0) {
+        void bindLeasedClient();
+      }
+    }, retryDelay);
+    retryDelay = Math.min(retryDelay * 2, maximumRetryDelay);
+  }
+
+  async function bindLeasedClientInternal() {
     const targetId = leasedTargetId.value;
     if (targetId !== boundTargetId.value) {
       resetTargetState(targetId);
@@ -400,45 +429,91 @@ export const useConsoleStore = defineStore("console", () => {
     clearClientBindings();
 
     if (!targetId) {
+      captureStatus.value = "idle";
       return;
     }
 
     const target = findTarget(targetId);
     if (!target) {
       error.value = "No active target metadata";
+      captureStatus.value = "error";
       return;
     }
 
+    captureStatus.value = "connecting";
     let client = connectionStore.getClient(targetId);
     if (!client) {
       try {
         client = await connectionStore.connect(target);
       } catch (err) {
+        if (leasedTargetId.value !== targetId) return;
         error.value = err instanceof Error ? err.message : String(err);
+        captureStatus.value = "error";
+        scheduleRetry(targetId);
         return;
       }
     }
 
-    if (!client) {
+    if (!client || leasedTargetId.value !== targetId) {
       return;
     }
+
+    const nextCleanups = [
+      client.on("Runtime.consoleAPICalled", (payload) => {
+        if (leasedTargetId.value === targetId) handleRuntimeConsole(targetId, payload);
+      }),
+      client.on("Runtime.exceptionThrown", (payload) => {
+        if (leasedTargetId.value === targetId) handleRuntimeException(targetId, payload);
+      }),
+      client.on("Log.entryAdded", (payload) => {
+        if (leasedTargetId.value === targetId) handleLogEntry(targetId, payload);
+      }),
+    ];
 
     const enableResults = await Promise.allSettled([
       client.send("Runtime.enable", {}),
       client.send("Log.enable", {}),
     ]);
 
+    if (leasedTargetId.value !== targetId) {
+      nextCleanups.forEach((cleanup) => cleanup());
+      return;
+    }
+
+    clearClientBindings();
+    clientCleanups = nextCleanups;
     const rejected = enableResults.find((result) => result.status === "rejected");
     if (rejected?.status === "rejected") {
       error.value =
         rejected.reason instanceof Error ? rejected.reason.message : String(rejected.reason);
+      captureStatus.value = "error";
+      scheduleRetry(targetId);
+      return;
     }
 
-    clientCleanups = [
-      client.on("Runtime.consoleAPICalled", (payload) => handleRuntimeConsole(targetId, payload)),
-      client.on("Runtime.exceptionThrown", (payload) => handleRuntimeException(targetId, payload)),
-      client.on("Log.entryAdded", (payload) => handleLogEntry(targetId, payload)),
-    ];
+    clearRetry();
+    retryDelay = initialRetryDelay;
+    error.value = null;
+    captureStatus.value = "live";
+  }
+
+  async function bindLeasedClient() {
+    const targetId = leasedTargetId.value;
+    if (bindingPromise && bindingTargetId === targetId) {
+      return bindingPromise;
+    }
+
+    bindingTargetId = targetId;
+    const currentPromise = bindLeasedClientInternal();
+    bindingPromise = currentPromise;
+    try {
+      await currentPromise;
+    } finally {
+      if (bindingPromise === currentPromise) {
+        bindingPromise = null;
+        bindingTargetId = null;
+      }
+    }
   }
 
   async function initialize() {
@@ -553,6 +628,7 @@ export const useConsoleStore = defineStore("console", () => {
     const previousSerial = leasedSerial.value;
     leasedTargetId.value = null;
     leasedSerial.value = null;
+    clearRetry();
     clearClientBindings();
     resetTargetState(null);
     await detachConsoleLease(previousSerial);
@@ -676,6 +752,7 @@ export const useConsoleStore = defineStore("console", () => {
     leasedTargetId,
     isReady,
     error,
+    captureStatus,
     activeTarget,
     activeTargetLabel,
     initialize,

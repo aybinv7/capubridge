@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { toast } from "vue-sonner";
 import { ChevronRight, Search, Ban } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
@@ -17,22 +17,6 @@ const consoleStore = useConsoleStore();
 const searchQuery = ref("");
 const activeLevel = ref<FilterLevel>("all");
 const groupOverride = ref(new Map<string, boolean>());
-
-onMounted(() => {
-  void consoleStore.initialize();
-  void consoleStore.acquireLease();
-});
-
-watch(
-  () => consoleStore.activeTarget?.id ?? null,
-  () => {
-    void consoleStore.syncLease(consoleStore.activeTarget ?? null);
-  },
-);
-
-onUnmounted(() => {
-  void consoleStore.releaseLease();
-});
 
 const levelCounts = computed(() => ({
   all: consoleStore.entries.length,
@@ -198,12 +182,14 @@ const FILTER_LEVELS = [
         variant="outline"
         class="ml-1 h-6 rounded-full border px-2 font-mono text-[10px]"
         :class="
-          consoleStore.boundTargetId
+          consoleStore.captureStatus === 'live'
             ? 'border-success/30 bg-success/10 text-success'
-            : 'border-border/40 bg-surface-3 text-muted-foreground'
+            : consoleStore.captureStatus === 'error'
+              ? 'border-error/30 bg-error/10 text-error'
+              : 'border-border/40 bg-surface-3 text-muted-foreground'
         "
       >
-        {{ consoleStore.boundTargetId ? "Live" : "Idle" }}
+        {{ consoleStore.captureStatus }}
       </Badge>
     </div>
 
