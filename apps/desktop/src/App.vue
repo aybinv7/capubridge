@@ -3,6 +3,7 @@ import { defineAsyncComponent } from "vue";
 import AppShell from "@/components/layout/AppShell.vue";
 import UpdaterBootstrap from "@/components/UpdaterBootstrap.vue";
 import McpBridgeBootstrap from "@/components/McpBridgeBootstrap.vue";
+import ObservabilityBootstrap from "@/components/ObservabilityBootstrap.vue";
 import { Toaster } from "@/components/ui/sonner";
 import { useThemeStore } from "@/stores/theme.store";
 import { isDockTab } from "@/types/dock.types";
@@ -30,6 +31,7 @@ const DockDetachedWindow = isDockWindow
     <AppShell />
     <UpdaterBootstrap />
     <McpBridgeBootstrap />
+    <ObservabilityBootstrap />
     <Toaster
       position="bottom-left"
       :theme="themeStore.mode"
