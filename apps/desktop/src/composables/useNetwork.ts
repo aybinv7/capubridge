@@ -45,7 +45,9 @@ export function useNetwork() {
     activeDomain = null;
     activeTargetId = null;
     if (domain) {
-      await domain.disable().catch(() => undefined);
+      await domain.disable().catch((error) => {
+        console.warn("Failed to disable CDP network capture", error);
+      });
     }
   }
 

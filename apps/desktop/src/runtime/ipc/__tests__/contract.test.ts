@@ -9,11 +9,15 @@ function registeredRustCommands(): string[] {
   const handler = source.match(/tauri::generate_handler!\[([\s\S]*?)\]\)/)?.[1];
   if (!handler) throw new Error("Tauri command registration was not found");
 
-  return handler
-    .split(",")
-    .map((command) => command.trim())
-    .filter(Boolean)
-    .sort();
+  return (
+    handler
+      .split(",")
+      // A command may be registered path-qualified (`mcp::bridge::mcp_bridge_respond`), but the
+      // name Tauri exposes over IPC is always the bare function name.
+      .map((command) => command.trim().split("::").pop() ?? "")
+      .filter(Boolean)
+      .sort()
+  );
 }
 
 test("covers every registered Rust command exactly once", () => {

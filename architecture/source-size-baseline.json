@@ -9,9 +9,9 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/adb.rs",
-      "maxLines": 2000,
+      "maxLines": 2009,
       "owner": "Device runtime",
-      "rationale": "Legacy ADB command adapter still combines device, package, file, shell, reverse, and parsing capabilities; keep stable while capability command modules are extracted. Bumped from 1950 for classify_am_start_output() (v2.0.0) — a small, well-tested fix for a real false-positive bug, not scope growth; extracting one helper out of the cohesive app-launch flow would be an arbitrary split, not a real module boundary."
+      "rationale": "Legacy ADB command adapter still combines device, package, file, shell, reverse, and parsing capabilities; keep stable while capability command modules are extracted. Bumped from 1950 for classify_am_start_output() (v2.0.0) — a small, well-tested fix for a real false-positive bug, not scope growth; extracting one helper out of the cohesive app-launch flow would be an arbitrary split, not a real module boundary. Bumped from 2000 for emulator device listing (v2.2.0) — the AVD-aware branch of device enumeration belongs with the adb device parsing it extends; the emulator's own launch/discovery logic already lives in the separate commands/emulator.rs module."
     },
     {
       "path": "apps/desktop/src/data/mock-data.ts",
@@ -51,9 +51,9 @@
     },
     {
       "path": "apps/desktop/src/components/DeviceManagerModal.vue",
-      "maxLines": 1062,
+      "maxLines": 1088,
       "owner": "Devices module",
-      "rationale": "Legacy device manager modal combines discovery, pairing, connection, package selection, target selection, and dialog presentation; approved pending module-owned workflow extraction."
+      "rationale": "Legacy device manager modal combines discovery, pairing, connection, package selection, target selection, and dialog presentation; approved pending module-owned workflow extraction. Bumped from 1062 to mount the emulator launcher (v2.2.0) — the panel itself is an extracted component (EmulatorLauncherPanel.vue); only its wiring lives here, and it is one more entry point for the same pending workflow extraction."
     },
     {
       "path": "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue",
