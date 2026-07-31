@@ -50,6 +50,7 @@ let targetRuntimeSource: string | null = null;
 let currentClient: CDPClient | null = null;
 let currentTargetId: string | null = null;
 let hostSocket: FakeSocket | null = null;
+let pendingFromTarget: string[] = [];
 let bindingCleanup: (() => void) | null = null;
 let installedScriptIdentifier: string | null = null;
 let startPromise: Promise<void> | null = null;
@@ -141,7 +142,16 @@ function attachBinding(client: CDPClient) {
 
     messagesFromTarget.value += 1;
     bytesFromTarget.value += payload.payload.length;
-    hostSocket?.onmessage?.({ data: payload.payload });
+
+    // The backend flushes its initial `operations` as soon as the renderer
+    // mounts, which is before the UI has attached a listener. Dropping those
+    // leaves the panel on "Loading React Element Tree..." forever, so hold them
+    // until connectToSocket has wired onmessage, then replay in order.
+    if (!hostSocket?.onmessage) {
+      pendingFromTarget.push(payload.payload);
+      return;
+    }
+    hostSocket.onmessage({ data: payload.payload });
   });
 }
 
@@ -169,6 +179,7 @@ async function ensureTargetBackend(client: CDPClient, target: CDPTarget) {
   currentTargetId = target.id;
   messagesFromTarget.value = 0;
   bytesFromTarget.value = 0;
+  pendingFromTarget = [];
 
   await client.send("Runtime.enable", {});
   try {
@@ -225,6 +236,12 @@ function connectHostUi() {
   const withNode = ui.setContentDOMNode(mount);
   (withNode ?? ui).connectToSocket(hostSocket);
   hostSocket.onopen?.();
+
+  // Replay whatever the backend emitted before the UI had a listener.
+  const queued = pendingFromTarget.splice(0, pendingFromTarget.length);
+  for (const message of queued) {
+    hostSocket.onmessage?.({ data: message });
+  }
   return true;
 }
 
