@@ -174,7 +174,8 @@ async function installTargetRuntime(client: CDPClient) {
   installedScriptIdentifier = installed.identifier ?? null;
 }
 
-async function ensureTargetBackend(client: CDPClient, target: CDPTarget) {
+/** Bindings and the host socket, ready before the UI attaches. */
+async function prepareTargetChannel(client: CDPClient, target: CDPTarget) {
   currentClient = client;
   currentTargetId = target.id;
   messagesFromTarget.value = 0;
@@ -195,11 +196,14 @@ async function ensureTargetBackend(client: CDPClient, target: CDPTarget) {
 
   hostSocket = createHostSocket(client);
   attachBinding(client);
-  await installTargetRuntime(client);
+}
 
-  // react-dom reads the hook once as it loads, so a backend injected into a
-  // running page is inert. Only an actually-registered renderer lets us skip.
-  if (await isRendererRegistered(client)) return;
+/**
+ * Injects the backend and reloads. Called only once the UI is connected, so the
+ * backend's flushInitialOperations() lands on a listening frontend.
+ */
+async function bootTargetBackend(client: CDPClient) {
+  await installTargetRuntime(client);
 
   status.value = "reloading";
   try {
@@ -296,16 +300,21 @@ export function useReactDevtoolsBridge() {
           return;
         }
 
-        status.value = "booting";
-        await ensureTargetBackend(client, target);
-
+        // The UI must be listening before the backend runs, because the backend
+        // calls flushInitialOperations() when *it* connects — at page load. That
+        // is how the browser extension works too: devtools open, then the page
+        // loads. Attaching afterwards means the element tree was already sent.
         status.value = "connecting";
         if (!(await waitForHostUi(15_000))) {
           throw new Error("The DevTools UI bundle did not finish loading");
         }
+
+        status.value = "booting";
+        await prepareTargetChannel(client, target);
         if (!connectHostUi()) {
           throw new Error("Could not connect the DevTools UI to the target");
         }
+        await bootTargetBackend(client);
 
         capability.value = await probeCapability(client);
         status.value = "ready";
