@@ -6,12 +6,20 @@ export interface CdpProxyResult {
   wsUrl: string;
 }
 
+export interface ReactDevtoolsHub {
+  hostPort: number;
+  devicePort: number;
+  panelWsUrl: string;
+}
+
 export interface ConnectionCommandMap {
   adb_forward_cdp: IpcCommand<{ serial: string; socketName?: string }, number>;
   adb_remove_forward: IpcCommand<{ serial: string }, void>;
   adb_fetch_json_targets: IpcCommand<{ port: number }, CdpJsonTarget[]>;
   cdp_start_proxy: IpcCommand<{ wsUrl: string }, CdpProxyResult>;
   cdp_stop_proxy: IpcCommand<{ wsUrl: string }, void>;
+  react_devtools_start: IpcCommand<{ serial: string }, ReactDevtoolsHub>;
+  react_devtools_stop: IpcCommand<{ serial: string }, void>;
   chrome_find: IpcCommand<undefined, ChromeFindResult>;
   chrome_is_running: IpcCommand<undefined, boolean>;
   chrome_kill_all: IpcCommand<undefined, void>;

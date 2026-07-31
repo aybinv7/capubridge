@@ -89,6 +89,8 @@ export const IPC_COMMAND_NAMES = [
   "adb_fetch_json_targets",
   "cdp_start_proxy",
   "cdp_stop_proxy",
+  "react_devtools_start",
+  "react_devtools_stop",
   "chrome_find",
   "chrome_is_running",
   "chrome_kill_all",

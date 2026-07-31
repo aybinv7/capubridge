@@ -38,6 +38,7 @@
     "geist": "catalog:",
     "lucide-vue-next": "catalog:",
     "pinia": "catalog:",
+    "react-devtools-core": "^7.0.1",
     "reka-ui": "catalog:",
     "rrweb": "catalog:",
     "sql.js": "catalog:",
