@@ -146,27 +146,41 @@ export function interpretReactCapability(
   }
 
   const version = probe.reactVersion ? ` ${probe.reactVersion}` : "";
-  const minifiedNote = probe.isDevelopmentBuild
-    ? null
-    : "This is a production build, so component names are minified. Run the app with a dev server for readable names.";
 
   if (probe.rendererCount > 0) {
     return {
       kind: "ready",
       title: `React${version} runtime is inspectable`,
       detail: "react-dom registered against the DevTools hook; the backend can attach.",
-      hint: minifiedNote,
+      // bundleType is only observable once a renderer registered, so this is the
+      // only branch that may claim anything about the build.
+      hint: probe.isDevelopmentBuild
+        ? null
+        : "This is a production build, so component names are minified. Run the app with a dev server for readable names.",
       probe,
     };
   }
 
   return {
     kind: "hook-missed-boot",
-    title: "React booted before the DevTools hook",
-    detail:
-      "React fibers are present but no renderer registered on the hook, so react-dom loaded before the hook existed. " +
-      "The target has to reload with the backend installed at document start.",
-    hint: minifiedNote,
+    title: probe.hasHook
+      ? "React booted before the DevTools hook"
+      : "No DevTools hook installed yet",
+    detail: probe.hasHook
+      ? "React fibers are present and the hook exists, but no renderer registered against it — react-dom loaded first. " +
+        "The target has to reload with the backend installed at document start."
+      : "React fibers are present but nothing has installed the DevTools hook. The backend will install it at " +
+        "document start and reload the target, because react-dom reads the hook once as it loads.",
+    hint: null,
     probe,
   };
+}
+
+/**
+ * `bundleType` lives on registered renderers, so the build is genuinely unknown
+ * until one registers. Never presented as "production" on absent evidence.
+ */
+export function describeReactBuild(probe: ReactCapabilityProbe) {
+  if (probe.rendererCount === 0) return "unknown";
+  return probe.isDevelopmentBuild ? "development" : "production";
 }

@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import { AlertTriangle, CheckCircle2, RefreshCw } from "lucide-vue-next";
 import {
   REACT_CAPABILITY_PROBE_EXPRESSION,
+  describeReactBuild,
   interpretReactCapability,
   parseReactCapabilityProbe,
 } from "./react-devtools/capability";
@@ -41,7 +42,7 @@ const facts = computed(() => {
   if (!probeResult) return [];
   return [
     { label: "React version", value: probeResult.reactVersion ?? "unknown" },
-    { label: "Build", value: probeResult.isDevelopmentBuild ? "development" : "production" },
+    { label: "Build", value: describeReactBuild(probeResult) },
     { label: "Fiber roots", value: probeResult.hasFibers ? "present" : "absent" },
     { label: "DevTools hook", value: probeResult.hasHook ? "present" : "absent" },
     { label: "Registered renderers", value: String(probeResult.rendererCount) },

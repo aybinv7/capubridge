@@ -3,6 +3,7 @@ import {
   REACT_CAPABILITY_PROBE_EXPRESSION,
   REACT_FIBER_KEY_PATTERN,
   REACT_RENDERER_REGISTRATION_EXPRESSION,
+  describeReactBuild,
   interpretReactCapability,
   isReactRendererRegistered,
   parseReactCapabilityProbe,
@@ -92,11 +93,40 @@ describe("parseReactCapabilityProbe", () => {
   });
 });
 
+describe("describeReactBuild", () => {
+  test("is unknown until a renderer registers, since bundleType lives there", () => {
+    // Regression: the panel claimed "production" from a default false.
+    expect(describeReactBuild(baseProbe)).toBe("unknown");
+    expect(describeReactBuild({ ...baseProbe, isDevelopmentBuild: false })).toBe("unknown");
+  });
+
+  test("reports the observed build once a renderer registered", () => {
+    expect(describeReactBuild({ ...baseProbe, rendererCount: 1 })).toBe("production");
+    expect(describeReactBuild({ ...baseProbe, rendererCount: 1, isDevelopmentBuild: true })).toBe(
+      "development",
+    );
+  });
+});
+
 describe("interpretReactCapability", () => {
   test("flags a hook that missed react-dom's boot as needing a reload", () => {
-    const report = interpretReactCapability(baseProbe);
+    const report = interpretReactCapability({ ...baseProbe, hasHook: true });
     expect(report.kind).toBe("hook-missed-boot");
+    expect(report.title).toContain("booted before");
     expect(report.detail).toContain("reload");
+  });
+
+  test("distinguishes an absent hook from one that lost the race", () => {
+    // The live conference-app reading: fibers present, hook absent, 0 renderers.
+    const report = interpretReactCapability({ ...baseProbe, hasHook: false });
+    expect(report.kind).toBe("hook-missed-boot");
+    expect(report.title).toBe("No DevTools hook installed yet");
+    expect(report.detail).toContain("nothing has installed");
+  });
+
+  test("never claims a build type without a registered renderer", () => {
+    expect(interpretReactCapability({ ...baseProbe, hasHook: false }).hint).toBeNull();
+    expect(interpretReactCapability({ ...baseProbe, hasHook: true }).hint).toBeNull();
   });
 
   test("treats a registered renderer as ready", () => {
