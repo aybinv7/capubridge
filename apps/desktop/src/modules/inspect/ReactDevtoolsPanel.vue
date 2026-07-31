@@ -1,81 +1,85 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { AlertTriangle, CheckCircle2, RefreshCw } from "lucide-vue-next";
-import {
-  REACT_CAPABILITY_PROBE_EXPRESSION,
-  describeReactBuild,
-  interpretReactCapability,
-  parseReactCapabilityProbe,
-} from "./react-devtools/capability";
-import type { ReactCapabilityReport } from "./react-devtools/capability";
-import { useInspectPlugins } from "./useInspectPlugins";
+import { computed, onMounted, ref, watch } from "vue";
+import { AlertTriangle, RefreshCw, Zap } from "lucide-vue-next";
+import { describeReactBuild } from "./react-devtools/capability";
+import { useReactDevtoolsBridge } from "./react-devtools/useReactDevtoolsBridge";
 import { useCDP } from "@/composables/useCDP";
 
-const { evaluateOnTarget } = useInspectPlugins();
+const iframeRef = ref<HTMLIFrameElement | null>(null);
+
+const {
+  attachIframe,
+  start,
+  panelHtml,
+  status,
+  errorMessage,
+  capability,
+  messagesFromTarget,
+  bytesFromTarget,
+  statusLabel,
+  isReady,
+  isBlocked,
+} = useReactDevtoolsBridge();
 const { targetsStore } = useCDP();
 
-const report = ref<ReactCapabilityReport | null>(null);
-const isProbing = ref(false);
-const probeError = ref<string | null>(null);
-
-const isReady = computed(() => report.value?.kind === "ready");
-
-async function probe() {
-  isProbing.value = true;
-  probeError.value = null;
-
-  try {
-    const raw = await evaluateOnTarget(REACT_CAPABILITY_PROBE_EXPRESSION);
-    report.value = interpretReactCapability(parseReactCapabilityProbe(raw));
-  } catch (error) {
-    probeError.value = error instanceof Error ? error.message : String(error);
-    report.value = null;
-  } finally {
-    isProbing.value = false;
-  }
+async function boot(options?: { force?: boolean }) {
+  attachIframe(iframeRef.value);
+  await start(options);
 }
 
-watch(() => targetsStore.selectedTarget?.id ?? null, probe, { immediate: true });
+watch(iframeRef, (iframe) => attachIframe(iframe), { immediate: true });
+watch(
+  () => targetsStore.selectedTarget?.id ?? null,
+  () => void boot(),
+);
+onMounted(() => void boot());
+
+const showOverlay = computed(() => !isReady.value);
 
 const facts = computed(() => {
-  const probeResult = report.value?.probe;
-  if (!probeResult) return [];
+  const probe = capability.value?.probe;
+  if (!probe) return [];
   return [
-    { label: "React version", value: probeResult.reactVersion ?? "unknown" },
-    { label: "Build", value: describeReactBuild(probeResult) },
-    { label: "Fiber roots", value: probeResult.hasFibers ? "present" : "absent" },
-    { label: "DevTools hook", value: probeResult.hasHook ? "present" : "absent" },
-    { label: "Registered renderers", value: String(probeResult.rendererCount) },
-    {
-      label: "Backend attached",
-      value: probeResult.backendAlreadyAttached ? "yes" : "no",
-    },
+    { label: "React version", value: probe.reactVersion ?? "unknown" },
+    { label: "Build", value: describeReactBuild(probe) },
+    { label: "Registered renderers", value: String(probe.rendererCount) },
+    { label: "Backend attached", value: probe.backendAlreadyAttached ? "yes" : "no" },
+    { label: "Messages from target", value: String(messagesFromTarget.value) },
+    { label: "Received", value: `${(bytesFromTarget.value / 1024).toFixed(1)} KB` },
   ];
 });
 </script>
 
 <template>
-  <div class="h-full w-full overflow-auto bg-surface-0 p-6">
-    <div class="mx-auto max-w-2xl rounded-2xl border border-border/40 bg-surface-2 px-6 py-5">
-      <div v-if="probeError" class="flex items-center gap-2 text-sm font-medium text-red-400">
-        <AlertTriangle :size="15" />
-        Probe failed: {{ probeError }}
-      </div>
+  <div class="relative h-full w-full overflow-hidden bg-surface-0">
+    <iframe
+      ref="iframeRef"
+      :srcdoc="panelHtml"
+      class="h-full w-full border-0"
+      title="React DevTools"
+    />
 
-      <template v-else-if="report">
+    <div
+      v-if="showOverlay"
+      class="absolute inset-0 flex items-center justify-center overflow-auto bg-surface-0/90 p-6 backdrop-blur-sm"
+    >
+      <div class="max-w-2xl rounded-2xl border border-border/40 bg-surface-2 px-6 py-5">
         <div
           class="flex items-center gap-2 text-sm font-medium"
-          :class="isReady ? 'text-emerald-400' : 'text-amber-400'"
+          :class="status === 'error' || isBlocked ? 'text-amber-400' : 'text-foreground'"
         >
-          <CheckCircle2 v-if="isReady" :size="15" />
-          <AlertTriangle v-else :size="15" />
-          {{ report.title }}
+          <AlertTriangle v-if="status === 'error' || isBlocked" :size="15" />
+          {{ capability?.title ?? statusLabel }}
         </div>
 
-        <p class="mt-3 text-sm leading-6 text-muted-foreground/85">{{ report.detail }}</p>
-        <p v-if="report.hint" class="mt-3 text-sm leading-6 text-foreground/85">
-          {{ report.hint }}
+        <p class="mt-2 text-sm text-muted-foreground/80">{{ statusLabel }}</p>
+        <p v-if="capability?.detail" class="mt-3 text-sm leading-6 text-muted-foreground/85">
+          {{ capability.detail }}
         </p>
+        <p v-if="capability?.hint" class="mt-3 text-sm leading-6 text-foreground/85">
+          {{ capability.hint }}
+        </p>
+        <p v-if="errorMessage" class="mt-3 text-sm text-red-400">{{ errorMessage }}</p>
 
         <div
           v-if="facts.length"
@@ -86,25 +90,25 @@ const facts = computed(() => {
             <span class="text-right text-foreground/80">{{ fact.value }}</span>
           </template>
         </div>
-      </template>
 
-      <div v-else class="text-sm text-muted-foreground/70">Probing the React runtime…</div>
-
-      <div class="mt-4 flex items-center gap-2">
-        <button
-          class="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-surface-3 px-3 py-1.5 text-xs text-foreground/85 transition-colors hover:bg-surface-3/70 disabled:opacity-50"
-          :disabled="isProbing"
-          @click="probe"
-        >
-          <RefreshCw :size="12" :class="isProbing ? 'animate-spin' : ''" />
-          Re-check target
-        </button>
+        <div class="mt-4 flex items-center gap-2">
+          <button
+            class="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-surface-3 px-3 py-1.5 text-xs text-foreground/85 transition-colors hover:bg-surface-3/70"
+            @click="boot()"
+          >
+            <RefreshCw :size="12" />
+            Retry
+          </button>
+          <button
+            v-if="isBlocked"
+            class="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-surface-0 px-3 py-1.5 text-xs text-muted-foreground/80 transition-colors hover:text-foreground"
+            @click="boot({ force: true })"
+          >
+            <Zap :size="12" />
+            Attach anyway
+          </button>
+        </div>
       </div>
-
-      <p class="mt-4 text-xs leading-5 text-muted-foreground/60">
-        Detection only for now — the DevTools backend connects over a WebSocket via
-        <code>adb reverse</code>, which is the next piece.
-      </p>
     </div>
   </div>
 </template>
