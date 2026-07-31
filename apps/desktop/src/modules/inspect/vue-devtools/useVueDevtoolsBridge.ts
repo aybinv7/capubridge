@@ -15,9 +15,15 @@ import {
   parseVueCapabilityProbe,
 } from "./capability";
 import type { VueCapabilityReport } from "./capability";
+import {
+  PROXY_TO_SERVER_SOURCE,
+  TARGET_BINDING_NAME,
+  TARGET_READY_FLAG,
+  TARGET_RECEIVE_NAME,
+  buildTargetRuntimeSource,
+} from "./targetRuntime";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { CDPClient } from "@capubridge/cdp-protocol";
-import userAppBundle from "@vue/devtools-electron/dist/user-app.iife.js?raw";
 import devtoolsPanelScriptUrl from "@vue/devtools-electron/client/devtools-panel.js?url";
 import devtoolsPanelStyleUrl from "@vue/devtools-electron/client/devtools-panel.css?url";
 
@@ -44,12 +50,6 @@ type TargetLocalFunctions = {
   emit: (event: string, ...args: unknown[]) => void;
   heartbeat: () => boolean;
 };
-
-const TARGET_BINDING_NAME = "__capubridgeVueDevtoolsBinding";
-const TARGET_RECEIVE_NAME = "__capubridgeVueDevtoolsReceive";
-const TARGET_READY_FLAG = "__capubridgeVueDevtoolsReady";
-const PROXY_TO_SERVER_SOURCE = "proxy->server";
-const SERVER_TO_PROXY_SOURCE = "server->proxy";
 
 const CONNECTED_TIMEOUT_MS = 20_000;
 
@@ -183,21 +183,6 @@ function isRpcPacket(message: unknown) {
   if (typeof message !== "object" || message === null) return false;
   const record = message as Record<string, unknown>;
   return typeof record.m === "string" && typeof record.t === "string";
-}
-
-function buildTargetRuntimeSource() {
-  const shim = `var __capubridgeGlobal=typeof globalThis!=="undefined"?globalThis:window;if(!__capubridgeGlobal.process)__capubridgeGlobal.process={env:{NODE_ENV:"production"}};if(!__capubridgeGlobal.process.env)__capubridgeGlobal.process.env={NODE_ENV:"production"};if(!__capubridgeGlobal.process.env.NODE_ENV)__capubridgeGlobal.process.env.NODE_ENV="production";var process=__capubridgeGlobal.process;`;
-  const replacement = `function j3(){var t=typeof globalThis!=="undefined"?globalThis:window;var b=${JSON.stringify(TARGET_BINDING_NAME)};var v=${JSON.stringify(TARGET_RECEIVE_NAME)};var p=${JSON.stringify(PROXY_TO_SERVER_SOURCE)};var h=${JSON.stringify(SERVER_TO_PROXY_SOURCE)};var k1="__capubridgeVueDevtoolsProxyListener";var k2="__capubridgeVueDevtoolsServerForwarder";function e(i){try{if(i&&typeof i==="object"&&typeof i.t==="string")return i;if(typeof i!=="string")i=JSON.stringify(i);var n=JSON.parse(i);if(n&&typeof n==="object"){if(typeof n.t==="string")return n;if("json" in n){var r=n.json;if(r&&typeof r==="object"&&typeof r.t==="string")return r}}}catch(o){return null}}function s(i){try{return JSON.stringify(i)}catch(o){return""}}function n(i){if(typeof i!=="string"){i=s(i)}if(!i)return;t[b](i)}function r(){return{post:function(i){if(!i||typeof i!=="object"||typeof i.t!=="string")return;t.postMessage({source:h,payload:s(i)},"*")},on:function(i){t[v]=function(o){var a=e(o);if(a&&typeof a.t==="string")i(a)};if(!t[k1]){t[k1]=!0;t.addEventListener("message",function(o){var a=o&&o.data;if(!a||a.source!==p)return;var l=e(a.payload);if(l&&typeof l.t==="string")i(l)})}if(!t[k2]){t[k2]=!0;t.addEventListener("message",function(o){var a=o&&o.data;if(!a||a.source!==h)return;n(a.payload)})}}}}_t.init();o0(uv,{channel:r()});uv.initDevToolsServerListener();var o={};o[${JSON.stringify(TARGET_READY_FLAG)}]=!0;n(o)}j3();`;
-  const patchedBundle = userAppBundle.replace(
-    /function j3\(t\)\{[\s\S]*?j3\(K3\.default\);/,
-    replacement,
-  );
-
-  if (patchedBundle === userAppBundle) {
-    throw new Error("Failed to patch official Vue DevTools runtime");
-  }
-
-  return `${shim}${patchedBundle}`;
 }
 
 const targetRuntimeSource = buildTargetRuntimeSource();
