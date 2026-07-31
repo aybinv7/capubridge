@@ -161,8 +161,9 @@ async function installTargetRuntime(client: CDPClient) {
       await client.send("Page.removeScriptToEvaluateOnNewDocument", {
         identifier: installedScriptIdentifier,
       });
-    } catch {
-      // A stale identifier from a closed session is not worth surfacing.
+    } catch (error) {
+      // A stale identifier from a closed session is expected, not fatal.
+      console.warn("React DevTools could not remove its previous boot script", error);
     }
     installedScriptIdentifier = null;
   }
