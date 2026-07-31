@@ -33,8 +33,22 @@ describe("the official DevTools UI bundle under our shim", () => {
   // and has `const CS = require("child_process")` at module scope, so it cannot
   // be loaded raw in a browser. If this passes, the iframe approach is viable.
   test("evaluates and exposes connectToSocket + setContentDOMNode", () => {
-    runInThisContext(buildCommonJsShimSource());
+    // Vitest runs on Node, so an ambient Buffer would let this pass while the
+    // browser fails with "Buffer is not defined" from ws/lib/constants.js —
+    // which is exactly what shipped. Remove it so the shim must supply its own.
+    const ambientBuffer = (globalThis as Record<string, unknown>).Buffer;
+    delete (globalThis as Record<string, unknown>).Buffer;
 
+    try {
+      runInThisContext(buildCommonJsShimSource());
+      expect(typeof (globalThis as Record<string, unknown>).Buffer).toBe("function");
+      runBundleAndAssert();
+    } finally {
+      (globalThis as Record<string, unknown>).Buffer = ambientBuffer;
+    }
+  });
+
+  function runBundleAndAssert() {
     const w = globalThis as unknown as {
       module: { exports: Record<string, unknown> };
       require: (id: string) => unknown;
@@ -54,7 +68,7 @@ describe("the official DevTools UI bundle under our shim", () => {
     expect(typeof ui.setContentDOMNode).toBe("function");
     // startServer exists but must never be called: it needs a real net listener.
     expect(typeof ui.startServer).toBe("function");
-  });
+  }
 });
 
 describe("buildCommonJsShimSource", () => {

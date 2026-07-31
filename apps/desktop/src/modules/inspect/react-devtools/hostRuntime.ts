@@ -33,6 +33,42 @@ export function buildCommonJsShimSource() {
     stderr: { write: () => {} },
   };
 
+  // ws is bundled and evaluates at load: constants.js -> buffer-util.js ->
+  // permessage-deflate.js all run before anything we call, and they need Buffer.
+  if (typeof w.Buffer === "undefined") {
+    const B = class extends Uint8Array {
+      static alloc(size) { return new B(size); }
+      static allocUnsafe(size) { return new B(size); }
+      static isBuffer(value) { return value instanceof B || value instanceof Uint8Array; }
+      static from(value, encoding) {
+        if (typeof value === "string") {
+          if (encoding === "base64") {
+            const bin = atob(value);
+            const out = new B(bin.length);
+            for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+            return out;
+          }
+          return new B(new TextEncoder().encode(value));
+        }
+        if (value instanceof ArrayBuffer) return new B(value);
+        return new B(Uint8Array.from(value || []));
+      }
+      static concat(list, total) {
+        const parts = Array.from(list || []);
+        const length = typeof total === "number" ? total : parts.reduce((n, p) => n + p.length, 0);
+        const out = new B(length);
+        let offset = 0;
+        for (const part of parts) { out.set(part, offset); offset += part.length; }
+        return out;
+      }
+      toString(encoding) {
+        if (encoding === "base64") { let s = ""; this.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s); }
+        return new TextDecoder().decode(this);
+      }
+    };
+    w.Buffer = B;
+  }
+
   class StubEmitter {
     constructor() { this._events = {}; }
     on(name, fn) { (this._events[name] = this._events[name] || []).push(fn); return this; }
