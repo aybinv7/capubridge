@@ -12,7 +12,6 @@ use commands::adb::{
     adb_start_server, adb_tcpip, start_logcat, stop_logcat,
 };
 use commands::cdp_proxy::{cdp_start_proxy, cdp_stop_proxy};
-use commands::react_devtools::{react_devtools_start, react_devtools_stop};
 use commands::chrome::{
     chrome_activate_target, chrome_fetch_targets, chrome_find, chrome_is_running, chrome_kill_all,
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
@@ -244,8 +243,6 @@ pub fn run() {
             adb_fetch_json_targets,
             cdp_start_proxy,
             cdp_stop_proxy,
-            react_devtools_start,
-            react_devtools_stop,
             chrome_find,
             chrome_is_running,
             chrome_kill_all,
