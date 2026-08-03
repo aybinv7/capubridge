@@ -1,0 +1,34 @@
+@layer cui.motion {
+  :where(:root, .cui-theme) {
+    --cui-motion-fast: 120ms;
+    --cui-motion-base: 200ms;
+    --cui-motion-slow: 300ms;
+    --cui-motion-enter: 500ms;
+    --cui-ease-standard: ease-in-out;
+    --cui-ease-exit: ease-out;
+    --cui-ease-enter: cubic-bezier(0, 1, 0.2, 1.1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(:root, .cui-theme) {
+      --cui-motion-fast: 0ms;
+      --cui-motion-base: 0ms;
+      --cui-motion-slow: 0ms;
+      --cui-motion-enter: 0ms;
+    }
+  }
+
+  @keyframes cui-spinner-rotate {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  :where(.cui-spinner__glyph) {
+    animation: cui-spinner-rotate 1.5s infinite linear;
+  }
+}

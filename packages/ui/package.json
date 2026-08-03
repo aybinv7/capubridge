@@ -1,0 +1,66 @@
+{
+  "name": "@capubridge/ui",
+  "version": "2.3.0",
+  "description": "Vue application UI primitives for dense, accessible developer tools.",
+  "keywords": [
+    "design-system",
+    "developer-tools",
+    "native-ui",
+    "ui-components",
+    "vue"
+  ],
+  "homepage": "https://github.com/inventor7/capubridge#readme",
+  "bugs": {
+    "url": "https://github.com/inventor7/capubridge/issues"
+  },
+  "license": "MIT",
+  "author": "CapuBridge contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inventor7/capubridge.git",
+    "directory": "packages/ui"
+  },
+  "files": [
+    "dist",
+    "src/styles",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./src/styles/**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./styles.css": "./src/styles/index.css",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check",
+    "prepublishOnly": "vp run build"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "^6.0.2",
+    "vite-plus": "catalog:",
+    "vue": "catalog:"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

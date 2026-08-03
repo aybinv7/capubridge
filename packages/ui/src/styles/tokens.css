@@ -1,0 +1,346 @@
+@layer cui.tokens {
+  :where(:root, .cui-theme, .cui-accent-neutral) {
+    --cui-accent-source: #fff;
+    --cui-dark-primary-lightness: 0.95;
+    --cui-dark-primary-chroma: 0.18;
+    --cui-light-primary-lightness: 0.5;
+    --cui-light-primary-chroma: 0.18;
+    --cui-background: #0f0f0f;
+    --cui-backdrop: #000;
+    --cui-primary: oklch(from var(--cui-accent-source) var(--cui-dark-primary-lightness) 0 h);
+    --cui-on-primary: oklch(from var(--cui-accent-source) 0.2 0 h);
+    --cui-surface-base: oklch(from var(--cui-accent-source) 0.21 0 h);
+    --cui-surface-cut-base: oklch(from var(--cui-accent-source) 0.19 0 h);
+    --cui-foreground: oklch(from var(--cui-accent-source) 0.9 0 h);
+    --cui-foreground-soft-base: oklch(from var(--cui-accent-source) 0.65 0 h);
+    --cui-foreground-softer-base: oklch(from var(--cui-accent-source) 0.5 0 h);
+    --cui-foreground-softest-base: oklch(from var(--cui-accent-source) 0.4 0 h);
+    --cui-surface-white: oklch(from var(--cui-accent-source) 1 0 h);
+    --cui-surface-black: oklch(from var(--cui-accent-source) 0 0 h);
+    --cui-background-outline: oklch(from var(--cui-accent-source) 0.23 0 h);
+    --cui-outline-base: oklch(from var(--cui-accent-source) 0.3 0 h);
+    --cui-hover: color-mix(in oklab, var(--cui-surface-white) 5%, transparent);
+    --cui-hover-fill: color-mix(in oklab, var(--cui-surface-white) 20%, transparent);
+    --cui-pressed: color-mix(in oklab, var(--cui-surface-white) 3%, transparent);
+    --cui-surface-mix-color: var(--cui-surface-white);
+    --cui-surface-mix-step: 6%;
+    --cui-surface-multiplier: 0;
+    --cui-highlight-white-mix: 3%;
+    --cui-shadow-cut-outline:
+      -1px -1px 0 0 color-mix(in oklab, var(--cui-surface-white) 2%, transparent) inset,
+      0 0 0 1px color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+    --cui-shadow-outline:
+      1px 1px 0 0 color-mix(in oklab, var(--cui-surface-white) 8%, transparent) inset,
+      -1px -1px 0 0 color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+    --cui-shadow-outline-fill:
+      1px 1px 0 0 color-mix(in oklab, var(--cui-surface-white) 20%, transparent) inset,
+      -1px -1px 0 0 color-mix(in oklab, var(--cui-surface-white) 20%, transparent) inset;
+    --cui-size-3xs: 12px;
+    --cui-size-2xs: 16px;
+    --cui-size-xs: 20px;
+    --cui-size-sm: 24px;
+    --cui-size-md: 28px;
+    --cui-size-lg: 32px;
+    --cui-size-xl: 40px;
+    --cui-size-2xl: 48px;
+    --cui-nested-size-3xs: calc(var(--cui-size-3xs) - 8px);
+    --cui-nested-size-2xs: calc(var(--cui-size-2xs) - 8px);
+    --cui-nested-size-xs: calc(var(--cui-size-xs) - 8px);
+    --cui-nested-size-sm: calc(var(--cui-size-sm) - 8px);
+    --cui-nested-size-md: calc(var(--cui-size-md) - 8px);
+    --cui-nested-size-lg: calc(var(--cui-size-lg) - 8px);
+    --cui-nested-size-xl: calc(var(--cui-size-xl) - 8px);
+    --cui-nested-size-2xl: calc(var(--cui-size-2xl) - 8px);
+    --cui-thumb-xs: 16px;
+    --cui-thumb-sm: 20px;
+    --cui-thumb-md: 24px;
+    --cui-radius: 8px;
+    --cui-radius-3xs: calc(var(--cui-radius) * 12 / 28);
+    --cui-radius-2xs: calc(var(--cui-radius) * 16 / 28);
+    --cui-radius-xs: calc(var(--cui-radius) * 20 / 28);
+    --cui-radius-sm: calc(var(--cui-radius) * 24 / 28);
+    --cui-radius-md: var(--cui-radius);
+    --cui-radius-lg: calc(var(--cui-radius) * 32 / 28);
+    --cui-radius-xl: calc(var(--cui-radius) * 40 / 28);
+    --cui-radius-2xl: calc(var(--cui-radius) * 48 / 28);
+    --cui-radius-full-2xs: calc(var(--cui-size-2xs) / 2);
+    --cui-radius-full-xs: calc(var(--cui-size-xs) / 2);
+    --cui-radius-full-sm: calc(var(--cui-size-sm) / 2);
+    --cui-radius-full-md: calc(var(--cui-size-md) / 2);
+    --cui-radius-full-lg: calc(var(--cui-size-lg) / 2);
+    --cui-radius-full-xl: calc(var(--cui-size-xl) / 2);
+    --cui-radius-full-2xl: calc(var(--cui-size-2xl) / 2);
+    --cui-radius-wrap-2xs: calc(var(--cui-radius-2xs) + 4px);
+    --cui-radius-wrap-xs: calc(var(--cui-radius-xs) + 4px);
+    --cui-radius-wrap-sm: calc(var(--cui-radius-sm) + 4px);
+    --cui-radius-wrap-md: calc(var(--cui-radius-md) + 4px);
+    --cui-radius-wrap-lg: calc(var(--cui-radius-lg) + 4px);
+    --cui-radius-wrap-xl: calc(var(--cui-radius-xl) + 4px);
+    --cui-radius-wrap-2xl: calc(var(--cui-radius-2xl) + 4px);
+    --cui-radius-wrap-full-2xs: calc(var(--cui-radius-full-2xs) + 4px);
+    --cui-radius-wrap-full-xs: calc(var(--cui-radius-full-xs) + 4px);
+    --cui-radius-wrap-full-sm: calc(var(--cui-radius-full-sm) + 4px);
+    --cui-radius-wrap-full-md: calc(var(--cui-radius-full-md) + 4px);
+    --cui-radius-wrap-full-lg: calc(var(--cui-radius-full-lg) + 4px);
+    --cui-radius-wrap-full-xl: calc(var(--cui-radius-full-xl) + 4px);
+    --cui-radius-wrap-full-2xl: calc(var(--cui-radius-full-2xl) + 4px);
+    --cui-radius-focus-2xs: calc(var(--cui-radius-2xs) + 6px);
+    --cui-radius-focus-xs: calc(var(--cui-radius-xs) + 6px);
+    --cui-radius-focus-sm: calc(var(--cui-radius-sm) + 6px);
+    --cui-radius-focus-md: calc(var(--cui-radius-md) + 6px);
+    --cui-radius-focus-lg: calc(var(--cui-radius-lg) + 6px);
+    --cui-radius-focus-xl: calc(var(--cui-radius-xl) + 6px);
+    --cui-radius-focus-2xl: calc(var(--cui-radius-2xl) + 6px);
+    --cui-radius-focus-full-2xs: calc(var(--cui-radius-full-2xs) + 6px);
+    --cui-radius-focus-full-xs: calc(var(--cui-radius-full-xs) + 6px);
+    --cui-radius-focus-full-sm: calc(var(--cui-radius-full-sm) + 6px);
+    --cui-radius-focus-full-md: calc(var(--cui-radius-full-md) + 6px);
+    --cui-radius-focus-full-lg: calc(var(--cui-radius-full-lg) + 6px);
+    --cui-radius-focus-full-xl: calc(var(--cui-radius-full-xl) + 6px);
+    --cui-radius-focus-full-2xl: calc(var(--cui-radius-full-2xl) + 6px);
+    --cui-radius-popover: 24px;
+    --cui-radius-dialog: 24px;
+    --cui-radius-toast: 24px;
+    --cui-radius-popup: 24px;
+    --cui-radius-tooltip: 12px;
+    --cui-text-md: 16px;
+    --cui-text-sm: 14px;
+    --cui-text-xs: 12px;
+    --cui-text-2xs: 10px;
+    --cui-text-3xs: 8px;
+    --cui-text-4xs: 6px;
+  }
+
+  :where(.cui-accent-neutral) {
+    --cui-accent-source: #fff;
+  }
+
+  :where(.cui-accent-brand) {
+    --cui-accent-source: #388aff;
+  }
+
+  :where(.cui-accent-red) {
+    --cui-accent-source: #ff0b0b;
+  }
+
+  :where(.cui-accent-pink) {
+    --cui-accent-source: #ff0bac;
+  }
+
+  :where(.cui-accent-purple) {
+    --cui-accent-source: #a20bff;
+  }
+
+  :where(.cui-accent-blue) {
+    --cui-accent-source: #0047ff;
+  }
+
+  :where(.cui-accent-cyan) {
+    --cui-accent-source: #00f9ff;
+  }
+
+  :where(.cui-accent-lime) {
+    --cui-accent-source: #7dff0b;
+  }
+
+  :where(.cui-accent-green) {
+    --cui-accent-source: #0bff23;
+  }
+
+  :where(.cui-accent-yellow) {
+    --cui-accent-source: #fff800;
+  }
+
+  :where(.cui-accent-orange) {
+    --cui-accent-source: #ff7a00;
+  }
+
+  :where([class*="cui-accent-"]:not(.cui-accent-neutral)) {
+    --cui-background: oklch(from var(--cui-accent-source) 0.18 0.02 h);
+    --cui-backdrop: #000;
+    --cui-primary: oklch(
+      from var(--cui-accent-source) var(--cui-dark-primary-lightness) var(--cui-dark-primary-chroma)
+        h
+    );
+    --cui-on-primary: oklch(from var(--cui-accent-source) 0.2 0.05 h);
+    --cui-surface-base: oklch(from var(--cui-accent-source) 0.23 0.027 h);
+    --cui-surface-cut-base: oklch(from var(--cui-accent-source) 0.19 0.027 h);
+    --cui-foreground: oklch(from var(--cui-accent-source) 0.9 0.04 h);
+    --cui-foreground-soft-base: oklch(from var(--cui-accent-source) 0.65 0.04 h);
+    --cui-foreground-softer-base: oklch(from var(--cui-accent-source) 0.5 0.04 h);
+    --cui-foreground-softest-base: oklch(from var(--cui-accent-source) 0.4 0.04 h);
+    --cui-surface-white: oklch(from var(--cui-accent-source) 0.92 0.05 h);
+    --cui-surface-black: oklch(from var(--cui-accent-source) 0.08 0.02 h);
+    --cui-background-outline: oklch(from var(--cui-accent-source) 0.25 0.02 h);
+    --cui-outline-base: oklch(from var(--cui-accent-source) 0.28 0.025 h);
+    --cui-hover: color-mix(in oklab, var(--cui-surface-white) 5%, transparent);
+    --cui-hover-fill: color-mix(in oklab, var(--cui-surface-white) 40%, transparent);
+    --cui-pressed: color-mix(in oklab, var(--cui-surface-white) 3%, transparent);
+    --cui-surface-mix-color: var(--cui-surface-white);
+    --cui-surface-mix-step: 6%;
+    --cui-shadow-cut-outline:
+      -1px -1px 0 0 color-mix(in oklab, var(--cui-surface-white) 2%, transparent) inset,
+      0 0 0 1px color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+    --cui-shadow-outline:
+      1px 1px 0 0 color-mix(in oklab, var(--cui-surface-white) 8%, transparent) inset,
+      -1px -1px 0 0 color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+    --cui-shadow-outline-fill:
+      1px 1px 0 0 color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset,
+      -1px -1px 0 0 color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset;
+  }
+
+  :where(
+    .cui-theme[data-cui-theme="light"],
+    .cui-theme[data-cui-theme="light"] .cui-accent-neutral
+  ) {
+    --cui-background: #fff;
+    --cui-backdrop: oklch(0.91 0 0);
+    --cui-primary: oklch(from var(--cui-accent-source) 0.1 0 h);
+    --cui-on-primary: oklch(from var(--cui-accent-source) 0.96 0 h);
+    --cui-surface-base: oklch(0.97 0 0);
+    --cui-surface-cut-base: oklch(from var(--cui-accent-source) 0.93 0 h);
+    --cui-foreground: oklch(0.32 0 0);
+    --cui-foreground-soft-base: oklch(0.5 0 0);
+    --cui-foreground-softer-base: oklch(0.65 0 0);
+    --cui-foreground-softest-base: oklch(0.75 0 0);
+    --cui-surface-white: oklch(1 0 0);
+    --cui-surface-black: oklch(0 0 0);
+    --cui-background-outline: oklch(0.89 0 0);
+    --cui-outline-base: oklch(0.89 0 0);
+    --cui-hover: color-mix(in oklab, var(--cui-surface-black) 3%, transparent);
+    --cui-hover-fill: color-mix(in oklab, var(--cui-surface-white) 20%, transparent);
+    --cui-pressed: color-mix(in oklab, var(--cui-surface-white) 6%, transparent);
+    --cui-surface-mix-color: var(--cui-surface-black);
+    --cui-surface-mix-step: 4%;
+    --cui-highlight-white-mix: 50%;
+    --cui-shadow-cut-outline:
+      0.5px 0.5px 0 0 color-mix(in oklab, var(--cui-surface-black) 10%, transparent) inset,
+      0 0 0 0.5px color-mix(in oklab, var(--cui-surface-black) 5%, transparent) inset;
+    --cui-shadow-outline:
+      0 0 0 1px var(--cui-outline) inset,
+      1.5px 1.5px 0 0 color-mix(in oklab, var(--cui-surface-white) 60%, transparent) inset;
+    --cui-shadow-outline-fill:
+      0 0 0 0.5px color-mix(in oklab, var(--cui-surface-black) 20%, transparent) inset,
+      1px 1px 0 0 color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset;
+  }
+
+  :where(
+    .cui-theme[data-cui-theme="light"] [class*="cui-accent-"]:not(.cui-accent-neutral),
+    .cui-theme[data-cui-theme="light"][class*="cui-accent-"]:not(.cui-accent-neutral)
+  ) {
+    --cui-background: oklch(from var(--cui-accent-source) 1 0.015 h);
+    --cui-backdrop: oklch(0.74 0.018 100);
+    --cui-primary: oklch(
+      from var(--cui-accent-source) var(--cui-light-primary-lightness)
+        var(--cui-light-primary-chroma) h
+    );
+    --cui-on-primary: oklch(from var(--cui-accent-source) 0.97 0.04 h);
+    --cui-surface-base: oklch(from var(--cui-accent-source) 0.97 0.015 h);
+    --cui-surface-cut-base: oklch(from var(--cui-accent-source) 0.93 0.02 h);
+    --cui-foreground: oklch(from var(--cui-accent-source) 0.25 0.015 h);
+    --cui-foreground-soft-base: oklch(from var(--cui-accent-source) 0.5 0.025 h);
+    --cui-foreground-softer-base: oklch(from var(--cui-accent-source) 0.65 0.025 h);
+    --cui-foreground-softest-base: oklch(from var(--cui-accent-source) 0.75 0.025 h);
+    --cui-surface-white: oklch(from var(--cui-accent-source) 0.98 0.04 h);
+    --cui-surface-black: oklch(from var(--cui-accent-source) 0.4 0.07 h);
+    --cui-background-outline: oklch(from var(--cui-accent-source) 0.74 0.03 h);
+    --cui-outline-base: oklch(from var(--cui-accent-source) 0.88 0.025 h);
+    --cui-hover: color-mix(in oklab, var(--cui-surface-black) 6%, transparent);
+    --cui-hover-fill: color-mix(in oklab, var(--cui-surface-white) 10%, transparent);
+    --cui-pressed: color-mix(in oklab, var(--cui-surface-white) 6%, transparent);
+    --cui-surface-mix-color: var(--cui-surface-black);
+    --cui-surface-mix-step: 5%;
+    --cui-highlight-white-mix: 50%;
+    --cui-shadow-cut-outline:
+      0.5px 0.5px 0 0 color-mix(in oklab, var(--cui-surface-black) 10%, transparent) inset,
+      0 0 0 0.5px color-mix(in oklab, var(--cui-surface-black) 5%, transparent) inset;
+    --cui-shadow-outline:
+      0 0 0 1px var(--cui-outline) inset,
+      1.5px 1.5px 0 0 color-mix(in oklab, var(--cui-surface-white) 80%, transparent) inset;
+    --cui-shadow-outline-fill:
+      0 0 0 1px color-mix(in oklab, var(--cui-surface-black) 40%, transparent) inset,
+      1px 1px 0 0.25px color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset;
+  }
+
+  :where(:root, .cui-theme, [class*="cui-accent-"], [class*="cui-surface-level-"]) {
+    --cui-surface: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color) calc(var(--cui-surface-mix-step) * var(--cui-surface-multiplier)),
+      var(--cui-surface-base) 100%
+    );
+    --cui-surface-prev: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color)
+        calc(var(--cui-surface-mix-step) * (var(--cui-surface-multiplier) - 1)),
+      var(--cui-surface-base) 100%
+    );
+    --cui-surface-minus: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color)
+        calc(var(--cui-surface-mix-step) * (var(--cui-surface-multiplier) - 0.5)),
+      var(--cui-surface-base) 100%
+    );
+    --cui-surface-plus: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color)
+        calc(var(--cui-surface-mix-step) * (var(--cui-surface-multiplier) + 0.5)),
+      var(--cui-surface-base) 100%
+    );
+    --cui-surface-next: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color)
+        calc(var(--cui-surface-mix-step) * (var(--cui-surface-multiplier) + 1)),
+      var(--cui-surface-base) 100%
+    );
+    --cui-surface-cut: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color) calc(var(--cui-surface-mix-step) * var(--cui-surface-multiplier)),
+      var(--cui-surface-cut-base) 100%
+    );
+    --cui-foreground-soft: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color) calc(var(--cui-surface-mix-step) * var(--cui-surface-multiplier)),
+      var(--cui-foreground-soft-base) 100%
+    );
+    --cui-foreground-softer: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color) calc(var(--cui-surface-mix-step) * var(--cui-surface-multiplier)),
+      var(--cui-foreground-softer-base) 100%
+    );
+    --cui-foreground-softest: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color) calc(var(--cui-surface-mix-step) * var(--cui-surface-multiplier)),
+      var(--cui-foreground-softest-base) 100%
+    );
+    --cui-outline: color-mix(
+      in oklab,
+      var(--cui-surface-mix-color) calc(var(--cui-surface-mix-step) * var(--cui-surface-multiplier)),
+      var(--cui-outline-base)
+    );
+    --cui-surface-highlight: color-mix(
+      in oklab,
+      var(--cui-surface-white) var(--cui-highlight-white-mix),
+      var(--cui-surface) 100%
+    );
+  }
+
+  :where(.cui-surface-level-1) {
+    --cui-surface-multiplier: 0;
+  }
+
+  :where(.cui-surface-level-2) {
+    --cui-surface-multiplier: 1;
+  }
+
+  :where(.cui-surface-level-3) {
+    --cui-surface-multiplier: 2;
+  }
+
+  :where(.cui-surface-level-4) {
+    --cui-surface-multiplier: 3;
+  }
+
+  :where(.cui-surface-level-5) {
+    --cui-surface-multiplier: 4;
+  }
+}

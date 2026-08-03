@@ -1,0 +1,207 @@
+@layer cui.components {
+  :where(:root, .cui-theme) {
+    --cui-shadow-popover: 0 24px 64px -12px rgb(0 0 0 / 0.5);
+  }
+
+  :where(.cui-overlay-trigger) {
+    display: contents;
+  }
+
+  :where(.cui-dialog__layer) {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+  }
+
+  :where(.cui-dialog__backdrop) {
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    background: color-mix(in oklab, var(--cui-backdrop) 90%, transparent);
+  }
+
+  :where(.cui-dialog__content) {
+    width: min(320px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    overflow: hidden;
+    border-radius: var(--cui-radius-dialog);
+    outline: 0;
+  }
+
+  :where(.cui-dialog__container) {
+    width: min(320px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    outline: 0;
+  }
+
+  :where(.cui-dialog__container .cui-dialog__content) {
+    width: 100%;
+  }
+
+  :where(.cui-dialog__content > .cui-surface__content) {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: inherit;
+    padding: 16px;
+    overflow: auto;
+  }
+
+  :where(.cui-dialog__title) {
+    margin: 0;
+    color: var(--cui-foreground);
+    font-size: var(--cui-text-md);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  :where(.cui-dialog__description) {
+    margin: 0;
+    color: var(--cui-foreground-soft);
+    font-size: var(--cui-text-sm);
+    line-height: 1.55;
+  }
+
+  :where(.cui-dialog__body) {
+    color: var(--cui-foreground);
+    font-size: var(--cui-text-xs);
+    line-height: 1.55;
+  }
+
+  :where(.cui-dialog__actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  :where(.cui-popover__content) {
+    position: fixed;
+    z-index: 110;
+    width: 160px;
+    max-width: calc(100vw - 16px);
+    max-height: 70vh;
+    overflow: hidden;
+    border-radius: var(--cui-radius-popover);
+    box-shadow: var(--cui-shadow-popover);
+    outline: 0;
+  }
+
+  :where(.cui-popover__surface) {
+    border-radius: inherit;
+  }
+
+  :where(.cui-popover__surface > .cui-surface__content) {
+    display: block;
+    max-height: inherit;
+    padding: 12px;
+    overflow: auto;
+  }
+
+  :where(.cui-tooltip__content) {
+    position: fixed;
+    z-index: 120;
+    width: max-content;
+    max-width: min(280px, calc(100vw - 16px));
+    border-radius: var(--cui-radius-tooltip);
+    color: var(--cui-foreground);
+    font-size: var(--cui-text-2xs);
+    font-weight: 600;
+    line-height: 1.4;
+    outline: 0;
+  }
+
+  :where(.cui-tooltip__surface) {
+    border-radius: inherit;
+  }
+
+  :where(.cui-tooltip__surface > .cui-surface__content) {
+    padding: 6px 9px;
+  }
+
+  :where(.cui-popover__backdrop) {
+    position: fixed;
+    z-index: 105;
+    inset: 0;
+    background: var(--cui-backdrop);
+    opacity: 0;
+    transition: opacity var(--cui-motion-base) var(--cui-ease-standard);
+  }
+
+  :where(.cui-popover__backdrop[data-cui-opened]) {
+    opacity: 0.5;
+  }
+
+  :where(.cui-popover__backdrop[data-transparent]) {
+    background: transparent;
+  }
+
+  :where(.cui-dialog__layer) {
+    opacity: 0;
+    transition: opacity var(--cui-motion-base) var(--cui-ease-exit);
+  }
+
+  :where(.cui-dialog__layer[data-cui-opened]) {
+    opacity: 1;
+    transition: opacity var(--cui-motion-enter) var(--cui-ease-enter);
+  }
+
+  :where(.cui-dialog__backdrop) {
+    opacity: 0;
+    transition: opacity var(--cui-motion-base) var(--cui-ease-standard);
+  }
+
+  :where(.cui-dialog__layer[data-cui-opened] .cui-dialog__backdrop) {
+    opacity: 1;
+  }
+
+  :where(.cui-dialog__content) {
+    transform: scale(0.75);
+    opacity: 0;
+    transition:
+      transform var(--cui-motion-base) var(--cui-ease-exit),
+      opacity var(--cui-motion-base) var(--cui-ease-exit);
+  }
+
+  :where(.cui-dialog__layer[data-cui-opened] .cui-dialog__content) {
+    transform: none;
+    opacity: 1;
+    transition:
+      transform var(--cui-motion-enter) var(--cui-ease-enter),
+      opacity var(--cui-motion-enter) var(--cui-ease-enter);
+  }
+
+  :where(.cui-popover__content) {
+    transform: scale(0);
+    opacity: 0;
+    transition:
+      transform var(--cui-motion-base) var(--cui-ease-standard),
+      opacity var(--cui-motion-base) var(--cui-ease-standard);
+  }
+
+  :where(.cui-popover__content[data-cui-opened]) {
+    transform: none;
+    opacity: 1;
+    transition:
+      transform var(--cui-motion-slow) cubic-bezier(0, 1, 0, 1.025),
+      opacity var(--cui-motion-slow) cubic-bezier(0, 1, 0, 1.025);
+  }
+
+  :where(.cui-tooltip__content) {
+    transform: scale(0.5);
+    opacity: 0;
+    transition:
+      transform var(--cui-motion-base) var(--cui-ease-standard),
+      opacity var(--cui-motion-base) var(--cui-ease-standard);
+  }
+
+  :where(.cui-tooltip__content[data-cui-opened]) {
+    transform: none;
+    opacity: 1;
+  }
+}

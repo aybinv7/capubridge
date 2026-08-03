@@ -1,0 +1,170 @@
+@layer cui.components {
+  :where(.cui-theme) {
+    color: var(--cui-foreground);
+    color-scheme: dark;
+  }
+
+  :where(.cui-theme[data-cui-theme="light"]) {
+    color-scheme: light;
+  }
+
+  :where(.cui-surface, .cui-surface-cut) {
+    position: relative;
+    isolation: isolate;
+    color: var(--cui-foreground);
+  }
+
+  :where(.cui-surface__background, .cui-surface-cut__background) {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  :where(.cui-surface__content, .cui-surface-cut__content) {
+    position: relative;
+    z-index: 0;
+    display: flex;
+    height: 100%;
+    min-width: 0;
+  }
+
+  :where(.cui-surface__overlay, .cui-surface-cut__overlay) {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0;
+    transition:
+      opacity var(--cui-motion-base) var(--cui-ease-standard),
+      background-color var(--cui-motion-base) var(--cui-ease-standard);
+  }
+
+  :where(.cui-surface__overlay--below, .cui-surface-cut__overlay--below) {
+    z-index: -1;
+  }
+
+  :where(.cui-surface__overlay--above, .cui-surface-cut__overlay--above) {
+    z-index: 1;
+  }
+
+  :where(.cui-surface--solid) > .cui-surface__background {
+    background: var(--cui-surface);
+  }
+
+  :where(.cui-surface--gradient) > .cui-surface__background {
+    background: linear-gradient(135deg, var(--cui-surface-highlight), var(--cui-surface));
+  }
+
+  :where(.cui-surface--solid-fill) > .cui-surface__background {
+    background: var(--cui-primary);
+  }
+
+  :where(.cui-surface--gradient-fill) > .cui-surface__background {
+    background: linear-gradient(
+      135deg,
+      var(--cui-primary),
+      color-mix(in oklab, var(--cui-primary) 85%, transparent)
+    );
+  }
+
+  :where(.cui-theme[data-cui-theme="light"] .cui-surface--gradient-fill)
+    > .cui-surface__background {
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--cui-primary) 80%, transparent),
+      var(--cui-primary)
+    );
+  }
+
+  :where(.cui-surface--fill) {
+    color: var(--cui-on-primary);
+  }
+
+  :where(.cui-surface--outlined) > .cui-surface__background {
+    box-shadow: var(--cui-shadow-outline);
+  }
+
+  :where(.cui-surface--fill.cui-surface--outlined) > .cui-surface__background {
+    box-shadow: var(--cui-shadow-outline-fill);
+  }
+
+  @media (hover: hover) {
+    :where(.cui-surface--hoverable:hover) > .cui-surface__overlay,
+    :where(.cui-surface-cut--hoverable:hover) > .cui-surface-cut__overlay {
+      background: var(--cui-hover);
+      opacity: 1;
+    }
+
+    :where(.cui-surface--fill.cui-surface--hoverable:hover) > .cui-surface__overlay {
+      background: var(--cui-hover-fill);
+    }
+
+    :where(.cui-surface--transparent.cui-surface--hoverable:hover) > .cui-surface__background {
+      background: var(--cui-surface);
+    }
+  }
+
+  :where(.cui-surface--clickable, .cui-surface-cut--clickable) {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :where(.cui-surface--clickable, .cui-surface-cut--clickable):focus-visible {
+    outline: 2px solid var(--cui-primary);
+    outline-offset: 2px;
+  }
+
+  :where(
+      .cui-surface--clickable:active:not(:has(.cui-surface--clickable:active)),
+      .cui-surface--pressed:not(:has(.cui-surface--pressed))
+    )
+    > .cui-surface__overlay,
+  :where(
+      .cui-surface-cut--clickable:active:not(:has(.cui-surface-cut--clickable:active)),
+      .cui-surface-cut--pressed:not(:has(.cui-surface-cut--pressed))
+    )
+    > .cui-surface-cut__overlay {
+    background: var(--cui-pressed);
+    opacity: 1;
+  }
+
+  :where(
+      .cui-surface--clickable:active:not(:has(.cui-surface--clickable:active)),
+      .cui-surface--pressed:not(:has(.cui-surface--pressed))
+    )
+    > .cui-surface__content,
+  :where(
+      .cui-surface-cut--clickable:active:not(:has(.cui-surface-cut--clickable:active)),
+      .cui-surface-cut--pressed:not(:has(.cui-surface-cut--pressed))
+    )
+    > .cui-surface-cut__content {
+    transform: scale(0.95);
+    opacity: 0.75;
+  }
+
+  :where(.cui-surface--clickable) > .cui-surface__content,
+  :where(.cui-surface-cut--clickable) > .cui-surface-cut__content {
+    transition:
+      transform var(--cui-motion-base) var(--cui-ease-standard),
+      opacity var(--cui-motion-base) var(--cui-ease-standard);
+  }
+
+  :where(.cui-surface-cut) > .cui-surface-cut__background {
+    background: var(--cui-surface-cut);
+  }
+
+  :where(.cui-surface-cut--outlined) > .cui-surface-cut__background {
+    box-shadow: var(--cui-shadow-cut-outline);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(.cui-surface--clickable) > .cui-surface__content,
+    :where(.cui-surface-cut--clickable) > .cui-surface-cut__content {
+      transform: none;
+    }
+  }
+}

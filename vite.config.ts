@@ -14,6 +14,9 @@ export default defineConfig({
   run: {
     cache: true,
     tasks: {
+      "reference:cladd": {
+        command: "node scripts/reference-cladd.mjs",
+      },
       "check:versions": {
         command: "node scripts/check-versions.mjs",
         env: ["GITHUB_REF_TYPE", "GITHUB_REF_NAME"],
