@@ -10,14 +10,14 @@
 
 @custom-variant cui-surface-hover {
   @media (hover: hover) {
-    &:where(.cui-surface--hoverable:hover > *) {
+    &:where(.cui-hoverable:hover:not(.cui-clickable:active:not(:has(.cui-clickable:active))) > *) {
       @slot;
     }
   }
 }
 
 @custom-variant cui-surface-press {
-  &:where(.cui-surface--clickable:active:not(:has(.cui-surface--clickable:active)) > *) {
+  &:where(.cui-clickable:active:not(:has(.cui-clickable:active)) > *) {
     @slot;
   }
 }

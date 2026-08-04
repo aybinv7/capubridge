@@ -7,11 +7,21 @@ import type {
   UiAccent,
   UiSize,
 } from "../../foundations/contracts.ts";
+import { cn } from "../../shared/cn.ts";
+import { roundedClasses } from "../../shared/roundedClasses.ts";
+import { rootSizeClasses } from "../../shared/sizeClasses.ts";
 import Spinner from "../feedback/Spinner.vue";
 import FocusRing from "../feedback/FocusRing.vue";
 import Surface from "../surface/Surface.vue";
 import SurfaceCut from "../surface/SurfaceCut.vue";
-import { buttonSpinnerSizes, type ButtonSurface } from "./button.contracts.ts";
+import {
+  buttonFontSizes,
+  buttonIconSizes,
+  buttonPaddings,
+  buttonSpinnerSizes,
+  buttonVerticalPaddings,
+  type ButtonSurface,
+} from "./button.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
@@ -77,7 +87,7 @@ const surfaceProps = computed(() => ({
   as: props.as,
   clickable: props.clickable && !inactive.value,
   color: props.color,
-  contentClassName: props.contentClassName,
+  contentClassName: buttonContentClass.value,
   hoverable: props.hoverable && !inactive.value,
   outline: props.outline,
   pressed: props.pressed,
@@ -87,6 +97,46 @@ const surfaceProps = computed(() => ({
 }));
 const rootProps = computed(() => ({ ...surfaceProps.value, ...attrs }));
 const isNativeButton = computed(() => props.as === "button");
+const radii = computed(() => roundedClasses(props.size, props.rounded, props.multiline));
+const heightClass = computed(() =>
+  rootSizeClasses(props.size, props.multiline ? "min-height" : "height"),
+);
+const isLink = computed(() => props.as === "a" || "href" in attrs);
+
+const rootClass = computed(() =>
+  cn(
+    "cui-button group/cui-button inline-block appearance-none text-left font-semibold outline-0 select-none focus:ring-0 focus:outline-0",
+    buttonFontSizes[props.size],
+    heightClass.value,
+    radii.value.itemRoundedClasses,
+    props.square && "aspect-square",
+    props.disabled && "pointer-events-none",
+    !inactive.value && isLink.value ? "cursor-pointer" : "cursor-auto",
+  ),
+);
+
+const buttonContentClass = computed(() =>
+  cn(
+    "flex w-full items-center justify-center gap-2 [&>svg]:shrink-0",
+    buttonVerticalPaddings[props.size],
+    props.multiline && heightClass.value,
+    buttonIconSizes[props.size],
+    props.disabled && "opacity-40",
+    !props.square && buttonPaddings[props.size],
+    props.loading && "scale-0 opacity-0!",
+    props.contentClassName,
+  ),
+);
+
+const spinnerClass = computed(() =>
+  cn(
+    "cui-button__spinner absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-100 opacity-100 duration-200 starting:scale-0 starting:opacity-0",
+  ),
+);
+
+const focusRingClass = computed(() =>
+  props.tightFocusRing ? "rounded-[inherit]" : radii.value.focusRoundedClasses,
+);
 
 function guardActivation(event: Event): void {
   if (!inactive.value) {
@@ -102,15 +152,7 @@ function guardActivation(event: Event): void {
   <component
     :is="surfaceComponent"
     v-bind="rootProps"
-    class="cui-button"
-    :class="[
-      `cui-button--${props.size}`,
-      props.rounded && 'cui-button--rounded',
-      props.multiline && 'cui-button--multiline',
-      props.square && 'cui-button--square',
-      inactive && 'cui-button--inactive',
-      props.disabled && 'cui-button--disabled',
-    ]"
+    :class="rootClass"
     :aria-busy="props.loading || undefined"
     :aria-disabled="!isNativeButton && inactive ? 'true' : undefined"
     :data-cui-explicit-accent="explicitAccent && explicitAccent !== 'neutral' ? 'true' : undefined"
@@ -126,19 +168,19 @@ function guardActivation(event: Event): void {
     <template #beforeContent>
       <Spinner
         v-if="props.loading"
-        class="cui-button__spinner"
         :accent="props.accent"
+        :class="spinnerClass"
         :color="props.color"
         :size="buttonSpinnerSizes[props.size]"
       />
       <FocusRing
         v-if="props.focused || (props.focusable && !inactive)"
         :accent="props.accent"
+        :class="focusRingClass"
+        :color="props.color"
         :force="props.focused"
-        :multiline="props.multiline"
+        group="button"
         :offset="!props.tightFocusRing"
-        :rounded="props.rounded"
-        :size="props.size"
       />
     </template>
     <slot />

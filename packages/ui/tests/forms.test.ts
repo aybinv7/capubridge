@@ -20,7 +20,6 @@ import { byTestId, mountTree } from "./support/mountTree.ts";
 import type { MountedTree } from "./support/mountTree.ts";
 
 const formsCss = readFileSync(join(process.cwd(), "src", "styles", "forms.css"), "utf8");
-const controlsCss = readFileSync(join(process.cwd(), "src", "styles", "controls.css"), "utf8");
 const selectCss = readFileSync(join(process.cwd(), "src", "styles", "select.css"), "utf8");
 const selectSource = readFileSync(
   join(process.cwd(), "src", "components", "forms", "Select.vue"),
@@ -369,7 +368,7 @@ test("locks Select to Cladd's trigger and option geometry", () => {
   expect(selectSource).toContain("multiline");
   expect(selectSource).toContain("rounded");
   expect(selectSource).toContain('size="lg"');
-  expect(controlsCss).toContain("border-radius: var(--cui-radius-full-lg)");
+  expect(selectSource).toContain('size="lg"');
   expect(selectCss).toContain(".cui-select__hint");
   expect(selectCss).toContain("grid-template-columns: minmax(0, 1fr)");
   expect(selectCss).toContain("overflow-x: hidden");

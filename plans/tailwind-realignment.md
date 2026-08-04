@@ -164,3 +164,31 @@ after. 75 tests pass.
 Also worth recording: a paren-blind comma split corrupted `surfaces.css` selectors containing
 `:not(:has(…))` during the first strip attempt, producing an eight-paren imbalance that surfaced only as
 the same opaque Tailwind syntax error. Selector rewriting must track parenthesis depth.
+
+## Step 3 progress: SurfaceCut converted 2026-08-03
+
+`SurfaceCut.vue` composes upstream's utility strings from `SurfaceCut.tsx:43`-`82` and
+`SurfaceCutContent.tsx:43`. With both surface primitives converted, `surfaces.css` drops from 170 lines
+to 31: only the theme colour-scheme rules, the overlay transition, the clickable cursor and
+focus-visible reset, and the reduced-motion collapse remain.
+
+Two inventions were removed rather than carried forward, because upstream has neither: `isolation:
+isolate` on the surface roots and the `z-index` values on the background, content, and overlay layers.
+Upstream relies on DOM order plus a positioned content layer, which produces the same stacking. The
+shared content-layer `display: flex` and `min-width: 0` also went, since upstream's content wrapper is a
+plain block and each consumer passes its own `contentClassName`.
+
+A bug worth recording: the first version of the custom variants targeted `.cui-surface--hoverable` and
+`.cui-surface--clickable`, which would never have matched `SurfaceCut` children. Upstream puts _shared_
+`cladd-hoverable` and `cladd-clickable` classes on both primitives and targets those. Both components now
+emit `cui-hoverable` / `cui-clickable` alongside their BEM-style hooks, and the variants target the
+shared pair.
+
+Verified in the running playground against the pre-conversion baseline: cut radius `7px`, the cut
+background resolving to `oklab(0.19 0 0)`, the cut outline shadow
+`oklab(1 0 0 / 0.02) -1px -1px 0 0 inset, oklab(1 0 0 / 0.07) 0 0 0 1px inset`, and every surface radius
+and content padding unchanged. No console errors. 75 tests pass.
+
+Remaining in step 3: actions, data display, feedback, forms, overlays. `controls.css`, `forms.css`,
+`overlays.css`, and `select.css` still hold the hand-authored geometry for those families, and each
+conversion must delete the old declaration in the same change per the layer-order trap above.

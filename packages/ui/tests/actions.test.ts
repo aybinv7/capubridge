@@ -12,7 +12,9 @@ test("renders exact default button structure and loading replacement", () => {
   const button = byTestId(mounted.root, "button");
 
   expect(button.tagName).toBe("BUTTON");
-  expect(button.classList.contains("cui-button--md")).toBe(true);
+  expect(button.classList.contains("h-cui-md")).toBe(true);
+  expect(button.classList.contains("rounded-cui-md")).toBe(true);
+  expect(button.classList.contains("group/cui-button")).toBe(true);
   expect(button.getAttribute("aria-busy")).toBe("true");
   expect(button.textContent).toContain("Saving");
   expect(button.querySelector(".cui-spinner")?.getAttribute("data-cui-size")).toBe("sm");
@@ -37,8 +39,9 @@ test("blocks disabled and readonly button activation", () => {
   (readonly.root.querySelector("a") as HTMLAnchorElement).click();
   expect(activations).toBe(0);
   expect(readonly.root.querySelector("a")?.getAttribute("aria-disabled")).toBe("true");
-  expect(readonly.root.querySelector("a")?.classList.contains("cui-button--disabled")).toBe(false);
-  expect(disabled.root.querySelector("button")?.classList.contains("cui-button--disabled")).toBe(
+  expect(readonly.root.querySelector("a")?.hasAttribute("data-disabled")).toBe(false);
+  expect(disabled.root.querySelector("button")?.getAttribute("data-disabled")).toBe("true");
+  expect(disabled.root.querySelector("button")?.classList.contains("pointer-events-none")).toBe(
     true,
   );
   disabled.app.unmount();

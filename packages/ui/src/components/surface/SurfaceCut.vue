@@ -4,6 +4,7 @@ import { computed, type Component } from "vue";
 import { provideSurfaceContext, useSurface } from "../../contexts/surfaceContext.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent } from "../../foundations/contracts.ts";
+import { cn } from "../../shared/cn.ts";
 import { resolveSurfaceInnerElement } from "./surface.shared.ts";
 
 defineOptions({ inheritAttrs: false });
@@ -52,6 +53,47 @@ const currentAccent = computed(
 const providedLevel = computed(() => parentSurface.level.value - 1);
 const innerElement = computed(() => resolveSurfaceInnerElement(props.as));
 
+const rootClass = computed(() =>
+  cn(
+    "cui-surface-cut relative text-cui-fg",
+    (props.color || props.accent) && `cui-accent-${currentAccent.value}`,
+    props.outline && "cui-surface-cut--outlined",
+    props.hoverable && "cui-hoverable cui-surface-cut--hoverable",
+    props.clickable && "cui-clickable cui-surface-cut--clickable",
+    props.pressed && "cui-surface-cut--pressed",
+  ),
+);
+
+const backgroundClass = computed(() =>
+  cn(
+    "cui-surface-cut__background pointer-events-none absolute inset-0 rounded-[inherit] bg-cui-surface-cut",
+    props.outline && "shadow-cui-cut-outline",
+    props.bgClassName,
+  ),
+);
+
+const overlayClass = computed(() =>
+  cn(
+    "cui-surface-cut__overlay pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 duration-200",
+    props.hoverable &&
+      !props.pressed &&
+      "cui-surface-hover:bg-cui-surface-hover cui-surface-hover:opacity-100",
+    props.clickable &&
+      (props.pressed
+        ? "bg-cui-surface-pressed opacity-100"
+        : "cui-surface-press:bg-cui-surface-pressed cui-surface-press:opacity-100"),
+    props.overlayClassName,
+  ),
+);
+
+const contentClass = computed(() =>
+  cn(
+    "cui-surface-cut__content relative",
+    props.clickable && "duration-200 cui-surface-press:scale-95 cui-surface-press:opacity-75",
+    props.contentClassName,
+  ),
+);
+
 provideSurfaceContext(providedLevel, currentAccent);
 </script>
 
@@ -59,39 +101,25 @@ provideSurfaceContext(providedLevel, currentAccent);
   <component
     :is="props.as"
     v-bind="$attrs"
-    class="cui-surface-cut"
-    :class="[
-      (props.color || props.accent) && `cui-accent-${currentAccent}`,
-      props.outline && 'cui-surface-cut--outlined',
-      props.hoverable && 'cui-surface-cut--hoverable',
-      props.clickable && 'cui-surface-cut--clickable',
-      props.pressed && 'cui-surface-cut--pressed',
-    ]"
+    :class="rootClass"
     :data-cui-accent="currentAccent"
     :data-cui-surface-cut-from-level="parentSurface.level.value"
   >
-    <component :is="innerElement" class="cui-surface-cut__background" :class="props.bgClassName" />
+    <component :is="innerElement" :class="backgroundClass" />
     <component
       :is="innerElement"
       v-if="(props.hoverable || props.clickable) && props.overlayPosition === 'below'"
-      class="cui-surface-cut__overlay cui-surface-cut__overlay--below"
-      :class="props.overlayClassName"
+      :class="overlayClass"
     />
     <slot name="beforeContent" />
-    <component
-      :is="innerElement"
-      v-if="props.wrapContent"
-      class="cui-surface-cut__content"
-      :class="props.contentClassName"
-    >
+    <component :is="innerElement" v-if="props.wrapContent" :class="contentClass">
       <slot />
     </component>
     <slot v-else />
     <component
       :is="innerElement"
       v-if="(props.hoverable || props.clickable) && props.overlayPosition === 'above'"
-      class="cui-surface-cut__overlay cui-surface-cut__overlay--above"
-      :class="props.overlayClassName"
+      :class="overlayClass"
     />
   </component>
 </template>

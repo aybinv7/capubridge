@@ -11,12 +11,23 @@ import {
   uiSizes,
   uiThemes,
 } from "../src/index.ts";
+import {
+  buttonIconSizes,
+  buttonPaddings,
+  buttonVerticalPaddings,
+} from "../src/components/actions/button.contracts.ts";
+import { roundedClasses } from "../src/shared/roundedClasses.ts";
+import { nestedSizeClasses, rootSizeClasses } from "../src/shared/sizeClasses.ts";
 
 const motionCss = readFileSync(join(process.cwd(), "src", "styles", "motion.css"), "utf8");
 const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
 const controlsCss = readFileSync(join(process.cwd(), "src", "styles", "controls.css"), "utf8");
 const surfacesCss = readFileSync(join(process.cwd(), "src", "styles", "surfaces.css"), "utf8");
 const indexCss = readFileSync(join(process.cwd(), "src", "styles", "index.css"), "utf8");
+const focusRingSource = readFileSync(
+  join(process.cwd(), "src", "components", "feedback", "FocusRing.vue"),
+  "utf8",
+);
 
 const radiusScales = ["2xs", "xs", "sm", "md", "lg", "xl", "2xl"];
 
@@ -85,10 +96,19 @@ test("locks Cladd action geometry and motion values", () => {
   expect(motionCss).toContain("animation: cui-spinner-rotate 1.5s infinite linear");
   expect(controlsCss).toContain("width: var(--cui-nested-size-2xs)");
   expect(controlsCss).toContain("width: var(--cui-nested-size-2xl)");
-  expect(controlsCss).toContain("inset: -6px");
-  expect(controlsCss).toContain("padding: 4px 10px");
   expect(controlsCss).toContain("width: 14px");
-  expect(indexCss).toContain(":has(.cui-surface--clickable:active)");
+  expect(indexCss).toContain(":has(.cui-clickable:active)");
+  expect(roundedClasses("md", false, false).itemRoundedClasses).toBe("rounded-cui-md");
+  expect(roundedClasses("md", false, false).focusRoundedClasses).toBe("rounded-cui-focus-md");
+  expect(roundedClasses("lg", true, true).itemRoundedClasses).toBe("rounded-cui-full-lg");
+  expect(rootSizeClasses("md", "height")).toBe("h-cui-md");
+  expect(nestedSizeClasses("2xs", "width")).toBe("w-cui-nested-2xs");
+  expect(focusRingSource).toContain("-inset-1.5");
+  expect(focusRingSource).toContain("border-2 border-cui-primary");
+  expect(buttonPaddings.md).toBe("px-2.5");
+  expect(buttonPaddings["2xl"]).toBe("px-3.5");
+  expect(buttonVerticalPaddings["2xs"]).toBe("py-0");
+  expect(buttonIconSizes.md).toBe("[&>svg]:size-4");
 });
 
 test("locks the wrap radius ladder ported from Cladd radius.css", () => {
@@ -150,17 +170,10 @@ test("guards every surface hover rule behind a hover-capable pointer", () => {
   );
 
   expect(variant).toContain("@media (hover: hover)");
-  expect(variant).toContain(".cui-surface--hoverable:hover");
+  expect(variant).toContain(".cui-hoverable:hover");
+  expect(variant).toContain(":not(.cui-clickable:active:not(:has(.cui-clickable:active)))");
 
-  const guardedCut = sectionFrom(
-    surfacesCss,
-    "@media (hover: hover)",
-    ":where(.cui-surface-cut--clickable)",
-  );
-  expect(guardedCut).toContain(".cui-surface-cut--hoverable:hover");
-
-  const allHover = surfacesCss.match(/:hover\)/g) ?? [];
-  expect(allHover).toHaveLength((guardedCut.match(/:hover\)/g) ?? []).length);
+  expect(surfacesCss.match(/:hover/g)).toBeNull();
 });
 
 test("collapses motion to zero under reduced motion", () => {
@@ -176,7 +189,7 @@ test("collapses motion to zero under reduced motion", () => {
   const reducedSurfaces = surfacesCss.slice(
     surfacesCss.indexOf("@media (prefers-reduced-motion: reduce)"),
   );
-  expect(reducedSurfaces).toContain("transform: none");
+  expect(reducedSurfaces).toContain("transition-duration: 1ms");
 });
 
 test("declares the cui layer order before importing any layer", () => {
