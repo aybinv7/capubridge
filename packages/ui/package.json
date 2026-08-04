@@ -21,8 +21,7 @@
     "directory": "packages/ui"
   },
   "files": [
-    "dist",
-    "src/styles",
+    "src",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
   ],
@@ -33,8 +32,8 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
     },
     "./styles.css": "./src/styles/index.css",
     "./package.json": "./package.json"
@@ -43,16 +42,19 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vp pack",
-    "dev": "vp pack --watch",
     "test": "vp test",
-    "check": "vp check",
-    "prepublishOnly": "vp run build"
+    "check": "vp check"
+  },
+  "dependencies": {
+    "clsx": "catalog:",
+    "tailwind-merge": "catalog:"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "happy-dom": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "^6.0.2",
     "vite-plus": "catalog:",
     "vue": "catalog:"

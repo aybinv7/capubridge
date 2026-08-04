@@ -85,15 +85,15 @@ function emitSubmittedEntries(event: Event): void {
       </div>
 
       <div class="cui-form-fixture__field">
-        <label class="cui-form-fixture__label" for="cui-form-fixture-release-notes">
+        <span class="cui-form-fixture__label" id="cui-form-fixture-release-notes-label">
           Release notes
-        </label>
+        </span>
         <Textarea
           id="cui-form-fixture-release-notes"
           v-model="releaseNotes"
+          aria-labelledby="cui-form-fixture-release-notes-label"
           data-testid="release-notes"
           info-message="Shown in the session report"
-          name="releaseNotes"
         />
       </div>
 

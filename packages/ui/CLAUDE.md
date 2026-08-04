@@ -25,7 +25,7 @@ Read these files before implementation:
 - Styling mirrors the pinned Cladd baseline, which is Tailwind v4 with `clsx` and `tailwind-merge`. Copy upstream utility strings, `@theme` blocks, and custom variants instead of re-authoring them. See `../../plans/tailwind-realignment.md`.
 - Never import from `apps/*` or from another `packages/*` workspace.
 - Never copy CapuBridge feature behavior into this package.
-- Use native elements first. Custom interaction must be traced to pinned Cladd source and locked by contract tests.
+- Pinned Cladd source decides the DOM. Where upstream uses a native element, use it; where upstream uses custom interaction, port that instead of substituting a native element. Every choice must be traced to upstream and locked by contract tests.
 - Never introduce a general headless component runtime.
 - Never add inline code comments. Use clear names and focused files. Public API documentation belongs in Markdown.
 - Never place unrelated primitives in one file. One component family, composable, contract, or style concern per file.

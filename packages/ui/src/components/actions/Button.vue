@@ -69,6 +69,7 @@ defineSlots<{
 }>();
 
 const inactive = computed(() => props.disabled || props.readOnly);
+const explicitAccent = computed(() => props.color ?? props.accent);
 const attrs = useAttrs();
 const surfaceComponent = computed(() => (props.surface === "cut" ? SurfaceCut : Surface));
 const surfaceProps = computed(() => ({
@@ -112,14 +113,15 @@ function guardActivation(event: Event): void {
     ]"
     :aria-busy="props.loading || undefined"
     :aria-disabled="!isNativeButton && inactive ? 'true' : undefined"
-    :data-cui-explicit-accent="props.color || props.accent ? 'true' : undefined"
+    :data-cui-explicit-accent="explicitAccent && explicitAccent !== 'neutral' ? 'true' : undefined"
     :data-disabled="props.disabled || undefined"
     :data-loading="props.loading || undefined"
+    :data-pressed="props.pressed || undefined"
     :data-readonly="props.readOnly || undefined"
     :disabled="isNativeButton && inactive ? true : undefined"
     :tabindex="inactive ? -1 : undefined"
     @click.capture="guardActivation"
-    @contextmenu.prevent
+    @contextmenu.capture.prevent
   >
     <template #beforeContent>
       <Spinner

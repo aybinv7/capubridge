@@ -8,7 +8,12 @@
     color-scheme: light;
   }
 
-  :where(.cui-surface, .cui-surface-cut) {
+  :where(.cui-surface) {
+    position: relative;
+    isolation: isolate;
+  }
+
+  :where(.cui-surface-cut) {
     position: relative;
     isolation: isolate;
     color: var(--cui-foreground);
@@ -51,60 +56,10 @@
     z-index: 1;
   }
 
-  :where(.cui-surface--solid) > .cui-surface__background {
-    background: var(--cui-surface);
-  }
-
-  :where(.cui-surface--gradient) > .cui-surface__background {
-    background: linear-gradient(135deg, var(--cui-surface-highlight), var(--cui-surface));
-  }
-
-  :where(.cui-surface--solid-fill) > .cui-surface__background {
-    background: var(--cui-primary);
-  }
-
-  :where(.cui-surface--gradient-fill) > .cui-surface__background {
-    background: linear-gradient(
-      135deg,
-      var(--cui-primary),
-      color-mix(in oklab, var(--cui-primary) 85%, transparent)
-    );
-  }
-
-  :where(.cui-theme[data-cui-theme="light"] .cui-surface--gradient-fill)
-    > .cui-surface__background {
-    background: linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--cui-primary) 80%, transparent),
-      var(--cui-primary)
-    );
-  }
-
-  :where(.cui-surface--fill) {
-    color: var(--cui-on-primary);
-  }
-
-  :where(.cui-surface--outlined) > .cui-surface__background {
-    box-shadow: var(--cui-shadow-outline);
-  }
-
-  :where(.cui-surface--fill.cui-surface--outlined) > .cui-surface__background {
-    box-shadow: var(--cui-shadow-outline-fill);
-  }
-
   @media (hover: hover) {
-    :where(.cui-surface--hoverable:hover) > .cui-surface__overlay,
     :where(.cui-surface-cut--hoverable:hover) > .cui-surface-cut__overlay {
       background: var(--cui-hover);
       opacity: 1;
-    }
-
-    :where(.cui-surface--fill.cui-surface--hoverable:hover) > .cui-surface__overlay {
-      background: var(--cui-hover-fill);
-    }
-
-    :where(.cui-surface--transparent.cui-surface--hoverable:hover) > .cui-surface__background {
-      background: var(--cui-surface);
     }
   }
 
@@ -119,11 +74,6 @@
   }
 
   :where(
-      .cui-surface--clickable:active:not(:has(.cui-surface--clickable:active)),
-      .cui-surface--pressed:not(:has(.cui-surface--pressed))
-    )
-    > .cui-surface__overlay,
-  :where(
       .cui-surface-cut--clickable:active:not(:has(.cui-surface-cut--clickable:active)),
       .cui-surface-cut--pressed:not(:has(.cui-surface-cut--pressed))
     )
@@ -133,11 +83,6 @@
   }
 
   :where(
-      .cui-surface--clickable:active:not(:has(.cui-surface--clickable:active)),
-      .cui-surface--pressed:not(:has(.cui-surface--pressed))
-    )
-    > .cui-surface__content,
-  :where(
       .cui-surface-cut--clickable:active:not(:has(.cui-surface-cut--clickable:active)),
       .cui-surface-cut--pressed:not(:has(.cui-surface-cut--pressed))
     )
@@ -146,7 +91,6 @@
     opacity: 0.75;
   }
 
-  :where(.cui-surface--clickable) > .cui-surface__content,
   :where(.cui-surface-cut--clickable) > .cui-surface-cut__content {
     transition:
       transform var(--cui-motion-base) var(--cui-ease-standard),
@@ -162,7 +106,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :where(.cui-surface--clickable) > .cui-surface__content,
     :where(.cui-surface-cut--clickable) > .cui-surface-cut__content {
       transform: none;
     }

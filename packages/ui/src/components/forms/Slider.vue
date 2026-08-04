@@ -50,7 +50,7 @@ const props = withDefaults(
     debounce: 0,
     defaultValue: 0,
     disabled: false,
-    input: true,
+    input: false,
     max: 100,
     min: 0,
     name: undefined,
@@ -237,6 +237,7 @@ onBeforeUnmount(() => {
     :data-disabled="props.disabled || undefined"
     :data-readonly="props.readOnly || undefined"
     :style="rootStyle"
+    @contextmenu.capture.prevent
     @pointercancel="handlePointerUp"
     @pointerdown="handlePointerDown"
   >

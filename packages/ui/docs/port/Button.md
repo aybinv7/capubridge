@@ -110,3 +110,19 @@ read to confirm it declares no `level` or `variant`.
 
 Not verified here: `Spinner` and `FocusRing` beyond the values `Button` depends on, `SurfaceCut`
 composition, and `styles/colors.css`. Each needs its own manifest.
+
+## Resolved since this manifest was written
+
+Fixed 2026-08-03, verified against `reference/cladd/src/components/Button.tsx` and locked by tests in
+`packages/ui/tests/actions.test.ts`:
+
+- `data-pressed` is emitted again (`Button.tsx:190`).
+- The accent text hook is scoped to non-neutral explicit accents, matching `Button.tsx:194`-`197`. The
+  fill branch needs no hook: `.cui-surface--fill` already sets `--cui-on-primary` for every fill
+  variant, which is what upstream expresses through `text-cladd-on-primary`.
+- `contextmenu` preventDefault runs on the capture phase again (`Button.tsx:237`).
+
+Still open: `useComponentDefaults` is absent package-wide, and `surfaceLevel` / `variant` are withheld
+from `SurfaceCut` where upstream forwards them through `...rest`. Upstream leaks both to the DOM because
+`SurfaceCut.tsx` declares neither, so the port's behaviour is arguably better; it stays a registered
+deviation rather than a defect.

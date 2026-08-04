@@ -16,7 +16,22 @@ Everything else below is source reading, not executed evidence.
 
 ## Blocker
 
-### B1. The package cannot be built or published
+### B1. The package could not be built or published — resolved 2026-08-03 by mirroring Cladd
+
+Resolved the port-faithful way rather than by making the bundler swallow SFCs. Upstream
+`reference/cladd/src/package.json` exports `"." → "./index.ts"` and `"./css" → "./cladd.css"`, and its
+build script copies source; a Cladd consumer compiles the source itself. The package now does the same:
+`exports["."]` points at `src/index.ts` for `source`, `types`, and `import`; `files` ships `src`; and the
+`vp pack` scripts and the `pack` config block are gone, because there is nothing to compile.
+
+Evidence: `vp run ui-playground#build` produces `apps/ui-playground/dist/`, so a real consumer compiles
+the package from source end to end, and `npm pack --dry-run` shows the tarball carrying `src/`, the
+stylesheet, `LICENSE`, and the notices. The dangling `dist` references are gone.
+
+Consequence to document for consumers: they must be able to process `.vue` from `node_modules`, which is
+exactly upstream's contract. Not a regression — it is the upstream model.
+
+Original diagnosis, kept for the record:
 
 `vp pack` is tsdown and rolldown; it does not consume the root-level `plugins: [vue()]` in
 `packages/ui/vite.config.ts`, so SFCs reach rolldown unhandled. Moving the plugin into `pack.plugins`

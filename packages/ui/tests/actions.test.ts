@@ -66,6 +66,36 @@ test("matches Cladd button color and content layer API", () => {
   mounted.app.unmount();
 });
 
+test("emits the Cladd button state attributes", () => {
+  const mounted = mountTree(h(Button, { loading: true, pressed: true, readOnly: true }));
+  const button = mounted.root.querySelector(".cui-button") as HTMLElement;
+
+  expect(button.getAttribute("data-pressed")).toBe("true");
+  expect(button.getAttribute("data-loading")).toBe("true");
+  expect(button.getAttribute("data-readonly")).toBe("true");
+  mounted.app.unmount();
+});
+
+test("scopes the accent text hook to non-neutral colors like Cladd", () => {
+  const neutral = mountTree(h(Button, { color: "neutral" }));
+  const accented = mountTree(h(Button, { color: "orange" }));
+  const inherited = mountTree(h(Button));
+
+  expect(neutral.root.querySelector(".cui-button")?.hasAttribute("data-cui-explicit-accent")).toBe(
+    false,
+  );
+  expect(accented.root.querySelector(".cui-button")?.getAttribute("data-cui-explicit-accent")).toBe(
+    "true",
+  );
+  expect(
+    inherited.root.querySelector(".cui-button")?.hasAttribute("data-cui-explicit-accent"),
+  ).toBe(false);
+
+  neutral.app.unmount();
+  accented.app.unmount();
+  inherited.app.unmount();
+});
+
 test("maps every button size to Cladd spinner geometry", () => {
   expect(buttonSpinnerSizes).toEqual({
     "2xs": "2xs",

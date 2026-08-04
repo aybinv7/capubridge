@@ -45,7 +45,7 @@ test("locks the Cladd checkbox indicator path", () => {
   expect(checkboxGlyph).toContain('fill="currentColor"');
 });
 
-test("keeps input and textarea native form semantics", async () => {
+test("keeps input form semantics and textarea editor semantics", async () => {
   const inputValue = ref("target");
   const notes = ref("notes");
   const mounted = mountTree(
@@ -60,19 +60,19 @@ test("keeps input and textarea native form semantics", async () => {
       }),
       h(Textarea, {
         "data-testid": "textarea-shell",
-        name: "notes",
         "onUpdate:modelValue": (value: string) => (notes.value = value),
         modelValue: notes.value,
       }),
     ]),
   );
   const input = byTestId(mounted.root, "input-shell") as HTMLInputElement;
-  const textarea = byTestId(mounted.root, "textarea-shell") as HTMLTextAreaElement;
+  const textarea = byTestId(mounted.root, "textarea-shell") as HTMLElement;
+  const editor = textarea.querySelector('[data-part="control"]') as HTMLElement;
 
   input.value = "device";
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  textarea.value = "updated";
-  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  editor.innerText = "updated";
+  editor.dispatchEvent(new Event("input", { bubbles: true }));
   await nextTick();
 
   expect(inputValue.value).toBe("device");
@@ -269,27 +269,6 @@ test("maps native slider input to the scalar model", async () => {
   mounted.app.unmount();
 });
 
-test("restores textarea content from a native form reset", async () => {
-  const mounted = mountTree(
-    h("form", null, [h(Textarea, { modelValue: "Initial notes", name: "releaseNotes" })]),
-  );
-  document.body.append(mounted.root);
-  const form = mounted.root.querySelector("form") as HTMLFormElement;
-  const control = mounted.root.querySelector("textarea") as HTMLTextAreaElement;
-
-  await nextTick();
-  expect(control.defaultValue).toBe("Initial notes");
-
-  control.value = "scribbled over";
-  form.reset();
-  await nextTick();
-
-  expect(control.value).toBe("Initial notes");
-  expect(new FormData(form).get("releaseNotes")).toBe("Initial notes");
-  mounted.app.unmount();
-  mounted.root.remove();
-});
-
 test("matches Cladd slider scale and track contracts", async () => {
   const value = ref(20);
   const mounted = mountTree(
@@ -428,6 +407,10 @@ function fieldControl(root: HTMLElement, testId: string): HTMLInputElement {
   return byTestId(root, testId) as HTMLInputElement;
 }
 
+function editorControl(root: HTMLElement, testId: string): HTMLElement {
+  return byTestId(root, testId).querySelector('[data-part="control"]') as HTMLElement;
+}
+
 function hiddenInput(root: HTMLElement, testId: string): HTMLInputElement {
   const input = byTestId(root, testId).querySelector("input");
 
@@ -470,7 +453,6 @@ test("submits every named fixture control through native FormData", async () => 
     bufferSize: "40",
     deviceQuery: "pixel-9-pro",
     liveReload: "on",
-    releaseNotes: "Initial notes",
     samplingRate: "30",
     serial: "R3CX00SERIAL",
     targetKind: "physical",
@@ -498,7 +480,6 @@ test("carries fixture interaction into the next native submission", async () => 
     bufferSize: "40",
     deviceQuery: "emulator-5554",
     experimentalInspector: "yes",
-    releaseNotes: "Reviewed",
     samplingRate: "70",
     serial: "R3CX00SERIAL",
     targetKind: "emulator",
@@ -607,7 +588,6 @@ test("keeps fixture labels and messages associated across submit and reset", asy
   const fieldLabels: [string, string][] = [
     ["cui-form-fixture-device-query", "device-query"],
     ["cui-form-fixture-serial", "serial"],
-    ["cui-form-fixture-release-notes", "release-notes"],
   ];
   const choiceLabels: [string, string][] = [
     ["cui-form-fixture-verbose-logging", "verbose-logging"],
@@ -632,9 +612,11 @@ test("keeps fixture labels and messages associated across submit and reset", asy
   expect(describedText(mounted.root, fieldControl(mounted.root, "device-query"))).toBe(
     "Matches serial or model name",
   );
-  expect(describedText(mounted.root, fieldControl(mounted.root, "release-notes"))).toBe(
+  expect(describedText(mounted.root, editorControl(mounted.root, "release-notes"))).toBe(
     "Shown in the session report",
   );
+  expect(editorControl(mounted.root, "release-notes").getAttribute("contenteditable")).toBe("true");
+  expect(editorControl(mounted.root, "release-notes").getAttribute("role")).toBe("textbox");
   expect(byTestId(mounted.root, "accent").getAttribute("aria-label")).toBe("Accent");
   expect(byTestId(mounted.root, "accent").getAttribute("role")).toBe("combobox");
   cleanupFormFixture(mounted);

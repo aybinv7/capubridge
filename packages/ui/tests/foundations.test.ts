@@ -53,6 +53,24 @@ test("resolves surface depth safely", () => {
   expect(resolveSurfaceLevel(20, 0)).toBe(5);
 });
 
+test("exposes the Cladd token scales as Tailwind theme variables", () => {
+  const theme = tokensCss.slice(0, tokensCss.indexOf("@layer cui.tokens"));
+
+  expect(theme.startsWith("@theme {")).toBe(true);
+  expect(theme).toContain("--spacing-cui-md: var(--cui-size-md);");
+  expect(theme).toContain("--spacing-cui-nested-md: var(--cui-nested-size-md);");
+  expect(theme).toContain("--spacing-cui-thumb-sm: var(--cui-thumb-sm);");
+  expect(theme).toContain("--radius-cui: var(--cui-radius);");
+  expect(theme).toContain("--radius-cui-focus-md: var(--cui-radius-focus-md);");
+  expect(theme).toContain("--radius-cui-wrap-full-2xl: var(--cui-radius-wrap-full-2xl);");
+  expect(theme).toContain("--radius-cui-tooltip: var(--cui-radius-tooltip);");
+  expect(theme).toContain("--text-cui-xs: var(--cui-text-xs);");
+  expect(theme).toContain("--color-cui-surface: var(--cui-surface);");
+  expect(theme).toContain("--color-cui-fg-softest: var(--cui-foreground-softest);");
+  expect(theme).toContain("--shadow-cui-popover: var(--cui-shadow-popover);");
+  expect(theme).toContain("--animate-cui-spinner: cui-spinner-rotate 1.5s infinite linear;");
+});
+
 test("publishes stable surface, sizing, and reduced-motion tokens", () => {
   expect(tokensCss).toContain("--cui-size-md: 28px");
   expect(tokensCss).toContain("--cui-nested-size-md: calc(var(--cui-size-md) - 8px)");
@@ -70,7 +88,7 @@ test("locks Cladd action geometry and motion values", () => {
   expect(controlsCss).toContain("inset: -6px");
   expect(controlsCss).toContain("padding: 4px 10px");
   expect(controlsCss).toContain("width: 14px");
-  expect(surfacesCss).toContain(":has(.cui-surface--clickable:active)");
+  expect(indexCss).toContain(":has(.cui-surface--clickable:active)");
 });
 
 test("locks the wrap radius ladder ported from Cladd radius.css", () => {
@@ -125,17 +143,24 @@ test("keeps the primary tune knobs as named retuning points", () => {
 });
 
 test("guards every surface hover rule behind a hover-capable pointer", () => {
-  const guarded = sectionFrom(
+  const variant = sectionFrom(
+    indexCss,
+    "@custom-variant cui-surface-hover",
+    "@custom-variant cui-surface-press",
+  );
+
+  expect(variant).toContain("@media (hover: hover)");
+  expect(variant).toContain(".cui-surface--hoverable:hover");
+
+  const guardedCut = sectionFrom(
     surfacesCss,
     "@media (hover: hover)",
-    ":where(.cui-surface--clickable, .cui-surface-cut--clickable)",
+    ":where(.cui-surface-cut--clickable)",
   );
-  expect(guarded).toContain(".cui-surface--hoverable:hover");
-  expect(guarded).toContain(".cui-surface-cut--hoverable:hover");
-  expect(guarded).toContain(".cui-surface--fill.cui-surface--hoverable:hover");
-  expect(guarded).toContain(".cui-surface--transparent.cui-surface--hoverable:hover");
-  expect(guarded.match(/:hover\)/g)).toHaveLength(4);
-  expect(surfacesCss.match(/:hover\)/g)).toHaveLength(4);
+  expect(guardedCut).toContain(".cui-surface-cut--hoverable:hover");
+
+  const allHover = surfacesCss.match(/:hover\)/g) ?? [];
+  expect(allHover).toHaveLength((guardedCut.match(/:hover\)/g) ?? []).length);
 });
 
 test("collapses motion to zero under reduced motion", () => {

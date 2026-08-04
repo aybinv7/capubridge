@@ -126,3 +126,22 @@ individually. `slider.css` was compared declaration by declaration against `form
 
 Not verified here: `Surface` and `SurfaceCut` composition beyond the props `Slider` passes,
 `FocusRing` beyond the values `Slider` depends on, and `styles/colors.css`.
+
+## Resolved since this manifest was written
+
+Fixed 2026-08-03, verified against `reference/cladd/src/components/Slider.tsx`:
+
+- `contextmenu` preventDefault added on the capture phase (`Slider.tsx:274`).
+- The `input` prop default is `false` again (`Slider.tsx:148`).
+- `role="slider"` and the `aria-value*` trio are removed, reverting to upstream, which sets no ARIA and
+  relies on the native range input. The real defect they masked is fixed separately: `aria-label`,
+  `aria-labelledby`, and `aria-describedby` now bind to the input, so the control has an accessible name.
+  Everything else consumers pass still lands on the root, because the root owns the visual assembly's
+  `class` and `data-*` hooks.
+
+Still open, deliberately deferred to the styling rework in `plans/tailwind-realignment.md`, since these
+are CSS-shape items in a file scheduled for replacement by ported upstream utilities: `disabled` dimming
+the whole root instead of only the range and handle, the missing `rangeFill && progress > 0.5` handle
+recolour, the orphan `.cui-slider__thumb*` and `[data-orientation]` rules, and the two conflicting
+`touch-action` declarations. The behavioural deviations (`step` rounding, `progress` clamping, `log`
+fallback when `min <= 0`, arrow-key handling under `log`) remain registered and unresolved.

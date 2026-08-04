@@ -1,0 +1,72 @@
+@layer cui.tokens {
+  :root {
+    --cui-safe-area-left: 0px;
+    --cui-safe-area-right: 0px;
+    --cui-safe-area-top: 0px;
+    --cui-safe-area-bottom: 0px;
+  }
+
+  @supports (left: env(safe-area-inset-left)) {
+    .cui-safe-areas,
+    .cui-theme {
+      --cui-safe-area-left: env(safe-area-inset-left);
+      --cui-safe-area-right: env(safe-area-inset-right);
+      --cui-safe-area-top: env(safe-area-inset-top);
+      --cui-safe-area-bottom: env(safe-area-inset-bottom);
+    }
+  }
+  .cui-no-safe-areas {
+    --cui-safe-area-left: 0px;
+    --cui-safe-area-right: 0px;
+    --cui-safe-area-top: 0px;
+    --cui-safe-area-bottom: 0px;
+  }
+  .cui-no-safe-areas-top {
+    --cui-safe-area-top: 0px;
+  }
+  .cui-no-safe-areas-left {
+    --cui-safe-area-left: 0px;
+  }
+  .cui-no-safe-areas-right {
+    --cui-safe-area-right: 0px;
+  }
+  .cui-no-safe-areas-bottom {
+    --cui-safe-area-bottom: 0px;
+  }
+  .pl-safe {
+    padding-left: var(--cui-safe-area-left);
+  }
+  .pr-safe {
+    padding-right: var(--cui-safe-area-right);
+  }
+  .pt-safe {
+    padding-top: var(--cui-safe-area-top);
+  }
+  .pb-safe {
+    padding-bottom: var(--cui-safe-area-bottom);
+  }
+  .ml-safe {
+    margin-left: var(--cui-safe-area-left);
+  }
+  .mr-safe {
+    margin-right: var(--cui-safe-area-right);
+  }
+  .mt-safe {
+    margin-top: var(--cui-safe-area-top);
+  }
+  .mb-safe {
+    margin-bottom: var(--cui-safe-area-bottom);
+  }
+  .left-safe {
+    left: var(--cui-safe-area-left);
+  }
+  .right-safe {
+    right: var(--cui-safe-area-right);
+  }
+  .top-safe {
+    top: var(--cui-safe-area-top);
+  }
+  .bottom-safe {
+    bottom: var(--cui-safe-area-bottom);
+  }
+}

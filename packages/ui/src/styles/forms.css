@@ -102,9 +102,25 @@
     background: transparent;
   }
 
-  :where(.cui-input__control)::placeholder,
-  :where(.cui-textarea__control)::placeholder {
+  :where(.cui-input__control)::placeholder {
     color: var(--cui-foreground-softer);
+  }
+
+  :where(.cui-textarea__field) {
+    position: relative;
+    display: flex;
+    width: 100%;
+  }
+
+  :where(.cui-textarea__placeholder) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: var(--cui-foreground-softer);
+    user-select: none;
+    pointer-events: none;
   }
 
   :where(.cui-input__icon, .cui-input__affix, .cui-textarea__icon, .cui-textarea__affix) {
@@ -199,7 +215,14 @@
 
   :where(.cui-textarea__control) {
     display: block;
-    resize: vertical;
+    width: 100%;
+    font-weight: 500;
+    white-space: pre-wrap;
+    box-shadow: none;
+  }
+
+  :where(.cui-textarea--disabled .cui-textarea__control) {
+    color: var(--cui-foreground-softer);
   }
 
   :where(.cui-checkbox, .cui-radio) {

@@ -18,6 +18,7 @@ import {
   type PopoverPosition,
 } from "./overlay.contracts.ts";
 import { cloneTriggerNode } from "./overlayTrigger.ts";
+import { usePopoverChain } from "./popoverChain.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -133,6 +134,8 @@ useOverlayDismiss({
   onClose: close,
   opened,
 });
+
+usePopoverChain({ close, phase });
 
 const triggerNode = computed(() =>
   cloneTriggerNode(slots.trigger?.(), { onClick: toggle, ref: setAnchorElement }),

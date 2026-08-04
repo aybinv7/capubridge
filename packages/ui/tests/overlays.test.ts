@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { h, nextTick } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { expect, test } from "vite-plus/test";
 
 import OverlayFixture from "../fixtures/overlays/OverlayFixture.vue";
+import { Popover } from "../src/index.ts";
 import {
   buildPopoverPositionStyle,
   popoverPositionConfigs,
@@ -154,6 +155,48 @@ test("positions and dismisses popovers through native overlay behavior", async (
   expect(content?.getAttribute("data-position")).toBe("right-end");
   expect(content?.style.positionArea).toBe("center right");
   expect(content?.style.transformOrigin).toBe("bottom left");
+
+  cleanupOverlayFixture(mounted.root, () => mounted.app.unmount());
+});
+
+test("keeps top-level popovers mutually exclusive", async () => {
+  const first = ref(false);
+  const second = ref(false);
+  const harness = defineComponent({
+    setup() {
+      return () =>
+        h("div", null, [
+          h(
+            Popover,
+            {
+              modelValue: first.value,
+              "onUpdate:modelValue": (value: boolean) => (first.value = value),
+            },
+            { default: () => "first popover" },
+          ),
+          h(
+            Popover,
+            {
+              modelValue: second.value,
+              "onUpdate:modelValue": (value: boolean) => (second.value = value),
+            },
+            { default: () => "second popover" },
+          ),
+        ]);
+    },
+  });
+  const mounted = mountTree(h(harness));
+  document.body.append(mounted.root);
+
+  first.value = true;
+  await settleOverlay();
+  expect(document.body.textContent).toContain("first popover");
+
+  second.value = true;
+  await settleOverlay();
+
+  expect(first.value).toBe(false);
+  expect(document.body.textContent).toContain("second popover");
 
   cleanupOverlayFixture(mounted.root, () => mounted.app.unmount());
 });

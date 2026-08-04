@@ -1,7 +1,30 @@
 @layer cui.tokens, cui.motion, cui.components, cui.utilities;
 
+@source "../";
+
+@custom-variant cui-light {
+  &:where(.cui-theme[data-cui-theme="light"], .cui-theme[data-cui-theme="light"] *) {
+    @slot;
+  }
+}
+
+@custom-variant cui-surface-hover {
+  @media (hover: hover) {
+    &:where(.cui-surface--hoverable:hover > *) {
+      @slot;
+    }
+  }
+}
+
+@custom-variant cui-surface-press {
+  &:where(.cui-surface--clickable:active:not(:has(.cui-surface--clickable:active)) > *) {
+    @slot;
+  }
+}
+
 @import "./tokens.css";
 @import "./motion.css";
+@import "./safe-areas.css";
 @import "./surfaces.css";
 @import "./controls.css";
 @import "./forms.css";

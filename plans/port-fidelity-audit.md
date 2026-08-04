@@ -94,18 +94,34 @@ Upstream public surface: `position` as 13 tokens driven by a `POSITIONS` table o
 controlled and uncontrolled state; and `openTopLevelPopovers`, which closes unrelated top-level
 popovers so chains do not stack.
 
-The package has `side`, `align`, `sideOffset`, `alignOffset`, a `collisionPadding` that is never read,
-and a `modal` that is never read. Per-position transform origin is absent.
+**Mostly fixed 2026-08-03.** The `POSITIONS` table, `resolveOffset` with `anchor-size()`,
+`viewportMargin`, `backdrop` / `backdropTransparent`, `anchorRect`, `root`, per-position transform origin,
+and the upstream prop names are ported; the invented `side` / `align` / `sideOffset` / `alignOffset` API
+and the never-read `collisionPadding` and `modal` props are gone. `openTopLevelPopovers` is ported as
+`popoverChain.ts`: top-level popovers are mutually exclusive, nested popovers register with their parent,
+and a closing popover cascades to its registered children. Registration is tied to the live phase, not to
+component mount, because upstream's effect lives in the inner component that only exists while open —
+registering at mount would let a second, still-closed popover close the open one.
 
-Remedy: copy the `POSITIONS` table into `overlay.contracts.ts` as bucket A, adopt the upstream prop
-names, and delete the invented props.
+Still open: the `PopoverRoot` / `PopoverTrigger` / `PopoverClose` compound. The single-component form with
+a `trigger` slot covers the same ground today; the compound matters for sibling-JSX composition and is a
+public-API addition rather than a behavioural gap.
 
-### 4. Textarea DOM diverges
+### 4. Textarea DOM diverged — fixed 2026-08-03 by porting
 
-Upstream `Textarea.tsx` is a `contenteditable` element with manually enforced `maxLength`, and its
-focus ring reveals through `group-has-[[contenteditable]:focus]`. The package renders a native
-`<textarea>`. This is "native elements first" colliding with "port the pinned DOM". Resolve explicitly
-and record the outcome in the deviation register.
+Upstream `Textarea.tsx` is a `contenteditable` element with manually enforced `maxLength`; the package
+rendered a native `<textarea>`. Resolved in upstream's favour: the editor is now `contenteditable`, with
+the JavaScript `maxlength` clamp plus caret restoration, plain-text paste interception, the internal
+text state, the `innerText` sync gated on `updateContentOnChange`, and the separate placeholder layer.
+`rows`, `resize`, `name`, `required`, and `autofocus` are gone, because upstream has none of them.
+
+Consequences accepted: the control no longer participates in form submission or reset, and `<label for>`
+no longer associates with it, so consumers name it with `aria-labelledby`. The fixture, tests, and
+component doc were updated to match rather than papered over. `role="textbox"` and `aria-multiline` are
+added and registered, since `contenteditable` carries no implicit textbox semantics.
+
+The rule collision that produced this divergence is fixed at the source: `packages/ui/CLAUDE.md` no
+longer says "use native elements first" unconditionally. Upstream decides the DOM.
 
 ### 5. `@media (hover: hover)` guard missing
 
@@ -130,9 +146,12 @@ accent. This is a public design-system API missing from the port, and it is triv
 
 All bucket A or trivially bucket B, none blocked by React:
 
-- `shared/color.ts` (402 lines of color math), `shared/next-tick.ts`.
+- `shared/color.ts` (402 lines of color math). `shared/next-tick.ts` turned out to be a double
+  `requestAnimationFrame`, which the ported overlay lifecycle already implements exactly.
 - `hooks/use-device.ts`, `hooks/use-overlays-root.ts`, `hooks/use-dialog.ts`.
-- `styles/safe-areas.css` (220 lines).
+- ~~`styles/safe-areas.css` (220 lines).~~ **Partially ported 2026-08-03**: the custom-property half is in
+  `src/styles/safe-areas.css` and imported. Its 28 `@utility` blocks are Tailwind v4 custom utilities and
+  cannot land before the styling realignment, so they are deferred there rather than half-translated.
 - 14 `--radius-cladd-wrap-*` and `wrap-full-*` tokens, required by `NumberField` and `Toolbar`.
 - `--spacing-cladd-3xs: 12px` and its nested variant; `--radius-cladd-popup`.
 - `hover-fill` in the light-neutral block.
@@ -140,9 +159,10 @@ All bucket A or trivially bucket B, none blocked by React:
   literals `0.95` and `0.18`, removing a retuning point upstream exposes deliberately.
 - `--shadow-cladd-popover` (`styles/colors.css:30`, `0 24px 64px -12px rgb(0 0 0 / 0.5)`) is not ported.
   `styles/overlays.css` uses invented shadow values for both popover and tooltip instead.
-- The `--cladd-surface-original-mix` and `--highlight-original-mix` consumer override hooks
-  (`styles/colors.css:377, 385, 391, 397, 420`) are lost: `tokens.css` hardcodes their `100%` fallback
-  into the surface-cut, foreground-soft ladder, and highlight mixes, so consumers cannot retune them.
+- ~~The `--cladd-surface-original-mix` and `--highlight-original-mix` consumer override hooks
+  (`styles/colors.css:377, 385, 391, 397, 420`) are lost.~~ **Fixed 2026-08-03**: all five sites now read
+  `var(--cui-surface-original-mix, 100%)` or `var(--cui-highlight-original-mix, 100%)`, so consumers can
+  retune the surface-cut, foreground-soft ladder, and highlight mixes as upstream allows.
 
 ### 10. Hover variant omits upstream's self-pressed exclusion
 
@@ -161,13 +181,15 @@ Phase 5 primitives when they arrive or it will diverge permanently.
 
 ### 11. Button divergences found while writing its port manifest
 
-Verified against `Button.tsx`:
+Verified against `Button.tsx`. The first three are **fixed 2026-08-03** and locked by tests in
+`tests/actions.test.ts`:
 
-- `data-pressed` (`Button.tsx:190`) is not emitted. The `pressed` prop reaches `Surface` and produces a
-  class, but the upstream styling hook is absent.
-- `data-cui-explicit-accent` replaces upstream's `color !== 'neutral'` condition, so `color="neutral"`
-  on a non-fill variant renders a different label color than upstream.
-- `contextmenu` preventDefault moved from capture phase to bubble phase.
+- ~~`data-pressed` (`Button.tsx:190`) is not emitted.~~ Now emitted.
+- ~~`data-cui-explicit-accent` replaces upstream's `color !== 'neutral'` condition, so `color="neutral"`
+  on a non-fill variant renders a different label color.~~ The hook is now scoped to non-neutral explicit
+  accents, matching `Button.tsx:194-197`. The fill case already resolved correctly through
+  `.cui-surface--fill`, which sets `--cui-on-primary` for any fill variant as upstream does.
+- ~~`contextmenu` preventDefault moved from capture phase to bubble phase.~~ Back on the capture phase.
 - `surfaceLevel` and `variant` are withheld from `SurfaceCut`, where upstream forwards them through
   `...rest`. Upstream leaks them to the DOM, since `SurfaceCut.tsx` declares neither, so the port's
   behavior is arguably better — register it as a deviation either way.
@@ -178,13 +200,15 @@ Verified against `Button.tsx`:
 
 Verified against `Slider.tsx` and `styles/slider.css`:
 
-- The `contextmenu` preventDefault (`Slider.tsx:274`) is missing entirely.
+- ~~The `contextmenu` preventDefault (`Slider.tsx:274`) is missing entirely.~~ **Fixed 2026-08-03**, on
+  the capture phase as upstream.
+- ~~The `input` prop default is flipped from upstream `false` to `true`.~~ **Fixed 2026-08-03**; default
+  is `false`, matching `Slider.tsx:148`.
 - `role="slider"` and `aria-valuemin` / `aria-valuemax` / `aria-valuenow` were added; upstream has no
   ARIA on this component, relying on the native range input. **Reverted on 2026-08-03** to match
   upstream. The genuine defect underneath — consumer labelling attributes landing on the wrapper `div`
   instead of the control, so the slider had no accessible name — is fixed separately by forwarding
   `aria-label`, `aria-labelledby`, and `aria-describedby` to the input. See `ui-package-review.md` R4.
-- The `input` prop default is flipped from upstream `false` to `true`.
 - `step` now always rounds and clamps; `progress` is clamped; `log` silently falls back to linear when
   `min <= 0` instead of failing.
 - `disabled` dims the whole root instead of only the range and handle.
