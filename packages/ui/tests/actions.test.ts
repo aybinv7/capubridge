@@ -142,8 +142,10 @@ test("matches Cladd chip API and geometry contracts", () => {
   const chip = mounted.root.querySelector(".cui-chip") as HTMLElement;
 
   expect(chip.tagName).toBe("BUTTON");
-  expect(chip.classList.contains("cui-chip--rounded")).toBe(true);
-  expect(chip.classList.contains("cui-chip--disabled")).toBe(false);
+  expect(chip.classList.contains("rounded-full")).toBe(true);
+  expect(chip.classList.contains("group/cui-chip")).toBe(true);
+  expect(chip.classList.contains("h-cui-nested-md")).toBe(true);
+  expect(chip.classList.contains("text-cui-2xs")).toBe(true);
   expect(chip.hasAttribute("disabled")).toBe(false);
   expect(chip.querySelector(".chip-content-contract")).not.toBeNull();
   expect(chip.querySelector('[data-testid="chip-icon"]')).not.toBeNull();

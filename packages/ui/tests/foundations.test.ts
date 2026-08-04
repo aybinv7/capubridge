@@ -16,6 +16,16 @@ import {
   buttonPaddings,
   buttonVerticalPaddings,
 } from "../src/components/actions/button.contracts.ts";
+import {
+  chipFontSizes,
+  chipIconSizes,
+  chipRoundedClasses,
+} from "../src/components/data-display/chip.contracts.ts";
+import {
+  shortcutFontSizes,
+  shortcutIconSizes,
+  shortcutRoundedClasses,
+} from "../src/components/data-display/shortcut.contracts.ts";
 import { roundedClasses } from "../src/shared/roundedClasses.ts";
 import { nestedSizeClasses, rootSizeClasses } from "../src/shared/sizeClasses.ts";
 
@@ -96,7 +106,6 @@ test("locks Cladd action geometry and motion values", () => {
   expect(motionCss).toContain("animation: cui-spinner-rotate 1.5s infinite linear");
   expect(controlsCss).toContain("width: var(--cui-nested-size-2xs)");
   expect(controlsCss).toContain("width: var(--cui-nested-size-2xl)");
-  expect(controlsCss).toContain("width: 14px");
   expect(indexCss).toContain(":has(.cui-clickable:active)");
   expect(roundedClasses("md", false, false).itemRoundedClasses).toBe("rounded-cui-md");
   expect(roundedClasses("md", false, false).focusRoundedClasses).toBe("rounded-cui-focus-md");
@@ -109,6 +118,12 @@ test("locks Cladd action geometry and motion values", () => {
   expect(buttonPaddings["2xl"]).toBe("px-3.5");
   expect(buttonVerticalPaddings["2xs"]).toBe("py-0");
   expect(buttonIconSizes.md).toBe("[&>svg]:size-4");
+  expect(chipRoundedClasses.md).toBe("rounded-cui-sm");
+  expect(chipFontSizes["2xs"]).toBe("text-cui-4xs");
+  expect(chipIconSizes.lg).toBe("[&>svg]:size-4");
+  expect(shortcutRoundedClasses.md).toBe("rounded-cui-sm");
+  expect(shortcutFontSizes["2xl"]).toBe("text-cui-md");
+  expect(shortcutIconSizes.xl).toBe("size-5");
 });
 
 test("locks the wrap radius ladder ported from Cladd radius.css", () => {

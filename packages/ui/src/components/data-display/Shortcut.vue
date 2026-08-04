@@ -3,6 +3,7 @@ import {
   Fragment,
   Text,
   isVNode,
+  computed,
   onBeforeMount,
   ref,
   useSlots,
@@ -16,8 +17,15 @@ import type {
   UiAccent,
   UiSize,
 } from "../../foundations/contracts.ts";
+import { cn } from "../../shared/cn.ts";
+import { nestedSizeClasses } from "../../shared/sizeClasses.ts";
 import Surface from "../surface/Surface.vue";
 import ShortcutGlyph, { type ShortcutGlyphName } from "./ShortcutGlyph.vue";
+import {
+  shortcutFontSizes,
+  shortcutIconSizes,
+  shortcutRoundedClasses,
+} from "./shortcut.contracts.ts";
 import VNodeRenderer from "./VNodeRenderer.ts";
 
 type ShortcutEntry =
@@ -56,6 +64,31 @@ const props = withDefaults(
 
 const slots = useSlots();
 const isMac = ref(false);
+const isFill = computed(() => props.variant === "solid-fill" || props.variant === "gradient-fill");
+
+const rootClass = computed(() =>
+  cn(
+    "cui-shortcut inline-flex shrink-0 items-center gap-0.5 self-center align-middle font-mono leading-0 tabular-nums",
+  ),
+);
+
+const keyClass = computed(() =>
+  cn(
+    "cui-shortcut__key relative shrink-0 font-semibold",
+    !isFill.value && "text-cui-primary",
+    shortcutFontSizes[props.size],
+    shortcutRoundedClasses[props.size],
+    nestedSizeClasses(props.size, "height"),
+    nestedSizeClasses(props.size, "min-width"),
+    props.keyClassName,
+  ),
+);
+
+function keyContentClass(padded: boolean): string {
+  return cn("flex items-center justify-center px-0.5", padded && "px-1", props.keyContentClassName);
+}
+
+const glyphClass = computed(() => cn(shortcutIconSizes[props.size], props.iconClassName));
 
 function tokenEntry(token: string): ShortcutEntry {
   const key = token.toLowerCase();
@@ -145,23 +178,14 @@ onBeforeMount(() => {
       :accent="props.accent"
       :color="props.color"
       as="kbd"
-      class="cui-shortcut__key"
-      :class="[
-        `cui-shortcut__key--${props.size}`,
-        entry.padded && 'cui-shortcut__key--text',
-        props.keyClassName,
-      ]"
-      :content-class-name="props.keyContentClassName"
+      :class="keyClass"
+      :content-class-name="keyContentClass(entry.padded)"
       data-part="key"
       :level="props.surfaceLevel"
       :outline="props.outline"
       :variant="props.variant"
     >
-      <ShortcutGlyph
-        v-if="entry.kind === 'glyph'"
-        :class="props.iconClassName"
-        :name="entry.glyph"
-      />
+      <ShortcutGlyph v-if="entry.kind === 'glyph'" :class="glyphClass" :name="entry.glyph" />
       <VNodeRenderer v-else-if="entry.kind === 'node'" :node="entry.node" />
       <template v-else>{{ entry.text }}</template>
     </Surface>
