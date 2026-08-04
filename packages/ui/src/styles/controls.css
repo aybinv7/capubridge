@@ -1,45 +1,5 @@
 @layer cui.components {
-  :where(.cui-spinner) {
-    position: relative;
-    display: inline-block;
-    width: var(--cui-nested-size-sm);
-    height: var(--cui-nested-size-sm);
-    color: var(--cui-primary);
-  }
-
   :where(.cui-spinner__glyph) {
     display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  :where(.cui-spinner[data-cui-size="2xs"]) {
-    width: var(--cui-nested-size-2xs);
-    height: var(--cui-nested-size-2xs);
-  }
-
-  :where(.cui-spinner[data-cui-size="xs"]) {
-    width: var(--cui-nested-size-xs);
-    height: var(--cui-nested-size-xs);
-  }
-
-  :where(.cui-spinner[data-cui-size="md"]) {
-    width: var(--cui-nested-size-md);
-    height: var(--cui-nested-size-md);
-  }
-
-  :where(.cui-spinner[data-cui-size="lg"]) {
-    width: var(--cui-nested-size-lg);
-    height: var(--cui-nested-size-lg);
-  }
-
-  :where(.cui-spinner[data-cui-size="xl"]) {
-    width: var(--cui-nested-size-xl);
-    height: var(--cui-nested-size-xl);
-  }
-
-  :where(.cui-spinner[data-cui-size="2xl"]) {
-    width: var(--cui-nested-size-2xl);
-    height: var(--cui-nested-size-2xl);
   }
 }

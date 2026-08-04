@@ -3,6 +3,8 @@ import { computed } from "vue";
 
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent, UiSize } from "../../foundations/contracts.ts";
+import { cn } from "../../shared/cn.ts";
+import { nestedSizeClasses } from "../../shared/sizeClasses.ts";
 
 const props = withDefaults(
   defineProps<{
@@ -19,12 +21,21 @@ const props = withDefaults(
 
 const ui = useUiContext();
 const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
+
+const rootClass = computed(() =>
+  cn(
+    "cui-spinner relative inline-block",
+    `cui-accent-${currentAccent.value}`,
+    "text-cui-primary",
+    nestedSizeClasses(props.size, "size"),
+  ),
+);
 </script>
 
 <template>
-  <span class="cui-spinner" :class="`cui-accent-${currentAccent}`" :data-cui-size="props.size">
+  <span :class="rootClass" :data-cui-size="props.size">
     <svg
-      class="cui-spinner__glyph"
+      class="cui-spinner__glyph h-full w-full animate-cui-spinner"
       fill="currentColor"
       viewBox="0 0 20 20"
       xmlns="http://www.w3.org/2000/svg"

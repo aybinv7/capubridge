@@ -19,7 +19,7 @@ function toggleTheme(): void {
 </script>
 
 <template>
-  <UiProvider class="playground-shell" accent="neutral" :theme="theme">
+  <UiProvider class="playground-shell" :accent="accent" :theme="theme">
     <PlaygroundHeader
       :component-count="catalogComponentCount"
       :state-count="catalogStateCount"

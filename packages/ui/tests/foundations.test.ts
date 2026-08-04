@@ -31,7 +31,6 @@ import { nestedSizeClasses, rootSizeClasses } from "../src/shared/sizeClasses.ts
 
 const motionCss = readFileSync(join(process.cwd(), "src", "styles", "motion.css"), "utf8");
 const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
-const controlsCss = readFileSync(join(process.cwd(), "src", "styles", "controls.css"), "utf8");
 const surfacesCss = readFileSync(join(process.cwd(), "src", "styles", "surfaces.css"), "utf8");
 const indexCss = readFileSync(join(process.cwd(), "src", "styles", "index.css"), "utf8");
 const focusRingSource = readFileSync(
@@ -104,8 +103,8 @@ test("locks Cladd action geometry and motion values", () => {
   expect(tokensCss).toContain("--cui-text-4xs: 6px");
   expect(tokensCss).toContain("--cui-radius-2xl: calc(var(--cui-radius) * 48 / 28)");
   expect(motionCss).toContain("animation: cui-spinner-rotate 1.5s infinite linear");
-  expect(controlsCss).toContain("width: var(--cui-nested-size-2xs)");
-  expect(controlsCss).toContain("width: var(--cui-nested-size-2xl)");
+  expect(nestedSizeClasses("2xs", "size")).toBe("size-cui-nested-2xs");
+  expect(nestedSizeClasses("2xl", "size")).toBe("size-cui-nested-2xl");
   expect(indexCss).toContain(":has(.cui-clickable:active)");
   expect(roundedClasses("md", false, false).itemRoundedClasses).toBe("rounded-cui-md");
   expect(roundedClasses("md", false, false).focusRoundedClasses).toBe("rounded-cui-focus-md");
