@@ -28,6 +28,10 @@ export const router = createRouter({
           component: () => import("./modules/playground/sections/FormsSection.vue"),
         },
         {
+          path: "checkbox",
+          component: () => import("./modules/playground/sections/CheckboxSection.vue"),
+        },
+        {
           path: "select",
           component: () => import("./modules/playground/sections/SelectSection.vue"),
         },

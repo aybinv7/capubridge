@@ -30,6 +30,13 @@ export const catalogEntries: CatalogEntry[] = [
     path: "/components/forms",
   },
   {
+    count: 24,
+    description: "Choice control with native form participation",
+    id: "checkbox",
+    label: "Checkbox",
+    path: "/components/checkbox",
+  },
+  {
     count: 18,
     description: "Keyboard-first option picker",
     id: "select",
