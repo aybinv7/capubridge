@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type Component } from "vue";
+import { computed, useAttrs, type Component } from "vue";
 
 import { provideSurfaceContext, useSurface } from "../../contexts/surfaceContext.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
@@ -50,6 +50,11 @@ defineSlots<{
   default?: () => unknown;
 }>();
 
+const attrs = useAttrs();
+const rootAttrs = computed(() => {
+  const { class: _consumerClass, ...rest } = attrs;
+  return rest;
+});
 const parentSurface = useSurface();
 const ui = useUiContext();
 const currentLevel = computed(() => resolveSurfaceLevel(props.level, parentSurface.level.value));
@@ -74,6 +79,7 @@ const rootClass = computed(() =>
     props.clickable && "cui-clickable cui-surface--clickable",
     props.pressed && "cui-surface--pressed",
     isFill.value && "cui-surface--fill",
+    attrs.class,
   ),
 );
 
@@ -130,7 +136,7 @@ provideSurfaceContext(providedLevel, currentAccent);
 <template>
   <component
     :is="props.as"
-    v-bind="$attrs"
+    v-bind="rootAttrs"
     :class="rootClass"
     :data-cui-accent="currentAccent"
     :data-cui-surface-level="currentLevel"
