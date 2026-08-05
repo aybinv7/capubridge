@@ -4,9 +4,11 @@ import { computed, type Component } from "vue";
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent } from "../../foundations/contracts.ts";
 import FocusRing from "../feedback/FocusRing.vue";
+import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
 import CheckboxGlyph from "./CheckboxGlyph.vue";
 import type { ChoiceSize } from "./form.contracts.ts";
+import { checkboxIndicatorSizes, checkboxRootSizes } from "./checkbox.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
@@ -97,18 +99,40 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
   event.preventDefault();
   setChecked(!checked.value);
 }
+
+const rootClass = computed(() =>
+  cn(
+    "cui-checkbox group/cui-checkbox relative flex shrink-0 items-center justify-center rounded-full select-none",
+    checkboxRootSizes[props.size],
+    props.disabled && "opacity-50",
+  ),
+);
+
+const thumbClass = "absolute inset-0 size-full shrink-0 rounded-full duration-200";
+
+const checkedThumbClass = computed(() =>
+  cn(thumbClass, !checked.value && "scale-0", checked.value ? "opacity-100" : "opacity-0"),
+);
+
+const indicatorClass = computed(() =>
+  cn(
+    "cui-checkbox__indicator pointer-events-none relative duration-200",
+    checkboxIndicatorSizes[props.size],
+    !checked.value && "scale-75 text-cui-fg-soft",
+    checked.value && !props.disabled && !isReadOnly.value && "group-active/cui-checkbox:scale-90",
+    !checked.value && !props.disabled && !isReadOnly.value && "group-active/cui-checkbox:scale-65",
+    checked.value && "text-cui-on-primary",
+    checked.value && `cui-accent-${currentAccent.value}`,
+    props.checkClassName,
+  ),
+);
 </script>
 
 <template>
   <component
     :is="props.as"
     v-bind="$attrs"
-    class="cui-checkbox"
-    :class="[
-      `cui-checkbox--${props.size}`,
-      props.disabled && 'cui-checkbox--disabled',
-      isReadOnly && 'cui-checkbox--readonly',
-    ]"
+    :class="rootClass"
     :aria-checked="!props.input ? checked : undefined"
     :aria-disabled="!props.input && props.disabled ? 'true' : undefined"
     :aria-readonly="!props.input && isReadOnly ? 'true' : undefined"
@@ -140,7 +164,8 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     />
     <Surface
       as="span"
-      class="cui-choice__surface cui-choice__surface--idle"
+      :class="thumbClass"
+      data-part="thumb"
       :clickable="hoverable && !props.disabled && !isReadOnly"
       :hoverable="hoverable && !props.disabled && !isReadOnly"
       :outline="props.thumbOutline"
@@ -150,7 +175,8 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     <Surface
       as="span"
       :color="currentAccent"
-      class="cui-choice__surface cui-choice__surface--active"
+      :class="checkedThumbClass"
+      data-part="thumb-checked"
       :clickable="hoverable && !props.disabled && !isReadOnly"
       :hoverable="hoverable && !props.disabled && !isReadOnly"
       :outline="props.thumbOutline"
@@ -158,11 +184,15 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
       :wrap-content="false"
     />
     <CheckboxGlyph
-      class="cui-checkbox__indicator"
-      :class="props.checkClassName"
+      :class="indicatorClass"
       data-part="indicator"
       :data-state="checked ? 'checked' : 'unchecked'"
     />
-    <FocusRing v-if="focusable && !props.disabled && !isReadOnly" rounded :accent="currentAccent" />
+    <FocusRing
+      v-if="focusable && !props.disabled && !isReadOnly"
+      :accent="currentAccent"
+      class="rounded-full"
+      group="checkbox"
+    />
   </component>
 </template>
