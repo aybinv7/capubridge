@@ -127,8 +127,8 @@ test("uses native state and form inputs for checkbox and switch", async () => {
   const checkboxIndicator = byTestId(mounted.root, "checkbox").querySelector(
     ".cui-checkbox__indicator",
   );
-  const switchThumb = byTestId(mounted.root, "switch").querySelector(".cui-switch__thumb");
-  const switchThumbFill = switchThumb?.querySelector(".cui-switch__thumb-fill");
+  const switchThumb = byTestId(mounted.root, "switch").querySelector('[data-part="thumb"]');
+  const switchThumbFill = switchThumb?.querySelector('[data-cui-surface-variant="gradient-fill"]');
 
   expect(checkboxIndicator?.getAttribute("data-state")).toBe("unchecked");
   expect(switchThumbFill?.parentElement).toBe(switchThumb);
@@ -169,8 +169,8 @@ test("matches Cladd switch surface and input-less contracts", async () => {
     ),
   );
   const switchRoot = byTestId(mounted.root, "switch-contract");
-  const track = switchRoot.querySelector(".cui-switch__track");
-  const thumb = switchRoot.querySelector(".cui-switch__thumb");
+  const track = switchRoot.querySelector('[data-part="track"]');
+  const thumb = switchRoot.querySelector('[data-part="thumb"]');
 
   expect(switchRoot.getAttribute("role")).toBe("switch");
   expect(track?.getAttribute("data-cui-surface-level")).toBe("2");

@@ -4,8 +4,10 @@ import { computed, inject, type Component } from "vue";
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent } from "../../foundations/contracts.ts";
 import FocusRing from "../feedback/FocusRing.vue";
+import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
 import type { ChoiceSize } from "./form.contracts.ts";
+import { radioIndicatorSizes, radioRootSizes } from "./radio.contracts.ts";
 import { radioGroupKey } from "./radioGroupContext.ts";
 
 defineOptions({ inheritAttrs: false });
@@ -107,18 +109,39 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
   event.preventDefault();
   setChecked(!checked.value, event);
 }
+
+const rootClass = computed(() =>
+  cn(
+    "cui-radio group/cui-radio relative flex shrink-0 items-center justify-center rounded-full select-none",
+    radioRootSizes[props.size],
+    disabled.value && "opacity-50",
+  ),
+);
+
+const thumbClass = "absolute inset-0 size-full shrink-0 rounded-full duration-200";
+
+const checkedThumbClass = computed(() =>
+  cn(thumbClass, !checked.value && "scale-0", checked.value ? "opacity-100" : "opacity-0"),
+);
+
+const indicatorClass = computed(() =>
+  cn(
+    "cui-radio__indicator pointer-events-none relative rounded-full duration-200",
+    radioIndicatorSizes[props.size],
+    !checked.value && "scale-75 bg-cui-fg-soft",
+    !checked.value && !isReadOnly.value && !disabled.value && "group-active/cui-radio:scale-65",
+    checked.value && `cui-accent-${currentAccent.value}`,
+    checked.value && "bg-cui-on-primary",
+    checked.value && !disabled.value && !isReadOnly.value && "group-active/cui-radio:scale-90",
+  ),
+);
 </script>
 
 <template>
   <component
     :is="props.as"
     v-bind="$attrs"
-    class="cui-radio"
-    :class="[
-      `cui-radio--${props.size}`,
-      disabled && 'cui-radio--disabled',
-      isReadOnly && 'cui-radio--readonly',
-    ]"
+    :class="rootClass"
     :aria-checked="!props.input ? checked : undefined"
     :aria-disabled="!props.input && disabled ? 'true' : undefined"
     :aria-readonly="!props.input && isReadOnly ? 'true' : undefined"
@@ -132,12 +155,13 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     :role="!props.input ? 'radio' : undefined"
     :tabindex="!props.input ? (disabled ? -1 : 0) : undefined"
     @click="handleRootClick"
+    @contextmenu.capture.prevent
     @keydown="handleFallbackKeydown"
   >
     <input
       v-if="props.input"
       :id="inputId"
-      class="cui-choice__input"
+      class="pointer-events-none absolute inset-1 z-10 opacity-0"
       data-part="input"
       :checked="checked"
       :disabled="disabled || isReadOnly"
@@ -150,8 +174,9 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     />
     <Surface
       as="span"
-      class="cui-choice__surface cui-choice__surface--idle"
+      :class="thumbClass"
       :clickable="hoverable && !disabled && !isReadOnly"
+      data-part="thumb"
       :hoverable="hoverable && !disabled && !isReadOnly"
       :outline="props.thumbOutline"
       variant="gradient"
@@ -159,15 +184,16 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     />
     <Surface
       as="span"
-      :color="currentAccent"
-      class="cui-choice__surface cui-choice__surface--active"
+      :class="checkedThumbClass"
       :clickable="hoverable && !disabled && !isReadOnly"
+      :color="currentAccent"
+      data-part="thumb-checked"
       :hoverable="hoverable && !disabled && !isReadOnly"
       :outline="props.thumbOutline"
       variant="gradient-fill"
       :wrap-content="false"
     />
-    <span class="cui-radio__indicator" data-part="indicator" />
-    <FocusRing v-if="focusable && !disabled && !isReadOnly" rounded :accent="currentAccent" />
+    <span :class="indicatorClass" data-part="indicator" />
+    <FocusRing v-if="focusable && !disabled && !isReadOnly" class="rounded-full" group="radio" />
   </component>
 </template>

@@ -35,7 +35,12 @@ provide(radioGroupKey, {
 </script>
 
 <template>
-  <div class="cui-radio-group" :data-orientation="props.orientation" role="radiogroup">
+  <div
+    class="cui-radio-group flex gap-2"
+    :class="props.orientation === 'horizontal' ? 'flex-row' : 'flex-col'"
+    :data-orientation="props.orientation"
+    role="radiogroup"
+  >
     <slot />
   </div>
 </template>

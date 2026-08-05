@@ -4,8 +4,10 @@ import { computed, type Component } from "vue";
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { SurfaceLevelInput, SurfaceVariant, UiAccent } from "../../foundations/contracts.ts";
 import FocusRing from "../feedback/FocusRing.vue";
+import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
 import type { SwitchSize } from "./form.contracts.ts";
+import { switchRootSizes, switchThumbOffsets, switchThumbSizes } from "./switch.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
@@ -108,18 +110,75 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
   event.preventDefault();
   setChecked(!checked.value, event);
 }
+
+const rootClass = computed(() =>
+  cn(
+    "cui-switch group/cui-switch relative flex shrink-0 rounded-full select-none",
+    switchRootSizes[props.size],
+  ),
+);
+
+const thumbClass = computed(() =>
+  cn(
+    "z-10 rounded-full duration-300",
+    switchThumbSizes[props.size],
+    checked.value && switchThumbOffsets[props.size],
+    checked.value ? "text-cui-on-primary" : "text-cui-fg-soft",
+    props.disabled && "opacity-50",
+  ),
+);
+
+const thumbFillClass = computed(() =>
+  cn(
+    "absolute inset-0 size-full shrink-0 rounded-full duration-200",
+    !checked.value && "scale-0",
+    checked.value ? "opacity-100" : "opacity-0",
+  ),
+);
+
+const indicatorClass = computed(() =>
+  cn(
+    "absolute inset-0",
+    props.size === "sm" && "scale-80",
+    checked.value && `cui-accent-${currentAccent.value}`,
+  ),
+);
+
+const indicatorRotationClass = computed(() =>
+  cn(
+    "absolute inset-0 duration-300 group-active/cui-switch:scale-90",
+    checked.value && "rotate-180",
+    !checked.value && props.size === "sm" && "rotate-90",
+  ),
+);
+
+const glyphLineBaseClass =
+  "absolute top-1/2 left-1/2 -mt-px -ml-2 h-0.5 w-4 rounded-full duration-300";
+
+const firstGlyphLineClass = computed(() =>
+  cn(
+    glyphLineBaseClass,
+    "rotate-45",
+    checked.value ? "bg-cui-on-primary" : "bg-cui-fg-soft",
+    checked.value ? "translate-x-0.5 translate-y-[-1.75px] scale-x-40" : "scale-x-75",
+  ),
+);
+
+const secondGlyphLineClass = computed(() =>
+  cn(
+    glyphLineBaseClass,
+    "-rotate-45",
+    checked.value ? "bg-cui-on-primary" : "bg-cui-fg-soft",
+    checked.value ? "translate-x-[-1.5px] scale-x-60 -rotate-60" : "scale-x-75",
+  ),
+);
 </script>
 
 <template>
   <component
     :is="props.as"
     v-bind="$attrs"
-    class="cui-switch"
-    :class="[
-      `cui-switch--${props.size}`,
-      props.disabled && 'cui-switch--disabled',
-      isReadOnly && 'cui-switch--readonly',
-    ]"
+    :class="rootClass"
     :aria-checked="!props.input ? checked : undefined"
     :aria-disabled="!props.input && props.disabled ? 'true' : undefined"
     :aria-readonly="!props.input && isReadOnly ? 'true' : undefined"
@@ -131,12 +190,13 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     :role="!props.input ? 'switch' : undefined"
     :tabindex="!props.input ? (props.disabled ? -1 : 0) : undefined"
     @click="handleRootClick"
+    @contextmenu.capture.prevent
     @keydown="handleFallbackKeydown"
   >
     <input
       v-if="props.input"
       :id="inputId"
-      class="cui-choice__input"
+      class="pointer-events-none absolute inset-0 z-10 opacity-0"
       data-part="input"
       :aria-checked="checked"
       :checked="checked"
@@ -151,7 +211,8 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     />
     <Surface
       as="span"
-      class="cui-switch__track"
+      class="absolute inset-0 rounded-full"
+      data-part="track"
       :level="props.surfaceLevel"
       :outline="props.outline"
       :variant="props.variant"
@@ -159,9 +220,11 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
     />
     <Surface
       as="span"
-      class="cui-switch__thumb"
+      :class="thumbClass"
       :clickable="!props.disabled && !isReadOnly"
-      :hoverable="hoverable && !props.disabled && !isReadOnly"
+      content-class-name="flex items-center justify-center"
+      data-part="thumb"
+      :hoverable="!props.disabled && !isReadOnly"
       :level="props.thumbSurfaceLevel"
       :outline="props.thumbOutline"
       :variant="props.thumbVariant"
@@ -169,25 +232,27 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
       <template #beforeContent>
         <Surface
           as="span"
+          :class="thumbFillClass"
+          :clickable="!props.disabled && !isReadOnly"
           :color="currentAccent"
-          class="cui-switch__thumb-fill"
-          :clickable="hoverable && !props.disabled && !isReadOnly"
-          :hoverable="hoverable && !props.disabled && !isReadOnly"
+          :hoverable="!props.disabled && !isReadOnly"
+          level="+0"
           outline
           variant="gradient-fill"
-          :wrap-content="false"
         />
       </template>
       <slot name="icon" :checked="checked">
-        <span class="cui-switch__glyph" aria-hidden="true" data-part="indicator">
-          <span class="cui-switch__glyph-line cui-switch__glyph-line--first" />
-          <span class="cui-switch__glyph-line cui-switch__glyph-line--second" />
+        <span :class="indicatorClass" aria-hidden="true" data-part="indicator">
+          <span :class="indicatorRotationClass">
+            <span :class="firstGlyphLineClass" />
+            <span :class="secondGlyphLineClass" />
+          </span>
         </span>
       </slot>
       <FocusRing
         v-if="focusable && !props.disabled && !isReadOnly"
-        rounded
-        :accent="currentAccent"
+        class="rounded-full"
+        group="switch"
       />
     </Surface>
   </component>

@@ -146,12 +146,13 @@ const indicatorClass = computed(() =>
     :role="!props.input ? 'checkbox' : undefined"
     :tabindex="!props.input ? (props.disabled ? -1 : 0) : undefined"
     @click="handleRootClick"
+    @contextmenu.capture.prevent
     @keydown="handleFallbackKeydown"
   >
     <input
       v-if="props.input"
       :id="inputId"
-      class="cui-choice__input"
+      class="pointer-events-none absolute inset-1 z-10 opacity-0"
       data-part="input"
       :checked="checked"
       :disabled="props.disabled || isReadOnly"
@@ -190,7 +191,6 @@ const indicatorClass = computed(() =>
     />
     <FocusRing
       v-if="focusable && !props.disabled && !isReadOnly"
-      :accent="currentAccent"
       class="rounded-full"
       group="checkbox"
     />
