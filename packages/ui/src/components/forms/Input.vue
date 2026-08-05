@@ -1,36 +1,53 @@
 <script setup lang="ts">
-import { computed, ref, useAttrs, useId } from "vue";
+import { computed, ref, useAttrs, type Component } from "vue";
 
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent } from "../../foundations/contracts.ts";
+import { cn } from "../../shared/cn.ts";
+import { roundedClasses } from "../../shared/roundedClasses.ts";
+import { rootSizeClasses } from "../../shared/sizeClasses.ts";
 import Button from "../actions/Button.vue";
 import FocusRing from "../feedback/FocusRing.vue";
 import SurfaceCut from "../surface/SurfaceCut.vue";
 import CloseGlyph from "./CloseGlyph.vue";
-import FieldMessage from "./FieldMessage.vue";
 import type { FieldSize } from "./form.contracts.ts";
+import {
+  inputClearButtonSizes,
+  inputClearGlyphSizes,
+  inputFontSizes,
+  inputIconWrapClasses,
+  inputPaddingNoIcon,
+  inputPaddingWithIcon,
+} from "./input.contracts.ts";
+
+const interactiveSelector =
+  'input, textarea, select, button, a, [role="button"], [tabindex]:not([tabindex="-1"])';
 
 defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(
   defineProps<{
     accent?: UiAccent;
-    autocomplete?: string;
+    as?: string | Component;
     autofocus?: boolean;
+    clearButton?: boolean;
     clearLabel?: string;
-    clearable?: boolean;
+    color?: UiAccent;
+    contentClassName?: string;
     disabled?: boolean;
     errorMessage?: string;
-    id?: string;
+    iconClassName?: string;
     infoMessage?: string;
+    inputClassName?: string;
+    inputId?: string;
     inputMode?: "decimal" | "email" | "none" | "numeric" | "search" | "tel" | "text" | "url";
     max?: number | string;
-    maxlength?: number;
+    maxLength?: number;
     min?: number | string;
     name?: string;
     pattern?: string;
     placeholder?: string;
-    readonly?: boolean;
+    readOnly?: boolean;
     required?: boolean;
     rounded?: boolean;
     size?: FieldSize;
@@ -41,22 +58,26 @@ const props = withDefaults(
   }>(),
   {
     accent: undefined,
-    autocomplete: undefined,
+    as: "div",
     autofocus: false,
+    clearButton: false,
     clearLabel: "Clear",
-    clearable: false,
+    color: undefined,
+    contentClassName: undefined,
     disabled: false,
     errorMessage: undefined,
-    id: undefined,
+    iconClassName: undefined,
     infoMessage: undefined,
+    inputClassName: undefined,
+    inputId: undefined,
     inputMode: undefined,
     max: undefined,
-    maxlength: undefined,
+    maxLength: undefined,
     min: undefined,
     name: undefined,
     pattern: undefined,
     placeholder: undefined,
-    readonly: false,
+    readOnly: false,
     required: false,
     rounded: false,
     size: "lg",
@@ -67,7 +88,8 @@ const props = withDefaults(
   },
 );
 
-defineSlots<{
+const slots = defineSlots<{
+  displayValue?: () => unknown;
   icon?: () => unknown;
   prefix?: () => unknown;
   suffix?: () => unknown;
@@ -75,136 +97,229 @@ defineSlots<{
 
 const emit = defineEmits<{
   blur: [event: FocusEvent];
+  change: [value: string, event: Event];
   clear: [];
   focus: [event: FocusEvent];
+  keydown: [event: KeyboardEvent];
 }>();
 
 const model = defineModel<string>({ default: "" });
 const ui = useUiContext();
 const attrs = useAttrs();
-const generatedId = useId();
-const inputId = computed(() => props.id ?? `cui-input-${generatedId}`);
-const messageId = computed(() => `${inputId.value}-message`);
-const currentAccent = computed(() => props.accent ?? ui.accent.value);
+const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
 const inputElement = ref<HTMLInputElement>();
+const focused = ref(false);
 
-function updateValue(event: Event): void {
-  model.value = (event.target as HTMLInputElement).value;
+const radii = computed(() => roundedClasses(props.size, props.rounded, false));
+const heightClass = computed(() => rootSizeClasses(props.size, "height"));
+const inputPadding = computed(() =>
+  slots.icon ? inputPaddingWithIcon[props.size] : inputPaddingNoIcon[props.size],
+);
+const showDisplayValue = computed(
+  () => Boolean(slots.displayValue) && (props.readOnly || !focused.value),
+);
+
+const rootClass = computed(() =>
+  cn("cui-input group/cui-input", props.disabled && "opacity-50", radii.value.itemRoundedClasses),
+);
+
+const focusRingClass = computed(() =>
+  props.tightFocusRing ? "rounded-[inherit]" : radii.value.focusRoundedClasses,
+);
+
+const iconClass = computed(() =>
+  cn(
+    "pointer-events-none absolute top-1/2 -translate-y-1/2",
+    inputIconWrapClasses[props.size],
+    props.iconClassName,
+  ),
+);
+
+const controlClass = computed(() =>
+  cn(
+    inputPadding.value,
+    heightClass.value,
+    inputFontSizes[props.size],
+    radii.value.itemRoundedClasses,
+    "w-full appearance-none border-none bg-transparent font-medium shadow-none outline-none",
+    props.disabled && "text-cui-fg-softer",
+    "placeholder-cui-fg-softer",
+    showDisplayValue.value && "text-transparent! placeholder-transparent!",
+    props.inputClassName,
+  ),
+);
+
+const displayValueClass = computed(() =>
+  cn(
+    inputPadding.value,
+    heightClass.value,
+    inputFontSizes[props.size],
+    "pointer-events-none absolute inset-0 flex items-center font-medium",
+    props.disabled && "text-cui-fg-softer",
+    props.inputClassName,
+  ),
+);
+
+const clearWrapClass = computed(() =>
+  cn(
+    "relative mr-1 shrink-0",
+    rootSizeClasses(props.size, "height"),
+    rootSizeClasses(props.size, "width"),
+  ),
+);
+
+const clearButtonClass = computed(() =>
+  cn(
+    "absolute top-1 right-0 bottom-1 left-0 h-auto w-auto transform-gpu duration-200",
+    !model.value && "pointer-events-none scale-0",
+  ),
+);
+
+const infoClass = computed(() =>
+  cn(
+    "pointer-events-none absolute -top-1.5 left-2 z-10 translate-y-0 rounded-cui-xs bg-cui-primary px-2 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-0 duration-200 group-has-[input:focus]/cui-input:-translate-y-1/2 group-has-[input:focus]/cui-input:opacity-100",
+    `cui-accent-${currentAccent.value}`,
+  ),
+);
+
+const errorClass =
+  "cui-accent-red pointer-events-none absolute -top-1.5 left-2 z-10 -translate-y-1/2 rounded-cui-xs bg-cui-primary px-2 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-100 duration-200";
+
+function onInput(event: Event): void {
+  const value = (event.target as HTMLInputElement).value;
+  model.value = value;
+  emit("change", value, event);
+}
+
+function onFocus(event: FocusEvent): void {
+  focused.value = true;
+  emit("focus", event);
+}
+
+function onBlur(event: FocusEvent): void {
+  focused.value = false;
+  emit("blur", event);
+}
+
+function onPointerDown(event: PointerEvent): void {
+  if (event.pointerType === "touch") return;
+  if ((event.target as HTMLElement).closest(interactiveSelector)) return;
+  event.preventDefault();
+  inputElement.value?.focus();
+}
+
+function onClick(event: MouseEvent): void {
+  if ((event.target as HTMLElement).closest(interactiveSelector)) return;
+  inputElement.value?.focus();
 }
 
 function clearValue(): void {
   model.value = "";
   emit("clear");
-  inputElement.value?.focus();
-}
-
-function focusControl(): void {
-  if (!props.disabled) {
-    inputElement.value?.focus();
-  }
 }
 
 defineExpose({
-  focus: focusControl,
+  focus: () => inputElement.value?.focus(),
   select: () => inputElement.value?.select(),
 });
 </script>
 
 <template>
   <SurfaceCut
-    :accent="currentAccent"
-    class="cui-input"
-    :class="[
-      `cui-input--${props.size}`,
-      props.rounded && 'cui-input--rounded',
-      props.disabled && 'cui-input--disabled',
-    ]"
+    v-bind="attrs"
+    :accent="props.accent"
+    :as="props.as"
+    :class="rootClass"
+    :color="props.color"
+    :data-disabled="props.disabled || undefined"
     :data-invalid="!props.valid || undefined"
-    :data-readonly="props.readonly || undefined"
-    :hoverable="!props.disabled && !props.readonly"
-    :outline="true"
+    :data-readonly="props.readOnly || undefined"
+    :data-required="props.required || undefined"
+    :hoverable="!props.disabled && !props.readOnly"
     :wrap-content="false"
-    @click="focusControl"
   >
     <FocusRing
-      v-if="!props.disabled && !props.readonly"
-      :accent="props.valid ? currentAccent : 'red'"
+      v-if="!props.readOnly && !props.disabled"
+      :class="focusRingClass"
+      :color="props.valid ? currentAccent : 'red'"
       :force="!props.valid"
+      group="input"
       :offset="!props.tightFocusRing"
-      :rounded="props.rounded"
-      :size="props.size"
     />
-    <div class="cui-input__content" data-part="wrapper">
-      <span v-if="$slots.prefix" class="cui-input__affix" data-part="prefix"
-        ><slot name="prefix"
-      /></span>
-      <span v-if="$slots.icon" class="cui-input__icon" data-part="icon"><slot name="icon" /></span>
-      <input
-        :id="inputId"
-        ref="inputElement"
-        v-bind="attrs"
-        :aria-describedby="props.infoMessage || props.errorMessage ? messageId : undefined"
-        :aria-invalid="!props.valid || undefined"
-        :autocomplete="props.autocomplete"
-        :autofocus="props.autofocus"
-        class="cui-input__control"
-        data-part="control"
-        :disabled="props.disabled"
-        :inputmode="props.inputMode"
-        :max="props.max"
-        :maxlength="props.maxlength"
-        :min="props.min"
-        :name="props.name"
-        :pattern="props.pattern"
-        :placeholder="props.placeholder"
-        :readonly="props.readonly"
-        :required="props.required"
-        :step="props.step"
-        :type="props.type"
-        :value="model"
-        @blur="emit('blur', $event)"
-        @focus="emit('focus', $event)"
-        @input="updateValue"
-      />
-      <Button
-        v-if="props.clearable && !props.disabled && !props.readonly"
-        :aria-hidden="!model || undefined"
-        :aria-label="props.clearLabel"
-        class="cui-input__clear"
-        :disabled="!model"
-        rounded
-        :size="
-          props.size === 'sm'
-            ? '2xs'
-            : props.size === 'md'
-              ? 'xs'
-              : props.size === 'lg'
-                ? 'sm'
-                : props.size === 'xl'
-                  ? 'md'
-                  : 'lg'
-        "
-        square
-        :tabindex="model ? 0 : -1"
-        variant="transparent"
-        @click.stop="clearValue"
-      >
-        <CloseGlyph />
-      </Button>
-      <span v-if="$slots.suffix" class="cui-input__affix" data-part="suffix"
-        ><slot name="suffix"
-      /></span>
+
+    <div
+      :class="cn('relative flex items-center', props.contentClassName)"
+      data-part="wrapper"
+      @click="onClick"
+      @contextmenu.capture.prevent
+      @pointerdown="onPointerDown"
+    >
+      <slot name="prefix" />
+      <div v-if="$slots.icon" :class="iconClass" data-part="icon">
+        <slot name="icon" />
+      </div>
+
+      <div class="relative flex w-full">
+        <input
+          :id="props.inputId"
+          ref="inputElement"
+          :autofocus="props.autofocus"
+          :class="controlClass"
+          data-part="control"
+          :disabled="props.disabled"
+          :inputmode="props.inputMode"
+          :max="props.max"
+          :maxlength="props.maxLength"
+          :min="props.min"
+          :name="props.name"
+          :pattern="props.pattern"
+          :placeholder="props.placeholder"
+          :readonly="props.readOnly"
+          :required="props.required"
+          :step="props.step"
+          :tabindex="props.disabled || props.readOnly ? -1 : undefined"
+          :type="props.type"
+          :value="model"
+          @blur="onBlur"
+          @focus="onFocus"
+          @input="onInput"
+          @keydown="emit('keydown', $event)"
+        />
+
+        <span v-if="showDisplayValue" :class="displayValueClass" data-part="display-value">
+          <slot name="displayValue" />
+        </span>
+      </div>
+
+      <div v-if="props.clearButton && !props.disabled && !props.readOnly" :class="clearWrapClass">
+        <Button
+          :aria-label="props.clearLabel"
+          :class="clearButtonClass"
+          content-class-name="px-0"
+          data-part="clear"
+          :disabled="!model"
+          :outline="false"
+          :rounded="props.rounded"
+          :size="inputClearButtonSizes[props.size]"
+          :tabindex="-1"
+          @click="clearValue"
+        >
+          <CloseGlyph :class="cn('text-cui-fg-soft', inputClearGlyphSizes[props.size])" />
+        </Button>
+      </div>
+
+      <slot name="suffix" />
     </div>
-    <FieldMessage v-if="props.errorMessage && !props.valid" :id="messageId" invalid visible>
-      {{ props.errorMessage }}
-    </FieldMessage>
-    <FieldMessage
-      v-else-if="props.infoMessage && !props.readonly"
-      :accent="currentAccent"
-      :id="messageId"
-      class="cui-field-message--focus"
+
+    <div
+      v-if="props.infoMessage && props.valid && !props.readOnly"
+      :class="infoClass"
+      data-part="info"
     >
       {{ props.infoMessage }}
-    </FieldMessage>
+    </div>
+    <div v-if="props.errorMessage && !props.valid" :class="errorClass" data-part="error">
+      {{ props.errorMessage }}
+    </div>
   </SurfaceCut>
 </template>

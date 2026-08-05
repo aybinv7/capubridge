@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { computed, ref, useAttrs, useId, watch, type Component } from "vue";
+import { computed, ref, useAttrs, watch, type Component } from "vue";
 
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent } from "../../foundations/contracts.ts";
+import { cn } from "../../shared/cn.ts";
+import { roundedClasses } from "../../shared/roundedClasses.ts";
+import { rootSizeClasses } from "../../shared/sizeClasses.ts";
 import FocusRing from "../feedback/FocusRing.vue";
 import SurfaceCut from "../surface/SurfaceCut.vue";
-import FieldMessage from "./FieldMessage.vue";
 import type { FieldSize } from "./form.contracts.ts";
+import {
+  textareaFontSizes,
+  textareaIconWrapClasses,
+  textareaPaddingNoIcon,
+  textareaPaddingVertical,
+  textareaPaddingWithIcon,
+} from "./textarea.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
@@ -18,15 +27,13 @@ const props = withDefaults(
     contentClassName?: string;
     disabled?: boolean;
     errorMessage?: string;
-    icon?: unknown;
     iconClassName?: string;
-    id?: string;
     infoMessage?: string;
     inputClassName?: string;
-    maxlength?: number;
+    maxLength?: number;
     placeholder?: string;
     placeholderClassName?: string;
-    readonly?: boolean;
+    readOnly?: boolean;
     rounded?: boolean;
     size?: FieldSize;
     tightFocusRing?: boolean;
@@ -40,15 +47,13 @@ const props = withDefaults(
     contentClassName: undefined,
     disabled: false,
     errorMessage: undefined,
-    icon: undefined,
     iconClassName: undefined,
-    id: undefined,
     infoMessage: undefined,
     inputClassName: undefined,
-    maxlength: undefined,
+    maxLength: undefined,
     placeholder: undefined,
     placeholderClassName: undefined,
-    readonly: false,
+    readOnly: false,
     rounded: false,
     size: "lg",
     tightFocusRing: false,
@@ -57,7 +62,7 @@ const props = withDefaults(
   },
 );
 
-defineSlots<{
+const slots = defineSlots<{
   icon?: () => unknown;
   prefix?: () => unknown;
   suffix?: () => unknown;
@@ -65,6 +70,7 @@ defineSlots<{
 
 const emit = defineEmits<{
   blur: [event: FocusEvent];
+  change: [value: string, event: Event];
   focus: [event: FocusEvent];
   keydown: [event: KeyboardEvent];
 }>();
@@ -72,14 +78,66 @@ const emit = defineEmits<{
 const model = defineModel<string>({ default: "" });
 const ui = useUiContext();
 const attrs = useAttrs();
-const generatedId = useId();
-const controlId = computed(() => props.id ?? `cui-textarea-${generatedId}`);
-const messageId = computed(() => `${controlId.value}-message`);
 const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
 const controlElement = ref<HTMLElement>();
 const text = ref<string>();
-const editable = computed(() => !props.disabled && !props.readonly);
-const showPlaceholder = computed(() => !text.value && Boolean(props.placeholder));
+const editable = computed(() => !props.disabled && !props.readOnly);
+
+const radii = computed(() => roundedClasses(props.size, props.rounded, true));
+const heightClass = computed(() => rootSizeClasses(props.size, "min-height"));
+const inputPadding = computed(() =>
+  cn(
+    textareaPaddingVertical[props.size],
+    slots.icon ? textareaPaddingWithIcon[props.size] : textareaPaddingNoIcon[props.size],
+  ),
+);
+
+const rootClass = computed(() =>
+  cn(
+    "cui-textarea group/cui-textarea relative",
+    props.disabled && "opacity-50",
+    radii.value.itemRoundedClasses,
+  ),
+);
+
+const focusRingClass = computed(() =>
+  props.tightFocusRing ? "rounded-[inherit]" : radii.value.focusRoundedClasses,
+);
+
+const iconClass = computed(() =>
+  cn("pointer-events-none absolute", textareaIconWrapClasses[props.size], props.iconClassName),
+);
+
+const controlClass = computed(() =>
+  cn(
+    inputPadding.value,
+    heightClass.value,
+    radii.value.itemRoundedClasses,
+    textareaFontSizes[props.size],
+    "w-full appearance-none border-none bg-transparent font-medium whitespace-pre-wrap shadow-none outline-none",
+    props.disabled && "text-cui-fg-softer",
+    props.inputClassName,
+  ),
+);
+
+const placeholderClass = computed(() =>
+  cn(
+    "pointer-events-none absolute top-0 left-0 h-full w-full text-cui-fg-softer select-none",
+    textareaFontSizes[props.size],
+    inputPadding.value,
+    props.placeholderClassName,
+  ),
+);
+
+const infoClass = computed(() =>
+  cn(
+    `cui-accent-${currentAccent.value}`,
+    "pointer-events-none absolute -top-1.5 left-2 z-10 translate-y-1 rounded-cui-sm bg-cui-primary px-2 py-1.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-0 duration-200 group-has-[[contenteditable]:focus]/cui-textarea:-translate-y-1/2 group-has-[[contenteditable]:focus]/cui-textarea:opacity-100",
+  ),
+);
+
+const errorClass =
+  "cui-accent-red pointer-events-none absolute -top-1.5 left-2 z-10 -translate-y-1/2 rounded-cui-sm bg-cui-primary px-1 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-100 duration-200";
 
 function moveCaretToEnd(element: HTMLElement): void {
   const selection = window.getSelection();
@@ -103,20 +161,15 @@ function onInput(event: Event): void {
   let next = target.innerText;
   if (next === "\n") next = "";
 
-  if (props.maxlength !== undefined && next.length > props.maxlength) {
-    next = next.slice(0, props.maxlength);
+  if (props.maxLength !== undefined && next.length > props.maxLength) {
+    next = next.slice(0, props.maxLength);
     target.innerText = next;
     moveCaretToEnd(target);
   }
 
   text.value = next;
   model.value = next;
-}
-
-function focusControl(): void {
-  if (editable.value) {
-    controlElement.value?.focus();
-  }
+  emit("change", next, event);
 }
 
 watch(
@@ -131,94 +184,69 @@ watch(
   { flush: "post", immediate: true },
 );
 
-defineExpose({ focus: focusControl });
+defineExpose({ focus: () => controlElement.value?.focus() });
 </script>
 
 <template>
   <SurfaceCut
     v-bind="attrs"
-    :accent="currentAccent"
+    :accent="props.accent"
     :as="props.as"
-    class="cui-textarea"
-    :class="[
-      `cui-textarea--${props.size}`,
-      props.rounded && 'cui-textarea--rounded',
-      props.disabled && 'cui-textarea--disabled',
-    ]"
+    :class="rootClass"
+    :color="props.color"
     :data-disabled="props.disabled || undefined"
     :data-invalid="!props.valid || undefined"
-    :data-readonly="props.readonly || undefined"
+    :data-readonly="props.readOnly || undefined"
     :hoverable="editable"
     :wrap-content="false"
   >
     <FocusRing
       v-if="editable"
-      :accent="props.valid ? currentAccent : 'red'"
+      :class="focusRingClass"
+      :color="props.valid ? currentAccent : 'red'"
       :force="!props.valid"
-      multiline
+      group="textarea"
       :offset="!props.tightFocusRing"
-      :rounded="props.rounded"
-      :size="props.size"
     />
+
     <div
-      class="cui-textarea__content"
-      :class="props.contentClassName"
+      :class="cn('relative flex items-center', props.contentClassName)"
       data-part="wrapper"
       @contextmenu.capture.prevent
     >
-      <span v-if="$slots.prefix" class="cui-textarea__affix" data-part="prefix">
-        <slot name="prefix" />
-      </span>
-      <span
-        v-if="$slots.icon"
-        class="cui-textarea__icon"
-        :class="props.iconClassName"
-        data-part="icon"
-      >
+      <slot name="prefix" />
+      <div v-if="$slots.icon" :class="iconClass" data-part="icon">
         <slot name="icon" />
-      </span>
-      <div class="cui-textarea__field">
+      </div>
+      <div class="relative flex w-full">
         <div
-          :id="controlId"
           ref="controlElement"
-          :aria-describedby="props.infoMessage || props.errorMessage ? messageId : undefined"
-          :aria-invalid="!props.valid || undefined"
-          :aria-multiline="true"
-          class="cui-textarea__control"
-          :class="props.inputClassName"
+          :class="controlClass"
           :contenteditable="editable"
           data-part="control"
-          role="textbox"
           @blur="emit('blur', $event)"
           @focus="emit('focus', $event)"
           @input="onInput"
           @keydown="emit('keydown', $event)"
           @paste="onPaste"
         />
-        <div
-          v-if="showPlaceholder"
-          aria-hidden="true"
-          class="cui-textarea__placeholder"
-          :class="props.placeholderClassName"
-          data-part="placeholder"
-        >
+        <div v-if="!text && props.placeholder" :class="placeholderClass" data-part="placeholder">
           {{ props.placeholder }}
         </div>
       </div>
-      <span v-if="$slots.suffix" class="cui-textarea__affix" data-part="suffix">
-        <slot name="suffix" />
-      </span>
+
+      <slot name="suffix" />
     </div>
-    <FieldMessage v-if="props.errorMessage && !props.valid" :id="messageId" invalid visible>
-      {{ props.errorMessage }}
-    </FieldMessage>
-    <FieldMessage
-      v-else-if="props.infoMessage && !props.readonly"
-      :accent="currentAccent"
-      focus
-      :id="messageId"
+
+    <div
+      v-if="props.infoMessage && props.valid && !props.readOnly"
+      :class="infoClass"
+      data-part="info"
     >
       {{ props.infoMessage }}
-    </FieldMessage>
+    </div>
+    <div v-if="props.errorMessage && !props.valid" :class="errorClass" data-part="error">
+      {{ props.errorMessage }}
+    </div>
   </SurfaceCut>
 </template>

@@ -108,7 +108,9 @@ function confirm(): void {
 }
 
 function initialFocus(): HTMLElement | null | undefined {
-  const selector = props.requireConfirmText ? ".cui-dialog__confirmation" : '[data-part="confirm"]';
+  const selector = props.requireConfirmText
+    ? ".cui-dialog__confirmation input"
+    : '[data-part="confirm"]';
   return container.value?.querySelector<HTMLElement>(selector);
 }
 

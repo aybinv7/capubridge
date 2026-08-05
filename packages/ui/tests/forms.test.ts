@@ -16,6 +16,20 @@ import {
   Textarea,
 } from "../src/index.ts";
 import type { SelectValue } from "../src/index.ts";
+import {
+  inputClearButtonSizes,
+  inputClearGlyphSizes,
+  inputFontSizes,
+  inputIconWrapClasses,
+  inputPaddingNoIcon,
+  inputPaddingWithIcon,
+} from "../src/components/forms/input.contracts.ts";
+import {
+  textareaIconWrapClasses,
+  textareaPaddingNoIcon,
+  textareaPaddingVertical,
+  textareaPaddingWithIcon,
+} from "../src/components/forms/textarea.contracts.ts";
 import { byTestId, mountTree } from "./support/mountTree.ts";
 import type { MountedTree } from "./support/mountTree.ts";
 
@@ -31,12 +45,17 @@ const checkboxGlyph = readFileSync(
   "utf8",
 );
 
-test("locks Cladd field radius geometry", () => {
-  expect(formsCss).toContain("border-radius: var(--cui-radius-lg)");
-  expect(formsCss).toContain("border-radius: var(--cui-radius-sm)");
-  expect(formsCss).toContain("border-radius: var(--cui-radius-2xl)");
-  expect(formsCss).toContain("border-radius: var(--cui-radius-full-lg)");
-  expect(formsCss).toContain("border-radius: inherit");
+test("locks the Cladd field geometry ported as utility strings", () => {
+  expect(inputFontSizes["2xl"]).toBe("text-cui-xs");
+  expect(inputIconWrapClasses["2xl"]).toBe("left-3.5 [&>svg]:size-4");
+  expect(inputPaddingNoIcon.lg).toBe("px-2.5");
+  expect(inputPaddingWithIcon["2xl"]).toBe("pl-9.5 pr-4");
+  expect(inputClearButtonSizes.lg).toBe("sm");
+  expect(inputClearGlyphSizes.md).toBe("size-3.5!");
+  expect(textareaPaddingVertical.lg).toBe("pt-2 pb-1.5");
+  expect(textareaIconWrapClasses["2xl"]).toBe("left-3.5 [&>svg]:size-4 top-4");
+  expect(textareaPaddingWithIcon.sm).toBe("pl-8.5 pr-2");
+  expect(textareaPaddingNoIcon["2xl"]).toBe("px-3.5");
 });
 
 test("locks the Cladd checkbox indicator path", () => {
@@ -64,7 +83,8 @@ test("keeps input form semantics and textarea editor semantics", async () => {
       }),
     ]),
   );
-  const input = byTestId(mounted.root, "input-shell") as HTMLInputElement;
+  const inputShell = byTestId(mounted.root, "input-shell");
+  const input = inputShell.querySelector("input") as HTMLInputElement;
   const textarea = byTestId(mounted.root, "textarea-shell") as HTMLElement;
   const editor = textarea.querySelector('[data-part="control"]') as HTMLElement;
 
@@ -76,8 +96,8 @@ test("keeps input form semantics and textarea editor semantics", async () => {
 
   expect(inputValue.value).toBe("device");
   expect(notes.value).toBe("updated");
-  expect(input.getAttribute("aria-invalid")).toBe("true");
-  expect(input.getAttribute("aria-describedby")).toBeTruthy();
+  expect(inputShell.getAttribute("data-invalid")).toBe("true");
+  expect(inputShell.querySelector('[data-part="error"]')?.textContent?.trim()).toBe("Required");
   expect(new FormData(mounted.root.querySelector("form") as HTMLFormElement).get("query")).toBe(
     "device",
   );
@@ -403,7 +423,8 @@ function fixtureForm(root: HTMLElement): HTMLFormElement {
 }
 
 function fieldControl(root: HTMLElement, testId: string): HTMLInputElement {
-  return byTestId(root, testId) as HTMLInputElement;
+  const shell = byTestId(root, testId);
+  return (shell.querySelector("input") ?? shell) as HTMLInputElement;
 }
 
 function editorControl(root: HTMLElement, testId: string): HTMLElement {
@@ -425,10 +446,8 @@ function typeInto(control: HTMLInputElement | HTMLTextAreaElement, value: string
   control.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function describedText(root: HTMLElement, control: HTMLElement): string {
-  const id = control.getAttribute("aria-describedby") ?? "";
-
-  return root.querySelector(`#${id}`)?.textContent?.trim() ?? "";
+function messageText(root: HTMLElement, testId: string, part: "error" | "info"): string {
+  return byTestId(root, testId).querySelector(`[data-part="${part}"]`)?.textContent?.trim() ?? "";
 }
 
 function submitFixture(root: HTMLElement): void {
@@ -597,7 +616,7 @@ test("keeps fixture labels and messages associated across submit and reset", asy
 
   for (const [labelFor, testId] of fieldLabels) {
     const label = mounted.root.querySelector<HTMLLabelElement>(`label[for="${labelFor}"]`);
-    expect(label?.control).toBe(byTestId(mounted.root, testId));
+    expect(label?.control).toBe(fieldControl(mounted.root, testId));
   }
 
   for (const [labelFor, testId] of choiceLabels) {
@@ -605,17 +624,12 @@ test("keeps fixture labels and messages associated across submit and reset", asy
     expect(label?.control).toBe(hiddenInput(mounted.root, testId));
   }
 
-  expect(serial.getAttribute("aria-invalid")).toBe("true");
+  expect(byTestId(mounted.root, "serial").getAttribute("data-invalid")).toBe("true");
   expect(serial.required).toBe(true);
-  expect(describedText(mounted.root, serial)).toBe("Serial is required");
-  expect(describedText(mounted.root, fieldControl(mounted.root, "device-query"))).toBe(
-    "Matches serial or model name",
-  );
-  expect(describedText(mounted.root, editorControl(mounted.root, "release-notes"))).toBe(
-    "Shown in the session report",
-  );
+  expect(messageText(mounted.root, "serial", "error")).toBe("Serial is required");
+  expect(messageText(mounted.root, "device-query", "info")).toBe("Matches serial or model name");
+  expect(messageText(mounted.root, "release-notes", "info")).toBe("Shown in the session report");
   expect(editorControl(mounted.root, "release-notes").getAttribute("contenteditable")).toBe("true");
-  expect(editorControl(mounted.root, "release-notes").getAttribute("role")).toBe("textbox");
   expect(byTestId(mounted.root, "accent").getAttribute("aria-label")).toBe("Accent");
   expect(byTestId(mounted.root, "accent").getAttribute("role")).toBe("combobox");
   cleanupFormFixture(mounted);

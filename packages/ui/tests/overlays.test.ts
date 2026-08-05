@@ -128,7 +128,7 @@ test("guards destructive confirmation with exact text", async () => {
   byTestId(mounted.root, "guarded-dialog-trigger").click();
   await settleOverlay();
   const confirm = document.body.querySelector<HTMLButtonElement>('[data-part="confirm"]');
-  const input = document.body.querySelector<HTMLInputElement>(".cui-dialog__confirmation");
+  const input = document.body.querySelector<HTMLInputElement>(".cui-dialog__confirmation input");
 
   expect(confirm?.disabled).toBe(true);
   expect(input).not.toBeNull();

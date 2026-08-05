@@ -50,9 +50,9 @@ function emitSubmittedEntries(event: Event): void {
           Device query
         </label>
         <Input
-          id="cui-form-fixture-device-query"
           v-model="deviceQuery"
           data-testid="device-query"
+          input-id="cui-form-fixture-device-query"
           info-message="Matches serial or model name"
           name="deviceQuery"
           placeholder="Pixel 9 Pro"
@@ -62,9 +62,9 @@ function emitSubmittedEntries(event: Event): void {
       <div class="cui-form-fixture__field">
         <label class="cui-form-fixture__label" for="cui-form-fixture-serial"> Serial </label>
         <Input
-          id="cui-form-fixture-serial"
           data-testid="serial"
           error-message="Serial is required"
+          input-id="cui-form-fixture-serial"
           name="serial"
           required
           :valid="false"
@@ -76,9 +76,9 @@ function emitSubmittedEntries(event: Event): void {
           Build fingerprint
         </label>
         <Input
-          id="cui-form-fixture-fingerprint"
           data-testid="fingerprint"
           disabled
+          input-id="cui-form-fixture-fingerprint"
           model-value="google/tokay/tokay"
           name="fingerprint"
         />
@@ -89,7 +89,6 @@ function emitSubmittedEntries(event: Event): void {
           Release notes
         </span>
         <Textarea
-          id="cui-form-fixture-release-notes"
           v-model="releaseNotes"
           aria-labelledby="cui-form-fixture-release-notes-label"
           data-testid="release-notes"
