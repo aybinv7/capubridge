@@ -54,6 +54,13 @@ catalog:
 
 catalogMode: prefer
 
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+  - maplibre-gl
+  - sharp
+  - vue-demi
+
 overrides:
   vite: "catalog:"
   vitest: "catalog:"

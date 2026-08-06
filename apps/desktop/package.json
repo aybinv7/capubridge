@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "bundle:adb": "node ./scripts/sync-platform-tools.mjs",
+    "bundle:scrcpy": "node ./scripts/sync-scrcpy.mjs",
     "check:contrast": "node --import tsx ./scripts/check-contrast.ts",
     "dev": "vp dev",
     "build": "vp check && vp build",

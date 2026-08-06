@@ -1088,6 +1088,7 @@ fn stop_scrcpy_session(serial: &str) {
 
 #[tauri::command]
 pub fn adb_mirror_launch_scrcpy(
+    app: AppHandle,
     serial: String,
     max_size: Option<u32>,
     bit_rate_mbps: Option<u32>,
@@ -1095,8 +1096,10 @@ pub fn adb_mirror_launch_scrcpy(
 ) -> Result<(), String> {
     stop_scrcpy_session(&serial);
 
-    let scrcpy = which::which("scrcpy")
-        .map_err(|_| "scrcpy not found in PATH. Install scrcpy and try again.".to_string())?;
+    let scrcpy = resolve_scrcpy_binary(&app).ok_or_else(|| {
+        "scrcpy is unavailable. Reinstall CapuBridge or install scrcpy in PATH and try again."
+            .to_string()
+    })?;
 
     let mut cmd = Command::new(scrcpy);
     cmd.args([
@@ -1129,6 +1132,51 @@ pub fn adb_mirror_launch_scrcpy(
         sessions.insert(serial, child);
     }
     Ok(())
+}
+
+fn resolve_scrcpy_binary(app: &AppHandle) -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("CAPUBRIDGE_SCRCPY_PATH")
+        .map(PathBuf::from)
+        .filter(|path| path.is_file())
+    {
+        return Some(path);
+    }
+
+    let file_name = if cfg!(target_os = "windows") {
+        "scrcpy.exe"
+    } else {
+        "scrcpy"
+    };
+    let mut roots = app
+        .path()
+        .resource_dir()
+        .map(|dir| vec![dir.clone(), dir.join("resources")])
+        .unwrap_or_default();
+    roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources"));
+
+    for root in roots {
+        let mut paths = vec![root.join("scrcpy").join(file_name), root.join(file_name)];
+        for platform in scrcpy_platform_dir_names() {
+            paths.push(root.join("scrcpy").join(platform).join(file_name));
+        }
+        for path in paths {
+            if path.is_file() {
+                return Some(path);
+            }
+        }
+    }
+
+    which::which("scrcpy").ok()
+}
+
+fn scrcpy_platform_dir_names() -> Vec<&'static str> {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("windows", "x86_64") => vec!["windows-x64", "windows"],
+        ("linux", "x86_64") => vec!["linux-x64", "linux"],
+        ("macos", "x86_64") => vec!["macos-x64", "macos"],
+        ("macos", "aarch64") => vec!["macos-arm64", "macos"],
+        _ => Vec::new(),
+    }
 }
 
 #[tauri::command]

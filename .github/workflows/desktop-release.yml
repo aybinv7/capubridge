@@ -118,6 +118,11 @@ jobs:
       - name: bundle adb resources
         run: vp run desktop#bundle:adb
 
+      - name: bundle native scrcpy resources
+        env:
+          CAPUBRIDGE_SCRCPY_TARGET: ${{ matrix.name }}
+        run: vp run desktop#bundle:scrcpy
+
       - name: build and release
         uses: tauri-apps/tauri-action@v0.6.2
         env:
