@@ -11,10 +11,21 @@ import {
 
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent } from "../../foundations/contracts.ts";
+import { cn } from "../../shared/cn.ts";
+import { roundedClasses } from "../../shared/roundedClasses.ts";
+import { rootSizeClasses } from "../../shared/sizeClasses.ts";
 import FocusRing from "../feedback/FocusRing.vue";
 import Surface from "../surface/Surface.vue";
 import SurfaceCut from "../surface/SurfaceCut.vue";
 import type { ChoiceSize, SliderScale, SliderVariant } from "./form.contracts.ts";
+import {
+  sliderRangeInsets,
+  sliderRootHeights,
+  sliderThumbSizes,
+  sliderThumbSpacingVars,
+  sliderTrackBarClasses,
+  sliderValueOffsets,
+} from "./slider.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
@@ -125,12 +136,110 @@ const inputValue = computed(() =>
 const inputMin = computed(() => (scaleFns.value ? 0 : props.min));
 const inputMax = computed(() => (scaleFns.value ? sliderResolution : props.max));
 const inputStep = computed(() => (scaleFns.value ? 1 : props.step));
-const rootStyle = computed(
+const radii = computed(() => roundedClasses(props.size, props.rounded, false));
+const durationClass = computed(() => (dragging.value ? "duration-0" : "duration-300"));
+const thumbSpacing = computed(() => sliderThumbSpacingVars[props.size]);
+
+const rootClass = computed(() =>
+  cn(
+    "cui-slider group/cui-slider relative flex touch-pan-y select-none",
+    !isTrack.value && sliderRootHeights[props.size],
+    isTrack.value && rootSizeClasses(props.size, "height"),
+  ),
+);
+
+const trackVariantTrackClass = computed(() =>
+  cn("pointer-events-none absolute inset-0", radii.value.itemRoundedClasses),
+);
+
+const trackVariantRangeClass = computed(() =>
+  cn(
+    effectiveColor.value && `cui-accent-${effectiveColor.value}`,
+    "pointer-events-none absolute top-0 bottom-0 left-0 ease-out",
+    props.rounded && "rounded-l-full",
+    radii.value.itemRoundedClasses,
+    props.disabled && "opacity-50",
+    durationClass.value,
+  ),
+);
+
+const trackVariantRangeStyle = computed(
+  () => ({ width: `calc((100% - 0px) * ${progress.value})` }) as CSSProperties,
+);
+
+const trackVariantFocusRingClass = computed(() =>
+  props.tightFocusRing ? radii.value.itemRoundedClasses : radii.value.focusRoundedClasses,
+);
+
+const trackVariantHandleClass = computed(() =>
+  cn(
+    effectiveColor.value && `cui-accent-${effectiveColor.value}`,
+    "pointer-events-none absolute top-1/2 h-4 w-0.5 shrink-0 -translate-y-1/2 scale-y-75 rounded-full bg-cui-fg-softer ease-out group-focus-within/cui-slider:scale-100 group-focus-within/cui-slider:bg-cui-primary",
+    props.rangeFill &&
+      progress.value > 0.5 &&
+      "bg-cui-on-primary outline-transparent group-focus-within/cui-slider:bg-cui-on-primary",
+    props.disabled && "opacity-50",
+    durationClass.value,
+  ),
+);
+
+const trackVariantHandleStyle = computed(
+  () => ({ left: `calc(8px + (100% - 18px) * ${progress.value})` }) as CSSProperties,
+);
+
+const thumbVariantTrackClass = computed(() =>
+  cn(
+    "pointer-events-none absolute inset-0 top-1/2 right-0 left-0 rounded-full",
+    sliderTrackBarClasses[props.size],
+  ),
+);
+
+const thumbVariantRangeClass = computed(() =>
+  cn("absolute top-1/2 -mt-px h-0.5 overflow-hidden rounded-full", sliderRangeInsets[props.size]),
+);
+
+const thumbVariantRangeFillClass = computed(() =>
+  cn(
+    `cui-accent-${effectiveColor.value}`,
+    "absolute inset-0 rounded-full bg-cui-primary ease-out",
+    !props.disabled &&
+      !props.readOnly &&
+      "group-focus-within/slider:-translate-x-3 group-active/slider:-translate-x-3",
+    props.disabled && "opacity-50",
+    durationClass.value,
+  ),
+);
+
+const thumbVariantRangeFillStyle = computed(
+  () => ({ width: `calc((100% - ${thumbSpacing.value}) * ${progress.value})` }) as CSSProperties,
+);
+
+const thumbWrapperClass = computed(() =>
+  cn(
+    "pointer-events-none absolute inset-0 flex items-center ease-out group-focus-within/cui-slider:z-10",
+    durationClass.value,
+  ),
+);
+
+const thumbWrapperStyle = computed(
   () =>
     ({
-      "--cui-slider-progress": String(progress.value),
-      "--cui-slider-progress-percent": `${progress.value * 100}%`,
+      paddingLeft: `calc((100% - ${thumbSpacing.value}) * ${progress.value})`,
     }) as CSSProperties,
+);
+
+const valueBubbleClass = computed(() =>
+  cn(
+    sliderValueOffsets[props.size],
+    "absolute -bottom-4 min-w-8 -translate-x-1/2 scale-0 rounded-cui-2xl px-1 pt-2.5 pb-8 text-center text-cui-xs leading-none font-medium text-cui-primary duration-300",
+    !props.disabled &&
+      !props.readOnly &&
+      "group-focus-within/cui-slider:scale-100 group-active/cui-slider:scale-100",
+  ),
+);
+
+const thumbSurfaceClass = computed(() =>
+  cn("z-10 shrink-0 rounded-full", sliderThumbSizes[props.size]),
 );
 
 function normalize(next: number): number {
@@ -185,19 +294,6 @@ function handleInput(event: Event): void {
   publish(scaleFns.value ? scaleFns.value.fromSlider(raw / sliderResolution) : raw, event);
 }
 
-function handleKeydown(event: KeyboardEvent): void {
-  const direction =
-    event.key === "ArrowRight" || event.key === "ArrowUp"
-      ? 1
-      : event.key === "ArrowLeft" || event.key === "ArrowDown"
-        ? -1
-        : 0;
-  if (!direction) return;
-
-  event.preventDefault();
-  publish(value.value + props.step * direction, event);
-}
-
 function handlePointerDown(): void {
   touched = true;
 }
@@ -227,16 +323,9 @@ onBeforeUnmount(() => {
 <template>
   <div
     v-bind="rootAttrs"
-    class="cui-slider"
-    :class="[
-      `cui-slider--${props.size}`,
-      `cui-slider--${props.variant}`,
-      props.rounded && 'cui-slider--rounded',
-      dragging && 'cui-slider--dragging',
-    ]"
+    :class="rootClass"
     :data-disabled="props.disabled || undefined"
     :data-readonly="props.readOnly || undefined"
-    :style="rootStyle"
     @contextmenu.capture.prevent
     @pointercancel="handlePointerUp"
     @pointerdown="handlePointerDown"
@@ -244,57 +333,54 @@ onBeforeUnmount(() => {
     <template v-if="isTrack">
       <SurfaceCut
         as="span"
-        class="cui-slider__track cui-slider__track--track"
+        :class="trackVariantTrackClass"
+        data-part="track"
         :wrap-content="false"
       />
       <Surface
         as="span"
+        :class="trackVariantRangeClass"
         :color="effectiveColor"
-        class="cui-slider__range cui-slider__range--track"
-        :outline="props.rangeOutline"
+        data-part="range"
         level="+2"
+        :outline="props.rangeOutline"
+        :style="trackVariantRangeStyle"
         :variant="props.rangeFill ? 'gradient-fill' : 'gradient'"
         :wrap-content="false"
       />
       <FocusRing
         v-if="!props.disabled && !props.readOnly"
+        :class="trackVariantFocusRingClass"
+        group="slider"
         :offset="!props.tightFocusRing"
-        rounded
       />
-      <span class="cui-slider__handle" data-part="thumb" />
+      <span :class="trackVariantHandleClass" data-part="thumb" :style="trackVariantHandleStyle" />
     </template>
     <template v-else>
-      <SurfaceCut
-        as="span"
-        class="cui-slider__track cui-slider__track--thumb"
-        :wrap-content="false"
-      />
-      <span class="cui-slider__range cui-slider__range--thumb">
-        <span
-          class="cui-slider__range-fill"
-          :class="effectiveColor && `cui-accent-${effectiveColor}`"
-        />
+      <SurfaceCut as="span" :class="thumbVariantTrackClass" data-part="track" />
+      <span :class="thumbVariantRangeClass" data-part="range">
+        <span :class="thumbVariantRangeFillClass" :style="thumbVariantRangeFillStyle" />
       </span>
-      <span class="cui-slider__thumb-wrapper">
-        <span class="cui-slider__value-anchor">
+      <span :class="thumbWrapperClass" data-part="thumb-wrapper" :style="thumbWrapperStyle">
+        <span class="relative top-0 size-0 h-0" data-part="value">
           <Surface
             as="span"
+            :class="valueBubbleClass"
             :color="effectiveColor"
-            class="cui-slider__value"
-            content-class-name="cui-slider__value-content"
             outline
             variant="gradient"
           >
             <template v-if="!props.disabled && !props.readOnly" #beforeContent>
-              <FocusRing :offset="!props.tightFocusRing" rounded />
+              <FocusRing class="rounded-full" group="slider" :offset="!props.tightFocusRing" />
             </template>
             {{ value }}
           </Surface>
         </span>
         <Surface
           as="span"
+          :class="thumbSurfaceClass"
           :color="effectiveColor"
-          class="cui-slider__thumb-surface"
+          data-part="thumb"
           :outline="props.thumbOutline"
           variant="gradient-fill"
           :wrap-content="false"
@@ -303,7 +389,7 @@ onBeforeUnmount(() => {
     </template>
     <input
       v-bind="controlAttrs"
-      class="cui-slider__input"
+      class="relative m-0 block w-full appearance-none border-transparent bg-transparent p-0 focus:outline-none"
       data-part="input"
       :disabled="props.disabled || props.readOnly"
       :max="inputMax"
@@ -314,7 +400,6 @@ onBeforeUnmount(() => {
       type="range"
       :value="inputValue"
       @input="handleInput"
-      @keydown="handleKeydown"
     />
   </div>
 </template>

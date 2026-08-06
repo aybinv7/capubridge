@@ -25,6 +25,12 @@ import {
   inputPaddingWithIcon,
 } from "../src/components/forms/input.contracts.ts";
 import {
+  sliderRangeInsets,
+  sliderThumbSpacingVars,
+  sliderTrackBarClasses,
+  sliderValueOffsets,
+} from "../src/components/forms/slider.contracts.ts";
+import {
   textareaIconWrapClasses,
   textareaPaddingNoIcon,
   textareaPaddingVertical,
@@ -280,7 +286,8 @@ test("maps native slider input to the scalar model", async () => {
   expect(root.getAttribute("aria-label")).toBeNull();
   expect(control.getAttribute("role")).toBeNull();
 
-  control.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }));
+  control.value = "5";
+  control.dispatchEvent(new Event("input", { bubbles: true }));
   await nextTick();
 
   expect(value.value).toBe(5);
@@ -309,8 +316,7 @@ test("matches Cladd slider scale and track contracts", async () => {
   expect(input.min).toBe("0");
   expect(input.max).toBe("1000");
   expect(input.step).toBe("1");
-  expect(slider.querySelector(".cui-slider__range--track")).not.toBeNull();
-  expect(slider.classList.contains("cui-slider--rounded")).toBe(true);
+  expect(slider.querySelector('[data-part="range"]')).not.toBeNull();
   input.value = "500";
   input.dispatchEvent(new Event("input", { bubbles: true }));
   await nextTick();
@@ -321,8 +327,8 @@ test("matches Cladd slider scale and track contracts", async () => {
 test("anchors the thumb-slider value bubble to the moving thumb", () => {
   const mounted = mountTree(h(Slider, { defaultValue: 26 }));
   const slider = mounted.root.querySelector(".cui-slider") as HTMLElement;
-  const anchor = slider.querySelector(".cui-slider__thumb-wrapper > .cui-slider__value-anchor");
-  const value = anchor?.querySelector(".cui-slider__value");
+  const anchor = slider.querySelector('[data-part="value"]');
+  const value = anchor?.querySelector(".cui-surface");
 
   expect(anchor).not.toBeNull();
   expect(value?.textContent).toContain("26");
@@ -332,14 +338,10 @@ test("anchors the thumb-slider value bubble to the moving thumb", () => {
 test("locks Slider to Cladd's literal authored geometry", () => {
   expect(formsCss).toContain('input[type="range"]::-webkit-slider-thumb');
   expect(formsCss).toContain("width: 20px");
-  expect(formsCss).toContain("height: 6px");
-  expect(formsCss).toContain("height: 8px");
-  expect(formsCss).toContain("height: 2px");
-  expect(formsCss).toContain("bottom: -16px");
-  expect(formsCss).toContain("left: 10px");
-  expect(formsCss).toContain("border-radius: var(--cui-radius-2xl)");
-  expect(formsCss).toContain("transition: width 300ms ease-out");
-  expect(formsCss).toContain("transition: padding-left 300ms ease-out");
+  expect(sliderTrackBarClasses.md).toBe("-mt-1 h-2");
+  expect(sliderRangeInsets.md).toBe("right-0.75 left-0.75");
+  expect(sliderValueOffsets.xs).toBe("left-2");
+  expect(sliderThumbSpacingVars.sm).toBe("var(--spacing-cui-thumb-sm)");
 });
 
 test("matches Cladd Select trigger, listbox and single-select behavior", async () => {
@@ -582,7 +584,7 @@ test("keeps fixture indicator state and native state agreeing after a reset", as
 
   for (const testId of ["sampling-rate", "buffer-size"]) {
     const slider = byTestId(mounted.root, testId);
-    expect(slider.querySelector(".cui-slider__value")?.textContent).toContain(
+    expect(slider.querySelector('[data-part="value"]')?.textContent).toContain(
       hiddenInput(mounted.root, testId).value,
     );
   }
