@@ -40,6 +40,22 @@ Capubridge replaces this fragmented workflow with a single desktop app that spea
 - CDP proxy for direct WebSocket access from the frontend
 - External DevTools lock prevents connection conflicts
 
+### Framework DevTools (Vue & React)
+
+- Runs the **official** Vue and React DevTools against a real Android WebView — component tree, props, reactive state, hooks
+- Detected per target: the Vue or React tab only appears when that framework is actually present
+- Backend injected at document start and bridged over CDP, so **no change to the debugged app is required** (an `adb reverse` WebSocket is impossible — Android refuses cleartext loopback with `ERR_CLEARTEXT_NOT_PERMITTED`)
+- A capability probe explains a blocked target instead of spinning forever
+
+> [!IMPORTANT]
+> **The target app must be built to allow inspection.**
+>
+> **Vue** — a stock production build is completely uninspectable: Vue drops `app._instance`, never emits `app:init`, and strips `__vnode` / `__vueParentComponent` from the DOM. Add `define: { __VUE_PROD_DEVTOOLS__: true }` to the target app's Vite config for staging builds, then rebuild.
+>
+> **React** — no flag needed; the Components tree works on a production build. But names are minified, and the **Profiler** requires a development or profiling build of React (`ionic cap run android -l --external`, or alias `react-dom/profiling`).
+>
+> Full details: [apps/docs/framework-devtools.md](apps/docs/framework-devtools.md)
+
 ### Storage Explorer
 
 - **IndexedDB** — browse databases, object stores, records; edit and delete via CDP writes (changes go to the actual device)
@@ -162,7 +178,7 @@ Each device session runs at one of three temperatures:
 
 ## Status
 
-**v2.2.0** — active beta. Core session model, ADB management, CDP inspection, storage explorer, logcat, performance monitor, screen mirror, recording, replay, in-app updates (stable/pre-release channels), and an embedded MCP server for AI-assisted device control are functional. Experimental surfaces remain hidden until their complete workflows are ready.
+**v2.3.0** — active beta. Core session model, ADB management, CDP inspection, storage explorer, framework DevTools (Vue and React), logcat, performance monitor, screen mirror, recording, replay, in-app updates (stable/pre-release channels), and an embedded MCP server for AI-assisted device control are functional. Experimental surfaces remain hidden until their complete workflows are ready.
 
 ---
 

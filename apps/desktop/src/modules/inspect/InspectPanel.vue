@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { RouterView } from "vue-router";
 import SubNavTabs from "@/components/layout/SubNavTabs.vue";
-import "./plugins/init";
 </script>
 
 <template>

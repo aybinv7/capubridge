@@ -1,5 +1,8 @@
 import { computed, effectScope, ref, watch } from "vue";
 import { useCDP } from "@/composables/useCDP";
+// Registration must not depend on a lazy route component: SubNavTabs asks for
+// the plugin list at app boot, long before /inspect is ever visited.
+import "./plugins/init";
 import {
   detectPlugins,
   findInspectPluginByRouteSegment,
@@ -60,7 +63,11 @@ export function useInspectPlugins() {
     detectionScope = effectScope(true);
     detectionScope.run(() => {
       watch(
-        [cdp.activeClient, () => cdp.targetsStore.selectedTarget?.id ?? null],
+        [
+          cdp.activeClient,
+          () => cdp.targetsStore.selectedTarget?.id ?? null,
+          () => plugins.value.length,
+        ],
         () => {
           void runPluginDetection(cdp);
         },

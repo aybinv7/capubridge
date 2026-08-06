@@ -1,6 +1,6 @@
 {
   "name": "desktop",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -39,6 +39,7 @@
     "geist": "catalog:",
     "lucide-vue-next": "catalog:",
     "pinia": "catalog:",
+    "react-devtools-core": "^7.0.1",
     "reka-ui": "catalog:",
     "rrweb": "catalog:",
     "sql.js": "catalog:",
