@@ -23,6 +23,7 @@
     "core:webview:allow-webview-close",
     "core:webview:allow-webview-hide",
     "core:webview:allow-webview-show",
+    "core:webview:allow-internal-toggle-devtools",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
     "dialog:allow-open",

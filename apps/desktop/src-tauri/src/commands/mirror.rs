@@ -80,6 +80,13 @@ const SCRCPY_REMOTE_SERVER_PATH: &str = "/data/local/tmp/scrcpy-server.jar";
 const SCRCPY_SOCKET_NAME: &str = "localabstract:scrcpy";
 const SCRCPY_FLAG_CONFIG: u64 = 1 << 63;
 const SCRCPY_FLAG_KEY_FRAME: u64 = 1 << 62;
+/// scrcpy >= 4.0 claims bit 63 for the session metadata packet and shifted the
+/// frame flags down one bit each, so the pre-4.0 masks silently misread every
+/// header: the config packet looks like a keyframe and the decoder is never
+/// initialised (no video, input still works).
+const SCRCPY_V4_FLAG_SESSION: u64 = 1 << 63;
+const SCRCPY_V4_FLAG_CONFIG: u64 = 1 << 62;
+const SCRCPY_V4_FLAG_KEY_FRAME: u64 = 1 << 61;
 const SCRCPY_GITHUB_LATEST_RELEASE: &str =
     "https://api.github.com/repos/Genymobile/scrcpy/releases/latest";
 const SCRCPY_MSG_TYPE_INJECT_TOUCH: u8 = 2;
@@ -115,6 +122,16 @@ fn clamp_u16_size(size: u32) -> u16 {
 fn remove_scrcpy_control_session(serial: &str) {
     if let Ok(mut sessions) = SCRCPY_CONTROL_SESSIONS.lock() {
         sessions.remove(serial);
+    }
+}
+
+/// Keep touch coordinate mapping in sync after a mid-stream resize/rotation.
+fn update_scrcpy_control_size(serial: &str, width: u32, height: u32) {
+    if let Ok(mut sessions) = SCRCPY_CONTROL_SESSIONS.lock() {
+        if let Some(session) = sessions.get_mut(serial) {
+            session.width = clamp_u16_size(width);
+            session.height = clamp_u16_size(height);
+        }
     }
 }
 
@@ -453,6 +470,19 @@ fn parse_scrcpy_server_version(name: &str) -> Option<String> {
     Some(version.strip_suffix(".jar").unwrap_or(version).to_string())
 }
 
+/// Major component of a `scrcpy-server` version string (`"4.1"` -> `4`).
+///
+/// Drives the video-header layout: scrcpy 4.0 inserted a 12-byte session
+/// metadata packet between the codec id and the first frame (upstream #6159),
+/// where 2.x/3.x sent the dimensions inline as two u32s.
+fn scrcpy_major_version(version: &str) -> u32 {
+    version
+        .split('.')
+        .next()
+        .and_then(|major| major.parse().ok())
+        .unwrap_or(0)
+}
+
 fn find_scrcpy_server_file(dir: &Path) -> Option<(PathBuf, String)> {
     let entries = std::fs::read_dir(dir).ok()?;
     for entry in entries.flatten() {
@@ -600,6 +630,7 @@ async fn start_scrcpy_stream(
         u32,
         u32,
         String,
+        u32,
     ),
     String,
 > {
@@ -706,14 +737,44 @@ log_level=info",
         .read_exact(&mut codec_buf)
         .await
         .map_err(|e| format!("Failed to read scrcpy codec metadata: {e}"))?;
-    let mut size_buf = [0u8; 8];
-    video_socket
-        .read_exact(&mut size_buf)
-        .await
-        .map_err(|e| format!("Failed to read scrcpy size metadata: {e}"))?;
-
-    let width = u32::from_be_bytes([size_buf[0], size_buf[1], size_buf[2], size_buf[3]]);
-    let height = u32::from_be_bytes([size_buf[4], size_buf[5], size_buf[6], size_buf[7]]);
+    let (width, height) = if scrcpy_major_version(&server_version) >= 4 {
+        // scrcpy >= 4.0 sends a 12-byte session packet here: byte 0 has the
+        // 0x80 marker bit, bytes 4..8 are the width, bytes 8..12 the height.
+        // Reading only 8 bytes leaves 4 bytes in the socket and shifts every
+        // subsequent frame header, which corrupts the whole stream.
+        let mut session_buf = [0u8; 12];
+        video_socket
+            .read_exact(&mut session_buf)
+            .await
+            .map_err(|e| format!("Failed to read scrcpy session metadata: {e}"))?;
+        if session_buf[0] & 0x80 == 0 {
+            return Err("Unexpected scrcpy session metadata header".to_string());
+        }
+        (
+            u32::from_be_bytes([
+                session_buf[4],
+                session_buf[5],
+                session_buf[6],
+                session_buf[7],
+            ]),
+            u32::from_be_bytes([
+                session_buf[8],
+                session_buf[9],
+                session_buf[10],
+                session_buf[11],
+            ]),
+        )
+    } else {
+        let mut size_buf = [0u8; 8];
+        video_socket
+            .read_exact(&mut size_buf)
+            .await
+            .map_err(|e| format!("Failed to read scrcpy size metadata: {e}"))?;
+        (
+            u32::from_be_bytes([size_buf[0], size_buf[1], size_buf[2], size_buf[3]]),
+            u32::from_be_bytes([size_buf[4], size_buf[5], size_buf[6], size_buf[7]]),
+        )
+    };
     let (control_socket_raw, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept())
         .await
         .map_err(|_| "Timeout waiting for scrcpy control stream".to_string())?
@@ -735,6 +796,7 @@ log_level=info",
         width,
         height,
         negotiated_codec,
+        scrcpy_major_version(&server_version),
     ))
 }
 
@@ -743,7 +805,16 @@ async fn stream_scrcpy_packets(
     on_frame: Channel<ScrcpyFrameEvent>,
     shutdown: Arc<Notify>,
     codec: String,
+    serial: String,
+    server_major: u32,
 ) -> Result<(), String> {
+    let is_v4 = server_major >= 4;
+    let (config_flag, key_flag) = if is_v4 {
+        (SCRCPY_V4_FLAG_CONFIG, SCRCPY_V4_FLAG_KEY_FRAME)
+    } else {
+        (SCRCPY_FLAG_CONFIG, SCRCPY_FLAG_KEY_FRAME)
+    };
+
     loop {
         let mut header = [0u8; 12];
         tokio::select! {
@@ -758,9 +829,26 @@ async fn stream_scrcpy_packets(
                 .try_into()
                 .map_err(|_| "Invalid scrcpy frame header".to_string())?,
         );
-        let is_config = (pts_flags & SCRCPY_FLAG_CONFIG) != 0;
-        let is_key = (pts_flags & SCRCPY_FLAG_KEY_FRAME) != 0;
-        let pts = pts_flags & !(SCRCPY_FLAG_CONFIG | SCRCPY_FLAG_KEY_FRAME);
+
+        // scrcpy >= 4.0 re-sends a session packet whenever the video size
+        // changes (rotation, resize). It carries no payload — consuming it as a
+        // frame header would desync the stream.
+        if is_v4 && (pts_flags & SCRCPY_V4_FLAG_SESSION) != 0 {
+            let new_width = u32::from_be_bytes([header[4], header[5], header[6], header[7]]);
+            let new_height = u32::from_be_bytes([header[8], header[9], header[10], header[11]]);
+            log::info!(
+                "[adb_mirror_scrcpy_start] session packet for {}: {}x{}",
+                serial,
+                new_width,
+                new_height
+            );
+            update_scrcpy_control_size(&serial, new_width, new_height);
+            continue;
+        }
+
+        let is_config = (pts_flags & config_flag) != 0;
+        let is_key = (pts_flags & key_flag) != 0;
+        let pts = pts_flags & !(config_flag | key_flag);
         let size = u32::from_be_bytes(
             header[8..12]
                 .try_into()
@@ -819,7 +907,7 @@ pub async fn adb_mirror_scrcpy_start(
     remove_scrcpy_control_session(&serial);
 
     let settings = settings.unwrap_or_default();
-    let (video_socket, control_reader, control_socket, width, height, codec) =
+    let (video_socket, control_reader, control_socket, width, height, codec, server_major) =
         start_scrcpy_stream(&serial, &app, &settings).await?;
 
     let shutdown = Arc::new(Notify::new());
@@ -845,8 +933,15 @@ pub async fn adb_mirror_scrcpy_start(
 
     let serial_for_stream = serial.clone();
     tokio::spawn(async move {
-        let result =
-            stream_scrcpy_packets(video_socket, on_frame.clone(), shutdown.clone(), codec).await;
+        let result = stream_scrcpy_packets(
+            video_socket,
+            on_frame.clone(),
+            shutdown.clone(),
+            codec,
+            serial_for_stream.clone(),
+            server_major,
+        )
+        .await;
         if let Ok(mut sessions) = SCRCPY_STREAM_SHUTDOWNS.lock() {
             sessions.remove(&serial_for_stream);
         }
