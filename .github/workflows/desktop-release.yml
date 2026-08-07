@@ -121,6 +121,7 @@ jobs:
       - name: bundle native scrcpy resources
         env:
           CAPUBRIDGE_SCRCPY_TARGET: ${{ matrix.name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: vp run desktop#bundle:scrcpy
 
       - name: build and release

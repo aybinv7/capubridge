@@ -36,11 +36,13 @@ function powershellQuote(value) {
 }
 
 async function fetchResponse(url) {
+  const token = process.env.GITHUB_TOKEN;
   const response = await fetch(url, {
     headers: {
       accept: "application/vnd.github+json",
       "user-agent": "capubridge-scrcpy-sync",
       "x-github-api-version": "2022-11-28",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
   });
   if (!response.ok) {
