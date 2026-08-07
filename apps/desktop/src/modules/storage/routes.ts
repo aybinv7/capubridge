@@ -54,12 +54,6 @@ export const storageRoutes = [
         component: () => import("./graph/StorageGraphExplorer.vue"),
         meta: { label: "Graph" },
       },
-      {
-        path: "changes",
-        name: "storage-changes",
-        component: () => import("./changes/IndexedDBChangesExplorer.vue"),
-        meta: { label: "Changes" },
-      },
     ],
   },
 ] satisfies RouteRecordRaw[];

@@ -19,7 +19,6 @@ import {
   DatabaseZap,
   Table2,
   Crosshair,
-  Diff,
   Sun,
   Moon,
 } from "lucide-vue-next";
@@ -50,7 +49,6 @@ const iconMap: Record<string, typeof Smartphone> = {
   "storage-opfs": FolderOpen,
   "storage-sqlite": Table2,
   "storage-graph": Database,
-  "storage-changes": Diff,
   "network-requests": Globe,
   "network-mock": Archive,
   "settings-theme": Palette,

@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Table } from "@tanstack/vue-table";
-import { Search, X, Copy, Layers, Table2, Maximize2, Minimize2, Download } from "lucide-vue-next";
+import {
+  Search,
+  X,
+  Copy,
+  Layers,
+  Table2,
+  Maximize2,
+  Minimize2,
+  Download,
+  Trash2,
+} from "lucide-vue-next";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -26,11 +36,13 @@ const props = defineProps<{
   tableName: string;
   columnInfo?: SqliteColumnInfo[];
   advancedFilters?: AdvancedFilter[];
+  canDelete?: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:grouping": [value: string[]];
   "update:filters": [filters: AdvancedFilter[]];
+  recordDeleteBulk: [records: RowRecord[]];
 }>();
 
 const { exportToCSV, exportToJSON, exportSelectedToJSON } = useSqliteTableExport(
@@ -55,6 +67,11 @@ function clearAllFilters() {
   props.table.setColumnFilters([]);
   globalFilter.value = "";
   emit("update:filters", []);
+}
+
+function handleBulkDelete() {
+  const records = props.table.getSelectedRowModel().rows.map((row) => row.original);
+  if (records.length > 0) emit("recordDeleteBulk", records);
 }
 
 async function copySelectedToClipboard() {
@@ -149,6 +166,17 @@ function resetColumnLayout() {
       </span>
 
       <div class="flex items-center gap-0.5 border-l border-warning/30 pl-2 ml-1">
+        <Button
+          v-if="canDelete"
+          variant="ghost"
+          size="icon-sm"
+          class="h-6 w-6 text-error/70 hover:text-error"
+          title="Delete selected"
+          @click="handleBulkDelete"
+        >
+          <Trash2 class="h-3.5 w-3.5" />
+        </Button>
+
         <Button
           variant="ghost"
           size="icon-sm"

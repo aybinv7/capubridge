@@ -1,80 +1,53 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { ref } from "vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import JsonEditor from "@/shared/components/data/JsonEditor.vue";
-import JsonDiffViewer from "./JsonDiffViewer.vue";
-import type { IndexedDBRecordChangeEntry } from "@/types/storageChanges.types";
-import { ChevronDown, Copy, Check, Info, AlertTriangle, PencilLine } from "lucide-vue-next";
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  Copy,
+  GitCompare,
+  Info,
+  Pencil,
+  Save,
+  Trash2,
+} from "lucide-vue-next";
 
-const props = defineProps<{
+defineProps<{
   open: boolean;
   editKey: string;
   editJson: string;
   currentRowIndex: number;
   totalCount: number;
-  badge: "unsaved" | "invalid" | null;
   dialogEntrySize: string;
   copiedRaw: boolean;
-  jsonEditorValid: boolean;
-  change?: IndexedDBRecordChangeEntry | null;
+  badge: null | "unsaved" | "invalid";
   readOnly?: boolean;
-  locallyModified?: boolean;
-  localBeforeValue?: unknown;
+  jsonEditorValid: boolean;
+  hasChange?: boolean;
 }>();
 
 const emit = defineEmits<{
   "update:open": [value: boolean];
   "update:editJson": [value: string];
+  "validity-change": [valid: boolean];
   navigate: [direction: "prev" | "next"];
+  copy: [];
   save: [];
   delete: [];
-  copy: [];
-  "validity-change": [valid: boolean];
+  viewDiff: [];
 }>();
 
 const jsonEditorRef = ref<InstanceType<typeof JsonEditor> | null>(null);
-const diffViewerRef = ref<InstanceType<typeof JsonDiffViewer> | null>(null);
-const viewMode = ref<"diff" | "editor">("editor");
-const diffAfterText = computed(() => (props.change?.operation === "delete" ? "" : props.editJson));
-
-watch(
-  () => [props.change?.id, props.readOnly, props.locallyModified] as const,
-  () => {
-    viewMode.value = props.change || props.locallyModified ? "diff" : "editor";
-  },
-  { immediate: true },
-);
 
 function handleKeydown(e: KeyboardEvent) {
-  const key = e.key.toLowerCase();
-
-  if (e.ctrlKey && key === "d" && props.change) {
-    e.preventDefault();
-    viewMode.value = "diff";
-    return;
-  }
-
-  if (e.ctrlKey && key === "e" && !props.readOnly) {
-    e.preventDefault();
-    viewMode.value = "editor";
-    setTimeout(() => {
-      jsonEditorRef.value?.textareaRef?.focus();
-      diffViewerRef.value?.focusEditor();
-    }, 50);
-    return;
-  }
-
-  if (e.ctrlKey && key === "f") {
+  if (e.ctrlKey && e.key === "f") {
     e.preventDefault();
     setTimeout(() => {
-      if (viewMode.value === "diff") {
-        diffViewerRef.value?.focusSearch();
-      } else {
-        jsonEditorRef.value?.filterInputRef?.focus();
-        jsonEditorRef.value?.filterInputRef?.select();
-      }
+      jsonEditorRef.value?.filterInputRef?.focus();
+      jsonEditorRef.value?.filterInputRef?.select();
     }, 100);
   }
 }
@@ -87,8 +60,8 @@ function handleKeydown(e: KeyboardEvent) {
       @keydown="handleKeydown"
     >
       <DialogHeader class="px-6 py-1.5 border-b border-border/30 shrink-0">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
             <button
               class="text-muted-foreground/40 hover:text-foreground transition-colors"
               @click="emit('navigate', 'prev')"
@@ -101,57 +74,66 @@ function handleKeydown(e: KeyboardEvent) {
             >
               <ChevronDown :size="16" />
             </button>
-            <DialogTitle class="text-base font-medium">
-              {{ editKey }}
-            </DialogTitle>
-            <span class="text-xs text-muted-foreground/40">{{ dialogEntrySize }}</span>
-            <span class="text-[10px] text-muted-foreground/40 tabular-nums">
+            <DialogTitle class="text-base font-medium truncate">{{ editKey }}</DialogTitle>
+            <span class="text-xs text-muted-foreground/40 shrink-0">{{ dialogEntrySize }}</span>
+            <span class="text-[10px] text-muted-foreground/40 tabular-nums shrink-0">
               {{ currentRowIndex >= 0 ? currentRowIndex + 1 : "-" }} / {{ totalCount }}
             </span>
-
-            <!-- type chip -->
             <span
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-3 text-muted-foreground/50 font-mono"
+              v-if="badge === 'unsaved'"
+              class="flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-mono text-amber-400"
             >
-              object
-            </span>
-
-            <!-- status badge -->
-            <span
-              v-if="badge === 'invalid'"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 font-medium flex items-center gap-1"
-            >
-              <AlertTriangle :size="10" />
-              Invalid
+              <Pencil :size="9" /> unsaved
             </span>
             <span
-              v-else-if="badge === 'unsaved'"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-medium"
+              v-else-if="badge === 'invalid'"
+              class="flex items-center gap-1 rounded-full bg-error/15 px-1.5 py-0.5 text-[10px] font-mono text-error"
             >
-              Unsaved
+              <AlertCircle :size="9" /> invalid JSON
             </span>
             <span
-              v-if="props.locallyModified && !badge"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-medium flex items-center gap-1"
+              v-else
+              class="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50"
             >
-              <PencilLine :size="10" />
-              Saved locally
+              record
             </span>
             <span
-              v-if="props.change"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-3 text-muted-foreground/70 font-medium"
+              v-if="readOnly"
+              class="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-mono text-amber-400/80"
             >
-              {{ props.change.operation }}
-            </span>
-            <span
-              v-if="props.readOnly"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 font-medium"
-            >
-              Deleted snapshot
+              read-only
             </span>
           </div>
 
-          <div class="flex items-center">
+          <div class="flex items-center gap-1">
+            <Button
+              v-if="hasChange"
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-[11px] text-amber-300 hover:text-amber-200"
+              title="View change diff"
+              @click="emit('viewDiff')"
+            >
+              <GitCompare :size="12" /> Diff
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
+              :disabled="readOnly || badge !== 'unsaved'"
+              @click="emit('save')"
+            >
+              <Save :size="12" /> Save
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-error"
+              :disabled="readOnly"
+              @click="emit('delete')"
+            >
+              <Trash2 :size="12" /> Delete
+            </Button>
             <Button
               variant="ghost"
               class="text-muted-foreground/40 hover:text-foreground transition-colors p-1"
@@ -178,12 +160,6 @@ function handleKeydown(e: KeyboardEvent) {
                     <span>Search</span><kbd class="font-mono text-foreground/50">Ctrl+F</kbd>
                   </div>
                   <div class="flex justify-between">
-                    <span>Diff</span><kbd class="font-mono text-foreground/50">Ctrl+D</kbd>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Edit</span><kbd class="font-mono text-foreground/50">Ctrl+E</kbd>
-                  </div>
-                  <div class="flex justify-between">
                     <span>Prev/Next</span><kbd class="font-mono text-foreground/50">Ctrl+↑↓</kbd>
                   </div>
                 </div>
@@ -194,52 +170,12 @@ function handleKeydown(e: KeyboardEvent) {
       </DialogHeader>
 
       <div class="flex-1 overflow-hidden p-4">
-        <Tabs
-          v-if="props.change || props.locallyModified"
-          v-model="viewMode"
-          class="flex h-full min-h-0 flex-col gap-2"
-        >
-          <TabsList class="h-8 w-fit shrink-0">
-            <TabsTrigger value="diff" class="h-7 px-3 text-xs">Diff</TabsTrigger>
-            <TabsTrigger value="editor" class="h-7 px-3 text-xs" :disabled="props.readOnly">
-              Editor
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="diff" class="min-h-0 flex-1 overflow-hidden">
-            <JsonDiffViewer
-              ref="diffViewerRef"
-              :before-value="props.change?.beforeValue ?? props.localBeforeValue"
-              :after-text="diffAfterText"
-              :readonly="props.readOnly"
-              @update:after-text="emit('update:editJson', $event)"
-              @validity-change="emit('validity-change', $event)"
-            />
-          </TabsContent>
-          <TabsContent value="editor" class="min-h-0 flex-1 overflow-hidden">
-            <JsonEditor
-              ref="jsonEditorRef"
-              :value="editJson"
-              @update:value="emit('update:editJson', $event)"
-              @validity-change="emit('validity-change', $event)"
-            />
-          </TabsContent>
-        </Tabs>
         <JsonEditor
-          v-else
           ref="jsonEditorRef"
           :value="editJson"
           @update:value="emit('update:editJson', $event)"
           @validity-change="emit('validity-change', $event)"
         />
-      </div>
-
-      <!-- Validation error bar -->
-      <div
-        v-if="!jsonEditorValid"
-        class="px-6 py-1.5 border-t border-red-500/20 bg-red-500/5 shrink-0 flex items-center gap-2 text-xs text-red-400"
-      >
-        <AlertTriangle :size="12" />
-        <span class="font-mono">Invalid JSON</span>
       </div>
     </DialogContent>
   </Dialog>

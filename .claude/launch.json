@@ -6,6 +6,12 @@
       "runtimeExecutable": "vp",
       "runtimeArgs": ["run", "desktop#dev"],
       "port": 5173
+    },
+    {
+      "name": "ui-playground",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["run", "ui-playground#dev"],
+      "port": 5174
     }
   ]
 }

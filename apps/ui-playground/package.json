@@ -1,0 +1,28 @@
+{
+  "name": "@capubridge/ui-playground",
+  "version": "2.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "check": "vp check",
+    "preview": "vp preview"
+  },
+  "dependencies": {
+    "@capubridge/ui": "workspace:*",
+    "shiki": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue/tsconfig": "^0.9.1",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

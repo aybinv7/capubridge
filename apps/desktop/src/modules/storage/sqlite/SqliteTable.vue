@@ -83,6 +83,7 @@ const emit = defineEmits<{
   refresh: [];
   recordEdit: [original: Record<string, unknown>, updated: Record<string, unknown>];
   recordDelete: [record: Record<string, unknown>];
+  recordDeleteBulk: [records: Record<string, unknown>[]];
   openRowDiff: [rowKey: string];
 }>();
 
@@ -442,8 +443,10 @@ function isBlob(val: unknown): boolean {
       :table-name="tableName"
       :column-info="columnInfo"
       :advanced-filters="advancedFilters"
+      :can-delete="canEditRows"
       @update:grouping="grouping = $event"
       @update:filters="updateFilters"
+      @record-delete-bulk="emit('recordDeleteBulk', $event)"
     />
 
     <!-- ─── Table ────────────────────────────────────────────────────────── -->

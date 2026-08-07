@@ -3,9 +3,9 @@
   "exceptions": [
     {
       "path": "apps/desktop/src/modules/storage/sqlite/SqliteExplorer.vue",
-      "maxLines": 1888,
+      "maxLines": 1936,
       "owner": "Storage module",
-      "rationale": "Legacy SQLite orchestration combines discovery, routing, CRUD, import/export, change overlays, and SQL console responsibilities; approved only while SIZE-01 splitting proceeds."
+      "rationale": "Legacy SQLite orchestration combines discovery, routing, CRUD, import/export, change overlays, and SQL console responsibilities; v2.4.0 adds the focused change-diff wiring, but the surface remains approved only while SIZE-01 splitting proceeds."
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/adb.rs",
@@ -27,9 +27,9 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/mirror.rs",
-      "maxLines": 1236,
+      "maxLines": 1284,
       "owner": "Mirror runtime",
-      "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; MIR-01 owns the staged runtime split."
+      "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; v2.4.0 adds bundled scrcpy binary resolution across release platforms, while MIR-01 owns the staged runtime split."
     },
     {
       "path": "apps/desktop/src/modules/network/NetworkRequests.vue",
@@ -99,9 +99,9 @@
     },
     {
       "path": "apps/desktop/src/modules/storage/sqlite/SqliteTable.vue",
-      "maxLines": 811,
+      "maxLines": 814,
       "owner": "Storage module",
-      "rationale": "SQLite table combines column modeling, change overlays, row actions, virtualization, and table presentation; narrow exception remains pending action and overlay extraction."
+      "rationale": "SQLite table combines column modeling, change overlays, row actions, virtualization, and table presentation; v2.4.0 extends the focused change workflow, and the narrow exception remains pending action and overlay extraction."
     }
   ]
 }

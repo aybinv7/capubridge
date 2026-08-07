@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, h, watch, onUnmounted, nextTick } from "vue";
+import { computed, ref, h, watch, nextTick } from "vue";
 import {
   useVueTable,
   getCoreRowModel,
@@ -49,6 +49,7 @@ import { useAdvancedFilters, type AdvancedFilter } from "./useAdvancedFilters";
 import { useIDBTableExport } from "./useIDBTableExport";
 import { useIDBRowDetail } from "./useIDBRowDetail";
 import IDBRowDetailDialog from "./IDBRowDetailDialog.vue";
+import IDBChangeDiffDialog from "./IDBChangeDiffDialog.vue";
 import IDBTableActions from "./IDBTableActions.vue";
 
 // Icons
@@ -239,98 +240,6 @@ watch(
   },
   { flush: "sync" },
 );
-
-// ─── Inline cell editing ─────────────────────────────────────────────────────
-const editingCell = ref<{
-  rowId: string;
-  columnId: string;
-  value: string;
-} | null>(null);
-let clickTimer: ReturnType<typeof setTimeout> | null = null;
-
-const vFocus = { mounted: (el: HTMLElement) => el.focus() };
-
-function getCellEditValue(row: Row<IDBRecord>, columnId: string): string {
-  if (columnId === "value") {
-    const v = row.original.value;
-    if (v === null || v === undefined) return "";
-    if (typeof v === "object") return JSON.stringify(v, null, 2);
-    return String(v);
-  }
-  const v = (row.original.value as Record<string, unknown>)?.[columnId];
-  if (v === null || v === undefined) return "";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
-
-function handleCellClick(row: Row<IDBRecord>, columnId: string) {
-  if (columnId === "__actions") return;
-
-  if (clickTimer !== null) {
-    clearTimeout(clickTimer);
-    clickTimer = null;
-    if (props.readOnly || columnId === "key") return;
-    editingCell.value = {
-      rowId: row.id,
-      columnId,
-      value: getCellEditValue(row, columnId),
-    };
-    return;
-  }
-
-  clickTimer = setTimeout(() => {
-    clickTimer = null;
-    const rows = table.getFilteredRowModel().rows;
-    const idx = rows.findIndex((r) => r.id === row.id);
-    openRowDetail(row.original, idx >= 0 ? idx : undefined);
-  }, 220);
-}
-
-function commitInlineEdit() {
-  if (!editingCell.value) return;
-  const { rowId, columnId, value } = editingCell.value;
-  const rows = table.getRowModel().rows;
-  const found = rows.find((r) => r.id === rowId);
-  if (!found) {
-    editingCell.value = null;
-    return;
-  }
-
-  const record: IDBRecord = { ...found.original };
-  if (columnId === "value") {
-    try {
-      record.value = JSON.parse(value);
-    } catch {
-      record.value = value;
-    }
-  } else {
-    let parsed: unknown = value;
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      parsed = value;
-    }
-    record.value = {
-      ...(record.value as Record<string, unknown>),
-      [columnId]: parsed,
-    };
-  }
-
-  const beforeValue = found.original.value;
-  emit("recordEdit", record);
-  const next = new Map(locallyModifiedData.value);
-  next.set(recordKeyStr(record.key), beforeValue);
-  locallyModifiedData.value = next;
-  editingCell.value = null;
-}
-
-function cancelInlineEdit() {
-  editingCell.value = null;
-}
-
-onUnmounted(() => {
-  if (clickTimer !== null) clearTimeout(clickTimer);
-});
 
 const isKeyValueStore = computed(() => {
   if (props.records.length === 0) return true;
@@ -639,6 +548,17 @@ const selectedRowLocalBeforeValue = computed(() =>
     ? locallyModifiedData.value.get(recordKeyStr(selectedRow.value.key))
     : undefined,
 );
+const isDiffOpen = ref(false);
+const hasSelectedRowDiff = computed(
+  () => !!selectedRecordChange.value || isSelectedRowLocallyModified.value,
+);
+const selectedRowDiffAfterText = computed(() =>
+  selectedRecordChange.value?.operation === "delete" ? "" : editJson.value,
+);
+
+function openSelectedRowDiff() {
+  if (hasSelectedRowDiff.value) isDiffOpen.value = true;
+}
 
 // ─── Computed Stats ──────────────────────────────────────────────────────────
 const filteredRowCount = computed(() => table.getFilteredRowModel().rows.length);
@@ -1007,26 +927,9 @@ function confirmBulkDelete() {
                       ]
                     : null,
                 ]"
-                @click="handleCellClick(row, cell.column.id)"
+                @dblclick="cell.column.id !== '__actions' && openRowDetail(row.original, row.index)"
               >
-                <input
-                  v-if="editingCell?.rowId === row.id && editingCell?.columnId === cell.column.id"
-                  v-focus
-                  :value="editingCell.value"
-                  class="w-full bg-transparent font-mono text-xs text-foreground outline-none border border-primary/50 rounded px-1 -mx-1"
-                  @input="
-                    editingCell && (editingCell.value = ($event.target as HTMLInputElement).value)
-                  "
-                  @keydown.enter.prevent="commitInlineEdit"
-                  @keydown.escape.prevent="cancelInlineEdit"
-                  @blur="cancelInlineEdit"
-                  @click.stop
-                />
-                <FlexRender
-                  v-else
-                  :render="cell.column.columnDef.cell"
-                  :props="cell.getContext()"
-                />
+                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
               </td>
             </tr>
           </template>
@@ -1062,7 +965,7 @@ function confirmBulkDelete() {
         </template>
 
         <span class="text-[10px] text-muted-foreground/30">
-          Drag column edges to resize · Click row to view · Double-click cell to edit
+          Drag column edges to resize · Double-click row to view details
         </span>
       </div>
     </div>
@@ -1080,15 +983,24 @@ function confirmBulkDelete() {
       :dialog-entry-size="dialogEntrySize"
       :copied-raw="copiedRaw"
       :json-editor-valid="jsonEditorValid"
-      :change="selectedRecordChange"
       :read-only="readOnly || isDeletedChange(selectedRow)"
-      :locally-modified="isSelectedRowLocallyModified"
-      :local-before-value="selectedRowLocalBeforeValue"
+      :has-change="hasSelectedRowDiff"
       @navigate="navigateRow"
       @save="saveEdit"
       @delete="deleteRow"
       @copy="copyToClipboard(editJson)"
+      @view-diff="openSelectedRowDiff"
       @validity-change="jsonEditorValid = $event"
+    />
+
+    <IDBChangeDiffDialog
+      v-model:open="isDiffOpen"
+      :store-name="storeName"
+      :record-key="editKey"
+      :observed-at="selectedRecordChange?.observedAt"
+      :before-value="selectedRecordChange?.beforeValue ?? selectedRowLocalBeforeValue"
+      :after-text="selectedRowDiffAfterText"
+      :operation="selectedRecordChange?.operation ?? 'update'"
     />
 
     <!-- Delete Confirmation Dialog -->

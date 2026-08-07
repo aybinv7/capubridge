@@ -1,0 +1,31 @@
+@layer cui.components {
+  :where(.cui-theme) {
+    color: var(--cui-foreground);
+    color-scheme: dark;
+  }
+
+  :where(.cui-theme[data-cui-theme="light"]) {
+    color-scheme: light;
+  }
+
+  :where(.cui-surface__overlay, .cui-surface-cut__overlay) {
+    transition:
+      opacity var(--cui-motion-base) var(--cui-ease-standard),
+      background-color var(--cui-motion-base) var(--cui-ease-standard);
+  }
+
+  :where(.cui-surface--clickable, .cui-surface-cut--clickable) {
+    cursor: default;
+    user-select: none;
+  }
+
+  :where(.cui-surface--clickable, .cui-surface-cut--clickable):focus-visible {
+    outline: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(.cui-surface__overlay, .cui-surface-cut__overlay) {
+      transition-duration: 1ms;
+    }
+  }
+}

@@ -15,6 +15,9 @@ dist-ssr
 # Vercel (project linking + generated build manifests)
 .vercel
 
+# Vendored upstream reference checkouts (see scripts/reference-cladd.mjs)
+reference/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

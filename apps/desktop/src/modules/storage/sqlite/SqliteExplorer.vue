@@ -1126,6 +1126,53 @@ function handleRecordDelete(record: Record<string, unknown>) {
   });
 }
 
+function handleRecordDeleteBulk(records: Record<string, unknown>[]) {
+  const db = currentDb.value;
+  if (
+    !serial.value ||
+    !selectedPackageName.value ||
+    !db ||
+    !tableName.value ||
+    records.length === 0
+  )
+    return;
+  const pks = pkColumns();
+  if (pks.length === 0) {
+    toast.error("Cannot delete", { description: "Table has no primary key." });
+    return;
+  }
+  const predicates = records
+    .map((record) => {
+      const where = pks
+        .map((column) => `${quoteIdent(column.name)} = ${quoteSqlValue(record[column.name])}`)
+        .join(" AND ");
+      return `(${where})`;
+    })
+    .join(" OR ");
+
+  openConfirm(
+    "Delete rows",
+    `Permanently delete ${records.length} row(s)? This cannot be undone.`,
+    async () => {
+      await execAgainstCurrentDb(`DELETE FROM ${quoteIdent(tableName.value)} WHERE ${predicates}`);
+      records.forEach((record) => {
+        changesStore.recordChange({
+          operation: "delete",
+          serial: serial.value,
+          packageName: selectedPackageName.value,
+          dbPath: db.path,
+          tableName: tableName.value,
+          rowKey: buildRowKey(pkColumnsRef.value, record),
+          beforeValue: record,
+          afterValue: null,
+        });
+      });
+      await fetchTableRows();
+      toast.success(`${records.length} row(s) deleted`);
+    },
+  );
+}
+
 // Watch for route changes
 watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
   page.value = 0;
@@ -1670,6 +1717,7 @@ watch(
                 @refresh="handleRefresh"
                 @record-edit="handleRecordEdit"
                 @record-delete="handleRecordDelete"
+                @record-delete-bulk="handleRecordDeleteBulk"
                 @open-row-diff="openRowDiff"
               />
             </template>

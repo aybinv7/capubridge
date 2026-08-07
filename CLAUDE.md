@@ -50,13 +50,15 @@ capubridge/
 │   │   ├── src/        # Frontend Vue source
 │   │   └── src-tauri/  # Rust backend (Tauri commands)
 │   ├── docs/           # VitePress documentation app
+│   ├── ui-playground/  # Interactive catalog for @capubridge/ui
 │   └── website2/       # Marketing/docs website (Vite)
 ├── packages/
-│   └── cdp-protocol/   # Typed CDP client and domain adapters
+│   ├── cdp-protocol/   # Typed CDP client and domain adapters
+│   └── ui/             # Reusable Vue component library ported from Cladd (no Reka UI)
 └── vite.config.ts      # Root Vite+ config (fmt, lint, staged hooks)
 ```
 
-The `desktop` app imports the CDP package as `import { ... } from "@capubridge/cdp-protocol"` via workspace.
+The `desktop` app imports the CDP package via workspace. The `ui-playground` app consumes `@capubridge/ui` through its public export and development-only `source` condition.
 
 ---
 

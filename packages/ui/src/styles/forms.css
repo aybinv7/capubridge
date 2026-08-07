@@ -1,0 +1,18 @@
+@layer cui.components {
+  :where(.cui-slider) input[type="range"] {
+    appearance: none;
+    background: transparent;
+  }
+
+  :where(.cui-slider) input[type="range"]::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+    appearance: none;
+    border: none;
+    border-radius: 50%;
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+  }
+}
