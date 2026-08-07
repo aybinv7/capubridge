@@ -1,6 +1,6 @@
 {
   "name": "@capubridge/ui",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "Vue application UI primitives for dense, accessible developer tools.",
   "keywords": [
     "design-system",

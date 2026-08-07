@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, mkdtemp, rename, rm } from "node:fs/promises";
+import { access, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -109,7 +109,7 @@ async function main() {
     await access(path.join(archiveRoot, target.binary));
     await rm(targetDir, { recursive: true, force: true });
     await mkdir(path.dirname(targetDir), { recursive: true });
-    await rename(archiveRoot, targetDir);
+    await cp(archiveRoot, targetDir, { recursive: true });
     console.log(`[bundle:scrcpy] ${release.tag_name} -> ${targetDir}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });

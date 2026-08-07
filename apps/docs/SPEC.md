@@ -1,7 +1,7 @@
 # CapuBridge product specification
 
 Status: Active beta specification  
-Application version: 2.4.1
+Application version: 2.4.2
 
 ## Product goal
 
