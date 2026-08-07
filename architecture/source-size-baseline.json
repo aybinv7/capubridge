@@ -27,9 +27,9 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/mirror.rs",
-      "maxLines": 1284,
+      "maxLines": 1379,
       "owner": "Mirror runtime",
-      "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; v2.4.0 adds bundled scrcpy binary resolution across release platforms, while MIR-01 owns the staged runtime split."
+      "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; v2.4.0 adds bundled scrcpy binary resolution across release platforms, while MIR-01 owns the staged runtime split. Bumped from 1284 to 1379 for scrcpy 4.x protocol support (v2.4.3) — the server shifted its video-header layout (a new session packet, renumbered CONFIG/KEY_FRAME flag bits) and this fix adds version-aware parsing for both the handshake and per-frame path; splitting the added branches out would fragment one wire-format concern across files, not draw a real module boundary."
     },
     {
       "path": "apps/desktop/src/modules/network/NetworkRequests.vue",
