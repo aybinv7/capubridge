@@ -68,7 +68,7 @@ const checked = computed(() => {
 const disabled = computed(() => props.disabled || group?.disabled.value === true);
 const name = computed(() => props.name ?? group?.name.value);
 const required = computed(() => props.required || group?.required.value === true);
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
+const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
 const hoverable = computed(() => props.hoverable ?? props.as === "label");
 const focusable = computed(() => props.focusable ?? (props.as === "label" || props.input));
 const inputId = computed(() => props.inputId ?? props.id);
@@ -130,7 +130,7 @@ const indicatorClass = computed(() =>
     radioIndicatorSizes[props.size],
     !checked.value && "scale-75 bg-cui-fg-soft",
     !checked.value && !isReadOnly.value && !disabled.value && "group-active/cui-radio:scale-65",
-    checked.value && `cui-accent-${currentAccent.value}`,
+    checked.value && `cui-color-${currentAccent.value}`,
     checked.value && "bg-cui-on-primary",
     checked.value && !disabled.value && !isReadOnly.value && "group-active/cui-radio:scale-90",
   ),

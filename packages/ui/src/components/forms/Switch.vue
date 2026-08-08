@@ -74,7 +74,7 @@ const emit = defineEmits<{
 const ui = useUiContext();
 const isReadOnly = computed(() => props.readOnly ?? props.readonly ?? false);
 const checked = computed(() => props.checked ?? model.value);
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
+const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
 const hoverable = computed(() => props.hoverable ?? props.as === "label");
 const focusable = computed(() => props.focusable ?? (props.as === "label" || props.input));
 const inputId = computed(() => props.inputId ?? props.id);
@@ -140,7 +140,7 @@ const indicatorClass = computed(() =>
   cn(
     "absolute inset-0",
     props.size === "sm" && "scale-80",
-    checked.value && `cui-accent-${currentAccent.value}`,
+    checked.value && `cui-color-${currentAccent.value}`,
   ),
 );
 

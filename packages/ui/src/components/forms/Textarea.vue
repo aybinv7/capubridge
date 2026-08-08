@@ -78,7 +78,7 @@ const emit = defineEmits<{
 const model = defineModel<string>({ default: "" });
 const ui = useUiContext();
 const attrs = useAttrs();
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
+const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
 const controlElement = ref<HTMLElement>();
 const text = ref<string>();
 const editable = computed(() => !props.disabled && !props.readOnly);
@@ -131,13 +131,13 @@ const placeholderClass = computed(() =>
 
 const infoClass = computed(() =>
   cn(
-    `cui-accent-${currentAccent.value}`,
+    `cui-color-${currentAccent.value}`,
     "pointer-events-none absolute -top-1.5 left-2 z-10 translate-y-1 rounded-cui-sm bg-cui-primary px-2 py-1.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-0 duration-200 group-has-[[contenteditable]:focus]/cui-textarea:-translate-y-1/2 group-has-[[contenteditable]:focus]/cui-textarea:opacity-100",
   ),
 );
 
 const errorClass =
-  "cui-accent-red pointer-events-none absolute -top-1.5 left-2 z-10 -translate-y-1/2 rounded-cui-sm bg-cui-primary px-1 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-100 duration-200";
+  "cui-color-red pointer-events-none absolute -top-1.5 left-2 z-10 -translate-y-1/2 rounded-cui-sm bg-cui-primary px-1 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-100 duration-200";
 
 function moveCaretToEnd(element: HTMLElement): void {
   const selection = window.getSelection();

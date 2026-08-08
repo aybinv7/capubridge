@@ -128,7 +128,7 @@ const progress = computed(() => {
   return Math.min(1, Math.max(0, position));
 });
 const effectiveColor = computed(
-  () => props.color ?? props.accent ?? (isTrack.value ? undefined : ui.accent.value),
+  () => props.color ?? props.accent ?? (isTrack.value ? undefined : ui.accentColor.value),
 );
 const inputValue = computed(() =>
   scaleFns.value ? Math.round(progress.value * sliderResolution) : value.value,
@@ -154,7 +154,7 @@ const trackVariantTrackClass = computed(() =>
 
 const trackVariantRangeClass = computed(() =>
   cn(
-    effectiveColor.value && `cui-accent-${effectiveColor.value}`,
+    effectiveColor.value && `cui-color-${effectiveColor.value}`,
     "pointer-events-none absolute top-0 bottom-0 left-0 ease-out",
     props.rounded && "rounded-l-full",
     radii.value.itemRoundedClasses,
@@ -173,7 +173,7 @@ const trackVariantFocusRingClass = computed(() =>
 
 const trackVariantHandleClass = computed(() =>
   cn(
-    effectiveColor.value && `cui-accent-${effectiveColor.value}`,
+    effectiveColor.value && `cui-color-${effectiveColor.value}`,
     "pointer-events-none absolute top-1/2 h-4 w-0.5 shrink-0 -translate-y-1/2 scale-y-75 rounded-full bg-cui-fg-softer ease-out group-focus-within/cui-slider:scale-100 group-focus-within/cui-slider:bg-cui-primary",
     props.rangeFill &&
       progress.value > 0.5 &&
@@ -200,7 +200,7 @@ const thumbVariantRangeClass = computed(() =>
 
 const thumbVariantRangeFillClass = computed(() =>
   cn(
-    `cui-accent-${effectiveColor.value}`,
+    `cui-color-${effectiveColor.value}`,
     "absolute inset-0 rounded-full bg-cui-primary ease-out",
     !props.disabled &&
       !props.readOnly &&
