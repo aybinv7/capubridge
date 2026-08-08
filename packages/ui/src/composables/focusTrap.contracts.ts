@@ -17,7 +17,7 @@ export const focusTrapFocusableSelectors = [
 
 export const focusTrapFocusableSelector = focusTrapFocusableSelectors.join(",");
 
-export const focusTrapTopmostModalSelector = ".cui-dialog__container, .cui-popup__container";
+export const focusTrapTopmostModalSelector = ".cui-dialog, .cui-popup";
 
 interface FocusTrapDisableable {
   disabled?: boolean;

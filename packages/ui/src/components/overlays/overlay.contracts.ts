@@ -32,84 +32,89 @@ export interface PopoverPositionConfig {
   centered?: boolean;
   justifySelf?: string;
   offsetProperties: [OverlayMarginProperty, OverlayMarginProperty];
-  transformOrigin: string;
+  origin: string;
 }
 
 export const popoverPositionConfigs: Record<PopoverPosition, PopoverPositionConfig> = {
   "top-start": {
     area: "top center",
     justifySelf: "start",
-    transformOrigin: "bottom left",
+    origin: "origin-bottom-left",
     offsetProperties: ["marginBottom", "marginLeft"],
   },
   top: {
     area: "top center",
-    transformOrigin: "bottom",
+    origin: "origin-bottom",
     offsetProperties: ["marginBottom", "marginLeft"],
   },
   "top-end": {
     area: "top center",
     justifySelf: "end",
-    transformOrigin: "bottom right",
+    origin: "origin-bottom-right",
     offsetProperties: ["marginBottom", "marginRight"],
   },
   "bottom-start": {
     area: "bottom center",
     justifySelf: "start",
-    transformOrigin: "top left",
+    origin: "origin-top-left",
     offsetProperties: ["marginTop", "marginLeft"],
   },
   bottom: {
     area: "bottom center",
-    transformOrigin: "top",
+    origin: "origin-top",
     offsetProperties: ["marginTop", "marginLeft"],
   },
   "bottom-end": {
     area: "bottom center",
     justifySelf: "end",
-    transformOrigin: "top right",
+    origin: "origin-top-right",
     offsetProperties: ["marginTop", "marginRight"],
   },
   "left-start": {
     area: "center left",
     alignSelf: "start",
-    transformOrigin: "top right",
+    origin: "origin-top-right",
     offsetProperties: ["marginRight", "marginTop"],
   },
   left: {
     area: "center left",
-    transformOrigin: "right",
+    origin: "origin-right",
     offsetProperties: ["marginRight", "marginTop"],
   },
   "left-end": {
     area: "center left",
     alignSelf: "end",
-    transformOrigin: "bottom right",
+    origin: "origin-bottom-right",
     offsetProperties: ["marginRight", "marginBottom"],
   },
   "right-start": {
     area: "center right",
     alignSelf: "start",
-    transformOrigin: "top left",
+    origin: "origin-top-left",
     offsetProperties: ["marginLeft", "marginTop"],
   },
   right: {
     area: "center right",
-    transformOrigin: "left",
+    origin: "origin-left",
     offsetProperties: ["marginLeft", "marginTop"],
   },
   "right-end": {
     area: "center right",
     alignSelf: "end",
-    transformOrigin: "bottom left",
+    origin: "origin-bottom-left",
     offsetProperties: ["marginLeft", "marginBottom"],
   },
   center: {
     area: "center center",
-    transformOrigin: "center",
+    origin: "origin-center",
     offsetProperties: ["marginTop", "marginLeft"],
     centered: true,
   },
+};
+
+export const tooltipOrigins: Record<TooltipPosition, string> = {
+  top: "origin-bottom",
+  bottom: "origin-top",
 };
 
 export const overlayOppositeMargins: Record<OverlayMarginProperty, OverlayMarginProperty> = {
@@ -130,6 +135,66 @@ export const popoverChildOverlaySelector = ".cui-popover, .cui-dialog";
 export const dialogChildOverlaySelector = ".cui-popover, .cui-dialog, .cui-popup";
 
 export const popoverContainerSelector = ".cui-popover";
+
+export const backdropClasses = "cui-backdrop fixed inset-0 z-50 bg-cui-backdrop/90";
+
+export const overlayBackdropDurationClasses = "duration-200";
+
+export const overlayBackdropTransparentClasses = "bg-transparent";
+
+export const popoverBackdropTintClasses = "bg-cui-backdrop/50";
+
+export const popoverContainerClasses = "cui-popover";
+
+export const popoverSurfaceClasses =
+  "pointer-events-auto absolute z-50 flex w-40 max-w-[calc(100vw-16px)] rounded-cui-popover shadow-cui-popover transition-[opacity,transform,scale] duration-0";
+
+export const popoverOpenedClasses = "scale-100 opacity-100 ease-[cubic-bezier(0,1,0,1.025)]";
+
+export const popoverEnterDurationClasses = "duration-300";
+
+export const popoverClosingClasses = "duration-200 ease-in-out!";
+
+export const popoverHiddenClasses = "scale-0 opacity-0";
+
+export const popoverContentClasses = "h-auto max-h-[70vh] w-full overflow-auto";
+
+export const tooltipContainerClasses = "cui-tooltip pointer-events-none";
+
+export const tooltipSurfaceClasses =
+  "pointer-events-none fixed max-h-[50vh] w-max max-w-50 overflow-auto rounded-cui-tooltip text-cui-xs leading-normal font-medium transition-[opacity,transform,scale]";
+
+export const tooltipOpenedClasses = "scale-100 opacity-100";
+
+export const tooltipDurationClasses = "duration-200";
+
+export const tooltipHiddenClasses = "scale-50 opacity-0";
+
+export const tooltipZIndexClasses = "z-50";
+
+export const tooltipContentClasses = "px-2 py-1";
+
+export const dialogContainerClasses = "cui-dialog";
+
+export const dialogSurfaceClasses =
+  "fixed top-1/2 left-1/2 z-50 w-80 max-w-full -translate-x-1/2 -translate-y-1/2 rounded-cui-dialog";
+
+export const dialogHiddenClasses = "scale-75 opacity-0 duration-200 ease-out!";
+
+export const dialogOpenedClasses =
+  "scale-100 opacity-100 duration-500 ease-[cubic-bezier(0,1,0.2,1.1)]";
+
+export const dialogContentClasses = "flex flex-col gap-4 p-4";
+
+export const dialogTitleClasses = "text-cui-md font-semibold";
+
+export const dialogTextClasses = "text-cui-sm leading-relaxed";
+
+export const dialogButtonsClasses = "mt-4 flex flex-wrap items-center justify-end gap-2";
+
+export const dialogButtonContentClasses = "px-4";
+
+export const overlayTriggerClasses = "cui-overlay-trigger contents";
 
 export function resolvePopoverOffset(
   value: OverlayOffsetValue,
@@ -172,7 +237,6 @@ export function buildPopoverPositionStyle(options: {
     positionAnchor: options.anchorName,
     positionArea: config.area,
     positionTryFallbacks: popoverPositionTryFallbacks,
-    transformOrigin: config.transformOrigin,
   };
 
   if (config.justifySelf) style.justifySelf = config.justifySelf;
@@ -201,7 +265,6 @@ export function buildTooltipPositionStyle(options: {
     positionAnchor: options.anchorName,
     positionArea: isTop ? "top center" : "bottom center",
     positionTryFallbacks: tooltipPositionTryFallbacks,
-    transformOrigin: isTop ? "bottom" : "top",
   };
 
   if (options.offset) {

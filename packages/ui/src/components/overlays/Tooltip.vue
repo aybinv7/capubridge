@@ -1,41 +1,51 @@
 <script setup lang="ts">
-import { computed, onUnmounted, shallowRef, useId, useSlots, watch } from "vue";
+import { computed, onUnmounted, shallowRef, useAttrs, useId, useSlots, watch } from "vue";
 
-import { useAnchorPosition } from "../../composables/useAnchorPosition.ts";
-import { useOverlayLifecycle } from "../../composables/useOverlayLifecycle.ts";
-import { useOverlayPhase } from "../../composables/useOverlayPhase.ts";
-import { provideSurfaceContext, useSurface } from "../../contexts/surfaceContext.ts";
-import { useUiContext } from "../../contexts/uiContext.ts";
-import type { UiAccent } from "../../foundations/contracts.ts";
+import type { SurfaceLevelInput, UiAccent } from "../../foundations/contracts.ts";
 import VNodeRenderer from "../data-display/VNodeRenderer.ts";
-import Surface from "../surface/Surface.vue";
-import {
-  buildTooltipPositionStyle,
-  type OverlayOffsetValue,
-  type TooltipPosition,
-} from "./overlay.contracts.ts";
+import { overlayTriggerClasses, resolveOverlayElement } from "./overlay.contracts.ts";
+import type { OverlayOffsetValue, TooltipPosition } from "./overlay.contracts.ts";
 import { cloneTriggerNode } from "./overlayTrigger.ts";
+import TooltipPrimitive from "./TooltipPrimitive.vue";
+import {
+  clearTooltipGlobalTimeout,
+  collapseTooltipGlobalTimeout,
+  getTooltipGlobalTimeout,
+  scheduleTooltipGlobalTimeoutReset,
+} from "./tooltipTimeout.ts";
+
+defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(
   defineProps<{
     accent?: UiAccent;
     ariaLabel?: string;
-    delay?: number;
+    color?: UiAccent;
+    contentClassName?: string;
     disabled?: boolean;
     offset?: OverlayOffsetValue;
     position?: TooltipPosition;
     root?: string | HTMLElement;
-    touchDelay?: number;
+    surfaceLevel?: SurfaceLevelInput;
+    /**
+     * When `true` (default), delays showing the tooltip (500ms on touch, 1000ms on mouse) using a
+     * shared global timer so successive hovers feel snappier. When `false`, it appears immediately.
+     */
+    timeout?: boolean;
+    zIndex?: string;
   }>(),
   {
     accent: undefined,
     ariaLabel: undefined,
-    delay: 1000,
+    color: undefined,
+    contentClassName: undefined,
     disabled: false,
     offset: 4,
     position: "top",
-    root: "body",
-    touchDelay: 500,
+    root: undefined,
+    surfaceLevel: undefined,
+    timeout: true,
+    zIndex: undefined,
   },
 );
 
@@ -51,61 +61,107 @@ const emit = defineEmits<{
   opening: [];
 }>();
 
-const model = defineModel<boolean>({ default: false });
+const model = defineModel<boolean>("open", { default: false });
 const slots = useSlots();
-const ui = useUiContext();
-const parentSurface = useSurface();
-const content = shallowRef<HTMLElement>();
-const timer = shallowRef<number>();
+const attrs = useAttrs();
+const anchorElement = shallowRef<HTMLElement>();
+const pointerTimeout = shallowRef<number>();
+const visible = shallowRef(false);
+const preventContextMenu = shallowRef(false);
 const tooltipId = `cui-tooltip-${useId()}`;
-const { anchorElement, anchorName, setAnchorElement } = useAnchorPosition();
-const { phase, setPhase } = useOverlayPhase(model);
 
-const mounted = computed(() => phase.value !== "closed");
-const contentStyle = computed(() =>
-  buildTooltipPositionStyle({
-    anchorName: anchorName.value,
-    offset: props.offset,
-    position: props.position,
-  }),
-);
-
-const { opened } = useOverlayLifecycle({
-  element: content,
-  onClose: () => emit("closing"),
-  onClosed: () => emit("closed"),
-  onOpen: () => emit("opening"),
-  onOpened: () => emit("opened"),
-  phase,
-  setPhase,
-});
-
-function clearTimer(): void {
-  if (timer.value !== undefined) window.clearTimeout(timer.value);
-  timer.value = undefined;
+function setAnchor(value: unknown): void {
+  anchorElement.value = resolveOverlayElement(value);
 }
 
-function show(event?: PointerEvent | FocusEvent): void {
+function show(): void {
   if (props.disabled) return;
-  clearTimer();
-  const touch = event && "pointerType" in event && event.pointerType === "touch";
-  const wait = touch ? Math.min(props.delay, props.touchDelay) : props.delay;
-  timer.value = window.setTimeout(() => {
-    model.value = true;
-  }, wait);
+  clearTooltipGlobalTimeout();
+  pointerTimeout.value = window.setTimeout(
+    () => {
+      visible.value = true;
+      model.value = true;
+      if (props.timeout) collapseTooltipGlobalTimeout();
+    },
+    props.timeout ? getTooltipGlobalTimeout() : 0,
+  );
 }
 
 function hide(): void {
-  clearTimer();
+  visible.value = false;
   model.value = false;
+  if (pointerTimeout.value !== undefined) window.clearTimeout(pointerTimeout.value);
+  pointerTimeout.value = undefined;
+  if (props.timeout) scheduleTooltipGlobalTimeoutReset();
 }
 
-function onPointerLeave(event: PointerEvent): void {
-  const related = event.relatedTarget;
-  if (related instanceof Node && anchorElement.value?.contains(related)) return;
-  hide();
+function onClick(): void {
+  if (visible.value) hide();
 }
 
+function onContextMenu(event: Event): void {
+  if (preventContextMenu.value) event.preventDefault();
+}
+
+function onPointer(event: PointerEvent): void {
+  const mouseEvents = ["pointerenter", "pointerleave", "pointercancel"];
+  const touchEvents = ["pointerdown", "pointerup", "pointercancel"];
+
+  if (
+    (event.pointerType === "mouse" && !mouseEvents.includes(event.type)) ||
+    (event.pointerType === "touch" && !touchEvents.includes(event.type))
+  ) {
+    return;
+  }
+  if (event.type === "pointerenter") show();
+  if (event.type === "pointerleave" || event.type === "pointercancel") {
+    preventContextMenu.value = false;
+    hide();
+  }
+  if (event.type === "pointerdown" && !visible.value) {
+    preventContextMenu.value = true;
+    show();
+  }
+  if (event.type === "pointerup") {
+    preventContextMenu.value = false;
+    hide();
+  }
+}
+
+// Upstream binds pointerup/pointercancel on the document so a release outside the trigger still
+// dismisses; the rest sit on the trigger element itself.
+watch(
+  anchorElement,
+  (element, previous, onCleanup) => {
+    if (previous) {
+      previous.removeEventListener("click", onClick);
+      previous.removeEventListener("contextmenu", onContextMenu);
+      previous.removeEventListener("pointerenter", onPointer);
+      previous.removeEventListener("pointerdown", onPointer);
+      previous.removeEventListener("pointerleave", onPointer);
+    }
+    if (!element) return;
+    element.addEventListener("click", onClick);
+    element.addEventListener("contextmenu", onContextMenu);
+    element.addEventListener("pointerenter", onPointer);
+    element.addEventListener("pointerdown", onPointer);
+    element.addEventListener("pointerleave", onPointer);
+    document.addEventListener("pointerup", onPointer);
+    document.addEventListener("pointercancel", onPointer);
+    onCleanup(() => {
+      element.removeEventListener("click", onClick);
+      element.removeEventListener("contextmenu", onContextMenu);
+      element.removeEventListener("pointerenter", onPointer);
+      element.removeEventListener("pointerdown", onPointer);
+      element.removeEventListener("pointerleave", onPointer);
+      document.removeEventListener("pointerup", onPointer);
+      document.removeEventListener("pointercancel", onPointer);
+    });
+  },
+  { immediate: true },
+);
+
+// Not upstream: keeps the trigger and the tooltip associated for assistive tech.
 function syncDescription(open: boolean): void {
   const element = anchorElement.value;
   if (!element) return;
@@ -116,60 +172,43 @@ function syncDescription(open: boolean): void {
 watch([model, anchorElement], ([open]) => syncDescription(open), { immediate: true });
 
 onUnmounted(() => {
-  clearTimer();
+  if (pointerTimeout.value !== undefined) window.clearTimeout(pointerTimeout.value);
   anchorElement.value?.removeAttribute("aria-describedby");
 });
 
-const triggerNode = computed(() =>
-  cloneTriggerNode(slots.trigger?.(), {
-    onBlur: hide,
-    onFocus: show,
-    onPointerenter: show,
-    onPointerleave: onPointerLeave,
-    ref: setAnchorElement,
-  }),
-);
-
-provideSurfaceContext(
-  () => parentSurface.level.value,
-  () => undefined,
-);
+const triggerNode = computed(() => cloneTriggerNode(slots.trigger?.(), { ref: setAnchor }));
+const primitiveAttrs = computed(() => {
+  const { class: consumerClass, ...rest } = attrs;
+  return { attrs: rest, class: consumerClass };
+});
 </script>
 
 <template>
   <VNodeRenderer v-if="triggerNode" :node="triggerNode" />
-  <span
-    v-else-if="slots.trigger"
-    class="cui-overlay-trigger"
-    @focusin="show"
-    @focusout="hide"
-    @pointerenter="show"
-    @pointerleave="onPointerLeave"
-  >
+  <span v-else-if="slots.trigger" :class="overlayTriggerClasses" :ref="setAnchor">
     <slot name="trigger" />
   </span>
-  <Teleport :to="props.root">
-    <div
-      v-if="mounted"
-      :id="tooltipId"
-      ref="content"
-      :aria-label="props.ariaLabel"
-      class="cui-tooltip cui-tooltip__content cui-theme"
-      :data-cui-opened="opened || undefined"
-      :data-cui-theme="ui.theme.value"
-      :data-position="props.position"
-      role="tooltip"
-      :style="contentStyle"
-    >
-      <Surface
-        :accent="props.accent"
-        class="cui-tooltip__surface"
-        level="5"
-        outline
-        variant="gradient"
-      >
-        <slot />
-      </Surface>
-    </div>
-  </Teleport>
+  <TooltipPrimitive
+    v-bind="primitiveAttrs.attrs"
+    v-model:open="model"
+    :accent="props.accent"
+    :anchor-element="anchorElement"
+    :aria-label="props.ariaLabel"
+    :class="primitiveAttrs.class"
+    :color="props.color"
+    :content-class-name="props.contentClassName"
+    :id="tooltipId"
+    :offset="props.offset"
+    :position="props.position"
+    role="tooltip"
+    :root="props.root"
+    :surface-level="props.surfaceLevel"
+    :z-index="props.zIndex"
+    @closed="emit('closed')"
+    @closing="emit('closing')"
+    @opened="emit('opened')"
+    @opening="emit('opening')"
+  >
+    <slot />
+  </TooltipPrimitive>
 </template>

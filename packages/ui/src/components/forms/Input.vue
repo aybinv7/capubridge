@@ -9,7 +9,7 @@ import { rootSizeClasses } from "../../shared/sizeClasses.ts";
 import Button from "../actions/Button.vue";
 import FocusRing from "../feedback/FocusRing.vue";
 import SurfaceCut from "../surface/SurfaceCut.vue";
-import CloseGlyph from "./CloseGlyph.vue";
+import CloseIcon from "../feedback/CloseIcon.vue";
 import type { FieldSize } from "./form.contracts.ts";
 import {
   inputClearButtonSizes,
@@ -106,7 +106,7 @@ const emit = defineEmits<{
 const model = defineModel<string>({ default: "" });
 const ui = useUiContext();
 const attrs = useAttrs();
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
+const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
 const inputElement = ref<HTMLInputElement>();
 const focused = ref(false);
 
@@ -178,12 +178,12 @@ const clearButtonClass = computed(() =>
 const infoClass = computed(() =>
   cn(
     "pointer-events-none absolute -top-1.5 left-2 z-10 translate-y-0 rounded-cui-xs bg-cui-primary px-2 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-0 duration-200 group-has-[input:focus]/cui-input:-translate-y-1/2 group-has-[input:focus]/cui-input:opacity-100",
-    `cui-accent-${currentAccent.value}`,
+    `cui-color-${currentAccent.value}`,
   ),
 );
 
 const errorClass =
-  "cui-accent-red pointer-events-none absolute -top-1.5 left-2 z-10 -translate-y-1/2 rounded-cui-xs bg-cui-primary px-2 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-100 duration-200";
+  "cui-color-red pointer-events-none absolute -top-1.5 left-2 z-10 -translate-y-1/2 rounded-cui-xs bg-cui-primary px-2 py-0.5 text-cui-2xs leading-none font-semibold text-cui-on-primary opacity-100 duration-200";
 
 function onInput(event: Event): void {
   const value = (event.target as HTMLInputElement).value;
@@ -304,7 +304,7 @@ defineExpose({
           :tabindex="-1"
           @click="clearValue"
         >
-          <CloseGlyph :class="cn('text-cui-fg-soft', inputClearGlyphSizes[props.size])" />
+          <CloseIcon :class="cn('text-cui-fg-soft', inputClearGlyphSizes[props.size])" />
         </Button>
       </div>
 

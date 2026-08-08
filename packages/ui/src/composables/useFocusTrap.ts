@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, shallowRef, watch, type Ref } from "vue";
+import { watchEffect, type Ref } from "vue";
 
 import { getFocusTrapFocusable, isTopmostModalLayer } from "./focusTrap.contracts.ts";
 
@@ -7,17 +7,15 @@ export type FocusTrapInitialFocus =
   | Ref<HTMLElement | null | undefined>;
 
 export interface FocusTrapOptions {
+  active: Readonly<Ref<boolean>>;
   container: Ref<HTMLElement | undefined>;
   initialFocus?: FocusTrapInitialFocus;
-  open: Ref<boolean>;
   restoreFocus?: boolean;
   setInitialFocus?: boolean;
 }
 
 export function useFocusTrap(options: FocusTrapOptions): void {
   const { restoreFocus = true, setInitialFocus = true } = options;
-  const trapped = shallowRef<HTMLElement>();
-  const previouslyFocused = shallowRef<HTMLElement>();
 
   function resolveInitialFocus(): HTMLElement | null | undefined {
     const initialFocus = options.initialFocus;
@@ -44,73 +42,59 @@ export function useFocusTrap(options: FocusTrapOptions): void {
     container.focus();
   }
 
-  function onKeydown(event: KeyboardEvent): void {
-    if (event.key !== "Tab") return;
-    const container = trapped.value;
-    if (!container || !container.isConnected) return;
-    if (!isTopmostModalLayer(container)) return;
+  watchEffect(
+    (onCleanup) => {
+      if (!options.active.value) return;
+      const resolved = options.container.value;
+      if (!resolved) return;
+      const container: HTMLElement = resolved;
 
-    const focusable = getFocusTrapFocusable(container);
-    if (focusable.length === 0) {
-      event.preventDefault();
-      container.focus();
-      return;
-    }
+      const previouslyFocused = document.activeElement as HTMLElement | null;
 
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement as HTMLElement | null;
-
-    if (event.shiftKey) {
-      if (active === first || !container.contains(active)) {
-        event.preventDefault();
-        last.focus();
+      if (!container.contains(document.activeElement) && setInitialFocus) {
+        focusInitial(container);
       }
-      return;
-    }
 
-    if (active === last || !container.contains(active)) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
+      function onKeydown(event: KeyboardEvent): void {
+        if (event.key !== "Tab") return;
+        if (!container.isConnected) return;
+        if (!isTopmostModalLayer(container)) return;
 
-  function activate(): void {
-    if (trapped.value) return;
-    const container = options.container.value;
-    if (!container) return;
+        const focusable = getFocusTrapFocusable(container);
+        if (focusable.length === 0) {
+          event.preventDefault();
+          container.focus();
+          return;
+        }
 
-    trapped.value = container;
-    previouslyFocused.value = (document.activeElement as HTMLElement | null) ?? undefined;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement as HTMLElement | null;
 
-    if (setInitialFocus && !container.contains(document.activeElement)) {
-      focusInitial(container);
-    }
+        if (event.shiftKey) {
+          if (active === first || !container.contains(active)) {
+            event.preventDefault();
+            last.focus();
+          }
+          return;
+        }
 
-    document.addEventListener("keydown", onKeydown);
-  }
+        if (active === last || !container.contains(active)) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
 
-  function deactivate(): void {
-    if (!trapped.value) return;
-    trapped.value = undefined;
-    document.removeEventListener("keydown", onKeydown);
+      document.addEventListener("keydown", onKeydown);
 
-    const previous = previouslyFocused.value;
-    previouslyFocused.value = undefined;
-    if (!restoreFocus || !previous) return;
-    if (typeof previous.focus !== "function" || !document.contains(previous)) return;
-    previous.focus();
-  }
-
-  function sync(open: boolean): void {
-    if (open) {
-      activate();
-      return;
-    }
-    deactivate();
-  }
-
-  watch(options.open, sync, { flush: "post" });
-  onMounted(() => sync(options.open.value));
-  onUnmounted(deactivate);
+      onCleanup(() => {
+        document.removeEventListener("keydown", onKeydown);
+        if (!restoreFocus || !previouslyFocused) return;
+        if (typeof previouslyFocused.focus !== "function") return;
+        if (!document.contains(previouslyFocused)) return;
+        previouslyFocused.focus();
+      });
+    },
+    { flush: "post" },
+  );
 }
