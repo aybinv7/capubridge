@@ -226,7 +226,7 @@ function onSubmit(event: Event): void {
 
 .checkbox-grid__title {
   margin: 0;
-  color: var(--cui-foreground-soft);
+  color: var(--cui-fg-soft);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -245,12 +245,12 @@ function onSubmit(event: Event): void {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  color: var(--cui-foreground);
+  color: var(--cui-fg);
   font-size: 12px;
 }
 
 .checkbox-grid__label {
-  color: var(--cui-foreground-soft);
+  color: var(--cui-fg-soft);
 }
 
 .checkbox-grid__submit {
@@ -258,14 +258,14 @@ function onSubmit(event: Event): void {
   border: 1px solid var(--cui-outline);
   border-radius: var(--cui-radius-sm);
   background: transparent;
-  color: var(--cui-foreground);
+  color: var(--cui-fg);
   font: inherit;
   cursor: pointer;
 }
 
 .checkbox-grid__readout {
   margin: 0;
-  color: var(--cui-foreground-softer);
+  color: var(--cui-fg-softer);
   font-family: "Geist Mono", ui-monospace, monospace;
   font-size: 11px;
 }

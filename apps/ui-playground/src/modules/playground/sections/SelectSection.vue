@@ -23,6 +23,7 @@ const color = ref<UiAccent>("brand");
 const rounded = ref(false);
 const multiple = ref(false);
 const search = ref(false);
+const withTitle = ref(true);
 const keyboardHints = ref(true);
 const single = ref("Cherry");
 const many = ref<string[]>(["Apple", "Mango"]);
@@ -44,7 +45,7 @@ const code = computed(
   :multiple="${multiple.value}"
   :search="${search.value}"
   :keyboard-hints="${keyboardHints.value}"
-  title="Fruit"
+  ${withTitle.value ? 'title="Fruit"' : ':title="undefined"'}
   :options="fruits"
   :search-filter="filterFruits"
   placeholder="Pick a fruit"
@@ -78,7 +79,7 @@ function filterFruits(query: string): readonly string[] {
           :search="search"
           :search-filter="filterFruits"
           :size="size"
-          title="Fruit"
+          :title="withTitle ? 'Fruit' : undefined"
         />
       </template>
       <template #controls>
@@ -90,6 +91,7 @@ function filterFruits(query: string): readonly string[] {
         </PlaygroundToolbar>
         <PlaygroundToolbar>
           <PlaygroundSwitchControl v-model="search" label="search" />
+          <PlaygroundSwitchControl v-model="withTitle" label="title" />
         </PlaygroundToolbar>
         <PlaygroundToolbar>
           <PlaygroundSwitchControl v-model="keyboardHints" label="keyboardHints" />
