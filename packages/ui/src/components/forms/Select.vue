@@ -1,27 +1,48 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useAttrs,
-  useId,
-  useTemplateRef,
-  watch,
-} from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useAttrs, useId, watch } from "vue";
 
+import { useDevice } from "../../composables/useDevice.ts";
+import { cn } from "../../shared/cn.ts";
 import Button from "../actions/Button.vue";
+import { buttonIconSizes } from "../actions/button.contracts.ts";
+import List from "../data-display/List.vue";
+import ListButton from "../data-display/ListButton.vue";
+import SectionTitle from "../data-display/SectionTitle.vue";
 import Shortcut from "../data-display/Shortcut.vue";
 import Popover from "../overlays/Popover.vue";
+import Surface from "../surface/Surface.vue";
 import Checkbox from "./Checkbox.vue";
-import Input from "./Input.vue";
 import Radio from "./Radio.vue";
+import SearchField from "./SearchField.vue";
 import SelectDropdownIcon from "./SelectDropdownIcon.vue";
 import {
   getDefaultOptionInfo,
   getDefaultOptionLabel,
   getDefaultOptionValue,
+  selectDropdownIconClasses,
+  selectEmptyClasses,
+  selectHintClasses,
+  selectHintKeyClasses,
+  selectIconClasses,
+  selectOptionContentClasses,
+  selectOptionCopyClasses,
+  selectOptionIndicatorClasses,
+  selectOptionInfoClasses,
+  selectOptionRowClasses,
+  selectPlaceholderClasses,
+  selectPopoverClasses,
+  selectPopoverOffset,
+  selectSearchFieldClasses,
+  selectSearchFieldInsetClasses,
+  selectSearchInsetWrapperClasses,
+  selectSearchStickyContentClasses,
+  selectSearchStickyWrapperClasses,
+  selectTitleClasses,
+  selectTriggerClasses,
+  selectTriggerContentClasses,
+  selectTriggerDropdownPaddingClasses,
+  selectTriggerReverseClasses,
+  selectValueClasses,
   type SelectOptionInput,
   type SelectOptionParams,
   type SelectProps,
@@ -32,6 +53,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(defineProps<SelectProps>(), {
   accent: undefined,
+  anchorElement: undefined,
   closeOnSelect: true,
   color: undefined,
   contentClassName: undefined,
@@ -40,10 +62,12 @@ const props = withDefaults(defineProps<SelectProps>(), {
   focused: false,
   getOptionValue: undefined,
   hoverable: true,
+  iconClassName: undefined,
   indicatorColor: undefined,
   isChecked: undefined,
   isOptionDisabled: undefined,
   keyboardHints: true,
+  keyboardHintsClassName: undefined,
   keyboardHintsOutline: false,
   keyboardHintsSize: "md",
   keyboardHintsVariant: "transparent",
@@ -56,8 +80,10 @@ const props = withDefaults(defineProps<SelectProps>(), {
   options: () => [],
   outline: true,
   placeholder: "",
+  placeholderClassName: undefined,
   popoverAccent: undefined,
-  popoverOffset: 4,
+  popoverClassName: undefined,
+  popoverOffset: () => selectPopoverOffset,
   popoverPosition: "bottom-end",
   popoverSurfaceLevel: undefined,
   readOnly: false,
@@ -107,33 +133,79 @@ const emit = defineEmits<{
 const model = defineModel<SelectValue | SelectValue[]>({ default: "" });
 const open = defineModel<boolean>("open", { default: false });
 const attrs = useAttrs();
+const device = useDevice();
 const query = ref("");
-const activeIndex = ref(-1);
-const touchDevice = ref(false);
-const list = useTemplateRef<HTMLElement>("list");
-const searchInput = useTemplateRef<InstanceType<typeof Input>>("searchInput");
-const listboxId = `cui-select-${useId()}`;
+const selectedItemIndex = ref(-1);
+const triggerElement = ref<HTMLElement>();
+const list = ref<HTMLElement>();
+const searchField = ref<HTMLElement>();
+const id = useId();
+const listboxId = `cui-select-listbox-${id}`;
+const optionIdPrefix = `cui-select-option-${id}`;
 
 const selectedValues = computed<SelectValue[]>(() =>
   Array.isArray(model.value) ? model.value : [model.value],
 );
-const displayedOptions = computed<readonly SelectOptionInput[]>(() => {
-  if (!props.search) return props.options;
-  if (props.searchFilter) return props.searchFilter(query.value);
-  const normalized = query.value.trim().toLocaleLowerCase();
-  if (!normalized) return props.options;
-  return props.options.filter((option) =>
-    optionLabel(option, props.options.indexOf(option)).toLocaleLowerCase().includes(normalized),
-  );
-});
+
+// Upstream keeps no internal filter state: with `search` + a filter callback the caller controls
+// matching, otherwise every option is shown.
+const displayOptions = computed<readonly SelectOptionInput[]>(() =>
+  props.search && props.searchFilter ? props.searchFilter(query.value) : props.options,
+);
+
 const selectedOptions = computed(() => props.options.filter((option) => optionSelected(option)));
-const triggerText = computed(() => {
-  if (!selectedOptions.value.length) return props.placeholder;
-  if (props.multiple) return selectedOptions.value.map((option) => optionLabel(option)).join(", ");
-  return optionLabel(selectedOptions.value[0]);
+
+// Upstream renders `String(value)`, not the option label — richer displays go through the
+// default slot (upstream's `children`).
+const triggerValue = computed(() =>
+  model.value !== null &&
+  model.value !== undefined &&
+  model.value !== "" &&
+  !Array.isArray(model.value)
+    ? String(model.value)
+    : "",
+);
+
+const searchInset = computed(() => Boolean(props.title));
+const showHints = computed(
+  () => props.keyboardHints && displayOptions.value.length > 1 && !device.mobile,
+);
+
+const triggerClass = computed(() => cn(selectTriggerClasses, attrs.class));
+const triggerContentClass = computed(() =>
+  cn(
+    props.dropdownIcon && selectTriggerDropdownPaddingClasses,
+    selectTriggerContentClasses,
+    props.reverse && selectTriggerReverseClasses,
+    props.contentClassName,
+  ),
+);
+const iconClass = computed(() =>
+  cn(selectIconClasses, buttonIconSizes[props.size], props.iconClassName),
+);
+const valueClass = computed(() =>
+  cn(
+    selectValueClasses,
+    !slots.default && !triggerValue.value && selectPlaceholderClasses,
+    props.placeholderClassName,
+    props.valueClassName,
+  ),
+);
+const popoverClass = computed(() => cn(selectPopoverClasses, props.popoverClassName));
+const searchWrapperClass = computed(() =>
+  searchInset.value ? selectSearchInsetWrapperClasses : selectSearchStickyWrapperClasses,
+);
+const searchWrapperContentClass = computed(() =>
+  searchInset.value ? selectSearchInsetWrapperClasses : selectSearchStickyContentClasses,
+);
+const searchFieldClass = computed(() =>
+  cn(selectSearchFieldClasses, searchInset.value && selectSearchFieldInsetClasses),
+);
+const hintKeyClass = computed(() => cn(selectHintKeyClasses, props.keyboardHintsClassName));
+const triggerAttrs = computed(() => {
+  const { class: _consumerClass, ...rest } = attrs;
+  return rest;
 });
-const hasCustomValue = computed(() => Boolean(slots.default));
-const showHints = computed(() => props.keyboardHints && !touchDevice.value);
 
 function optionValue(option: SelectOptionInput): SelectValue {
   return props.getOptionValue?.(option) ?? getDefaultOptionValue(option);
@@ -173,280 +245,331 @@ function indicatorAccent(option: SelectOptionInput, index: number) {
   return props.optionIndicatorColor?.(optionParams(option, index)) ?? props.indicatorColor;
 }
 
-function publish(next: SelectValue | SelectValue[]): void {
-  model.value = next;
-  emit("change", next);
-}
-
-function selectOption(option: SelectOptionInput): void {
-  if (optionDisabled(option) || props.disabled || props.readOnly) return;
-  const value = optionValue(option);
-  if (props.multiple) {
-    publish(
-      optionSelected(option)
-        ? selectedValues.value.filter((selected) => selected !== value)
-        : [...selectedValues.value.filter((selected) => selected !== ""), value],
-    );
-    return;
+function onChangeInternal(option: SelectOptionInput, checked: boolean): void {
+  const key = optionValue(option);
+  if (!props.multiple) {
+    model.value = key;
+    emit("change", key);
+  } else {
+    const next = selectedValues.value.filter((value) => value !== "");
+    if (checked) next.push(key);
+    else if (next.includes(key)) next.splice(next.indexOf(key), 1);
+    model.value = next;
+    emit("change", next);
   }
-  publish(value);
-  if (props.closeOnSelect) open.value = false;
+  if (!props.multiple && props.closeOnSelect) open.value = false;
 }
 
 function hintFor(option: SelectOptionInput, index: number): number | undefined {
   if (props.noneOptionValue !== undefined) {
     if (optionValue(option) === props.noneOptionValue) return 0;
-    const ranked = displayedOptions.value
-      .slice(0, index + 1)
-      .filter((entry) => optionValue(entry) !== props.noneOptionValue).length;
-    return ranked <= 9 ? ranked : undefined;
+    let rank = 0;
+    for (let i = 0; i <= index; i += 1) {
+      if (optionValue(displayOptions.value[i]) !== props.noneOptionValue) rank += 1;
+    }
+    return rank <= 9 ? rank : undefined;
   }
   if (index < 9) return index + 1;
   return index === 9 ? 0 : undefined;
 }
 
-function optionForDigit(digit: number): SelectOptionInput | undefined {
-  return displayedOptions.value.find((option, index) => hintFor(option, index) === digit);
+function searchInputElement(): HTMLInputElement | null | undefined {
+  return searchField.value?.querySelector("input");
 }
 
-function moveActive(direction: 1 | -1): void {
-  if (!displayedOptions.value.length) return;
-  let next = activeIndex.value;
-  if (next < 0) {
-    next = displayedOptions.value.findIndex(optionSelected);
-    if (next < 0) next = direction === 1 ? -1 : 0;
+function scrollPopoverToElement(scrollToEl?: HTMLElement, dir?: "down" | "up"): void {
+  if (!scrollToEl && props.scrollToSelected && list.value) {
+    const checkedEl = list.value.querySelector("input[checked]");
+    const labelEl = checkedEl?.closest("label");
+    labelEl?.scrollIntoView({ block: "center" });
+    return;
   }
-  for (let attempts = 0; attempts < displayedOptions.value.length; attempts += 1) {
-    next = (next + direction + displayedOptions.value.length) % displayedOptions.value.length;
-    if (!optionDisabled(displayedOptions.value[next])) break;
-  }
-  activeIndex.value = next;
-  nextTick(() => {
-    list.value
-      ?.querySelector<HTMLElement>(`[data-option-index="${next}"]`)
-      ?.focus({ preventScroll: true });
-    list.value
-      ?.querySelector<HTMLElement>(`[data-option-index="${next}"]`)
-      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  });
-}
-
-function handleDocumentKeydown(event: KeyboardEvent): void {
-  if (!open.value) return;
-  const searchFocused = Boolean(document.activeElement?.closest(".cui-select__search"));
-  if (showHints.value && !searchFocused && /^[0-9]$/.test(event.key)) {
-    const option = optionForDigit(Number(event.key));
-    if (option) {
-      event.preventDefault();
-      selectOption(option);
+  if (!scrollToEl || !list.value) return;
+  const scrollEl = scrollToEl.closest(".overflow-auto");
+  if (!(scrollEl instanceof HTMLElement)) return;
+  if (dir === "up") {
+    if (scrollEl.scrollTop > scrollToEl.offsetTop) {
+      scrollToEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     return;
   }
+  if (scrollEl.scrollTop + scrollEl.offsetHeight < scrollToEl.offsetTop) {
+    scrollToEl.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+}
+
+function selectAt(index: number): void {
+  const option = displayOptions.value[index];
+  if (!option) return;
+  onChangeInternal(option, props.multiple ? !optionSelected(option) : true);
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (device.mobile) return;
+  if (!open.value) return;
+
+  // Numeric quick-pick: 0-9 selects the corresponding option. Skipped while the search input is
+  // focused so digits can be typed.
+  if (
+    props.keyboardHints &&
+    /^[0-9]$/.test(event.key) &&
+    document.activeElement !== searchInputElement()
+  ) {
+    event.preventDefault();
+    const digit = Number(event.key);
+    let targetIndex = -1;
+    if (props.noneOptionValue !== undefined) {
+      if (digit === 0) {
+        targetIndex = displayOptions.value.findIndex(
+          (option) => optionValue(option) === props.noneOptionValue,
+        );
+      } else {
+        let rank = 0;
+        for (let i = 0; i < displayOptions.value.length; i += 1) {
+          if (optionValue(displayOptions.value[i]) !== props.noneOptionValue) {
+            rank += 1;
+            if (rank === digit) {
+              targetIndex = i;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      targetIndex = digit === 0 ? 9 : digit - 1;
+    }
+    if (targetIndex >= 0 && targetIndex < displayOptions.value.length) selectAt(targetIndex);
+    return;
+  }
+
+  if (!["ArrowDown", "ArrowUp", "Enter", "Tab", " "].includes(event.key)) return;
+
+  const maxIndex = displayOptions.value.length - 1;
+  let newIndex = selectedItemIndex.value;
+  if (selectedItemIndex.value < 0) newIndex = displayOptions.value.findIndex(optionSelected);
+  let dir: "down" | "up" | undefined;
+
+  if (event.key === "ArrowUp" || (event.key === "Tab" && event.shiftKey)) {
+    dir = "up";
+    newIndex -= 1;
+    event.preventDefault();
+    if (newIndex < 0) {
+      dir = "down";
+      newIndex = maxIndex;
+    }
+  }
   if (event.key === "ArrowDown" || (event.key === "Tab" && !event.shiftKey)) {
+    dir = "down";
+    newIndex += 1;
     event.preventDefault();
-    moveActive(1);
-  } else if (event.key === "ArrowUp" || (event.key === "Tab" && event.shiftKey)) {
-    event.preventDefault();
-    moveActive(-1);
-  } else if ((event.key === "Enter" || event.key === " ") && !searchFocused) {
-    const option = displayedOptions.value[activeIndex.value];
-    if (option) {
-      event.preventDefault();
-      selectOption(option);
+    if (newIndex > maxIndex) {
+      dir = "up";
+      newIndex = 0;
     }
   }
-}
-
-function handleTriggerKeydown(event: KeyboardEvent): void {
-  if (props.disabled || props.readOnly) return;
-  if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key) && !open.value) {
+  if (event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "Tab") {
+    selectedItemIndex.value = newIndex;
+    nextTick(() => {
+      const element = list.value?.querySelectorAll<HTMLElement>(".cui-list label")[newIndex];
+      if (!element) return;
+      element.focus();
+      scrollPopoverToElement(element, dir);
+    });
+  }
+  if ((event.key === "Enter" || event.key === " ") && selectedItemIndex.value >= 0) {
+    if (document.activeElement === searchInputElement()) return;
     event.preventDefault();
-    open.value = true;
+    selectAt(selectedItemIndex.value);
   }
 }
 
-function handleTriggerClick(event: MouseEvent): void {
+function onTriggerClick(event: MouseEvent): void {
   emit("click", event);
+  open.value = !open.value;
 }
 
-function handleOpening(): void {
+function onPopoverOpen(): void {
   emit("opening");
+  scrollPopoverToElement();
 }
 
-function handleOpened(): void {
+function onPopoverOpened(): void {
   emit("opened");
-  nextTick(() => {
-    if (props.searchFocus) searchInput.value?.focus();
-    if (props.scrollToSelected) {
-      list.value
-        ?.querySelector<HTMLElement>("[aria-selected='true']")
-        ?.scrollIntoView({ block: "center" });
-    }
-  });
+  if (!props.searchFocus) return;
+  if (device.ios || device.android) return;
+  nextTick(() => searchInputElement()?.focus());
+}
+
+function onPopoverClosed(): void {
+  selectedItemIndex.value = -1;
+  if (!device.mobile) triggerElement.value?.focus();
+  emit("closed");
+}
+
+function setTriggerElement(value: unknown): void {
+  const element =
+    value instanceof HTMLElement
+      ? value
+      : value && typeof value === "object" && "$el" in value
+        ? ((value as { $el: unknown }).$el as HTMLElement)
+        : undefined;
+  triggerElement.value = element instanceof HTMLElement ? element : undefined;
 }
 
 watch(query, (value) => emit("search", value));
-watch(open, () => {
-  query.value = "";
-  activeIndex.value = -1;
+watch(open, (value) => {
+  if (value) query.value = "";
 });
 
-onMounted(() => {
-  touchDevice.value = navigator.maxTouchPoints > 0;
-  document.addEventListener("keydown", handleDocumentKeydown);
-});
-
-onBeforeUnmount(() => document.removeEventListener("keydown", handleDocumentKeydown));
+onMounted(() => document.addEventListener("keydown", onKeydown));
+onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
 </script>
 
 <template>
+  <Button
+    v-if="!props.anchorElement"
+    v-bind="triggerAttrs"
+    :ref="setTriggerElement"
+    :accent="props.accent"
+    :aria-activedescendant="
+      open && selectedItemIndex >= 0 ? `${optionIdPrefix}-${selectedItemIndex}` : undefined
+    "
+    :aria-controls="open ? listboxId : undefined"
+    :aria-disabled="props.disabled || undefined"
+    :aria-expanded="open"
+    aria-haspopup="listbox"
+    :aria-readonly="props.readOnly || undefined"
+    :class="triggerClass"
+    :color="props.color"
+    :content-class-name="triggerContentClass"
+    data-part="trigger"
+    :disabled="props.disabled"
+    :focused="props.focused"
+    :hoverable="props.hoverable"
+    :multiline="props.multiline"
+    :outline="props.outline"
+    :pressed="props.pressed"
+    :read-only="props.readOnly"
+    role="combobox"
+    :rounded="props.rounded"
+    :size="props.size"
+    :surface="props.surface"
+    :tight-focus-ring="props.tightFocusRing"
+    :variant="props.variant"
+    @click="onTriggerClick"
+  >
+    <div v-if="$slots.icon" :class="iconClass" data-part="icon">
+      <slot name="icon" />
+    </div>
+    <div :class="valueClass" data-part="value">
+      <slot :selected="selectedOptions" :value="model">{{
+        triggerValue || props.placeholder
+      }}</slot>
+    </div>
+    <slot v-if="props.dropdownIcon" name="dropdownIcon">
+      <SelectDropdownIcon :class="selectDropdownIconClasses" data-part="dropdown-icon" />
+    </slot>
+  </Button>
+
   <Popover
-    v-model="open"
+    v-if="!props.readOnly && !props.disabled"
+    v-model:open="open"
     :accent="props.popoverAccent"
-    content-class-name="cui-select__popover"
-    :disabled="props.disabled || props.readOnly"
+    :anchor-element="props.anchorElement ?? triggerElement"
+    :class="popoverClass"
     :offset="props.popoverOffset"
     :position="props.popoverPosition"
     :surface-level="props.popoverSurfaceLevel"
-    @closed="emit('closed')"
+    @click.stop
+    @closed="onPopoverClosed"
     @closing="emit('closing')"
-    @opened="handleOpened"
-    @opening="handleOpening"
+    @opened="onPopoverOpened"
+    @opening="onPopoverOpen"
   >
-    <template #trigger>
-      <Button
-        v-bind="attrs"
-        class="cui-select"
-        :class="{ 'cui-select--reverse': props.reverse }"
-        :color="props.color"
-        :accent="props.accent"
-        :content-class-name="props.contentClassName"
-        :disabled="props.disabled"
-        :focused="props.focused"
-        :hoverable="props.hoverable"
-        :multiline="props.multiline"
-        :outline="props.outline"
-        :pressed="props.pressed"
-        :read-only="props.readOnly"
-        :rounded="props.rounded"
-        role="combobox"
-        :aria-activedescendant="
-          open && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined
-        "
-        :aria-controls="open ? listboxId : undefined"
-        :aria-expanded="open"
-        aria-haspopup="listbox"
-        :size="props.size"
-        :surface="props.surface"
-        :tight-focus-ring="props.tightFocusRing"
-        :variant="props.variant"
-        @click="handleTriggerClick"
-        @keydown="handleTriggerKeydown"
-      >
-        <span v-if="$slots.icon" class="cui-select__icon"><slot name="icon" /></span>
-        <span
-          class="cui-select__value"
-          :class="props.valueClassName"
-          :data-placeholder="!selectedOptions.length || undefined"
-        >
-          <slot v-if="hasCustomValue" :selected="selectedOptions" :value="model" />
-          <template v-else>{{ triggerText }}</template>
-        </span>
-        <span v-if="props.dropdownIcon" class="cui-select__chevron" aria-hidden="true">
-          <slot name="dropdownIcon"><SelectDropdownIcon /></slot>
-        </span>
-      </Button>
-    </template>
-
-    <div class="cui-select__panel">
-      <div v-if="props.title" class="cui-select__title">{{ props.title }}</div>
-      <Input
-        v-if="props.search"
-        ref="searchInput"
+    <SectionTitle v-if="props.title" :class="selectTitleClasses">{{ props.title }}</SectionTitle>
+    <Surface
+      v-if="props.search"
+      :bg-class-name="searchInset ? 'hidden' : undefined"
+      :class="searchWrapperClass"
+      :content-class-name="searchWrapperContentClass"
+      :level="searchInset ? '+0' : '+1'"
+      :wrap-content="!searchInset"
+    >
+      <SearchField
+        ref="searchField"
         v-model="query"
-        class="cui-select__search"
-        clearable
+        :class="searchFieldClass"
         :placeholder="props.searchPlaceholder"
-        size="md"
-        type="search"
       />
-      <slot name="beforeOptions" />
+    </Surface>
+    <slot name="beforeOptions" />
+    <List
+      :id="listboxId"
+      ref="list"
+      :aria-multiselectable="props.multiple || undefined"
+      role="listbox"
+    >
       <div
-        ref="list"
-        :id="listboxId"
-        class="cui-select__list"
-        role="listbox"
-        :aria-multiselectable="props.multiple || undefined"
+        v-if="props.search && props.searchFilter && query && !displayOptions.length"
+        :class="selectEmptyClasses"
+        data-part="empty"
       >
-        <template v-for="(option, index) in displayedOptions" :key="String(optionValue(option))">
-          <slot name="beforeOption" :index="index" :value="option" />
-          <Button
-            class="cui-select__option"
-            content-class-name="cui-select__option-content"
-            :data-option-index="index"
-            :id="`${listboxId}-${index}`"
-            :disabled="optionDisabled(option)"
-            multiline
-            :outline="activeIndex === index"
-            rounded
-            role="option"
-            :aria-selected="optionSelected(option)"
-            size="lg"
-            type="button"
-            :variant="activeIndex === index ? 'gradient' : 'transparent'"
-            @click.stop="selectOption(option)"
-          >
-            <Checkbox
-              v-if="props.multiple"
-              as="span"
+        <slot name="empty" :query="query">{{ props.searchNotFound }}</slot>
+      </div>
+      <template v-for="(option, optionIndex) in displayOptions" :key="options.indexOf(option)">
+        <slot name="beforeOption" :index="optionIndex" :value="option" />
+        <ListButton
+          :id="`${optionIdPrefix}-${optionIndex}`"
+          :aria-disabled="optionDisabled(option) || undefined"
+          :aria-selected="optionSelected(option)"
+          as="label"
+          :content-class-name="selectOptionContentClasses"
+          :disabled="optionDisabled(option)"
+          :outline="false"
+          role="option"
+          rounded
+          :selected="optionIndex === selectedItemIndex"
+        >
+          <div :class="selectOptionRowClasses">
+            <component
+              :is="props.multiple ? Checkbox : Radio"
+              as="div"
               :checked="optionSelected(option)"
-              :color="indicatorAccent(option, index)"
+              :class="selectOptionIndicatorClasses"
+              :color="indicatorAccent(option, optionIndex)"
               :disabled="optionDisabled(option)"
               :focusable="false"
               :hoverable="false"
-              :input="false"
-              size="sm"
+              :input="!optionDisabled(option)"
+              @change="(checked: boolean) => onChangeInternal(option, checked)"
             />
-            <Radio
-              v-else
-              as="span"
-              :checked="optionSelected(option)"
-              :color="indicatorAccent(option, index)"
-              :disabled="optionDisabled(option)"
-              :focusable="false"
-              :hoverable="false"
-              :input="false"
-              size="sm"
-            />
-            <span class="cui-select__option-copy">
-              <slot name="option" v-bind="optionParams(option, index)">{{
-                optionLabel(option, index)
+            <div :class="selectOptionCopyClasses">
+              <slot name="option" v-bind="optionParams(option, optionIndex)">{{
+                optionLabel(option, optionIndex)
               }}</slot>
-              <span
-                v-if="$slots.optionInfo || optionInfo(option, index)"
-                class="cui-select__option-info"
+              <div
+                v-if="$slots.optionInfo || optionInfo(option, optionIndex)"
+                :class="selectOptionInfoClasses"
               >
-                <slot name="optionInfo" v-bind="optionParams(option, index)">{{
-                  optionInfo(option, index)
+                <slot name="optionInfo" v-bind="optionParams(option, optionIndex)">{{
+                  optionInfo(option, optionIndex)
                 }}</slot>
-              </span>
-            </span>
+              </div>
+            </div>
             <Shortcut
-              v-if="showHints && hintFor(option, index) !== undefined"
-              class="cui-select__hint"
+              v-if="showHints && hintFor(option, optionIndex) !== undefined"
+              :class="selectHintClasses"
+              :key-class-name="hintKeyClass"
               :outline="props.keyboardHintsOutline"
               :size="props.keyboardHintsSize"
               :variant="props.keyboardHintsVariant"
-              >{{ hintFor(option, index) }}</Shortcut
+              >{{ hintFor(option, optionIndex) }}</Shortcut
             >
-          </Button>
-          <slot name="afterOption" :index="index" :value="option" />
-        </template>
-        <div v-if="!displayedOptions.length" class="cui-select__empty">
-          <slot name="empty" :query="query">{{ props.searchNotFound }}</slot>
-        </div>
-      </div>
-      <slot name="afterOptions" />
-    </div>
+          </div>
+        </ListButton>
+        <slot name="afterOption" :index="optionIndex" :value="option" />
+      </template>
+    </List>
+    <slot name="afterOptions" />
   </Popover>
 </template>
