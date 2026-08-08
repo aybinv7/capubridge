@@ -30,6 +30,27 @@ import {
   sliderTrackBarClasses,
   sliderValueOffsets,
 } from "../src/components/forms/slider.contracts.ts";
+import { sectionTitleClasses } from "../src/components/data-display/list.contracts.ts";
+import { searchFieldClasses } from "../src/components/forms/searchField.contracts.ts";
+import {
+  selectDropdownIconClasses,
+  selectEmptyClasses,
+  selectHintClasses,
+  selectHintKeyClasses,
+  selectOptionContentClasses,
+  selectOptionRowClasses,
+  selectPopoverClasses,
+  selectPopoverOffset,
+  selectSearchFieldClasses,
+  selectSearchFieldInsetClasses,
+  selectSearchInsetWrapperClasses,
+  selectSearchStickyContentClasses,
+  selectSearchStickyWrapperClasses,
+  selectTitleClasses,
+  selectTriggerClasses,
+  selectTriggerContentClasses,
+  selectTriggerDropdownPaddingClasses,
+} from "../src/components/forms/select.contracts.ts";
 import {
   textareaIconWrapClasses,
   textareaPaddingNoIcon,
@@ -39,8 +60,7 @@ import {
 import { byTestId, mountTree } from "./support/mountTree.ts";
 import type { MountedTree } from "./support/mountTree.ts";
 
-const formsCss = readFileSync(join(process.cwd(), "src", "styles", "forms.css"), "utf8");
-const selectCss = readFileSync(join(process.cwd(), "src", "styles", "select.css"), "utf8");
+const sliderCss = readFileSync(join(process.cwd(), "src", "styles", "slider.css"), "utf8");
 const selectSource = readFileSync(
   join(process.cwd(), "src", "components", "forms", "Select.vue"),
   "utf8",
@@ -134,7 +154,7 @@ test("uses native state and form inputs for checkbox and switch", async () => {
     ".cui-checkbox__indicator",
   );
   const switchThumb = byTestId(mounted.root, "switch").querySelector('[data-part="thumb"]');
-  const switchThumbFill = switchThumb?.querySelector('[data-cui-surface-variant="gradient-fill"]');
+  const switchThumbFill = switchThumb?.querySelector(".cui-surface.text-cui-on-primary");
 
   expect(checkboxIndicator?.getAttribute("data-state")).toBe("unchecked");
   expect(switchThumbFill?.parentElement).toBe(switchThumb);
@@ -179,9 +199,9 @@ test("matches Cladd switch surface and input-less contracts", async () => {
   const thumb = switchRoot.querySelector('[data-part="thumb"]');
 
   expect(switchRoot.getAttribute("role")).toBe("switch");
-  expect(track?.getAttribute("data-cui-surface-level")).toBe("2");
-  expect(thumb?.getAttribute("data-cui-surface-level")).toBe("3");
-  expect(thumb?.getAttribute("data-cui-surface-variant")).toBe("solid");
+  expect(track?.classList.contains("cui-surface-level-2")).toBe(true);
+  expect(thumb?.classList.contains("cui-surface-level-3")).toBe(true);
+  expect(thumb?.querySelector(".bg-cui-surface")).not.toBeNull();
   expect(switchRoot.querySelector('[data-testid="switch-icon"]')?.textContent).toBe("false");
   switchRoot.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: " " }));
   await nextTick();
@@ -336,8 +356,8 @@ test("anchors the thumb-slider value bubble to the moving thumb", () => {
 });
 
 test("locks Slider to Cladd's literal authored geometry", () => {
-  expect(formsCss).toContain('input[type="range"]::-webkit-slider-thumb');
-  expect(formsCss).toContain("width: 20px");
+  expect(sliderCss).toContain('input[type="range"]::-webkit-slider-thumb');
+  expect(sliderCss).toContain("width: 20px");
   expect(sliderTrackBarClasses.md).toBe("-mt-1 h-2");
   expect(sliderRangeInsets.md).toBe("right-0.75 left-0.75");
   expect(sliderValueOffsets.xs).toBe("left-2");
@@ -384,20 +404,47 @@ test("matches Cladd Select trigger, listbox and single-select behavior", async (
 });
 
 test("locks Select to Cladd's trigger and option geometry", () => {
-  expect(selectCss).toContain("min-width: 160px");
-  expect(selectCss).toContain("justify-content: space-between");
-  expect(selectSource).toContain('content-class-name="cui-select__option-content"');
-  expect(selectSource).toContain("multiline");
-  expect(selectSource).toContain("rounded");
-  expect(selectSource).toContain('size="lg"');
-  expect(selectSource).toContain('size="lg"');
-  expect(selectCss).toContain(".cui-select__hint");
-  expect(selectCss).toContain("grid-template-columns: minmax(0, 1fr)");
-  expect(selectCss).toContain("overflow-x: hidden");
-  expect(selectCss).toContain("overflow-y: auto");
-  expect(stylesIndex.indexOf('@import "./select.css"')).toBeGreaterThan(
-    stylesIndex.indexOf('@import "./overlays.css"'),
+  expect(selectTriggerClasses).toBe("cui-select w-full");
+  expect(selectTriggerContentClasses).toBe(
+    "flex w-full min-w-0 shrink items-center justify-between gap-2",
   );
+  expect(selectTriggerDropdownPaddingClasses).toBe("pr-1.5");
+  expect(selectDropdownIconClasses).toBe("size-4 shrink-0 text-cui-fg-softer");
+  expect(selectPopoverClasses).toBe("w-auto min-w-[160px] overflow-hidden");
+  expect(selectPopoverOffset).toEqual(["-50%", 4]);
+  expect(selectOptionRowClasses).toBe("flex w-full items-center gap-3");
+  expect(selectOptionContentClasses).toBe("pl-1");
+  expect(selectHintClasses).toBe("ml-auto shrink-0 tabular-nums");
+  expect(selectHintKeyClasses).toBe("font-normal text-cui-fg-soft");
+  // Options ride Cladd's List/ListButton primitives rather than a bespoke row.
+  expect(selectSource).toContain("<ListButton");
+  expect(selectSource).toContain('as="label"');
+  expect(selectSource).toContain("<List");
+  expect(selectSource).toContain('role="listbox"');
+});
+
+test("locks Cladd's two search treatments and the SearchField preset", () => {
+  expect(selectSearchStickyWrapperClasses).toBe(
+    "sticky top-0 z-20 rounded-t-cui-popover border-b border-cui-outline",
+  );
+  expect(selectSearchStickyContentClasses).toBe("p-2");
+  expect(selectSearchInsetWrapperClasses).toBe("contents");
+  expect(selectSearchFieldClasses).toBe("sticky z-20");
+  expect(selectSearchFieldInsetClasses).toBe("top-2 mx-2 mt-2 w-auto");
+  expect(selectEmptyClasses).toBe(
+    "mb-2 flex h-8 w-full items-center pr-4 pl-4 text-cui-xs font-medium text-cui-fg-softer",
+  );
+  // searchInset is driven by `title`, exactly as upstream.
+  expect(selectSource).toContain("Boolean(props.title)");
+  expect(searchFieldClasses).toBe("cui-search-field w-full");
+  expect(sectionTitleClasses).toBe(
+    "cui-section-title flex items-end gap-4 text-cui-xs font-medium text-cui-fg-soft uppercase select-none",
+  );
+  expect(selectTitleClasses).toBe("px-4 pt-4");
+});
+
+test("keeps Select off hand-authored CSS", () => {
+  expect(stylesIndex).not.toContain("select.css");
 });
 
 interface MountedFormFixture extends MountedTree {

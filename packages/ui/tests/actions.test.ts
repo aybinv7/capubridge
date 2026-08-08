@@ -17,7 +17,7 @@ test("renders exact default button structure and loading replacement", () => {
   expect(button.classList.contains("group/cui-button")).toBe(true);
   expect(button.getAttribute("aria-busy")).toBe("true");
   expect(button.textContent).toContain("Saving");
-  expect(button.querySelector(".cui-spinner")?.getAttribute("data-cui-size")).toBe("sm");
+  expect(button.querySelector(".cui-spinner")?.classList.contains("size-cui-nested-sm")).toBe(true);
   expect(button.querySelector('[data-part="focus-ring"]')).not.toBeNull();
   mounted.app.unmount();
 });
@@ -62,7 +62,7 @@ test("matches Cladd button color and content layer API", () => {
   );
   const button = mounted.root.querySelector(".cui-button") as HTMLElement;
 
-  expect(button.getAttribute("data-cui-accent")).toBe("orange");
+  expect(button.classList.contains("cui-color-orange")).toBe(true);
   expect(button.querySelector(".button-content-contract")).not.toBeNull();
   expect(button.querySelector('[data-testid="button-icon"]')).not.toBeNull();
   expect(button.hasAttribute("aria-label")).toBe(false);
@@ -119,8 +119,8 @@ test("makes anchor and button chips interactive automatically", () => {
     ]),
   );
 
-  expect(byTestId(mounted.root, "anchor").classList.contains("cui-surface--clickable")).toBe(true);
-  expect(byTestId(mounted.root, "label").classList.contains("cui-surface--clickable")).toBe(false);
+  expect(byTestId(mounted.root, "anchor").classList.contains("cui-clickable")).toBe(true);
+  expect(byTestId(mounted.root, "label").classList.contains("cui-clickable")).toBe(false);
   mounted.app.unmount();
 });
 
@@ -149,7 +149,7 @@ test("matches Cladd chip API and geometry contracts", () => {
   expect(chip.hasAttribute("disabled")).toBe(false);
   expect(chip.querySelector(".chip-content-contract")).not.toBeNull();
   expect(chip.querySelector('[data-testid="chip-icon"]')).not.toBeNull();
-  expect(chip.getAttribute("data-cui-accent")).toBe("green");
+  expect(chip.classList.contains("cui-color-green")).toBe(true);
   mounted.app.unmount();
 });
 
@@ -164,8 +164,8 @@ test("matches Cladd spinner API and SVG contract", () => {
   const spinner = mounted.root.querySelector(".cui-spinner") as HTMLElement;
 
   expect(spinner.classList.contains("spinner-contract")).toBe(true);
-  expect(spinner.classList.contains("cui-accent-purple")).toBe(true);
-  expect(spinner.getAttribute("data-cui-size")).toBe("2xl");
+  expect(spinner.classList.contains("cui-color-purple")).toBe(true);
+  expect(spinner.classList.contains("size-cui-nested-2xl")).toBe(true);
   expect(spinner.hasAttribute("aria-hidden")).toBe(false);
   expect(spinner.querySelector("svg")?.getAttribute("viewBox")).toBe("0 0 20 20");
   expect(spinner.querySelector("path")?.getAttribute("d")).toContain("M9.045 2.078");
@@ -202,10 +202,10 @@ test("matches Cladd shortcut key customization and fill contracts", () => {
 
   expect(keys).toHaveLength(2);
   expect(keys[0]?.classList.contains("shortcut-key-contract")).toBe(true);
-  expect(keys[0]?.getAttribute("data-cui-accent")).toBe("brand");
+  expect(keys[0]?.classList.contains("cui-color-brand")).toBe(true);
   expect(keys[0]?.querySelector(".shortcut-content-contract")).not.toBeNull();
   expect(keys[0]?.querySelector(".shortcut-icon-contract")).not.toBeNull();
-  expect(keys[0]?.classList.contains("cui-surface--fill")).toBe(true);
+  expect(keys[0]?.classList.contains("text-cui-on-primary")).toBe(true);
   mounted.app.unmount();
 });
 
@@ -217,6 +217,6 @@ test("renders every pixel-contract fixture size and state", () => {
   expect(mounted.root.querySelectorAll(".cui-chip")).toHaveLength(7);
   expect(mounted.root.querySelectorAll(".cui-shortcut")).toHaveLength(7);
   expect(mounted.root.querySelectorAll(".cui-spinner").length).toBeGreaterThan(7);
-  expect(mounted.root.querySelectorAll('[data-cui-surface-level="5"]').length).toBeGreaterThan(1);
+  expect(mounted.root.querySelectorAll(".cui-surface-level-5").length).toBeGreaterThan(1);
   mounted.app.unmount();
 });

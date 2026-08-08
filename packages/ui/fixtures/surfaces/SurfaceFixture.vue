@@ -6,30 +6,33 @@ const themes: UiTheme[] = ["dark", "light"];
 
 <template>
   <div class="cui-fixture-grid">
-    <UiProvider
+    <!-- The theme cascade lives on the app's own element (`dark`/`light` + `cui-color-*`), like a
+         Cladd app; `UiProvider` only publishes context. -->
+    <div
       v-for="theme in themes"
       :key="theme"
-      accent="cyan"
-      class="cui-fixture-shell"
-      :theme="theme"
+      class="cui-fixture-shell cui-color-cyan"
+      :class="theme"
     >
-      <Surface class="cui-fixture-panel" :level="1" variant="gradient" outline>
-        <div class="cui-fixture-heading">
-          <span>Device workspace</span>
-          <span class="cui-fixture-meta">{{ theme }}</span>
-        </div>
-        <Surface class="cui-fixture-row" hoverable>
-          <span>Pixel 9 Pro</span>
-          <span class="cui-fixture-status">connected</span>
-        </Surface>
-        <Surface variant="transparent" class="cui-fixture-group">
-          <Surface class="cui-fixture-inspector" accent="purple" outline>
-            <span>Storage inspector</span>
-            <SurfaceCut class="cui-fixture-cut">IndexedDB / 14 stores</SurfaceCut>
+      <UiProvider accent-color="cyan" :theme="theme">
+        <Surface class="cui-fixture-panel" :level="1" variant="gradient" outline>
+          <div class="cui-fixture-heading">
+            <span>Device workspace</span>
+            <span class="cui-fixture-meta">{{ theme }}</span>
+          </div>
+          <Surface class="cui-fixture-row" hoverable>
+            <span>Pixel 9 Pro</span>
+            <span class="cui-fixture-status">connected</span>
+          </Surface>
+          <Surface variant="transparent" class="cui-fixture-group">
+            <Surface class="cui-fixture-inspector" accent="purple" outline>
+              <span>Storage inspector</span>
+              <SurfaceCut class="cui-fixture-cut">IndexedDB / 14 stores</SurfaceCut>
+            </Surface>
           </Surface>
         </Surface>
-      </Surface>
-    </UiProvider>
+      </UiProvider>
+    </div>
   </div>
 </template>
 
@@ -43,7 +46,7 @@ const themes: UiTheme[] = ["dark", "light"];
 
 .cui-fixture-shell {
   padding: 24px;
-  background: var(--cui-background);
+  background: var(--cui-bg);
 }
 
 .cui-fixture-panel {
@@ -69,14 +72,14 @@ const themes: UiTheme[] = ["dark", "light"];
 }
 
 .cui-fixture-heading {
-  color: var(--cui-foreground-soft);
+  color: var(--cui-fg-soft);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .cui-fixture-meta,
 .cui-fixture-status {
-  color: var(--cui-foreground-softer);
+  color: var(--cui-fg-softer);
   font-size: 10px;
 }
 
@@ -103,7 +106,7 @@ const themes: UiTheme[] = ["dark", "light"];
 
 .cui-fixture-cut {
   padding: 4px 8px;
-  color: var(--cui-foreground-soft);
+  color: var(--cui-fg-soft);
   font-size: 10px;
 }
 </style>

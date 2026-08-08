@@ -12,9 +12,9 @@ const closedCount = ref(0);
 </script>
 
 <template>
-  <UiProvider accent="brand" theme="dark">
+  <UiProvider accent-color="brand" theme="dark">
     <Dialog
-      v-model="dialogOpen"
+      v-model:open="dialogOpen"
       description="Dialog description"
       title="Dialog title"
       @closed="closedCount += 1"
@@ -23,7 +23,7 @@ const closedCount = ref(0);
         <Button data-testid="dialog-trigger">Open dialog</Button>
       </template>
       <template #default="{ close: closeDialog }">
-        <Popover v-model="nestedPopoverOpen">
+        <Popover v-model:open="nestedPopoverOpen">
           <template #trigger>
             <Button data-testid="nested-trigger">Open nested</Button>
           </template>
@@ -37,7 +37,7 @@ const closedCount = ref(0);
     </Dialog>
 
     <Dialog
-      v-model="guardedDialogOpen"
+      v-model:open="guardedDialogOpen"
       confirm-text="Delete"
       description="This action cannot be undone."
       require-confirm-text="target"
@@ -48,7 +48,7 @@ const closedCount = ref(0);
       </template>
     </Dialog>
 
-    <Popover v-model="popoverOpen" position="right-end">
+    <Popover v-model:open="popoverOpen" position="right-end">
       <template #trigger>
         <Button data-testid="popover-trigger">Open popover</Button>
       </template>
@@ -58,7 +58,7 @@ const closedCount = ref(0);
       </template>
     </Popover>
 
-    <Tooltip v-model="tooltipOpen" :delay="0">
+    <Tooltip v-model:open="tooltipOpen" :timeout="false">
       <template #trigger>
         <Button data-testid="tooltip-trigger">Tooltip trigger</Button>
       </template>

@@ -5,8 +5,14 @@ export interface MountedTree {
   root: HTMLDivElement;
 }
 
+/**
+ * Mounts into a `#app` container, because overlays teleport into the context `overlaysRoot`
+ * (upstream's `'#app, #__next, #root'`) and a Cladd app owns that element, not the library.
+ */
 export function mountTree(vnode: VNode, warnHandler?: (message: string) => void): MountedTree {
   const root = document.createElement("div");
+  root.id = "app";
+  document.body.append(root);
   const app = createApp({ render: () => vnode });
 
   if (warnHandler) {

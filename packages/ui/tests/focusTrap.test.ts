@@ -47,7 +47,7 @@ function createTrapHarness(config: TrapHarnessConfig) {
         initialFocus: initialFocusSelector
           ? () => container.value?.querySelector<HTMLElement>(initialFocusSelector)
           : undefined,
-        open: config.open,
+        active: config.open,
         restoreFocus: config.restoreFocus,
         setInitialFocus: config.setInitialFocus,
       });
@@ -57,7 +57,7 @@ function createTrapHarness(config: TrapHarnessConfig) {
           ? h(
               "div",
               {
-                class: config.containerClass ?? "cui-dialog__container",
+                class: config.containerClass ?? "cui-dialog",
                 "data-testid": "trap-container",
                 ref: container,
                 tabindex: config.containerTabindex,
@@ -138,7 +138,7 @@ test("locks the Cladd focusable selector list", () => {
     "summary",
   ]);
   expect(focusTrapFocusableSelector).toBe(focusTrapFocusableSelectors.join(","));
-  expect(focusTrapTopmostModalSelector).toBe(".cui-dialog__container, .cui-popup__container");
+  expect(focusTrapTopmostModalSelector).toBe(".cui-dialog, .cui-popup");
 });
 
 test("filters focusable candidates through the Cladd visibility predicate", () => {
@@ -287,7 +287,7 @@ test("skips trapping when the container is not the topmost modal layer", async (
   const mounted = mountHarness({ open: ref(true) });
   await nextTick();
   const laterModal = document.createElement("div");
-  laterModal.className = "cui-popup__container";
+  laterModal.className = "cui-popup";
   document.body.append(laterModal);
 
   trapButton(mounted, "last").focus();
