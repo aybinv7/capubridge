@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, useAttrs, type Component } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
+
 import type {
   SurfaceLevelInput,
   SurfaceVariant,
@@ -20,97 +22,93 @@ import {
   buttonPaddings,
   buttonSpinnerSizes,
   buttonVerticalPaddings,
+  type ButtonProps,
   type ButtonSurface,
 } from "./button.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    as?: string | Component;
-    clickable?: boolean;
-    color?: UiAccent;
-    contentClassName?: string;
-    disabled?: boolean;
-    focusable?: boolean;
-    focused?: boolean;
-    hoverable?: boolean;
-    loading?: boolean;
-    multiline?: boolean;
-    outline?: boolean;
-    pressed?: boolean;
-    readOnly?: boolean;
-    rounded?: boolean;
-    size?: UiSize;
-    square?: boolean;
-    surface?: ButtonSurface;
-    surfaceLevel?: SurfaceLevelInput;
-    tightFocusRing?: boolean;
-    variant?: SurfaceVariant;
-  }>(),
-  {
-    accent: undefined,
-    as: "button",
-    clickable: true,
-    color: undefined,
-    contentClassName: undefined,
-    disabled: false,
-    focusable: true,
-    focused: false,
-    hoverable: true,
-    loading: false,
-    multiline: false,
-    outline: true,
-    pressed: false,
-    readOnly: false,
-    rounded: false,
-    size: "md",
-    square: false,
-    surface: "surface",
-    surfaceLevel: undefined,
-    tightFocusRing: false,
-    variant: "gradient",
-  },
-);
+const props = withDefaults(defineProps<ButtonProps>(), {
+  accent: undefined,
+  as: undefined,
+  clickable: undefined,
+  color: undefined,
+  contentClassName: undefined,
+  disabled: undefined,
+  focusable: undefined,
+  focused: undefined,
+  hoverable: undefined,
+  loading: undefined,
+  multiline: undefined,
+  outline: undefined,
+  pressed: undefined,
+  readOnly: undefined,
+  rounded: undefined,
+  size: undefined,
+  square: undefined,
+  surface: undefined,
+  surfaceLevel: undefined,
+  tightFocusRing: undefined,
+  variant: undefined,
+});
+
+const d = useComponentDefaults("Button", props, {
+  as: "button" as string | Component,
+  clickable: true,
+  disabled: false,
+  focusable: true,
+  focused: false,
+  hoverable: true,
+  loading: false,
+  multiline: false,
+  outline: true,
+  pressed: false,
+  readOnly: false,
+  rounded: false,
+  size: "md" as UiSize,
+  square: false,
+  surface: "surface" as ButtonSurface,
+  tightFocusRing: false,
+  variant: "gradient" as SurfaceVariant,
+});
 
 defineSlots<{
   default?: () => unknown;
 }>();
 
-const inactive = computed(() => props.disabled || props.readOnly);
-const explicitAccent = computed(() => props.color ?? props.accent);
+const inactive = computed(() => d.value.disabled || d.value.readOnly);
+const explicitAccent = computed(() => d.value.color ?? d.value.accent);
 const attrs = useAttrs();
-const surfaceComponent = computed(() => (props.surface === "cut" ? SurfaceCut : Surface));
+const surfaceComponent = computed(() => (d.value.surface === "cut" ? SurfaceCut : Surface));
 const surfaceProps = computed(() => ({
-  accent: props.accent,
-  as: props.as,
-  clickable: props.clickable && !inactive.value,
-  color: props.color,
+  accent: d.value.accent,
+  as: d.value.as,
+  clickable: d.value.clickable && !inactive.value,
+  color: d.value.color,
   contentClassName: buttonContentClass.value,
-  hoverable: props.hoverable && !inactive.value,
-  outline: props.outline,
-  pressed: props.pressed,
-  ...(props.surface === "surface"
-    ? { level: props.surfaceLevel, variant: props.variant }
+  hoverable: d.value.hoverable && !inactive.value,
+  outline: d.value.outline,
+  pressed: d.value.pressed,
+  ...(d.value.surface === "surface"
+    ? { level: d.value.surfaceLevel, variant: d.value.variant }
     : undefined),
 }));
 const rootProps = computed(() => ({ ...surfaceProps.value, ...attrs }));
-const isNativeButton = computed(() => props.as === "button");
-const radii = computed(() => roundedClasses(props.size, props.rounded, props.multiline));
+const isNativeButton = computed(() => d.value.as === "button");
+const radii = computed(() => roundedClasses(d.value.size, d.value.rounded, d.value.multiline));
 const heightClass = computed(() =>
-  rootSizeClasses(props.size, props.multiline ? "min-height" : "height"),
+  rootSizeClasses(d.value.size, d.value.multiline ? "min-height" : "height"),
 );
-const isLink = computed(() => props.as === "a" || "href" in attrs);
+const isLink = computed(() => d.value.as === "a" || "href" in attrs);
 
 const rootClass = computed(() =>
   cn(
     "cui-button group/cui-button inline-block appearance-none text-left font-semibold outline-0 select-none focus:ring-0 focus:outline-0",
-    buttonFontSizes[props.size],
+    buttonFontSizes[d.value.size],
     heightClass.value,
     radii.value.itemRoundedClasses,
-    props.square && "aspect-square",
-    props.disabled && "pointer-events-none",
+    d.value.square && "aspect-square",
+    d.value.disabled && "pointer-events-none",
     !inactive.value && isLink.value ? "cursor-pointer" : "cursor-auto",
   ),
 );
@@ -118,13 +116,13 @@ const rootClass = computed(() =>
 const buttonContentClass = computed(() =>
   cn(
     "flex w-full items-center justify-center gap-2 [&>svg]:shrink-0",
-    buttonVerticalPaddings[props.size],
-    props.multiline && heightClass.value,
-    buttonIconSizes[props.size],
-    props.disabled && "opacity-40",
-    !props.square && buttonPaddings[props.size],
-    props.loading && "scale-0 opacity-0!",
-    props.contentClassName,
+    buttonVerticalPaddings[d.value.size],
+    d.value.multiline && heightClass.value,
+    buttonIconSizes[d.value.size],
+    d.value.disabled && "opacity-40",
+    !d.value.square && buttonPaddings[d.value.size],
+    d.value.loading && "scale-0 opacity-0!",
+    d.value.contentClassName,
   ),
 );
 
@@ -135,7 +133,7 @@ const spinnerClass = computed(() =>
 );
 
 const focusRingClass = computed(() =>
-  props.tightFocusRing ? "rounded-[inherit]" : radii.value.focusRoundedClasses,
+  d.value.tightFocusRing ? "rounded-[inherit]" : radii.value.focusRoundedClasses,
 );
 
 function guardActivation(event: Event): void {
@@ -153,13 +151,13 @@ function guardActivation(event: Event): void {
     :is="surfaceComponent"
     v-bind="rootProps"
     :class="rootClass"
-    :aria-busy="props.loading || undefined"
+    :aria-busy="d.loading || undefined"
     :aria-disabled="!isNativeButton && inactive ? 'true' : undefined"
     :data-cui-explicit-accent="explicitAccent && explicitAccent !== 'neutral' ? 'true' : undefined"
-    :data-disabled="props.disabled || undefined"
-    :data-loading="props.loading || undefined"
-    :data-pressed="props.pressed || undefined"
-    :data-readonly="props.readOnly || undefined"
+    :data-disabled="d.disabled || undefined"
+    :data-loading="d.loading || undefined"
+    :data-pressed="d.pressed || undefined"
+    :data-readonly="d.readOnly || undefined"
     :disabled="isNativeButton && inactive ? true : undefined"
     :tabindex="inactive ? -1 : undefined"
     @click.capture="guardActivation"
@@ -167,20 +165,20 @@ function guardActivation(event: Event): void {
   >
     <template #beforeContent>
       <Spinner
-        v-if="props.loading"
-        :accent="props.accent"
+        v-if="d.loading"
+        :accent="d.accent"
         :class="spinnerClass"
-        :color="props.color"
-        :size="buttonSpinnerSizes[props.size]"
+        :color="d.color"
+        :size="buttonSpinnerSizes[d.size]"
       />
       <FocusRing
-        v-if="props.focused || (props.focusable && !inactive)"
-        :accent="props.accent"
+        v-if="d.focused || (d.focusable && !inactive)"
+        :accent="d.accent"
         :class="focusRingClass"
-        :color="props.color"
-        :force="props.focused"
+        :color="d.color"
+        :force="d.focused"
         group="button"
-        :offset="!props.tightFocusRing"
+        :offset="!d.tightFocusRing"
       />
     </template>
     <slot />

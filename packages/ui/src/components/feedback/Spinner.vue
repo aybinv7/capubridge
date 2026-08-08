@@ -1,41 +1,45 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, useAttrs } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { UiAccent, UiSize } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
 import { nestedSizeClasses } from "../../shared/sizeClasses.ts";
+import type { SpinnerProps } from "./feedback.contracts.ts";
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    color?: UiAccent;
-    size?: UiSize;
-  }>(),
-  {
-    accent: undefined,
-    color: undefined,
-    size: "sm",
-  },
-);
+defineOptions({ inheritAttrs: false });
+
+// Every prop defaults to `undefined` so `useComponentDefaults` can tell "not passed" from a value,
+// then applies the built-ins below. See that helper for the precedence chain.
+const props = withDefaults(defineProps<SpinnerProps>(), {
+  accent: undefined,
+  color: undefined,
+  size: undefined,
+});
 
 const ui = useUiContext();
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accent.value);
+const attrs = useAttrs();
+const d = useComponentDefaults("Spinner", props, { size: "sm" as const });
+const currentAccent = computed(() => d.value.color ?? d.value.accent ?? ui.accentColor.value);
+const rootAttrs = computed(() => {
+  const { class: _consumerClass, ...rest } = attrs;
+  return rest;
+});
 
 const rootClass = computed(() =>
   cn(
     "cui-spinner relative inline-block",
-    `cui-accent-${currentAccent.value}`,
-    "text-cui-primary",
-    nestedSizeClasses(props.size, "size"),
+    `cui-color-${currentAccent.value} text-cui-primary`,
+    nestedSizeClasses(d.value.size, "size"),
+    attrs.class,
   ),
 );
 </script>
 
 <template>
-  <span :class="rootClass" :data-cui-size="props.size">
+  <span v-bind="rootAttrs" :class="rootClass">
     <svg
-      class="cui-spinner__glyph h-full w-full animate-cui-spinner"
+      class="h-full w-full animate-cui-spinner"
       fill="currentColor"
       viewBox="0 0 20 20"
       xmlns="http://www.w3.org/2000/svg"

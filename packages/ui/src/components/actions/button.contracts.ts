@@ -1,4 +1,11 @@
-import type { UiSize } from "../../foundations/contracts.ts";
+import type { Component } from "vue";
+
+import type {
+  SurfaceLevelInput,
+  SurfaceVariant,
+  UiAccent,
+  UiSize,
+} from "../../foundations/contracts.ts";
 
 export const buttonSpinnerSizes: Record<UiSize, UiSize> = {
   "2xs": "2xs",
@@ -51,3 +58,38 @@ export const buttonVerticalPaddings: Record<UiSize, string> = {
 };
 
 export type ButtonSurface = "surface" | "cut";
+
+export interface ButtonProps {
+  accent?: UiAccent;
+  /** Polymorphic root element. Defaults to `'button'`. */
+  as?: string | Component;
+  /** Default `true`. */
+  clickable?: boolean;
+  /** Accent color token. Sets the button's `cui-color-{name}` class. */
+  color?: UiAccent;
+  contentClassName?: string;
+  disabled?: boolean;
+  /** Default `true`. */
+  focusable?: boolean;
+  focused?: boolean;
+  /** Default `true`. */
+  hoverable?: boolean;
+  loading?: boolean;
+  multiline?: boolean;
+  /** Default `true`. */
+  outline?: boolean;
+  pressed?: boolean;
+  readOnly?: boolean;
+  rounded?: boolean;
+  /** Default `'md'`. */
+  size?: UiSize;
+  square?: boolean;
+  /** `'surface'` (default) for a regular button, `'cut'` for an inset look. */
+  surface?: ButtonSurface;
+  surfaceLevel?: SurfaceLevelInput;
+  tightFocusRing?: boolean;
+  /** Default `'gradient'`. */
+  variant?: SurfaceVariant;
+}
+
+export type ButtonDefaultProps = Partial<Omit<ButtonProps, "as">>;
