@@ -1,44 +1,40 @@
 <script setup lang="ts">
 import { computed, useAttrs, type Component } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { provideSurfaceContext, useSurface } from "../../contexts/surfaceContext.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
 import type { UiAccent } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
+import type { SurfaceCutProps } from "./surface.contracts.ts";
 import { resolveSurfaceInnerElement } from "./surface.shared.ts";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    as?: string | Component;
-    bgClassName?: string;
-    clickable?: boolean;
-    color?: UiAccent;
-    contentClassName?: string;
-    hoverable?: boolean;
-    outline?: boolean;
-    overlayClassName?: string;
-    overlayPosition?: "above" | "below";
-    pressed?: boolean;
-    wrapContent?: boolean;
-  }>(),
-  {
-    accent: undefined,
-    as: "div",
-    bgClassName: undefined,
-    clickable: false,
-    color: undefined,
-    contentClassName: undefined,
-    hoverable: false,
-    outline: true,
-    overlayClassName: undefined,
-    overlayPosition: "above",
-    pressed: false,
-    wrapContent: true,
-  },
-);
+const props = withDefaults(defineProps<SurfaceCutProps>(), {
+  accent: undefined,
+  as: undefined,
+  bgClassName: undefined,
+  clickable: undefined,
+  color: undefined,
+  contentClassName: undefined,
+  hoverable: undefined,
+  outline: undefined,
+  overlayClassName: undefined,
+  overlayPosition: undefined,
+  pressed: undefined,
+  wrapContent: undefined,
+});
+
+const d = useComponentDefaults("SurfaceCut", props, {
+  as: "div" as string | Component,
+  clickable: false,
+  hoverable: false,
+  outline: false,
+  overlayPosition: "above" as "above" | "below",
+  pressed: false,
+  wrapContent: true,
+});
 
 defineSlots<{
   beforeContent?: () => unknown;
@@ -51,21 +47,18 @@ const rootAttrs = computed(() => {
   return rest;
 });
 const parentSurface = useSurface();
-const ui = useUiContext();
-const currentAccent = computed(
-  () => props.color ?? props.accent ?? parentSurface.accent.value ?? ui.accent.value,
-);
+// Upstream's `color = ''` — no accent-color fallback; `color || inheritedColor` is published.
+const explicitColor = computed(() => d.value.color ?? d.value.accent);
+const providedColor = computed(() => explicitColor.value ?? parentSurface.color.value);
 const providedLevel = computed(() => parentSurface.level.value - 1);
-const innerElement = computed(() => resolveSurfaceInnerElement(props.as));
+const innerElement = computed(() => resolveSurfaceInnerElement(d.value.as));
 
 const rootClass = computed(() =>
   cn(
     "cui-surface-cut relative text-cui-fg",
-    (props.color || props.accent) && `cui-accent-${currentAccent.value}`,
-    props.outline && "cui-surface-cut--outlined",
-    props.hoverable && "cui-hoverable cui-surface-cut--hoverable",
-    props.clickable && "cui-clickable cui-surface-cut--clickable",
-    props.pressed && "cui-surface-cut--pressed",
+    explicitColor.value && `cui-color-${explicitColor.value}`,
+    d.value.hoverable && "cui-hoverable",
+    d.value.clickable && "cui-clickable",
     attrs.class,
   ),
 );
@@ -73,58 +66,52 @@ const rootClass = computed(() =>
 const backgroundClass = computed(() =>
   cn(
     "cui-surface-cut__background pointer-events-none absolute inset-0 rounded-[inherit] bg-cui-surface-cut",
-    props.outline && "shadow-cui-cut-outline",
-    props.bgClassName,
+    d.value.outline && "shadow-cui-cut-outline",
+    d.value.bgClassName,
   ),
 );
 
 const overlayClass = computed(() =>
   cn(
     "cui-surface-cut__overlay pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 duration-200",
-    props.hoverable &&
-      !props.pressed &&
+    d.value.hoverable &&
+      !d.value.pressed &&
       "cui-surface-hover:bg-cui-surface-hover cui-surface-hover:opacity-100",
-    props.clickable &&
-      (props.pressed
+    d.value.clickable &&
+      (d.value.pressed
         ? "bg-cui-surface-pressed opacity-100"
         : "cui-surface-press:bg-cui-surface-pressed cui-surface-press:opacity-100"),
-    props.overlayClassName,
+    d.value.overlayClassName,
   ),
 );
 
 const contentClass = computed(() =>
   cn(
     "cui-surface-cut__content relative",
-    props.clickable && "duration-200 cui-surface-press:scale-95 cui-surface-press:opacity-75",
-    props.contentClassName,
+    d.value.clickable && "duration-200 cui-surface-press:scale-95 cui-surface-press:opacity-75",
+    d.value.contentClassName,
   ),
 );
 
-provideSurfaceContext(providedLevel, currentAccent);
+provideSurfaceContext(providedLevel, providedColor);
 </script>
 
 <template>
-  <component
-    :is="props.as"
-    v-bind="rootAttrs"
-    :class="rootClass"
-    :data-cui-accent="currentAccent"
-    :data-cui-surface-cut-from-level="parentSurface.level.value"
-  >
+  <component :is="d.as" v-bind="rootAttrs" :class="rootClass">
     <component :is="innerElement" :class="backgroundClass" />
     <component
       :is="innerElement"
-      v-if="(props.hoverable || props.clickable) && props.overlayPosition === 'below'"
+      v-if="(d.hoverable || d.clickable) && d.overlayPosition === 'below'"
       :class="overlayClass"
     />
     <slot name="beforeContent" />
-    <component :is="innerElement" v-if="props.wrapContent" :class="contentClass">
+    <component :is="innerElement" v-if="d.wrapContent" :class="contentClass">
       <slot />
     </component>
     <slot v-else />
     <component
       :is="innerElement"
-      v-if="(props.hoverable || props.clickable) && props.overlayPosition === 'above'"
+      v-if="(d.hoverable || d.clickable) && d.overlayPosition === 'above'"
       :class="overlayClass"
     />
   </component>
