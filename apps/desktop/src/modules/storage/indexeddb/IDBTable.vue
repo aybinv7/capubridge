@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, h, watch, nextTick } from "vue";
+import { computed, ref, h, watch, nextTick, onUnmounted } from "vue";
 import {
   useVueTable,
   getCoreRowModel,
@@ -25,7 +25,6 @@ import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useInde
 
 // UI components
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -39,6 +38,13 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDate } from "@internationalized/date";
 import type { CheckboxCheckedState, DateValue } from "reka-ui";
@@ -51,6 +57,7 @@ import { useIDBRowDetail } from "./useIDBRowDetail";
 import IDBRowDetailDialog from "./IDBRowDetailDialog.vue";
 import IDBChangeDiffDialog from "./IDBChangeDiffDialog.vue";
 import IDBTableActions from "./IDBTableActions.vue";
+import IDBCellEditor from "./IDBCellEditor.vue";
 
 // Icons
 import {
@@ -66,7 +73,6 @@ import {
   ChevronRight,
   ChevronDown,
   Plus,
-  CalendarDays,
   Check,
   Pencil,
   Trash2,
@@ -539,6 +545,150 @@ const {
   canMutate: (record) => !props.readOnly && !isDeletedChange(record as IDBRecord),
 });
 
+// ─── Row viewer / inline cell editing ────────────────────────────────────────
+// One click opens the row viewer, a second click within the window edits the
+// cell in place.
+//
+// The short window is load-bearing, not a stylistic choice: the viewer is a
+// centered modal, so the moment it opens its overlay covers the table and the
+// second click lands on the overlay instead of the cell. Waiting lets us tell
+// the two gestures apart before anything covers the row. Anything under ~180ms
+// starts losing genuine double clicks.
+const CLICK_TO_EDIT_MS = 200;
+
+const editingCell = ref<{
+  rowId: string;
+  columnId: string;
+} | null>(null);
+let clickTimer: ReturnType<typeof setTimeout> | null = null;
+
+function isCellEditable(row: Row<IDBRecord>, columnId: string): boolean {
+  if (props.readOnly) return false;
+  // The key identifies the record — editing it would target a different row.
+  if (columnId === "key") return false;
+  return !isDeletedChange(row.original);
+}
+
+function cellValue(row: Row<IDBRecord>, columnId: string): unknown {
+  if (columnId === "value") {
+    return row.original.value;
+  }
+  return (row.original.value as Record<string, unknown>)?.[columnId];
+}
+
+function getCellEditValue(row: Row<IDBRecord>, columnId: string): string {
+  const value = cellValue(row, columnId);
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function isDateCell(row: Row<IDBRecord>, columnId: string): boolean {
+  const value = cellValue(row, columnId);
+  if (typeof value === "string") return /^\d{4}-\d{2}-\d{2}(?:[T ].*)?$/.test(value);
+  if (typeof value !== "number" || !Number.isFinite(value)) return false;
+  if (!/(date|time|at|on|deadline|expiry|expires|timestamp)$/i.test(columnId)) return false;
+  return value >= 631_152_000 && value <= 4_102_444_800_000;
+}
+
+function isNumberCell(row: Row<IDBRecord>, columnId: string): boolean {
+  return typeof cellValue(row, columnId) === "number";
+}
+
+function handleCellClick(row: Row<IDBRecord>, columnId: string) {
+  if (columnId === "__actions") return;
+
+  if (clickTimer !== null) {
+    clearTimeout(clickTimer);
+    clickTimer = null;
+    startCellEdit(row, columnId);
+    return;
+  }
+
+  clickTimer = setTimeout(() => {
+    clickTimer = null;
+    openRowViewer(row);
+  }, CLICK_TO_EDIT_MS);
+}
+
+function startCellEdit(row: Row<IDBRecord>, columnId: string) {
+  if (!isCellEditable(row, columnId)) return;
+  editingCell.value = { rowId: row.id, columnId };
+}
+
+function commitInlineEdit(value: unknown) {
+  if (!editingCell.value) return;
+  const { rowId, columnId } = editingCell.value;
+  const found = table.getRowModel().rows.find((r) => r.id === rowId);
+  if (!found) {
+    editingCell.value = null;
+    return;
+  }
+
+  const record: IDBRecord = { ...found.original };
+  if (columnId === "value") {
+    record.value = value;
+  } else {
+    record.value = { ...(record.value as Record<string, unknown>), [columnId]: value };
+  }
+
+  const beforeValue = found.original.value;
+  emit("recordEdit", record);
+  const next = new Map(locallyModifiedData.value);
+  next.set(recordKeyStr(record.key), beforeValue);
+  locallyModifiedData.value = next;
+  editingCell.value = null;
+}
+
+function cancelInlineEdit() {
+  editingCell.value = null;
+}
+
+onUnmounted(() => {
+  if (clickTimer !== null) clearTimeout(clickTimer);
+});
+
+// ─── Row context menu ────────────────────────────────────────────────────────
+// The menu is opened by reka-ui on the row, but the actions are cell-scoped, so
+// remember which cell the right-click landed on.
+const contextColumnId = ref<string | null>(null);
+
+function onCellContextMenu(columnId: string) {
+  // A pending single click would otherwise open the viewer behind the menu.
+  if (clickTimer !== null) {
+    clearTimeout(clickTimer);
+    clickTimer = null;
+  }
+  contextColumnId.value = columnId === "__actions" ? null : columnId;
+}
+
+function contextCellLabel(): string {
+  return contextColumnId.value ? `Edit "${contextColumnId.value}"` : "Edit cell";
+}
+
+function canEditContextCell(row: Row<IDBRecord>): boolean {
+  return !!contextColumnId.value && isCellEditable(row, contextColumnId.value);
+}
+
+function editContextCell(row: Row<IDBRecord>) {
+  if (contextColumnId.value) startCellEdit(row, contextColumnId.value);
+}
+
+function copyContextCell(row: Row<IDBRecord>) {
+  if (!contextColumnId.value) return;
+  void copyToClipboard(getCellEditValue(row, contextColumnId.value));
+}
+
+function copyRowAsJson(row: Row<IDBRecord>) {
+  void copyToClipboard(JSON.stringify(row.original.value, null, 2));
+}
+
+function openRowViewer(row: Row<IDBRecord>) {
+  const rows = table.getFilteredRowModel().rows;
+  const idx = rows.findIndex((r) => r.id === row.id);
+  openRowDetail(row.original, idx >= 0 ? idx : undefined);
+}
+
 const selectedRecordChange = computed(() => getRecordChange(selectedRow.value));
 const isSelectedRowLocallyModified = computed(
   () => !!selectedRow.value && locallyModifiedData.value.has(recordKeyStr(selectedRow.value.key)),
@@ -906,32 +1056,73 @@ function confirmBulkDelete() {
             </tr>
 
             <!-- Data row -->
-            <tr
-              v-else
-              class="group select-none border-b border-border/20 hover:bg-surface-2/50 transition-colors duration-75"
-              :class="[getRowBgClass(row), { 'pl-6': row.depth > 0 }]"
-            >
-              <td
-                v-for="cell in row.getVisibleCells()"
-                :key="cell.id"
-                class="h-9 overflow-hidden text-ellipsis whitespace-nowrap px-3 font-mono text-foreground/80 text-xs"
-                :class="[
-                  cell.column.getIsPinned() === 'left' && 'sticky left-0 z-3',
-                  cell.column.getIsPinned() === 'right' && 'sticky right-0 z-3',
-                  cell.column.getIsPinned()
-                    ? [
-                        getStickyRowBg(row),
-                        'group-hover:bg-surface-2',
-                        'transition-colors',
-                        'duration-75',
-                      ]
-                    : null,
-                ]"
-                @dblclick="cell.column.id !== '__actions' && openRowDetail(row.original, row.index)"
-              >
-                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
-              </td>
-            </tr>
+            <ContextMenu v-else>
+              <ContextMenuTrigger as-child>
+                <tr
+                  class="group select-none border-b border-border/20 hover:bg-surface-2/50 transition-colors duration-75"
+                  :class="[getRowBgClass(row), { 'pl-6': row.depth > 0 }]"
+                >
+                  <td
+                    v-for="cell in row.getVisibleCells()"
+                    :key="cell.id"
+                    class="h-9 overflow-hidden text-ellipsis whitespace-nowrap px-3 font-mono text-foreground/80 text-xs"
+                    :class="[
+                      cell.column.getIsPinned() === 'left' && 'sticky left-0 z-3',
+                      cell.column.getIsPinned() === 'right' && 'sticky right-0 z-3',
+                      cell.column.getIsPinned()
+                        ? [
+                            getStickyRowBg(row),
+                            'group-hover:bg-surface-2',
+                            'transition-colors',
+                            'duration-75',
+                          ]
+                        : null,
+                    ]"
+                    @click="handleCellClick(row, cell.column.id)"
+                    @contextmenu="onCellContextMenu(cell.column.id)"
+                  >
+                    <IDBCellEditor
+                      v-if="
+                        editingCell?.rowId === row.id && editingCell?.columnId === cell.column.id
+                      "
+                      :value="cellValue(row, cell.column.id)"
+                      :is-date="isDateCell(row, cell.column.id)"
+                      :is-number="isNumberCell(row, cell.column.id)"
+                      @commit="commitInlineEdit"
+                      @cancel="cancelInlineEdit"
+                    />
+                    <FlexRender
+                      v-else
+                      :render="cell.column.columnDef.cell"
+                      :props="cell.getContext()"
+                    />
+                  </td>
+                </tr>
+              </ContextMenuTrigger>
+              <ContextMenuContent class="w-52">
+                <ContextMenuItem @select="openRowViewer(row)">View record</ContextMenuItem>
+                <ContextMenuItem
+                  :disabled="!canEditContextCell(row)"
+                  @select="editContextCell(row)"
+                >
+                  {{ contextCellLabel() }}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem :disabled="!contextColumnId" @select="copyContextCell(row)">
+                  Copy cell value
+                </ContextMenuItem>
+                <ContextMenuItem @select="copyRowAsJson(row)">Copy record as JSON</ContextMenuItem>
+                <template v-if="!readOnly && !isDeletedChange(row.original)">
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    variant="destructive"
+                    @select="emit('recordDelete', row.original.key)"
+                  >
+                    Delete record
+                  </ContextMenuItem>
+                </template>
+              </ContextMenuContent>
+            </ContextMenu>
           </template>
           <tr v-if="bottomSpacerHeight > 0" aria-hidden="true">
             <td

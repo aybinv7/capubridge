@@ -48,8 +48,8 @@ import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChanges
 import {
   useSqliteChangeIndex,
   useSqliteTableChangeOverlay,
-  buildRowKey,
 } from "@/modules/storage/changes/useSqliteChangeOverlay";
+import { buildRowKey, orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
 import type { SqliteChangeSummary } from "@/types/sqliteChanges.types";
 import type {
   SqliteDbFile,
@@ -86,6 +86,9 @@ const {
   tableIndexes,
   tableForeignKeys,
   executeQuery,
+  executeWrite,
+  refreshDatabase,
+  exportBytes,
 } = useSQLite();
 const { getDomain: getJeepSqliteDomain } = useJeepSqlite();
 const localWebviewStore = useLocalWebviewStore();
@@ -165,7 +168,7 @@ const structureForeignKeys = shallowRef<SqliteForeignKeyInfo[]>([]);
 const isLoadingStructure = ref(false);
 const structureError = ref<string | null>(null);
 
-const sqlInput = ref("SELECT name, type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%';");
+const sqlInput = ref("");
 const sqlResult = shallowRef<SqliteQueryResult | null>(null);
 const sqlError = ref<string | null>(null);
 const isRunningSql = ref(false);
@@ -174,9 +177,7 @@ const currentTable = computed(() => tables.value.find((t) => t.name === tableNam
 
 const columnInfo = shallowRef<SqliteColumnInfo[]>([]);
 const isLoadingColumnInfo = ref(false);
-const pkColumnsRef = computed(() =>
-  columnInfo.value.filter((c) => c.pk).sort((a, b) => a.cid - b.cid),
-);
+const pkColumnsRef = computed(() => orderKeyColumns(columnInfo.value));
 
 const changesStore = useSqliteChangesStore();
 const { getTableSummary, getDatabaseSummary } = useSqliteChangeIndex();
@@ -272,8 +273,23 @@ async function fetchStructure() {
 }
 
 async function runSql() {
-  if (!serial.value || !selectedPackageName.value || !currentDb.value) {
-    sqlError.value = "No active database";
+  if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) {
+    sqlError.value = "No active table";
+    return;
+  }
+  const referencedTables = [
+    ...sqlInput.value.matchAll(
+      /\b(?:FROM|JOIN)\s+(?:"([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][\w$]*))/gi,
+    ),
+  ]
+    .map((match) => match[1] ?? match[2] ?? match[3] ?? match[4])
+    .filter((name): name is string => !!name);
+  if (!/^\s*SELECT\b/i.test(sqlInput.value) || referencedTables.length === 0) {
+    sqlError.value = `Use a SELECT query against "${tableName.value}".`;
+    return;
+  }
+  if (referencedTables.some((name) => name !== tableName.value)) {
+    sqlError.value = `Queries in this view can only reference "${tableName.value}".`;
     return;
   }
   isRunningSql.value = true;
@@ -477,6 +493,12 @@ function navigateToTable(db: SqliteDbFile, table: string) {
   void router.push(`/storage/sqlite/${encodeURIComponent(db.name)}/${encodeURIComponent(table)}`);
 }
 
+function navigateToForeignTable(table: string) {
+  const db = currentDb.value;
+  if (!db || !tables.value.some((candidate) => candidate.name === table)) return;
+  navigateToTable(db, table);
+}
+
 function isDbActive(name: string): boolean {
   return dbName.value === name;
 }
@@ -564,6 +586,119 @@ function handlePageSizeChange(size: number) {
 
 const { getDomain: getOpfsDomain } = useOPFS();
 
+// Previous raw bytes of the device database currently being viewed, used to
+// diff successive pulls — device sources have no change events, so every
+// refresh re-pulls and compares. Only the active database is kept: these are
+// whole database files, and holding one per visited path adds up fast.
+let deviceSnapshotPath = "";
+let deviceSnapshotBytes: Uint8Array | null = null;
+
+function takeDeviceSnapshot(dbPath: string, bytes: Uint8Array): Uint8Array | null {
+  const previous = deviceSnapshotPath === dbPath ? deviceSnapshotBytes : null;
+  deviceSnapshotPath = dbPath;
+  deviceSnapshotBytes = bytes;
+  return previous;
+}
+
+// Last reported "no row identity" table list per db, so a repeating refresh
+// doesn't append the same system entry to the feed over and over.
+const reportedSkippedTables = new Map<string, string>();
+
+async function recordSnapshotDiff(previous: Uint8Array, next: Uint8Array, dbPath: string) {
+  try {
+    const diff = await diffSqliteSnapshots(previous, next);
+    for (const op of diff.changes) {
+      changesStore.recordChange({
+        operation: op.operation,
+        serial: serial.value,
+        packageName: selectedPackageName.value,
+        dbPath,
+        tableName: op.tableName,
+        rowKey: op.rowKey,
+        beforeValue: op.beforeValue,
+        afterValue: op.afterValue,
+      });
+    }
+    if (diff.truncated) {
+      changesStore.recordSystemChange({
+        serial: serial.value,
+        packageName: selectedPackageName.value,
+        dbPath,
+        message: `Snapshot diff truncated — more than ${diff.changes.length} ops detected`,
+      });
+    }
+    if (diff.skippedTablesWithoutPk.length > 0) {
+      const signature = diff.skippedTablesWithoutPk.join(",");
+      if (reportedSkippedTables.get(dbPath) !== signature) {
+        reportedSkippedTables.set(dbPath, signature);
+        changesStore.recordSystemChange({
+          serial: serial.value,
+          packageName: selectedPackageName.value,
+          dbPath,
+          message:
+            `Change tracking unavailable for ${diff.skippedTablesWithoutPk.length} table(s) ` +
+            `with no primary key — rows there have no stable identity: ` +
+            diff.skippedTablesWithoutPk.join(", "),
+        });
+      }
+    } else {
+      reportedSkippedTables.delete(dbPath);
+    }
+  } catch (err) {
+    console.error("[SQLite] snapshot diff failed:", err);
+  }
+}
+
+/**
+ * Re-pull an on-device database and diff it against the previous pull.
+ *
+ * The Rust side caches the pulled file per (serial, package, path) and only
+ * re-pulls once that entry is dropped, so `refreshDatabase` has to run first
+ * or every later read just replays the same stale copy. `exportBytes` then
+ * repopulates the cache, meaning the subsequent row fetch reuses this single
+ * pull rather than paying for a second one.
+ */
+async function refreshDeviceSnapshot() {
+  const dbFile = currentDb.value;
+  if (!dbFile || isLocalMode.value) return;
+  if ((dbFile.sourceKind ?? "native-android") !== "native-android") return;
+  if (!serial.value || !selectedPackageName.value) return;
+
+  try {
+    await refreshDatabase(serial.value, selectedPackageName.value, dbFile.path);
+    const bytes = await exportBytes(serial.value, selectedPackageName.value, dbFile.path);
+    if (!bytes.byteLength) return;
+
+    const previous = takeDeviceSnapshot(dbFile.path, bytes);
+    if (previous && previous.byteLength > 0) {
+      await recordSnapshotDiff(previous, bytes, dbFile.path);
+    }
+  } catch (err) {
+    console.error("[SQLite] refreshDeviceSnapshot failed:", err);
+  }
+}
+
+/**
+ * Capture a baseline for a device database without forcing a re-pull, so the
+ * first Refresh already has something to diff against. Meant to run after the
+ * rows have been fetched, when the Rust cache is already warm — this then only
+ * reads the local temp copy.
+ */
+async function primeDeviceSnapshot() {
+  const dbFile = currentDb.value;
+  if (!dbFile || isLocalMode.value) return;
+  if ((dbFile.sourceKind ?? "native-android") !== "native-android") return;
+  if (!serial.value || !selectedPackageName.value) return;
+  if (deviceSnapshotPath === dbFile.path && deviceSnapshotBytes) return;
+
+  try {
+    const bytes = await exportBytes(serial.value, selectedPackageName.value, dbFile.path);
+    if (bytes.byteLength) takeDeviceSnapshot(dbFile.path, bytes);
+  } catch (err) {
+    console.error("[SQLite] primeDeviceSnapshot failed:", err);
+  }
+}
+
 async function refreshLocalSnapshot() {
   const s = localSession.value;
   if (!s) return;
@@ -609,31 +744,7 @@ async function refreshLocalSnapshot() {
     sqlSessionStore.setLastSourceHash(nextHash);
     const previous = sqlSessionStore.swapSnapshot(bytes);
     if (previous && previous.byteLength > 0 && bytes.byteLength > 0) {
-      try {
-        const diff = await diffSqliteSnapshots(previous, bytes);
-        for (const op of diff.changes) {
-          changesStore.recordChange({
-            operation: op.operation,
-            serial: serial.value,
-            packageName: selectedPackageName.value,
-            dbPath: s.dbPath,
-            tableName: op.tableName,
-            rowKey: op.rowKey,
-            beforeValue: op.beforeValue,
-            afterValue: op.afterValue,
-          });
-        }
-        if (diff.truncated) {
-          changesStore.recordSystemChange({
-            serial: serial.value,
-            packageName: selectedPackageName.value,
-            dbPath: s.dbPath,
-            message: `Snapshot diff truncated — more than ${diff.changes.length} ops detected`,
-          });
-        }
-      } catch (err) {
-        console.error("[SQLite] snapshot diff failed:", err);
-      }
+      await recordSnapshotDiff(previous, bytes, s.dbPath);
     }
     await sqlSessionStore.refreshLocalSession(bytes);
   } catch (err) {
@@ -647,6 +758,10 @@ async function handleRefresh() {
     localSession.value?.sourceKind === "jeep-sqlite"
   ) {
     await refreshLocalSnapshot();
+  } else {
+    // Drops the cached pull and re-reads the device file; without this the
+    // reads below would keep serving whatever was pulled the first time.
+    await refreshDeviceSnapshot();
   }
   if (currentDb.value && tableName.value) {
     await openDb(currentDb.value);
@@ -700,7 +815,7 @@ async function execAgainstCurrentDb(sql: string): Promise<void> {
   if (!serial.value || !selectedPackageName.value || !currentDb.value) {
     throw new Error("No active database");
   }
-  await executeQuery(serial.value, selectedPackageName.value, currentDb.value.path, sql);
+  await executeWrite(serial.value, selectedPackageName.value, currentDb.value.path, sql);
 }
 
 function handleClearTable(db: SqliteDbFile, table: string) {
@@ -1046,7 +1161,7 @@ function quoteSqlValue(v: unknown): string {
 }
 
 function pkColumns(): SqliteColumnInfo[] {
-  return columnInfo.value.filter((c) => c.pk).sort((a, b) => a.cid - b.cid);
+  return orderKeyColumns(columnInfo.value);
 }
 
 async function handleRecordEdit(
@@ -1186,6 +1301,9 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
   structureError.value = null;
   columnInfo.value = [];
   showChangesOnly.value = false;
+  sqlInput.value = newTable ? `SELECT * FROM ${quoteIdent(newTable)} LIMIT 100;` : "";
+  sqlResult.value = null;
+  sqlError.value = null;
   diffChangeId.value = null;
 
   // Only clear tables when switching databases, not when selecting a table within the same DB
@@ -1200,6 +1318,7 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
         await openDb(dbFile);
       }
       await Promise.all([fetchTableRows(), fetchColumnInfo()]);
+      await primeDeviceSnapshot();
     }
   } else if (newDb) {
     const dbFile = databases.value.find((d) => d.name === newDb);
@@ -1723,7 +1842,7 @@ watch(
             </template>
 
             <template v-else-if="activeTab === 'structure'">
-              <ScrollArea class="flex-1">
+              <ScrollArea class="min-h-0 flex-1">
                 <div
                   v-if="isLoadingStructure"
                   class="flex items-center justify-center py-12 text-[11px] text-muted-foreground/50"
@@ -1740,7 +1859,7 @@ watch(
                   <span>{{ structureError }}</span>
                 </div>
 
-                <div v-else class="space-y-6 px-4 py-4 text-xs">
+                <div v-else class="flex flex-col gap-6 px-4 py-4 text-xs">
                   <section>
                     <div class="mb-2 flex items-center gap-2">
                       <Table2 :size="12" class="text-muted-foreground/40" />
@@ -1750,34 +1869,50 @@ watch(
                         Columns
                       </span>
                     </div>
-                    <table v-if="structureColumns.length" class="w-full font-mono">
-                      <thead>
-                        <tr class="text-left text-muted-foreground/40">
-                          <th class="py-1.5 font-medium">#</th>
-                          <th class="py-1.5 font-medium">Name</th>
-                          <th class="py-1.5 font-medium">Type</th>
-                          <th class="py-1.5 font-medium">Null</th>
-                          <th class="py-1.5 font-medium">Default</th>
-                          <th class="py-1.5 font-medium">PK</th>
+                    <table
+                      v-if="structureColumns.length"
+                      class="w-full overflow-hidden rounded-lg border border-border/30 bg-surface-1 font-mono"
+                    >
+                      <thead class="border-b border-border/30 bg-surface-2/60">
+                        <tr class="text-left text-[10px] font-semibold text-muted-foreground/65">
+                          <th class="w-12 px-3 py-3">#</th>
+                          <th class="px-3 py-3">Column</th>
+                          <th class="px-3 py-3">Type</th>
+                          <th class="w-28 px-3 py-3">Not null</th>
+                          <th class="w-36 px-3 py-3">Default</th>
+                          <th class="w-16 px-3 py-3 text-center">PK</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr
                           v-for="col in structureColumns"
                           :key="col.cid"
-                          class="border-t border-border/20 text-secondary-foreground"
+                          class="border-t border-border/20 text-secondary-foreground transition-colors hover:bg-surface-2/45"
                         >
-                          <td class="py-1.5 text-muted-foreground/50">{{ col.cid }}</td>
-                          <td class="py-1.5">{{ col.name }}</td>
-                          <td class="py-1.5 text-muted-foreground/70">{{ col.colType || "—" }}</td>
-                          <td class="py-1.5 text-muted-foreground/70">
-                            {{ col.notnull ? "NOT NULL" : "—" }}
+                          <td class="px-3 py-3 text-muted-foreground/55">{{ col.cid }}</td>
+                          <td class="px-3 py-3 font-semibold text-foreground/90">{{ col.name }}</td>
+                          <td class="px-3 py-3 text-foreground/85">
+                            <span class="rounded-full bg-surface-3 px-2.5 py-1 text-[11px]">{{
+                              col.colType || "—"
+                            }}</span>
                           </td>
-                          <td class="py-1.5 text-muted-foreground/70">
-                            {{ col.defaultValue ?? "—" }}
+                          <td
+                            class="px-3 py-3"
+                            :class="col.notnull ? 'text-foreground/90' : 'text-muted-foreground/60'"
+                          >
+                            {{ col.notnull ? "Yes" : "No" }}
                           </td>
-                          <td class="py-1.5 text-muted-foreground/70">
-                            {{ col.pk ? "yes" : "—" }}
+                          <td class="px-3 py-3 italic text-muted-foreground/75">
+                            {{ col.defaultValue ?? "NULL" }}
+                          </td>
+                          <td class="px-3 py-3 text-center">
+                            <span
+                              v-if="col.pk"
+                              class="rounded-full bg-warning px-2 py-1 text-[10px] font-semibold text-warning-foreground"
+                            >
+                              PK{{ col.pk > 1 ? ` ${col.pk}` : "" }}
+                            </span>
+                            <span v-else class="text-muted-foreground/35">—</span>
                           </td>
                         </tr>
                       </tbody>
@@ -1841,7 +1976,16 @@ watch(
                         >
                           <td class="py-1.5">{{ fk.fromColumn }}</td>
                           <td class="py-1.5 text-muted-foreground/40">→</td>
-                          <td class="py-1.5">{{ fk.toTable }}.{{ fk.toColumn ?? "—" }}</td>
+                          <td class="py-1.5">
+                            <button
+                              class="font-medium text-info hover:text-info/80 hover:underline disabled:cursor-default disabled:text-secondary-foreground disabled:no-underline"
+                              :disabled="!tables.some((table) => table.name === fk.toTable)"
+                              :title="`Open ${fk.toTable}`"
+                              @click="navigateToForeignTable(fk.toTable)"
+                            >
+                              {{ fk.toTable }}.{{ fk.toColumn ?? "—" }}
+                            </button>
+                          </td>
                           <td class="py-1.5 text-muted-foreground/70">
                             {{ fk.onUpdate ?? "—" }}
                           </td>
