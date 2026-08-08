@@ -17,6 +17,7 @@ import type {
   UiAccent,
   UiSize,
 } from "../../foundations/contracts.ts";
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { cn } from "../../shared/cn.ts";
 import { nestedSizeClasses } from "../../shared/sizeClasses.ts";
 import Surface from "../surface/Surface.vue";
@@ -26,6 +27,7 @@ import {
   shortcutIconSizes,
   shortcutRoundedClasses,
 } from "./shortcut.contracts.ts";
+import type { ShortcutProps } from "./dataDisplay.contracts.ts";
 import VNodeRenderer from "./VNodeRenderer.ts";
 
 type ShortcutEntry =
@@ -35,36 +37,32 @@ type ShortcutEntry =
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    as?: string | Component;
-    color?: UiAccent;
-    iconClassName?: string;
-    keyClassName?: string;
-    keyContentClassName?: string;
-    outline?: boolean;
-    size?: UiSize;
-    surfaceLevel?: SurfaceLevelInput;
-    variant?: SurfaceVariant;
-  }>(),
-  {
-    accent: undefined,
-    as: "div",
-    color: undefined,
-    iconClassName: undefined,
-    keyClassName: undefined,
-    keyContentClassName: undefined,
-    outline: true,
-    size: "md",
-    surfaceLevel: "+2",
-    variant: "gradient",
-  },
-);
+const props = withDefaults(defineProps<ShortcutProps>(), {
+  accent: undefined,
+  as: undefined,
+  color: undefined,
+  iconClassName: undefined,
+  keyClassName: undefined,
+  keyContentClassName: undefined,
+  outline: undefined,
+  size: undefined,
+  surfaceLevel: undefined,
+  variant: undefined,
+});
+
+const d = useComponentDefaults("Shortcut", props, {
+  as: "div" as string | Component,
+  outline: true,
+  size: "md" as UiSize,
+  surfaceLevel: "+2" as SurfaceLevelInput,
+  variant: "gradient" as SurfaceVariant,
+});
 
 const slots = useSlots();
 const isMac = ref(false);
-const isFill = computed(() => props.variant === "solid-fill" || props.variant === "gradient-fill");
+const isFill = computed(
+  () => d.value.variant === "solid-fill" || d.value.variant === "gradient-fill",
+);
 
 const rootClass = computed(() =>
   cn(
@@ -76,19 +74,23 @@ const keyClass = computed(() =>
   cn(
     "cui-shortcut__key relative shrink-0 font-semibold",
     !isFill.value && "text-cui-primary",
-    shortcutFontSizes[props.size],
-    shortcutRoundedClasses[props.size],
-    nestedSizeClasses(props.size, "height"),
-    nestedSizeClasses(props.size, "min-width"),
-    props.keyClassName,
+    shortcutFontSizes[d.value.size],
+    shortcutRoundedClasses[d.value.size],
+    nestedSizeClasses(d.value.size, "height"),
+    nestedSizeClasses(d.value.size, "min-width"),
+    d.value.keyClassName,
   ),
 );
 
 function keyContentClass(padded: boolean): string {
-  return cn("flex items-center justify-center px-0.5", padded && "px-1", props.keyContentClassName);
+  return cn(
+    "flex items-center justify-center px-0.5",
+    padded && "px-1",
+    d.value.keyContentClassName,
+  );
 }
 
-const glyphClass = computed(() => cn(shortcutIconSizes[props.size], props.iconClassName));
+const glyphClass = computed(() => cn(shortcutIconSizes[d.value.size], d.value.iconClassName));
 
 function tokenEntry(token: string): ShortcutEntry {
   const key = token.toLowerCase();
@@ -171,19 +173,19 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <component :is="props.as" v-bind="$attrs" class="cui-shortcut" :data-cui-size="props.size">
+  <component :is="d.as" v-bind="$attrs" class="cui-shortcut" :data-cui-size="d.size">
     <Surface
       v-for="(entry, index) in shortcutEntries()"
       :key="index"
-      :accent="props.accent"
-      :color="props.color"
+      :accent="d.accent"
+      :color="d.color"
       as="kbd"
       :class="keyClass"
       :content-class-name="keyContentClass(entry.padded)"
       data-part="key"
-      :level="props.surfaceLevel"
-      :outline="props.outline"
-      :variant="props.variant"
+      :level="d.surfaceLevel"
+      :outline="d.outline"
+      :variant="d.variant"
     >
       <ShortcutGlyph v-if="entry.kind === 'glyph'" :class="glyphClass" :name="entry.glyph" />
       <VNodeRenderer v-else-if="entry.kind === 'node'" :node="entry.node" />
