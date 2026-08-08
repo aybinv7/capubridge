@@ -1,0 +1,12 @@
+@theme {
+  --animate-cui-spinner: cui-spinner-rotate 1.5s infinite linear;
+
+  @keyframes cui-spinner-rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+}

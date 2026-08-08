@@ -1,0 +1,23 @@
+@theme {
+  --spacing-cui-3xs: 12px;
+  --spacing-cui-2xs: 16px;
+  --spacing-cui-xs: 20px;
+  --spacing-cui-sm: 24px;
+  --spacing-cui-md: 28px;
+  --spacing-cui-lg: 32px;
+  --spacing-cui-xl: 40px;
+  --spacing-cui-2xl: 48px;
+
+  --spacing-cui-thumb-xs: 16px;
+  --spacing-cui-thumb-sm: 20px;
+  --spacing-cui-thumb-md: 24px;
+
+  --spacing-cui-nested-3xs: calc(var(--spacing-cui-3xs) - 8px);
+  --spacing-cui-nested-2xs: calc(var(--spacing-cui-2xs) - 8px);
+  --spacing-cui-nested-xs: calc(var(--spacing-cui-xs) - 8px);
+  --spacing-cui-nested-sm: calc(var(--spacing-cui-sm) - 8px);
+  --spacing-cui-nested-md: calc(var(--spacing-cui-md) - 8px);
+  --spacing-cui-nested-lg: calc(var(--spacing-cui-lg) - 8px);
+  --spacing-cui-nested-xl: calc(var(--spacing-cui-xl) - 8px);
+  --spacing-cui-nested-2xl: calc(var(--spacing-cui-2xl) - 8px);
+}

@@ -1,0 +1,61 @@
+@theme {
+  --cui-radius: 8px;
+  --radius-cui: var(--cui-radius);
+  /* Numerators mirror --spacing-cui-* (in px) over the md base (28).
+     Written as length × number ÷ number to avoid length/length division,
+     which Firefox doesn't resolve. */
+  --radius-cui-3xs: calc(var(--cui-radius) * 12 / 28);
+  --radius-cui-2xs: calc(var(--cui-radius) * 16 / 28);
+  --radius-cui-xs: calc(var(--cui-radius) * 20 / 28);
+  --radius-cui-sm: calc(var(--cui-radius) * 24 / 28);
+  --radius-cui-md: var(--cui-radius);
+  --radius-cui-lg: calc(var(--cui-radius) * 32 / 28);
+  --radius-cui-xl: calc(var(--cui-radius) * 40 / 28);
+  --radius-cui-2xl: calc(var(--cui-radius) * 48 / 28);
+
+  --radius-cui-full-2xs: calc(var(--spacing-cui-2xs) / 2);
+  --radius-cui-full-xs: calc(var(--spacing-cui-xs) / 2);
+  --radius-cui-full-sm: calc(var(--spacing-cui-sm) / 2);
+  --radius-cui-full-md: calc(var(--spacing-cui-md) / 2);
+  --radius-cui-full-lg: calc(var(--spacing-cui-lg) / 2);
+  --radius-cui-full-xl: calc(var(--spacing-cui-xl) / 2);
+  --radius-cui-full-2xl: calc(var(--spacing-cui-2xl) / 2);
+
+  --radius-cui-wrap-2xs: calc(var(--radius-cui-2xs) + 4px);
+  --radius-cui-wrap-xs: calc(var(--radius-cui-xs) + 4px);
+  --radius-cui-wrap-sm: calc(var(--radius-cui-sm) + 4px);
+  --radius-cui-wrap-md: calc(var(--radius-cui-md) + 4px);
+  --radius-cui-wrap-lg: calc(var(--radius-cui-lg) + 4px);
+  --radius-cui-wrap-xl: calc(var(--radius-cui-xl) + 4px);
+  --radius-cui-wrap-2xl: calc(var(--radius-cui-2xl) + 4px);
+
+  --radius-cui-wrap-full-2xs: calc(var(--radius-cui-full-2xs) + 4px);
+  --radius-cui-wrap-full-xs: calc(var(--radius-cui-full-xs) + 4px);
+  --radius-cui-wrap-full-sm: calc(var(--radius-cui-full-sm) + 4px);
+  --radius-cui-wrap-full-md: calc(var(--radius-cui-full-md) + 4px);
+  --radius-cui-wrap-full-lg: calc(var(--radius-cui-full-lg) + 4px);
+  --radius-cui-wrap-full-xl: calc(var(--radius-cui-full-xl) + 4px);
+  --radius-cui-wrap-full-2xl: calc(var(--radius-cui-full-2xl) + 4px);
+
+  --radius-cui-focus-2xs: calc(var(--radius-cui-2xs) + 6px);
+  --radius-cui-focus-xs: calc(var(--radius-cui-xs) + 6px);
+  --radius-cui-focus-sm: calc(var(--radius-cui-sm) + 6px);
+  --radius-cui-focus-md: calc(var(--radius-cui-md) + 6px);
+  --radius-cui-focus-lg: calc(var(--radius-cui-lg) + 6px);
+  --radius-cui-focus-xl: calc(var(--radius-cui-xl) + 6px);
+  --radius-cui-focus-2xl: calc(var(--radius-cui-2xl) + 6px);
+
+  --radius-cui-focus-full-2xs: calc(var(--radius-cui-full-2xs) + 6px);
+  --radius-cui-focus-full-xs: calc(var(--radius-cui-full-xs) + 6px);
+  --radius-cui-focus-full-sm: calc(var(--radius-cui-full-sm) + 6px);
+  --radius-cui-focus-full-md: calc(var(--radius-cui-full-md) + 6px);
+  --radius-cui-focus-full-lg: calc(var(--radius-cui-full-lg) + 6px);
+  --radius-cui-focus-full-xl: calc(var(--radius-cui-full-xl) + 6px);
+  --radius-cui-focus-full-2xl: calc(var(--radius-cui-full-2xl) + 6px);
+
+  --radius-cui-popover: 24px;
+  --radius-cui-dialog: 24px;
+  --radius-cui-toast: 24px;
+  --radius-cui-popup: 24px;
+  --radius-cui-tooltip: 12px;
+}

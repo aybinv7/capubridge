@@ -1,5 +1,0 @@
-@layer cui.components {
-  :where(.cui-spinner__glyph) {
-    display: block;
-  }
-}

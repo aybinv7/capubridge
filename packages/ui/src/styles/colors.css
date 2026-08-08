@@ -1,0 +1,359 @@
+@theme {
+  --color-cui-theme: var(--cui-theme);
+  --color-cui-bg: var(--cui-bg);
+  --color-cui-backdrop: var(--cui-backdrop);
+  --color-cui-primary: var(--cui-primary);
+  --color-cui-on-primary: var(--cui-on-primary);
+  --color-cui-surface: var(--cui-surface);
+  --color-cui-surface-cut: var(--cui-surface-cut);
+  --color-cui-surface-prev: var(--cui-surface-prev);
+  --color-cui-surface-minus: var(--cui-surface-minus);
+  --color-cui-surface-plus: var(--cui-surface-plus);
+  --color-cui-surface-next: var(--cui-surface-next);
+  --color-cui-fg: var(--cui-fg);
+  --color-cui-fg-soft: var(--cui-fg-soft);
+  --color-cui-fg-softer: var(--cui-fg-softer);
+  --color-cui-fg-softest: var(--cui-fg-softest);
+  --color-cui-surface-white: var(--cui-surface-white);
+  --color-cui-surface-black: var(--cui-surface-black);
+  --color-cui-surface-hover: var(--cui-surface-hover);
+  --color-cui-surface-hover-fill: var(--cui-surface-hover-fill);
+  --color-cui-surface-pressed: var(--cui-surface-pressed);
+  --color-cui-bg-outline: var(--cui-bg-outline);
+  --color-cui-outline: var(--cui-outline);
+  --color-cui-surface-highlight: var(--cui-surface-highlight);
+
+  /* SHADOWS */
+  --shadow-cui-outline: var(--shadow-cui-outline);
+  --shadow-cui-outline-fill: var(--shadow-cui-outline-fill);
+  --shadow-cui-cut-outline: var(--shadow-cui-cut-outline);
+  --shadow-cui-popover: 0 24px 64px -12px rgb(0 0 0 / 0.5);
+
+  /* PRIMARY COLOR TUNE */
+  --cui-dark-primary-lightness: 0.95;
+  --cui-dark-primary-chroma: 0.18;
+  --cui-light-primary-lightness: 0.5;
+  --cui-light-primary-chroma: 0.18;
+}
+
+:root,
+.cui-color-neutral {
+  --cui-theme: #fff;
+}
+.cui-color-brand {
+  --cui-theme: #388aff;
+}
+.cui-color-red {
+  --cui-theme: #ff0b0b;
+}
+.cui-color-pink {
+  --cui-theme: #ff0bac;
+}
+.cui-color-purple {
+  --cui-theme: #a20bff;
+}
+.cui-color-blue {
+  --cui-theme: #0047ff;
+}
+.cui-color-cyan {
+  --cui-theme: #00f9ff;
+}
+.cui-color-lime {
+  --cui-theme: #7dff0b;
+}
+.cui-color-green {
+  --cui-theme: #0bff23;
+}
+.cui-color-yellow {
+  --cui-theme: #fff800;
+}
+.cui-color-orange {
+  --cui-theme: #ff7a00;
+}
+/* NEUTRAL DARK */
+:root,
+.dark .cui-color-neutral,
+.dark.cui-color-neutral {
+  --cui-bg: #0f0f0f;
+  --cui-backdrop: #000;
+  --cui-primary: oklch(from var(--cui-theme) var(--cui-dark-primary-lightness) 0 h);
+  --cui-on-primary: oklch(from var(--cui-theme) 0.2 0 h);
+  --cui-surface: oklch(from var(--cui-theme) 0.21 0 h);
+  --cui-surface-cut: oklch(from var(--cui-theme) 0.19 0 h);
+  --cui-fg: oklch(from var(--cui-theme) 0.9 0 h);
+  --cui-fg-soft: oklch(from var(--cui-theme) 0.65 0 h);
+  --cui-fg-softer: oklch(from var(--cui-theme) 0.5 0 h);
+  --cui-fg-softest: oklch(from var(--cui-theme) 0.4 0 h);
+  --cui-surface-white: oklch(from var(--cui-theme) 1 0 h);
+  --cui-surface-black: oklch(from var(--cui-theme) 0 0 h);
+  --cui-bg-outline: oklch(from var(--cui-theme) 0.23 0 h);
+  --cui-outline: oklch(from var(--cui-theme) 0.3 0 h);
+
+  --cui-surface-hover: color-mix(in oklab, var(--cui-surface-white) 5%, transparent);
+  --cui-surface-pressed: color-mix(in oklab, var(--cui-surface-white) 3%, transparent);
+  --cui-surface-hover-fill: color-mix(in oklab, var(--cui-surface-white) 20%, transparent);
+
+  --cui-surface-mix-color: var(--cui-surface-white);
+  --cui-surface-mix-amount: 6%;
+
+  --shadow-cui-cut-outline:
+    -1px -1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 2%, transparent) inset,
+    0px 0px 0px 1px color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+
+  --shadow-cui-outline:
+    1px 1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 8%, transparent) inset,
+    -1px -1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+
+  --shadow-cui-outline-fill:
+    1px 1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 20%, transparent) inset,
+    -1px -1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 20%, transparent) inset;
+}
+
+/* COLORS DARK */
+[class*="cui-color-"]:not(.cui-color-neutral),
+.dark [class*="cui-color-"]:not(.cui-color-neutral),
+.light .dark [class*="cui-color-"]:not(.cui-color-neutral),
+.dark[class*="cui-color-"]:not(.cui-color-neutral) {
+  --cui-bg: oklch(from var(--cui-theme) 0.18 0.02 h);
+  --cui-backdrop: #000;
+  --cui-primary: oklch(
+    from var(--cui-theme) var(--cui-dark-primary-lightness) var(--cui-dark-primary-chroma) h
+  );
+  --cui-on-primary: oklch(from var(--cui-theme) 0.2 0.05 h);
+  --cui-surface: oklch(from var(--cui-theme) 0.23 0.027 h);
+  --cui-surface-cut: oklch(from var(--cui-theme) 0.19 0.027 h);
+  --cui-fg: oklch(from var(--cui-theme) 0.9 0.04 h);
+  --cui-fg-soft: oklch(from var(--cui-theme) 0.65 0.04 h);
+  --cui-fg-softer: oklch(from var(--cui-theme) 0.5 0.04 h);
+  --cui-fg-softest: oklch(from var(--cui-theme) 0.4 0.04 h);
+  --cui-surface-white: oklch(from var(--cui-theme) 0.92 0.05 h);
+  --cui-surface-black: oklch(from var(--cui-theme) 0.08 0.02 h);
+  --cui-bg-outline: oklch(from var(--cui-theme) 0.25 0.02 h);
+  --cui-outline: oklch(from var(--cui-theme) 0.28 0.025 h);
+
+  --cui-surface-hover: color-mix(in oklab, var(--cui-surface-white) 5%, transparent);
+  --cui-surface-pressed: color-mix(in oklab, var(--cui-surface-white) 3%, transparent);
+  --cui-surface-hover-fill: color-mix(in oklab, var(--cui-surface-white) 40%, transparent);
+  --cui-surface-mix-color: var(--cui-surface-white);
+  --cui-surface-mix-amount: 6%;
+
+  --shadow-cui-cut-outline:
+    -1px -1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 2%, transparent) inset,
+    0px 0px 0px 1px color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+
+  --shadow-cui-outline:
+    1px 1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 8%, transparent) inset,
+    -1px -1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 7%, transparent) inset;
+  --shadow-cui-outline-fill:
+    1px 1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset,
+    -1px -1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset;
+}
+
+.light,
+.dark .light {
+  --highlight-white-mix: 50%;
+}
+
+/* NEUTRAL LIGHT */
+:root.light,
+.dark .light,
+:root .light,
+.light .cui-color-neutral,
+.light.cui-color-neutral,
+.cui-color-neutral .light {
+  --cui-bg: #fff;
+  --cui-backdrop: oklch(0.91 0 0);
+  --cui-primary: oklch(from var(--cui-theme) 0.1 0 h);
+  --cui-on-primary: oklch(from var(--cui-theme) 0.96 0 h);
+  --cui-surface: oklch(0.97 0 0);
+  --cui-surface-cut: oklch(from var(--cui-theme) 0.93 0 h);
+  --cui-fg: oklch(0.32 0 0);
+  --cui-fg-soft: oklch(0.5 0 0);
+  --cui-fg-softer: oklch(0.65 0 0);
+  --cui-fg-softest: oklch(0.75 0 0);
+  --cui-surface-white: oklch(1 0 0);
+  --cui-surface-black: oklch(0 0 0);
+  --cui-bg-outline: oklch(0.89 0 0);
+  --cui-outline: oklch(0.89 0 0);
+
+  --cui-surface-hover: color-mix(in oklab, var(--cui-surface-black) 3%, transparent);
+  --cui-surface-pressed: color-mix(in oklab, var(--cui-surface-white) 6%, transparent);
+
+  --cui-surface-mix-amount: 4%;
+  --cui-surface-mix-color: var(--cui-surface-black);
+
+  --shadow-cui-cut-outline:
+    0.5px 0.5px 0px 0px color-mix(in oklab, var(--cui-surface-black) 10%, transparent) inset,
+    0px 0px 0px 0.5px color-mix(in oklab, var(--cui-surface-black) 5%, transparent) inset;
+  --shadow-cui-outline-fill:
+    0px 0px 0px 0.5px color-mix(in oklab, var(--cui-surface-black) 20%, transparent) inset,
+    1px 1px 0px 0px color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset;
+  &,
+  [class*="cui-surface-level-"] {
+    --shadow-cui-outline:
+      0px 0px 0px 1px var(--color-cui-outline) inset,
+      1.5px 1.5px 0px 0px color-mix(in oklab, var(--cui-surface-white) 60%, transparent) inset;
+  }
+}
+/* COLORS LIGHT */
+.light [class*="cui-color-"]:not(.cui-color-neutral),
+.dark .light [class*="cui-color-"]:not(.cui-color-neutral),
+.light[class*="cui-color-"]:not(.cui-color-neutral) {
+  --cui-bg: oklch(from var(--cui-theme) 1 0.015 h);
+  --cui-backdrop: oklch(0.74 0.018 100);
+  --cui-primary: oklch(
+    from var(--cui-theme) var(--cui-light-primary-lightness) var(--cui-light-primary-chroma) h
+  );
+  --cui-on-primary: oklch(from var(--cui-theme) 0.97 0.04 h);
+  --cui-surface: oklch(from var(--cui-theme) 0.97 0.015 h);
+  --cui-surface-cut: oklch(from var(--cui-theme) 0.93 0.02 h);
+  --cui-fg: oklch(from var(--cui-theme) 0.25 0.015 h);
+  --cui-fg-soft: oklch(from var(--cui-theme) 0.5 0.025 h);
+  --cui-fg-softer: oklch(from var(--cui-theme) 0.65 0.025 h);
+  --cui-fg-softest: oklch(from var(--cui-theme) 0.75 0.025 h);
+  --cui-surface-white: oklch(from var(--cui-theme) 0.98 0.04 h);
+  --cui-surface-black: oklch(from var(--cui-theme) 0.4 0.07 h);
+  --cui-bg-outline: oklch(from var(--cui-theme) 0.74 0.03 h);
+  --cui-outline: oklch(from var(--cui-theme) 0.88 0.025 h);
+
+  --cui-surface-hover: color-mix(in oklab, var(--cui-surface-black) 6%, transparent);
+  --cui-surface-hover-fill: color-mix(in oklab, var(--cui-surface-white) 10%, transparent);
+  --cui-surface-pressed: color-mix(in oklab, var(--cui-surface-white) 6%, transparent);
+
+  --cui-surface-mix-amount: 5%;
+  --cui-surface-mix-color: var(--cui-surface-black);
+
+  --shadow-cui-cut-outline:
+    0.5px 0.5px 0px 0px color-mix(in oklab, var(--cui-surface-black) 10%, transparent) inset,
+    0px 0px 0px 0.5px color-mix(in oklab, var(--cui-surface-black) 5%, transparent) inset;
+
+  --shadow-cui-outline-fill:
+    0px 0px 0px 1px color-mix(in oklab, var(--cui-surface-black) 40%, transparent) inset,
+    1px 1px 0px 0.25px color-mix(in oklab, var(--cui-surface-white) 30%, transparent) inset;
+
+  &,
+  [class*="cui-surface-level-"] {
+    --shadow-cui-outline:
+      0px 0px 0px 1px var(--color-cui-outline) inset,
+      1.5px 1.5px 0px 0px color-mix(in oklab, var(--cui-surface-white) 80%, transparent) inset;
+  }
+}
+
+/* COMMON */
+.light,
+.dark,
+[class*="cui-color-"] {
+  --color-cui-bg: var(--cui-bg);
+  --color-cui-primary: var(--cui-primary);
+  --color-cui-on-primary: var(--cui-on-primary);
+  --color-cui-surface-white: var(--cui-surface-white);
+  --color-cui-surface-black: var(--cui-surface-black);
+  --color-cui-surface-hover: var(--cui-surface-hover);
+  --color-cui-surface-hover-fill: var(--cui-surface-hover-fill);
+  --color-cui-surface-pressed: var(--cui-surface-pressed);
+  --color-background-outline: var(--cui-bg-outline);
+}
+
+/* LEVELS */
+[class*="cui-surface-level-"],
+[class*="cui-color-"] {
+  --cui-surface-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * var(--cui-surface-multiplier, 0)),
+    var(--cui-surface) 100%
+  );
+  --cui-surface-prev-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * calc(var(--cui-surface-multiplier, 0) - 1)),
+    var(--cui-surface) 100%
+  );
+  --cui-surface-minus-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * calc(var(--cui-surface-multiplier, 0) - 0.5)),
+    var(--cui-surface) 100%
+  );
+  --cui-surface-plus-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * calc(var(--cui-surface-multiplier, 0) + 0.5)),
+    var(--cui-surface) 100%
+  );
+  --cui-surface-next-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * calc(var(--cui-surface-multiplier, 0) + 1)),
+    var(--cui-surface) 100%
+  );
+  --cui-surface-cut-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * var(--cui-surface-multiplier, 0)),
+    var(--cui-surface-cut) var(--cui-surface-original-mix, 100%)
+  );
+
+  --cui-fg-leveled: var(--cui-fg);
+  --cui-fg-soft-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * var(--cui-surface-multiplier, 0)),
+    var(--cui-fg-soft) var(--cui-surface-original-mix, 100%)
+  );
+  --cui-fg-softer-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * var(--cui-surface-multiplier, 0)),
+    var(--cui-fg-softer) var(--cui-surface-original-mix, 100%)
+  );
+  --cui-fg-softest-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * var(--cui-surface-multiplier, 0)),
+    var(--cui-fg-softest) var(--cui-surface-original-mix, 100%)
+  );
+  --cui-outline-leveled: color-mix(
+    in oklab,
+    var(--cui-surface-mix-color)
+      calc(var(--cui-surface-mix-amount) * var(--cui-surface-multiplier, 0)),
+    var(--cui-outline)
+  );
+
+  --color-cui-surface: var(--cui-surface-leveled);
+  --color-cui-surface-prev: var(--cui-surface-prev-leveled);
+  --color-cui-surface-minus: var(--cui-surface-minus-leveled);
+  --color-cui-surface-plus: var(--cui-surface-plus-leveled);
+  --color-cui-surface-next: var(--cui-surface-next-leveled);
+  --color-cui-surface-cut: var(--cui-surface-cut-leveled);
+  --color-cui-outline: var(--cui-outline-leveled);
+  --color-cui-fg: var(--cui-fg-leveled);
+  --color-cui-fg-soft: var(--cui-fg-soft-leveled);
+  --color-cui-fg-softer: var(--cui-fg-softer-leveled);
+  --color-cui-fg-softest: var(--cui-fg-softest-leveled);
+  --color-cui-surface-highlight: color-mix(
+    in oklab,
+    var(--color-cui-surface-white) var(--highlight-white-mix, 3%),
+    var(--color-cui-surface) var(--highlight-original-mix, 100%)
+  );
+}
+.cui-surface-level-1,
+.cui-surface-level-1[class*="cui-color-"] {
+  --cui-surface-multiplier: 0;
+}
+.cui-surface-level-2,
+.cui-surface-level-2[class*="cui-color-"] {
+  --cui-surface-multiplier: 1;
+}
+.cui-surface-level-3,
+.cui-surface-level-3[class*="cui-color-"] {
+  --cui-surface-multiplier: 2;
+}
+.cui-surface-level-4,
+.cui-surface-level-4[class*="cui-color-"] {
+  --cui-surface-multiplier: 3;
+}
+.cui-surface-level-5,
+.cui-surface-level-5[class*="cui-color-"] {
+  --cui-surface-multiplier: 4;
+}

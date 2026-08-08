@@ -1,13 +1,11 @@
-@layer cui.tokens, cui.motion, cui.components, cui.utilities;
-
 @source "../";
 
-@custom-variant cui-light {
-  &:where(.cui-theme[data-cui-theme="light"], .cui-theme[data-cui-theme="light"] *) {
-    @slot;
-  }
-}
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
 
+/* Applies to direct children of a hovered surface that is not "self-pressed".
+   Direct-child `>` keeps nested surfaces isolated from ancestor state.
+   Guarded by `(hover: hover)` so the state doesn't stick on touch devices. */
 @custom-variant cui-surface-hover {
   @media (hover: hover) {
     &:where(.cui-hoverable:hover:not(.cui-clickable:active:not(:has(.cui-clickable:active))) > *) {
@@ -16,18 +14,15 @@
   }
 }
 
-@custom-variant cui-surface-press {
-  &:where(.cui-clickable:active:not(:has(.cui-clickable:active)) > *) {
-    @slot;
-  }
-}
+/* Applies to direct children of a "self-pressed" surface — :active and not
+   wrapping another active clickable, i.e. the deepest pressed surface. */
+@custom-variant cui-surface-press (&:where(.cui-clickable:active:not(:has(.cui-clickable:active)) > *));
 
-@import "./base.css";
-@import "./tokens.css";
-@import "./motion.css";
+@import "./colors.css";
+@import "./radius.css";
+@import "./spacing.css";
 @import "./safe-areas.css";
-@import "./surfaces.css";
-@import "./controls.css";
-@import "./forms.css";
-@import "./overlays.css";
-@import "./select.css";
+@import "./spinner.css";
+@import "./slider.css";
+@import "./input.css";
+@import "./font-size.css";
