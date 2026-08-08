@@ -4,8 +4,15 @@ import type { StorageGraphPosition, StorageGraphRelationship } from "@/types/sto
 
 interface StorageGraphElkNode {
   id: string;
+  name: string;
   width: number;
   height: number;
+}
+
+export interface StorageGraphNamingFamily {
+  key: string;
+  anchorId: string;
+  memberIds: string[];
 }
 
 export interface StorageGraphElkLayoutResult {
@@ -28,9 +35,79 @@ function pointsFromEdge(edge: ElkExtendedEdge): ElkPoint[] {
   return section ? [section.startPoint, ...(section.bendPoints ?? []), section.endPoint] : [];
 }
 
+export function buildStorageGraphNamingFamilies(
+  nodes: StorageGraphElkNode[],
+  relationships: StorageGraphRelationship[],
+): StorageGraphNamingFamily[] {
+  const degree = new Map(nodes.map((node) => [node.id, 0]));
+  for (const relationship of relationships) {
+    degree.set(relationship.source, (degree.get(relationship.source) ?? 0) + 1);
+    degree.set(relationship.target, (degree.get(relationship.target) ?? 0) + 1);
+  }
+  const tokenized = nodes.map((node) => ({
+    node,
+    tokens: node.name.toLowerCase().split("_").filter(Boolean),
+  }));
+  const firstTokenGroups = new Map<string, typeof tokenized>();
+  for (const item of tokenized) {
+    const prefix = item.tokens[0];
+    if (!prefix) {
+      continue;
+    }
+    const group = firstTokenGroups.get(prefix) ?? [];
+    group.push(item);
+    firstTokenGroups.set(prefix, group);
+  }
+  const candidateGroups: Array<{ key: string; items: typeof tokenized }> = [];
+  for (const [prefix, items] of firstTokenGroups) {
+    if (items.length >= 3 && items.length <= 12) {
+      candidateGroups.push({ key: prefix, items });
+      continue;
+    }
+    if (items.length <= 12) {
+      continue;
+    }
+    const secondTokenGroups = new Map<string, typeof tokenized>();
+    for (const item of items) {
+      const secondToken = item.tokens[1];
+      if (!secondToken) {
+        continue;
+      }
+      const key = `${prefix}_${secondToken}`;
+      const group = secondTokenGroups.get(key) ?? [];
+      group.push(item);
+      secondTokenGroups.set(key, group);
+    }
+    for (const [key, secondItems] of secondTokenGroups) {
+      if (secondItems.length >= 3 && secondItems.length <= 12) {
+        candidateGroups.push({ key, items: secondItems });
+      }
+    }
+  }
+
+  return candidateGroups.map(({ key, items }) => {
+    const anchor = [...items].sort((left, right) => {
+      const leftExact = left.node.name.toLowerCase() === key ? 1 : 0;
+      const rightExact = right.node.name.toLowerCase() === key ? 1 : 0;
+      return (
+        rightExact - leftExact ||
+        (degree.get(right.node.id) ?? 0) - (degree.get(left.node.id) ?? 0) ||
+        left.tokens.length - right.tokens.length ||
+        left.node.name.localeCompare(right.node.name)
+      );
+    })[0];
+    return {
+      key,
+      anchorId: anchor?.node.id ?? items[0]?.node.id ?? "",
+      memberIds: items.map((item) => item.node.id),
+    };
+  });
+}
+
 export async function layoutStorageGraphWithElk(
   nodes: StorageGraphElkNode[],
   relationships: StorageGraphRelationship[],
+  useNamingFamilies = false,
 ): Promise<StorageGraphElkLayoutResult> {
   const nodeIds = new Set(nodes.map((node) => node.id));
   const layoutRelationships = relationships.filter(
@@ -39,24 +116,43 @@ export async function layoutStorageGraphWithElk(
       nodeIds.has(relationship.target) &&
       relationship.source !== relationship.target,
   );
+  const familyEdges = useNamingFamilies
+    ? buildStorageGraphNamingFamilies(nodes, layoutRelationships).flatMap((family) =>
+        family.memberIds
+          .filter((memberId) => memberId !== family.anchorId)
+          .map((memberId) => ({
+            id: `family:${family.key}:${family.anchorId}:${memberId}`,
+            source: family.anchorId,
+            target: memberId,
+          })),
+      )
+    : [];
+  const layoutEdges = [
+    ...layoutRelationships.map((relationship) => ({
+      id: relationship.id,
+      source: relationship.source,
+      target: relationship.target,
+    })),
+    ...familyEdges,
+  ];
   const portsByNodeId = new Map<string, ElkPort[]>();
-  for (const relationship of layoutRelationships) {
-    const sourcePorts = portsByNodeId.get(relationship.source) ?? [];
+  for (const edge of layoutEdges) {
+    const sourcePorts = portsByNodeId.get(edge.source) ?? [];
     sourcePorts.push({
-      id: sourcePortId(relationship.id),
+      id: sourcePortId(edge.id),
       width: 1,
       height: 1,
       layoutOptions: { "elk.port.side": "EAST" },
     });
-    portsByNodeId.set(relationship.source, sourcePorts);
-    const targetPorts = portsByNodeId.get(relationship.target) ?? [];
+    portsByNodeId.set(edge.source, sourcePorts);
+    const targetPorts = portsByNodeId.get(edge.target) ?? [];
     targetPorts.push({
-      id: targetPortId(relationship.id),
+      id: targetPortId(edge.id),
       width: 1,
       height: 1,
       layoutOptions: { "elk.port.side": "WEST" },
     });
-    portsByNodeId.set(relationship.target, targetPorts);
+    portsByNodeId.set(edge.target, targetPorts);
   }
 
   const graph: ElkNode = {
@@ -85,10 +181,13 @@ export async function layoutStorageGraphWithElk(
       ports: portsByNodeId.get(node.id) ?? [],
       layoutOptions: { "elk.portConstraints": "FIXED_SIDE" },
     })),
-    edges: layoutRelationships.map((relationship) => ({
-      id: relationship.id,
-      sources: [sourcePortId(relationship.id)],
-      targets: [targetPortId(relationship.id)],
+    edges: layoutEdges.map((edge) => ({
+      id: edge.id,
+      sources: [sourcePortId(edge.id)],
+      targets: [targetPortId(edge.id)],
+      layoutOptions: edge.id.startsWith("family:")
+        ? { "elk.layered.priority.shortness": "20" }
+        : undefined,
     })),
   };
   const result = await elk.layout(graph);

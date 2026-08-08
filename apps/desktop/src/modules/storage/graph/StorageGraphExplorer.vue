@@ -724,8 +724,13 @@ async function handleAutoLayout() {
   const toastId = toast.loading("Calculating clean graph layout...");
   try {
     const layout = await layoutStorageGraphWithElk(
-      currentNodes.map((node) => ({ id: node.id, ...getNodeSize(node) })),
+      currentNodes.map((node) => ({
+        id: node.id,
+        name: node.data.nodeKind === "group-frame" ? node.id : node.data.title,
+        ...getNodeSize(node),
+      })),
       visibleRelationships.value,
+      graphStrategy.value === "inferred",
     );
     history.commit();
     routedEdgePoints.value = layout.routes;
