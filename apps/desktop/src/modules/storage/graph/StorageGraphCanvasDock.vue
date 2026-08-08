@@ -69,7 +69,7 @@ const tools = [
               <LayoutGrid :size="16" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="top">Auto layout</TooltipContent>
+          <TooltipContent side="top">Rebuild layout and replace saved positions</TooltipContent>
         </Tooltip>
 
         <Tooltip>

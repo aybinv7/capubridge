@@ -35,6 +35,7 @@ import StorageGraphEntityNode from "@/modules/storage/graph/StorageGraphEntityNo
 import StorageGraphGroupFrameNode from "@/modules/storage/graph/StorageGraphGroupFrameNode.vue";
 import StorageGraphInspector from "@/modules/storage/graph/StorageGraphInspector.vue";
 import StorageGraphNoteNode from "@/modules/storage/graph/StorageGraphNoteNode.vue";
+import StorageGraphRoutedEdge from "@/modules/storage/graph/StorageGraphRoutedEdge.vue";
 import StorageGraphSelectionToolbar from "@/modules/storage/graph/StorageGraphSelectionToolbar.vue";
 import {
   applySelectionAction,
@@ -43,6 +44,7 @@ import {
   type StorageGraphSelectionAction,
 } from "@/modules/storage/graph/storageGraphCanvas.utils";
 import StorageGraphViewportToolbar from "@/modules/storage/graph/StorageGraphViewportToolbar.vue";
+import { layoutStorageGraphWithElk } from "@/modules/storage/graph/storageGraphElkLayout";
 import { useStorageGraphData } from "@/modules/storage/graph/useStorageGraphData";
 import { useStorageGraphHistory } from "@/modules/storage/graph/useStorageGraphHistory";
 import { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
@@ -55,6 +57,7 @@ import type {
 import { useRouter } from "vue-router";
 
 const GROUP_FRAME_PADDING = 26;
+const CONTAINER_FRAME_PADDING = 38;
 
 const router = useRouter();
 const graphStore = useStorageGraphStore();
@@ -64,7 +67,9 @@ const {
   notes,
   persistedPositions,
   relationships,
+  schemaRelationships,
   autoLayoutPositions,
+  schemaLayoutPositions,
   selectedOrigin,
   availableOrigins,
   setSelectedOrigin,
@@ -78,11 +83,15 @@ const nodeTypes = {
   "group-frame": markRaw(StorageGraphGroupFrameNode),
   note: markRaw(StorageGraphNoteNode),
 };
+const edgeTypes = {
+  routed: markRaw(StorageGraphRoutedEdge),
+};
 
 const { fitView, getViewport, zoomIn, zoomOut } = useVueFlow();
 
 const search = ref("");
 const sourceFilter = ref<"all" | "indexeddb" | "localforage" | "sqlite">("all");
+const graphStrategy = ref<"inferred" | "schema">("inferred");
 const showHeuristicEdges = ref(true);
 const canvasMode = ref<StorageGraphCanvasMode>("pan");
 const nodes = shallowRef<Node<StorageGraphNodeData>[]>([]);
@@ -91,6 +100,7 @@ const selectedNodeId = ref("");
 const selectedEdgeId = ref("");
 const fittedScopeKey = ref("");
 const zoomPercent = ref(100);
+const routedEdgePoints = ref<Record<string, Array<{ x: number; y: number }>>>({});
 const selectedOriginModel = computed({
   get: () => selectedOrigin.value,
   set: (value: string) => setSelectedOrigin(value),
@@ -103,6 +113,20 @@ const sourceFilterModel = computed({
     }
   },
 });
+const graphStrategyModel = computed({
+  get: () => graphStrategy.value,
+  set: (value: string) => {
+    if (value === "inferred" || value === "schema") {
+      graphStrategy.value = value;
+    }
+  },
+});
+const activeRelationships = computed(() =>
+  graphStrategy.value === "schema" ? schemaRelationships.value : relationships.value,
+);
+const activeAutoLayoutPositions = computed(() =>
+  graphStrategy.value === "schema" ? schemaLayoutPositions.value : autoLayoutPositions.value,
+);
 
 function isGroupFrameNode(node: Node<StorageGraphNodeData>) {
   return node.type === "group-frame" || node.data.nodeKind === "group-frame";
@@ -162,7 +186,7 @@ const visibleNodeIds = computed(() => {
 });
 
 const visibleRelationships = computed(() =>
-  relationships.value.filter((relationship) => {
+  activeRelationships.value.filter((relationship) => {
     if (!showHeuristicEdges.value && relationship.kind === "field-match") {
       return false;
     }
@@ -205,11 +229,12 @@ function buildNodes() {
     id: entity.id,
     type: "entity",
     position: persistedPositions.value[entity.id] ??
-      autoLayoutPositions.value[entity.id] ?? { x: 0, y: 0 },
+      activeAutoLayoutPositions.value[entity.id] ?? { x: 0, y: 0 },
     data: {
       nodeKind: "entity",
       entityKind: entity.entityKind,
       storageKind: entity.storageKind,
+      groupKey: entity.groupKey,
       title: entity.title,
       subtitle: entity.subtitle,
       containerLabel: entity.containerLabel,
@@ -232,7 +257,7 @@ function buildNodes() {
     type: "note",
     position: persistedPositions.value[note.id] ??
       note.position ??
-      autoLayoutPositions.value[note.id] ?? { x: 0, y: 0 },
+      activeAutoLayoutPositions.value[note.id] ?? { x: 0, y: 0 },
     data: {
       nodeKind: "note",
       title: note.title,
@@ -293,6 +318,7 @@ function buildGroupFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
           title: `Group · ${members.length}`,
           width: maxX - minX + GROUP_FRAME_PADDING * 2,
           height: maxY - minY + GROUP_FRAME_PADDING * 2,
+          variant: "manual",
         },
         draggable: false,
         selectable: false,
@@ -303,8 +329,151 @@ function buildGroupFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
   });
 }
 
+function buildContainerFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
+  const containers = new Map<string, Node<StorageGraphNodeData>[]>();
+
+  for (const node of baseNodes) {
+    if (node.data.nodeKind !== "entity") {
+      continue;
+    }
+    const members = containers.get(node.data.groupKey) ?? [];
+    members.push(node);
+    containers.set(node.data.groupKey, members);
+  }
+
+  return Array.from(containers.entries()).map<Node<StorageGraphNodeData>>(([groupKey, members]) => {
+    const firstMember = members[0];
+    const minX = Math.min(...members.map((node) => node.position.x));
+    const minY = Math.min(...members.map((node) => node.position.y));
+    const maxX = Math.max(...members.map((node) => node.position.x + getNodeSize(node).width));
+    const maxY = Math.max(...members.map((node) => node.position.y + getNodeSize(node).height));
+    const title =
+      firstMember?.data.nodeKind === "entity"
+        ? firstMember.data.storageKind === "sqlite"
+          ? `SQLite database · ${firstMember.data.subtitle}`
+          : firstMember.data.storageKind === "indexeddb"
+            ? `IndexedDB · ${firstMember.data.subtitle}`
+            : `LocalForage · ${firstMember.data.containerLabel}`
+        : "Storage container";
+
+    return {
+      id: `container-frame:${groupKey}`,
+      type: "group-frame",
+      position: {
+        x: minX - CONTAINER_FRAME_PADDING,
+        y: minY - CONTAINER_FRAME_PADDING,
+      },
+      data: {
+        nodeKind: "group-frame",
+        title,
+        width: maxX - minX + CONTAINER_FRAME_PADDING * 2,
+        height: maxY - minY + CONTAINER_FRAME_PADDING * 2,
+        variant: "container",
+      },
+      draggable: false,
+      selectable: false,
+      deletable: false,
+      zIndex: -2,
+    };
+  });
+}
+
+function buildRelationshipFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
+  const sqliteNodes = baseNodes.filter(
+    (node) => node.data.nodeKind === "entity" && node.data.storageKind === "sqlite",
+  );
+  const nodeById = new Map(sqliteNodes.map((node) => [node.id, node]));
+  const adjacency = new Map(sqliteNodes.map((node) => [node.id, new Set<string>()]));
+
+  for (const relationship of visibleRelationships.value) {
+    if (
+      (relationship.kind !== "foreign-key" && relationship.kind !== "logical-reference") ||
+      !nodeById.has(relationship.source) ||
+      !nodeById.has(relationship.target)
+    ) {
+      continue;
+    }
+    adjacency.get(relationship.source)?.add(relationship.target);
+    adjacency.get(relationship.target)?.add(relationship.source);
+  }
+
+  const visited = new Set<string>();
+  const frames: Node<StorageGraphNodeData>[] = [];
+
+  for (const node of sqliteNodes) {
+    if (visited.has(node.id) || (adjacency.get(node.id)?.size ?? 0) === 0) {
+      continue;
+    }
+
+    const memberIds: string[] = [];
+    const pending = [node.id];
+    visited.add(node.id);
+
+    while (pending.length > 0) {
+      const currentId = pending.shift();
+      if (!currentId) {
+        continue;
+      }
+      memberIds.push(currentId);
+      for (const neighborId of adjacency.get(currentId) ?? []) {
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          pending.push(neighborId);
+        }
+      }
+    }
+
+    const members = memberIds
+      .map((memberId) => nodeById.get(memberId))
+      .filter((member): member is Node<StorageGraphNodeData> => Boolean(member));
+    if (members.length < 2) {
+      continue;
+    }
+
+    const anchor = [...members].sort(
+      (left, right) => (adjacency.get(right.id)?.size ?? 0) - (adjacency.get(left.id)?.size ?? 0),
+    )[0];
+    const anchorTitle = anchor?.data.nodeKind === "entity" ? anchor.data.title : "related tables";
+    const minX = Math.min(...members.map((member) => member.position.x));
+    const minY = Math.min(...members.map((member) => member.position.y));
+    const maxX = Math.max(
+      ...members.map((member) => member.position.x + getNodeSize(member).width),
+    );
+    const maxY = Math.max(
+      ...members.map((member) => member.position.y + getNodeSize(member).height),
+    );
+
+    frames.push({
+      id: `relationship-frame:${memberIds.sort().join(":")}`,
+      type: "group-frame",
+      position: {
+        x: minX - GROUP_FRAME_PADDING,
+        y: minY - GROUP_FRAME_PADDING,
+      },
+      data: {
+        nodeKind: "group-frame",
+        title: `${anchorTitle} relations · ${members.length} tables`,
+        width: maxX - minX + GROUP_FRAME_PADDING * 2,
+        height: maxY - minY + GROUP_FRAME_PADDING * 2,
+        variant: "relationship",
+      },
+      draggable: false,
+      selectable: false,
+      deletable: false,
+      zIndex: -1,
+    });
+  }
+
+  return frames;
+}
+
 function syncCanvasNodes(baseNodes = getInteractiveNodes(nodes.value)) {
-  nodes.value = [...baseNodes, ...buildGroupFrameNodes(baseNodes)];
+  nodes.value = [
+    ...baseNodes,
+    ...(graphStrategy.value === "schema" ? buildContainerFrameNodes(baseNodes) : []),
+    ...(graphStrategy.value === "schema" ? buildRelationshipFrameNodes(baseNodes) : []),
+    ...buildGroupFrameNodes(baseNodes),
+  ];
 }
 
 function buildEdges() {
@@ -313,7 +482,7 @@ function buildEdges() {
     source: relationship.source,
     target: relationship.target,
     label: relationship.label,
-    type: "smoothstep",
+    type: "routed",
     animated: relationship.kind === "manual",
     selectable: true,
     selected: relationship.id === selectedEdgeId.value,
@@ -322,10 +491,20 @@ function buildEdges() {
       type: MarkerType.ArrowClosed,
     },
     style:
-      relationship.kind === "foreign-key"
-        ? { stroke: "var(--color-success)", strokeWidth: 1.8 }
+      relationship.kind === "foreign-key" || relationship.kind === "logical-reference"
+        ? {
+            stroke:
+              relationship.kind === "foreign-key" ? "var(--color-success)" : "var(--color-info)",
+            strokeWidth: 2.2,
+            vectorEffect: "non-scaling-stroke",
+            strokeDasharray: relationship.kind === "logical-reference" ? "8 5" : undefined,
+          }
         : relationship.kind === "manual"
-          ? { stroke: "var(--color-primary)", strokeWidth: 1.8 }
+          ? {
+              stroke: "var(--color-primary)",
+              strokeWidth: 2.2,
+              vectorEffect: "non-scaling-stroke",
+            }
           : {
               stroke:
                 relationship.confidence === "high"
@@ -334,14 +513,18 @@ function buildEdges() {
                     ? "var(--color-warning)"
                     : "var(--color-border-active)",
               strokeDasharray: "6 4",
-              strokeWidth: 1.4,
+              strokeWidth: 1.8,
+              vectorEffect: "non-scaling-stroke",
             },
-    data: relationship,
+    data: {
+      ...relationship,
+      routePoints: routedEdgePoints.value[relationship.id],
+    },
   }));
 }
 
 function updateZoomPercent(zoom = getViewport().zoom) {
-  zoomPercent.value = Math.max(20, Math.round(zoom * 100));
+  zoomPercent.value = Math.max(1, Math.round(zoom * 100));
 }
 
 function persistNodePositions(currentNodes: Node<StorageGraphNodeData>[]) {
@@ -472,6 +655,8 @@ function handleEdgeClick(event: EdgeMouseEvent) {
 
 function handleNodeDragStart(_event: NodeDragEvent) {
   history.commit();
+  routedEdgePoints.value = {};
+  edges.value = buildEdges();
 }
 
 function handleNodeDragStop(_event: NodeDragEvent) {
@@ -527,20 +712,35 @@ function handleSelectionAction(action: StorageGraphSelectionAction) {
   }
 
   history.commit();
+  routedEdgePoints.value = {};
   const baseNodes = applySelectionAction(getInteractiveNodes(nodes.value), action);
   syncCanvasNodes(baseNodes);
   persistNodePositions(baseNodes);
+  edges.value = buildEdges();
 }
 
-function handleAutoLayout() {
-  history.commit();
-  const baseNodes = getInteractiveNodes(nodes.value).map((node) => ({
-    ...node,
-    position: autoLayoutPositions.value[node.id] ?? node.position,
-  }));
-  syncCanvasNodes(baseNodes);
-  persistNodePositions(baseNodes);
-  void fitCanvas(0.18, 220);
+async function handleAutoLayout() {
+  const currentNodes = getInteractiveNodes(nodes.value);
+  const toastId = toast.loading("Calculating clean graph layout...");
+  try {
+    const layout = await layoutStorageGraphWithElk(
+      currentNodes.map((node) => ({ id: node.id, ...getNodeSize(node) })),
+      visibleRelationships.value,
+    );
+    history.commit();
+    routedEdgePoints.value = layout.routes;
+    const baseNodes = currentNodes.map((node) => ({
+      ...node,
+      position: layout.positions[node.id] ?? node.position,
+    }));
+    syncCanvasNodes(baseNodes);
+    persistNodePositions(baseNodes);
+    edges.value = buildEdges();
+    await fitCanvas(0.12, 260);
+    toast.success("ELK layout applied. Use Undo to restore previous positions.", { id: toastId });
+  } catch (error) {
+    toast.error(`Failed to calculate graph layout: ${String(error)}`, { id: toastId });
+  }
 }
 
 function handleAddNote() {
@@ -548,7 +748,7 @@ function handleAddNote() {
   const note = graphStore.upsertNote(scopeKey.value, {
     note: "",
     title: "Note",
-    position: autoLayoutPositions.value[`note-${notes.value.length}`] ?? {
+    position: activeAutoLayoutPositions.value[`note-${notes.value.length}`] ?? {
       x: 1120,
       y: 40 + notes.value.length * 220,
     },
@@ -618,6 +818,8 @@ function handleUndo() {
     return;
   }
 
+  routedEdgePoints.value = {};
+  edges.value = buildEdges();
   clearSelection();
 }
 
@@ -626,6 +828,8 @@ function handleRedo() {
     return;
   }
 
+  routedEdgePoints.value = {};
+  edges.value = buildEdges();
   clearSelection();
 }
 
@@ -679,13 +883,15 @@ watch(
     notes,
     visibleRelationships,
     autoLayoutPositions,
+    schemaLayoutPositions,
+    graphStrategy,
     persistedPositions,
     persistedGroups,
     scopeKey,
   ],
   async () => {
     const baseNodes = buildNodes();
-    nodes.value = [...baseNodes, ...buildGroupFrameNodes(baseNodes)];
+    syncCanvasNodes(baseNodes);
     edges.value = buildEdges();
 
     await nextTick();
@@ -744,6 +950,16 @@ watch(
           </SelectContent>
         </Select>
 
+        <Select v-model:model-value="graphStrategyModel">
+          <SelectTrigger class="h-9 min-w-[11rem] rounded-xl border-border/30 bg-surface-2 text-xs">
+            <SelectValue placeholder="Graph strategy" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="inferred">Inferred graph</SelectItem>
+            <SelectItem value="schema">Schema graph</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Badge variant="outline">{{ entityCount }} nodes</Badge>
         <Badge variant="outline">{{ relationshipCount }} links</Badge>
       </div>
@@ -788,7 +1004,7 @@ watch(
             :apply-default="false"
             :fit-view-on-init="false"
             :zoom-on-double-click="false"
-            :min-zoom="0.2"
+            :min-zoom="0.01"
             :max-zoom="2"
             :only-render-visible-elements="true"
             :pan-on-drag="canvasMode === 'pan' ? true : [1]"
@@ -799,6 +1015,7 @@ watch(
             :elements-selectable="true"
             :nodes-connectable="true"
             :node-types="nodeTypes"
+            :edge-types="edgeTypes"
             @nodes-change="onNodesChange"
             @edges-change="onEdgesChange"
             @connect="onConnect"

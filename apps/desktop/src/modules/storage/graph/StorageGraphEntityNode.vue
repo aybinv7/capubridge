@@ -31,7 +31,12 @@ const visibleFields = computed(() => props.data.fields.slice(0, 8));
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="truncate text-[13px] font-semibold text-foreground">{{ title }}</p>
-          <p class="truncate text-[11px] text-muted-foreground/60">{{ data.subtitle }}</p>
+          <p
+            v-if="data.storageKind !== 'sqlite'"
+            class="truncate text-[11px] text-muted-foreground/60"
+          >
+            {{ data.subtitle }}
+          </p>
         </div>
         <Badge variant="outline" :class="accentClass">
           {{ data.storageKind }}
@@ -39,9 +44,11 @@ const visibleFields = computed(() => props.data.fields.slice(0, 8));
       </div>
 
       <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground/50">
-        <span class="rounded-full bg-surface-2 px-2 py-0.5 font-mono">{{
-          data.containerLabel
-        }}</span>
+        <span
+          v-if="data.storageKind !== 'sqlite'"
+          class="rounded-full bg-surface-2 px-2 py-0.5 font-mono"
+          >{{ data.containerLabel }}</span
+        >
         <span v-if="data.statsLabel" class="rounded-full bg-surface-2 px-2 py-0.5 font-mono">
           {{ data.statsLabel }}
         </span>

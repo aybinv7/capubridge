@@ -10,7 +10,7 @@ export type StorageGraphFieldKind =
   | "sample-field"
   | "entry-key";
 
-export type StorageGraphEdgeKind = "foreign-key" | "field-match" | "manual";
+export type StorageGraphEdgeKind = "foreign-key" | "logical-reference" | "field-match" | "manual";
 
 export type StorageGraphConfidence = "high" | "medium" | "low";
 
@@ -22,6 +22,7 @@ export interface StorageGraphPosition {
 export interface StorageGraphFieldReference {
   targetNodeId: string;
   targetFieldName?: string;
+  relationshipKind?: "foreign-key" | "logical-reference";
 }
 
 export interface StorageGraphField {
@@ -51,6 +52,7 @@ export interface StorageGraphEntityNodeData {
   nodeKind: "entity";
   entityKind: StorageGraphEntityKind;
   storageKind: StorageGraphStorageKind;
+  groupKey: string;
   title: string;
   subtitle: string;
   containerLabel: string;
@@ -73,6 +75,7 @@ export interface StorageGraphGroupFrameNodeData {
   title: string;
   width: number;
   height: number;
+  variant?: "container" | "relationship" | "inferred" | "manual";
 }
 
 export type StorageGraphNodeData =
@@ -105,6 +108,7 @@ export interface StorageGraphRelationship {
   sourceFieldName?: string;
   targetFieldName?: string;
   userDefined?: boolean;
+  routePoints?: StorageGraphPosition[];
 }
 
 export interface StorageGraphManualEdgeRecord {

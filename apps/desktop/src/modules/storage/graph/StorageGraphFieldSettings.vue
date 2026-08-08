@@ -7,7 +7,9 @@ defineProps<{
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-2xl border border-border/25 bg-surface-0">
+  <div
+    class="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/25 bg-surface-0"
+  >
     <div
       class="grid grid-cols-[minmax(0,1fr)_4.5rem_2.5rem_2.5rem_2.5rem] items-center gap-1 border-b border-border/20 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground/40"
     >
@@ -22,7 +24,7 @@ defineProps<{
       No fields discovered.
     </div>
 
-    <div v-else>
+    <div v-else class="min-h-0 flex-1 overflow-y-auto">
       <div
         v-for="field in fields"
         :key="field.id"
@@ -59,7 +61,10 @@ defineProps<{
         <div class="flex justify-center">
           <span
             v-if="field.isForeignKey || field.references"
-            class="h-2.5 w-2.5 rounded-full bg-success"
+            class="h-2.5 w-2.5 rounded-full"
+            :class="
+              field.references?.relationshipKind === 'logical-reference' ? 'bg-info' : 'bg-success'
+            "
           />
         </div>
       </div>

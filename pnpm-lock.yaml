@@ -69,6 +69,9 @@ catalogs:
     effect:
       specifier: ^3.21.1
       version: 3.21.1
+    elkjs:
+      specifier: 0.10.2
+      version: 0.10.2
     geist:
       specifier: ^1.7.0
       version: 1.7.0
@@ -222,6 +225,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 3.21.1
+      elkjs:
+        specifier: 'catalog:'
+        version: 0.10.2
       geist:
         specifier: 'catalog:'
         version: 1.7.0(next@16.2.2(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))

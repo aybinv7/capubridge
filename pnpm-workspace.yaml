@@ -13,6 +13,7 @@ catalog:
   "@tauri-apps/cli": ^2.10.1
   "@tauri-apps/plugin-dialog": ^2.7.0
   "@types/node": ^24
+  "@types/sql.js": ^1.4.9
   "@unocss/preset-wind": ^66.6.7
   "@unocss/transformer-directives": ^66.6.7
   "@unocss/transformer-variant-group": ^66.6.7
@@ -24,6 +25,7 @@ catalog:
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
   effect: ^3.21.1
+  elkjs: 0.10.2
   geist: ^1.7.0
   gsap: ^3.15.0
   happy-dom: ^20.9.0
@@ -36,8 +38,7 @@ catalog:
   reka-ui: 2.9.3
   rrweb: 2.0.0-alpha.4
   shiki: ^3.23.0
-  "sql.js": ^1.13.0
-  "@types/sql.js": ^1.4.9
+  sql.js: ^1.13.0
   tailwind-merge: ^3.5.0
   tailwindcss: 4.2.2
   tsx: ^4.22.2

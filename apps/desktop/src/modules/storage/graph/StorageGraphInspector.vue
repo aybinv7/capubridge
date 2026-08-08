@@ -3,6 +3,13 @@ import { computed, ref, watch } from "vue";
 import { ArrowRightLeft, Database, Link2, StickyNote, TableProperties } from "lucide-vue-next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import StorageGraphFieldSettings from "@/modules/storage/graph/StorageGraphFieldSettings.vue";
@@ -37,6 +44,7 @@ const noteTitle = ref("");
 const noteBody = ref("");
 const noteAccent = ref("#e8765a");
 const edgeLabel = ref("");
+const isMetadataDialogOpen = ref(false);
 
 const selectedNodeData = computed(() => props.selectedNode?.data ?? null);
 const isNoteNode = computed(() => selectedNodeData.value?.nodeKind === "note");
@@ -99,10 +107,13 @@ function saveNode() {
 
 <template>
   <div
-    class="flex h-fit flex-col bg-[linear-gradient(180deg,var(--color-surface-1),var(--color-surface-0))]"
+    class="flex h-full min-h-0 flex-col overflow-hidden bg-[linear-gradient(180deg,var(--color-surface-1),var(--color-surface-0))]"
   >
     <div class="min-h-0 flex-1 overflow-auto p-3">
-      <div v-if="selectedNodeData" class="space-y-4">
+      <div
+        v-if="selectedNodeData"
+        :class="isNoteNode ? 'space-y-4' : 'flex h-full min-h-0 flex-col gap-4'"
+      >
         <div class="">
           <div class="">
             <div class="flex items-start justify-between gap-3">
@@ -134,33 +145,6 @@ function saveNode() {
                 class="mt-1 h-5 w-5 rounded-full border border-border/20"
                 :style="{ backgroundColor: selectedNodeData.accent }"
               />
-            </div>
-          </div>
-
-          <div v-if="selectedNodeData.nodeKind === 'entity'" class="grid grid-cols-3 gap-2">
-            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
-              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
-                Fields
-              </div>
-              <div class="pt-2 text-lg font-semibold text-foreground">
-                {{ selectedNodeData.fields.length }}
-              </div>
-            </div>
-            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
-              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
-                Rows
-              </div>
-              <div class="pt-2 text-sm font-semibold text-foreground">
-                {{ selectedNodeData.statsLabel || "n/a" }}
-              </div>
-            </div>
-            <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
-              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
-                Changes
-              </div>
-              <div class="pt-2 text-lg font-semibold text-foreground">
-                {{ selectedNodeData.changeCount }}
-              </div>
             </div>
           </div>
         </div>
@@ -209,30 +193,7 @@ function saveNode() {
         </template>
 
         <template v-else>
-          <div class="space-y-2">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
-              >Alias</label
-            >
-            <Input
-              v-model="annotationLabel"
-              class="h-10 rounded-xl text-sm"
-              placeholder="Optional display alias"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
-              >Attached note</label
-            >
-            <Textarea
-              v-model="annotationNote"
-              class="min-h-28 resize-none rounded-2xl text-sm"
-              placeholder="Meaning, caveats, migration notes"
-            />
-          </div>
-
           <div class="flex items-center gap-2">
-            <Button size="sm" class="h-9 text-xs" @click="saveNode">Save</Button>
             <Button
               variant="outline"
               size="sm"
@@ -245,9 +206,17 @@ function saveNode() {
               <TableProperties :size="13" />
               Open data
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-9 text-xs"
+              @click="isMetadataDialogOpen = true"
+            >
+              Edit metadata
+            </Button>
           </div>
 
-          <div class="space-y-2">
+          <div class="flex min-h-0 flex-1 flex-col gap-2">
             <div class="flex items-center justify-between">
               <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
                 >Field map</label
@@ -258,7 +227,7 @@ function saveNode() {
               </Badge>
             </div>
 
-            <StorageGraphFieldSettings :fields="selectedNodeData.fields" />
+            <StorageGraphFieldSettings class="min-h-0 flex-1" :fields="selectedNodeData.fields" />
           </div>
         </template>
       </div>
@@ -348,5 +317,45 @@ function saveNode() {
         </div>
       </div>
     </div>
+
+    <Dialog v-model:open="isMetadataDialogOpen">
+      <DialogContent class="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit table metadata</DialogTitle>
+        </DialogHeader>
+        <div class="flex flex-col gap-4 py-2">
+          <div class="flex flex-col gap-2">
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+              >Alias</label
+            >
+            <Input
+              v-model="annotationLabel"
+              class="h-10 rounded-xl text-sm"
+              placeholder="Optional display alias"
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+              >Attached note</label
+            >
+            <Textarea
+              v-model="annotationNote"
+              class="min-h-32 resize-none rounded-2xl text-sm"
+              placeholder="Meaning, caveats, migration notes"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="isMetadataDialogOpen = false">Cancel</Button>
+          <Button
+            @click="
+              saveNode();
+              isMetadataDialogOpen = false;
+            "
+            >Save metadata</Button
+          >
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
