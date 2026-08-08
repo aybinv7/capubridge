@@ -32,6 +32,7 @@ import type {
 } from "@/types/storageChanges.types";
 import type { SqliteChangeSummary, SqliteRecordChange } from "@/types/sqliteChanges.types";
 import type { SqliteColumnInfo } from "@/types/sqlite.types";
+import { orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
 import type { IDBRecord } from "@capubridge/cdp-protocol";
 
 const props = defineProps<{
@@ -557,7 +558,7 @@ function sqliteRecordChange(
 }
 
 function sqliteRowKey(record: Record<string, unknown>): string {
-  const pk = sqliteColumnInfo.value.filter((column) => column.pk).sort((a, b) => a.cid - b.cid);
+  const pk = orderKeyColumns(sqliteColumnInfo.value);
   if (pk.length > 0) {
     return JSON.stringify(pk.map((column) => record[column.name] ?? null));
   }

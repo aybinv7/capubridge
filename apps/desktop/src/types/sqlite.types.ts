@@ -24,7 +24,12 @@ export interface SqliteColumnInfo {
   colType: string;
   notnull: boolean;
   defaultValue: string | null;
-  pk: boolean;
+  /**
+   * 1-based position of this column within the primary key, or 0 when the
+   * column is not part of it. Composite keys rely on this ordinal, so compare
+   * with `> 0` rather than treating it as a flag.
+   */
+  pk: number;
 }
 
 export interface SqliteIndexInfo {

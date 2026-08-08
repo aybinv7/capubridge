@@ -37,7 +37,10 @@ pub struct SqliteColumnInfo {
     pub col_type: String,
     pub notnull: bool,
     pub default_value: Option<String>,
-    pub pk: bool,
+    /// 1-based position of this column within the primary key, or 0 when the
+    /// column is not part of it. Kept as the ordinal rather than a flag so
+    /// composite keys can be rebuilt in their declared order.
+    pub pk: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -74,6 +77,11 @@ pub struct SqliteQueryResult {
 
 // ─── DB Cache ───────────────────────────────────────────────────────────────────
 static DB_CACHE: LazyLock<Mutex<HashMap<String, PathBuf>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Per-package answer to "can we exec sqlite3 on the device?", so the probe
+/// runs once rather than before every PRAGMA.
+static SQLITE3_AVAILABLE: LazyLock<Mutex<HashMap<String, bool>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub const LOCAL_SERIAL: &str = "__local__";
@@ -123,7 +131,7 @@ fn local_table_columns(conn: &Connection, table: &str) -> Result<Vec<SqliteColum
                 col_type: row.get::<_, String>(2).unwrap_or_default(),
                 notnull: row.get::<_, i64>(3).unwrap_or(0) == 1,
                 default_value: row.get::<_, Option<String>>(4).unwrap_or(None),
-                pk: row.get::<_, i64>(5).unwrap_or(0) > 0,
+                pk: row.get::<_, i64>(5).unwrap_or(0),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -227,10 +235,53 @@ fn run_sqlite3_on_device(
     let _ = device.shell_command(&cmd, Some(&mut stdout), Some(&mut stderr));
 
     let err = String::from_utf8_lossy(&stderr).to_string();
+    let out = String::from_utf8_lossy(&stdout).to_string();
+
     if !err.trim().is_empty() && err.contains("Error") {
         return Err(err.trim().to_string());
     }
-    Ok(String::from_utf8_lossy(&stdout).to_string())
+
+    // Most Android builds ship no `sqlite3` binary, and `run-as` can't exec one
+    // even when it is present. That surfaces as "not found" / "Permission
+    // denied" on stderr — which does NOT contain "Error", so it used to slip
+    // through as Ok("") and silently produce zero columns. Treat any empty
+    // output with a non-empty stderr as a failure so callers can fall back.
+    if out.trim().is_empty() && !err.trim().is_empty() {
+        return Err(err.trim().to_string());
+    }
+
+    Ok(out)
+}
+
+/// Whether the on-device `sqlite3` binary can actually be used for `package`.
+/// Cached per package: the answer can't change while the app is installed, and
+/// probing costs an adb round-trip.
+fn device_has_sqlite3(
+    device: &mut adb_client::server_device::ADBServerDevice,
+    package: &str,
+) -> bool {
+    {
+        let cache = SQLITE3_AVAILABLE.lock();
+        if let Some(available) = cache.get(package) {
+            return *available;
+        }
+    }
+
+    let cmd = format!("run-as '{}' sqlite3 -version", shell_escape(package));
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let _ = device.shell_command(&cmd, Some(&mut stdout), Some(&mut stderr));
+    let available = !String::from_utf8_lossy(&stdout).trim().is_empty();
+
+    SQLITE3_AVAILABLE
+        .lock()
+        .insert(package.to_string(), available);
+    if !available {
+        log::info!(
+            "[sqlite] no usable sqlite3 binary for {package}; using pulled-file PRAGMA fallback"
+        );
+    }
+    available
 }
 
 // ─── File pull helpers ──────────────────────────────────────────────────────────
@@ -500,6 +551,15 @@ pub async fn sqlite_table_columns(
     tokio::task::spawn_blocking(move || {
         let mut device = get_adb_device(&serial)?;
 
+        // Without a usable sqlite3 binary, read the PRAGMA off the pulled copy
+        // instead. Returning empty here would look like "table has no columns",
+        // which downstream reads as "no primary key" and blocks editing.
+        if !device_has_sqlite3(&mut device, &package) {
+            let path = obtain_local_path(&serial, &package, &db_path, false)?;
+            let conn = open_db(&path)?;
+            return local_table_columns(&conn, &table_name);
+        }
+
         let safe_table = table_name.replace('"', "\"\"");
         let sql = format!("PRAGMA table_info(\"{safe_table}\");");
         let output = run_sqlite3_on_device(&mut device, &package, &db_path, &sql)?;
@@ -525,7 +585,7 @@ pub async fn sqlite_table_columns(
                 } else {
                     Some(parts[4].to_string())
                 },
-                pk: parts[5].trim() == "1",
+                pk: parts[5].trim().parse().unwrap_or(0),
             });
         }
 
@@ -554,6 +614,12 @@ pub async fn sqlite_table_indexes(
     }
     tokio::task::spawn_blocking(move || {
         let mut device = get_adb_device(&serial)?;
+
+        if !device_has_sqlite3(&mut device, &package) {
+            let path = obtain_local_path(&serial, &package, &db_path, false)?;
+            let conn = open_db(&path)?;
+            return local_table_indexes(&conn, &table_name);
+        }
 
         let safe_table = table_name.replace('"', "\"\"");
         let sql = format!("PRAGMA index_list(\"{safe_table}\");");
@@ -631,6 +697,12 @@ pub async fn sqlite_table_foreign_keys(
     }
     tokio::task::spawn_blocking(move || {
         let mut device = get_adb_device(&serial)?;
+
+        if !device_has_sqlite3(&mut device, &package) {
+            let path = obtain_local_path(&serial, &package, &db_path, false)?;
+            let conn = open_db(&path)?;
+            return local_table_foreign_keys(&conn, &table_name);
+        }
 
         let safe_table = table_name.replace('"', "\"\"");
         let sql = format!("PRAGMA foreign_key_list(\"{safe_table}\");");

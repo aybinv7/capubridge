@@ -11,6 +11,7 @@ import {
   buildTableKey,
   buildDatabaseKey,
 } from "@/modules/storage/stores/useSqliteChangesStore";
+import { buildRowKey as buildSqliteRowKey } from "@/modules/storage/changes/sqliteRowKey";
 
 const emptySummary: SqliteChangeSummary = {
   add: 0,
@@ -36,14 +37,7 @@ function isRecordChange(change: SqliteChangeEntry): change is SqliteRecordChange
   return change.kind === "record";
 }
 
-export function buildRowKey(
-  pkColumns: SqliteColumnInfo[],
-  record: Record<string, unknown>,
-): string {
-  if (pkColumns.length === 0) return "";
-  const sorted = [...pkColumns].sort((a, b) => a.cid - b.cid);
-  return JSON.stringify(sorted.map((c) => record[c.name] ?? null));
-}
+export { buildRowKey } from "@/modules/storage/changes/sqliteRowKey";
 
 export function useSqliteChangeIndex() {
   const changesStore = useSqliteChangesStore();
@@ -145,7 +139,7 @@ export function useSqliteTableChangeOverlay(options: {
   );
 
   function lookup(record: Record<string, unknown>): SqliteRecordChange | null {
-    const key = buildRowKey(options.pkColumns.value, record);
+    const key = buildSqliteRowKey(options.pkColumns.value, record);
     if (!key) return null;
     return changesByRowKey.value.get(key) ?? null;
   }

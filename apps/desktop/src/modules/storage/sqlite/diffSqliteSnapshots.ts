@@ -1,6 +1,7 @@
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 import type { SqliteChangeOperation } from "@/types/sqliteChanges.types";
+import { buildRowKeyFromNames } from "@/modules/storage/changes/sqliteRowKey";
 
 const MAX_TABLE_OPS = 200;
 const MAX_TOTAL_OPS = 1000;
@@ -46,6 +47,9 @@ function listTables(db: Database): string[] {
 function listPkColumns(db: Database, table: string): string[] {
   const res = db.exec(`PRAGMA table_info(${quoteIdent(table)})`);
   if (!res.length) return [];
+  // Column 5 is the 1-based position within the primary key (0 = not a key
+  // column). Sorting by it keeps composite keys in their declared order, which
+  // is what the table overlay rebuilds on the other side.
   return res[0].values
     .filter((row) => (row[5] as number) > 0)
     .sort((a, b) => (a[5] as number) - (b[5] as number))
@@ -77,8 +81,7 @@ function readRows(db: Database, table: string, pkCols: string[]): RowSnapshot {
     for (let c = 0; c < columns.length; c++) {
       record[columns[c]] = normaliseCell(row[c]);
     }
-    const key = JSON.stringify(pkCols.map((c) => record[c] ?? null));
-    byKey.set(key, record);
+    byKey.set(buildRowKeyFromNames(pkCols, record), record);
   }
   return { byKey, truncated };
 }

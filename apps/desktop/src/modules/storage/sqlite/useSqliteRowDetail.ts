@@ -7,6 +7,8 @@ interface UseSqliteRowDetailOptions {
   getFilteredRows: () => Row<RowRecord>[];
   columnNames: () => string[];
   canEdit?: () => boolean;
+  /** Per-record veto, used to keep deleted-row ghosts read-only. */
+  canMutate?: (record: RowRecord) => boolean;
   hasChange?: (record: RowRecord) => boolean;
   onEdit?: (original: RowRecord, updated: Record<string, unknown>) => void;
   onDelete?: (record: RowRecord) => void;
@@ -125,6 +127,10 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
       toast.error("Cannot save", { description: "Row must be a JSON object." });
       return;
     }
+    if (options.canMutate && !options.canMutate(original)) {
+      toast.error("Cannot save", { description: "This row no longer exists in the table." });
+      return;
+    }
     options.onEdit?.(original, parsed as Record<string, unknown>);
     editOriginalJson.value = editJson.value;
   }
@@ -136,6 +142,10 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
       toast.error("Cannot delete", {
         description: "Table has no primary key — deletion requires one to identify rows.",
       });
+      return;
+    }
+    if (options.canMutate && !options.canMutate(original)) {
+      toast.error("Cannot delete", { description: "This row no longer exists in the table." });
       return;
     }
     options.onDelete?.(original);

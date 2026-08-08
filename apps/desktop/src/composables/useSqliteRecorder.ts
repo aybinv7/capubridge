@@ -1,6 +1,7 @@
 import { useSQLite } from "@/composables/useSQLite";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { SqliteColumnInfo, SqliteDbFile, SqliteTableInfo } from "@/types/sqlite.types";
+import { orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
 
 type SnapshotReason = "initial" | "change" | "final";
 
@@ -45,7 +46,7 @@ function rowObject(columns: string[], row: unknown[]): Record<string, unknown> {
 }
 
 function rowKey(columns: string[], pkColumns: SqliteColumnInfo[], record: Record<string, unknown>) {
-  const pk = pkColumns.filter((column) => column.pk).sort((a, b) => a.cid - b.cid);
+  const pk = orderKeyColumns(pkColumns);
   if (pk.length > 0) {
     return safeJson(pk.map((column) => record[column.name] ?? null));
   }
@@ -124,7 +125,7 @@ export function useSqliteRecorder(
       const columns = result.columns.length
         ? result.columns
         : columnInfo.map((column) => column.name);
-      const pkColumns = columnInfo.filter((column) => column.pk);
+      const pkColumns = orderKeyColumns(columnInfo);
       const records: RecordingDatabaseSnapshotRowInput[] = result.rows.map((row) => {
         const record = rowObject(columns, row);
         return {
