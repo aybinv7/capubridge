@@ -30,7 +30,7 @@ import {
   popupWrapperClosedClasses,
   popupWrapperOpenedClasses,
 } from "../src/components/overlays/popup.contracts.ts";
-import { byTestId, mountTree } from "./support/mountTree.ts";
+import { byTestId, click, mountTree } from "./support/mountTree.ts";
 
 const colorsCss = readFileSync(join(process.cwd(), "src", "styles", "colors.css"), "utf8");
 const stylesIndex = readFileSync(join(process.cwd(), "src", "styles", "index.css"), "utf8");
@@ -150,7 +150,7 @@ test("wires dialog title, description and modal state", async () => {
   const mounted = mountOverlayFixture();
   const trigger = byTestId(mounted.root, "dialog-trigger") as HTMLButtonElement;
 
-  trigger.click();
+  await click(trigger);
   await settleOverlay();
   const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
 
@@ -169,11 +169,11 @@ test("wires dialog title, description and modal state", async () => {
 
 test("keeps nested popover inside its parent dialog layer", async () => {
   const mounted = mountOverlayFixture();
-  byTestId(mounted.root, "dialog-trigger").click();
+  await click(byTestId(mounted.root, "dialog-trigger"));
   await settleOverlay();
   const nestedTrigger = document.body.querySelector<HTMLElement>('[data-testid="nested-trigger"]');
 
-  nestedTrigger?.click();
+  if (nestedTrigger) await click(nestedTrigger);
   await settleOverlay();
 
   expect(document.body.querySelector('.cui-popover [data-part="content"]')).not.toBeNull();
@@ -183,7 +183,7 @@ test("keeps nested popover inside its parent dialog layer", async () => {
 
 test("guards destructive confirmation with exact text", async () => {
   const mounted = mountOverlayFixture();
-  byTestId(mounted.root, "guarded-dialog-trigger").click();
+  await click(byTestId(mounted.root, "guarded-dialog-trigger"));
   await settleOverlay();
   const confirm = document.body.querySelector<HTMLButtonElement>('[data-part="confirm"]');
   const input = document.body.querySelector<HTMLInputElement>('[data-part="input"] input');
@@ -205,7 +205,7 @@ test("positions and dismisses popovers through native overlay behavior", async (
   const mounted = mountOverlayFixture();
   const trigger = byTestId(mounted.root, "popover-trigger");
 
-  trigger.click();
+  await click(trigger);
   await settleOverlay();
   const content = document.body.querySelector<HTMLElement>('.cui-popover [data-part="content"]');
 

@@ -1,39 +1,40 @@
 <script setup lang="ts">
 import { computed, useAttrs } from "vue";
 
-import type { SurfaceLevelInput, SurfaceVariant } from "../../foundations/contracts.ts";
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
-import { popupCardClasses, popupCardContentClasses } from "./popup.contracts.ts";
+import {
+  popupCardClasses,
+  popupCardContentClasses,
+  type PopupContentProps,
+} from "./popup.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    contentClassName?: string;
-    outline?: boolean;
-    surfaceLevel?: SurfaceLevelInput;
-    variant?: SurfaceVariant;
-  }>(),
-  {
-    contentClassName: undefined,
-    outline: true,
-    surfaceLevel: 1,
-    variant: "solid",
-  },
-);
+const props = withDefaults(defineProps<PopupContentProps>(), {
+  contentClassName: undefined,
+  outline: undefined,
+  surfaceLevel: undefined,
+  variant: undefined,
+});
 
 defineSlots<{
   default?: () => unknown;
 }>();
 
 const attrs = useAttrs();
+const d = useComponentDefaults("PopupContent", props, {
+  outline: true,
+  surfaceLevel: 1,
+  variant: "solid" as PopupContentProps["variant"],
+});
 const rootAttrs = computed(() => {
   const { class: _consumerClass, ...rest } = attrs;
   return rest;
 });
 const rootClass = computed(() => cn(popupCardClasses, attrs.class));
-const contentClass = computed(() => cn(popupCardContentClasses, props.contentClassName));
+const contentClass = computed(() => cn(popupCardContentClasses, d.value.contentClassName));
 </script>
 
 <template>
@@ -41,9 +42,9 @@ const contentClass = computed(() => cn(popupCardContentClasses, props.contentCla
     v-bind="rootAttrs"
     :class="rootClass"
     :content-class-name="contentClass"
-    :level="props.surfaceLevel"
-    :outline="props.outline"
-    :variant="props.variant"
+    :level="d.surfaceLevel"
+    :outline="d.outline"
+    :variant="d.variant"
   >
     <slot />
   </Surface>

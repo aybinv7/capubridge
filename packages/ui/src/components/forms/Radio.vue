@@ -1,57 +1,35 @@
 <script setup lang="ts">
-import { computed, inject, type Component } from "vue";
+import { computed, inject } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { UiAccent } from "../../foundations/contracts.ts";
 import FocusRing from "../feedback/FocusRing.vue";
 import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
-import type { ChoiceSize } from "./form.contracts.ts";
-import { radioIndicatorSizes, radioRootSizes } from "./radio.contracts.ts";
+import { radioIndicatorSizes, radioRootSizes, type RadioProps } from "./radio.contracts.ts";
 import { radioGroupKey } from "./radioGroupContext.ts";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    as?: string | Component;
-    checked?: boolean;
-    color?: UiAccent;
-    disabled?: boolean;
-    focusable?: boolean;
-    hoverable?: boolean;
-    id?: string;
-    input?: boolean;
-    inputId?: string;
-    name?: string;
-    readOnly?: boolean;
-    readonly?: boolean;
-    required?: boolean;
-    size?: ChoiceSize;
-    thumbOutline?: boolean;
-    value?: string;
-  }>(),
-  {
-    accent: undefined,
-    as: "label",
-    checked: undefined,
-    color: undefined,
-    disabled: false,
-    focusable: undefined,
-    hoverable: undefined,
-    id: undefined,
-    input: true,
-    inputId: undefined,
-    name: undefined,
-    readOnly: undefined,
-    readonly: undefined,
-    required: false,
-    size: "sm",
-    thumbOutline: true,
-    value: undefined,
-  },
-);
+const props = withDefaults(defineProps<RadioProps>(), {
+  accent: undefined,
+  as: undefined,
+  checked: undefined,
+  color: undefined,
+  disabled: undefined,
+  focusable: undefined,
+  hoverable: undefined,
+  id: undefined,
+  input: undefined,
+  inputId: undefined,
+  name: undefined,
+  readOnly: undefined,
+  readonly: undefined,
+  required: undefined,
+  size: undefined,
+  thumbOutline: undefined,
+  value: undefined,
+});
 
 const model = defineModel<boolean>({ default: false });
 const emit = defineEmits<{
@@ -60,24 +38,32 @@ const emit = defineEmits<{
 }>();
 const group = inject(radioGroupKey, undefined);
 const ui = useUiContext();
-const isReadOnly = computed(() => props.readOnly ?? props.readonly ?? false);
-const checked = computed(() => {
-  if (group) return group.value.value === props.value;
-  return props.checked ?? model.value;
+const d = useComponentDefaults("Radio", props, {
+  as: "label" as RadioProps["as"],
+  disabled: false,
+  input: true,
+  required: false,
+  size: "sm" as RadioProps["size"],
+  thumbOutline: true,
 });
-const disabled = computed(() => props.disabled || group?.disabled.value === true);
-const name = computed(() => props.name ?? group?.name.value);
-const required = computed(() => props.required || group?.required.value === true);
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
-const hoverable = computed(() => props.hoverable ?? props.as === "label");
-const focusable = computed(() => props.focusable ?? (props.as === "label" || props.input));
-const inputId = computed(() => props.inputId ?? props.id);
+const isReadOnly = computed(() => d.value.readOnly ?? d.value.readonly ?? false);
+const checked = computed(() => {
+  if (group) return group.value.value === d.value.value;
+  return d.value.checked ?? model.value;
+});
+const disabled = computed(() => d.value.disabled || group?.disabled.value === true);
+const name = computed(() => d.value.name ?? group?.name.value);
+const required = computed(() => d.value.required || group?.required.value === true);
+const currentAccent = computed(() => d.value.color ?? d.value.accent ?? ui.accentColor.value);
+const hoverable = computed(() => d.value.hoverable ?? d.value.as === "label");
+const focusable = computed(() => d.value.focusable ?? (d.value.as === "label" || d.value.input));
+const inputId = computed(() => d.value.inputId ?? d.value.id);
 
 function setChecked(next: boolean, event?: Event): void {
   if (disabled.value || isReadOnly.value) return;
 
   if (group) {
-    if (props.value !== undefined) group.value.value = props.value;
+    if (d.value.value !== undefined) group.value.value = d.value.value;
   } else {
     model.value = next;
     emit("update:checked", next);
@@ -91,7 +77,7 @@ function handleInputChange(event: Event): void {
 }
 
 function handleRootClick(event: MouseEvent): void {
-  if (!props.input) {
+  if (!d.value.input) {
     setChecked(!checked.value, event);
     return;
   }
@@ -103,7 +89,7 @@ function handleRootClick(event: MouseEvent): void {
 }
 
 function handleFallbackKeydown(event: KeyboardEvent): void {
-  if (props.input || disabled.value || isReadOnly.value) return;
+  if (d.value.input || disabled.value || isReadOnly.value) return;
   if (event.key !== " " && event.key !== "Enter") return;
 
   event.preventDefault();
@@ -113,7 +99,7 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
 const rootClass = computed(() =>
   cn(
     "cui-radio group/cui-radio relative flex shrink-0 items-center justify-center rounded-full select-none",
-    radioRootSizes[props.size],
+    radioRootSizes[d.value.size],
     disabled.value && "opacity-50",
   ),
 );
@@ -127,7 +113,7 @@ const checkedThumbClass = computed(() =>
 const indicatorClass = computed(() =>
   cn(
     "cui-radio__indicator pointer-events-none relative rounded-full duration-200",
-    radioIndicatorSizes[props.size],
+    radioIndicatorSizes[d.value.size],
     !checked.value && "scale-75 bg-cui-fg-soft",
     !checked.value && !isReadOnly.value && !disabled.value && "group-active/cui-radio:scale-65",
     checked.value && `cui-color-${currentAccent.value}`,
@@ -139,27 +125,27 @@ const indicatorClass = computed(() =>
 
 <template>
   <component
-    :is="props.as"
+    :is="d.as"
     v-bind="$attrs"
     :class="rootClass"
-    :aria-checked="!props.input ? checked : undefined"
-    :aria-disabled="!props.input && disabled ? 'true' : undefined"
-    :aria-readonly="!props.input && isReadOnly ? 'true' : undefined"
-    :aria-required="!props.input && required ? 'true' : undefined"
+    :aria-checked="!d.input ? checked : undefined"
+    :aria-disabled="!d.input && disabled ? 'true' : undefined"
+    :aria-readonly="!d.input && isReadOnly ? 'true' : undefined"
+    :aria-required="!d.input && required ? 'true' : undefined"
     :data-checked="checked || undefined"
     :data-disabled="disabled || undefined"
     :data-readonly="isReadOnly || undefined"
     :data-required="required || undefined"
     :data-state="checked ? 'checked' : 'unchecked'"
     :data-unchecked="!checked || undefined"
-    :role="!props.input ? 'radio' : undefined"
-    :tabindex="!props.input ? (disabled ? -1 : 0) : undefined"
+    :role="!d.input ? 'radio' : undefined"
+    :tabindex="!d.input ? (disabled ? -1 : 0) : undefined"
     @click="handleRootClick"
     @contextmenu.capture.prevent
     @keydown="handleFallbackKeydown"
   >
     <input
-      v-if="props.input"
+      v-if="d.input"
       :id="inputId"
       class="pointer-events-none absolute inset-1 z-10 opacity-0"
       data-part="input"
@@ -169,7 +155,7 @@ const indicatorClass = computed(() =>
       :readonly="isReadOnly"
       :required="required"
       type="checkbox"
-      :value="props.value"
+      :value="d.value"
       @change="handleInputChange"
     />
     <Surface
@@ -178,7 +164,7 @@ const indicatorClass = computed(() =>
       :clickable="hoverable && !disabled && !isReadOnly"
       data-part="thumb"
       :hoverable="hoverable && !disabled && !isReadOnly"
-      :outline="props.thumbOutline"
+      :outline="d.thumbOutline"
       variant="gradient"
       :wrap-content="false"
     />
@@ -189,7 +175,7 @@ const indicatorClass = computed(() =>
       :color="currentAccent"
       data-part="thumb-checked"
       :hoverable="hoverable && !disabled && !isReadOnly"
-      :outline="props.thumbOutline"
+      :outline="d.thumbOutline"
       variant="gradient-fill"
       :wrap-content="false"
     />

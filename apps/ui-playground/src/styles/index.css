@@ -214,6 +214,7 @@ kbd {
   align-self: start;
   height: calc(100vh - 72px);
   padding: 32px 20px 24px;
+  overflow-y: auto;
   border-right: 1px solid var(--playground-border);
   background: var(--playground-panel);
 }
@@ -298,26 +299,6 @@ kbd {
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.section-nav__footer {
-  position: absolute;
-  right: 28px;
-  bottom: 24px;
-  left: 28px;
-  display: flex;
-  gap: 7px;
-  align-items: center;
-  color: var(--playground-muted);
-  font-size: 10px;
-}
-
-.section-nav__pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--cui-green-9, #45c56f);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cui-green-9, #45c56f) 12%, transparent);
 }
 
 .playground-catalog {
@@ -1065,10 +1046,6 @@ kbd {
 
   .section-nav a {
     min-width: 220px;
-  }
-
-  .section-nav__footer {
-    display: none;
   }
 
   .surface-level-grid,

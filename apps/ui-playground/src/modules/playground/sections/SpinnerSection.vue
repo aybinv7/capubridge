@@ -29,7 +29,7 @@ const code = computed(
   <CatalogSection
     description="A focused loading signal with consistent optical weight at every size."
     eyebrow="06 · Feedback"
-    id="feedback"
+    id="spinner"
     title="Spinner"
   >
     <ComponentPlayground :code="code" preview-surface>

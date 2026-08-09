@@ -1,59 +1,40 @@
 <script setup lang="ts">
-import { computed, type Component } from "vue";
+import { computed } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { UiAccent } from "../../foundations/contracts.ts";
 import FocusRing from "../feedback/FocusRing.vue";
 import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
 import CheckboxGlyph from "./CheckboxGlyph.vue";
-import type { ChoiceSize } from "./form.contracts.ts";
-import { checkboxIndicatorSizes, checkboxRootSizes } from "./checkbox.contracts.ts";
+import {
+  checkboxIndicatorSizes,
+  checkboxRootSizes,
+  type CheckboxProps,
+} from "./checkbox.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    as?: string | Component;
-    checkClassName?: string;
-    checked?: boolean;
-    color?: UiAccent;
-    disabled?: boolean;
-    focusable?: boolean;
-    hoverable?: boolean;
-    id?: string;
-    input?: boolean;
-    inputId?: string;
-    name?: string;
-    readOnly?: boolean;
-    readonly?: boolean;
-    required?: boolean;
-    size?: ChoiceSize;
-    thumbOutline?: boolean;
-    value?: string;
-  }>(),
-  {
-    accent: undefined,
-    as: "label",
-    checkClassName: undefined,
-    checked: undefined,
-    color: undefined,
-    disabled: false,
-    focusable: undefined,
-    hoverable: undefined,
-    id: undefined,
-    input: true,
-    inputId: undefined,
-    name: undefined,
-    readOnly: undefined,
-    readonly: undefined,
-    required: false,
-    size: "sm",
-    thumbOutline: true,
-    value: undefined,
-  },
-);
+const props = withDefaults(defineProps<CheckboxProps>(), {
+  accent: undefined,
+  as: undefined,
+  checkClassName: undefined,
+  checked: undefined,
+  color: undefined,
+  disabled: undefined,
+  focusable: undefined,
+  hoverable: undefined,
+  id: undefined,
+  input: undefined,
+  inputId: undefined,
+  name: undefined,
+  readOnly: undefined,
+  readonly: undefined,
+  required: undefined,
+  size: undefined,
+  thumbOutline: undefined,
+  value: undefined,
+});
 
 const model = defineModel<boolean>({ default: false });
 const emit = defineEmits<{
@@ -61,15 +42,23 @@ const emit = defineEmits<{
   "update:checked": [checked: boolean];
 }>();
 const ui = useUiContext();
-const isReadOnly = computed(() => props.readOnly ?? props.readonly ?? false);
-const checked = computed(() => props.checked ?? model.value);
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
-const hoverable = computed(() => props.hoverable ?? props.as === "label");
-const focusable = computed(() => props.focusable ?? (props.as === "label" || props.input));
-const inputId = computed(() => props.inputId ?? props.id);
+const d = useComponentDefaults("Checkbox", props, {
+  as: "label" as CheckboxProps["as"],
+  disabled: false,
+  input: true,
+  required: false,
+  size: "sm" as CheckboxProps["size"],
+  thumbOutline: true,
+});
+const isReadOnly = computed(() => d.value.readOnly ?? d.value.readonly ?? false);
+const checked = computed(() => d.value.checked ?? model.value);
+const currentAccent = computed(() => d.value.color ?? d.value.accent ?? ui.accentColor.value);
+const hoverable = computed(() => d.value.hoverable ?? d.value.as === "label");
+const focusable = computed(() => d.value.focusable ?? (d.value.as === "label" || d.value.input));
+const inputId = computed(() => d.value.inputId ?? d.value.id);
 
 function setChecked(next: boolean, event?: Event): void {
-  if (props.disabled || isReadOnly.value) return;
+  if (d.value.disabled || isReadOnly.value) return;
 
   model.value = next;
   emit("update:checked", next);
@@ -81,7 +70,7 @@ function handleInputChange(event: Event): void {
 }
 
 function handleRootClick(event: MouseEvent): void {
-  if (!props.input) {
+  if (!d.value.input) {
     setChecked(!checked.value, event);
     return;
   }
@@ -93,7 +82,7 @@ function handleRootClick(event: MouseEvent): void {
 }
 
 function handleFallbackKeydown(event: KeyboardEvent): void {
-  if (props.input || props.disabled || isReadOnly.value) return;
+  if (d.value.input || d.value.disabled || isReadOnly.value) return;
   if (event.key !== " " && event.key !== "Enter") return;
 
   event.preventDefault();
@@ -103,8 +92,8 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
 const rootClass = computed(() =>
   cn(
     "cui-checkbox group/cui-checkbox relative flex shrink-0 items-center justify-center rounded-full select-none",
-    checkboxRootSizes[props.size],
-    props.disabled && "opacity-50",
+    checkboxRootSizes[d.value.size],
+    d.value.disabled && "opacity-50",
   ),
 );
 
@@ -117,59 +106,62 @@ const checkedThumbClass = computed(() =>
 const indicatorClass = computed(() =>
   cn(
     "cui-checkbox__indicator pointer-events-none relative duration-200",
-    checkboxIndicatorSizes[props.size],
+    checkboxIndicatorSizes[d.value.size],
     !checked.value && "scale-75 text-cui-fg-soft",
-    checked.value && !props.disabled && !isReadOnly.value && "group-active/cui-checkbox:scale-90",
-    !checked.value && !props.disabled && !isReadOnly.value && "group-active/cui-checkbox:scale-65",
+    checked.value && !d.value.disabled && !isReadOnly.value && "group-active/cui-checkbox:scale-90",
+    !checked.value &&
+      !d.value.disabled &&
+      !isReadOnly.value &&
+      "group-active/cui-checkbox:scale-65",
     checked.value && "text-cui-on-primary",
     checked.value && `cui-color-${currentAccent.value}`,
-    props.checkClassName,
+    d.value.checkClassName,
   ),
 );
 </script>
 
 <template>
   <component
-    :is="props.as"
+    :is="d.as"
     v-bind="$attrs"
     :class="rootClass"
-    :aria-checked="!props.input ? checked : undefined"
-    :aria-disabled="!props.input && props.disabled ? 'true' : undefined"
-    :aria-readonly="!props.input && isReadOnly ? 'true' : undefined"
-    :aria-required="!props.input && props.required ? 'true' : undefined"
+    :aria-checked="!d.input ? checked : undefined"
+    :aria-disabled="!d.input && d.disabled ? 'true' : undefined"
+    :aria-readonly="!d.input && isReadOnly ? 'true' : undefined"
+    :aria-required="!d.input && d.required ? 'true' : undefined"
     :data-checked="checked || undefined"
-    :data-disabled="props.disabled || undefined"
+    :data-disabled="d.disabled || undefined"
     :data-readonly="isReadOnly || undefined"
-    :data-required="props.required || undefined"
+    :data-required="d.required || undefined"
     :data-state="checked ? 'checked' : 'unchecked'"
     :data-unchecked="!checked || undefined"
-    :role="!props.input ? 'checkbox' : undefined"
-    :tabindex="!props.input ? (props.disabled ? -1 : 0) : undefined"
+    :role="!d.input ? 'checkbox' : undefined"
+    :tabindex="!d.input ? (d.disabled ? -1 : 0) : undefined"
     @click="handleRootClick"
     @contextmenu.capture.prevent
     @keydown="handleFallbackKeydown"
   >
     <input
-      v-if="props.input"
+      v-if="d.input"
       :id="inputId"
       class="pointer-events-none absolute inset-1 z-10 opacity-0"
       data-part="input"
       :checked="checked"
-      :disabled="props.disabled || isReadOnly"
-      :name="props.name"
+      :disabled="d.disabled || isReadOnly"
+      :name="d.name"
       :readonly="isReadOnly"
-      :required="props.required"
+      :required="d.required"
       type="checkbox"
-      :value="props.value"
+      :value="d.value"
       @change="handleInputChange"
     />
     <Surface
       as="span"
       :class="thumbClass"
       data-part="thumb"
-      :clickable="hoverable && !props.disabled && !isReadOnly"
-      :hoverable="hoverable && !props.disabled && !isReadOnly"
-      :outline="props.thumbOutline"
+      :clickable="hoverable && !d.disabled && !isReadOnly"
+      :hoverable="hoverable && !d.disabled && !isReadOnly"
+      :outline="d.thumbOutline"
       variant="gradient"
       :wrap-content="false"
     />
@@ -178,9 +170,9 @@ const indicatorClass = computed(() =>
       :color="currentAccent"
       :class="checkedThumbClass"
       data-part="thumb-checked"
-      :clickable="hoverable && !props.disabled && !isReadOnly"
-      :hoverable="hoverable && !props.disabled && !isReadOnly"
-      :outline="props.thumbOutline"
+      :clickable="hoverable && !d.disabled && !isReadOnly"
+      :hoverable="hoverable && !d.disabled && !isReadOnly"
+      :outline="d.thumbOutline"
       variant="gradient-fill"
       :wrap-content="false"
     />
@@ -190,7 +182,7 @@ const indicatorClass = computed(() =>
       :data-state="checked ? 'checked' : 'unchecked'"
     />
     <FocusRing
-      v-if="focusable && !props.disabled && !isReadOnly"
+      v-if="focusable && !d.disabled && !isReadOnly"
       class="rounded-full"
       group="checkbox"
     />

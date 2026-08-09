@@ -1,3 +1,5 @@
+import type { SurfaceLevelInput, SurfaceVariant, UiAccent } from "../../foundations/contracts.ts";
+
 export const popoverPositions = [
   "top-start",
   "top",
@@ -195,6 +197,100 @@ export const dialogButtonsClasses = "mt-4 flex flex-wrap items-center justify-en
 export const dialogButtonContentClasses = "px-4";
 
 export const overlayTriggerClasses = "cui-overlay-trigger contents";
+
+export interface PopoverProps {
+  accent?: UiAccent;
+  anchorElement?: HTMLElement;
+  anchorRect?: DOMRectReadOnly;
+  /** Render a backdrop behind the popover. Default `false`. */
+  backdrop?: boolean;
+  backdropTransparent?: boolean;
+  /** Default `true`. */
+  closeOnBackdropClick?: boolean;
+  /** Default `true`. Suppressed automatically when this popover has a child popover/dialog open. */
+  closeOnEscape?: boolean;
+  /** Accent color token. Sets the popover's `cui-color-{name}` class. */
+  color?: UiAccent;
+  /** Extra classes for the inner scrollable content area. */
+  contentClassName?: string;
+  disabled?: boolean;
+  /** Set to `true` when rendered inside a lazy-loaded boundary so it opens on the next tick. */
+  lazy?: boolean;
+  /** Spacing from anchor. Either a single value (main axis) or `[main, cross]`. */
+  offset?: PopoverOffset;
+  /** Outline ring on the popover surface. Default `true` for non-light themes. */
+  outline?: boolean;
+  /** Anchor side + alignment, or `'center'`. Default `'bottom'`. */
+  position?: PopoverPosition;
+  /** Portal target. Default `'#app, #__next, #root'`. */
+  root?: string | HTMLElement;
+  /** Forwarded to the underlying `Surface` as `level`. Default depends on theme. */
+  surfaceLevel?: SurfaceLevelInput;
+  /** Surface variant. Default depends on theme. */
+  variant?: SurfaceVariant;
+  /** Minimum gap (px) from the viewport edge. Default `4`. */
+  viewportMargin?: number;
+}
+
+export type PopoverDefaultProps = Partial<Omit<PopoverProps, "anchorElement" | "anchorRect">>;
+
+export interface DialogProps {
+  accent?: UiAccent;
+  backdropTransparent?: boolean;
+  cancelAccent?: UiAccent;
+  cancelText?: string;
+  /** Default `true`. */
+  closeOnBackdropClick?: boolean;
+  /** Default `true`. */
+  closeOnEscape?: boolean;
+  color?: UiAccent;
+  confirmAccent?: UiAccent;
+  confirmText?: string;
+  contentClassName?: string;
+  description?: string;
+  /** Outline ring on the dialog surface. Default `true` for dark, `false` for light. */
+  outline?: boolean;
+  requireConfirmText?: string;
+  root?: string | HTMLElement;
+  surfaceLevel?: SurfaceLevelInput;
+  title?: string;
+  variant?: SurfaceVariant;
+}
+
+export type DialogDefaultProps = Partial<
+  Omit<DialogProps, "title" | "description" | "requireConfirmText">
+>;
+
+export interface TooltipPrimitiveProps {
+  accent?: UiAccent;
+  anchorElement?: HTMLElement;
+  color?: UiAccent;
+  contentClassName?: string;
+  offset?: OverlayOffsetValue;
+  position?: TooltipPosition;
+  root?: string | HTMLElement;
+  surfaceLevel?: SurfaceLevelInput;
+  zIndex?: string;
+}
+
+export type TooltipPrimitiveDefaultProps = Partial<Omit<TooltipPrimitiveProps, "anchorElement">>;
+
+export interface TooltipProps {
+  accent?: UiAccent;
+  ariaLabel?: string;
+  color?: UiAccent;
+  contentClassName?: string;
+  disabled?: boolean;
+  offset?: OverlayOffsetValue;
+  position?: TooltipPosition;
+  root?: string | HTMLElement;
+  surfaceLevel?: SurfaceLevelInput;
+  /** Delay showing the tooltip using a shared global timer. Default `true`. */
+  timeout?: boolean;
+  zIndex?: string;
+}
+
+export type TooltipDefaultProps = Partial<TooltipProps>;
 
 export function resolvePopoverOffset(
   value: OverlayOffsetValue,

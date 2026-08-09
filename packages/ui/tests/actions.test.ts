@@ -1,9 +1,22 @@
-import { h } from "vue";
+import { h, nextTick } from "vue";
 import { expect, test } from "vite-plus/test";
 
 import ActionFixture from "../fixtures/actions/ActionFixture.vue";
-import { Button, Chip, Shortcut, Spinner, buttonSpinnerSizes } from "../src/index.ts";
-import { byTestId, mountTree } from "./support/mountTree.ts";
+import {
+  Button,
+  Chip,
+  Segmented,
+  SegmentedButton,
+  Shortcut,
+  Spinner,
+  ToggleButton,
+  ToggleGroup,
+  Toolbar,
+  ToolbarButton,
+  ToolbarSeparator,
+  buttonSpinnerSizes,
+} from "../src/index.ts";
+import { byTestId, click, mountTree } from "./support/mountTree.ts";
 
 test("renders exact default button structure and loading replacement", () => {
   const mounted = mountTree(
@@ -22,7 +35,7 @@ test("renders exact default button structure and loading replacement", () => {
   mounted.app.unmount();
 });
 
-test("blocks disabled and readonly button activation", () => {
+test("blocks disabled and readonly button activation", async () => {
   let activations = 0;
   const disabled = mountTree(
     h(Button, { disabled: true, onClick: () => activations++ }, { default: () => "Disabled" }),
@@ -35,8 +48,8 @@ test("blocks disabled and readonly button activation", () => {
     ),
   );
 
-  (disabled.root.querySelector("button") as HTMLButtonElement).click();
-  (readonly.root.querySelector("a") as HTMLAnchorElement).click();
+  await click(disabled.root.querySelector("button") as HTMLButtonElement);
+  await click(readonly.root.querySelector("a") as HTMLAnchorElement);
   expect(activations).toBe(0);
   expect(readonly.root.querySelector("a")?.getAttribute("aria-disabled")).toBe("true");
   expect(readonly.root.querySelector("a")?.hasAttribute("data-disabled")).toBe(false);
@@ -84,15 +97,17 @@ test("scopes the accent text hook to non-neutral colors like Cladd", () => {
   const accented = mountTree(h(Button, { color: "orange" }));
   const inherited = mountTree(h(Button));
 
-  expect(neutral.root.querySelector(".cui-button")?.hasAttribute("data-cui-explicit-accent")).toBe(
+  // Upstream conditions the accent text color on the *explicit* prop, not the neutral default
+  // or an inherited theme accent — expressed as a class, not a data attribute (Button.tsx:194-197).
+  expect(neutral.root.querySelector(".cui-button")?.classList.contains("text-cui-primary")).toBe(
     false,
   );
-  expect(accented.root.querySelector(".cui-button")?.getAttribute("data-cui-explicit-accent")).toBe(
-    "true",
+  expect(accented.root.querySelector(".cui-button")?.classList.contains("text-cui-primary")).toBe(
+    true,
   );
-  expect(
-    inherited.root.querySelector(".cui-button")?.hasAttribute("data-cui-explicit-accent"),
-  ).toBe(false);
+  expect(inherited.root.querySelector(".cui-button")?.classList.contains("text-cui-primary")).toBe(
+    false,
+  );
 
   neutral.app.unmount();
   accented.app.unmount();
@@ -206,6 +221,121 @@ test("matches Cladd shortcut key customization and fill contracts", () => {
   expect(keys[0]?.querySelector(".shortcut-content-contract")).not.toBeNull();
   expect(keys[0]?.querySelector(".shortcut-icon-contract")).not.toBeNull();
   expect(keys[0]?.classList.contains("text-cui-on-primary")).toBe(true);
+  mounted.app.unmount();
+});
+
+test("scopes Segmented sizing and rounding through context to its buttons", () => {
+  const mounted = mountTree(
+    h(Segmented, { "data-testid": "segmented", rounded: false, size: "lg" }, () => [
+      h(SegmentedButton, { active: true, "data-testid": "active-segment" }, () => "Grid"),
+      h(SegmentedButton, { "data-testid": "inactive-segment" }, () => "List"),
+    ]),
+  );
+  const active = byTestId(mounted.root, "active-segment");
+  const inactive = byTestId(mounted.root, "inactive-segment");
+
+  expect(active.classList.contains("h-cui-lg")).toBe(true);
+  expect(active.classList.contains("rounded-cui-lg")).toBe(true);
+  expect(active.getAttribute("data-active")).toBe("true");
+  expect(active.getAttribute("data-readonly")).toBe("true");
+  expect(inactive.getAttribute("data-active")).toBeNull();
+  mounted.app.unmount();
+});
+
+test("applies the active color/variant/outline only to the selected segment", () => {
+  const mounted = mountTree(
+    h(
+      Segmented,
+      { color: "neutral", outline: false, "data-testid": "segmented", variant: "transparent" },
+      () => [
+        h(SegmentedButton, { active: true, "data-testid": "active-segment" }, () => "Grid"),
+        h(SegmentedButton, { "data-testid": "inactive-segment" }, () => "List"),
+      ],
+    ),
+  );
+  const active = byTestId(mounted.root, "active-segment");
+  const inactive = byTestId(mounted.root, "inactive-segment");
+
+  // Active segment defaults to the theme accent + gradient + outline (Segmented.tsx:80-88).
+  expect(active.querySelector(".shadow-cui-outline")).not.toBeNull();
+  // Inactive segments stay on the group's own inactive color/variant/outline.
+  expect(inactive.querySelector(".shadow-cui-outline")).toBeNull();
+  mounted.app.unmount();
+});
+
+test("lets an explicit SegmentedButton prop win over the segment context", () => {
+  const mounted = mountTree(
+    h(Segmented, null, () =>
+      h(SegmentedButton, { "data-testid": "segment", size: "sm" }, () => "Grid"),
+    ),
+  );
+  const segment = byTestId(mounted.root, "segment");
+
+  // Segmented's own default is 'md'; the button's explicit size wins (SegmentedButton.tsx spreads
+  // `...rest` after the context-derived attributes).
+  expect(segment.classList.contains("h-cui-sm")).toBe(true);
+  mounted.app.unmount();
+});
+
+test("forwards Toolbar size/rounded to ToolbarButton via context, and lets an explicit prop win", () => {
+  const mounted = mountTree(
+    h(Toolbar, { "data-testid": "toolbar", size: "lg" }, () => [
+      h(ToolbarButton, { "data-testid": "tb-default" }, () => "Copy"),
+      h(ToolbarButton, { "data-testid": "tb-explicit", size: "sm" }, () => "Paste"),
+      h(ToolbarSeparator, { "data-testid": "tb-separator" }),
+    ]),
+  );
+
+  expect(byTestId(mounted.root, "tb-default").classList.contains("h-cui-lg")).toBe(true);
+  expect(byTestId(mounted.root, "tb-explicit").classList.contains("h-cui-sm")).toBe(true);
+  expect(byTestId(mounted.root, "tb-separator").classList.contains("cui-toolbar-separator")).toBe(
+    true,
+  );
+  mounted.app.unmount();
+});
+
+test("ToggleGroup selects a single value and clicking the active one clears it", async () => {
+  const mounted = mountTree(
+    h(ToggleGroup, { defaultValue: "grid" }, () => [
+      h(ToggleButton, { "data-testid": "grid", value: "grid" }, () => "Grid"),
+      h(ToggleButton, { "data-testid": "list", value: "list" }, () => "List"),
+    ]),
+  );
+
+  expect(byTestId(mounted.root, "grid").getAttribute("aria-pressed")).toBe("true");
+  expect(byTestId(mounted.root, "list").getAttribute("aria-pressed")).toBe("false");
+
+  await click(byTestId(mounted.root, "list"));
+  expect(byTestId(mounted.root, "grid").getAttribute("aria-pressed")).toBe("false");
+  expect(byTestId(mounted.root, "list").getAttribute("aria-pressed")).toBe("true");
+
+  await click(byTestId(mounted.root, "list"));
+  expect(byTestId(mounted.root, "list").getAttribute("aria-pressed")).toBe("false");
+  mounted.app.unmount();
+});
+
+test("ToggleGroup with multiple keeps every pressed button pressed independently", async () => {
+  const mounted = mountTree(
+    h(ToggleGroup, { multiple: true }, () => [
+      h(ToggleButton, { "data-testid": "bold", value: "bold" }, () => "Bold"),
+      h(ToggleButton, { "data-testid": "italic", value: "italic" }, () => "Italic"),
+    ]),
+  );
+
+  await click(byTestId(mounted.root, "bold"));
+  await click(byTestId(mounted.root, "italic"));
+  expect(byTestId(mounted.root, "bold").getAttribute("aria-pressed")).toBe("true");
+  expect(byTestId(mounted.root, "italic").getAttribute("aria-pressed")).toBe("true");
+  mounted.app.unmount();
+});
+
+test("a standalone ToggleButton owns its own pressed state", async () => {
+  const mounted = mountTree(h(ToggleButton, { "data-testid": "pin" }, () => "Pin"));
+
+  expect(byTestId(mounted.root, "pin").getAttribute("aria-pressed")).toBe("false");
+  await click(byTestId(mounted.root, "pin"));
+  await nextTick();
+  expect(byTestId(mounted.root, "pin").getAttribute("aria-pressed")).toBe("true");
   mounted.app.unmount();
 });
 

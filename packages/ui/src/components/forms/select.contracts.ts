@@ -82,6 +82,20 @@ export interface SelectProps {
   variant?: SurfaceVariant;
 }
 
+export type SelectDefaultProps = Partial<
+  Omit<
+    SelectProps,
+    | "anchorElement"
+    | "getOptionValue"
+    | "isChecked"
+    | "isOptionDisabled"
+    | "noneOptionValue"
+    | "optionIndicatorColor"
+    | "options"
+    | "searchFilter"
+  >
+>;
+
 export const selectTriggerClasses = "cui-select w-full";
 
 export const selectTriggerContentClasses =

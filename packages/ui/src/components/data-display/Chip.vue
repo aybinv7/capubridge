@@ -58,7 +58,6 @@ const clickable = computed(
 const isFill = computed(
   () => d.value.variant === "solid-fill" || d.value.variant === "gradient-fill",
 );
-const explicitAccent = computed(() => d.value.color ?? d.value.accent);
 
 const rootClass = computed(() =>
   cn(
@@ -91,7 +90,6 @@ const chipContentClass = computed(() =>
     :clickable="clickable"
     :color="d.color"
     :content-class-name="chipContentClass"
-    :data-cui-explicit-accent="explicitAccent && explicitAccent !== 'neutral' ? 'true' : undefined"
     :hoverable="d.hoverable || clickable"
     :level="d.surfaceLevel"
     :outline="d.outline"

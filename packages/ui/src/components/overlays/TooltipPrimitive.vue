@@ -2,11 +2,11 @@
 import { computed, shallowRef, useAttrs, watch } from "vue";
 
 import { useAnchorPosition } from "../../composables/useAnchorPosition.ts";
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useOverlayLifecycle } from "../../composables/useOverlayLifecycle.ts";
 import { useOverlayPhase } from "../../composables/useOverlayPhase.ts";
 import { provideSurfaceColorReset } from "../../contexts/surfaceContext.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { SurfaceLevelInput, UiAccent } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
 import {
@@ -20,37 +20,23 @@ import {
   tooltipOrigins,
   tooltipSurfaceClasses,
   tooltipZIndexClasses,
-  type OverlayOffsetValue,
-  type TooltipPosition,
+  type TooltipPrimitiveProps,
 } from "./overlay.contracts.ts";
 
 // Upstream keeps `className` (the tooltip Surface) separate from `contentClassName`.
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    anchorElement?: HTMLElement;
-    color?: UiAccent;
-    contentClassName?: string;
-    offset?: OverlayOffsetValue;
-    position?: TooltipPosition;
-    root?: string | HTMLElement;
-    surfaceLevel?: SurfaceLevelInput;
-    zIndex?: string;
-  }>(),
-  {
-    accent: undefined,
-    anchorElement: undefined,
-    color: undefined,
-    contentClassName: undefined,
-    offset: 4,
-    position: "top",
-    root: undefined,
-    surfaceLevel: undefined,
-    zIndex: tooltipZIndexClasses,
-  },
-);
+const props = withDefaults(defineProps<TooltipPrimitiveProps>(), {
+  accent: undefined,
+  anchorElement: undefined,
+  color: undefined,
+  contentClassName: undefined,
+  offset: undefined,
+  position: undefined,
+  root: undefined,
+  surfaceLevel: undefined,
+  zIndex: undefined,
+});
 
 defineSlots<{
   default?: () => unknown;
@@ -68,22 +54,27 @@ const attrs = useAttrs();
 const ui = useUiContext();
 const surface = shallowRef<HTMLElement>();
 const { anchorName, setAnchorElement } = useAnchorPosition();
+const d = useComponentDefaults("TooltipPrimitive", props, {
+  offset: 4,
+  position: "top" as TooltipPrimitiveProps["position"],
+  zIndex: tooltipZIndexClasses,
+});
 const { phase, setPhase } = useOverlayPhase(model);
 
 const mounted = computed(() => phase.value !== "closed");
-const currentAccent = computed(() => props.color ?? props.accent);
+const currentAccent = computed(() => d.value.color ?? d.value.accent);
 const currentSurfaceLevel = computed(
-  () => props.surfaceLevel ?? (ui.theme.value === "light" ? 1 : 5),
+  () => d.value.surfaceLevel ?? (ui.theme.value === "light" ? 1 : 5),
 );
 const surfaceStyle = computed(() =>
   buildTooltipPositionStyle({
     anchorName: anchorName.value,
-    offset: props.offset,
-    position: props.position,
+    offset: d.value.offset,
+    position: d.value.position,
   }),
 );
 const containerClass = tooltipContainerClasses;
-const teleportTarget = computed(() => props.root ?? ui.overlaysRoot.value);
+const teleportTarget = computed(() => d.value.root ?? ui.overlaysRoot.value);
 const surfaceAttrs = computed(() => {
   const { class: _consumerClass, ...rest } = attrs;
   return rest;
@@ -110,15 +101,15 @@ const surfaceClass = computed(() =>
     phase.value === "opened" && tooltipDurationClasses,
     phase.value === "closing" && tooltipDurationClasses,
     (phase.value === "closing" || !opened.value) && tooltipHiddenClasses,
-    props.zIndex,
-    tooltipOrigins[props.position],
+    d.value.zIndex,
+    tooltipOrigins[d.value.position],
     attrs.class,
   ),
 );
-const contentClass = computed(() => cn(tooltipContentClasses, props.contentClassName));
+const contentClass = computed(() => cn(tooltipContentClasses, d.value.contentClassName));
 
 watch(
-  () => props.anchorElement,
+  () => d.value.anchorElement,
   (element) => {
     if (element) setAnchorElement(element);
   },
@@ -137,8 +128,8 @@ provideSurfaceColorReset();
         :accent="currentAccent"
         :class="surfaceClass"
         :content-class-name="contentClass"
-        :data-cui-opened="opened || undefined"
-        :data-position="props.position"
+        :data-open="opened || undefined"
+        :data-position="d.position"
         :level="currentSurfaceLevel"
         outline
         variant="gradient"

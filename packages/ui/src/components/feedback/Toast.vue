@@ -153,7 +153,7 @@ provideSurfaceColorReset();
       :class="surfaceClass"
       :color="d.color"
       :content-class-name="contentClass"
-      :data-cui-opened="opened || undefined"
+      :data-open="opened || undefined"
       :level="currentSurfaceLevel"
       :outline="d.outline"
       :variant="d.variant"

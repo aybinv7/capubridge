@@ -1,0 +1,26 @@
+<template>
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+    <g fill="currentColor" fill-rule="evenodd">
+      <path
+        fill-rule="nonzero"
+        d="M15.111 8A7.111 7.111 0 1 1 .89 8 7.111 7.111 0 0 1 15.11 8M2.222 8a5.778 5.778 0 1 0 11.556 0A5.778 5.778 0 0 0 2.222 8"
+      />
+      <rect width="1.5" height="1.5" x="5" y="3.5" rx=".75" />
+      <rect width="1.5" height="1.5" x="7.25" y="3.5" rx=".75" />
+      <rect width="1.5" height="1.5" x="9.5" y="3.5" rx=".75" />
+      <rect width="1.5" height="1.5" x="5" y="6" fill-opacity=".75" rx=".75" />
+      <rect width="1.5" height="1.5" x="7.25" y="6" fill-opacity=".75" rx=".75" />
+      <rect width="1.5" height="1.5" x="9.5" y="6" fill-opacity=".75" rx=".75" />
+      <rect width="1.5" height="1.5" x="11.75" y="6" fill-opacity=".75" rx=".75" />
+      <rect width="1.5" height="1.5" x="11.75" y="8.5" fill-opacity=".66" rx=".75" />
+      <rect width="1.5" height="1.5" x="2.75" y="6" fill-opacity=".75" rx=".75" />
+      <rect width="1.5" height="1.5" x="2.75" y="8.5" fill-opacity=".66" rx=".75" />
+      <rect width="1.5" height="1.5" x="5" y="8.5" fill-opacity=".66" rx=".75" />
+      <rect width="1.5" height="1.5" x="7.25" y="8.5" fill-opacity=".66" rx=".75" />
+      <rect width="1.5" height="1.5" x="9.5" y="8.5" fill-opacity=".66" rx=".75" />
+      <rect width="1.5" height="1.5" x="5" y="11" fill-opacity=".33" rx=".75" />
+      <rect width="1.5" height="1.5" x="7.25" y="11" fill-opacity=".33" rx=".75" />
+      <rect width="1.5" height="1.5" x="9.5" y="11" fill-opacity=".33" rx=".75" />
+    </g>
+  </svg>
+</template>

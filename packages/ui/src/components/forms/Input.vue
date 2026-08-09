@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, useAttrs, type Component } from "vue";
+import { computed, ref, useAttrs } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { UiAccent } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
 import { roundedClasses } from "../../shared/roundedClasses.ts";
 import { rootSizeClasses } from "../../shared/sizeClasses.ts";
@@ -10,7 +10,6 @@ import Button from "../actions/Button.vue";
 import FocusRing from "../feedback/FocusRing.vue";
 import SurfaceCut from "../surface/SurfaceCut.vue";
 import CloseIcon from "../feedback/CloseIcon.vue";
-import type { FieldSize } from "./form.contracts.ts";
 import {
   inputClearButtonSizes,
   inputClearGlyphSizes,
@@ -18,6 +17,7 @@ import {
   inputIconWrapClasses,
   inputPaddingNoIcon,
   inputPaddingWithIcon,
+  type InputProps,
 } from "./input.contracts.ts";
 
 const interactiveSelector =
@@ -25,68 +25,36 @@ const interactiveSelector =
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    as?: string | Component;
-    autofocus?: boolean;
-    clearButton?: boolean;
-    clearLabel?: string;
-    color?: UiAccent;
-    contentClassName?: string;
-    disabled?: boolean;
-    errorMessage?: string;
-    iconClassName?: string;
-    infoMessage?: string;
-    inputClassName?: string;
-    inputId?: string;
-    inputMode?: "decimal" | "email" | "none" | "numeric" | "search" | "tel" | "text" | "url";
-    max?: number | string;
-    maxLength?: number;
-    min?: number | string;
-    name?: string;
-    pattern?: string;
-    placeholder?: string;
-    readOnly?: boolean;
-    required?: boolean;
-    rounded?: boolean;
-    size?: FieldSize;
-    step?: number | string;
-    tightFocusRing?: boolean;
-    type?: string;
-    valid?: boolean;
-  }>(),
-  {
-    accent: undefined,
-    as: "div",
-    autofocus: false,
-    clearButton: false,
-    clearLabel: "Clear",
-    color: undefined,
-    contentClassName: undefined,
-    disabled: false,
-    errorMessage: undefined,
-    iconClassName: undefined,
-    infoMessage: undefined,
-    inputClassName: undefined,
-    inputId: undefined,
-    inputMode: undefined,
-    max: undefined,
-    maxLength: undefined,
-    min: undefined,
-    name: undefined,
-    pattern: undefined,
-    placeholder: undefined,
-    readOnly: false,
-    required: false,
-    rounded: false,
-    size: "lg",
-    step: undefined,
-    tightFocusRing: false,
-    type: "text",
-    valid: true,
-  },
-);
+const props = withDefaults(defineProps<InputProps>(), {
+  accent: undefined,
+  as: undefined,
+  autofocus: undefined,
+  clearButton: undefined,
+  clearLabel: undefined,
+  color: undefined,
+  contentClassName: undefined,
+  disabled: undefined,
+  errorMessage: undefined,
+  iconClassName: undefined,
+  infoMessage: undefined,
+  inputClassName: undefined,
+  inputId: undefined,
+  inputMode: undefined,
+  max: undefined,
+  maxLength: undefined,
+  min: undefined,
+  name: undefined,
+  pattern: undefined,
+  placeholder: undefined,
+  readOnly: undefined,
+  required: undefined,
+  rounded: undefined,
+  size: undefined,
+  step: undefined,
+  tightFocusRing: undefined,
+  type: undefined,
+  valid: undefined,
+});
 
 const slots = defineSlots<{
   displayValue?: () => unknown;
@@ -106,32 +74,46 @@ const emit = defineEmits<{
 const model = defineModel<string>({ default: "" });
 const ui = useUiContext();
 const attrs = useAttrs();
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
+const d = useComponentDefaults("Input", props, {
+  as: "div" as InputProps["as"],
+  autofocus: false,
+  clearButton: false,
+  clearLabel: "Clear",
+  disabled: false,
+  readOnly: false,
+  required: false,
+  rounded: false,
+  size: "lg" as InputProps["size"],
+  tightFocusRing: false,
+  type: "text",
+  valid: true,
+});
+const currentAccent = computed(() => d.value.color ?? d.value.accent ?? ui.accentColor.value);
 const inputElement = ref<HTMLInputElement>();
 const focused = ref(false);
 
-const radii = computed(() => roundedClasses(props.size, props.rounded, false));
-const heightClass = computed(() => rootSizeClasses(props.size, "height"));
+const radii = computed(() => roundedClasses(d.value.size, d.value.rounded, false));
+const heightClass = computed(() => rootSizeClasses(d.value.size, "height"));
 const inputPadding = computed(() =>
-  slots.icon ? inputPaddingWithIcon[props.size] : inputPaddingNoIcon[props.size],
+  slots.icon ? inputPaddingWithIcon[d.value.size] : inputPaddingNoIcon[d.value.size],
 );
 const showDisplayValue = computed(
-  () => Boolean(slots.displayValue) && (props.readOnly || !focused.value),
+  () => Boolean(slots.displayValue) && (d.value.readOnly || !focused.value),
 );
 
 const rootClass = computed(() =>
-  cn("cui-input group/cui-input", props.disabled && "opacity-50", radii.value.itemRoundedClasses),
+  cn("cui-input group/cui-input", d.value.disabled && "opacity-50", radii.value.itemRoundedClasses),
 );
 
 const focusRingClass = computed(() =>
-  props.tightFocusRing ? "rounded-[inherit]" : radii.value.focusRoundedClasses,
+  d.value.tightFocusRing ? "rounded-[inherit]" : radii.value.focusRoundedClasses,
 );
 
 const iconClass = computed(() =>
   cn(
     "pointer-events-none absolute top-1/2 -translate-y-1/2",
-    inputIconWrapClasses[props.size],
-    props.iconClassName,
+    inputIconWrapClasses[d.value.size],
+    d.value.iconClassName,
   ),
 );
 
@@ -139,13 +121,13 @@ const controlClass = computed(() =>
   cn(
     inputPadding.value,
     heightClass.value,
-    inputFontSizes[props.size],
+    inputFontSizes[d.value.size],
     radii.value.itemRoundedClasses,
     "w-full appearance-none border-none bg-transparent font-medium shadow-none outline-none",
-    props.disabled && "text-cui-fg-softer",
+    d.value.disabled && "text-cui-fg-softer",
     "placeholder-cui-fg-softer",
     showDisplayValue.value && "text-transparent! placeholder-transparent!",
-    props.inputClassName,
+    d.value.inputClassName,
   ),
 );
 
@@ -153,18 +135,18 @@ const displayValueClass = computed(() =>
   cn(
     inputPadding.value,
     heightClass.value,
-    inputFontSizes[props.size],
+    inputFontSizes[d.value.size],
     "pointer-events-none absolute inset-0 flex items-center font-medium",
-    props.disabled && "text-cui-fg-softer",
-    props.inputClassName,
+    d.value.disabled && "text-cui-fg-softer",
+    d.value.inputClassName,
   ),
 );
 
 const clearWrapClass = computed(() =>
   cn(
     "relative mr-1 shrink-0",
-    rootSizeClasses(props.size, "height"),
-    rootSizeClasses(props.size, "width"),
+    rootSizeClasses(d.value.size, "height"),
+    rootSizeClasses(d.value.size, "width"),
   ),
 );
 
@@ -227,28 +209,28 @@ defineExpose({
 <template>
   <SurfaceCut
     v-bind="attrs"
-    :accent="props.accent"
-    :as="props.as"
+    :accent="d.accent"
+    :as="d.as"
     :class="rootClass"
-    :color="props.color"
-    :data-disabled="props.disabled || undefined"
-    :data-invalid="!props.valid || undefined"
-    :data-readonly="props.readOnly || undefined"
-    :data-required="props.required || undefined"
-    :hoverable="!props.disabled && !props.readOnly"
+    :color="d.color"
+    :data-disabled="d.disabled || undefined"
+    :data-invalid="!d.valid || undefined"
+    :data-readonly="d.readOnly || undefined"
+    :data-required="d.required || undefined"
+    :hoverable="!d.disabled && !d.readOnly"
     :wrap-content="false"
   >
     <FocusRing
-      v-if="!props.readOnly && !props.disabled"
+      v-if="!d.readOnly && !d.disabled"
       :class="focusRingClass"
-      :color="props.valid ? currentAccent : 'red'"
-      :force="!props.valid"
+      :color="d.valid ? currentAccent : 'red'"
+      :force="!d.valid"
       group="input"
-      :offset="!props.tightFocusRing"
+      :offset="!d.tightFocusRing"
     />
 
     <div
-      :class="cn('relative flex items-center', props.contentClassName)"
+      :class="cn('relative flex items-center', d.contentClassName)"
       data-part="wrapper"
       @click="onClick"
       @contextmenu.capture.prevent
@@ -261,24 +243,24 @@ defineExpose({
 
       <div class="relative flex w-full">
         <input
-          :id="props.inputId"
+          :id="d.inputId"
           ref="inputElement"
-          :autofocus="props.autofocus"
+          :autofocus="d.autofocus"
           :class="controlClass"
           data-part="control"
-          :disabled="props.disabled"
-          :inputmode="props.inputMode"
-          :max="props.max"
-          :maxlength="props.maxLength"
-          :min="props.min"
-          :name="props.name"
-          :pattern="props.pattern"
-          :placeholder="props.placeholder"
-          :readonly="props.readOnly"
-          :required="props.required"
-          :step="props.step"
-          :tabindex="props.disabled || props.readOnly ? -1 : undefined"
-          :type="props.type"
+          :disabled="d.disabled"
+          :inputmode="d.inputMode"
+          :max="d.max"
+          :maxlength="d.maxLength"
+          :min="d.min"
+          :name="d.name"
+          :pattern="d.pattern"
+          :placeholder="d.placeholder"
+          :readonly="d.readOnly"
+          :required="d.required"
+          :step="d.step"
+          :tabindex="d.disabled || d.readOnly ? -1 : undefined"
+          :type="d.type"
           :value="model"
           @blur="onBlur"
           @focus="onFocus"
@@ -291,35 +273,31 @@ defineExpose({
         </span>
       </div>
 
-      <div v-if="props.clearButton && !props.disabled && !props.readOnly" :class="clearWrapClass">
+      <div v-if="d.clearButton && !d.disabled && !d.readOnly" :class="clearWrapClass">
         <Button
-          :aria-label="props.clearLabel"
+          :aria-label="d.clearLabel"
           :class="clearButtonClass"
           content-class-name="px-0"
           data-part="clear"
           :disabled="!model"
           :outline="false"
-          :rounded="props.rounded"
-          :size="inputClearButtonSizes[props.size]"
+          :rounded="d.rounded"
+          :size="inputClearButtonSizes[d.size]"
           :tabindex="-1"
           @click="clearValue"
         >
-          <CloseIcon :class="cn('text-cui-fg-soft', inputClearGlyphSizes[props.size])" />
+          <CloseIcon :class="cn('text-cui-fg-soft', inputClearGlyphSizes[d.size])" />
         </Button>
       </div>
 
       <slot name="suffix" />
     </div>
 
-    <div
-      v-if="props.infoMessage && props.valid && !props.readOnly"
-      :class="infoClass"
-      data-part="info"
-    >
-      {{ props.infoMessage }}
+    <div v-if="d.infoMessage && d.valid && !d.readOnly" :class="infoClass" data-part="info">
+      {{ d.infoMessage }}
     </div>
-    <div v-if="props.errorMessage && !props.valid" :class="errorClass" data-part="error">
-      {{ props.errorMessage }}
+    <div v-if="d.errorMessage && !d.valid" :class="errorClass" data-part="error">
+      {{ d.errorMessage }}
     </div>
   </SurfaceCut>
 </template>

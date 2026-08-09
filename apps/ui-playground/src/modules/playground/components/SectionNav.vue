@@ -26,9 +26,5 @@ defineProps<{
         <span class="section-nav__count">{{ entry.count }}</span>
       </RouterLink>
     </nav>
-    <div class="section-nav__footer">
-      <span class="section-nav__pulse" />
-      Package linked locally
-    </div>
   </aside>
 </template>

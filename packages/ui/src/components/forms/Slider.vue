@@ -9,15 +9,14 @@ import {
   type CSSProperties,
 } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { UiAccent } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
 import { roundedClasses } from "../../shared/roundedClasses.ts";
 import { rootSizeClasses } from "../../shared/sizeClasses.ts";
 import FocusRing from "../feedback/FocusRing.vue";
 import Surface from "../surface/Surface.vue";
 import SurfaceCut from "../surface/SurfaceCut.vue";
-import type { ChoiceSize, SliderScale, SliderVariant } from "./form.contracts.ts";
 import {
   sliderRangeInsets,
   sliderRootHeights,
@@ -25,60 +24,36 @@ import {
   sliderThumbSpacingVars,
   sliderTrackBarClasses,
   sliderValueOffsets,
+  type SliderProps,
 } from "./slider.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
 const sliderResolution = 1000;
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    color?: UiAccent;
-    debounce?: number;
-    defaultValue?: number;
-    disabled?: boolean;
-    input?: boolean;
-    max?: number;
-    min?: number;
-    name?: string;
-    rangeFill?: boolean;
-    rangeOutline?: boolean;
-    readOnly?: boolean;
-    rounded?: boolean;
-    scale?: SliderScale;
-    size?: ChoiceSize;
-    step?: number;
-    throttle?: number;
-    thumbOutline?: boolean;
-    tightFocusRing?: boolean;
-    value?: number;
-    variant?: SliderVariant;
-  }>(),
-  {
-    accent: undefined,
-    color: undefined,
-    debounce: 0,
-    defaultValue: 0,
-    disabled: false,
-    input: false,
-    max: 100,
-    min: 0,
-    name: undefined,
-    rangeFill: false,
-    rangeOutline: true,
-    readOnly: false,
-    rounded: false,
-    scale: "linear",
-    size: "sm",
-    step: 1,
-    throttle: 0,
-    thumbOutline: true,
-    tightFocusRing: false,
-    value: undefined,
-    variant: "thumb",
-  },
-);
+const props = withDefaults(defineProps<SliderProps>(), {
+  accent: undefined,
+  color: undefined,
+  debounce: undefined,
+  defaultValue: undefined,
+  disabled: undefined,
+  input: undefined,
+  max: undefined,
+  min: undefined,
+  name: undefined,
+  rangeFill: undefined,
+  rangeOutline: undefined,
+  readOnly: undefined,
+  rounded: undefined,
+  scale: undefined,
+  size: undefined,
+  step: undefined,
+  throttle: undefined,
+  thumbOutline: undefined,
+  tightFocusRing: undefined,
+  value: undefined,
+  variant: undefined,
+});
 
 const model = defineModel<number>();
 const emit = defineEmits<{
@@ -87,6 +62,25 @@ const emit = defineEmits<{
 }>();
 const ui = useUiContext();
 const attrs = useAttrs();
+const d = useComponentDefaults("Slider", props, {
+  debounce: 0,
+  defaultValue: 0,
+  disabled: false,
+  input: false,
+  max: 100,
+  min: 0,
+  rangeFill: false,
+  rangeOutline: true,
+  readOnly: false,
+  rounded: false,
+  scale: "linear" as SliderProps["scale"],
+  size: "sm" as SliderProps["size"],
+  step: 1,
+  throttle: 0,
+  thumbOutline: true,
+  tightFocusRing: false,
+  variant: "thumb" as SliderProps["variant"],
+});
 const labellingAttributeNames = ["aria-label", "aria-labelledby", "aria-describedby"];
 const controlAttrs = computed(() =>
   Object.fromEntries(
@@ -98,7 +92,7 @@ const rootAttrs = computed(() =>
     Object.entries(attrs).filter(([name]) => !labellingAttributeNames.includes(name)),
   ),
 );
-const uncontrolledValue = shallowRef(props.defaultValue);
+const uncontrolledValue = shallowRef(d.value.defaultValue);
 const dragging = ref(false);
 let touched = false;
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -106,45 +100,46 @@ let throttleTimer: ReturnType<typeof setTimeout> | undefined;
 let throttleLastFire = 0;
 let throttlePending: number | undefined;
 
-const isTrack = computed(() => props.variant === "track");
-const isControlled = computed(() => props.value !== undefined);
-const value = computed(() => props.value ?? model.value ?? uncontrolledValue.value);
+const isTrack = computed(() => d.value.variant === "track");
+const isControlled = computed(() => d.value.value !== undefined);
+const value = computed(() => d.value.value ?? model.value ?? uncontrolledValue.value);
 const scaleFns = computed(() => {
-  if (props.scale === "linear") return undefined;
-  if (props.scale === "log") {
-    if (props.min <= 0 || props.max <= props.min) return undefined;
+  if (d.value.scale === "linear") return undefined;
+  if (d.value.scale === "log") {
+    if (d.value.min <= 0 || d.value.max <= d.value.min) return undefined;
     return {
-      fromSlider: (position: number) => props.min * (props.max / props.min) ** position,
-      toSlider: (next: number) => Math.log(next / props.min) / Math.log(props.max / props.min),
+      fromSlider: (position: number) => d.value.min * (d.value.max / d.value.min) ** position,
+      toSlider: (next: number) =>
+        Math.log(next / d.value.min) / Math.log(d.value.max / d.value.min),
     };
   }
-  return props.scale;
+  return d.value.scale;
 });
 const progress = computed(() => {
-  const span = props.max - props.min;
+  const span = d.value.max - d.value.min;
   if (span <= 0) return 0;
-  const next = Math.min(props.max, Math.max(props.min, value.value));
-  const position = scaleFns.value ? scaleFns.value.toSlider(next) : (next - props.min) / span;
+  const next = Math.min(d.value.max, Math.max(d.value.min, value.value));
+  const position = scaleFns.value ? scaleFns.value.toSlider(next) : (next - d.value.min) / span;
   return Math.min(1, Math.max(0, position));
 });
 const effectiveColor = computed(
-  () => props.color ?? props.accent ?? (isTrack.value ? undefined : ui.accentColor.value),
+  () => d.value.color ?? d.value.accent ?? (isTrack.value ? undefined : ui.accentColor.value),
 );
 const inputValue = computed(() =>
   scaleFns.value ? Math.round(progress.value * sliderResolution) : value.value,
 );
-const inputMin = computed(() => (scaleFns.value ? 0 : props.min));
-const inputMax = computed(() => (scaleFns.value ? sliderResolution : props.max));
-const inputStep = computed(() => (scaleFns.value ? 1 : props.step));
-const radii = computed(() => roundedClasses(props.size, props.rounded, false));
+const inputMin = computed(() => (scaleFns.value ? 0 : d.value.min));
+const inputMax = computed(() => (scaleFns.value ? sliderResolution : d.value.max));
+const inputStep = computed(() => (scaleFns.value ? 1 : d.value.step));
+const radii = computed(() => roundedClasses(d.value.size, d.value.rounded, false));
 const durationClass = computed(() => (dragging.value ? "duration-0" : "duration-300"));
-const thumbSpacing = computed(() => sliderThumbSpacingVars[props.size]);
+const thumbSpacing = computed(() => sliderThumbSpacingVars[d.value.size]);
 
 const rootClass = computed(() =>
   cn(
     "cui-slider group/cui-slider relative flex touch-pan-y select-none",
-    !isTrack.value && sliderRootHeights[props.size],
-    isTrack.value && rootSizeClasses(props.size, "height"),
+    !isTrack.value && sliderRootHeights[d.value.size],
+    isTrack.value && rootSizeClasses(d.value.size, "height"),
   ),
 );
 
@@ -156,9 +151,9 @@ const trackVariantRangeClass = computed(() =>
   cn(
     effectiveColor.value && `cui-color-${effectiveColor.value}`,
     "pointer-events-none absolute top-0 bottom-0 left-0 ease-out",
-    props.rounded && "rounded-l-full",
+    d.value.rounded && "rounded-l-full",
     radii.value.itemRoundedClasses,
-    props.disabled && "opacity-50",
+    d.value.disabled && "opacity-50",
     durationClass.value,
   ),
 );
@@ -168,17 +163,17 @@ const trackVariantRangeStyle = computed(
 );
 
 const trackVariantFocusRingClass = computed(() =>
-  props.tightFocusRing ? radii.value.itemRoundedClasses : radii.value.focusRoundedClasses,
+  d.value.tightFocusRing ? radii.value.itemRoundedClasses : radii.value.focusRoundedClasses,
 );
 
 const trackVariantHandleClass = computed(() =>
   cn(
     effectiveColor.value && `cui-color-${effectiveColor.value}`,
     "pointer-events-none absolute top-1/2 h-4 w-0.5 shrink-0 -translate-y-1/2 scale-y-75 rounded-full bg-cui-fg-softer ease-out group-focus-within/cui-slider:scale-100 group-focus-within/cui-slider:bg-cui-primary",
-    props.rangeFill &&
+    d.value.rangeFill &&
       progress.value > 0.5 &&
       "bg-cui-on-primary outline-transparent group-focus-within/cui-slider:bg-cui-on-primary",
-    props.disabled && "opacity-50",
+    d.value.disabled && "opacity-50",
     durationClass.value,
   ),
 );
@@ -190,22 +185,22 @@ const trackVariantHandleStyle = computed(
 const thumbVariantTrackClass = computed(() =>
   cn(
     "pointer-events-none absolute inset-0 top-1/2 right-0 left-0 rounded-full",
-    sliderTrackBarClasses[props.size],
+    sliderTrackBarClasses[d.value.size],
   ),
 );
 
 const thumbVariantRangeClass = computed(() =>
-  cn("absolute top-1/2 -mt-px h-0.5 overflow-hidden rounded-full", sliderRangeInsets[props.size]),
+  cn("absolute top-1/2 -mt-px h-0.5 overflow-hidden rounded-full", sliderRangeInsets[d.value.size]),
 );
 
 const thumbVariantRangeFillClass = computed(() =>
   cn(
     `cui-color-${effectiveColor.value}`,
     "absolute inset-0 rounded-full bg-cui-primary ease-out",
-    !props.disabled &&
-      !props.readOnly &&
+    !d.value.disabled &&
+      !d.value.readOnly &&
       "group-focus-within/slider:-translate-x-3 group-active/slider:-translate-x-3",
-    props.disabled && "opacity-50",
+    d.value.disabled && "opacity-50",
     durationClass.value,
   ),
 );
@@ -230,35 +225,35 @@ const thumbWrapperStyle = computed(
 
 const valueBubbleClass = computed(() =>
   cn(
-    sliderValueOffsets[props.size],
+    sliderValueOffsets[d.value.size],
     "absolute -bottom-4 min-w-8 -translate-x-1/2 scale-0 rounded-cui-2xl px-1 pt-2.5 pb-8 text-center text-cui-xs leading-none font-medium text-cui-primary duration-300",
-    !props.disabled &&
-      !props.readOnly &&
+    !d.value.disabled &&
+      !d.value.readOnly &&
       "group-focus-within/cui-slider:scale-100 group-active/cui-slider:scale-100",
   ),
 );
 
 const thumbSurfaceClass = computed(() =>
-  cn("z-10 shrink-0 rounded-full", sliderThumbSizes[props.size]),
+  cn("z-10 shrink-0 rounded-full", sliderThumbSizes[d.value.size]),
 );
 
 function normalize(next: number): number {
-  const rounded = props.step > 0 ? Math.round(next / props.step) * props.step : next;
-  return Math.min(props.max, Math.max(props.min, rounded));
+  const rounded = d.value.step > 0 ? Math.round(next / d.value.step) * d.value.step : next;
+  return Math.min(d.value.max, Math.max(d.value.min, rounded));
 }
 
 function publish(next: number, event?: Event): void {
-  if (props.disabled || props.readOnly) return;
+  if (d.value.disabled || d.value.readOnly) return;
 
   const normalized = normalize(next);
   if (!isControlled.value) uncontrolledValue.value = normalized;
   model.value = normalized;
   emit("update:value", normalized);
 
-  if (props.throttle > 0) {
+  if (d.value.throttle > 0) {
     const now = Date.now();
     const elapsed = now - throttleLastFire;
-    if (elapsed >= props.throttle) {
+    if (elapsed >= d.value.throttle) {
       throttleLastFire = now;
       throttlePending = undefined;
       if (throttleTimer) clearTimeout(throttleTimer);
@@ -275,14 +270,14 @@ function publish(next: number, event?: Event): void {
         throttleLastFire = Date.now();
         emit("change", throttlePending);
         throttlePending = undefined;
-      }, props.throttle - elapsed);
+      }, d.value.throttle - elapsed);
     }
     return;
   }
 
-  if (props.debounce > 0) {
+  if (d.value.debounce > 0) {
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => emit("change", normalized), props.debounce);
+    debounceTimer = setTimeout(() => emit("change", normalized), d.value.debounce);
     return;
   }
 
@@ -324,8 +319,8 @@ onBeforeUnmount(() => {
   <div
     v-bind="rootAttrs"
     :class="rootClass"
-    :data-disabled="props.disabled || undefined"
-    :data-readonly="props.readOnly || undefined"
+    :data-disabled="d.disabled || undefined"
+    :data-readonly="d.readOnly || undefined"
     @contextmenu.capture.prevent
     @pointercancel="handlePointerUp"
     @pointerdown="handlePointerDown"
@@ -343,16 +338,16 @@ onBeforeUnmount(() => {
         :color="effectiveColor"
         data-part="range"
         level="+2"
-        :outline="props.rangeOutline"
+        :outline="d.rangeOutline"
         :style="trackVariantRangeStyle"
-        :variant="props.rangeFill ? 'gradient-fill' : 'gradient'"
+        :variant="d.rangeFill ? 'gradient-fill' : 'gradient'"
         :wrap-content="false"
       />
       <FocusRing
-        v-if="!props.disabled && !props.readOnly"
+        v-if="!d.disabled && !d.readOnly"
         :class="trackVariantFocusRingClass"
         group="slider"
-        :offset="!props.tightFocusRing"
+        :offset="!d.tightFocusRing"
       />
       <span :class="trackVariantHandleClass" data-part="thumb" :style="trackVariantHandleStyle" />
     </template>
@@ -370,8 +365,8 @@ onBeforeUnmount(() => {
             outline
             variant="gradient"
           >
-            <template v-if="!props.disabled && !props.readOnly" #beforeContent>
-              <FocusRing class="rounded-full" group="slider" :offset="!props.tightFocusRing" />
+            <template v-if="!d.disabled && !d.readOnly" #beforeContent>
+              <FocusRing class="rounded-full" group="slider" :offset="!d.tightFocusRing" />
             </template>
             {{ value }}
           </Surface>
@@ -381,7 +376,7 @@ onBeforeUnmount(() => {
           :class="thumbSurfaceClass"
           :color="effectiveColor"
           data-part="thumb"
-          :outline="props.thumbOutline"
+          :outline="d.thumbOutline"
           variant="gradient-fill"
           :wrap-content="false"
         />
@@ -391,11 +386,11 @@ onBeforeUnmount(() => {
       v-bind="controlAttrs"
       class="relative m-0 block w-full appearance-none border-transparent bg-transparent p-0 focus:outline-none"
       data-part="input"
-      :disabled="props.disabled || props.readOnly"
+      :disabled="d.disabled || d.readOnly"
       :max="inputMax"
       :min="inputMin"
-      :name="props.name"
-      :readonly="props.readOnly"
+      :name="d.name"
+      :readonly="d.readOnly"
       :step="inputStep"
       type="range"
       :value="inputValue"

@@ -1,4 +1,47 @@
+import type { Component } from "vue";
+
+import type { UiAccent } from "../../foundations/contracts.ts";
 import type { FieldSize } from "./form.contracts.ts";
+
+export interface TextareaProps {
+  accent?: UiAccent;
+  /** Polymorphic wrapper element. Defaults to `'div'`. */
+  as?: string | Component;
+  /** Accent color token. Drives the focus ring and `infoMessage` colors. Default: theme accent. */
+  color?: UiAccent;
+  /** Extra classes for the inner content row. */
+  contentClassName?: string;
+  /** Visually dim the textarea and remove `contenteditable`. Default `false`. */
+  disabled?: boolean;
+  /** Floating error label. Always visible when `valid === false`. */
+  errorMessage?: string;
+  /** Extra classes for the icon wrapper. */
+  iconClassName?: string;
+  /** Floating label shown above the editor on focus. */
+  infoMessage?: string;
+  /** Extra classes for the editable `[contenteditable]` `<div>`. */
+  inputClassName?: string;
+  /** Maximum number of characters the user can type or paste. */
+  maxLength?: number;
+  /** Placeholder text shown when the editor is empty. */
+  placeholder?: string;
+  /** Extra classes for the placeholder layer. */
+  placeholderClassName?: string;
+  /** Make the textarea non-editable but still selectable. Default `false`. */
+  readOnly?: boolean;
+  /** Apply pill-style corners. Default `false`. */
+  rounded?: boolean;
+  /** Textarea size token. Default `'lg'`. */
+  size?: FieldSize;
+  /** Render the focus ring flush against the element. Default `false`. */
+  tightFocusRing?: boolean;
+  /** Sync the editable `innerText` whenever the model changes from the outside. Default `true`. */
+  updateContentOnChange?: boolean;
+  /** Validity state. Default `true`. */
+  valid?: boolean;
+}
+
+export type TextareaDefaultProps = Partial<Omit<TextareaProps, "as">>;
 
 export const textareaFontSizes: Record<FieldSize, string> = {
   sm: "text-cui-xs",

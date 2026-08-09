@@ -2,12 +2,12 @@
 import { computed, shallowRef, useAttrs, useSlots, watch } from "vue";
 
 import { useAnchorPosition } from "../../composables/useAnchorPosition.ts";
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useOverlayDismiss } from "../../composables/useOverlayDismiss.ts";
 import { useOverlayLifecycle } from "../../composables/useOverlayLifecycle.ts";
 import { useOverlayPhase } from "../../composables/useOverlayPhase.ts";
 import { provideSurfaceColorReset } from "../../contexts/surfaceContext.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { SurfaceLevelInput, SurfaceVariant, UiAccent } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
 import VNodeRenderer from "../data-display/VNodeRenderer.ts";
 import Surface from "../surface/Surface.vue";
@@ -30,8 +30,7 @@ import {
   popoverPositionConfigs,
   popoverSurfaceClasses,
   resolveOverlayElement,
-  type PopoverOffset,
-  type PopoverPosition,
+  type PopoverProps,
 } from "./overlay.contracts.ts";
 import { popoverRootContextKey, useOverlayRootContext } from "./overlayRootContext.ts";
 import { cloneTriggerNode } from "./overlayTrigger.ts";
@@ -42,52 +41,26 @@ import { usePopoverChain } from "./popoverChain.ts";
 // would otherwise land on the trigger, so attrs are routed explicitly.
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    /**
-     * Element the popover anchors against. Takes precedence over the `trigger` slot and over the
-     * anchor a `PopoverTrigger` registered on a surrounding `PopoverRoot` (upstream's `anchorRef`).
-     */
-    anchorElement?: HTMLElement;
-    anchorRect?: DOMRectReadOnly;
-    backdrop?: boolean;
-    backdropTransparent?: boolean;
-    closeOnBackdropClick?: boolean;
-    closeOnEscape?: boolean;
-    color?: UiAccent;
-    contentClassName?: string;
-    disabled?: boolean;
-    lazy?: boolean;
-    offset?: PopoverOffset;
-    outline?: boolean;
-    position?: PopoverPosition;
-    root?: string | HTMLElement;
-    surfaceLevel?: SurfaceLevelInput;
-    variant?: SurfaceVariant;
-    viewportMargin?: number;
-  }>(),
-  {
-    accent: undefined,
-    anchorElement: undefined,
-    anchorRect: undefined,
-    backdrop: false,
-    backdropTransparent: false,
-    closeOnBackdropClick: true,
-    closeOnEscape: true,
-    color: undefined,
-    contentClassName: undefined,
-    disabled: false,
-    lazy: false,
-    offset: undefined,
-    outline: undefined,
-    position: "bottom",
-    root: undefined,
-    surfaceLevel: undefined,
-    variant: undefined,
-    viewportMargin: 4,
-  },
-);
+const props = withDefaults(defineProps<PopoverProps>(), {
+  accent: undefined,
+  anchorElement: undefined,
+  anchorRect: undefined,
+  backdrop: undefined,
+  backdropTransparent: undefined,
+  closeOnBackdropClick: undefined,
+  closeOnEscape: undefined,
+  color: undefined,
+  contentClassName: undefined,
+  disabled: undefined,
+  lazy: undefined,
+  offset: undefined,
+  outline: undefined,
+  position: undefined,
+  root: undefined,
+  surfaceLevel: undefined,
+  variant: undefined,
+  viewportMargin: undefined,
+});
 
 defineSlots<{
   default?: (props: { close: () => void }) => unknown;
@@ -113,6 +86,16 @@ const root = useOverlayRootContext(popoverRootContextKey);
 const container = shallowRef<HTMLElement>();
 const surface = shallowRef<HTMLElement>();
 const { anchorName, setAnchorElement } = useAnchorPosition();
+const d = useComponentDefaults("Popover", props, {
+  backdrop: false,
+  backdropTransparent: false,
+  closeOnBackdropClick: true,
+  closeOnEscape: true,
+  disabled: false,
+  lazy: false,
+  position: "bottom" as PopoverProps["position"],
+  viewportMargin: 4,
+});
 
 // Own `open` wins, then the surrounding PopoverRoot's state, then `false` — upstream's
 // `open ?? ctx?.open ?? false`. Writes go back to whichever of the two is in play.
@@ -127,30 +110,30 @@ const model = computed<boolean>({
 const { phase, setPhase } = useOverlayPhase(model);
 
 const mounted = computed(() => phase.value !== "closed");
-const currentAccent = computed(() => props.color ?? props.accent);
+const currentAccent = computed(() => d.value.color ?? d.value.accent);
 const currentVariant = computed(
-  () => props.variant ?? (ui.theme.value === "light" ? "solid" : "gradient"),
+  () => d.value.variant ?? (ui.theme.value === "light" ? "solid" : "gradient"),
 );
-const currentOutline = computed(() => props.outline ?? ui.theme.value === "dark");
+const currentOutline = computed(() => d.value.outline ?? ui.theme.value === "dark");
 const currentSurfaceLevel = computed(
-  () => props.surfaceLevel ?? (ui.theme.value === "light" ? 1 : "+1"),
+  () => d.value.surfaceLevel ?? (ui.theme.value === "light" ? 1 : "+1"),
 );
 const positionConfig = computed(
-  () => popoverPositionConfigs[props.position] ?? popoverPositionConfigs[popoverFallbackPosition],
+  () => popoverPositionConfigs[d.value.position] ?? popoverPositionConfigs[popoverFallbackPosition],
 );
 const surfaceStyle = computed(() =>
   buildPopoverPositionStyle({
     anchorName: anchorName.value,
-    offset: props.offset,
-    position: props.position,
-    viewportMargin: props.viewportMargin,
+    offset: d.value.offset,
+    position: d.value.position,
+    viewportMargin: d.value.viewportMargin,
   }),
 );
 const anchorRectStyle = computed(() =>
-  props.anchorRect ? buildAnchorRectStyle(props.anchorRect, anchorName.value) : undefined,
+  d.value.anchorRect ? buildAnchorRectStyle(d.value.anchorRect, anchorName.value) : undefined,
 );
 const containerClass = popoverContainerClasses;
-const teleportTarget = computed(() => props.root ?? ui.overlaysRoot.value);
+const teleportTarget = computed(() => d.value.root ?? ui.overlaysRoot.value);
 
 function setSurface(value: unknown): void {
   surface.value = resolveOverlayElement(value);
@@ -161,12 +144,12 @@ function close(): void {
 }
 
 function toggle(): void {
-  if (props.disabled) return;
+  if (d.value.disabled) return;
   model.value = !model.value;
 }
 
 function onBackdropClick(): void {
-  if (props.closeOnBackdropClick) close();
+  if (d.value.closeOnBackdropClick) close();
 }
 
 function hasChildOverlay(): boolean {
@@ -175,9 +158,9 @@ function hasChildOverlay(): boolean {
 }
 
 const { opened } = useOverlayLifecycle({
-  closeOnEscape: () => props.closeOnEscape && !hasChildOverlay(),
+  closeOnEscape: () => d.value.closeOnEscape && !hasChildOverlay(),
   element: surface,
-  lazy: () => props.lazy,
+  lazy: () => d.value.lazy,
   onClose: () => emit("closing"),
   onClosed: () => emit("closed"),
   onOpen: () => emit("opening"),
@@ -187,7 +170,7 @@ const { opened } = useOverlayLifecycle({
 });
 
 useOverlayDismiss({
-  closeOnOutsideClick: () => props.closeOnBackdropClick,
+  closeOnOutsideClick: () => d.value.closeOnBackdropClick,
   container,
   onClose: close,
   opened,
@@ -207,11 +190,11 @@ const surfaceClass = computed(() =>
     attrs.class,
   ),
 );
-const contentClass = computed(() => cn(popoverContentClasses, props.contentClassName));
+const contentClass = computed(() => cn(popoverContentClasses, d.value.contentClassName));
 const backdropClass = computed(() =>
   cn(
     overlayBackdropDurationClasses,
-    props.backdropTransparent ? overlayBackdropTransparentClasses : popoverBackdropTintClasses,
+    d.value.backdropTransparent ? overlayBackdropTransparentClasses : popoverBackdropTintClasses,
     opened.value ? "opacity-100" : "opacity-0",
   ),
 );
@@ -224,7 +207,7 @@ const triggerNode = computed(() =>
 // `PopoverTrigger` registered on the surrounding `PopoverRoot` — upstream's
 // `anchorRef ?? ctx?.anchorRef`.
 watch(
-  () => props.anchorElement ?? (slots.trigger ? undefined : root?.anchor.value),
+  () => d.value.anchorElement ?? (slots.trigger ? undefined : root?.anchor.value),
   (element) => {
     if (element) setAnchorElement(element);
   },
@@ -241,7 +224,7 @@ provideSurfaceColorReset();
   </span>
   <Teleport :to="teleportTarget">
     <div v-if="mounted" ref="container" :class="containerClass">
-      <Backdrop v-if="props.backdrop" :class="backdropClass" @click="onBackdropClick" />
+      <Backdrop v-if="d.backdrop" :class="backdropClass" @click="onBackdropClick" />
       <div v-if="anchorRectStyle" aria-hidden="true" :style="anchorRectStyle" />
       <Surface
         v-bind="surfaceAttrs"
@@ -250,8 +233,8 @@ provideSurfaceColorReset();
         :class="surfaceClass"
         :content-class-name="contentClass"
         data-part="content"
-        :data-cui-opened="opened || undefined"
-        :data-position="props.position"
+        :data-open="opened || undefined"
+        :data-position="d.position"
         :level="currentSurfaceLevel"
         :outline="currentOutline"
         :style="surfaceStyle"

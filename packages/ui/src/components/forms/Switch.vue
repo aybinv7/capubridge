@@ -1,66 +1,44 @@
 <script setup lang="ts">
-import { computed, type Component } from "vue";
+import { computed } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { SurfaceLevelInput, SurfaceVariant, UiAccent } from "../../foundations/contracts.ts";
 import FocusRing from "../feedback/FocusRing.vue";
 import { cn } from "../../shared/cn.ts";
 import Surface from "../surface/Surface.vue";
-import type { SwitchSize } from "./form.contracts.ts";
-import { switchRootSizes, switchThumbOffsets, switchThumbSizes } from "./switch.contracts.ts";
+import {
+  switchRootSizes,
+  switchThumbOffsets,
+  switchThumbSizes,
+  type SwitchProps,
+} from "./switch.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    as?: string | Component;
-    checked?: boolean;
-    color?: UiAccent;
-    disabled?: boolean;
-    focusable?: boolean;
-    hoverable?: boolean;
-    id?: string;
-    input?: boolean;
-    inputId?: string;
-    name?: string;
-    outline?: boolean;
-    readOnly?: boolean;
-    readonly?: boolean;
-    required?: boolean;
-    size?: SwitchSize;
-    surfaceLevel?: SurfaceLevelInput;
-    thumbOutline?: boolean;
-    thumbSurfaceLevel?: SurfaceLevelInput;
-    thumbVariant?: SurfaceVariant;
-    value?: string;
-    variant?: SurfaceVariant;
-  }>(),
-  {
-    accent: undefined,
-    as: "label",
-    checked: undefined,
-    color: undefined,
-    disabled: false,
-    focusable: undefined,
-    hoverable: undefined,
-    id: undefined,
-    input: true,
-    inputId: undefined,
-    name: undefined,
-    outline: true,
-    readOnly: undefined,
-    readonly: undefined,
-    required: false,
-    size: "md",
-    surfaceLevel: "+1",
-    thumbOutline: true,
-    thumbSurfaceLevel: "+2",
-    thumbVariant: "gradient",
-    value: "on",
-    variant: "solid",
-  },
-);
+const props = withDefaults(defineProps<SwitchProps>(), {
+  accent: undefined,
+  as: undefined,
+  checked: undefined,
+  color: undefined,
+  disabled: undefined,
+  focusable: undefined,
+  hoverable: undefined,
+  id: undefined,
+  input: undefined,
+  inputId: undefined,
+  name: undefined,
+  outline: undefined,
+  readOnly: undefined,
+  readonly: undefined,
+  required: undefined,
+  size: undefined,
+  surfaceLevel: undefined,
+  thumbOutline: undefined,
+  thumbSurfaceLevel: undefined,
+  thumbVariant: undefined,
+  value: undefined,
+  variant: undefined,
+});
 
 defineSlots<{
   icon?: (props: { checked: boolean }) => unknown;
@@ -72,15 +50,29 @@ const emit = defineEmits<{
   "update:checked": [checked: boolean];
 }>();
 const ui = useUiContext();
-const isReadOnly = computed(() => props.readOnly ?? props.readonly ?? false);
-const checked = computed(() => props.checked ?? model.value);
-const currentAccent = computed(() => props.color ?? props.accent ?? ui.accentColor.value);
-const hoverable = computed(() => props.hoverable ?? props.as === "label");
-const focusable = computed(() => props.focusable ?? (props.as === "label" || props.input));
-const inputId = computed(() => props.inputId ?? props.id);
+const d = useComponentDefaults("Switch", props, {
+  as: "label" as SwitchProps["as"],
+  disabled: false,
+  input: true,
+  outline: true,
+  required: false,
+  size: "md" as SwitchProps["size"],
+  surfaceLevel: "+1",
+  thumbOutline: true,
+  thumbSurfaceLevel: "+2",
+  thumbVariant: "gradient" as SwitchProps["thumbVariant"],
+  value: "on",
+  variant: "solid" as SwitchProps["variant"],
+});
+const isReadOnly = computed(() => d.value.readOnly ?? d.value.readonly ?? false);
+const checked = computed(() => d.value.checked ?? model.value);
+const currentAccent = computed(() => d.value.color ?? d.value.accent ?? ui.accentColor.value);
+const hoverable = computed(() => d.value.hoverable ?? d.value.as === "label");
+const focusable = computed(() => d.value.focusable ?? (d.value.as === "label" || d.value.input));
+const inputId = computed(() => d.value.inputId ?? d.value.id);
 
 function setChecked(next: boolean, event?: Event): void {
-  if (props.disabled || isReadOnly.value) return;
+  if (d.value.disabled || isReadOnly.value) return;
 
   model.value = next;
   emit("update:checked", next);
@@ -92,7 +84,7 @@ function handleInputChange(event: Event): void {
 }
 
 function handleRootClick(event: MouseEvent): void {
-  if (!props.input) {
+  if (!d.value.input) {
     setChecked(!checked.value, event);
     return;
   }
@@ -104,7 +96,7 @@ function handleRootClick(event: MouseEvent): void {
 }
 
 function handleFallbackKeydown(event: KeyboardEvent): void {
-  if (props.input || props.disabled || isReadOnly.value) return;
+  if (d.value.input || d.value.disabled || isReadOnly.value) return;
   if (event.key !== " " && event.key !== "Enter") return;
 
   event.preventDefault();
@@ -114,17 +106,17 @@ function handleFallbackKeydown(event: KeyboardEvent): void {
 const rootClass = computed(() =>
   cn(
     "cui-switch group/cui-switch relative flex shrink-0 rounded-full select-none",
-    switchRootSizes[props.size],
+    switchRootSizes[d.value.size],
   ),
 );
 
 const thumbClass = computed(() =>
   cn(
     "z-10 rounded-full duration-300",
-    switchThumbSizes[props.size],
-    checked.value && switchThumbOffsets[props.size],
+    switchThumbSizes[d.value.size],
+    checked.value && switchThumbOffsets[d.value.size],
     checked.value ? "text-cui-on-primary" : "text-cui-fg-soft",
-    props.disabled && "opacity-50",
+    d.value.disabled && "opacity-50",
   ),
 );
 
@@ -139,7 +131,7 @@ const thumbFillClass = computed(() =>
 const indicatorClass = computed(() =>
   cn(
     "absolute inset-0",
-    props.size === "sm" && "scale-80",
+    d.value.size === "sm" && "scale-80",
     checked.value && `cui-color-${currentAccent.value}`,
   ),
 );
@@ -148,7 +140,7 @@ const indicatorRotationClass = computed(() =>
   cn(
     "absolute inset-0 duration-300 group-active/cui-switch:scale-90",
     checked.value && "rotate-180",
-    !checked.value && props.size === "sm" && "rotate-90",
+    !checked.value && d.value.size === "sm" && "rotate-90",
   ),
 );
 
@@ -176,66 +168,66 @@ const secondGlyphLineClass = computed(() =>
 
 <template>
   <component
-    :is="props.as"
+    :is="d.as"
     v-bind="$attrs"
     :class="rootClass"
-    :aria-checked="!props.input ? checked : undefined"
-    :aria-disabled="!props.input && props.disabled ? 'true' : undefined"
-    :aria-readonly="!props.input && isReadOnly ? 'true' : undefined"
+    :aria-checked="!d.input ? checked : undefined"
+    :aria-disabled="!d.input && d.disabled ? 'true' : undefined"
+    :aria-readonly="!d.input && isReadOnly ? 'true' : undefined"
     :data-checked="checked || undefined"
-    :data-disabled="props.disabled || undefined"
+    :data-disabled="d.disabled || undefined"
     :data-readonly="isReadOnly || undefined"
     :data-state="checked ? 'checked' : 'unchecked'"
     :data-unchecked="!checked || undefined"
-    :role="!props.input ? 'switch' : undefined"
-    :tabindex="!props.input ? (props.disabled ? -1 : 0) : undefined"
+    :role="!d.input ? 'switch' : undefined"
+    :tabindex="!d.input ? (d.disabled ? -1 : 0) : undefined"
     @click="handleRootClick"
     @contextmenu.capture.prevent
     @keydown="handleFallbackKeydown"
   >
     <input
-      v-if="props.input"
+      v-if="d.input"
       :id="inputId"
       class="pointer-events-none absolute inset-0 z-10 opacity-0"
       data-part="input"
       :aria-checked="checked"
       :checked="checked"
-      :disabled="props.disabled || isReadOnly"
-      :name="props.name"
+      :disabled="d.disabled || isReadOnly"
+      :name="d.name"
       :readonly="isReadOnly"
-      :required="props.required"
+      :required="d.required"
       role="switch"
       type="checkbox"
-      :value="props.value"
+      :value="d.value"
       @change="handleInputChange"
     />
     <Surface
       as="span"
       class="absolute inset-0 rounded-full"
       data-part="track"
-      :level="props.surfaceLevel"
-      :outline="props.outline"
-      :variant="props.variant"
+      :level="d.surfaceLevel"
+      :outline="d.outline"
+      :variant="d.variant"
       :wrap-content="false"
     />
     <Surface
       as="span"
       :class="thumbClass"
-      :clickable="!props.disabled && !isReadOnly"
+      :clickable="!d.disabled && !isReadOnly"
       content-class-name="flex items-center justify-center"
       data-part="thumb"
-      :hoverable="!props.disabled && !isReadOnly"
-      :level="props.thumbSurfaceLevel"
-      :outline="props.thumbOutline"
-      :variant="props.thumbVariant"
+      :hoverable="!d.disabled && !isReadOnly"
+      :level="d.thumbSurfaceLevel"
+      :outline="d.thumbOutline"
+      :variant="d.thumbVariant"
     >
       <template #beforeContent>
         <Surface
           as="span"
           :class="thumbFillClass"
-          :clickable="!props.disabled && !isReadOnly"
+          :clickable="!d.disabled && !isReadOnly"
           :color="currentAccent"
-          :hoverable="!props.disabled && !isReadOnly"
+          :hoverable="!d.disabled && !isReadOnly"
           level="+0"
           outline
           variant="gradient-fill"
@@ -250,7 +242,7 @@ const secondGlyphLineClass = computed(() =>
         </span>
       </slot>
       <FocusRing
-        v-if="focusable && !props.disabled && !isReadOnly"
+        v-if="focusable && !d.disabled && !isReadOnly"
         class="rounded-full"
         group="switch"
       />

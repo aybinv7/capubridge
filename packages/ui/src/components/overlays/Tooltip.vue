@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onUnmounted, shallowRef, useAttrs, useId, useSlots, watch } from "vue";
 
-import type { SurfaceLevelInput, UiAccent } from "../../foundations/contracts.ts";
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import VNodeRenderer from "../data-display/VNodeRenderer.ts";
-import { overlayTriggerClasses, resolveOverlayElement } from "./overlay.contracts.ts";
-import type { OverlayOffsetValue, TooltipPosition } from "./overlay.contracts.ts";
+import {
+  overlayTriggerClasses,
+  resolveOverlayElement,
+  type TooltipProps,
+} from "./overlay.contracts.ts";
 import { cloneTriggerNode } from "./overlayTrigger.ts";
 import TooltipPrimitive from "./TooltipPrimitive.vue";
 import {
@@ -16,38 +19,19 @@ import {
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    ariaLabel?: string;
-    color?: UiAccent;
-    contentClassName?: string;
-    disabled?: boolean;
-    offset?: OverlayOffsetValue;
-    position?: TooltipPosition;
-    root?: string | HTMLElement;
-    surfaceLevel?: SurfaceLevelInput;
-    /**
-     * When `true` (default), delays showing the tooltip (500ms on touch, 1000ms on mouse) using a
-     * shared global timer so successive hovers feel snappier. When `false`, it appears immediately.
-     */
-    timeout?: boolean;
-    zIndex?: string;
-  }>(),
-  {
-    accent: undefined,
-    ariaLabel: undefined,
-    color: undefined,
-    contentClassName: undefined,
-    disabled: false,
-    offset: 4,
-    position: "top",
-    root: undefined,
-    surfaceLevel: undefined,
-    timeout: true,
-    zIndex: undefined,
-  },
-);
+const props = withDefaults(defineProps<TooltipProps>(), {
+  accent: undefined,
+  ariaLabel: undefined,
+  color: undefined,
+  contentClassName: undefined,
+  disabled: undefined,
+  offset: undefined,
+  position: undefined,
+  root: undefined,
+  surfaceLevel: undefined,
+  timeout: undefined,
+  zIndex: undefined,
+});
 
 defineSlots<{
   default?: () => unknown;
@@ -69,21 +53,27 @@ const pointerTimeout = shallowRef<number>();
 const visible = shallowRef(false);
 const preventContextMenu = shallowRef(false);
 const tooltipId = `cui-tooltip-${useId()}`;
+const d = useComponentDefaults("Tooltip", props, {
+  disabled: false,
+  offset: 4,
+  position: "top" as TooltipProps["position"],
+  timeout: true,
+});
 
 function setAnchor(value: unknown): void {
   anchorElement.value = resolveOverlayElement(value);
 }
 
 function show(): void {
-  if (props.disabled) return;
+  if (d.value.disabled) return;
   clearTooltipGlobalTimeout();
   pointerTimeout.value = window.setTimeout(
     () => {
       visible.value = true;
       model.value = true;
-      if (props.timeout) collapseTooltipGlobalTimeout();
+      if (d.value.timeout) collapseTooltipGlobalTimeout();
     },
-    props.timeout ? getTooltipGlobalTimeout() : 0,
+    d.value.timeout ? getTooltipGlobalTimeout() : 0,
   );
 }
 
@@ -92,7 +82,7 @@ function hide(): void {
   model.value = false;
   if (pointerTimeout.value !== undefined) window.clearTimeout(pointerTimeout.value);
   pointerTimeout.value = undefined;
-  if (props.timeout) scheduleTooltipGlobalTimeoutReset();
+  if (d.value.timeout) scheduleTooltipGlobalTimeoutReset();
 }
 
 function onClick(): void {
@@ -191,19 +181,19 @@ const primitiveAttrs = computed(() => {
   <TooltipPrimitive
     v-bind="primitiveAttrs.attrs"
     v-model:open="model"
-    :accent="props.accent"
+    :accent="d.accent"
     :anchor-element="anchorElement"
-    :aria-label="props.ariaLabel"
+    :aria-label="d.ariaLabel"
     :class="primitiveAttrs.class"
-    :color="props.color"
-    :content-class-name="props.contentClassName"
+    :color="d.color"
+    :content-class-name="d.contentClassName"
     :id="tooltipId"
-    :offset="props.offset"
-    :position="props.position"
+    :offset="d.offset"
+    :position="d.position"
     role="tooltip"
-    :root="props.root"
-    :surface-level="props.surfaceLevel"
-    :z-index="props.zIndex"
+    :root="d.root"
+    :surface-level="d.surfaceLevel"
+    :z-index="d.zIndex"
     @closed="emit('closed')"
     @closing="emit('closing')"
     @opened="emit('opened')"

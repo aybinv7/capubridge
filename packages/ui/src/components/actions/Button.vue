@@ -100,10 +100,20 @@ const heightClass = computed(() =>
   rootSizeClasses(d.value.size, d.value.multiline ? "min-height" : "height"),
 );
 const isLink = computed(() => d.value.as === "a" || "href" in attrs);
+const isFill = computed(
+  () => d.value.variant === "solid-fill" || d.value.variant === "gradient-fill",
+);
 
 const rootClass = computed(() =>
   cn(
     "cui-button group/cui-button inline-block appearance-none text-left font-semibold outline-0 select-none focus:ring-0 focus:outline-0",
+    explicitAccent.value &&
+      explicitAccent.value !== "neutral" &&
+      (isFill.value ? "text-cui-on-primary" : "text-cui-primary"),
+    explicitAccent.value &&
+      explicitAccent.value === "neutral" &&
+      isFill.value &&
+      "text-cui-on-primary",
     buttonFontSizes[d.value.size],
     heightClass.value,
     radii.value.itemRoundedClasses,
@@ -153,13 +163,12 @@ function guardActivation(event: Event): void {
     :class="rootClass"
     :aria-busy="d.loading || undefined"
     :aria-disabled="!isNativeButton && inactive ? 'true' : undefined"
-    :data-cui-explicit-accent="explicitAccent && explicitAccent !== 'neutral' ? 'true' : undefined"
     :data-disabled="d.disabled || undefined"
     :data-loading="d.loading || undefined"
     :data-pressed="d.pressed || undefined"
     :data-readonly="d.readOnly || undefined"
     :disabled="isNativeButton && inactive ? true : undefined"
-    :tabindex="inactive ? -1 : undefined"
+    :tabindex="attrs.tabindex ?? (inactive ? -1 : undefined)"
     @click.capture="guardActivation"
     @contextmenu.capture.prevent
   >

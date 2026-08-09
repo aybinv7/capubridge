@@ -57,7 +57,7 @@ import {
   textareaPaddingVertical,
   textareaPaddingWithIcon,
 } from "../src/components/forms/textarea.contracts.ts";
-import { byTestId, mountTree } from "./support/mountTree.ts";
+import { byTestId, click, mountTree } from "./support/mountTree.ts";
 import type { MountedTree } from "./support/mountTree.ts";
 
 const sliderCss = readFileSync(join(process.cwd(), "src", "styles", "slider.css"), "utf8");
@@ -159,9 +159,8 @@ test("uses native state and form inputs for checkbox and switch", async () => {
   expect(checkboxIndicator?.getAttribute("data-state")).toBe("unchecked");
   expect(switchThumbFill?.parentElement).toBe(switchThumb);
 
-  byTestId(mounted.root, "checkbox").click();
-  byTestId(mounted.root, "switch").click();
-  await nextTick();
+  await click(byTestId(mounted.root, "checkbox"));
+  await click(byTestId(mounted.root, "switch"));
 
   expect(checked.value).toBe(true);
   expect(enabled.value).toBe(true);
@@ -254,8 +253,7 @@ test("coordinates radio selection through RadioGroup", async () => {
     ),
   );
 
-  byTestId(mounted.root, "emulator").click();
-  await nextTick();
+  await click(byTestId(mounted.root, "emulator"));
 
   expect(selected.value).toBe("emulator");
   expect(byTestId(mounted.root, "emulator").getAttribute("data-state")).toBe("checked");
@@ -383,8 +381,7 @@ test("matches Cladd Select trigger, listbox and single-select behavior", async (
   );
   document.body.append(mounted.root);
 
-  byTestId(mounted.root, "select-trigger").click();
-  await nextTick();
+  await click(byTestId(mounted.root, "select-trigger"));
   const listbox = document.body.querySelector<HTMLElement>('[role="listbox"]');
   const cyan = [...document.body.querySelectorAll<HTMLButtonElement>('[role="option"]')].find(
     (option) => option.textContent?.includes("Cyan"),
@@ -393,8 +390,7 @@ test("matches Cladd Select trigger, listbox and single-select behavior", async (
   expect(listbox).not.toBeNull();
   expect(document.body.textContent).toContain("Accent");
   expect(document.body.textContent).toContain("1");
-  cyan?.click();
-  await nextTick();
+  if (cyan) await click(cyan);
   expect(selected.value).toBe("cyan");
   await new Promise((resolve) => setTimeout(resolve, 250));
   expect(document.body.querySelector('[role="listbox"]')).toBeNull();
@@ -435,7 +431,7 @@ test("locks Cladd's two search treatments and the SearchField preset", () => {
     "mb-2 flex h-8 w-full items-center pr-4 pl-4 text-cui-xs font-medium text-cui-fg-softer",
   );
   // searchInset is driven by `title`, exactly as upstream.
-  expect(selectSource).toContain("Boolean(props.title)");
+  expect(selectSource).toContain("Boolean(d.value.title)");
   expect(searchFieldClasses).toBe("cui-search-field w-full");
   expect(sectionTitleClasses).toBe(
     "cui-section-title flex items-end gap-4 text-cui-xs font-medium text-cui-fg-soft uppercase select-none",
@@ -499,12 +495,12 @@ function messageText(root: HTMLElement, testId: string, part: "error" | "info"):
   return byTestId(root, testId).querySelector(`[data-part="${part}"]`)?.textContent?.trim() ?? "";
 }
 
-function submitFixture(root: HTMLElement): void {
-  (byTestId(root, "submit") as HTMLButtonElement).click();
+async function submitFixture(root: HTMLElement): Promise<void> {
+  await click(byTestId(root, "submit"));
 }
 
-function resetFixture(root: HTMLElement): void {
-  (byTestId(root, "reset") as HTMLButtonElement).click();
+async function resetFixture(root: HTMLElement): Promise<void> {
+  await click(byTestId(root, "reset"));
 }
 
 test("submits every named fixture control through native FormData", async () => {
@@ -512,7 +508,7 @@ test("submits every named fixture control through native FormData", async () => 
 
   typeInto(fieldControl(mounted.root, "serial"), "R3CX00SERIAL");
   await nextTick();
-  submitFixture(mounted.root);
+  await submitFixture(mounted.root);
   await nextTick();
 
   expect(mounted.submissions).toHaveLength(1);
@@ -534,13 +530,13 @@ test("carries fixture interaction into the next native submission", async () => 
   typeInto(fieldControl(mounted.root, "serial"), "R3CX00SERIAL");
   typeInto(fieldControl(mounted.root, "device-query"), "emulator-5554");
   typeInto(fieldControl(mounted.root, "release-notes"), "Reviewed");
-  byTestId(mounted.root, "verbose-logging").click();
-  byTestId(mounted.root, "experimental-inspector").click();
-  byTestId(mounted.root, "target-emulator").click();
-  byTestId(mounted.root, "live-reload").click();
+  await click(byTestId(mounted.root, "verbose-logging"));
+  await click(byTestId(mounted.root, "experimental-inspector"));
+  await click(byTestId(mounted.root, "target-emulator"));
+  await click(byTestId(mounted.root, "live-reload"));
   typeInto(hiddenInput(mounted.root, "sampling-rate"), "70");
   await nextTick();
-  submitFixture(mounted.root);
+  await submitFixture(mounted.root);
   await nextTick();
 
   expect(mounted.submissions[0]).toEqual({
@@ -589,7 +585,7 @@ test("restores every fixture control family from a native form reset", async () 
   liveReloadInput.checked = false;
   samplingInput.value = "5";
   bufferInput.value = "90";
-  resetFixture(mounted.root);
+  await resetFixture(mounted.root);
   await nextTick();
 
   expect(query.value).toBe("pixel-9-pro");
@@ -606,14 +602,14 @@ test("restores every fixture control family from a native form reset", async () 
 test("keeps fixture indicator state and native state agreeing after a reset", async () => {
   const mounted = mountFormFixture();
 
-  byTestId(mounted.root, "verbose-logging").click();
-  byTestId(mounted.root, "experimental-inspector").click();
-  byTestId(mounted.root, "target-emulator").click();
-  byTestId(mounted.root, "live-reload").click();
+  await click(byTestId(mounted.root, "verbose-logging"));
+  await click(byTestId(mounted.root, "experimental-inspector"));
+  await click(byTestId(mounted.root, "target-emulator"));
+  await click(byTestId(mounted.root, "live-reload"));
   typeInto(hiddenInput(mounted.root, "sampling-rate"), "70");
   typeInto(hiddenInput(mounted.root, "buffer-size"), "90");
   await nextTick();
-  resetFixture(mounted.root);
+  await resetFixture(mounted.root);
   await nextTick();
 
   const choices = [
@@ -648,8 +644,8 @@ test("keeps fixture labels and messages associated across submit and reset", asy
 
   typeInto(serial, "R3CX00SERIAL");
   await nextTick();
-  submitFixture(mounted.root);
-  resetFixture(mounted.root);
+  await submitFixture(mounted.root);
+  await resetFixture(mounted.root);
   await nextTick();
 
   const fieldLabels: [string, string][] = [

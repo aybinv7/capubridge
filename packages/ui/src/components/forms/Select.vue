@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useAttrs, useId, watch } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useDevice } from "../../composables/useDevice.ts";
 import { cn } from "../../shared/cn.ts";
 import Button from "../actions/Button.vue";
@@ -54,54 +55,54 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<SelectProps>(), {
   accent: undefined,
   anchorElement: undefined,
-  closeOnSelect: true,
+  closeOnSelect: undefined,
   color: undefined,
   contentClassName: undefined,
-  disabled: false,
-  dropdownIcon: true,
-  focused: false,
+  disabled: undefined,
+  dropdownIcon: undefined,
+  focused: undefined,
   getOptionValue: undefined,
-  hoverable: true,
+  hoverable: undefined,
   iconClassName: undefined,
   indicatorColor: undefined,
   isChecked: undefined,
   isOptionDisabled: undefined,
-  keyboardHints: true,
+  keyboardHints: undefined,
   keyboardHintsClassName: undefined,
-  keyboardHintsOutline: false,
-  keyboardHintsSize: "md",
-  keyboardHintsVariant: "transparent",
-  multiline: false,
-  multiple: false,
+  keyboardHintsOutline: undefined,
+  keyboardHintsSize: undefined,
+  keyboardHintsVariant: undefined,
+  multiline: undefined,
+  multiple: undefined,
   noneOptionValue: undefined,
   optionIndicatorColor: undefined,
   optionInfo: undefined,
   optionLabel: undefined,
-  options: () => [],
-  outline: true,
-  placeholder: "",
+  options: undefined,
+  outline: undefined,
+  placeholder: undefined,
   placeholderClassName: undefined,
   popoverAccent: undefined,
   popoverClassName: undefined,
-  popoverOffset: () => selectPopoverOffset,
-  popoverPosition: "bottom-end",
+  popoverOffset: undefined,
+  popoverPosition: undefined,
   popoverSurfaceLevel: undefined,
-  readOnly: false,
-  pressed: false,
-  reverse: false,
-  rounded: false,
-  scrollToSelected: false,
-  search: false,
+  readOnly: undefined,
+  pressed: undefined,
+  reverse: undefined,
+  rounded: undefined,
+  scrollToSelected: undefined,
+  search: undefined,
   searchFilter: undefined,
-  searchFocus: false,
-  searchNotFound: "Nothing found",
-  searchPlaceholder: "Search",
-  size: "md",
-  surface: "surface",
-  tightFocusRing: false,
+  searchFocus: undefined,
+  searchNotFound: undefined,
+  searchPlaceholder: undefined,
+  size: undefined,
+  surface: undefined,
+  tightFocusRing: undefined,
   title: undefined,
   valueClassName: undefined,
-  variant: "gradient",
+  variant: undefined,
 });
 
 const slots = defineSlots<{
@@ -134,6 +135,37 @@ const model = defineModel<SelectValue | SelectValue[]>({ default: "" });
 const open = defineModel<boolean>("open", { default: false });
 const attrs = useAttrs();
 const device = useDevice();
+const d = useComponentDefaults("Select", props, {
+  closeOnSelect: true,
+  disabled: false,
+  dropdownIcon: true,
+  focused: false,
+  hoverable: true,
+  keyboardHints: true,
+  keyboardHintsOutline: false,
+  keyboardHintsSize: "md" as SelectProps["keyboardHintsSize"],
+  keyboardHintsVariant: "transparent" as SelectProps["keyboardHintsVariant"],
+  multiline: false,
+  multiple: false,
+  options: [] as SelectProps["options"],
+  outline: true,
+  placeholder: "",
+  popoverOffset: selectPopoverOffset,
+  popoverPosition: "bottom-end" as SelectProps["popoverPosition"],
+  readOnly: false,
+  pressed: false,
+  reverse: false,
+  rounded: false,
+  scrollToSelected: false,
+  search: false,
+  searchFocus: false,
+  searchNotFound: "Nothing found",
+  searchPlaceholder: "Search",
+  size: "md" as SelectProps["size"],
+  surface: "surface" as SelectProps["surface"],
+  tightFocusRing: false,
+  variant: "gradient" as SelectProps["variant"],
+});
 const query = ref("");
 const selectedItemIndex = ref(-1);
 const triggerElement = ref<HTMLElement>();
@@ -150,10 +182,10 @@ const selectedValues = computed<SelectValue[]>(() =>
 // Upstream keeps no internal filter state: with `search` + a filter callback the caller controls
 // matching, otherwise every option is shown.
 const displayOptions = computed<readonly SelectOptionInput[]>(() =>
-  props.search && props.searchFilter ? props.searchFilter(query.value) : props.options,
+  d.value.search && d.value.searchFilter ? d.value.searchFilter(query.value) : d.value.options,
 );
 
-const selectedOptions = computed(() => props.options.filter((option) => optionSelected(option)));
+const selectedOptions = computed(() => d.value.options.filter((option) => optionSelected(option)));
 
 // Upstream renders `String(value)`, not the option label — richer displays go through the
 // default slot (upstream's `children`).
@@ -166,32 +198,32 @@ const triggerValue = computed(() =>
     : "",
 );
 
-const searchInset = computed(() => Boolean(props.title));
+const searchInset = computed(() => Boolean(d.value.title));
 const showHints = computed(
-  () => props.keyboardHints && displayOptions.value.length > 1 && !device.mobile,
+  () => d.value.keyboardHints && displayOptions.value.length > 1 && !device.mobile,
 );
 
 const triggerClass = computed(() => cn(selectTriggerClasses, attrs.class));
 const triggerContentClass = computed(() =>
   cn(
-    props.dropdownIcon && selectTriggerDropdownPaddingClasses,
+    d.value.dropdownIcon && selectTriggerDropdownPaddingClasses,
     selectTriggerContentClasses,
-    props.reverse && selectTriggerReverseClasses,
-    props.contentClassName,
+    d.value.reverse && selectTriggerReverseClasses,
+    d.value.contentClassName,
   ),
 );
 const iconClass = computed(() =>
-  cn(selectIconClasses, buttonIconSizes[props.size], props.iconClassName),
+  cn(selectIconClasses, buttonIconSizes[d.value.size], d.value.iconClassName),
 );
 const valueClass = computed(() =>
   cn(
     selectValueClasses,
     !slots.default && !triggerValue.value && selectPlaceholderClasses,
-    props.placeholderClassName,
-    props.valueClassName,
+    d.value.placeholderClassName,
+    d.value.valueClassName,
   ),
 );
-const popoverClass = computed(() => cn(selectPopoverClasses, props.popoverClassName));
+const popoverClass = computed(() => cn(selectPopoverClasses, d.value.popoverClassName));
 const searchWrapperClass = computed(() =>
   searchInset.value ? selectSearchInsetWrapperClasses : selectSearchStickyWrapperClasses,
 );
@@ -201,38 +233,38 @@ const searchWrapperContentClass = computed(() =>
 const searchFieldClass = computed(() =>
   cn(selectSearchFieldClasses, searchInset.value && selectSearchFieldInsetClasses),
 );
-const hintKeyClass = computed(() => cn(selectHintKeyClasses, props.keyboardHintsClassName));
+const hintKeyClass = computed(() => cn(selectHintKeyClasses, d.value.keyboardHintsClassName));
 const triggerAttrs = computed(() => {
   const { class: _consumerClass, ...rest } = attrs;
   return rest;
 });
 
 function optionValue(option: SelectOptionInput): SelectValue {
-  return props.getOptionValue?.(option) ?? getDefaultOptionValue(option);
+  return d.value.getOptionValue?.(option) ?? getDefaultOptionValue(option);
 }
 
 function optionParams(
   option: SelectOptionInput,
-  index = props.options.indexOf(option),
+  index = d.value.options.indexOf(option),
 ): SelectOptionParams {
   return { index, selected: optionSelected(option), value: option };
 }
 
-function optionLabel(option: SelectOptionInput, index = props.options.indexOf(option)): string {
-  return props.optionLabel?.(optionParams(option, index)) ?? getDefaultOptionLabel(option);
+function optionLabel(option: SelectOptionInput, index = d.value.options.indexOf(option)): string {
+  return d.value.optionLabel?.(optionParams(option, index)) ?? getDefaultOptionLabel(option);
 }
 
 function optionInfo(option: SelectOptionInput, index: number): string | undefined {
-  return props.optionInfo?.(optionParams(option, index)) ?? getDefaultOptionInfo(option);
+  return d.value.optionInfo?.(optionParams(option, index)) ?? getDefaultOptionInfo(option);
 }
 
 function optionSelected(option: SelectOptionInput): boolean {
-  if (props.isChecked) return props.isChecked(option);
+  if (d.value.isChecked) return d.value.isChecked(option);
   return selectedValues.value.includes(optionValue(option));
 }
 
 function optionDisabled(option: SelectOptionInput): boolean {
-  if (props.isOptionDisabled) return props.isOptionDisabled(option);
+  if (d.value.isOptionDisabled) return d.value.isOptionDisabled(option);
   return (
     typeof option === "object" &&
     option !== null &&
@@ -242,12 +274,12 @@ function optionDisabled(option: SelectOptionInput): boolean {
 }
 
 function indicatorAccent(option: SelectOptionInput, index: number) {
-  return props.optionIndicatorColor?.(optionParams(option, index)) ?? props.indicatorColor;
+  return d.value.optionIndicatorColor?.(optionParams(option, index)) ?? d.value.indicatorColor;
 }
 
 function onChangeInternal(option: SelectOptionInput, checked: boolean): void {
   const key = optionValue(option);
-  if (!props.multiple) {
+  if (!d.value.multiple) {
     model.value = key;
     emit("change", key);
   } else {
@@ -257,15 +289,15 @@ function onChangeInternal(option: SelectOptionInput, checked: boolean): void {
     model.value = next;
     emit("change", next);
   }
-  if (!props.multiple && props.closeOnSelect) open.value = false;
+  if (!d.value.multiple && d.value.closeOnSelect) open.value = false;
 }
 
 function hintFor(option: SelectOptionInput, index: number): number | undefined {
-  if (props.noneOptionValue !== undefined) {
-    if (optionValue(option) === props.noneOptionValue) return 0;
+  if (d.value.noneOptionValue !== undefined) {
+    if (optionValue(option) === d.value.noneOptionValue) return 0;
     let rank = 0;
     for (let i = 0; i <= index; i += 1) {
-      if (optionValue(displayOptions.value[i]) !== props.noneOptionValue) rank += 1;
+      if (optionValue(displayOptions.value[i]) !== d.value.noneOptionValue) rank += 1;
     }
     return rank <= 9 ? rank : undefined;
   }
@@ -278,7 +310,7 @@ function searchInputElement(): HTMLInputElement | null | undefined {
 }
 
 function scrollPopoverToElement(scrollToEl?: HTMLElement, dir?: "down" | "up"): void {
-  if (!scrollToEl && props.scrollToSelected && list.value) {
+  if (!scrollToEl && d.value.scrollToSelected && list.value) {
     const checkedEl = list.value.querySelector("input[checked]");
     const labelEl = checkedEl?.closest("label");
     labelEl?.scrollIntoView({ block: "center" });
@@ -301,7 +333,7 @@ function scrollPopoverToElement(scrollToEl?: HTMLElement, dir?: "down" | "up"): 
 function selectAt(index: number): void {
   const option = displayOptions.value[index];
   if (!option) return;
-  onChangeInternal(option, props.multiple ? !optionSelected(option) : true);
+  onChangeInternal(option, d.value.multiple ? !optionSelected(option) : true);
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -311,22 +343,22 @@ function onKeydown(event: KeyboardEvent): void {
   // Numeric quick-pick: 0-9 selects the corresponding option. Skipped while the search input is
   // focused so digits can be typed.
   if (
-    props.keyboardHints &&
+    d.value.keyboardHints &&
     /^[0-9]$/.test(event.key) &&
     document.activeElement !== searchInputElement()
   ) {
     event.preventDefault();
     const digit = Number(event.key);
     let targetIndex = -1;
-    if (props.noneOptionValue !== undefined) {
+    if (d.value.noneOptionValue !== undefined) {
       if (digit === 0) {
         targetIndex = displayOptions.value.findIndex(
-          (option) => optionValue(option) === props.noneOptionValue,
+          (option) => optionValue(option) === d.value.noneOptionValue,
         );
       } else {
         let rank = 0;
         for (let i = 0; i < displayOptions.value.length; i += 1) {
-          if (optionValue(displayOptions.value[i]) !== props.noneOptionValue) {
+          if (optionValue(displayOptions.value[i]) !== d.value.noneOptionValue) {
             rank += 1;
             if (rank === digit) {
               targetIndex = i;
@@ -395,7 +427,7 @@ function onPopoverOpen(): void {
 
 function onPopoverOpened(): void {
   emit("opened");
-  if (!props.searchFocus) return;
+  if (!d.value.searchFocus) return;
   if (device.ios || device.android) return;
   nextTick(() => searchInputElement()?.focus());
 }
@@ -427,68 +459,66 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
 
 <template>
   <Button
-    v-if="!props.anchorElement"
+    v-if="!d.anchorElement"
     v-bind="triggerAttrs"
     :ref="setTriggerElement"
-    :accent="props.accent"
+    :accent="d.accent"
     :aria-activedescendant="
       open && selectedItemIndex >= 0 ? `${optionIdPrefix}-${selectedItemIndex}` : undefined
     "
     :aria-controls="open ? listboxId : undefined"
-    :aria-disabled="props.disabled || undefined"
+    :aria-disabled="d.disabled || undefined"
     :aria-expanded="open"
     aria-haspopup="listbox"
-    :aria-readonly="props.readOnly || undefined"
+    :aria-readonly="d.readOnly || undefined"
     :class="triggerClass"
-    :color="props.color"
+    :color="d.color"
     :content-class-name="triggerContentClass"
     data-part="trigger"
-    :disabled="props.disabled"
-    :focused="props.focused"
-    :hoverable="props.hoverable"
-    :multiline="props.multiline"
-    :outline="props.outline"
-    :pressed="props.pressed"
-    :read-only="props.readOnly"
+    :disabled="d.disabled"
+    :focused="d.focused"
+    :hoverable="d.hoverable"
+    :multiline="d.multiline"
+    :outline="d.outline"
+    :pressed="d.pressed"
+    :read-only="d.readOnly"
     role="combobox"
-    :rounded="props.rounded"
-    :size="props.size"
-    :surface="props.surface"
-    :tight-focus-ring="props.tightFocusRing"
-    :variant="props.variant"
+    :rounded="d.rounded"
+    :size="d.size"
+    :surface="d.surface"
+    :tight-focus-ring="d.tightFocusRing"
+    :variant="d.variant"
     @click="onTriggerClick"
   >
     <div v-if="$slots.icon" :class="iconClass" data-part="icon">
       <slot name="icon" />
     </div>
     <div :class="valueClass" data-part="value">
-      <slot :selected="selectedOptions" :value="model">{{
-        triggerValue || props.placeholder
-      }}</slot>
+      <slot :selected="selectedOptions" :value="model">{{ triggerValue || d.placeholder }}</slot>
     </div>
-    <slot v-if="props.dropdownIcon" name="dropdownIcon">
+    <slot v-if="d.dropdownIcon" name="dropdownIcon">
       <SelectDropdownIcon :class="selectDropdownIconClasses" data-part="dropdown-icon" />
     </slot>
   </Button>
 
   <Popover
-    v-if="!props.readOnly && !props.disabled"
+    v-if="!d.readOnly && !d.disabled"
     v-model:open="open"
-    :accent="props.popoverAccent"
-    :anchor-element="props.anchorElement ?? triggerElement"
+    :accent="d.popoverAccent"
+    :anchor-element="d.anchorElement ?? triggerElement"
     :class="popoverClass"
-    :offset="props.popoverOffset"
-    :position="props.popoverPosition"
-    :surface-level="props.popoverSurfaceLevel"
+    :offset="d.popoverOffset"
+    :position="d.popoverPosition"
+    :surface-level="d.popoverSurfaceLevel"
     @click.stop
     @closed="onPopoverClosed"
     @closing="emit('closing')"
     @opened="onPopoverOpened"
     @opening="onPopoverOpen"
   >
-    <SectionTitle v-if="props.title" :class="selectTitleClasses">{{ props.title }}</SectionTitle>
+    <SectionTitle v-if="d.title" :class="selectTitleClasses">{{ d.title }}</SectionTitle>
     <Surface
-      v-if="props.search"
+      v-if="d.search"
       :bg-class-name="searchInset ? 'hidden' : undefined"
       :class="searchWrapperClass"
       :content-class-name="searchWrapperContentClass"
@@ -499,24 +529,19 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
         ref="searchField"
         v-model="query"
         :class="searchFieldClass"
-        :placeholder="props.searchPlaceholder"
+        :placeholder="d.searchPlaceholder"
       />
     </Surface>
     <slot name="beforeOptions" />
-    <List
-      :id="listboxId"
-      ref="list"
-      :aria-multiselectable="props.multiple || undefined"
-      role="listbox"
-    >
+    <List :id="listboxId" ref="list" :aria-multiselectable="d.multiple || undefined" role="listbox">
       <div
-        v-if="props.search && props.searchFilter && query && !displayOptions.length"
+        v-if="d.search && d.searchFilter && query && !displayOptions.length"
         :class="selectEmptyClasses"
         data-part="empty"
       >
-        <slot name="empty" :query="query">{{ props.searchNotFound }}</slot>
+        <slot name="empty" :query="query">{{ d.searchNotFound }}</slot>
       </div>
-      <template v-for="(option, optionIndex) in displayOptions" :key="options.indexOf(option)">
+      <template v-for="(option, optionIndex) in displayOptions" :key="d.options.indexOf(option)">
         <slot name="beforeOption" :index="optionIndex" :value="option" />
         <ListButton
           :id="`${optionIdPrefix}-${optionIndex}`"
@@ -532,7 +557,7 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
         >
           <div :class="selectOptionRowClasses">
             <component
-              :is="props.multiple ? Checkbox : Radio"
+              :is="d.multiple ? Checkbox : Radio"
               as="div"
               :checked="optionSelected(option)"
               :class="selectOptionIndicatorClasses"
@@ -560,9 +585,9 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKeydown));
               v-if="showHints && hintFor(option, optionIndex) !== undefined"
               :class="selectHintClasses"
               :key-class-name="hintKeyClass"
-              :outline="props.keyboardHintsOutline"
-              :size="props.keyboardHintsSize"
-              :variant="props.keyboardHintsVariant"
+              :outline="d.keyboardHintsOutline"
+              :size="d.keyboardHintsSize"
+              :variant="d.keyboardHintsVariant"
               >{{ hintFor(option, optionIndex) }}</Shortcut
             >
           </div>

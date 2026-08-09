@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, shallowRef, useAttrs, useId, useSlots } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useFocusTrap } from "../../composables/useFocusTrap.ts";
 import { useOverlayDismiss } from "../../composables/useOverlayDismiss.ts";
 import { useOverlayLifecycle } from "../../composables/useOverlayLifecycle.ts";
 import { useOverlayPhase } from "../../composables/useOverlayPhase.ts";
 import { provideSurfaceColorReset } from "../../contexts/surfaceContext.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { SurfaceLevelInput, SurfaceVariant, UiAccent } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
 import Button from "../actions/Button.vue";
 import VNodeRenderer from "../data-display/VNodeRenderer.ts";
@@ -29,6 +29,7 @@ import {
   overlayBackdropTransparentClasses,
   overlayTriggerClasses,
   resolveOverlayElement,
+  type DialogProps,
 } from "./overlay.contracts.ts";
 import { dialogRootContextKey, useOverlayRootContext } from "./overlayRootContext.ts";
 import { cloneTriggerNode } from "./overlayTrigger.ts";
@@ -37,46 +38,25 @@ import { cloneTriggerNode } from "./overlayTrigger.ts";
 // content column). Vue's `class` fallthrough would land on the trigger, so it is routed here.
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    accent?: UiAccent;
-    backdropTransparent?: boolean;
-    contentClassName?: string;
-    cancelAccent?: UiAccent;
-    cancelText?: string;
-    closeOnBackdropClick?: boolean;
-    closeOnEscape?: boolean;
-    color?: UiAccent;
-    confirmAccent?: UiAccent;
-    confirmText?: string;
-    description?: string;
-    outline?: boolean;
-    requireConfirmText?: string;
-    root?: string | HTMLElement;
-    surfaceLevel?: SurfaceLevelInput;
-    title?: string;
-    variant?: SurfaceVariant;
-  }>(),
-  {
-    accent: undefined,
-    backdropTransparent: false,
-    contentClassName: undefined,
-    cancelAccent: "neutral",
-    cancelText: undefined,
-    closeOnBackdropClick: true,
-    closeOnEscape: true,
-    color: undefined,
-    confirmAccent: undefined,
-    confirmText: undefined,
-    description: undefined,
-    outline: undefined,
-    requireConfirmText: undefined,
-    root: undefined,
-    surfaceLevel: 1,
-    title: undefined,
-    variant: "gradient",
-  },
-);
+const props = withDefaults(defineProps<DialogProps>(), {
+  accent: undefined,
+  backdropTransparent: undefined,
+  contentClassName: undefined,
+  cancelAccent: undefined,
+  cancelText: undefined,
+  closeOnBackdropClick: undefined,
+  closeOnEscape: undefined,
+  color: undefined,
+  confirmAccent: undefined,
+  confirmText: undefined,
+  description: undefined,
+  outline: undefined,
+  requireConfirmText: undefined,
+  root: undefined,
+  surfaceLevel: undefined,
+  title: undefined,
+  variant: undefined,
+});
 
 defineSlots<{
   actions?: (props: { close: () => void }) => unknown;
@@ -107,6 +87,14 @@ const container = shallowRef<HTMLElement>();
 const surface = shallowRef<HTMLElement>();
 const ui = useUiContext();
 const root = useOverlayRootContext(dialogRootContextKey);
+const d = useComponentDefaults("Dialog", props, {
+  backdropTransparent: false,
+  cancelAccent: "neutral" as DialogProps["cancelAccent"],
+  closeOnBackdropClick: true,
+  closeOnEscape: true,
+  surfaceLevel: 1,
+  variant: "gradient" as DialogProps["variant"],
+});
 
 // Own `open` wins, then the surrounding DialogRoot's state, then `false` — upstream's
 // `open ?? ctx?.open ?? false`.
@@ -125,14 +113,14 @@ const { phase, setPhase } = useOverlayPhase(model);
 
 const mounted = computed(() => phase.value !== "closed");
 const currentAccent = computed(
-  () => props.confirmAccent ?? props.color ?? props.accent ?? ui.accentColor.value,
+  () => d.value.confirmAccent ?? d.value.color ?? d.value.accent ?? ui.accentColor.value,
 );
-const currentOutline = computed(() => props.outline ?? ui.theme.value === "dark");
+const currentOutline = computed(() => d.value.outline ?? ui.theme.value === "dark");
 const confirmationValid = computed(
-  () => !props.requireConfirmText || confirmationValue.value === props.requireConfirmText,
+  () => !d.value.requireConfirmText || confirmationValue.value === d.value.requireConfirmText,
 );
 const containerClass = dialogContainerClasses;
-const teleportTarget = computed(() => props.root ?? ui.overlaysRoot.value);
+const teleportTarget = computed(() => d.value.root ?? ui.overlaysRoot.value);
 
 function setSurface(value: unknown): void {
   surface.value = resolveOverlayElement(value);
@@ -158,7 +146,9 @@ function confirm(): void {
 }
 
 function initialFocus(): HTMLElement | null | undefined {
-  const selector = props.requireConfirmText ? '[data-part="input"] input' : '[data-part="confirm"]';
+  const selector = d.value.requireConfirmText
+    ? '[data-part="input"] input'
+    : '[data-part="confirm"]';
   return container.value?.querySelector<HTMLElement>(selector);
 }
 
@@ -168,7 +158,7 @@ function hasChildOverlay(): boolean {
 }
 
 const { opened } = useOverlayLifecycle({
-  closeOnEscape: () => props.closeOnEscape && !hasChildOverlay(),
+  closeOnEscape: () => d.value.closeOnEscape && !hasChildOverlay(),
   element: surface,
   onClose: () => emit("closing"),
   onClosed: () => {
@@ -182,7 +172,7 @@ const { opened } = useOverlayLifecycle({
 });
 
 useOverlayDismiss({
-  closeOnOutsideClick: () => props.closeOnBackdropClick,
+  closeOnOutsideClick: () => d.value.closeOnBackdropClick,
   container,
   onClose: close,
   opened,
@@ -192,17 +182,17 @@ useFocusTrap({ active: opened, container, initialFocus });
 const surfaceClass = computed(() =>
   cn(dialogSurfaceClasses, opened.value ? dialogOpenedClasses : dialogHiddenClasses, attrs.class),
 );
-const contentClass = computed(() => cn(dialogContentClasses, props.contentClassName));
+const contentClass = computed(() => cn(dialogContentClasses, d.value.contentClassName));
 const backdropClass = computed(() =>
   cn(
     overlayBackdropDurationClasses,
-    props.backdropTransparent && overlayBackdropTransparentClasses,
+    d.value.backdropTransparent && overlayBackdropTransparentClasses,
     opened.value ? "opacity-100" : "opacity-0",
   ),
 );
 
 function onBackdropClick(): void {
-  if (props.closeOnBackdropClick) close();
+  if (d.value.closeOnBackdropClick) close();
 }
 
 const triggerNode = computed(() => cloneTriggerNode(slots.trigger?.(), { onClick: open }));
@@ -220,8 +210,8 @@ provideSurfaceColorReset();
       v-if="mounted"
       v-bind="containerAttrs"
       ref="container"
-      :aria-describedby="props.description || $slots.description ? descriptionId : undefined"
-      :aria-labelledby="props.title || $slots.title ? titleId : undefined"
+      :aria-describedby="d.description || $slots.description ? descriptionId : undefined"
+      :aria-labelledby="d.title || $slots.title ? titleId : undefined"
       aria-modal="true"
       :class="containerClass"
       role="dialog"
@@ -232,46 +222,46 @@ provideSurfaceColorReset();
         :class="surfaceClass"
         :content-class-name="contentClass"
         data-part="content"
-        :data-cui-opened="opened || undefined"
-        :level="props.surfaceLevel"
+        :data-open="opened || undefined"
+        :level="d.surfaceLevel"
         :outline="currentOutline"
-        :variant="props.variant"
+        :variant="d.variant"
       >
         <div
-          v-if="props.title || $slots.title"
+          v-if="d.title || $slots.title"
           :id="titleId"
           :class="dialogTitleClasses"
           data-part="title"
         >
-          <slot name="title">{{ props.title }}</slot>
+          <slot name="title">{{ d.title }}</slot>
         </div>
         <div
-          v-if="props.description || $slots.description"
+          v-if="d.description || $slots.description"
           :id="descriptionId"
           :class="dialogTextClasses"
           data-part="text"
         >
-          <slot name="description">{{ props.description }}</slot>
+          <slot name="description">{{ d.description }}</slot>
         </div>
         <slot :close="close" />
         <Input
-          v-if="props.requireConfirmText && props.confirmText"
+          v-if="d.requireConfirmText && d.confirmText"
           v-model="confirmationValue"
           :accent="currentAccent"
           data-part="input"
-          :info-message="`Type ${props.requireConfirmText} to confirm`"
-          :placeholder="`Type ${props.requireConfirmText} to confirm`"
+          :info-message="`Type ${d.requireConfirmText} to confirm`"
+          :placeholder="`Type ${d.requireConfirmText} to confirm`"
           size="lg"
         />
         <div
-          v-if="$slots.actions || props.cancelText || props.confirmText"
+          v-if="$slots.actions || d.cancelText || d.confirmText"
           :class="dialogButtonsClasses"
           data-part="buttons"
         >
           <slot name="actions" :close="close">
             <Button
-              v-if="props.cancelText"
-              :accent="props.cancelAccent"
+              v-if="d.cancelText"
+              :accent="d.cancelAccent"
               :content-class-name="dialogButtonContentClasses"
               data-part="cancel"
               rounded
@@ -279,10 +269,10 @@ provideSurfaceColorReset();
               variant="transparent"
               @click="cancel"
             >
-              {{ props.cancelText }}
+              {{ d.cancelText }}
             </Button>
             <Button
-              v-if="props.confirmText"
+              v-if="d.confirmText"
               :accent="currentAccent"
               :content-class-name="dialogButtonContentClasses"
               data-part="confirm"
@@ -291,7 +281,7 @@ provideSurfaceColorReset();
               size="lg"
               @click="confirm"
             >
-              {{ props.confirmText }}
+              {{ d.confirmText }}
             </Button>
           </slot>
         </div>

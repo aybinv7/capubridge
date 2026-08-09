@@ -21,7 +21,15 @@ import { useComponentDefaults } from "../../composables/useComponentDefaults.ts"
 import { cn } from "../../shared/cn.ts";
 import { nestedSizeClasses } from "../../shared/sizeClasses.ts";
 import Surface from "../surface/Surface.vue";
-import ShortcutGlyph, { type ShortcutGlyphName } from "./ShortcutGlyph.vue";
+import KeyboardArrowLeftIcon from "../icons/KeyboardArrowLeftIcon.vue";
+import KeyboardBackspaceIcon from "../icons/KeyboardBackspaceIcon.vue";
+import KeyboardCommandIcon from "../icons/KeyboardCommandIcon.vue";
+import KeyboardControlIcon from "../icons/KeyboardControlIcon.vue";
+import KeyboardOptionIcon from "../icons/KeyboardOptionIcon.vue";
+import KeyboardReturnIcon from "../icons/KeyboardReturnIcon.vue";
+import KeyboardShiftIcon from "../icons/KeyboardShiftIcon.vue";
+import KeyboardSpaceIcon from "../icons/KeyboardSpaceIcon.vue";
+import KeyboardTabIcon from "../icons/KeyboardTabIcon.vue";
 import {
   shortcutFontSizes,
   shortcutIconSizes,
@@ -31,7 +39,7 @@ import type { ShortcutProps } from "./dataDisplay.contracts.ts";
 import VNodeRenderer from "./VNodeRenderer.ts";
 
 type ShortcutEntry =
-  | { kind: "glyph"; glyph: ShortcutGlyphName; padded: boolean }
+  | { kind: "icon"; icon: Component; iconClass?: string; padded: boolean }
   | { kind: "node"; node: VNode; padded: boolean }
   | { kind: "text"; text: string; padded: boolean };
 
@@ -90,7 +98,7 @@ function keyContentClass(padded: boolean): string {
   );
 }
 
-const glyphClass = computed(() => cn(shortcutIconSizes[d.value.size], d.value.iconClassName));
+const iconClass = computed(() => cn(shortcutIconSizes[d.value.size], d.value.iconClassName));
 
 function tokenEntry(token: string): ShortcutEntry {
   const key = token.toLowerCase();
@@ -113,32 +121,38 @@ function tokenEntry(token: string): ShortcutEntry {
 
   if (key === "cmd") {
     return isMac.value
-      ? { glyph: "cmd", kind: "glyph", padded }
+      ? { icon: KeyboardCommandIcon, kind: "icon", padded }
       : { kind: "text", padded, text: "CTRL" };
   }
 
   if (key === "ctrl") {
     return isMac.value
-      ? { glyph: "ctrl", kind: "glyph", padded }
+      ? { icon: KeyboardControlIcon, kind: "icon", padded }
       : { kind: "text", padded, text: "CTRL" };
   }
 
   if (key === "alt") {
     return isMac.value
-      ? { glyph: "alt", kind: "glyph", padded }
+      ? { icon: KeyboardOptionIcon, kind: "icon", padded }
       : { kind: "text", padded, text: "ALT" };
   }
 
-  if (key === "shift") return { glyph: "shift", kind: "glyph", padded };
+  if (key === "shift") return { icon: KeyboardShiftIcon, kind: "icon", padded };
   if (["backspace", "delete", "del"].includes(key)) {
-    return { glyph: "backspace", kind: "glyph", padded };
+    return { icon: KeyboardBackspaceIcon, kind: "icon", padded };
   }
   if (["escape", "esc"].includes(key)) return { kind: "text", padded, text: "ESC" };
-  if (["enter", "return"].includes(key)) return { glyph: "enter", kind: "glyph", padded };
-  if (key === "tab") return { glyph: "tab", kind: "glyph", padded };
-  if (key === "space") return { glyph: "space", kind: "glyph", padded };
-  if (["up", "down", "left", "right"].includes(key)) {
-    return { glyph: key as ShortcutGlyphName, kind: "glyph", padded };
+  if (["enter", "return"].includes(key)) return { icon: KeyboardReturnIcon, kind: "icon", padded };
+  if (key === "tab") return { icon: KeyboardTabIcon, kind: "icon", padded };
+  if (key === "space") return { icon: KeyboardSpaceIcon, kind: "icon", padded };
+  if (key === "up")
+    return { icon: KeyboardArrowLeftIcon, iconClass: "rotate-90", kind: "icon", padded };
+  if (key === "down") {
+    return { icon: KeyboardArrowLeftIcon, iconClass: "-rotate-90", kind: "icon", padded };
+  }
+  if (key === "left") return { icon: KeyboardArrowLeftIcon, kind: "icon", padded };
+  if (key === "right") {
+    return { icon: KeyboardArrowLeftIcon, iconClass: "rotate-180", kind: "icon", padded };
   }
 
   return { kind: "text", padded, text: key.toUpperCase() };
@@ -173,7 +187,7 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <component :is="d.as" v-bind="$attrs" class="cui-shortcut" :data-cui-size="d.size">
+  <component :is="d.as" v-bind="$attrs" class="cui-shortcut">
     <Surface
       v-for="(entry, index) in shortcutEntries()"
       :key="index"
@@ -187,7 +201,11 @@ onBeforeMount(() => {
       :outline="d.outline"
       :variant="d.variant"
     >
-      <ShortcutGlyph v-if="entry.kind === 'glyph'" :class="glyphClass" :name="entry.glyph" />
+      <component
+        :is="entry.icon"
+        v-if="entry.kind === 'icon'"
+        :class="cn(iconClass, entry.iconClass)"
+      />
       <VNodeRenderer v-else-if="entry.kind === 'node'" :node="entry.node" />
       <template v-else>{{ entry.text }}</template>
     </Surface>

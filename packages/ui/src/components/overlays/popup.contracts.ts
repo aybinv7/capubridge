@@ -1,3 +1,46 @@
+import type { SurfaceLevelInput, SurfaceVariant, UiAccent } from "../../foundations/contracts.ts";
+
+export interface PopupProps {
+  ariaDescribedby?: string;
+  ariaLabel?: string;
+  ariaLabelledby?: string;
+  /** Default `true`. */
+  backdrop?: boolean;
+  backdropClassName?: string;
+  /** Default `true`. */
+  closeButton?: boolean;
+  closeButtonColor?: UiAccent;
+  /** Default `true`. */
+  closeOnBackdropClick?: boolean;
+  /** Default `true`. */
+  closeOnEscape?: boolean;
+  contentClassName?: string;
+  /** Default `true`. */
+  header?: boolean;
+  headerClassName?: string;
+  /** Selector for the element to mark `inert` while the popup is open. Default `'.app-container'`. */
+  inertContainer?: string;
+  lazy?: boolean;
+  root?: string | HTMLElement;
+  wrapClassName?: string;
+}
+
+export type PopupDefaultProps = Partial<
+  Omit<PopupProps, "ariaDescribedby" | "ariaLabel" | "ariaLabelledby">
+>;
+
+export interface PopupContentProps {
+  contentClassName?: string;
+  /** Default `true`. */
+  outline?: boolean;
+  /** Default `1`. */
+  surfaceLevel?: SurfaceLevelInput;
+  /** Default `'solid'`. */
+  variant?: SurfaceVariant;
+}
+
+export type PopupContentDefaultProps = Partial<PopupContentProps>;
+
 export const popupContainerClasses =
   "cui-popup fixed inset-0 z-50 flex flex-col justify-center overflow-hidden";
 

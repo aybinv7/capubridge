@@ -46,7 +46,7 @@ function setReadOnly(next: boolean): void {
   <CatalogSection
     description="A continuous control with Cladd's thumb, fill and value-motion contract."
     eyebrow="04 · Forms"
-    id="forms"
+    id="slider"
     title="Slider"
   >
     <ComponentPlayground :code="code" preview-surface>

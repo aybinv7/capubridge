@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button } from "@capubridge/ui";
+import { Chip } from "@capubridge/ui";
 import { computed, ref } from "vue";
 import type { UiAccent } from "@capubridge/ui";
 
@@ -17,71 +17,53 @@ const props = defineProps<{
 
 const color = ref<UiAccent>("neutral");
 const disabled = ref(false);
-const readOnly = ref(false);
+const rounded = ref(false);
 const size = ref("md");
 const variant = ref("gradient");
 const sizes = ["2xs", "xs", "sm", "md", "lg", "xl", "2xl"] as const;
 const variants = ["gradient", "solid", "transparent", "gradient-fill"] as const;
 const code = computed(
-  () => `<Button
+  () => `<Chip
   color="${color.value}"
   size="${size.value}"
   variant="${variant.value}"
+  ${rounded.value ? "rounded" : ':rounded="false"'}
   ${disabled.value ? "disabled" : ':disabled="false"'}
-  ${readOnly.value ? "read-only" : ':read-only="false"'}
 >
-  Connect target
-</Button>`,
+  Connected
+</Chip>`,
 );
-
-function setDisabled(value: boolean): void {
-  disabled.value = value;
-  if (value) readOnly.value = false;
-}
-
-function setReadOnly(value: boolean): void {
-  readOnly.value = value;
-  if (value) disabled.value = false;
-}
 </script>
 
 <template>
   <CatalogSection
-    description="A single action surface with Cladd-sized geometry and press motion."
-    eyebrow="02 · Action"
-    id="buttons"
-    title="Button"
+    description="Compact status language with the same surface, color and density controls."
+    eyebrow="03 · Data display"
+    id="chip"
+    title="Chip"
   >
     <ComponentPlayground :code="code" preview-surface>
       <template #preview>
-        <Button
+        <Chip
           :color="color"
           :disabled="disabled || !props.interactionsEnabled"
-          :read-only="readOnly"
+          :rounded="rounded"
           :size="size"
           :variant="variant"
         >
-          Connect target
-        </Button>
+          Connected
+        </Chip>
       </template>
       <template #controls>
         <PlaygroundToolbar>
-          <PlaygroundSegmented v-model="size" :items="sizes" label="Button size" />
+          <PlaygroundSegmented v-model="size" :items="sizes" label="Chip size" />
         </PlaygroundToolbar>
         <PlaygroundToolbar>
-          <PlaygroundSegmented v-model="variant" :items="variants" label="Button variant" />
+          <PlaygroundSegmented v-model="variant" :items="variants" label="Chip variant" />
         </PlaygroundToolbar>
         <PlaygroundToolbar>
-          <PlaygroundSwitchControl
-            label="disabled"
-            :model-value="disabled"
-            @update:model-value="setDisabled"
-          />
-          <PlaygroundSwitchControl
-            label="readOnly"
-            :model-value="readOnly"
-            @update:model-value="setReadOnly"
-          />
+          <PlaygroundSwitchControl v-model="rounded" label="rounded" />
+          <PlaygroundSwitchControl v-model="disabled" label="disabled" />
         </PlaygroundToolbar>
         <PlaygroundToolbar>
           <PlaygroundColorControl v-model="color" />

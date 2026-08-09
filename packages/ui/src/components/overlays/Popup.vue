@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, shallowRef, useAttrs, useSlots, watch } from "vue";
 
+import { useComponentDefaults } from "../../composables/useComponentDefaults.ts";
 import { useFocusTrap } from "../../composables/useFocusTrap.ts";
 import { useOverlayLifecycle } from "../../composables/useOverlayLifecycle.ts";
 import { useOverlayPhase } from "../../composables/useOverlayPhase.ts";
 import { provideSurfaceColorReset } from "../../contexts/surfaceContext.ts";
 import { useUiContext } from "../../contexts/uiContext.ts";
-import type { UiAccent } from "../../foundations/contracts.ts";
 import { cn } from "../../shared/cn.ts";
 import Button from "../actions/Button.vue";
 import VNodeRenderer from "../data-display/VNodeRenderer.ts";
@@ -39,48 +39,29 @@ import {
   popupWrapperClasses,
   popupWrapperClosedClasses,
   popupWrapperOpenedClasses,
+  type PopupProps,
 } from "./popup.contracts.ts";
 
 defineOptions({ inheritAttrs: false });
 
-const props = withDefaults(
-  defineProps<{
-    ariaDescribedby?: string;
-    ariaLabel?: string;
-    ariaLabelledby?: string;
-    backdrop?: boolean;
-    backdropClassName?: string;
-    closeButton?: boolean;
-    closeButtonColor?: UiAccent;
-    closeOnBackdropClick?: boolean;
-    closeOnEscape?: boolean;
-    contentClassName?: string;
-    header?: boolean;
-    headerClassName?: string;
-    inertContainer?: string;
-    lazy?: boolean;
-    root?: string | HTMLElement;
-    wrapClassName?: string;
-  }>(),
-  {
-    ariaDescribedby: undefined,
-    ariaLabel: undefined,
-    ariaLabelledby: undefined,
-    backdrop: true,
-    backdropClassName: undefined,
-    closeButton: true,
-    closeButtonColor: undefined,
-    closeOnBackdropClick: true,
-    closeOnEscape: true,
-    contentClassName: undefined,
-    header: true,
-    headerClassName: undefined,
-    inertContainer: ".app-container",
-    lazy: false,
-    root: undefined,
-    wrapClassName: undefined,
-  },
-);
+const props = withDefaults(defineProps<PopupProps>(), {
+  ariaDescribedby: undefined,
+  ariaLabel: undefined,
+  ariaLabelledby: undefined,
+  backdrop: undefined,
+  backdropClassName: undefined,
+  closeButton: undefined,
+  closeButtonColor: undefined,
+  closeOnBackdropClick: undefined,
+  closeOnEscape: undefined,
+  contentClassName: undefined,
+  header: undefined,
+  headerClassName: undefined,
+  inertContainer: undefined,
+  lazy: undefined,
+  root: undefined,
+  wrapClassName: undefined,
+});
 
 defineSlots<{
   beforeContent?: () => unknown;
@@ -106,6 +87,15 @@ const ui = useUiContext();
 const root = useOverlayRootContext(popupRootContextKey);
 const container = shallowRef<HTMLElement>();
 const wrapper = shallowRef<HTMLElement>();
+const d = useComponentDefaults("Popup", props, {
+  backdrop: true,
+  closeButton: true,
+  closeOnBackdropClick: true,
+  closeOnEscape: true,
+  header: true,
+  inertContainer: ".app-container",
+  lazy: false,
+});
 const pointer = {
   distance: 0,
   moved: false,
@@ -140,9 +130,9 @@ function hasChildOverlay(): boolean {
 }
 
 const { opened } = useOverlayLifecycle({
-  closeOnEscape: () => props.closeOnEscape && !hasChildOverlay(),
+  closeOnEscape: () => d.value.closeOnEscape && !hasChildOverlay(),
   element: wrapper,
-  lazy: () => props.lazy,
+  lazy: () => d.value.lazy,
   onClose: () => emit("closing"),
   onClosed: () => emit("closed"),
   onOpen: () => emit("opening"),
@@ -153,7 +143,7 @@ const { opened } = useOverlayLifecycle({
 
 useFocusTrap({ active: opened, container, setInitialFocus: false });
 
-const teleportTarget = computed(() => props.root ?? ui.overlaysRoot.value);
+const teleportTarget = computed(() => d.value.root ?? ui.overlaysRoot.value);
 const containerClass = computed(() =>
   cn(popupContainerClasses, opened.value && popupOpenedMarkerClasses, attrs.class),
 );
@@ -161,7 +151,7 @@ const backdropClass = computed(() =>
   cn(
     popupBackdropClasses,
     opened.value ? popupBackdropOpenedClasses : popupBackdropClosedClasses,
-    props.backdropClassName,
+    d.value.backdropClassName,
   ),
 );
 const wrapperClass = computed(() =>
@@ -169,18 +159,18 @@ const wrapperClass = computed(() =>
     popupWrapperClasses,
     opened.value && popupWrapperOpenedClasses,
     !opened.value && popupWrapperClosedClasses,
-    props.wrapClassName,
+    d.value.wrapClassName,
   ),
 );
-const contentClass = computed(() => cn(popupContentClasses, props.contentClassName));
+const contentClass = computed(() => cn(popupContentClasses, d.value.contentClassName));
 const containerAttrs = computed(() => {
   const { class: _consumerClass, ...rest } = attrs;
   return rest;
 });
 
 function inertTarget(): HTMLElement | null {
-  if (!props.inertContainer) return null;
-  return document.querySelector<HTMLElement>(props.inertContainer);
+  if (!d.value.inertContainer) return null;
+  return document.querySelector<HTMLElement>(d.value.inertContainer);
 }
 
 function previousPopups(): Element[] {
@@ -244,7 +234,7 @@ function onClick(event: MouseEvent): void {
     container.value !== target.closest(popupContainerSelector);
   if (inAnotherPopup) return;
   if ((pointer.target && pointer.target !== target) || (pointer.target && pointer.moved)) return;
-  if (!props.closeOnBackdropClick) return;
+  if (!d.value.closeOnBackdropClick) return;
   close();
 }
 
@@ -274,40 +264,40 @@ defineExpose({ close });
       v-if="mounted"
       v-bind="containerAttrs"
       ref="container"
-      :aria-describedby="props.ariaDescribedby"
-      :aria-label="props.ariaLabel"
-      :aria-labelledby="props.ariaLabelledby"
+      :aria-describedby="d.ariaDescribedby"
+      :aria-label="d.ariaLabel"
+      :aria-labelledby="d.ariaLabelledby"
       aria-modal="true"
       :class="containerClass"
-      :data-cui-opened="opened || undefined"
+      :data-open="opened || undefined"
       role="dialog"
       @click="onClick"
       @pointerdown="onPointer"
       @pointermove="onPointer"
       @pointerup="onPointer"
     >
-      <Backdrop v-if="props.backdrop" :class="backdropClass" />
+      <Backdrop v-if="d.backdrop" :class="backdropClass" />
       <div :ref="setWrapper" :class="wrapperClass" data-part="wrapper">
-        <div :class="contentClass" :data-cui-opened="opened || undefined" data-part="content">
+        <div :class="contentClass" :data-open="opened || undefined" data-part="content">
           <slot name="beforeContent" />
           <div
-            v-if="props.header"
-            :class="cn(popupHeaderClasses, props.headerClassName)"
+            v-if="d.header"
+            :class="cn(popupHeaderClasses, d.headerClassName)"
             data-part="header"
           >
             <div :class="popupHeaderLeftClasses" data-part="header-left">
               <slot name="headerLeft" />
             </div>
             <div
-              v-if="$slots.headerRight || props.closeButton"
+              v-if="$slots.headerRight || d.closeButton"
               :class="popupHeaderRightClasses"
               data-part="header-right"
             >
               <slot name="headerRight" />
               <Surface
-                v-if="props.closeButton"
+                v-if="d.closeButton"
                 :class="popupCloseWrapperClasses"
-                :color="props.closeButtonColor"
+                :color="d.closeButtonColor"
                 :content-class-name="popupCloseWrapperContentClasses"
                 data-part="close-wrapper"
                 :level="1"

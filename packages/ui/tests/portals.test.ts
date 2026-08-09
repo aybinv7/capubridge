@@ -6,7 +6,7 @@ import {
   toastOpenedClasses,
   toastSurfaceClasses,
 } from "../src/components/feedback/toast.contracts.ts";
-import { byTestId, mountTree } from "./support/mountTree.ts";
+import { byTestId, click, mountTree } from "./support/mountTree.ts";
 
 async function settle(): Promise<void> {
   await nextTick();
@@ -57,7 +57,8 @@ test("UiProvider renders the dialogs portal and useDialog drives it", async () =
   expect(dialog?.textContent).toContain("Delete target?");
   expect(dialog?.textContent).toContain("This cannot be undone.");
 
-  document.body.querySelector<HTMLButtonElement>('[data-part="confirm"]')?.click();
+  const confirmButton = document.body.querySelector<HTMLButtonElement>('[data-part="confirm"]');
+  if (confirmButton) await click(confirmButton);
   await settle();
 
   expect(confirmed).toEqual([true]);
@@ -95,7 +96,7 @@ test("drives a declarative toast through the ToastRoot compound", async () => {
 
   expect(document.body.querySelector(".cui-toast")).toBeNull();
 
-  byTestId(mounted.root, "toast-trigger").click();
+  await click(byTestId(mounted.root, "toast-trigger"));
   await settle();
 
   expect(document.body.querySelector(".cui-toast")?.textContent).toContain("Reconnected");

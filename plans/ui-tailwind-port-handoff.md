@@ -6,7 +6,7 @@
 > structure, and class names by value — rename `cladd-*` → `cui-*` — and delete the old hand-authored
 > CSS rule in the _same_ change. Never re-derive or "improve" a value; if it looks awkward, that's
 > upstream's awkwardness too. The validation is **comparison against the Cladd source**, not a visual
-> check. See `plans/tailwind-realignment.md` for the full decision record and the two traps below.
+> check. See `plans/tailwind-realignment.md` for the full decision record and the three traps below.
 >
 > Jump to **Remaining work, in the order I'd take it** for what's left. Everything above that section
 > describes what's already ported and, more usefully, the inventions that had to be undone — read the
@@ -290,7 +290,7 @@ playground has — `dark`/`light` toggled on `document.documentElement` — plus
 `overlaysRoot`) for overlays to teleport into. Until then it renders with `:root`'s dark neutral
 defaults, which happens to be what it wants, so nothing looks broken; it just isn't wired.
 
-## Two traps that will cost you a debugging cycle
+## Three traps that will cost you a debugging cycle
 
 1. **~~CSS layer order beats specificity.~~** Retired: no hand-authored `@layer cui.*` rule survives,
    so nothing can silently out-rank a utility any more. Kept here because the reasoning still applies
@@ -302,6 +302,25 @@ defaults, which happens to be what it wants, so nothing looks broken; it just is
    positioning on Checkbox/Radio thumbs and the Switch track (they fell back to `position: relative`,
    collapsing the check glyph to 0 width). Any _new_ component that hands a positioning utility to
    `Surface`/`SurfaceCut` via `class` should be spot-checked with computed styles, not just visually.
+
+3. **A test must never call `.click()` directly — use `click()` from `tests/support/mountTree.ts`.**
+   Vue's `runtime-dom` invoker drops any listener whose attach stamp isn't strictly older than the
+   event (`if (!e._vts) e._vts = Date.now(); else if (e._vts <= invoker.attached) return`). Both
+   stamps are `Date.now()`, whose granularity on Windows is ~15.6 ms, so a synchronous
+   mount-then-click lands in the same tick and the handler is **silently skipped** — measured at 20
+   of 30 clicks dropped. The helper waits for the clock to advance, which made it 30 of 30.
+
+   Two things make this expensive to debug. The failure presents as a dead component (state never
+   changes, DOM never updates) with no warning, and **capture-phase handlers still fire** — the
+   first invoker takes the `!e._vts` branch — so `Button`'s `guardActivation` running while its
+   bubble `onClick` doesn't looks like a broken port. And because it turns on whether the clock
+   happened to tick, the failing test moves to a _different_ test on unrelated edits, which reads
+   like reactivity corruption leaking between tests. It is neither: real browser clicks always
+   arrive tens of ms after mount, so no shipped component is affected.
+
+   It also hides passing-but-vacuous tests: `blocks disabled and readonly button activation`
+   asserted `activations === 0` while the click was being dropped anyway, so it never actually
+   exercised `guardActivation` until it was routed through the helper.
 
 ## Deliberate divergences — leave these alone unless you're changing them on purpose
 
