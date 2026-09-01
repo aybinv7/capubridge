@@ -34,6 +34,7 @@ const tools = [
               size="icon-sm"
               :variant="props.mode === tool.id ? 'default' : 'ghost'"
               class="h-10 w-10 rounded-2xl"
+              :aria-label="tool.label"
               @click="emit('update:mode', tool.id)"
             >
               <component :is="tool.icon" :size="16" />

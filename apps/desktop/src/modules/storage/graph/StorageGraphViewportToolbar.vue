@@ -31,6 +31,7 @@ const emit = defineEmits<{
                 size="icon-sm"
                 variant="ghost"
                 class="h-10 w-10 rounded-2xl"
+                aria-label="Zoom out"
                 @click="emit('zoomOut')"
               >
                 <Minus :size="16" />
@@ -44,6 +45,7 @@ const emit = defineEmits<{
               <Button
                 variant="ghost"
                 class="h-10 min-w-[5rem] rounded-2xl px-3 text-xs font-medium tabular-nums text-foreground/85"
+                aria-label="Fit graph view"
                 @click="emit('resetZoom')"
               >
                 {{ props.zoomPercent }}%
@@ -58,6 +60,7 @@ const emit = defineEmits<{
                 size="icon-sm"
                 variant="ghost"
                 class="h-10 w-10 rounded-2xl"
+                aria-label="Zoom in"
                 @click="emit('zoomIn')"
               >
                 <Plus :size="16" />
@@ -76,6 +79,7 @@ const emit = defineEmits<{
                 size="icon-sm"
                 variant="ghost"
                 class="h-10 w-10 rounded-2xl"
+                aria-label="Undo graph change"
                 :disabled="!props.canUndo"
                 @click="emit('undo')"
               >
@@ -91,6 +95,7 @@ const emit = defineEmits<{
                 size="icon-sm"
                 variant="ghost"
                 class="h-10 w-10 rounded-2xl"
+                aria-label="Redo graph change"
                 :disabled="!props.canRedo"
                 @click="emit('redo')"
               >

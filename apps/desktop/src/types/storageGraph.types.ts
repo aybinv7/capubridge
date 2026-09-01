@@ -76,6 +76,28 @@ export interface StorageGraphGroupFrameNodeData {
   width: number;
   height: number;
   variant?: "container" | "relationship" | "inferred" | "manual";
+  memberIds?: string[];
+  clusterSource?: "inferred" | "manual";
+}
+
+export interface StorageGraphClusterSelection {
+  id: string;
+  name: string;
+  note?: string;
+  memberIds: string[];
+  memberNames: string[];
+  source: "inferred" | "manual";
+}
+
+export interface StorageGraphRelatedTable {
+  relationshipId: string;
+  nodeId: string;
+  title: string;
+  direction: "incoming" | "outgoing";
+  kind: StorageGraphEdgeKind;
+  confidence: StorageGraphConfidence;
+  sourceFieldName?: string;
+  targetFieldName?: string;
 }
 
 export type StorageGraphNodeData =

@@ -40,23 +40,30 @@ import StorageGraphSelectionToolbar from "@/modules/storage/graph/StorageGraphSe
 import {
   applySelectionAction,
   getSelectedCanvasNodes,
+  getStorageGraphClusterTitle,
+  isStorageGraphRouteAttached,
   type StorageGraphCanvasMode,
   type StorageGraphSelectionAction,
 } from "@/modules/storage/graph/storageGraphCanvas.utils";
 import StorageGraphViewportToolbar from "@/modules/storage/graph/StorageGraphViewportToolbar.vue";
-import { layoutStorageGraphWithElk } from "@/modules/storage/graph/storageGraphElkLayout";
+import {
+  buildStorageGraphNamingFamilies,
+  layoutStorageGraphWithElk,
+} from "@/modules/storage/graph/storageGraphElkLayout";
 import { useStorageGraphData } from "@/modules/storage/graph/useStorageGraphData";
 import { useStorageGraphHistory } from "@/modules/storage/graph/useStorageGraphHistory";
 import { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import type {
-  StorageGraphGroupRecord,
   StorageGraphNodeAnnotation,
   StorageGraphNodeData,
+  StorageGraphClusterSelection,
+  StorageGraphRelatedTable,
   StorageGraphRelationship,
 } from "@/types/storageGraph.types";
 import { useRouter } from "vue-router";
 
-const GROUP_FRAME_PADDING = 26;
+const GROUP_FRAME_SIDE_PADDING = 26;
+const GROUP_FRAME_TOP_PADDING = 58;
 const CONTAINER_FRAME_PADDING = 38;
 
 const router = useRouter();
@@ -87,7 +94,7 @@ const edgeTypes = {
   routed: markRaw(StorageGraphRoutedEdge),
 };
 
-const { fitView, getViewport, zoomIn, zoomOut } = useVueFlow();
+const { fitView, getViewport, setCenter, zoomIn, zoomOut } = useVueFlow();
 
 const search = ref("");
 const sourceFilter = ref<"all" | "indexeddb" | "localforage" | "sqlite">("all");
@@ -98,9 +105,11 @@ const nodes = shallowRef<Node<StorageGraphNodeData>[]>([]);
 const edges = shallowRef<Edge<StorageGraphRelationship>[]>([]);
 const selectedNodeId = ref("");
 const selectedEdgeId = ref("");
+const selectedClusterId = ref("");
 const fittedScopeKey = ref("");
 const zoomPercent = ref(100);
 const routedEdgePoints = ref<Record<string, Array<{ x: number; y: number }>>>({});
+const clusterMembersByFrameId = new Map<string, string[]>();
 const selectedOriginModel = computed({
   get: () => selectedOrigin.value,
   set: (value: string) => setSelectedOrigin(value),
@@ -198,17 +207,6 @@ const visibleRelationships = computed(() =>
 );
 
 const persistedGroups = computed(() => graphStore.getScope(scopeKey.value).groups);
-const nodeGroupIndex = computed(() => {
-  const index = new Map<string, StorageGraphGroupRecord>();
-
-  for (const group of persistedGroups.value) {
-    for (const nodeId of group.nodeIds) {
-      index.set(nodeId, group);
-    }
-  }
-
-  return index;
-});
 const selectedNodes = computed(() => getSelectedCanvasNodes(getInteractiveNodes(nodes.value)));
 const canArrangeSelection = computed(() => selectedNodes.value.length > 1);
 const selectedNode = computed(
@@ -217,6 +215,53 @@ const selectedNode = computed(
 const selectedEdge = computed(
   () => visibleRelationships.value.find((edge) => edge.id === selectedEdgeId.value) ?? null,
 );
+const selectedCluster = computed<StorageGraphClusterSelection | null>(() => {
+  const frame = nodes.value.find((node) => node.id === selectedClusterId.value);
+  if (!frame || frame.data.nodeKind !== "group-frame" || !frame.data.memberIds) {
+    return null;
+  }
+  const nodeById = new Map(getInteractiveNodes(nodes.value).map((node) => [node.id, node]));
+  const annotation = graphStore.getNodeAnnotation(scopeKey.value, frame.id);
+  return {
+    id: frame.id,
+    name: annotation?.label || frame.data.title.replace(/\s·\s\d+$/, ""),
+    note: annotation?.note,
+    memberIds: frame.data.memberIds,
+    memberNames: frame.data.memberIds.map((nodeId) => {
+      const member = nodeById.get(nodeId);
+      return member?.data.title ?? nodeId;
+    }),
+    source: frame.data.clusterSource ?? "manual",
+  };
+});
+const entityTitleById = computed(() =>
+  Object.fromEntries(entities.value.map((entity) => [entity.id, entity.title])),
+);
+const relatedTables = computed<StorageGraphRelatedTable[]>(() => {
+  const nodeId = selectedNode.value?.id;
+  if (!nodeId) {
+    return [];
+  }
+  return visibleRelationships.value.flatMap((relationship) => {
+    if (relationship.source !== nodeId && relationship.target !== nodeId) {
+      return [];
+    }
+    const outgoing = relationship.source === nodeId;
+    const relatedNodeId = outgoing ? relationship.target : relationship.source;
+    return [
+      {
+        relationshipId: relationship.id,
+        nodeId: relatedNodeId,
+        title: entityTitleById.value[relatedNodeId] ?? relatedNodeId,
+        direction: outgoing ? "outgoing" : "incoming",
+        kind: relationship.kind,
+        confidence: relationship.confidence,
+        sourceFieldName: relationship.sourceFieldName,
+        targetFieldName: relationship.targetFieldName,
+      },
+    ];
+  });
+});
 const entityCount = computed(() => filteredEntities.value.length);
 const relationshipCount = computed(() => visibleRelationships.value.length);
 
@@ -244,7 +289,7 @@ function buildNodes() {
       fields: entity.fields,
       annotation: entity.annotation,
     },
-    draggable: true,
+    draggable: canvasMode.value === "select",
     selectable: true,
     deletable: false,
     selected: selectedIds.has(entity.id),
@@ -264,7 +309,7 @@ function buildNodes() {
       note: note.note,
       accent: note.accent,
     },
-    draggable: true,
+    draggable: canvasMode.value === "select",
     selectable: true,
     deletable: true,
     selected: selectedIds.has(note.id),
@@ -276,11 +321,10 @@ function buildNodes() {
 }
 
 function buildGroupFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
-  const selectedIds = new Set(baseNodes.filter((node) => node.selected).map((node) => node.id));
   const nodeById = new Map(baseNodes.map((node) => [node.id, node]));
 
   return persistedGroups.value.flatMap<Node<StorageGraphNodeData>>((group) => {
-    if (group.nodeIds.length < 2 || !group.nodeIds.every((nodeId) => selectedIds.has(nodeId))) {
+    if (group.nodeIds.length < 2) {
       return [];
     }
 
@@ -305,23 +349,98 @@ function buildGroupFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
       maxY = Math.max(maxY, member.position.y + size.height);
     }
 
+    const frameId = `group-frame:${group.id}`;
+    clusterMembersByFrameId.set(
+      frameId,
+      members.map((member) => member.id),
+    );
+    const annotation = graphStore.getNodeAnnotation(scopeKey.value, frameId);
+    const title =
+      annotation?.label || getStorageGraphClusterTitle(members.map((member) => member.data.title));
+
     return [
       {
-        id: `group-frame:${group.id}`,
+        id: frameId,
         type: "group-frame",
         position: {
-          x: minX - GROUP_FRAME_PADDING,
-          y: minY - GROUP_FRAME_PADDING,
+          x: minX - GROUP_FRAME_SIDE_PADDING,
+          y: minY - GROUP_FRAME_TOP_PADDING,
         },
         data: {
           nodeKind: "group-frame",
-          title: `Group · ${members.length}`,
-          width: maxX - minX + GROUP_FRAME_PADDING * 2,
-          height: maxY - minY + GROUP_FRAME_PADDING * 2,
+          title: `${title} · ${members.length}`,
+          width: maxX - minX + GROUP_FRAME_SIDE_PADDING * 2,
+          height: maxY - minY + GROUP_FRAME_TOP_PADDING + GROUP_FRAME_SIDE_PADDING,
           variant: "manual",
+          memberIds: members.map((member) => member.id),
+          clusterSource: "manual",
         },
-        draggable: false,
-        selectable: false,
+        draggable: canvasMode.value === "select",
+        selectable: true,
+        deletable: false,
+        zIndex: -1,
+      },
+    ];
+  });
+}
+
+function buildNamingFamilyFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
+  const entityNodes = baseNodes.filter(
+    (node) => node.data.nodeKind === "entity",
+  ) as Node<StorageGraphNodeData>[];
+  const nodeById = new Map(entityNodes.map((node) => [node.id, node]));
+  const families = buildStorageGraphNamingFamilies(
+    entityNodes.map((node) => ({
+      id: node.id,
+      name: node.data.nodeKind === "entity" ? node.data.title : node.id,
+      ...getNodeSize(node),
+    })),
+    visibleRelationships.value,
+  );
+
+  return families.flatMap<Node<StorageGraphNodeData>>((family) => {
+    const members = family.memberIds
+      .map((nodeId) => nodeById.get(nodeId))
+      .filter((node): node is Node<StorageGraphNodeData> => Boolean(node));
+    if (members.length < 3) {
+      return [];
+    }
+    const minX = Math.min(...members.map((member) => member.position.x));
+    const minY = Math.min(...members.map((member) => member.position.y));
+    const maxX = Math.max(
+      ...members.map((member) => member.position.x + getNodeSize(member).width),
+    );
+    const maxY = Math.max(
+      ...members.map((member) => member.position.y + getNodeSize(member).height),
+    );
+    const frameId = `naming-frame:${family.key}`;
+    clusterMembersByFrameId.set(frameId, family.memberIds);
+    const annotation = graphStore.getNodeAnnotation(scopeKey.value, frameId);
+    const title =
+      annotation?.label ||
+      getStorageGraphClusterTitle(
+        members.flatMap((member) => (member.data.nodeKind === "entity" ? [member.data.title] : [])),
+      );
+
+    return [
+      {
+        id: frameId,
+        type: "group-frame",
+        position: {
+          x: minX - GROUP_FRAME_SIDE_PADDING,
+          y: minY - GROUP_FRAME_TOP_PADDING,
+        },
+        data: {
+          nodeKind: "group-frame",
+          title: `${title} · ${members.length}`,
+          width: maxX - minX + GROUP_FRAME_SIDE_PADDING * 2,
+          height: maxY - minY + GROUP_FRAME_TOP_PADDING + GROUP_FRAME_SIDE_PADDING,
+          variant: "inferred",
+          memberIds: family.memberIds,
+          clusterSource: "inferred",
+        },
+        draggable: canvasMode.value === "select",
+        selectable: true,
         deletable: false,
         zIndex: -1,
       },
@@ -447,14 +566,14 @@ function buildRelationshipFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
       id: `relationship-frame:${memberIds.sort().join(":")}`,
       type: "group-frame",
       position: {
-        x: minX - GROUP_FRAME_PADDING,
-        y: minY - GROUP_FRAME_PADDING,
+        x: minX - GROUP_FRAME_SIDE_PADDING,
+        y: minY - GROUP_FRAME_TOP_PADDING,
       },
       data: {
         nodeKind: "group-frame",
         title: `${anchorTitle} relations · ${members.length} tables`,
-        width: maxX - minX + GROUP_FRAME_PADDING * 2,
-        height: maxY - minY + GROUP_FRAME_PADDING * 2,
+        width: maxX - minX + GROUP_FRAME_SIDE_PADDING * 2,
+        height: maxY - minY + GROUP_FRAME_TOP_PADDING + GROUP_FRAME_SIDE_PADDING,
         variant: "relationship",
       },
       draggable: false,
@@ -468,8 +587,10 @@ function buildRelationshipFrameNodes(baseNodes: Node<StorageGraphNodeData>[]) {
 }
 
 function syncCanvasNodes(baseNodes = getInteractiveNodes(nodes.value)) {
+  clusterMembersByFrameId.clear();
   nodes.value = [
     ...baseNodes,
+    ...(graphStrategy.value === "inferred" ? buildNamingFamilyFrameNodes(baseNodes) : []),
     ...(graphStrategy.value === "schema" ? buildContainerFrameNodes(baseNodes) : []),
     ...(graphStrategy.value === "schema" ? buildRelationshipFrameNodes(baseNodes) : []),
     ...buildGroupFrameNodes(baseNodes),
@@ -477,50 +598,78 @@ function syncCanvasNodes(baseNodes = getInteractiveNodes(nodes.value)) {
 }
 
 function buildEdges() {
-  return visibleRelationships.value.map<Edge<StorageGraphRelationship>>((relationship) => ({
-    id: relationship.id,
-    source: relationship.source,
-    target: relationship.target,
-    label: relationship.label,
-    type: "routed",
-    animated: relationship.kind === "manual",
-    selectable: true,
-    selected: relationship.id === selectedEdgeId.value,
-    deletable: relationship.kind === "manual",
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-    },
-    style:
-      relationship.kind === "foreign-key" || relationship.kind === "logical-reference"
-        ? {
-            stroke:
-              relationship.kind === "foreign-key" ? "var(--color-success)" : "var(--color-info)",
-            strokeWidth: 2.2,
-            vectorEffect: "non-scaling-stroke",
-            strokeDasharray: relationship.kind === "logical-reference" ? "8 5" : undefined,
-          }
-        : relationship.kind === "manual"
-          ? {
-              stroke: "var(--color-primary)",
-              strokeWidth: 2.2,
-              vectorEffect: "non-scaling-stroke",
-            }
-          : {
-              stroke:
-                relationship.confidence === "high"
-                  ? "var(--color-info)"
-                  : relationship.confidence === "medium"
-                    ? "var(--color-warning)"
-                    : "var(--color-border-active)",
-              strokeDasharray: "6 4",
-              strokeWidth: 1.8,
-              vectorEffect: "non-scaling-stroke",
-            },
-    data: {
-      ...relationship,
-      routePoints: routedEdgePoints.value[relationship.id],
-    },
-  }));
+  const mountedNodes = getInteractiveNodes(nodes.value);
+  const mountedNodeIds = new Set(mountedNodes.map((node) => node.id));
+  const mountedNodeById = new Map(mountedNodes.map((node) => [node.id, node]));
+  return visibleRelationships.value
+    .filter(
+      (relationship) =>
+        relationship.source !== relationship.target &&
+        mountedNodeIds.has(relationship.source) &&
+        mountedNodeIds.has(relationship.target),
+    )
+    .map<Edge<StorageGraphRelationship>>((relationship) => {
+      const sourceNode = mountedNodeById.get(relationship.source);
+      const targetNode = mountedNodeById.get(relationship.target);
+      const candidateRoute = routedEdgePoints.value[relationship.id];
+      const routePoints =
+        sourceNode &&
+        targetNode &&
+        candidateRoute &&
+        isStorageGraphRouteAttached(
+          candidateRoute,
+          { position: sourceNode.position, ...getNodeSize(sourceNode) },
+          { position: targetNode.position, ...getNodeSize(targetNode) },
+        )
+          ? candidateRoute
+          : undefined;
+      return {
+        id: relationship.id,
+        source: relationship.source,
+        target: relationship.target,
+        label: relationship.label,
+        type: "routed",
+        animated: relationship.kind === "manual",
+        selectable: true,
+        selected: relationship.id === selectedEdgeId.value,
+        deletable: relationship.kind === "manual",
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+        },
+        style:
+          relationship.kind === "foreign-key" || relationship.kind === "logical-reference"
+            ? {
+                stroke:
+                  relationship.kind === "foreign-key"
+                    ? "var(--color-success)"
+                    : "var(--color-info)",
+                strokeWidth: 2.2,
+                vectorEffect: "non-scaling-stroke",
+                strokeDasharray: relationship.kind === "logical-reference" ? "8 5" : undefined,
+              }
+            : relationship.kind === "manual"
+              ? {
+                  stroke: "var(--color-primary)",
+                  strokeWidth: 2.2,
+                  vectorEffect: "non-scaling-stroke",
+                }
+              : {
+                  stroke:
+                    relationship.confidence === "high"
+                      ? "var(--color-info)"
+                      : relationship.confidence === "medium"
+                        ? "var(--color-warning)"
+                        : "var(--color-border-active)",
+                  strokeDasharray: "6 4",
+                  strokeWidth: 1.8,
+                  vectorEffect: "non-scaling-stroke",
+                },
+        data: {
+          ...relationship,
+          routePoints,
+        },
+      };
+    });
 }
 
 function updateZoomPercent(zoom = getViewport().zoom) {
@@ -548,6 +697,7 @@ function setSelectedNodeIds(nodeIds: string[]) {
 function clearSelection() {
   selectedNodeId.value = "";
   selectedEdgeId.value = "";
+  selectedClusterId.value = "";
   setSelectedNodeIds([]);
   edges.value = edges.value.map((edge) => (edge.selected ? { ...edge, selected: false } : edge));
 }
@@ -555,6 +705,88 @@ function clearSelection() {
 async function fitCanvas(padding = 0.18, duration = 180) {
   await fitView({ padding, duration });
   updateZoomPercent();
+}
+
+function getMovedNodeIds(event: NodeDragEvent): string[] {
+  const movedIds = new Set<string>();
+  for (const node of event.nodes.length > 0 ? event.nodes : [event.node]) {
+    const clusterMemberIds = clusterMembersByFrameId.get(node.id);
+    if (clusterMemberIds) {
+      clusterMemberIds.forEach((nodeId) => movedIds.add(nodeId));
+    } else if (!isGroupFrameNode(node)) {
+      movedIds.add(node.id);
+    }
+  }
+  return [...movedIds];
+}
+
+function invalidateRoutesForNodeIds(nodeIds: string[]) {
+  const movedIds = new Set(nodeIds);
+  if (movedIds.size === 0) {
+    return;
+  }
+  const nextRoutes = { ...routedEdgePoints.value };
+  let changed = false;
+  for (const relationship of visibleRelationships.value) {
+    if (
+      (movedIds.has(relationship.source) || movedIds.has(relationship.target)) &&
+      nextRoutes[relationship.id]
+    ) {
+      delete nextRoutes[relationship.id];
+      changed = true;
+    }
+  }
+  if (!changed) {
+    return;
+  }
+  routedEdgePoints.value = nextRoutes;
+  edges.value = buildEdges();
+}
+
+function moveClusterMembersForFrameChanges(
+  changes: NodeChange[],
+  nextNodes: Node<StorageGraphNodeData>[],
+) {
+  const directlyMovedNodeIds = new Set(
+    changes
+      .filter((change) => change.type === "position" && !clusterMembersByFrameId.has(change.id))
+      .map((change) => change.id),
+  );
+  const translatedNodeIds = new Set<string>();
+  let baseNodes = getInteractiveNodes(nextNodes);
+
+  for (const change of changes) {
+    if (change.type !== "position") {
+      continue;
+    }
+    const memberIds = clusterMembersByFrameId.get(change.id);
+    const currentFrame = nodes.value.find((node) => node.id === change.id);
+    if (!memberIds || !currentFrame) {
+      continue;
+    }
+    const deltaX = change.position.x - currentFrame.position.x;
+    const deltaY = change.position.y - currentFrame.position.y;
+    const memberSet = new Set(memberIds);
+    baseNodes = baseNodes.map((node) => {
+      if (
+        !memberSet.has(node.id) ||
+        directlyMovedNodeIds.has(node.id) ||
+        translatedNodeIds.has(node.id)
+      ) {
+        return node;
+      }
+      translatedNodeIds.add(node.id);
+      return {
+        ...node,
+        position: {
+          x: node.position.x + deltaX,
+          y: node.position.y + deltaY,
+        },
+      };
+    });
+  }
+
+  return baseNodes;
 }
 
 function onNodesChange(changes: NodeChange[]) {
@@ -573,8 +805,16 @@ function onNodesChange(changes: NodeChange[]) {
     }
   }
 
+  const movedNodeIds = changes.flatMap((change) => {
+    if (change.type !== "position") {
+      return [];
+    }
+    return clusterMembersByFrameId.get(change.id) ?? [change.id];
+  });
+  invalidateRoutesForNodeIds(movedNodeIds);
   const nextNodes = applyNodeChanges(changes, nodes.value);
-  syncCanvasNodes(getInteractiveNodes(nextNodes));
+  syncCanvasNodes(moveClusterMembersForFrameChanges(changes, nextNodes));
+  edges.value = buildEdges();
 }
 
 function onEdgesChange(changes: EdgeChange[]) {
@@ -634,15 +874,15 @@ function onConnect(connection: Connection) {
 }
 
 function handleNodeClick(event: NodeMouseEvent) {
-  const group = nodeGroupIndex.value.get(event.node.id);
   selectedEdgeId.value = "";
-
-  if (group) {
-    setSelectedNodeIds(group.nodeIds);
-    selectedNodeId.value = group.nodeIds[0] ?? event.node.id;
+  if (isGroupFrameNode(event.node)) {
+    selectedNodeId.value = "";
+    selectedClusterId.value = event.node.id;
+    setSelectedNodeIds([]);
     return;
   }
 
+  selectedClusterId.value = "";
   setSelectedNodeIds([event.node.id]);
   selectedNodeId.value = event.node.id;
 }
@@ -650,13 +890,13 @@ function handleNodeClick(event: NodeMouseEvent) {
 function handleEdgeClick(event: EdgeMouseEvent) {
   selectedEdgeId.value = event.edge.id;
   selectedNodeId.value = "";
+  selectedClusterId.value = "";
   setSelectedNodeIds([]);
 }
 
-function handleNodeDragStart(_event: NodeDragEvent) {
+function handleNodeDragStart(event: NodeDragEvent) {
   history.commit();
-  routedEdgePoints.value = {};
-  edges.value = buildEdges();
+  invalidateRoutesForNodeIds(getMovedNodeIds(event));
 }
 
 function handleNodeDragStop(_event: NodeDragEvent) {
@@ -712,7 +952,7 @@ function handleSelectionAction(action: StorageGraphSelectionAction) {
   }
 
   history.commit();
-  routedEdgePoints.value = {};
+  invalidateRoutesForNodeIds(selectedNodes.value.map((node) => node.id));
   const baseNodes = applySelectionAction(getInteractiveNodes(nodes.value), action);
   syncCanvasNodes(baseNodes);
   persistNodePositions(baseNodes);
@@ -760,6 +1000,7 @@ function handleAddNote() {
   });
   selectedNodeId.value = note.id;
   selectedEdgeId.value = "";
+  selectedClusterId.value = "";
 }
 
 function handleToggleHeuristicEdges() {
@@ -770,6 +1011,32 @@ function handleSaveAnnotation(nodeId: string, annotation: StorageGraphNodeAnnota
   history.commit();
   graphStore.setNodeAnnotation(scopeKey.value, nodeId, annotation);
   toast.success("Node annotation saved");
+}
+
+function handleSaveCluster(payload: { id: string; name: string; note?: string }) {
+  history.commit();
+  graphStore.setNodeAnnotation(scopeKey.value, payload.id, {
+    label: payload.name.trim() || "Cluster",
+    note: payload.note?.trim() || undefined,
+  });
+  syncCanvasNodes();
+  toast.success("Cluster metadata saved");
+}
+
+async function handleFocusNode(nodeId: string) {
+  const node = getInteractiveNodes(nodes.value).find((candidate) => candidate.id === nodeId);
+  if (!node) {
+    return;
+  }
+  selectedClusterId.value = "";
+  selectedEdgeId.value = "";
+  selectedNodeId.value = nodeId;
+  setSelectedNodeIds([nodeId]);
+  const size = getNodeSize(node);
+  await setCenter(node.position.x + size.width / 2, node.position.y + size.height / 2, {
+    zoom: Math.max(getViewport().zoom, 0.65),
+    duration: 260,
+  });
 }
 
 function handleSaveNote(payload: { id: string; title: string; note: string; accent: string }) {
@@ -890,6 +1157,7 @@ watch(
     autoLayoutPositions,
     schemaLayoutPositions,
     graphStrategy,
+    canvasMode,
     persistedPositions,
     persistedGroups,
     scopeKey,
@@ -1011,14 +1279,14 @@ watch(
             :zoom-on-double-click="false"
             :min-zoom="0.01"
             :max-zoom="2"
-            :only-render-visible-elements="true"
+            :only-render-visible-elements="false"
             :pan-on-drag="canvasMode === 'pan' ? true : [1]"
             :selection-key-code="canvasMode === 'select'"
             multi-selection-key-code="Shift"
             :selection-mode="SelectionMode.Partial"
-            :nodes-draggable="true"
+            :nodes-draggable="canvasMode === 'select'"
             :elements-selectable="true"
-            :nodes-connectable="true"
+            :nodes-connectable="canvasMode === 'select'"
             :node-types="nodeTypes"
             :edge-types="edgeTypes"
             @nodes-change="onNodesChange"
@@ -1064,12 +1332,17 @@ watch(
         <StorageGraphInspector
           :selected-node="selectedNode"
           :selected-edge="selectedEdge"
+          :selected-cluster="selectedCluster"
+          :related-tables="relatedTables"
+          :entity-title-by-id="entityTitleById"
           @save-annotation="handleSaveAnnotation"
           @save-note="handleSaveNote"
           @delete-note="handleDeleteNote"
           @open-node="handleOpenNode"
           @save-edge="handleSaveEdge"
           @delete-edge="handleDeleteEdge"
+          @save-cluster="handleSaveCluster"
+          @focus-node="handleFocusNode"
         />
       </ResizablePanel>
     </ResizablePanelGroup>

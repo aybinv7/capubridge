@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { ExternalLink } from "lucide-vue-next";
 import type { StorageGraphField } from "@/types/storageGraph.types";
 
 defineProps<{
   fields: StorageGraphField[];
+  targetTitles?: Record<string, string>;
+}>();
+
+const emit = defineEmits<{
+  openReference: [nodeId: string];
 }>();
 </script>
 
@@ -59,13 +65,16 @@ defineProps<{
         </div>
 
         <div class="flex justify-center">
-          <span
-            v-if="field.isForeignKey || field.references"
-            class="h-2.5 w-2.5 rounded-full"
-            :class="
-              field.references?.relationshipKind === 'logical-reference' ? 'bg-info' : 'bg-success'
-            "
-          />
+          <button
+            v-if="field.references?.targetNodeId"
+            type="button"
+            class="flex h-7 w-7 items-center justify-center rounded-lg border border-border/20 bg-surface-1 text-success transition-colors hover:border-primary/40 hover:text-primary"
+            :title="`Open ${targetTitles?.[field.references.targetNodeId] || field.references.targetNodeId}`"
+            @click="emit('openReference', field.references.targetNodeId)"
+          >
+            <ExternalLink :size="12" />
+          </button>
+          <span v-else-if="field.isForeignKey" class="h-2.5 w-2.5 rounded-full bg-success" />
         </div>
       </div>
     </div>

@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ArrowRightLeft, Database, Link2, StickyNote, TableProperties } from "lucide-vue-next";
+import {
+  ArrowRight,
+  ArrowRightLeft,
+  Boxes,
+  Database,
+  Link2,
+  StickyNote,
+  TableProperties,
+} from "lucide-vue-next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +22,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import StorageGraphFieldSettings from "@/modules/storage/graph/StorageGraphFieldSettings.vue";
 import type {
+  StorageGraphClusterSelection,
   StorageGraphNodeAnnotation,
   StorageGraphNodeData,
+  StorageGraphRelatedTable,
   StorageGraphRelationship,
 } from "@/types/storageGraph.types";
 
@@ -27,6 +37,9 @@ interface SelectedNodeLike {
 const props = defineProps<{
   selectedNode: SelectedNodeLike | null;
   selectedEdge: StorageGraphRelationship | null;
+  selectedCluster: StorageGraphClusterSelection | null;
+  relatedTables: StorageGraphRelatedTable[];
+  entityTitleById: Record<string, string>;
 }>();
 
 const emit = defineEmits<{
@@ -36,6 +49,8 @@ const emit = defineEmits<{
   openNode: [path: string];
   saveEdge: [payload: { id: string; label: string }];
   deleteEdge: [edgeId: string];
+  saveCluster: [payload: { id: string; name: string; note?: string }];
+  focusNode: [nodeId: string];
 }>();
 
 const annotationLabel = ref("");
@@ -44,6 +59,8 @@ const noteTitle = ref("");
 const noteBody = ref("");
 const noteAccent = ref("#e8765a");
 const edgeLabel = ref("");
+const clusterName = ref("");
+const clusterNote = ref("");
 const isMetadataDialogOpen = ref(false);
 
 const selectedNodeData = computed(() => props.selectedNode?.data ?? null);
@@ -70,6 +87,15 @@ watch(
 
     annotationLabel.value = value.annotation?.label ?? "";
     annotationNote.value = value.annotation?.note ?? "";
+  },
+  { immediate: true },
+);
+
+watch(
+  () => props.selectedCluster,
+  (value) => {
+    clusterName.value = value?.name ?? "";
+    clusterNote.value = value?.note ?? "";
   },
   { immediate: true },
 );
@@ -110,10 +136,73 @@ function saveNode() {
     class="flex h-full min-h-0 flex-col overflow-hidden bg-[linear-gradient(180deg,var(--color-surface-1),var(--color-surface-0))]"
   >
     <div class="min-h-0 flex-1 overflow-auto p-3">
-      <div
-        v-if="selectedNodeData"
-        :class="isNoteNode ? 'space-y-4' : 'flex h-full min-h-0 flex-col gap-4'"
-      >
+      <div v-if="selectedCluster" class="space-y-5">
+        <div>
+          <Badge variant="outline" class="gap-1 rounded-full">
+            <Boxes :size="12" />
+            {{ selectedCluster.source }} cluster
+          </Badge>
+          <p class="pt-3 text-lg font-semibold text-foreground">{{ selectedCluster.name }}</p>
+          <p class="pt-1 text-xs text-muted-foreground/50">
+            {{ selectedCluster.memberIds.length }} grouped tables
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            >Name</label
+          >
+          <Input v-model="clusterName" class="h-10 rounded-xl text-sm" />
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            >Description</label
+          >
+          <Textarea
+            v-model="clusterNote"
+            class="min-h-24 resize-none rounded-2xl text-sm"
+            placeholder="Purpose, domain, or ownership notes"
+          />
+        </div>
+
+        <Button
+          size="sm"
+          class="h-9 text-xs"
+          @click="
+            emit('saveCluster', {
+              id: selectedCluster.id,
+              name: clusterName,
+              note: clusterNote,
+            })
+          "
+        >
+          Save cluster metadata
+        </Button>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+              >Members</label
+            >
+            <Badge variant="outline">{{ selectedCluster.memberIds.length }}</Badge>
+          </div>
+          <button
+            v-for="(memberId, index) in selectedCluster.memberIds"
+            :key="memberId"
+            type="button"
+            class="flex w-full items-center justify-between rounded-xl border border-border/20 bg-surface-0 px-3 py-2 text-left text-xs transition-colors hover:border-primary/35 hover:bg-surface-2"
+            @click="emit('focusNode', memberId)"
+          >
+            <span class="truncate font-mono text-foreground/80">
+              {{ selectedCluster.memberNames[index] || memberId }}
+            </span>
+            <ArrowRight :size="13" class="shrink-0 text-muted-foreground/45" />
+          </button>
+        </div>
+      </div>
+
+      <div v-else-if="selectedNodeData" class="space-y-4">
         <div class="">
           <div class="">
             <div class="flex items-start justify-between gap-3">
@@ -216,7 +305,7 @@ function saveNode() {
             </Button>
           </div>
 
-          <div class="flex min-h-0 flex-1 flex-col gap-2">
+          <div class="space-y-2">
             <div class="flex items-center justify-between">
               <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
                 >Field map</label
@@ -227,7 +316,43 @@ function saveNode() {
               </Badge>
             </div>
 
-            <StorageGraphFieldSettings class="min-h-0 flex-1" :fields="selectedNodeData.fields" />
+            <StorageGraphFieldSettings
+              class="h-[24rem] min-h-[18rem]"
+              :fields="selectedNodeData.fields"
+              :target-titles="entityTitleById"
+              @open-reference="emit('focusNode', $event)"
+            />
+          </div>
+
+          <div v-if="relatedTables.length > 0" class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+                >Related tables</label
+              >
+              <Badge variant="outline">{{ relatedTables.length }}</Badge>
+            </div>
+            <button
+              v-for="relation in relatedTables"
+              :key="relation.relationshipId"
+              type="button"
+              class="w-full rounded-xl border border-border/20 bg-surface-0 px-3 py-2.5 text-left transition-colors hover:border-primary/35 hover:bg-surface-2"
+              @click="emit('focusNode', relation.nodeId)"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="truncate text-xs font-medium text-foreground/85">
+                  {{ relation.title }}
+                </span>
+                <Badge variant="outline" class="shrink-0 text-[9px]">{{ relation.kind }}</Badge>
+              </div>
+              <div
+                class="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground/55"
+              >
+                <span>{{ relation.sourceFieldName || "table" }}</span>
+                <ArrowRight :size="11" />
+                <span>{{ relation.targetFieldName || "table" }}</span>
+                <span class="ml-auto font-sans">{{ relation.direction }}</span>
+              </div>
+            </button>
           </div>
         </template>
       </div>

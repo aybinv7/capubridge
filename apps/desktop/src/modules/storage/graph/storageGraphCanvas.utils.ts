@@ -20,6 +20,59 @@ export type StorageGraphSelectionAction =
 const PACK_GAP_X = 320;
 const PACK_GAP_Y = 220;
 
+function distanceToNodeBounds(
+  point: { x: number; y: number },
+  node: { position: { x: number; y: number }; width: number; height: number },
+): number {
+  const horizontalDistance = Math.max(
+    node.position.x - point.x,
+    0,
+    point.x - (node.position.x + node.width),
+  );
+  const verticalDistance = Math.max(
+    node.position.y - point.y,
+    0,
+    point.y - (node.position.y + node.height),
+  );
+  return Math.hypot(horizontalDistance, verticalDistance);
+}
+
+export function isStorageGraphRouteAttached(
+  route: Array<{ x: number; y: number }>,
+  source: { position: { x: number; y: number }; width: number; height: number },
+  target: { position: { x: number; y: number }; width: number; height: number },
+  tolerance = 8,
+): boolean {
+  const firstPoint = route[0];
+  const lastPoint = route[route.length - 1];
+  if (!firstPoint || !lastPoint || route.length < 2) {
+    return false;
+  }
+  return (
+    distanceToNodeBounds(firstPoint, source) <= tolerance &&
+    distanceToNodeBounds(lastPoint, target) <= tolerance
+  );
+}
+
+export function getStorageGraphClusterTitle(names: string[]): string {
+  const counts = new Map<string, number>();
+  for (const name of names) {
+    const firstWord = name
+      .trim()
+      .toLowerCase()
+      .split(/[_\W]+/)
+      .filter(Boolean)[0];
+    if (firstWord) {
+      counts.set(firstWord, (counts.get(firstWord) ?? 0) + 1);
+    }
+  }
+  const mostCommon = [...counts.entries()].sort(
+    ([leftWord, leftCount], [rightWord, rightCount]) =>
+      rightCount - leftCount || leftWord.localeCompare(rightWord),
+  )[0]?.[0];
+  return mostCommon ? `${mostCommon.charAt(0).toUpperCase()}${mostCommon.slice(1)}` : "Cluster";
+}
+
 function sortByX(nodes: StorageGraphCanvasNode[]) {
   return [...nodes].sort(
     (left, right) =>
