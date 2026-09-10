@@ -146,6 +146,10 @@ const tableName = computed(() => decodeURIComponent((route.params["table"] as st
 
 // Current DB file info
 const currentDb = computed(() => databases.value.find((d) => d.name === dbName.value) ?? null);
+const isNativeSnapshot = computed(
+  () =>
+    currentDb.value?.sourceKind === "native-android" || (!isLocalMode.value && !!currentDb.value),
+);
 
 // Pagination
 const page = ref(0);
@@ -812,6 +816,9 @@ async function runConfirmedAction() {
 }
 
 async function execAgainstCurrentDb(sql: string): Promise<void> {
+  if (isNativeSnapshot.value) {
+    throw new Error("Native Android snapshots are read-only; export a copy to edit locally.");
+  }
   if (!serial.value || !selectedPackageName.value || !currentDb.value) {
     throw new Error("No active database");
   }
@@ -1582,11 +1589,14 @@ watch(
                         <FileCode class="h-3.5 w-3.5 mr-2" />
                         Export SQL dump
                       </DropdownMenuItem>
-                      <DropdownMenuItem @click="handleImportSqlDumpInto(db)">
+                      <DropdownMenuItem
+                        v-if="!isNativeSnapshot"
+                        @click="handleImportSqlDumpInto(db)"
+                      >
                         <Upload class="h-3.5 w-3.5 mr-2" />
                         Import SQL dump (replace)
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator v-if="!isNativeSnapshot" />
                       <DropdownMenuItem
                         :disabled="!hasSummaryChanges(dbSummary(db))"
                         @click="
@@ -1596,8 +1606,9 @@ watch(
                         <Eraser class="h-3.5 w-3.5 mr-2" />
                         Clear DB changes
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator v-if="!isNativeSnapshot" />
                       <DropdownMenuItem
+                        v-if="!isNativeSnapshot"
                         class="text-error focus:text-error"
                         @click="handleDeleteDatabase(db)"
                       >
@@ -1679,7 +1690,7 @@ watch(
                             />
                             {{ isTableHidden(db.path, t.name) ? "Unhide table" : "Hide table" }}
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
+                          <DropdownMenuSeparator v-if="!isNativeSnapshot" />
                           <DropdownMenuItem
                             :disabled="!hasSummaryChanges(tableSummary(db, t.name))"
                             @click="
@@ -1696,6 +1707,7 @@ watch(
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
+                            v-if="!isNativeSnapshot"
                             class="text-error focus:text-error"
                             @click="handleClearTable(db, t.name)"
                           >
@@ -1703,6 +1715,7 @@ watch(
                             Clear all rows
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            v-if="!isNativeSnapshot"
                             class="text-error focus:text-error"
                             @click="handleDropTable(db, t.name)"
                           >
