@@ -3,7 +3,7 @@
 //! Binds an ephemeral `127.0.0.1` port, mounts the rmcp `StreamableHttpService`
 //! at `/mcp`, and wraps it in a bearer-token auth layer. rmcp's own config
 //! rejects non-loopback `Host` headers (DNS-rebinding protection); the auth
-//! layer additionally requires the per-launch token.
+//! layer additionally requires the configured persistent token.
 
 use std::sync::Arc;
 
@@ -28,6 +28,7 @@ pub struct RunningServer {
     pub token: String,
     cancel: CancellationToken,
     handle: JoinHandle<()>,
+    captures: Arc<super::capture::CaptureRegistry>,
 }
 
 impl RunningServer {
@@ -35,6 +36,7 @@ impl RunningServer {
     pub async fn shutdown(self) {
         self.cancel.cancel();
         let _ = self.handle.await;
+        self.captures.shutdown().await;
     }
 }
 
@@ -67,6 +69,7 @@ pub async fn start(
     token: String,
     sessions_dir: std::path::PathBuf,
     app: Option<tauri::AppHandle>,
+    allow_mutations: bool,
 ) -> Result<RunningServer, String> {
     // Default config already restricts Host to loopback; keep stateful mode for
     // client reconnection support.
@@ -88,6 +91,7 @@ pub async fn start(
                 factory_captures.clone(),
                 factory_sessions_dir.clone(),
                 factory_app.clone(),
+                allow_mutations,
             ))
         },
         Arc::new(LocalSessionManager::default()),
@@ -122,6 +126,7 @@ pub async fn start(
         token,
         cancel,
         handle,
+        captures,
     })
 }
 
@@ -138,6 +143,7 @@ mod tests {
             auth::generate_token(),
             std::env::temp_dir(),
             None,
+            false,
         )
             .await
             .expect("server should start");
@@ -201,6 +207,7 @@ mod tests {
             auth::generate_token(),
             std::env::temp_dir(),
             None,
+            false,
         )
             .await
             .expect("server should start");

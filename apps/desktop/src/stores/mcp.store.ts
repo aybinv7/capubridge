@@ -21,6 +21,7 @@ export const useMcpStore = defineStore("mcp", () => {
   const url = computed(() => status.value?.url ?? null);
   const token = computed(() => status.value?.token ?? "");
   const hasToken = computed(() => status.value?.hasToken ?? false);
+  const allowMutations = computed(() => status.value?.allowMutations ?? false);
 
   async function run(op: () => Promise<McpStatus>): Promise<void> {
     busy.value = true;
@@ -53,6 +54,10 @@ export const useMcpStore = defineStore("mcp", () => {
     await run(() => invokeCommand("mcp_regenerate_token"));
   }
 
+  async function setAllowMutations(value: boolean): Promise<void> {
+    await run(() => invokeCommand("mcp_set_allow_mutations", { allowMutations: value }));
+  }
+
   return {
     status,
     busy,
@@ -64,9 +69,11 @@ export const useMcpStore = defineStore("mcp", () => {
     url,
     token,
     hasToken,
+    allowMutations,
     refresh,
     setEnabled,
     setPort,
     regenerateToken,
+    setAllowMutations,
   };
 });

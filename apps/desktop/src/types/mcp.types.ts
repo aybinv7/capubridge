@@ -184,4 +184,5 @@ export interface McpStatus {
   token: string;
   /** Whether a token has been generated. */
   hasToken: boolean;
+  allowMutations: boolean;
 }

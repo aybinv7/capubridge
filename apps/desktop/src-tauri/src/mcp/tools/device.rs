@@ -51,7 +51,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<LaunchAppParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "launch_app")?;
+        self.require_mutation(confirm, "launch_app")?;
         let session = require_online_session(&self.registry, &serial)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         let activity = session
@@ -105,7 +105,7 @@ impl CapuBridgeTools {
         &self,
         Parameters(TapParams { serial, x, y, confirm }): Parameters<TapParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "tap")?;
+        self.require_mutation(confirm, "tap")?;
         let size = adb_mirror_get_screen_size(serial.clone())
             .map_err(|error| ErrorData::internal_error(error, None))?;
         device_control::validate_point(x, y, size.width, size.height)
@@ -135,7 +135,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<SwipeParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "swipe")?;
+        self.require_mutation(confirm, "swipe")?;
         let size = adb_mirror_get_screen_size(serial.clone())
             .map_err(|error| ErrorData::internal_error(error, None))?;
         device_control::validate_point(x1, y1, size.width, size.height)
@@ -165,7 +165,7 @@ impl CapuBridgeTools {
         &self,
         Parameters(InputTextParams { serial, text, confirm }): Parameters<InputTextParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "input_text")?;
+        self.require_mutation(confirm, "input_text")?;
         let session = require_online_session(&self.registry, &serial)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         session
@@ -187,7 +187,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<PressKeyParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "press_key")?;
+        self.require_mutation(confirm, "press_key")?;
         let session = require_online_session(&self.registry, &serial)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         session
@@ -209,7 +209,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<ShellCommandParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "shell_command")?;
+        self.require_mutation(confirm, "shell_command")?;
         let session = require_online_session(&self.registry, &serial)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         let output = session

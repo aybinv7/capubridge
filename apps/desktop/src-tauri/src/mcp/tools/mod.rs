@@ -93,6 +93,7 @@ pub struct CapuBridgeTools {
     /// `select_target`) to emit bridge requests. `None` in unit tests, where no
     /// real `AppHandle` exists; those tools then return a clear error.
     app: Option<tauri::AppHandle>,
+    allow_mutations: bool,
     tool_router: rmcp::handler::server::tool::ToolRouter<Self>,
 }
 
@@ -102,12 +103,14 @@ impl CapuBridgeTools {
         captures: Arc<CaptureRegistry>,
         sessions_dir: PathBuf,
         app: Option<tauri::AppHandle>,
+        allow_mutations: bool,
     ) -> Self {
         Self {
             registry,
             captures,
             sessions_dir,
             app,
+            allow_mutations,
             tool_router: Self::session_tool_router()
                 + Self::web_tool_router()
                 + Self::device_tool_router()
@@ -142,9 +145,18 @@ impl CapuBridgeTools {
             })
     }
 
-    /// Gate a mutating/physical-effect tool behind an explicit `confirm: true`.
-    fn require_confirm(confirm: bool, action: &str) -> Result<(), ErrorData> {
+    /// Gate device changes behind server scope and explicit caller intent.
+    fn require_mutation(&self, confirm: bool, action: &str) -> Result<(), ErrorData> {
+        if !self.allow_mutations {
+            log::warn!("[mcp-audit] denied mutation tool={action} scope=read-only");
+            return Err(ErrorData::invalid_request(
+                "Mutating MCP tools are disabled. Enable mutation access in CapuBridge Settings."
+                    .to_string(),
+                None,
+            ));
+        }
         if confirm {
+            log::info!("[mcp-audit] allowed mutation tool={action} scope=mutating");
             return Ok(());
         }
         Err(ErrorData::invalid_params(
@@ -176,6 +188,9 @@ impl ServerHandler for CapuBridgeTools {
                  opens one when explicitly confirmed, then list_devices shows it when ADB is ready. \
                  Read-only tools (read_storage, read_console, read_network, \
                  list_packages, take_screenshot, get_screen_size) are safe to call freely; \
+                 mutation tools are unavailable unless the user enables mutation access in \
+                 CapuBridge Settings. confirm: true records caller intent and is not proof of \
+                 human approval. \
                  read_console/read_network start capturing on first call for a target, so call \
                  again after a moment to see accumulated data. evaluate_js, click_element, \
                  launch_app, tap, swipe, input_text, press_key, and shell_command all act on a \
@@ -242,6 +257,7 @@ mod fixture {
             CaptureRegistry::new(),
             std::env::temp_dir(),
             None,
+            true,
         )
     }
 }

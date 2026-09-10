@@ -27,7 +27,7 @@ impl CapuBridgeTools {
         &self,
         Parameters(LaunchEmulatorParams { avd_name, confirm }): Parameters<LaunchEmulatorParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "launch_emulator")?;
+        self.require_mutation(confirm, "launch_emulator")?;
         let result = emulator_launch_avd(avd_name)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         ok_json(&result)

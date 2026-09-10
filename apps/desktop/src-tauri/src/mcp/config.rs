@@ -5,7 +5,8 @@
 //! when it was left enabled. The token is only generated once the user first
 //! enables access, so nothing is written before opt-in.
 
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -28,6 +29,8 @@ pub struct McpConfig {
     pub port: u16,
     /// Bearer token. Empty until the user first enables access.
     pub token: String,
+    #[serde(default)]
+    pub allow_mutations: bool,
 }
 
 impl Default for McpConfig {
@@ -36,6 +39,7 @@ impl Default for McpConfig {
             enabled: false,
             port: DEFAULT_PORT,
             token: String::new(),
+            allow_mutations: false,
         }
     }
 }
@@ -66,8 +70,30 @@ pub fn save_at(dir: &Path, config: &McpConfig) -> Result<(), String> {
     fs::create_dir_all(dir).map_err(|error| format!("Failed to create config dir: {error}"))?;
     let json = serde_json::to_string_pretty(config)
         .map_err(|error| format!("Failed to encode MCP config: {error}"))?;
-    fs::write(dir.join(CONFIG_FILE), json)
-        .map_err(|error| format!("Failed to write MCP config: {error}"))?;
+    secure_write(&dir.join(CONFIG_FILE), json.as_bytes())?;
+    Ok(())
+}
+
+pub(crate) fn secure_write(path: &Path, contents: &[u8]) -> Result<(), String> {
+    let mut options = OpenOptions::new();
+    options.create(true).truncate(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options
+        .open(path)
+        .map_err(|error| format!("Failed to open protected MCP file: {error}"))?;
+    file.write_all(contents)
+        .and_then(|()| file.sync_all())
+        .map_err(|error| format!("Failed to write protected MCP file: {error}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+            .map_err(|error| format!("Failed to protect MCP file: {error}"))?;
+    }
     Ok(())
 }
 
@@ -96,6 +122,7 @@ mod tests {
         assert!(!config.enabled);
         assert_eq!(config.port, DEFAULT_PORT);
         assert!(!config.has_token());
+        assert!(!config.allow_mutations);
     }
 
     #[test]
@@ -104,6 +131,7 @@ mod tests {
         let mut config = McpConfig::default();
         config.enabled = true;
         config.port = 9000;
+        config.allow_mutations = true;
         config.ensure_token();
         let token = config.token.clone();
         save_at(dir.path(), &config).expect("save");
@@ -112,6 +140,7 @@ mod tests {
         assert!(loaded.enabled);
         assert_eq!(loaded.port, 9000);
         assert_eq!(loaded.token, token);
+        assert!(loaded.allow_mutations);
     }
 
     #[test]

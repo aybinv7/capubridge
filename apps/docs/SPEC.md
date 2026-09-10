@@ -86,8 +86,8 @@ Primary users build or debug Android applications that embed a WebView, includin
 ### AI access (MCP)
 
 - Expose an embedded Model Context Protocol server so an AI assistant can drive the active device/session directly, off by default.
-- Bind localhost only; require a per-launch bearer token on every request; reject non-loopback hosts.
-- Every mutating or physical-effect tool requires an explicit `confirm: true` argument; without it the call fails with an explanation instead of acting.
+- Bind localhost only; require a persistent bearer token on every request; reject non-loopback hosts. The token remains valid until regenerated, when existing MCP sessions are disconnected.
+- Default to read-only access. Mutating tools require the user to enable mutation access in Settings and the caller to pass `confirm: true`; this field records caller intent and is not proof of human approval.
 - Surface enable/disable, connection status, and the endpoint URL/token in Settings.
 
 ## Hidden capabilities

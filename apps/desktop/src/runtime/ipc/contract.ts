@@ -170,6 +170,7 @@ export const IPC_COMMAND_NAMES = [
   "mcp_get_status",
   "mcp_set_enabled",
   "mcp_set_port",
+  "mcp_set_allow_mutations",
   "mcp_regenerate_token",
   "mcp_bridge_respond",
 ] as const satisfies readonly IpcCommandName[];

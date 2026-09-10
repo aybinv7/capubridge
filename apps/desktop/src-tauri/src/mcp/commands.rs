@@ -25,6 +25,7 @@ pub struct McpStatus {
     pub token: String,
     /// Whether a token has been generated.
     pub has_token: bool,
+    pub allow_mutations: bool,
 }
 
 fn build_status(cfg: &config::McpConfig, state: &McpServerState) -> McpStatus {
@@ -37,6 +38,7 @@ fn build_status(cfg: &config::McpConfig, state: &McpServerState) -> McpStatus {
         url: running.then(|| format!("http://127.0.0.1:{bound_port}/mcp")),
         token: cfg.token.clone(),
         has_token: cfg.has_token(),
+        allow_mutations: cfg.allow_mutations,
     }
 }
 
@@ -53,6 +55,7 @@ async fn start_from_config(
         cfg.token.clone(),
         sessions_dir,
         Some(app.clone()),
+        cfg.allow_mutations,
     )
     .await?;
     let port = running.port;
@@ -115,6 +118,23 @@ pub async fn mcp_set_port(
     cfg.port = port;
     config::save(&app, &cfg)?;
     // Rebind on the new port if currently running.
+    if state.is_running() {
+        stop_server(&app, &state).await?;
+        start_from_config(&app, &state, &registry, &cfg).await?;
+    }
+    Ok(build_status(&cfg, &state))
+}
+
+#[tauri::command]
+pub async fn mcp_set_allow_mutations(
+    app: AppHandle,
+    state: State<'_, McpServerState>,
+    registry: State<'_, SessionRegistryState>,
+    allow_mutations: bool,
+) -> Result<McpStatus, String> {
+    let mut cfg = config::load(&app)?;
+    cfg.allow_mutations = allow_mutations;
+    config::save(&app, &cfg)?;
     if state.is_running() {
         stop_server(&app, &state).await?;
         start_from_config(&app, &state, &registry, &cfg).await?;

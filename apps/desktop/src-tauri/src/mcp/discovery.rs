@@ -44,7 +44,7 @@ pub fn write_manifest_at(dir: &Path, port: u16, token: &str) -> Result<PathBuf, 
     let json = serde_json::to_string_pretty(&manifest)
         .map_err(|error| format!("Failed to encode manifest: {error}"))?;
     let path = dir.join(MANIFEST_FILE);
-    fs::write(&path, json).map_err(|error| format!("Failed to write manifest: {error}"))?;
+    super::config::secure_write(&path, json.as_bytes())?;
     Ok(path)
 }
 

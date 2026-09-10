@@ -27,14 +27,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<EvaluateJsParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        if !confirm {
-            return Err(ErrorData::invalid_params(
-                "evaluate_js runs JavaScript in a live page and requires confirm: true. \
-                 Re-call with confirm: true once you intend to run this expression."
-                    .to_string(),
-                None,
-            ));
-        }
+        self.require_mutation(confirm, "evaluate_js")?;
 
         let target = self.find_target(&serial, &target_id)?;
 
@@ -62,7 +55,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<ClickElementParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "click_element")?;
+        self.require_mutation(confirm, "click_element")?;
         if selector.is_none() && text.is_none() {
             return Err(ErrorData::invalid_params(
                 "click_element requires at least one of selector or text".to_string(),
@@ -97,7 +90,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<LongPressParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(confirm, "long_press")?;
+        self.require_mutation(confirm, "long_press")?;
         if selector.is_none() && text.is_none() {
             return Err(ErrorData::invalid_params(
                 "long_press requires at least one of selector or text".to_string(),
@@ -179,9 +172,10 @@ impl CapuBridgeTools {
         let target = self.find_target(&serial, &target_id)?;
         let (session, is_new) = self
             .captures
-            .ensure(&target_id, &target.web_socket_debugger_url);
+            .ensure(&serial, &target_id, &target.web_socket_debugger_url)
+            .await;
         warm_up_new_capture_session(is_new, || !session.console_snapshot().is_empty()).await;
-        ok_json(&session.console_snapshot())
+        ok_json(&session.console_capture())
     }
 
     #[tool(
@@ -196,9 +190,10 @@ impl CapuBridgeTools {
         let target = self.find_target(&serial, &target_id)?;
         let (session, is_new) = self
             .captures
-            .ensure(&target_id, &target.web_socket_debugger_url);
+            .ensure(&serial, &target_id, &target.web_socket_debugger_url)
+            .await;
         warm_up_new_capture_session(is_new, || !session.network_snapshot().is_empty()).await;
-        ok_json(&session.network_snapshot())
+        ok_json(&session.network_capture())
     }
 }
 

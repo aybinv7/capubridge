@@ -91,7 +91,6 @@ export const useConnectionStore = defineStore("connection", () => {
           wsUrl = proxy.wsUrl;
           logConnection("connect:proxy-started", {
             targetId: target.id,
-            proxyWsUrl: proxy.wsUrl,
             proxyPort: proxy.localPort,
           });
         }

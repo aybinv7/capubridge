@@ -39,7 +39,7 @@ impl CapuBridgeTools {
         &self,
         Parameters(params): Parameters<StartRecordingParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        Self::require_confirm(params.confirm, "start_recording")?;
+        self.require_mutation(params.confirm, "start_recording")?;
 
         // Assemble the RecordingConfig the frontend expects, applying defaults:
         // a lightweight DOM+network+console capture unless told otherwise.

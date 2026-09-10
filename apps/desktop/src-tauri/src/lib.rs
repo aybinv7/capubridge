@@ -60,7 +60,9 @@ use commands::sqlite::{
     sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
 };
 use commands::updater::{updater_check, updater_install, PendingUpdate};
-use mcp::commands::{mcp_get_status, mcp_regenerate_token, mcp_set_enabled, mcp_set_port};
+use mcp::commands::{
+    mcp_get_status, mcp_regenerate_token, mcp_set_allow_mutations, mcp_set_enabled, mcp_set_port,
+};
 use mcp::McpServerState;
 use tauri::Manager;
 use session::{
@@ -165,6 +167,7 @@ pub fn run() {
                             cfg.token.clone(),
                             sessions_dir,
                             Some(app_handle.clone()),
+                            cfg.allow_mutations,
                         )
                         .await
                         {
@@ -326,6 +329,7 @@ pub fn run() {
             mcp_get_status,
             mcp_set_enabled,
             mcp_set_port,
+            mcp_set_allow_mutations,
             mcp_regenerate_token,
             mcp::bridge::mcp_bridge_respond,
         ])

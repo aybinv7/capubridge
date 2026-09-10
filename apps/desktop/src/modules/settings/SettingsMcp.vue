@@ -116,6 +116,15 @@ async function regenerate() {
     toast.error("Failed to regenerate token", { description: mcp.error ?? undefined });
   }
 }
+
+async function onMutationToggle(value: boolean) {
+  try {
+    await mcp.setAllowMutations(value);
+    toast.success(value ? "Mutation access enabled" : "Mutation access disabled");
+  } catch {
+    toast.error("Failed to update mutation access", { description: mcp.error ?? undefined });
+  }
+}
 </script>
 
 <template>
@@ -212,6 +221,16 @@ async function regenerate() {
           </Button>
         </div>
       </SettingsRow>
+      <SettingsRow
+        label="Allow mutations"
+        description="Permit tools that change live pages, devices, emulators, or recordings"
+      >
+        <Switch
+          :model-value="mcp.allowMutations"
+          :disabled="mcp.busy"
+          @update:model-value="onMutationToggle"
+        />
+      </SettingsRow>
     </SettingsSection>
 
     <!-- Client config snippet -->
@@ -258,8 +277,9 @@ async function regenerate() {
         <div class="font-medium text-[var(--fg-default)]">Security</div>
         <p class="text-xs">
           The server binds to <code>127.0.0.1</code> only and rejects non-loopback hosts. Every
-          request must carry the bearer token. Anyone with the token and local access can drive your
-          connected device — keep it private and regenerate it if leaked.
+          request must carry the bearer token. Access is read-only unless Allow mutations is
+          enabled. The token persists until regenerated; regeneration disconnects existing clients.
+          Keep it private.
         </p>
       </div>
     </div>
