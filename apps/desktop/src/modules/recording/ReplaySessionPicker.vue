@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { save } from "@tauri-apps/plugin-dialog";
 import { invokeCommand } from "@/runtime/ipc/client";
 import {
   FolderOpen,
@@ -14,6 +15,9 @@ import {
   Smartphone,
   Globe,
   AlertCircle,
+  Share2,
+  ShieldCheck,
+  FileWarning,
 } from "lucide-vue-next";
 import {
   Dialog,
@@ -24,7 +28,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "vue-sonner";
+import type {
+  RecordingExportReport,
+  RecordingSanitizeOptions,
+} from "@/runtime/ipc/contracts/recording";
 
 interface SessionListItem {
   sessionId: string;
@@ -35,6 +45,8 @@ interface SessionListItem {
   targetUrl: string | null;
   filePath: string;
   fileSizeBytes: number;
+  incomplete: boolean;
+  missingTracks: string[];
 }
 
 interface RawSessionListItem {
@@ -52,6 +64,9 @@ interface RawSessionListItem {
   file_path?: string;
   fileSizeBytes?: number;
   file_size_bytes?: number;
+  incomplete?: boolean;
+  missingTracks?: string[];
+  missing_tracks?: string[];
 }
 
 const props = defineProps<{ open: boolean }>();
@@ -71,6 +86,16 @@ const search = ref("");
 const sortKey = ref<SortKey>("startedAt");
 const sortDir = ref<SortDir>("desc");
 const deletingId = ref<string | null>(null);
+const exporting = ref(false);
+const exportItem = ref<SessionListItem | null>(null);
+const exportPreview = ref<RecordingExportReport | null>(null);
+const exportDialogOpen = ref(false);
+let previewRequest = 0;
+const exportOptions = ref<RecordingSanitizeOptions>({
+  redactUrls: true,
+  redactBodies: true,
+  redactDom: true,
+});
 
 async function refresh() {
   isLoading.value = true;
@@ -100,6 +125,8 @@ function normalizeSession(item: RawSessionListItem): SessionListItem | null {
     targetUrl: item.targetUrl ?? item.target_url ?? null,
     filePath,
     fileSizeBytes: item.fileSizeBytes ?? item.file_size_bytes ?? 0,
+    incomplete: item.incomplete ?? false,
+    missingTracks: item.missingTracks ?? item.missing_tracks ?? [],
   };
 }
 
@@ -158,6 +185,73 @@ async function deleteSession(item: SessionListItem, e: Event) {
     toast.error("Delete failed", { description: String(err) });
   } finally {
     deletingId.value = null;
+  }
+}
+
+async function prepareExport(item: SessionListItem, e: Event) {
+  e.stopPropagation();
+  const request = ++previewRequest;
+  exportItem.value = item;
+  exporting.value = true;
+  try {
+    const preview = await invokeCommand("recording_export_preview", {
+      sourcePath: item.filePath,
+      options: exportOptions.value,
+    });
+    if (request !== previewRequest) return;
+    exportPreview.value = preview;
+    exportDialogOpen.value = true;
+  } catch (err) {
+    toast.error("Export preview failed", { description: String(err) });
+  } finally {
+    if (request === previewRequest) exporting.value = false;
+  }
+}
+
+async function refreshExportPreview() {
+  if (!exportItem.value) return;
+  const request = ++previewRequest;
+  exporting.value = true;
+  try {
+    const preview = await invokeCommand("recording_export_preview", {
+      sourcePath: exportItem.value.filePath,
+      options: exportOptions.value,
+    });
+    if (request === previewRequest) exportPreview.value = preview;
+  } catch (err) {
+    toast.error("Export preview failed", { description: String(err) });
+  } finally {
+    if (request === previewRequest) exporting.value = false;
+  }
+}
+
+async function exportSession(raw: boolean) {
+  const item = exportItem.value;
+  if (!item) return;
+  const suffix = raw ? "raw" : "shareable";
+  const destination = await save({
+    defaultPath: `${item.label || item.sessionId}-${suffix}.capu`,
+    filters: [{ name: "Capubridge recording", extensions: ["capu"] }],
+  });
+  if (!destination) return;
+  exporting.value = true;
+  try {
+    const report = await invokeCommand("recording_export_session", {
+      sourcePath: item.filePath,
+      destinationPath: destination,
+      raw,
+      options: exportOptions.value,
+    });
+    exportDialogOpen.value = false;
+    toast.success(raw ? "Raw recording exported" : "Shareable recording exported", {
+      description: raw
+        ? "Raw export may contain credentials and personal data."
+        : `${report.redactedHeaders + report.redactedBodies + report.redactedUrls} values redacted.`,
+    });
+  } catch (err) {
+    toast.error("Export failed", { description: String(err) });
+  } finally {
+    exporting.value = false;
   }
 }
 
@@ -349,7 +443,7 @@ function shortPath(p: string | null | undefined): string {
                     />
                   </span>
                 </th>
-                <th class="px-2 py-2 w-8" />
+                <th class="px-2 py-2 w-16" />
               </tr>
             </thead>
             <tbody>
@@ -362,6 +456,13 @@ function shortPath(p: string | null | undefined): string {
                 <td class="px-4 py-2.5 align-top">
                   <div class="font-medium text-foreground truncate max-w-[260px]">
                     {{ item.label || item.sessionId }}
+                    <span
+                      v-if="item.incomplete"
+                      class="ml-1 rounded bg-warning/15 px-1 py-0.5 text-[9px] font-medium text-warning"
+                      :title="`Missing tracks: ${item.missingTracks.join(', ') || 'unknown'}`"
+                    >
+                      Incomplete
+                    </span>
                   </div>
                   <div
                     v-if="item.targetUrl"
@@ -389,15 +490,30 @@ function shortPath(p: string | null | undefined): string {
                   {{ formatSize(item.fileSizeBytes) }}
                 </td>
                 <td class="px-2 py-2.5 align-top text-right">
-                  <button
-                    class="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded text-muted-foreground/40 hover:text-error hover:bg-surface-3 transition-all"
-                    :disabled="deletingId === item.sessionId"
-                    title="Delete session"
-                    @click="deleteSession(item, $event)"
+                  <div
+                    class="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100"
                   >
-                    <RefreshCw v-if="deletingId === item.sessionId" class="w-3 h-3 animate-spin" />
-                    <Trash2 v-else class="w-3 h-3" />
-                  </button>
+                    <button
+                      class="p-1 rounded text-muted-foreground/40 hover:text-foreground hover:bg-surface-3 transition-colors"
+                      :disabled="exporting"
+                      title="Export session"
+                      @click="prepareExport(item, $event)"
+                    >
+                      <Share2 class="w-3 h-3" />
+                    </button>
+                    <button
+                      class="p-1 rounded text-muted-foreground/40 hover:text-error hover:bg-surface-3 transition-colors"
+                      :disabled="deletingId === item.sessionId"
+                      title="Delete session"
+                      @click="deleteSession(item, $event)"
+                    >
+                      <RefreshCw
+                        v-if="deletingId === item.sessionId"
+                        class="w-3 h-3 animate-spin"
+                      />
+                      <Trash2 v-else class="w-3 h-3" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -417,6 +533,95 @@ function shortPath(p: string | null | undefined): string {
           </template>
         </span>
         <span>Click a row to open · sort by clicking column headers</span>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <Dialog v-model:open="exportDialogOpen">
+    <DialogContent class="max-w-lg">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <ShieldCheck class="w-4 h-4 text-primary" />
+          Export recording
+        </DialogTitle>
+        <DialogDescription>
+          Shareable export removes common secret-bearing data. Review scope before saving. Automated
+          redaction does not guarantee anonymity.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div class="space-y-3 py-2">
+        <label class="flex items-start gap-2 rounded-md border border-border/30 p-3">
+          <Checkbox
+            :model-value="exportOptions.redactUrls"
+            @update:model-value="
+              exportOptions.redactUrls = $event === true;
+              refreshExportPreview();
+            "
+          />
+          <span
+            ><Label>Mask URLs</Label
+            ><span class="block text-[11px] text-muted-foreground"
+              >Removes paths and query values.</span
+            ></span
+          >
+        </label>
+        <label class="flex items-start gap-2 rounded-md border border-border/30 p-3">
+          <Checkbox
+            :model-value="exportOptions.redactBodies"
+            @update:model-value="
+              exportOptions.redactBodies = $event === true;
+              refreshExportPreview();
+            "
+          />
+          <span
+            ><Label>Mask request and response bodies</Label
+            ><span class="block text-[11px] text-muted-foreground"
+              >Removes captured payload contents.</span
+            ></span
+          >
+        </label>
+        <label class="flex items-start gap-2 rounded-md border border-border/30 p-3">
+          <Checkbox
+            :model-value="exportOptions.redactDom"
+            @update:model-value="
+              exportOptions.redactDom = $event === true;
+              refreshExportPreview();
+            "
+          />
+          <span
+            ><Label>Remove DOM replay</Label
+            ><span class="block text-[11px] text-muted-foreground"
+              >Prevents page text and form values from being shared.</span
+            ></span
+          >
+        </label>
+
+        <div v-if="exportPreview" class="rounded-md bg-surface-2 p-3 text-xs text-muted-foreground">
+          {{ exportPreview.redactedHeaders }} sensitive headers,
+          {{ exportPreview.redactedBodies }} bodies, and {{ exportPreview.redactedUrls }} URLs will
+          be redacted.
+          <span v-if="exportPreview.excludedTracks.length" class="block mt-1">
+            Excluded tracks: {{ exportPreview.excludedTracks.join(", ") }}.
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <Button
+          variant="ghost"
+          class="gap-2 text-warning"
+          :disabled="exporting"
+          @click="exportSession(true)"
+        >
+          <FileWarning class="w-4 h-4" />
+          Export raw data
+        </Button>
+        <Button class="gap-2" :disabled="exporting" @click="exportSession(false)">
+          <RefreshCw v-if="exporting" class="w-4 h-4 animate-spin" />
+          <ShieldCheck v-else class="w-4 h-4" />
+          Export shareable copy
+        </Button>
       </div>
     </DialogContent>
   </Dialog>

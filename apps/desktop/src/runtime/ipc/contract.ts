@@ -151,6 +151,8 @@ export const IPC_COMMAND_NAMES = [
   "recording_delete_session",
   "recording_read_session",
   "recording_cleanup_orphans",
+  "recording_export_preview",
+  "recording_export_session",
   "recording_database_snapshot_begin",
   "recording_database_snapshot_page",
   "recording_database_snapshot_finish",

@@ -10,5 +10,6 @@ pub mod perf;
 pub mod port_forward;
 pub mod sqlite;
 pub mod recording;
+pub mod recording_export;
 pub mod recording_db;
 pub mod updater;

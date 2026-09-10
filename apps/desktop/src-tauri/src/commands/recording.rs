@@ -79,7 +79,7 @@ fn validate_manifest_json(manifest_json: &str, session_id: &str) -> Result<(), S
     Ok(())
 }
 
-fn write_session_archive(
+pub(crate) fn write_session_archive(
     work_dir: &std::path::Path,
     output_path: &std::path::Path,
     manifest_json: &str,
@@ -219,13 +219,14 @@ pub async fn recording_session_stop(
             .map_err(|e| format!("Failed to remove stale partial archive: {e}"))?;
     }
 
+    fs::write(work_dir.join("manifest.json"), &manifest_json)
+        .map_err(|error| format!("Failed to preserve recovery manifest: {error}"))?;
+
     if let Err(error) = write_session_archive(&work_dir, &partial_path, &manifest_json) {
-        let _ = fs::remove_file(&partial_path);
         return Err(error);
     }
 
     if let Err(error) = fs::rename(&partial_path, &capu_path) {
-        let _ = fs::remove_file(&partial_path);
         return Err(format!("Failed to publish recording archive: {error}"));
     }
 
@@ -247,6 +248,8 @@ pub struct RustSessionListItem {
     pub target_url: Option<String>,
     pub file_path: String,
     pub file_size_bytes: u64,
+    pub incomplete: bool,
+    pub missing_tracks: Vec<String>,
 }
 
 /// Lists all .capu sessions from the app data directory.
@@ -273,7 +276,9 @@ pub(crate) fn list_sessions_in(
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("capu") {
+        let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let is_partial = file_name.ends_with(".capu.partial");
+        if !file_name.ends_with(".capu") && !is_partial {
             continue;
         }
 
@@ -295,6 +300,15 @@ pub(crate) fn list_sessions_in(
                         let duration = manifest["duration"].as_u64().unwrap_or(0);
                         let device_serial = manifest["deviceSerial"].as_str().map(String::from);
                         let target_url = manifest["targetUrl"].as_str().map(String::from);
+                        let missing_tracks = manifest["incomplete"]["missingTracks"]
+                            .as_array()
+                            .map(|tracks| {
+                                tracks
+                                    .iter()
+                                    .filter_map(|track| track.as_str().map(String::from))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
 
                         items.push(RustSessionListItem {
                             session_id,
@@ -305,6 +319,8 @@ pub(crate) fn list_sessions_in(
                             target_url,
                             file_path: path.to_string_lossy().into_owned(),
                             file_size_bytes,
+                            incomplete: is_partial || manifest.get("incomplete").is_some(),
+                            missing_tracks,
                         });
                     }
                 }
@@ -312,7 +328,51 @@ pub(crate) fn list_sessions_in(
         }
     }
 
-    // Sort by started_at descending (newest first)
+    let archived_ids = items
+        .iter()
+        .map(|item| item.session_id.clone())
+        .collect::<std::collections::HashSet<_>>();
+    for entry in fs::read_dir(sessions_dir)
+        .map_err(|error| format!("Failed to read recovery sessions: {error}"))?
+        .flatten()
+    {
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let Some(session_id) = file_name.strip_suffix("_work") else {
+            continue;
+        };
+        if !path.is_dir() || archived_ids.contains(session_id) {
+            continue;
+        }
+        let Ok(content) = fs::read_to_string(path.join("manifest.json")) else {
+            continue;
+        };
+        let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&content) else {
+            continue;
+        };
+        let missing_tracks = manifest["incomplete"]["missingTracks"]
+            .as_array()
+            .map(|tracks| {
+                tracks
+                    .iter()
+                    .filter_map(|track| track.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        items.push(RustSessionListItem {
+            session_id: session_id.to_string(),
+            label: manifest["label"].as_str().unwrap_or("").to_string(),
+            started_at: manifest["startedAt"].as_u64().unwrap_or(0),
+            duration: manifest["duration"].as_u64().unwrap_or(0),
+            device_serial: manifest["deviceSerial"].as_str().map(String::from),
+            target_url: manifest["targetUrl"].as_str().map(String::from),
+            file_path: path.to_string_lossy().into_owned(),
+            file_size_bytes: 0,
+            incomplete: true,
+            missing_tracks,
+        });
+    }
+
     items.sort_by(|a, b| b.started_at.cmp(&a.started_at));
     Ok(items)
 }
@@ -347,10 +407,7 @@ pub struct RustSessionContents {
     pub database_path: Option<String>,
 }
 
-/// Removes orphaned recording artifacts:
-/// - Any file with name starting with `.` (e.g. malformed `.capu` files from old bugs)
-/// - Any `*_work` directory whose corresponding `.capu` does not exist
-///
+/// Removes malformed hidden artifacts while retaining recoverable partial sessions.
 /// Returns the number of items cleaned up.
 #[tauri::command]
 pub async fn recording_cleanup_orphans(app: tauri::AppHandle) -> Result<u32, String> {
@@ -362,21 +419,6 @@ pub async fn recording_cleanup_orphans(app: tauri::AppHandle) -> Result<u32, Str
         Err(_) => return Ok(0),
     };
 
-    // First pass: collect all known capu session IDs
-    let mut known_capu_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for entry in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
-        let path = entry.path();
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default();
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        if ext == "capu" && !stem.is_empty() {
-            known_capu_ids.insert(stem.to_string());
-        }
-    }
-
-    // Second pass: clean up
     for entry in entries.flatten() {
         let path = entry.path();
         let file_name = path
@@ -385,7 +427,7 @@ pub async fn recording_cleanup_orphans(app: tauri::AppHandle) -> Result<u32, Str
             .unwrap_or("")
             .to_string();
 
-        if file_name.starts_with('.') || file_name.ends_with(".capu.partial") {
+        if file_name.starts_with('.') {
             let _ = if path.is_dir() {
                 fs::remove_dir_all(&path)
             } else {
@@ -395,15 +437,6 @@ pub async fn recording_cleanup_orphans(app: tauri::AppHandle) -> Result<u32, Str
             continue;
         }
 
-        // Remove orphaned _work directories
-        if path.is_dir() {
-            if let Some(stripped) = file_name.strip_suffix("_work") {
-                if stripped.is_empty() || !known_capu_ids.contains(stripped) {
-                    let _ = fs::remove_dir_all(&path);
-                    cleaned += 1;
-                }
-            }
-        }
     }
 
     Ok(cleaned)
@@ -428,6 +461,37 @@ pub(crate) fn read_session_from(
     file_path: &str,
     read_cache_dir: &std::path::Path,
 ) -> Result<RustSessionContents, String> {
+    let source_path = PathBuf::from(file_path);
+    if source_path.is_dir() {
+        let manifest_json = fs::read_to_string(source_path.join("manifest.json"))
+            .map_err(|error| format!("Cannot read recovery manifest: {error}"))?;
+        let manifest: serde_json::Value = serde_json::from_str(&manifest_json)
+            .map_err(|error| format!("Invalid recovery manifest: {error}"))?;
+        let manifest_id = manifest["sessionId"]
+            .as_str()
+            .ok_or_else(|| "Recovery manifest sessionId is missing".to_string())?;
+        validate_manifest_json(&manifest_json, manifest_id)?;
+        let mut tracks = HashMap::new();
+        for track in TRACK_NAMES {
+            let path = source_path.join("tracks").join(format!("{track}.ndjson"));
+            if path.exists() {
+                tracks.insert(
+                    track.to_string(),
+                    fs::read_to_string(path)
+                        .map_err(|error| format!("Cannot read recovered {track} track: {error}"))?,
+                );
+            }
+        }
+        let database_path = source_path
+            .join("databases.sqlite")
+            .is_file()
+            .then(|| source_path.join("databases.sqlite").to_string_lossy().into_owned());
+        return Ok(RustSessionContents {
+            manifest_json,
+            tracks,
+            database_path,
+        });
+    }
     let file =
         std::fs::File::open(file_path).map_err(|e| format!("Cannot open session file: {}", e))?;
 
@@ -572,6 +636,31 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].session_id, "session_one");
         assert_eq!(items[0].label, "Test");
+        assert!(!items[0].incomplete);
+    }
+
+    #[test]
+    fn list_sessions_in_keeps_recoverable_partial_archives() {
+        let temp = tempdir().expect("temp directory");
+        let work_dir = temp.path().join("work");
+        fs::create_dir_all(work_dir.join("tracks")).expect("tracks directory");
+        let mut value: serde_json::Value =
+            serde_json::from_str(&manifest("partial_session")).expect("manifest");
+        value["incomplete"] = serde_json::json!({
+            "errors": ["network: disconnected"],
+            "missingTracks": ["network"]
+        });
+        write_session_archive(
+            &work_dir,
+            &temp.path().join("partial_session.capu.partial"),
+            &value.to_string(),
+        )
+        .expect("partial archive");
+
+        let items = list_sessions_in(temp.path()).expect("list");
+        assert_eq!(items.len(), 1);
+        assert!(items[0].incomplete);
+        assert_eq!(items[0].missing_tracks, vec!["network"]);
     }
 
     #[test]
@@ -595,5 +684,18 @@ mod tests {
         );
         // No database artifact was written, so there's no extracted DB path.
         assert!(contents.database_path.is_none());
+    }
+
+    #[test]
+    fn read_session_from_recovers_work_directory() {
+        let temp = tempdir().expect("temp directory");
+        let work = temp.path().join("recovered_work");
+        fs::create_dir_all(work.join("tracks")).expect("tracks directory");
+        fs::write(work.join("manifest.json"), manifest("recovered")).expect("manifest write");
+        fs::write(work.join("tracks/network.ndjson"), "{\"t\":1}\n").expect("track write");
+
+        let contents = read_session_from(&work.to_string_lossy(), temp.path()).expect("recovery read");
+        assert!(contents.manifest_json.contains("recovered"));
+        assert_eq!(contents.tracks.get("network").map(String::as_str), Some("{\"t\":1}\n"));
     }
 }

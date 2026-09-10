@@ -2,6 +2,7 @@ import { buildInjectionScript } from "@/lib/replay/rrweb-inject-script";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { useSessionWriter } from "./useSessionWriter";
 import { toast } from "vue-sonner";
+import { recordingDeadline } from "./recordingDeadline";
 
 type Writer = ReturnType<typeof useSessionWriter>;
 
@@ -12,8 +13,14 @@ export function useRrwebRecorder(client: CDPClient, writer: Writer) {
   let cleanupHandler: (() => void) | null = null;
   let bindingCount = 0;
   let eventCount = 0;
+  let started = false;
+  let bindingAdded = false;
+  let warningTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function start(opts: { reloadTarget: boolean }) {
+    if (started) return;
+    bindingCount = 0;
+    eventCount = 0;
     console.log("[rrweb] start: enabling Page+Runtime domains");
     try {
       await client.send("Page.enable", {});
@@ -35,6 +42,7 @@ export function useRrwebRecorder(client: CDPClient, writer: Writer) {
     console.log("[rrweb] adding binding", BINDING_NAME);
     try {
       await client.send("Runtime.addBinding", { name: BINDING_NAME });
+      bindingAdded = true;
     } catch (e) {
       const msg = `Runtime.addBinding failed: ${String(e)}`;
       console.error("[rrweb]", msg);
@@ -64,12 +72,24 @@ export function useRrwebRecorder(client: CDPClient, writer: Writer) {
       bindingCount++;
       try {
         const events = JSON.parse(p.payload) as Array<{
-          timestamp: number;
+          timestamp?: number;
+          __capuTruncated?: boolean;
+          droppedEvents?: number;
+          __capuError?: string;
           [k: string]: unknown;
         }>;
-        eventCount += events.length;
-        for (const event of events) {
-          writer.pushAt("rrweb", event, event.timestamp);
+        const recordedEvents = events.filter(
+          (event) => !event.__capuTruncated && !event.__capuError,
+        );
+        const recorderError = events.find((event) => event.__capuError)?.__capuError;
+        if (recorderError) toast.error(`rrweb capture failed: ${recorderError}`);
+        const droppedEvents = events.find((event) => event.__capuTruncated)?.droppedEvents ?? 0;
+        if (droppedEvents > 0) {
+          toast.warning(`rrweb dropped ${droppedEvents} buffered events before binding recovered`);
+        }
+        eventCount += recordedEvents.length;
+        for (const event of recordedEvents) {
+          writer.pushAt("rrweb", event, event.timestamp ?? Date.now());
         }
         if (bindingCount === 1) {
           console.log(`[rrweb] first batch received (${events.length} events)`);
@@ -113,7 +133,8 @@ export function useRrwebRecorder(client: CDPClient, writer: Writer) {
       }
     }
 
-    setTimeout(() => {
+    started = true;
+    warningTimer = setTimeout(() => {
       if (eventCount === 0) {
         const msg = `rrweb: no events after 3s. Binding called ${bindingCount}x. Try reload toggle.`;
         console.warn("[rrweb]", msg);
@@ -123,27 +144,67 @@ export function useRrwebRecorder(client: CDPClient, writer: Writer) {
   }
 
   async function stop() {
+    if (!started && !bindingAdded && !scriptIdentifier && !cleanupHandler) return;
+    started = false;
     console.log(`[rrweb] stop — captured ${eventCount} events in ${bindingCount} batches`);
 
-    if (scriptIdentifier) {
-      try {
-        await client.send("Page.removeScriptToEvaluateOnNewDocument", {
-          identifier: scriptIdentifier,
-        });
-      } catch {
-        void 0;
-      }
-      scriptIdentifier = null;
+    if (warningTimer) {
+      clearTimeout(warningTimer);
+      warningTimer = null;
     }
 
+    let targetStopError: unknown = null;
     try {
-      await client.send("Runtime.removeBinding", { name: BINDING_NAME });
-    } catch {
-      void 0;
+      const targetStop = await recordingDeadline(
+        client.send<{
+          exceptionDetails?: { text: string };
+          result?: { value?: { truncated?: boolean } };
+        }>("Runtime.evaluate", {
+          expression:
+            "typeof window.__capuStopRrweb === 'function' ? window.__capuStopRrweb() : ({ stopped: false, missing: true })",
+          awaitPromise: true,
+          returnByValue: true,
+        }),
+        "Target recorder shutdown",
+        4000,
+      );
+      if (targetStop.exceptionDetails) {
+        targetStopError = new Error(
+          `Target recorder shutdown failed: ${targetStop.exceptionDetails.text}`,
+        );
+      }
+      if (targetStop.result?.value?.truncated) {
+        toast.warning("rrweb recording ended with truncated buffered events");
+      }
+    } catch (error) {
+      targetStopError = error;
     }
 
     cleanupHandler?.();
     cleanupHandler = null;
+    const identifier = scriptIdentifier;
+    scriptIdentifier = null;
+    const removeBinding = bindingAdded;
+    bindingAdded = false;
+    const cleanupResults = await Promise.allSettled([
+      identifier
+        ? recordingDeadline(
+            client.send("Page.removeScriptToEvaluateOnNewDocument", { identifier }),
+            "Recorder script removal",
+            4000,
+          )
+        : Promise.resolve(),
+      removeBinding
+        ? recordingDeadline(
+            client.send("Runtime.removeBinding", { name: BINDING_NAME }),
+            "Recorder binding removal",
+            4000,
+          )
+        : Promise.resolve(),
+    ]);
+    const cleanupError = cleanupResults.find((result) => result.status === "rejected");
+    if (targetStopError) throw targetStopError;
+    if (cleanupError?.status === "rejected") throw cleanupError.reason;
   }
 
   return { start, stop };

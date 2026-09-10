@@ -15,6 +15,19 @@ export interface RecordingSessionContents {
   database_path?: string | null;
 }
 
+export interface RecordingSanitizeOptions {
+  redactUrls: boolean;
+  redactBodies: boolean;
+  redactDom: boolean;
+}
+
+export interface RecordingExportReport {
+  redactedUrls: number;
+  redactedBodies: number;
+  redactedHeaders: number;
+  excludedTracks: string[];
+}
+
 export interface RecordingDatabaseSourceInput {
   id: string;
   kind: string;
@@ -48,6 +61,19 @@ export interface RecordingCommandMap {
   recording_delete_session: IpcCommand<{ sessionId: string }, void>;
   recording_read_session: IpcCommand<{ filePath: string }, RecordingSessionContents>;
   recording_cleanup_orphans: IpcCommand<undefined, number>;
+  recording_export_preview: IpcCommand<
+    { sourcePath: string; options: RecordingSanitizeOptions },
+    RecordingExportReport
+  >;
+  recording_export_session: IpcCommand<
+    {
+      sourcePath: string;
+      destinationPath: string;
+      raw: boolean;
+      options: RecordingSanitizeOptions;
+    },
+    RecordingExportReport
+  >;
   recording_database_snapshot_begin: IpcCommand<
     {
       sessionId: string;

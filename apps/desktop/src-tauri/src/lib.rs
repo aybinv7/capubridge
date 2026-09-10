@@ -63,6 +63,7 @@ use commands::updater::{updater_check, updater_install, PendingUpdate};
 use mcp::commands::{
     mcp_get_status, mcp_regenerate_token, mcp_set_allow_mutations, mcp_set_enabled, mcp_set_port,
 };
+use commands::recording_export::{recording_export_preview, recording_export_session};
 use mcp::McpServerState;
 use tauri::Manager;
 use session::{
@@ -310,6 +311,8 @@ pub fn run() {
             recording_delete_session,
             recording_read_session,
             recording_cleanup_orphans,
+            recording_export_preview,
+            recording_export_session,
             recording_database_snapshot_begin,
             recording_database_snapshot_page,
             recording_database_snapshot_finish,

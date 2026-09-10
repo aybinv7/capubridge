@@ -29,6 +29,10 @@ export interface SessionManifest {
   appPackage: string | null;
   tracks: TrackConfig;
   databaseTracks?: DatabaseTrackConfig;
+  incomplete?: {
+    errors: string[];
+    missingTracks: string[];
+  };
 }
 
 /** Minimal metadata for the session library (read from manifest without loading tracks) */
@@ -41,6 +45,8 @@ export interface SessionListItem {
   targetUrl: string | null;
   filePath: string; // absolute path to .capu file on disk
   fileSizeBytes: number;
+  incomplete: boolean;
+  missingTracks: string[];
 }
 
 /** Every event written to any NDJSON track file has this shape */
@@ -213,6 +219,8 @@ export interface RustSessionListItem {
   target_url: string | null;
   file_path: string;
   file_size_bytes: number;
+  incomplete: boolean;
+  missing_tracks: string[];
 }
 
 /** Element data extracted from the rrweb iframe on inspect-click */

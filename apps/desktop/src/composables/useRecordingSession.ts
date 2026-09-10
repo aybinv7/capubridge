@@ -16,6 +16,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { toast } from "vue-sonner";
 import type { CDPClient } from "@capubridge/cdp-protocol";
+import { recordingDeadline } from "./recordingDeadline";
 
 let writer: ReturnType<typeof useSessionWriter> | null = null;
 let rrwebRecorder: ReturnType<typeof useRrwebRecorder> | null = null;
@@ -29,6 +30,7 @@ let connectionUnwatch: (() => void) | null = null;
 let consoleLeasedByRecorder = false;
 let startedAt = 0;
 let activeSessionId = "";
+let captureErrors: string[] = [];
 
 const recordingScope = effectScope(true);
 
@@ -81,6 +83,7 @@ export function useRecordingSession() {
     const sessionId = generateSessionId();
     startedAt = Date.now();
     activeSessionId = sessionId;
+    captureErrors = [];
 
     recordingStore.setConfig(config);
 
@@ -128,6 +131,7 @@ export function useRecordingSession() {
             (status === "disconnected" || status === "error") &&
             recordingStore.isRecording
           ) {
+            captureErrors.push("connection: target disconnected");
             toast.warning("Recording stopped because the target disconnected");
             void stop();
           }
@@ -137,6 +141,7 @@ export function useRecordingSession() {
 
     if (config.tracks.network) {
       if (!cdpClient) {
+        captureErrors.push("network: no CDP target connected");
         toast.warning("Network track skipped: no CDP target connected");
       } else {
         networkRecorder = useNetworkRecorder(cdpClient, writer);
@@ -147,6 +152,7 @@ export function useRecordingSession() {
           const msg = `Network recorder failed: ${String(err)}`;
           console.error("[recording]", msg);
           toast.error(msg);
+          captureErrors.push(`network: ${String(err)}`);
           networkRecorder = null;
         }
       }
@@ -193,6 +199,7 @@ export function useRecordingSession() {
     if (config.tracks.perf) {
       const serial = devicesStore.selectedDevice?.serial;
       if (!serial) {
+        captureErrors.push("performance: no device selected");
         toast.warning("Performance track skipped: no device selected");
       } else {
         perfRecorder = usePerfRecorder(serial, cdpClient ?? activeClient.value, writer, startedAt);
@@ -203,6 +210,7 @@ export function useRecordingSession() {
           const msg = `Perf recorder failed: ${String(err)}`;
           console.error("[recording]", msg);
           toast.error(msg);
+          captureErrors.push(`performance: ${String(err)}`);
           perfRecorder = null;
         }
       }
@@ -210,6 +218,7 @@ export function useRecordingSession() {
 
     if (config.tracks.databases && config.databaseTracks?.localStorage) {
       if (!cdpClient) {
+        captureErrors.push("LocalStorage: no CDP target connected");
         toast.warning("LocalStorage capture skipped: no CDP target connected");
       } else {
         localStorageRecorder = useLocalStorageRecorder(cdpClient, writer);
@@ -219,6 +228,7 @@ export function useRecordingSession() {
           const msg = `LocalStorage recorder failed: ${String(err)}`;
           console.error("[recording]", msg);
           toast.error(msg);
+          captureErrors.push(`LocalStorage: ${String(err)}`);
           localStorageRecorder = null;
         }
       }
@@ -226,6 +236,7 @@ export function useRecordingSession() {
 
     if (config.tracks.databases && config.databaseTracks?.indexedDB) {
       if (!cdpClient) {
+        captureErrors.push("IndexedDB: no CDP target connected");
         toast.warning("IndexedDB capture skipped: no CDP target connected");
       } else {
         indexedDBRecorder = useIndexedDBRecorder(cdpClient, sessionId, startedAt);
@@ -235,6 +246,7 @@ export function useRecordingSession() {
           const msg = `IndexedDB recorder failed: ${String(err)}`;
           console.error("[recording]", msg);
           toast.error(msg);
+          captureErrors.push(`IndexedDB: ${String(err)}`);
           indexedDBRecorder = null;
         }
       }
@@ -248,6 +260,7 @@ export function useRecordingSession() {
           ? (targetsStore.selectedTarget.packageName?.trim() ?? "")
           : "";
       if (!serial || !packageName) {
+        captureErrors.push("SQLite: no Android package target selected");
         toast.warning("SQLite capture skipped: no Android package target selected");
       } else {
         sqliteRecorder = useSqliteRecorder(sessionId, startedAt, serial, packageName);
@@ -257,6 +270,7 @@ export function useRecordingSession() {
           const msg = `SQLite recorder failed: ${String(err)}`;
           console.error("[recording]", msg);
           toast.error(msg);
+          captureErrors.push(`SQLite: ${String(err)}`);
           sqliteRecorder = null;
         }
       }
@@ -264,6 +278,7 @@ export function useRecordingSession() {
 
     if (config.tracks.rrweb) {
       if (!cdpClient) {
+        captureErrors.push("DOM: no CDP target connected");
         toast.warning("DOM track skipped: no CDP target connected");
       } else {
         rrwebRecorder = useRrwebRecorder(cdpClient, writer);
@@ -273,6 +288,12 @@ export function useRecordingSession() {
           const msg = `rrweb start failed: ${String(err)}`;
           console.error("[recording]", msg);
           toast.error(msg);
+          captureErrors.push(`DOM: ${String(err)}`);
+          try {
+            await rrwebRecorder.stop();
+          } catch (cleanupError) {
+            console.warn("[recording] rrweb cleanup failed", cleanupError);
+          }
           rrwebRecorder = null;
         }
       }
@@ -295,11 +316,11 @@ export function useRecordingSession() {
     connectionUnwatch?.();
     connectionUnwatch = null;
 
-    const finalizationErrors: string[] = [];
+    const finalizationErrors = [...captureErrors];
     async function finalizeCapture(name: string, capture: { stop: () => Promise<void> } | null) {
       if (!capture) return;
       try {
-        await capture.stop();
+        await recordingDeadline(capture.stop(), `${name} finalization`);
       } catch (error) {
         finalizationErrors.push(name + ": " + String(error));
       }
@@ -335,25 +356,11 @@ export function useRecordingSession() {
     }
 
     try {
-      await writer?.stop();
+      if (writer) await recordingDeadline(writer.stop(), "Writer finalization");
     } catch (error) {
       finalizationErrors.push("writer: " + String(error));
     }
     writer = null;
-
-    if (finalizationErrors.length > 0) {
-      try {
-        await invokeCommand("recording_delete_session", { sessionId });
-      } catch (error) {
-        finalizationErrors.push("cleanup: " + String(error));
-      }
-      const msg = "Recording finalization failed: " + finalizationErrors.join("; ");
-      activeSessionId = "";
-      startedAt = 0;
-      recordingStore.setError(msg);
-      toast.error("Recording could not be finalized", { description: msg });
-      return null;
-    }
 
     const manifest: SessionManifest = {
       version: 1,
@@ -372,23 +379,29 @@ export function useRecordingSession() {
         databases: false,
       },
       databaseTracks: recordingStore.config?.databaseTracks,
+      incomplete:
+        finalizationErrors.length > 0
+          ? {
+              errors: finalizationErrors,
+              missingTracks: finalizationErrors.map((error) => error.split(":", 1)[0]),
+            }
+          : undefined,
     };
 
     let capuPath: string | null = null;
     try {
-      capuPath = await invokeCommand("recording_session_stop", {
-        sessionId,
-        manifestJson: JSON.stringify(manifest),
-      });
+      capuPath = await recordingDeadline(
+        invokeCommand("recording_session_stop", {
+          sessionId,
+          manifestJson: JSON.stringify(manifest),
+        }),
+        "Archive finalization",
+        20_000,
+      );
       console.log("[recording] saved", capuPath);
     } catch (err) {
       const msg = `Failed to package session: ${String(err)}`;
       console.error("[recording]", msg);
-      try {
-        await invokeCommand("recording_delete_session", { sessionId });
-      } catch (cleanupError) {
-        console.warn("[recording] failed to clean unfinalized session", cleanupError);
-      }
       recordingStore.setError(msg);
       toast.error(msg);
       activeSessionId = "";
@@ -398,6 +411,11 @@ export function useRecordingSession() {
 
     activeSessionId = "";
     startedAt = 0;
+    if (finalizationErrors.length > 0) {
+      toast.warning("Recording saved as incomplete", {
+        description: finalizationErrors.join("; "),
+      });
+    }
     recordingStore.reset();
     return capuPath;
   }
