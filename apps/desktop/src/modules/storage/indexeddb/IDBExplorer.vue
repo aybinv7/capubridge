@@ -408,8 +408,25 @@ async function handleRecordEdit(record: IDBRecord) {
   }
   const domain = getDomain();
   if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
+  const recordWithMetadata = record as IDBRecord & {
+    primaryKey?: IDBValidKey;
+    editable?: boolean;
+    readOnlyReason?: string;
+  };
+  if (recordWithMetadata.editable === false) {
+    toast.error("Record is read-only", {
+      description: recordWithMetadata.readOnlyReason ?? "Unsupported value",
+    });
+    return;
+  }
   try {
-    await domain.putRecord(selectedOrigin.value, dbName.value, storeName.value, record.value);
+    await domain.putRecord(
+      selectedOrigin.value,
+      dbName.value,
+      storeName.value,
+      record.value,
+      recordWithMetadata.primaryKey ?? record.key,
+    );
     void refetchRecords();
   } catch (err) {
     console.error("[IDB] Failed to save record:", err);

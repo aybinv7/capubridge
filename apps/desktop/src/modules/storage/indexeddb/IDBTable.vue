@@ -532,11 +532,22 @@ const {
     if (props.readOnly) return;
     const currentRow = table
       .getRowModel()
-      .rows.find((r) => recordKeyStr(r.original.key) === recordKeyStr(record.key));
+      .rows.find(
+        (r) =>
+          recordKeyStr(
+            (r.original as IDBRecord & { primaryKey?: IDBValidKey }).primaryKey ?? r.original.key,
+          ) ===
+          recordKeyStr(
+            (record as IDBRecord & { primaryKey?: IDBValidKey }).primaryKey ?? record.key,
+          ),
+      );
     const beforeValue = currentRow?.original.value;
     emit("recordEdit", record);
     const next = new Map(locallyModifiedData.value);
-    next.set(recordKeyStr(record.key), beforeValue);
+    next.set(
+      recordKeyStr((record as IDBRecord & { primaryKey?: IDBValidKey }).primaryKey ?? record.key),
+      beforeValue,
+    );
     locallyModifiedData.value = next;
   },
   onDelete: (key) => {
@@ -765,7 +776,12 @@ function showCalendar(columnId: string, operator: string): boolean {
 }
 
 function handleBulkDelete() {
-  const selectedKeys = table.getSelectedRowModel().rows.map((row) => row.original.key);
+  const selectedKeys = table
+    .getSelectedRowModel()
+    .rows.map(
+      (row) =>
+        (row.original as IDBRecord & { primaryKey?: IDBValidKey }).primaryKey ?? row.original.key,
+    );
   if (selectedKeys.length > 0) {
     pendingDeleteKeys.value = selectedKeys;
     showDeleteConfirm.value = true;
@@ -1116,7 +1132,13 @@ function confirmBulkDelete() {
                   <ContextMenuSeparator />
                   <ContextMenuItem
                     variant="destructive"
-                    @select="emit('recordDelete', row.original.key)"
+                    @select="
+                      emit(
+                        'recordDelete',
+                        (row.original as IDBRecord & { primaryKey?: IDBValidKey }).primaryKey ??
+                          row.original.key,
+                      )
+                    "
                   >
                     Delete record
                   </ContextMenuItem>

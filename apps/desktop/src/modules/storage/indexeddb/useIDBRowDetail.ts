@@ -12,6 +12,12 @@ interface UseIDBRowDetailOptions {
   canMutate?: (record: unknown) => boolean;
 }
 
+type IDBRecordWithIdentity = IDBRecord & { primaryKey?: IDBValidKey };
+
+function getPrimaryKey(record: IDBRecord): IDBValidKey {
+  return (record as IDBRecordWithIdentity).primaryKey ?? record.key;
+}
+
 export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
   const { getFilteredRows, totalRecords, fetchRecord, onEdit, onDelete } = options;
 
@@ -55,7 +61,7 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
 
   function openRowDetail(record: IDBRecord, rowIndex?: number) {
     selectedRow.value = record;
-    selectedKey.value = record.key;
+    selectedKey.value = getPrimaryKey(record);
     isDetailOpen.value = true;
     editJson.value = JSON.stringify(record.value, null, 2);
     editOriginalJson.value = editJson.value;
@@ -84,7 +90,7 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
     if (localRow) {
       currentRowIndex.value = nextIdx;
       selectedRow.value = localRow.original;
-      selectedKey.value = localRow.original.key;
+      selectedKey.value = getPrimaryKey(localRow.original);
       editJson.value = JSON.stringify(localRow.original.value, null, 2);
       editOriginalJson.value = editJson.value;
       editKey.value = stringifyKey(localRow.original.key);
@@ -97,7 +103,7 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
         if (record) {
           currentRowIndex.value = nextIdx;
           selectedRow.value = record;
-          selectedKey.value = record.key;
+          selectedKey.value = getPrimaryKey(record);
           editJson.value = JSON.stringify(record.value, null, 2);
           editOriginalJson.value = editJson.value;
           editKey.value = stringifyKey(record.key);
@@ -114,10 +120,12 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
     if (options.canMutate && !options.canMutate(recordToSave)) return;
     try {
       const parsed: unknown = JSON.parse(editJson.value);
-      const record: IDBRecord = {
+      const record = {
+        ...recordToSave,
         key: selectedKey.value as IDBValidKey,
+        primaryKey: selectedKey.value as IDBValidKey,
         value: parsed,
-      };
+      } as IDBRecordWithIdentity;
       onEdit(record);
       editOriginalJson.value = editJson.value;
       toast.success("Record saved", { description: `Key: ${editKey.value}` });

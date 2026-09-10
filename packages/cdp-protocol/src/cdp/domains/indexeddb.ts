@@ -23,7 +23,10 @@ export interface IDBIndexInfo {
 
 export interface IDBRecord {
   key: IDBValidKey;
+  primaryKey?: IDBValidKey;
   value: unknown;
+  editable?: boolean;
+  readOnlyReason?: string;
 }
 
 export interface GetDataParams {
@@ -84,6 +87,8 @@ interface CdpRemoteObject {
   subtype?: string;
   value?: unknown;
   description?: string;
+  objectId?: string;
+  unserializableValue?: string;
 }
 
 interface CdpDataEntry {
@@ -103,6 +108,30 @@ function extractRemoteValue(obj: CdpRemoteObject): unknown {
   if (obj.value !== undefined) return obj.value;
   if (obj.description !== undefined) return obj.description;
   return null;
+}
+
+interface MaterializedValue {
+  value: unknown;
+  editable: boolean;
+  reason?: string;
+}
+
+function supportsIndexedDbFallback(error: unknown): boolean {
+  const message = String(error).toLowerCase();
+  return (
+    message.includes("method not found") ||
+    message.includes("wasn't found") ||
+    message.includes("not supported") ||
+    message.includes("-32601")
+  );
+}
+
+function containsReadOnlyMarker(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(containsReadOnlyMarker);
+  const object = value as Record<string, unknown>;
+  if (typeof object.__type === "string") return true;
+  return Object.values(object).some(containsReadOnlyMarker);
 }
 
 export class IDBDomain {
@@ -246,13 +275,13 @@ export class IDBDomain {
         expression: `
           (async () => {
             try {
-              const req = indexedDB.open('${databaseName}');
+              const req = indexedDB.open(${JSON.stringify(databaseName)});
               const db = await new Promise((resolve, reject) => {
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => reject(req.error);
               });
 
-              const store = db.transaction('${objectStoreName}', 'readonly').objectStore('${objectStoreName}');
+              const store = db.transaction(${JSON.stringify(objectStoreName)}, 'readonly').objectStore(${JSON.stringify(objectStoreName)});
               const records = [];
               const cursorReq = store.openCursor();
               await new Promise((resolve, reject) => {
@@ -339,22 +368,28 @@ export class IDBDomain {
   }
 
   async putRecord(
-    _securityOrigin: string,
+    securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
     value: unknown,
+    primaryKey?: IDBValidKey,
   ): Promise<void> {
     const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
       expression: `
         (async () => {
           try {
-            const req = indexedDB.open('${databaseName}');
+            if (location.origin !== ${JSON.stringify(securityOrigin)}) throw new Error('IndexedDB origin mismatch');
+            const req = indexedDB.open(${JSON.stringify(databaseName)});
             const db = await new Promise((resolve, reject) => {
               req.onsuccess = () => resolve(req.result);
               req.onerror = () => reject(req.error?.message ?? 'open failed');
             });
-            const tx = db.transaction('${objectStoreName}', 'readwrite');
-            tx.objectStore('${objectStoreName}').put(${JSON.stringify(value)});
+            const tx = db.transaction(${JSON.stringify(objectStoreName)}, 'readwrite');
+            const store = tx.objectStore(${JSON.stringify(objectStoreName)});
+            const key = ${primaryKey === undefined ? "undefined" : JSON.stringify(primaryKey)};
+            if (store.keyPath === null && key === undefined) throw new Error('Out-of-line key required');
+            if (key === undefined || store.keyPath !== null) store.put(${JSON.stringify(value)});
+            else store.put(${JSON.stringify(value)}, key);
             await new Promise((resolve, reject) => {
               tx.oncomplete = () => resolve(true);
               tx.onerror = () => reject(tx.error?.message ?? 'put failed');
@@ -375,7 +410,7 @@ export class IDBDomain {
   }
 
   async deleteRecord(
-    _securityOrigin: string,
+    securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
     key: IDBValidKey,
@@ -384,13 +419,14 @@ export class IDBDomain {
       expression: `
         (async () => {
           try {
-            const req = indexedDB.open('${databaseName}');
+            if (location.origin !== ${JSON.stringify(securityOrigin)}) throw new Error('IndexedDB origin mismatch');
+            const req = indexedDB.open(${JSON.stringify(databaseName)});
             const db = await new Promise((resolve, reject) => {
               req.onsuccess = () => resolve(req.result);
               req.onerror = () => reject(req.error?.message ?? 'open failed');
             });
-            const tx = db.transaction('${objectStoreName}', 'readwrite');
-            tx.objectStore('${objectStoreName}').delete(${JSON.stringify(key)});
+            const tx = db.transaction(${JSON.stringify(objectStoreName)}, 'readwrite');
+            tx.objectStore(${JSON.stringify(objectStoreName)}).delete(${JSON.stringify(key)});
             await new Promise((resolve, reject) => {
               tx.oncomplete = () => resolve(true);
               tx.onerror = () => reject(tx.error?.message ?? 'delete failed');
@@ -531,15 +567,96 @@ export class IDBDomain {
         response.objectStoreDataEntries.length,
       );
 
-      const records: IDBRecord[] = response.objectStoreDataEntries.map((entry) => ({
-        key: extractRemoteValue(entry.key) as IDBValidKey,
-        value: extractRemoteValue(entry.value),
-      }));
+      const records = await Promise.all(
+        response.objectStoreDataEntries.map(async (entry) => {
+          const [key, primaryKey, value] = await Promise.all([
+            this.materializeRemoteValue(entry.key),
+            this.materializeRemoteValue(entry.primaryKey),
+            this.materializeRemoteValue(entry.value),
+          ]);
+          const readOnlyReason = [key, primaryKey, value]
+            .map((item) => item.reason)
+            .find((reason): reason is string => Boolean(reason));
+          return {
+            key: key.value as IDBValidKey,
+            primaryKey: primaryKey.value as IDBValidKey,
+            value: value.value,
+            editable: !readOnlyReason,
+            ...(readOnlyReason ? { readOnlyReason } : {}),
+          } satisfies IDBRecord;
+        }),
+      );
 
       return { records, hasMore: response.hasMore };
     } catch (err) {
+      if (!supportsIndexedDbFallback(err)) throw err;
       console.warn("[IDB] CDP requestData failed, falling back to Runtime.evaluate:", err);
       return this.getDataViaEval(params);
+    }
+  }
+
+  private async materializeRemoteValue(obj: CdpRemoteObject): Promise<MaterializedValue> {
+    if (obj.value !== undefined) return { value: obj.value, editable: true };
+    if (obj.unserializableValue !== undefined) {
+      return {
+        value: obj.unserializableValue,
+        editable: false,
+        reason: "Unsupported serialized value",
+      };
+    }
+    if (!obj.objectId) {
+      return { value: extractRemoteValue(obj), editable: true };
+    }
+    try {
+      const response = await this.client.send<{
+        result: { result: { value?: { value?: unknown; editable?: boolean; reason?: string } } };
+      }>("Runtime.callFunctionOn", {
+        objectId: obj.objectId,
+        functionDeclaration: `function() {
+          const maxDepth = 8;
+          const maxNodes = 10000;
+          const maxBytes = 1024 * 1024;
+          const seen = new WeakSet();
+          let nodes = 0;
+          let unsupported = false;
+          function clone(value, depth) {
+            if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+            if (typeof value === 'bigint') { unsupported = true; return { __type: 'BigInt', value: value.toString() }; }
+            if (depth >= maxDepth) { unsupported = true; return { __type: 'MaxDepth' }; }
+            if (value instanceof Date) { unsupported = true; return { __type: 'Date', value: value.toISOString() }; }
+            if (value instanceof Blob) { unsupported = true; return { __type: 'Blob', size: value.size, type: value.type }; }
+            if (value instanceof ArrayBuffer) { unsupported = true; return { __type: 'ArrayBuffer', byteLength: value.byteLength }; }
+            if (value instanceof Uint8Array) { unsupported = true; return { __type: 'Uint8Array', data: Array.from(value).slice(0, maxBytes) }; }
+            if (typeof value !== 'object') { unsupported = true; return String(value); }
+            if (seen.has(value)) { unsupported = true; return { __type: 'Circular' }; }
+            seen.add(value);
+            nodes += 1;
+            if (nodes > maxNodes) { unsupported = true; return { __type: 'MaxNodes' }; }
+            if (Array.isArray(value)) return value.map(item => clone(item, depth + 1));
+            const result = {};
+            for (const key of Object.keys(value)) result[key] = clone(value[key], depth + 1);
+            return result;
+          }
+          const value = clone(this, 0);
+          const serialized = JSON.stringify(value);
+          if (serialized.length > maxBytes) return { value: { __type: 'MaxBytes' }, editable: false, reason: 'Value exceeds 1 MiB limit' };
+          return { value, editable: !unsupported, reason: unsupported ? 'Structured-clone value is read-only' : undefined };
+        }`,
+        returnByValue: true,
+        awaitPromise: true,
+      });
+      const value = response.result.result.value;
+      if (value)
+        return { value: value.value, editable: value.editable !== false, reason: value.reason };
+      return {
+        value: extractRemoteValue(obj),
+        editable: false,
+        reason: "Remote value could not be materialized",
+      };
+    } finally {
+      await this.client
+        .send("Runtime.releaseObject", { objectId: obj.objectId })
+        .catch(() => undefined);
     }
   }
 
@@ -554,50 +671,50 @@ export class IDBDomain {
             req.onerror = () => reject(req.error);
           });
 
-          const store = db.transaction('${params.objectStoreName}', 'readonly').objectStore('${params.objectStoreName}');
-          const cursorSource = ${indexName ? `store.index('${indexName}')` : "store"};
-          const allRecords = [];
-
-          const cursorReq = cursorSource.openCursor();
-          await new Promise((resolve, reject) => {
+          try {
+            const store = db.transaction(${JSON.stringify(params.objectStoreName)}, 'readonly').objectStore(${JSON.stringify(params.objectStoreName)});
+            const cursorSource = ${indexName ? `store.index(${JSON.stringify(indexName)})` : "store"};
+            const rangeSpec = ${params.keyRange ? JSON.stringify(params.keyRange) : "null"};
+            const range = rangeSpec ? (rangeSpec.lower !== undefined && rangeSpec.upper !== undefined ? IDBKeyRange.bound(rangeSpec.lower, rangeSpec.upper, Boolean(rangeSpec.lowerOpen), Boolean(rangeSpec.upperOpen)) : rangeSpec.lower !== undefined ? IDBKeyRange.lowerBound(rangeSpec.lower, Boolean(rangeSpec.lowerOpen)) : IDBKeyRange.upperBound(rangeSpec.upper, Boolean(rangeSpec.upperOpen))) : undefined;
+            const records = [];
+            const seen = new WeakSet();
+            let nodes = 0;
+            function safeSerialize(value, depth = 0) {
+            if (value === undefined || value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+            if (depth >= 8 || nodes++ >= 10000) return { __type: 'MaxDepth' };
+            if (value instanceof Date) return { __type: 'Date', value: value.toISOString() };
+            if (value instanceof ArrayBuffer) return { __type: 'ArrayBuffer', byteLength: value.byteLength };
+            if (value instanceof Uint8Array) return { __type: 'Uint8Array', data: Array.from(value).slice(0, 1048576) };
+            if (seen.has(value)) return { __type: 'Circular' };
+            seen.add(value);
+            if (Array.isArray(value)) return value.map(item => safeSerialize(item, depth + 1));
+            const output = {};
+            for (const key of Object.keys(value)) output[key] = safeSerialize(value[key], depth + 1);
+            return output;
+            }
+            let skipped = false;
+            const skip = Math.max(0, ${params.skipCount});
+            const take = Math.max(1, Math.min(10000, ${params.pageSize}));
+            const cursorReq = cursorSource.openCursor(range);
+            await new Promise((resolve, reject) => {
             cursorReq.onsuccess = () => {
               const cursor = cursorReq.result;
               if (!cursor) return resolve();
-              allRecords.push({ key: cursor.primaryKey, value: cursor.value });
+              if (!skipped && skip > 0) {
+                skipped = true;
+                cursor.advance(skip);
+                return;
+              }
+              if (records.length >= take + 1) return resolve();
+              records.push({ key: safeSerialize(cursor.key), primaryKey: safeSerialize(cursor.primaryKey), value: safeSerialize(cursor.value) });
               cursor.continue();
             };
             cursorReq.onerror = () => reject(cursorReq.error);
-          });
-
-          db.close();
-
-          const skip = ${params.skipCount};
-          const take = ${params.pageSize};
-          const total = allRecords.length;
-          const hasMore = skip + take < total;
-
-          function safeSerialize(val) {
-            if (val === undefined) return undefined;
-            if (val === null) return null;
-            if (val instanceof Date) return { __type: 'Date', value: val.toISOString() };
-            if (val instanceof Blob) return { __type: 'Blob', size: val.size, type: val.type };
-            if (typeof val === 'bigint') return { __type: 'BigInt', value: val.toString() };
-            if (val instanceof ArrayBuffer) return { __type: 'ArrayBuffer', byteLength: val.byteLength };
-            if (val instanceof Uint8Array) return { __type: 'Uint8Array', data: Array.from(val) };
-            if (val instanceof Set) return { __type: 'Set', values: Array.from(val) };
-            if (val instanceof Map) return { __type: 'Map', entries: Array.from(val.entries()) };
-            return val;
-          }
-
-          const records = [];
-          for (let i = skip; i < Math.min(skip + take, total); i++) {
-            records.push({
-              key: safeSerialize(allRecords[i].key),
-              value: safeSerialize(allRecords[i].value)
             });
+            return JSON.stringify({ records: records.slice(0, take), hasMore: records.length > take });
+          } finally {
+            db.close();
           }
-
-          return JSON.stringify({ records, hasMore, total });
         } catch (e) {
           return JSON.stringify({ error: e.message });
         }
@@ -618,8 +735,20 @@ export class IDBDomain {
       throw new Error(parsed.error);
     }
 
+    const records = (parsed.records as IDBRecord[]).map((record) => ({
+      ...record,
+      editable:
+        !containsReadOnlyMarker(record.value) &&
+        !containsReadOnlyMarker(record.primaryKey) &&
+        !containsReadOnlyMarker(record.key),
+      ...(containsReadOnlyMarker(record.value) ||
+      containsReadOnlyMarker(record.primaryKey) ||
+      containsReadOnlyMarker(record.key)
+        ? { readOnlyReason: "Structured-clone value is read-only" }
+        : {}),
+    }));
     return {
-      records: parsed.records as IDBRecord[],
+      records,
       hasMore: parsed.hasMore as boolean,
     };
   }
