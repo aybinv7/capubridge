@@ -237,37 +237,39 @@ impl CaptureRegistry {
             target_id: target_id.to_string(),
             generation: ws_url.to_string(),
         };
-        let mut sessions = self.sessions.lock();
-        if let Some(handle) = sessions.get(&key) {
-            if handle.session.is_alive() {
-                return (handle.session.clone(), false);
+        let (session, stale) = {
+            let mut sessions = self.sessions.lock();
+            if let Some(handle) = sessions.get(&key) {
+                if handle.session.is_alive() {
+                    return (handle.session.clone(), false);
+                }
             }
-        }
-        let stale_keys = sessions
-            .keys()
-            .filter(|existing| existing.serial == serial && existing.target_id == target_id)
-            .cloned()
-            .collect::<Vec<_>>();
-        let stale = stale_keys
-            .into_iter()
-            .filter_map(|stale_key| sessions.remove(&stale_key))
-            .collect::<Vec<_>>();
-        let session = CaptureSession::new();
-        let cancel = CancellationToken::new();
-        let task = tokio::spawn(run_capture_loop(
-            session.clone(),
-            ws_url.to_string(),
-            cancel.clone(),
-        ));
-        sessions.insert(
-            key,
-            CaptureHandle {
-                session: session.clone(),
-                cancel,
-                task,
-            },
-        );
-        drop(sessions);
+            let stale_keys = sessions
+                .keys()
+                .filter(|existing| existing.serial == serial && existing.target_id == target_id)
+                .cloned()
+                .collect::<Vec<_>>();
+            let stale = stale_keys
+                .into_iter()
+                .filter_map(|stale_key| sessions.remove(&stale_key))
+                .collect::<Vec<_>>();
+            let session = CaptureSession::new();
+            let cancel = CancellationToken::new();
+            let task = tokio::spawn(run_capture_loop(
+                session.clone(),
+                ws_url.to_string(),
+                cancel.clone(),
+            ));
+            sessions.insert(
+                key,
+                CaptureHandle {
+                    session: session.clone(),
+                    cancel,
+                    task,
+                },
+            );
+            (session, stale)
+        };
         for handle in stale {
             handle.cancel.cancel();
             let _ = handle.task.await;
