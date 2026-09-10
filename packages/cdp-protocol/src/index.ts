@@ -1,4 +1,11 @@
-export { CDPClient } from "./cdp/client.js";
+export {
+  CDPClient,
+  CDPCommandTimeoutError,
+  CDPConnectionClosedError,
+  CDPConnectionError,
+  CDPProtocolError,
+} from "./cdp/client.js";
+export type { CDPClientOptions, CDPCommandOptions } from "./cdp/client.js";
 export { fetchLocalTargets } from "./cdp/targets.js";
 export type { RawCDPTarget } from "./cdp/targets.js";
 export { IDBDomain } from "./cdp/domains/indexeddb.js";

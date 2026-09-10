@@ -4,7 +4,17 @@ import type { NetworkCapuTiming } from "@/types/replay.types";
 
 type Writer = ReturnType<typeof useSessionWriter>;
 
+interface BoundedCDPClient {
+  send<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>,
+    sessionId?: string,
+    options?: { timeoutMs?: number },
+  ): Promise<T>;
+}
+
 const MAX_BODY_BYTES = 512 * 1024;
+const BODY_FETCH_TIMEOUT_MS = 2_000;
 
 interface RequestState {
   url: string;
@@ -25,6 +35,7 @@ interface RequestState {
 }
 
 export function useNetworkRecorder(client: CDPClient, writer: Writer) {
+  const boundedClient = client as BoundedCDPClient;
   const requests = new Map<string, RequestState>();
   const unsubs: Array<() => void> = [];
   const pendingFetches = new Map<string, Promise<void>>();
@@ -53,7 +64,12 @@ export function useNetworkRecorder(client: CDPClient, writer: Writer) {
     return out;
   }
 
-  function emitFinal(requestId: string, responseBody: string | null, responseBodyBase64: boolean) {
+  function emitFinal(
+    requestId: string,
+    responseBody: string | null,
+    responseBodyBase64: boolean,
+    responseBodyError: string | null = null,
+  ) {
     const r = requests.get(requestId);
     if (!r) return;
     writer.pushAt(
@@ -73,6 +89,7 @@ export function useNetworkRecorder(client: CDPClient, writer: Writer) {
         requestBody: r.requestBody,
         responseBody,
         responseBodyBase64,
+        responseBodyError,
         timing: r.timing,
         initiator: r.initiator,
       },
@@ -89,19 +106,32 @@ export function useNetworkRecorder(client: CDPClient, writer: Writer) {
       return;
     }
     try {
-      const res = (await client.send("Network.getResponseBody", { requestId })) as {
+      const res = (await boundedClient.send("Network.getResponseBody", { requestId }, undefined, {
+        timeoutMs: BODY_FETCH_TIMEOUT_MS,
+      })) as {
         body: string;
         base64Encoded: boolean;
       };
       if (!res.base64Encoded && res.body.length > MAX_BODY_BYTES) {
-        emitFinal(requestId, res.body.slice(0, MAX_BODY_BYTES) + "\n[truncated]", false);
+        emitFinal(
+          requestId,
+          res.body.slice(0, MAX_BODY_BYTES) + "\n[truncated]",
+          false,
+          `Response body exceeded ${MAX_BODY_BYTES} bytes and was truncated`,
+        );
       } else if (res.base64Encoded && res.body.length > MAX_BODY_BYTES) {
-        emitFinal(requestId, null, false);
+        emitFinal(
+          requestId,
+          null,
+          false,
+          `Base64 response body exceeded ${MAX_BODY_BYTES} bytes and was discarded`,
+        );
       } else {
         emitFinal(requestId, res.body, res.base64Encoded);
       }
-    } catch {
-      emitFinal(requestId, null, false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      emitFinal(requestId, null, false, `Response body unavailable: ${message}`);
     }
     requests.delete(requestId);
     pendingFetches.delete(requestId);
@@ -253,7 +283,9 @@ export function useNetworkRecorder(client: CDPClient, writer: Writer) {
     pendingFetches.clear();
 
     try {
-      await client.send("Network.disable", {});
+      await boundedClient.send("Network.disable", {}, undefined, {
+        timeoutMs: BODY_FETCH_TIMEOUT_MS,
+      });
     } catch {
       void 0;
     }

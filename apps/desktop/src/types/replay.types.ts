@@ -77,6 +77,7 @@ export type NetworkCapuEvent = CapuEvent<{
   requestBody: string | null;
   responseBody: string | null;
   responseBodyBase64: boolean;
+  responseBodyError?: string | null;
   timing: NetworkCapuTiming | null;
   initiator: string | null;
 }>;

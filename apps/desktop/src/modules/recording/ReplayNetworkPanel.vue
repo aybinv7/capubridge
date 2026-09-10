@@ -47,6 +47,7 @@ interface ReplayEntry {
   requestBody: string | null;
   responseBody: string | null;
   responseBodyBase64: boolean;
+  responseBodyError: string | null;
   timing: NetworkCapuTiming | null;
   initiator: string | null;
   t: number;
@@ -79,6 +80,7 @@ const deduped = computed<ReplayEntry[]>(() => {
     requestBody: ev.data.requestBody ?? null,
     responseBody: ev.data.responseBody ?? null,
     responseBodyBase64: ev.data.responseBodyBase64 ?? false,
+    responseBodyError: ev.data.responseBodyError ?? null,
     timing: ev.data.timing ?? null,
     initiator: ev.data.initiator ?? null,
     t: ev.t,
@@ -544,6 +546,13 @@ const timingBreakdown = computed(() => {
               >
                 <AlertTriangle class="h-3.5 w-3.5 shrink-0" />
                 Request failed
+              </div>
+              <div
+                v-else-if="selectedEntry.responseBodyError && !selectedEntry.responseBody"
+                class="flex flex-1 items-center justify-center gap-2 px-6 text-center text-xs text-warning/80"
+              >
+                <AlertTriangle class="h-3.5 w-3.5 shrink-0" />
+                {{ selectedEntry.responseBodyError }}
               </div>
               <div
                 v-else-if="!selectedEntry.responseBody"

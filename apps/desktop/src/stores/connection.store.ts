@@ -34,6 +34,19 @@ export const useConnectionStore = defineStore("connection", () => {
     setConnection(targetId, { ...existing, status });
   }
 
+  async function stopProxy(targetId: string, failureMessage: string) {
+    const wsUrl = targetToWsUrl.get(targetId);
+    if (!wsUrl) return;
+    try {
+      await invokeCommand("cdp_stop_proxy", { wsUrl });
+      logConnection("proxy:stopped", { targetId, wsUrl });
+    } catch (error) {
+      console.warn(`[connection] ${failureMessage}:`, error);
+    } finally {
+      targetToWsUrl.delete(targetId);
+    }
+  }
+
   async function connect(target: CDPTarget): Promise<CDPClient> {
     if (target.source === "local" && !target.webSocketDebuggerUrl) {
       throw new Error(
@@ -69,13 +82,12 @@ export const useConnectionStore = defineStore("connection", () => {
           throw new Error("Target does not expose a CDP WebSocket URL.");
         }
 
-        targetToWsUrl.set(target.id, target.webSocketDebuggerUrl);
-
         let wsUrl = target.webSocketDebuggerUrl;
         if (target.source === "adb") {
           const proxy = await invokeCommand("cdp_start_proxy", {
             wsUrl: target.webSocketDebuggerUrl,
           });
+          targetToWsUrl.set(target.id, target.webSocketDebuggerUrl);
           wsUrl = proxy.wsUrl;
           logConnection("connect:proxy-started", {
             targetId: target.id,
@@ -84,7 +96,13 @@ export const useConnectionStore = defineStore("connection", () => {
           });
         }
 
-        const client = new CDPClient(wsUrl);
+        let client: CDPClient;
+        try {
+          client = new CDPClient(wsUrl);
+        } catch (error) {
+          await stopProxy(target.id, "Failed to stop proxy after client creation failure");
+          throw error;
+        }
 
         const conn: CDPConnection = {
           targetId: target.id,
@@ -92,35 +110,37 @@ export const useConnectionStore = defineStore("connection", () => {
           status: "connecting",
         };
         setConnection(target.id, conn);
-
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error("Connection timeout"));
-          }, 10000);
-
-          conn.ws.addEventListener("open", () => {
-            clearTimeout(timeout);
-            updateConnectionStatus(target.id, "connected");
-            logConnection("connect:open", { targetId: target.id, wsUrl });
-            resolve();
-          });
-
-          conn.ws.addEventListener("close", () => {
-            clearTimeout(timeout);
-            updateConnectionStatus(target.id, "disconnected");
-            clientMap.delete(target.id);
-            logConnection("connect:close", { targetId: target.id, wsUrl });
-          });
-
-          conn.ws.addEventListener("error", () => {
-            clearTimeout(timeout);
-            updateConnectionStatus(target.id, "error");
-            logConnection("connect:error", { targetId: target.id, wsUrl });
-            reject(new Error(`WebSocket error connecting to ${target.url}`));
-          });
+        clientMap.set(target.id, client);
+        conn.ws.addEventListener("close", () => {
+          updateConnectionStatus(target.id, "disconnected");
+          if (clientMap.get(target.id) === client) clientMap.delete(target.id);
+          logConnection("connect:close", { targetId: target.id, wsUrl });
+        });
+        conn.ws.addEventListener("error", () => {
+          updateConnectionStatus(target.id, "error");
+          logConnection("connect:error", { targetId: target.id, wsUrl });
         });
 
-        clientMap.set(target.id, client);
+        try {
+          let openTimeoutId: ReturnType<typeof setTimeout> | undefined;
+          const openTimeout = new Promise<never>((_, reject) => {
+            openTimeoutId = setTimeout(() => reject(new Error("Connection timeout")), 10_000);
+          });
+          try {
+            await Promise.race([client.waitForOpen(), openTimeout]);
+          } finally {
+            if (openTimeoutId !== undefined) clearTimeout(openTimeoutId);
+          }
+        } catch (error) {
+          client.close();
+          if (clientMap.get(target.id) === client) clientMap.delete(target.id);
+          updateConnectionStatus(target.id, "error");
+          await stopProxy(target.id, "Failed to stop proxy after connection failure");
+          throw error;
+        }
+
+        updateConnectionStatus(target.id, "connected");
+        logConnection("connect:open", { targetId: target.id, wsUrl });
         logConnection("connect:ready", { targetId: target.id });
         return client;
       } finally {
@@ -138,24 +158,16 @@ export const useConnectionStore = defineStore("connection", () => {
 
   async function disconnectTarget(targetId: string) {
     logConnection("disconnect:start", { targetId });
-    clientMap.get(targetId)?.close();
+    const client = clientMap.get(targetId);
+    client?.close();
     clientMap.delete(targetId);
     const conn = connections.value.get(targetId);
     if (conn) {
-      conn.ws.close();
+      if (!client) conn.ws.close();
       connections.value.delete(targetId);
     }
 
-    const wsUrl = targetToWsUrl.get(targetId);
-    if (wsUrl) {
-      try {
-        await invokeCommand("cdp_stop_proxy", { wsUrl });
-        logConnection("disconnect:proxy-stopped", { targetId, wsUrl });
-      } catch (e) {
-        console.warn("[connection] Failed to stop proxy:", e);
-      }
-      targetToWsUrl.delete(targetId);
-    }
+    await stopProxy(targetId, "Failed to stop proxy");
 
     if (selectedTargetId.value === targetId) {
       selectedTargetId.value = null;
