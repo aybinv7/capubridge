@@ -13,7 +13,7 @@ import SideRail from "@/components/layout/SideRail.vue";
   <GradualBlur
     position="top"
     target="page"
-    height="6.5rem"
+    height="3rem"
     :strength="1.1"
     :div-count="8"
     :opacity="0.85"
@@ -22,7 +22,7 @@ import SideRail from "@/components/layout/SideRail.vue";
   <GradualBlur
     position="bottom"
     target="page"
-    height="3rem"
+    height="1rem"
     :strength="0.9"
     :div-count="6"
     :opacity="0.75"

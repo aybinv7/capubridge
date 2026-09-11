@@ -11,13 +11,6 @@ const onScroll = () => {
   scrolled.value = window.scrollY > 24;
 };
 
-/**
- * A plain ref toggle animated by Vue's <Transition>, not the View Transition
- * API: on mobile Safari/Chrome, document.startViewTransition() snapshotting
- * a fixed, backdrop-blurred overlay is exactly the combination that flickers
- * before the transition settles. A CSS transform transition never has that
- * failure mode.
- */
 const setMenu = (next: boolean) => {
   menuOpen.value = next;
 };
@@ -47,14 +40,7 @@ watch(menuOpen, (open) => {
 </script>
 
 <template>
-  <header
-    class="fixed inset-x-0 top-0 z-[1200] transition-colors duration-300"
-    :class="
-      scrolled && !menuOpen
-        ? 'border-b border-[var(--rule)] bg-[var(--background)]/85 backdrop-blur-xl'
-        : ''
-    "
-  >
+  <header class="fixed inset-x-0 top-0 z-[1200] transition-colors duration-300">
     <div class="mx-auto flex h-14 max-w-[1360px] items-center gap-3 px-5 md:gap-6 md:px-8">
       <a href="#top" class="flex items-center gap-2.5">
         <img src="/icon.png" alt="" class="h-6 w-6 object-contain" width="24" height="24" />
@@ -73,7 +59,7 @@ watch(menuOpen, (open) => {
         >
           <GitHubIcon class="h-[18px] w-[18px]" />
         </a>
-        <ThreadButton href="#download" class="!px-3.5 !py-1.5 !text-[13px]">
+        <ThreadButton href="#download" class="hidden! lg:block! !px-3.5 !py-1.5 !text-[13px]">
           Download
         </ThreadButton>
         <button
