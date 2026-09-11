@@ -22,7 +22,7 @@ const steps = [
       <li v-for="step in steps" :key="step.call" class="flex items-baseline gap-2 px-3 py-2">
         <span class="text-[var(--accent)]">→</span>
         <span class="text-[var(--ink-0)]">{{ step.call }}</span>
-        <span v-if="step.args" class="truncate text-[var(--ink-3)]">{{ step.args }}</span>
+        <span v-if="step.args" class="min-w-0 truncate text-[var(--ink-3)]">{{ step.args }}</span>
         <span class="ml-auto shrink-0 text-[#5ad39a]">{{ step.result }}</span>
       </li>
     </ul>

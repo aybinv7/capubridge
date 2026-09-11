@@ -65,7 +65,7 @@ const flagships = [
         class="grid items-center gap-8 md:gap-12 lg:grid-cols-2 lg:gap-16"
         :style="{ '--card-accent': item.accent }"
       >
-        <div :class="index % 2 === 1 ? 'lg:order-2' : ''">
+        <div class="min-w-0" :class="index % 2 === 1 ? 'lg:order-2' : ''">
           <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--card-accent)]">
             {{ item.kicker }}
           </p>
@@ -90,7 +90,7 @@ const flagships = [
           </ul>
         </div>
 
-        <div :class="index % 2 === 1 ? 'lg:order-1' : ''">
+        <div class="min-w-0" :class="index % 2 === 1 ? 'lg:order-1' : ''">
           <LayeredCard :accent="item.accent">
             <DiffPreview v-if="item.preview === 'diff'" />
             <LanesPreview v-else-if="item.preview === 'lanes'" />

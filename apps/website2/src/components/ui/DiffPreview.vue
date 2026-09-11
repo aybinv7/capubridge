@@ -29,7 +29,7 @@ const rows = [
       >
         <span class="w-2 shrink-0 text-center">{{ row.mark }}</span>
         <span class="w-[8.5rem] shrink-0 text-[var(--ink-3)]">{{ row.field }}</span>
-        <span class="truncate">{{ row.value }}</span>
+        <span class="min-w-0 truncate">{{ row.value }}</span>
       </li>
     </ul>
   </div>
