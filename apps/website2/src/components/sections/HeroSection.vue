@@ -2,23 +2,19 @@
 import { ref } from "vue";
 import BlurText from "@/components/BlurText/BlurText.vue";
 import Threads from "@/components/Threads/Threads.vue";
-import TextType from "@/components/TextType/TextType.vue";
 import AppFrame from "@/components/ui/AppFrame.vue";
 import DownloadCTA from "@/components/ui/DownloadCTA.vue";
 import ScrollTiltFrame from "@/components/ui/ScrollTiltFrame.vue";
-// Variant A (previous default) - a vertical attach timeline: Device -> Target -> Session.
-// Swap back by uncommenting this import and the <AttachChain /> below, and removing
-// the HeroTerminalFeed import/usage.
-// import AttachChain from "@/components/sections/AttachChain.vue";
-import HeroTerminalFeed from "@/components/sections/HeroTerminalFeed.vue";
+// Earlier right-column variants, kept on disk to compare against:
+//   import AttachChain from "@/components/sections/AttachChain.vue";
+//   import HeroTerminalFeed from "@/components/sections/HeroTerminalFeed.vue";
+import HeroClipFrame from "@/components/sections/HeroClipFrame.vue";
 import { useInView } from "@/composables/useInView";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 
 const hero = ref<HTMLElement | null>(null);
 const { reduced } = useReducedMotion();
 const { inView } = useInView(hero);
-
-const requirements = ["Android device", "USB debugging", "ADB in PATH"];
 </script>
 
 <template>
@@ -47,7 +43,12 @@ const requirements = ["Android device", "USB debugging", "ADB in PATH"];
     </div>
 
     <div class="relative mx-auto max-w-[1360px] px-5 md:px-8">
-      <div class="grid gap-12 lg:grid-cols-[1.32fr_0.68fr] lg:items-start">
+      <!--
+        Close to even: the clip is a split composition (phone beside data) and
+        needs real width, or the data half is too small to read. The headline
+        is capped at 13ch anyway, so the text column loses nothing.
+      -->
+      <div class="grid gap-12 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-14">
         <div class="flex flex-col items-center text-center lg:items-start lg:pt-6 lg:text-left">
           <p
             class="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--ink-2)]"
@@ -78,35 +79,14 @@ const requirements = ["Android device", "USB debugging", "ADB in PATH"];
         </div>
 
         <div class="lg:pt-2">
-          <!-- Variant A: <AttachChain /> - a vertical attach timeline. -->
-          <HeroTerminalFeed />
-
-          <dl class="mt-2 grid grid-cols-2 gap-px border border-[var(--rule)] bg-[var(--rule)]">
-            <div class="bg-[var(--background)] p-4">
-              <dt class="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-3)]">
-                Session
-              </dt>
-              <dd class="mt-2 font-mono text-[12px] text-[var(--ink-1)]">
-                <TextType
-                  :text="['adb attach', 'forward cdp', 'read storage', 'capture proof']"
-                  :typing-speed="46"
-                  :deleting-speed="24"
-                  :pause-duration="1400"
-                  :show-cursor="true"
-                  cursor-character="_"
-                  cursor-class-name="text-[var(--accent)]"
-                />
-              </dd>
-            </div>
-            <div v-for="req in requirements" :key="req" class="bg-[var(--background)] p-4">
-              <dt class="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-3)]">
-                Requires
-              </dt>
-              <dd class="mt-2 text-[13px] leading-5 text-[var(--ink-1)]">
-                {{ req }}
-              </dd>
-            </div>
-          </dl>
+          <!--
+            Variant A: <AttachChain /> - a vertical attach timeline.
+            Variant B: <HeroTerminalFeed /> - a typed session log.
+            Both are still on disk; swap the import back in to compare.
+            The requirements grid that used to sit here is already stated at
+            the download decision, which is where it actually helps.
+          -->
+          <HeroClipFrame />
         </div>
       </div>
 
