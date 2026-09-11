@@ -9,8 +9,8 @@ const { primary, latestTag, releasesLatest } = useReleaseDownloads();
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-4 lg:items-start">
-    <div class="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+  <div class="flex flex-col items-center gap-4">
+    <div class="flex flex-wrap items-center justify-center gap-3">
       <ThreadButton v-if="primary" variant="primary" :href="primary.href" external accent="#141112">
         <PlatformIcon :platform="primary.meta.key" class="h-[17px] w-[17px]" />
         Download for {{ primary.meta.os }}
@@ -36,7 +36,7 @@ const { primary, latestTag, releasesLatest } = useReleaseDownloads();
 
     <p
       v-if="!compact"
-      class="text-center font-mono text-[11px] tracking-[0.08em] text-[var(--ink-3)] lg:text-left"
+      class="text-center font-mono text-[11px] tracking-[0.08em] text-[var(--ink-3)]"
     >
       <template v-if="primary">{{ primary.meta.arch }} · {{ primary.meta.format }} · </template>
       <a
