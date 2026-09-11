@@ -48,7 +48,7 @@ const requirements = ["Android device", "USB debugging", "ADB in PATH"];
 
     <div class="relative mx-auto max-w-[1360px] px-5 md:px-8">
       <div class="grid gap-12 lg:grid-cols-[1.32fr_0.68fr] lg:items-start">
-        <div class="lg:pt-6">
+        <div class="flex flex-col items-center text-center lg:items-start lg:pt-6 lg:text-left">
           <p
             class="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--ink-2)]"
           >
@@ -62,7 +62,7 @@ const requirements = ["Android device", "USB debugging", "ADB in PATH"];
             animate-by="words"
             direction="top"
             :delay="90"
-            class-name="mt-6 max-w-[13ch] font-[var(--font-display)] text-[44px] font-semibold leading-[0.98] tracking-[-0.035em] text-[var(--ink-0)] sm:text-[62px] xl:text-[82px]"
+            class-name="mt-6 max-w-[13ch] justify-center font-[var(--font-display)] text-[44px] font-semibold leading-[0.98] tracking-[-0.035em] text-[var(--ink-0)] sm:text-[62px] lg:justify-start xl:text-[82px]"
           />
 
           <p
@@ -72,7 +72,7 @@ const requirements = ["Android device", "USB debugging", "ADB in PATH"];
             storage, DOM, network, logs and a live mirror of the phone in one native window.
           </p>
 
-          <div class="mt-9">
+          <div class="mt-9 flex w-full justify-center lg:w-auto lg:justify-start">
             <DownloadCTA />
           </div>
         </div>

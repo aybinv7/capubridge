@@ -145,33 +145,49 @@ const openLightbox = (key: string) => {
       </div>
     </div>
 
-    <!-- Below lg a pinned stage fights the scroll, so the same steps stack. -->
-    <div class="mx-auto max-w-[1360px] space-y-14 px-5 pb-16 pt-12 md:px-8 lg:hidden">
-      <RevealOnScroll
-        v-for="(feature, index) in features"
-        :key="feature.key"
-        :delay="40"
-        :distance="20"
-        :style="{ '--card-accent': feature.accent }"
-      >
-        <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--card-accent)]">
-          {{ String(index + 1).padStart(2, "0") }} · {{ feature.label }}
-        </p>
-        <h3
-          class="mt-3 max-w-[24ch] font-[var(--font-display)] text-[24px] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--ink-0)]"
+    <!--
+      Below lg a pinned stage fights touch scrolling, so the steps become a
+      horizontal, swipeable carousel instead - one card per capability,
+      snapped, with the page scroll left untouched.
+    -->
+    <div class="lg:hidden">
+      <RevealOnScroll :distance="20" class="mt-10">
+        <div
+          class="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 md:px-8"
         >
-          {{ feature.title }}
-        </h3>
-        <p class="mt-3 text-[14px] font-normal leading-[1.75] text-[var(--ink-2)]">
-          {{ feature.body }}
-        </p>
-        <div>
-          <AppFrame
-            :capture="feature.capture"
-            ratio="1.9 / 1"
-            :crop="false"
-            :show-caption="false"
-          />
+          <article
+            v-for="(feature, index) in features"
+            :key="feature.key"
+            class="w-[82vw] shrink-0 snap-start sm:w-[420px]"
+            :style="{ '--card-accent': feature.accent }"
+          >
+            <button
+              type="button"
+              class="block w-full text-left"
+              @click="openLightbox(feature.capture)"
+            >
+              <AppFrame
+                :capture="feature.capture"
+                ratio="1.9 / 1"
+                :crop="false"
+                :show-caption="false"
+              />
+            </button>
+
+            <p
+              class="mt-4 font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--card-accent)]"
+            >
+              {{ String(index + 1).padStart(2, "0") }} · {{ feature.label }}
+            </p>
+            <h3
+              class="mt-3 font-[var(--font-display)] text-[22px] font-semibold leading-[1.1] tracking-[-0.02em] text-[var(--ink-0)]"
+            >
+              {{ feature.title }}
+            </h3>
+            <p class="mt-2.5 text-[14px] font-normal leading-[1.7] text-[var(--ink-2)]">
+              {{ feature.body }}
+            </p>
+          </article>
         </div>
       </RevealOnScroll>
     </div>

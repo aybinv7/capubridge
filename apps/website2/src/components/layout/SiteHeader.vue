@@ -3,7 +3,6 @@ import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import ThreadButton from "@/components/ui/ThreadButton.vue";
 import GitHubIcon from "@/components/ui/GitHubIcon.vue";
 import { navLinks, REPO_URL } from "@/data/site";
-import { withViewTransition } from "@/utils/viewTransition";
 
 const scrolled = ref(false);
 const menuOpen = ref(false);
@@ -12,11 +11,15 @@ const onScroll = () => {
   scrolled.value = window.scrollY > 24;
 };
 
+/**
+ * A plain ref toggle animated by Vue's <Transition>, not the View Transition
+ * API: on mobile Safari/Chrome, document.startViewTransition() snapshotting
+ * a fixed, backdrop-blurred overlay is exactly the combination that flickers
+ * before the transition settles. A CSS transform transition never has that
+ * failure mode.
+ */
 const setMenu = (next: boolean) => {
-  if (menuOpen.value === next) return;
-  withViewTransition(() => {
-    menuOpen.value = next;
-  });
+  menuOpen.value = next;
 };
 
 const toggleMenu = () => setMenu(!menuOpen.value);
@@ -98,88 +101,89 @@ watch(menuOpen, (open) => {
   </header>
 
   <Teleport to="body">
-    <div
-      v-if="menuOpen"
-      id="mobile-nav"
-      class="mobile-overlay fixed inset-0 z-[1300] flex flex-col bg-[var(--background)]/92 backdrop-blur-2xl md:hidden"
-      style="view-transition-name: mobile-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Site navigation"
-    >
-      <div class="flex h-14 shrink-0 items-center justify-between px-5">
-        <a href="#top" class="flex items-center gap-2.5" @click="closeMenu">
-          <img src="/icon.png" alt="" class="h-6 w-6 object-contain" width="24" height="24" />
-          <span class="font-[var(--font-display)] text-[15px] font-semibold tracking-[-0.01em]">
-            Capubridge
-          </span>
-        </a>
-        <button
-          type="button"
-          class="flex h-9 w-9 items-center justify-center rounded-md border border-[var(--rule-strong)] text-[var(--ink-1)] transition-colors duration-150 hover:border-[var(--accent)] hover:text-[var(--accent)]"
-          aria-label="Close menu"
-          @click="closeMenu"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            class="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      </div>
-
-      <nav class="flex flex-1 flex-col justify-center gap-0 overflow-y-auto px-6">
-        <a
-          v-for="link in navLinks"
-          :key="link.href"
-          :href="link.href"
-          class="menu-link group flex items-center justify-between border-b border-[var(--rule)] py-5"
-          @click="closeMenu"
-        >
-          <span
-            class="font-[var(--font-display)] text-[30px] font-semibold tracking-[-0.02em] text-[var(--ink-0)] sm:text-[36px]"
-          >
-            {{ link.label }}
-          </span>
-          <svg
-            viewBox="0 0 24 24"
-            class="tilt-arrow h-6 w-6 shrink-0 text-[var(--ink-3)] transition-all duration-300 group-hover:text-[var(--accent)]"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M7 17L17 7M9 7h8v8" />
-          </svg>
-        </a>
-      </nav>
-
+    <Transition name="drop">
       <div
-        class="flex shrink-0 items-center justify-between border-t border-[var(--rule)] px-6 py-6"
+        v-if="menuOpen"
+        id="mobile-nav"
+        class="mobile-overlay fixed inset-0 z-[1300] flex flex-col bg-[var(--background)]/92 backdrop-blur-2xl md:hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Site navigation"
       >
-        <a
-          :href="REPO_URL"
-          target="_blank"
-          rel="noopener"
-          class="flex items-center gap-2 text-[13px] text-[var(--ink-2)]"
-          @click="closeMenu"
+        <div class="flex h-14 shrink-0 items-center justify-between px-5">
+          <a href="#top" class="flex items-center gap-2.5" @click="closeMenu">
+            <img src="/icon.png" alt="" class="h-6 w-6 object-contain" width="24" height="24" />
+            <span class="font-[var(--font-display)] text-[15px] font-semibold tracking-[-0.01em]">
+              Capubridge
+            </span>
+          </a>
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-md border border-[var(--rule-strong)] text-[var(--ink-1)] transition-colors duration-150 hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            aria-label="Close menu"
+            @click="closeMenu"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              class="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <nav class="flex flex-1 flex-col justify-center gap-0 overflow-y-auto px-6">
+          <a
+            v-for="link in navLinks"
+            :key="link.href"
+            :href="link.href"
+            class="menu-link group flex items-center justify-between border-b border-[var(--rule)] py-5"
+            @click="closeMenu"
+          >
+            <span
+              class="font-[var(--font-display)] text-[30px] font-semibold tracking-[-0.02em] text-[var(--ink-0)] sm:text-[36px]"
+            >
+              {{ link.label }}
+            </span>
+            <svg
+              viewBox="0 0 24 24"
+              class="tilt-arrow h-6 w-6 shrink-0 text-[var(--ink-3)] transition-all duration-300 group-hover:text-[var(--accent)]"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M7 17L17 7M9 7h8v8" />
+            </svg>
+          </a>
+        </nav>
+
+        <div
+          class="flex shrink-0 items-center justify-between border-t border-[var(--rule)] px-6 py-6"
         >
-          <GitHubIcon class="h-[18px] w-[18px]" />
-          GitHub
-        </a>
-        <ThreadButton href="#download" variant="primary" @click="closeMenu">
-          Download
-        </ThreadButton>
+          <a
+            :href="REPO_URL"
+            target="_blank"
+            rel="noopener"
+            class="flex items-center gap-2 text-[13px] text-[var(--ink-2)]"
+            @click="closeMenu"
+          >
+            <GitHubIcon class="h-[18px] w-[18px]" />
+            GitHub
+          </a>
+          <ThreadButton href="#download" variant="primary" @click="closeMenu">
+            Download
+          </ThreadButton>
+        </div>
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -193,20 +197,31 @@ watch(menuOpen, (open) => {
   transform: rotate(0deg) scale(1.1);
 }
 
-/* Fallback for browsers without the View Transition API. */
-@supports not (view-transition-name: none) {
-  .mobile-overlay {
-    animation: overlay-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
+/*
+ * Unfurls downward from the header, like a blind dropping - transform and
+ * opacity only, so it stays on the compositor and never touches layout.
+ */
+.drop-enter-active {
+  transition:
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 220ms ease;
 }
 
-@keyframes overlay-in {
-  from {
-    opacity: 0;
-  }
+.drop-leave-active {
+  transition:
+    transform 240ms cubic-bezier(0.4, 0, 1, 1),
+    opacity 200ms ease;
+}
 
-  to {
-    opacity: 1;
-  }
+.drop-enter-from,
+.drop-leave-to {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+.drop-enter-to,
+.drop-leave-from {
+  transform: translateY(0);
+  opacity: 1;
 }
 </style>
