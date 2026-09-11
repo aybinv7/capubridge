@@ -1,36 +1,51 @@
-/* Google Fonts are loaded via <link rel="preconnect"> + <link rel="stylesheet">
-   in index.html (a CSS @import here would chain and block rendering). */
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
 :root {
-  --background: #0b0b0d;
-  --foreground: #f2efe9;
-  --surface-0: #101012;
-  --surface-1: #151518;
-  --surface-2: #1d1d21;
-  --muted-foreground: #9a968c;
+  --background: #0c0d11;
+  --surface-0: #101117;
+  --surface-1: #15161d;
+  --surface-2: #1a1b23;
+
+  --ink-0: #f4f2ee;
+  --ink-1: rgba(244, 242, 238, 0.78);
+  --ink-2: rgba(244, 242, 238, 0.56);
+  --ink-3: rgba(244, 242, 238, 0.38);
+
+  --rule: rgba(226, 232, 244, 0.08);
+  --rule-strong: rgba(226, 232, 244, 0.15);
+
   --accent: #e8765a;
   --accent-hover: #f08a70;
-  --border: #26262b;
-  --font-display: "Syne", "Manrope", ui-sans-serif, system-ui, sans-serif;
-  color: var(--foreground);
+
+  /* Per-card accent, overridden inline. Every filament reads from this. */
+  --card-accent: var(--accent);
+
+  --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+
+  color: var(--ink-1);
   background: var(--background);
   font-family: var(--font-sans);
   font-synthesis: none;
-  letter-spacing: 0;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 html {
-  scroll-behavior: smooth;
   background: var(--background);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 body {
@@ -38,9 +53,111 @@ body {
   min-width: 320px;
   overflow-x: hidden;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px), var(--background);
-  background-size: 48px 48px;
+    radial-gradient(120% 60% at 50% -10%, rgba(232, 118, 90, 0.05), transparent 58%),
+    radial-gradient(90% 50% at 82% 4%, rgba(113, 203, 255, 0.04), transparent 60%),
+    var(--background);
+}
+
+/* ---------------------------------------------------------------------------
+   Page texture: a tiled monochrome grain over the whole surface, plus a 4px
+   hairline weave for panels that should read as machined rather than flat.
+   --------------------------------------------------------------------------- */
+
+.page-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px 180px;
+  opacity: 0.055;
+}
+
+.texture-weave {
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(226, 232, 244, 0.035) 0px,
+    rgba(226, 232, 244, 0.035) 1px,
+    transparent 1px,
+    transparent 5px
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Section patterns. Each one is a masked, very low contrast field drawn from
+   the rule colour, so a section reads as its own surface without becoming
+   wallpaper behind the text.
+   --------------------------------------------------------------------------- */
+
+.pattern-grid::before,
+.pattern-dots::before,
+.pattern-hatch::before,
+.pattern-rings::before {
+  position: absolute;
+  z-index: -1;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  mask-image: radial-gradient(120% 80% at 50% 0%, #000 10%, transparent 72%);
+}
+
+.pattern-grid::before {
+  background-image:
+    linear-gradient(to right, rgba(226, 232, 244, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 232, 244, 0.05) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+.pattern-dots::before {
+  background-image: radial-gradient(rgba(226, 232, 244, 0.09) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+.pattern-hatch::before {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(226, 232, 244, 0.045) 0px,
+    rgba(226, 232, 244, 0.045) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+}
+
+.pattern-rings::before {
+  background-image: repeating-radial-gradient(
+    circle at 50% 0%,
+    rgba(226, 232, 244, 0.05) 0px,
+    rgba(226, 232, 244, 0.05) 1px,
+    transparent 1px,
+    transparent 88px
+  );
+}
+
+/* LogoLoop injects marks through innerHTML, so these cannot be scoped. */
+.runtime-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  color: var(--ink-3);
+  transition:
+    color 260ms ease,
+    filter 260ms ease;
+}
+
+.runtime-mark svg {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  fill: currentColor;
+}
+
+.runtime-name {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.runtime-mark:hover {
+  color: var(--brand);
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--brand) 45%, transparent));
 }
 
 button,
@@ -48,75 +165,74 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
+
 img {
   max-width: 100%;
 }
 
 ::selection {
-  color: #0b0b0d;
+  color: #141112;
   background: var(--accent);
 }
 
-.hero-mode-swap-enter-active,
-.hero-mode-swap-leave-active,
-.hero-copy-swap-enter-active,
-.hero-copy-swap-leave-active {
+/* ---------------------------------------------------------------------------
+   Strings: the site's one decorative primitive. A filament is a 1px stroke
+   that draws on hover and snaps back on release.
+   --------------------------------------------------------------------------- */
+
+.filament {
+  fill: none;
+  stroke: var(--card-accent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: var(--filament-length, 1000);
+  stroke-dashoffset: var(--filament-length, 1000);
+  transition: stroke-dashoffset 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.filament-host:hover .filament,
+.filament-host:focus-visible .filament,
+.filament-host[data-drawn="true"] .filament {
+  stroke-dashoffset: 0;
+}
+
+/* Stacked sheets behind a card, revealed with a per-layer delay. */
+.sheet {
   transition:
-    opacity 260ms ease,
-    transform 260ms ease;
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 380ms ease;
+  transition-delay: var(--sheet-delay, 0ms);
 }
 
-.hero-mode-swap-enter-from,
-.hero-mode-swap-leave-to,
-.hero-copy-swap-enter-from,
-.hero-copy-swap-leave-to {
-  opacity: 0;
-  transform: translateY(16px) scale(0.985);
+@keyframes thread-travel {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
 }
 
-.hero-drift {
-  animation: hero-drift 6s ease-in-out infinite;
+.thread-travel {
+  animation: thread-travel 1.6s linear infinite;
 }
 
 .feature-panel-enter-active,
 .feature-panel-leave-active {
   transition:
-    opacity 280ms ease,
-    transform 280ms ease;
+    opacity 220ms ease,
+    transform 220ms ease;
 }
 
 .feature-panel-enter-from,
 .feature-panel-leave-to {
   opacity: 0;
-  transform: translateY(8px);
-}
-
-.screenshot-fade-enter-active,
-.screenshot-fade-leave-active,
-.caption-fade-enter-active,
-.caption-fade-leave-active {
-  transition:
-    opacity 280ms ease,
-    transform 280ms ease;
-}
-
-.screenshot-fade-enter-from,
-.screenshot-fade-leave-to,
-.caption-fade-enter-from,
-.caption-fade-leave-to {
-  opacity: 0;
-  transform: scale(0.98);
-}
-
-@keyframes hero-drift {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-6px);
-  }
+  transform: translateY(6px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -133,3 +249,53 @@ img {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   View Transitions: a calm default cross-fade, plus named overrides for the
+   mobile menu reveal and the gallery lightbox's shared-element morph.
+   --------------------------------------------------------------------------- */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-new(mobile-overlay) {
+  animation: menu-reveal 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(mobile-overlay) {
+  animation: menu-conceal 200ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes menu-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes menu-conceal {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+/*
+ * The gallery lightbox names each thumbnail dynamically (shot-<key>) and
+ * reuses that name on the enlarged image, so the browser's own default
+ * cross-fade + position/size morph runs per pair with no per-name CSS
+ * needed here - that default *is* the shared-element effect.
+ */

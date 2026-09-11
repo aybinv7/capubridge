@@ -36,3 +36,6 @@ reference/
 Releases.md.worktrees/
 
 opencode.json
+
+# Rust build cache/validation artifacts (not source)
+.cargo-target-validation/

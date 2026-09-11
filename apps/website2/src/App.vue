@@ -1,25 +1,27 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import "./style.css";
 
-import HeroLaunch from "@/components/HeroLaunch.vue";
-import HeroLaunchV2 from "@/components/HeroLaunchV2.vue";
-import ProblemSection from "@/components/ProblemSection.vue";
-import FeaturesSection from "@/components/FeaturesSection.vue";
-import CTASection from "@/components/CTASection.vue";
-import LaunchFooter from "@/components/LaunchFooter.vue";
-import { heroModes } from "@/data/marketing";
-
-const isV2 = computed(() => window.location.search.includes("v2"));
+import PageFrame from "@/components/layout/PageFrame.vue";
+import SiteHeader from "@/components/layout/SiteHeader.vue";
+import SiteFooter from "@/components/layout/SiteFooter.vue";
+import HeroSection from "@/components/sections/HeroSection.vue";
+import RuntimeMarquee from "@/components/sections/RuntimeMarquee.vue";
+import HowItWorksSection from "@/components/sections/HowItWorksSection.vue";
+import FeaturesSection from "@/components/sections/FeaturesSection.vue";
+import FlagshipSection from "@/components/sections/FlagshipSection.vue";
+import DownloadSection from "@/components/sections/DownloadSection.vue";
 </script>
 
 <template>
-  <main class="min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-    <HeroLaunchV2 v-if="isV2" :modes="heroModes" />
-    <HeroLaunch v-else :modes="heroModes" />
-    <ProblemSection />
+  <PageFrame />
+  <SiteHeader />
+  <main>
+    <HeroSection />
+    <RuntimeMarquee />
+    <HowItWorksSection />
     <FeaturesSection />
-    <CTASection />
-    <LaunchFooter />
+    <FlagshipSection />
+    <DownloadSection />
   </main>
+  <SiteFooter />
 </template>

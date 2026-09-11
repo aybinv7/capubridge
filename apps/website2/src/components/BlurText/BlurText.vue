@@ -1,5 +1,5 @@
 <template>
-  <p ref="rootRef" class="flex flex-wrap blur-text" :class="className">
+  <component :is="as" ref="rootRef" class="flex flex-wrap blur-text" :class="className">
     <Motion
       v-for="(segment, index) in elements"
       :key="index"
@@ -19,7 +19,7 @@
       {{ segment === " " ? "\u00A0" : segment }}
       <template v-if="animateBy === 'words' && index < elements.length - 1">&nbsp;</template>
     </Motion>
-  </p>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -28,6 +28,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from "vue";
 
 type BlurTextProps = {
   text?: string;
+  as?: string;
   delay?: number;
   className?: string;
   animateBy?: "words" | "letters";
@@ -55,6 +56,7 @@ const buildKeyframes = (
 };
 
 const props = withDefaults(defineProps<BlurTextProps>(), {
+  as: "p",
   text: "",
   delay: 200,
   className: "",
@@ -67,7 +69,7 @@ const props = withDefaults(defineProps<BlurTextProps>(), {
 });
 
 const inView = ref(false);
-const rootRef = useTemplateRef<HTMLParagraphElement>("rootRef");
+const rootRef = useTemplateRef<HTMLElement>("rootRef");
 let observer: IntersectionObserver | null = null;
 
 // Render the text at its final, fully-visible state immediately on phones and
