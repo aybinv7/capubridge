@@ -30,10 +30,27 @@ const props = withDefaults(
 </template>
 
 <style scoped>
+/*
+ * Ambient at rest, not hidden until hover: the peeled-sheet look is the
+ * site's identity mark, so it has to be visible without an interaction to
+ * discover it. Hover/focus just settles the sheets further out and
+ * brightens them - an enhancement on top of a state that already reads.
+ */
 .sheet {
   border-color: color-mix(in srgb, var(--card-accent) 34%, transparent);
-  opacity: 0;
-  transform: translate3d(0, 0, 0);
+  transform: translate3d(calc(5px * var(--sheet-index)), calc(5px * var(--sheet-index)), 0);
+}
+
+.sheet:nth-of-type(1) {
+  opacity: 0.4;
+}
+
+.sheet:nth-of-type(2) {
+  opacity: 0.22;
+}
+
+.sheet:nth-of-type(3) {
+  opacity: 0.12;
 }
 
 .layered:hover .sheet,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SectionHeader from "@/components/ui/SectionHeader.vue";
 import RevealOnScroll from "@/components/ui/RevealOnScroll.vue";
+import LayeredCard from "@/components/ui/LayeredCard.vue";
 import DiffPreview from "@/components/ui/DiffPreview.vue";
 import LanesPreview from "@/components/ui/LanesPreview.vue";
 import AgentPreview from "@/components/ui/AgentPreview.vue";
@@ -90,9 +91,11 @@ const flagships = [
         </div>
 
         <div :class="index % 2 === 1 ? 'lg:order-1' : ''">
-          <DiffPreview v-if="item.preview === 'diff'" />
-          <LanesPreview v-else-if="item.preview === 'lanes'" />
-          <AgentPreview v-else />
+          <LayeredCard :accent="item.accent">
+            <DiffPreview v-if="item.preview === 'diff'" />
+            <LanesPreview v-else-if="item.preview === 'lanes'" />
+            <AgentPreview v-else />
+          </LayeredCard>
         </div>
       </RevealOnScroll>
     </div>
