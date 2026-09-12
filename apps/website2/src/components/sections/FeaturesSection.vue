@@ -4,12 +4,20 @@ import SectionHeader from "@/components/ui/SectionHeader.vue";
 import RevealOnScroll from "@/components/ui/RevealOnScroll.vue";
 import AppFrame from "@/components/ui/AppFrame.vue";
 import ScreenshotLightbox from "@/components/ui/ScreenshotLightbox.vue";
+import { useMediaQuery } from "@/composables/useMediaQuery";
 import { useScrollSequence } from "@/composables/useScrollSequence";
 import { captures } from "@/data/screenshots";
 import { features } from "@/data/features";
 
 /** Viewport heights of scroll spent on each step while the stage is pinned. */
 const STEP_VH = 46;
+
+/**
+ * Branch on the query rather than on `hidden lg:block`, so the pinned rail's
+ * ten extra frames are absent from the phone's DOM instead of merely
+ * invisible in it.
+ */
+const isDesktop = useMediaQuery("(min-width: 1024px)");
 
 const track = ref<HTMLElement | null>(null);
 const { progress } = useScrollSequence(track);
@@ -59,8 +67,9 @@ const openLightbox = (key: string) => {
       screenshots play through as you move down the page.
     -->
     <div
+      v-if="isDesktop"
       ref="track"
-      class="relative mt-10 hidden lg:block"
+      class="relative mt-10"
       :style="{ height: `${features.length * STEP_VH + 40}vh` }"
     >
       <div class="sticky top-8 flex h-screen items-center">
@@ -150,7 +159,7 @@ const openLightbox = (key: string) => {
       horizontal, swipeable carousel instead - one card per capability,
       snapped, with the page scroll left untouched.
     -->
-    <div class="lg:hidden">
+    <div v-else>
       <RevealOnScroll :distance="20" class="mt-10">
         <div
           class="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 md:px-8"

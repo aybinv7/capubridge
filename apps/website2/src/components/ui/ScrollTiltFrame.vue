@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useElementReveal } from "@/composables/useElementReveal";
+import { useHeavyEffects } from "@/composables/useHeavyEffects";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 
 const host = ref<HTMLElement | null>(null);
 const { progress } = useElementReveal(host);
+const { heavyEffectsAllowed } = useHeavyEffects();
 const { reduced } = useReducedMotion();
 
 const eased = computed(() => {
@@ -12,12 +14,24 @@ const eased = computed(() => {
   return 1 - Math.pow(1 - t, 3);
 });
 
+/**
+ * The tilt animates scale and rotateX across a box holding a full-width
+ * screenshot. On a phone that is a large promoted layer being re-composited
+ * against every scroll frame, so below the gate the reveal keeps only the
+ * translate and the fade - both of which the compositor does for free.
+ */
 const stageStyle = computed(() => {
   if (reduced.value) return undefined;
   const t = eased.value;
+  const opacity = String(0.18 + t * 0.82);
+
+  if (!heavyEffectsAllowed.value) {
+    return { transform: `translate3d(0, ${(1 - t) * 28}px, 0)`, opacity };
+  }
+
   return {
     transform: `translate3d(0, ${(1 - t) * 64}px, 0) scale(${0.94 + t * 0.06}) rotateX(${(1 - t) * 24}deg)`,
-    opacity: String(0.18 + t * 0.82),
+    opacity,
   };
 });
 

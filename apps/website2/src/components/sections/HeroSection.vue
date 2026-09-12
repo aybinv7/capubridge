@@ -9,11 +9,11 @@ import ScrollTiltFrame from "@/components/ui/ScrollTiltFrame.vue";
 //   import AttachChain from "@/components/sections/AttachChain.vue";
 //   import HeroTerminalFeed from "@/components/sections/HeroTerminalFeed.vue";
 //   import HeroClipFrame from "@/components/sections/HeroClipFrame.vue";
+import { useHeavyEffects } from "@/composables/useHeavyEffects";
 import { useInView } from "@/composables/useInView";
-import { useReducedMotion } from "@/composables/useReducedMotion";
 
 const hero = ref<HTMLElement | null>(null);
-const { reduced } = useReducedMotion();
+const { heavyEffectsAllowed } = useHeavyEffects();
 const { inView } = useInView(hero);
 </script>
 
@@ -34,8 +34,13 @@ const { inView } = useInView(hero);
       <div
         class="absolute left-1/2 top-[-10px] h-[720px] w-[min(1600px,155%)] -translate-x-1/2 opacity-60 [mask-image:radial-gradient(62%_68%_at_50%_38%,black,transparent_74%)]"
       >
+        <!--
+          Forty shader iterations, two Perlin evaluations each, over every
+          pixel of a 700px-tall field on every frame. That is a desktop GPU's
+          job; on a phone the radial wash behind it carries the same mood.
+        -->
         <Threads
-          v-if="!reduced && inView"
+          v-if="heavyEffectsAllowed && inView"
           :color="[0.91, 0.46, 0.35]"
           :amplitude="1.4"
           :distance="0.35"

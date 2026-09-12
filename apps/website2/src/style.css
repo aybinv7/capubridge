@@ -69,6 +69,22 @@ body {
     var(--background);
 }
 
+/*
+ * The phone-side stand-in for GradualBlur, keeping the header legible over
+ * whatever scrolls under it. One painted gradient, no backdrop sampling, so
+ * it costs the compositor nothing per frame.
+ */
+.edge-scrim {
+  position: fixed;
+  z-index: 1100;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4.5rem;
+  background: linear-gradient(180deg, var(--background) 34%, transparent);
+  pointer-events: none;
+}
+
 /* ---------------------------------------------------------------------------
    Page texture: a tiled monochrome grain over the whole surface, plus a 4px
    hairline weave for panels that should read as machined rather than flat.
