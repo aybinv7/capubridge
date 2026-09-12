@@ -34,7 +34,11 @@ export function useSqliteRowDetail(options: UseSqliteRowDetailOptions) {
   );
 
   function viewDiff() {
-    if (selectedRow.value) options.onViewDiff?.(selectedRow.value);
+    if (!selectedRow.value) return;
+    // The diff replaces the row viewer rather than stacking on it: two modals
+    // at the same layer leave the diff dimmed but buried underneath.
+    isDetailOpen.value = false;
+    options.onViewDiff?.(selectedRow.value);
   }
 
   const badge = computed<null | "unsaved" | "invalid">(() => {

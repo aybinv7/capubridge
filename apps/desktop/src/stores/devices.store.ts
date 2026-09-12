@@ -150,6 +150,23 @@ export const useDevicesStore = defineStore("devices", () => {
 
   function setDevices(_newDevices: ADBDevice[]) {}
 
+  /**
+   * Removes a device that will never reconnect on its own — most useful for a
+   * stale Wi-Fi entry left behind after its IP changed under DHCP. A device
+   * still reachable over ADB reappears on the next scan regardless.
+   */
+  async function forgetDevice(serial: string) {
+    if (selectedDevice.value?.serial === serial) {
+      const activeAdbTarget =
+        targetsStore.selectedTarget?.source === "adb" ? targetsStore.selectedTarget : null;
+      if (activeAdbTarget) {
+        await connectionStore.disconnectTarget(activeAdbTarget.id);
+        targetsStore.selectTarget(null);
+      }
+    }
+    await sessionStore.forgetDevice(serial);
+  }
+
   return {
     devices,
     selectedDevice,
@@ -162,5 +179,6 @@ export const useDevicesStore = defineStore("devices", () => {
     stopPolling,
     selectDevice,
     setDevices,
+    forgetDevice,
   };
 });

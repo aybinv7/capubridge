@@ -46,9 +46,13 @@ pub async fn connect(ws_url: &str) -> Result<CdpSocket, String> {
         request.headers_mut().remove(header);
     }
 
-    let (socket, _) = tokio_tungstenite::connect_async(request)
-        .await
-        .map_err(|error| format!("Failed to connect to CDP target: {error}"))?;
+    let (socket, _) = tokio_tungstenite::connect_async_with_config(
+        request,
+        Some(crate::commands::cdp_proxy::cdp_socket_config()),
+        false,
+    )
+    .await
+    .map_err(|error| format!("Failed to connect to CDP target: {error}"))?;
     Ok(socket)
 }
 

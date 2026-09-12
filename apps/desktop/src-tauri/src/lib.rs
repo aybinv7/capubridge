@@ -52,11 +52,12 @@ use commands::recording_db::{
     recording_database_snapshot_finish, recording_database_snapshot_page,
     recording_database_sources, recording_database_table_rows,
 };
+use commands::opfs_pull::{opfs_pull_sqlite, opfs_stat_file};
 use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
 use commands::sqlite::{
     sqlite_close_database, sqlite_execute_query, sqlite_execute_write, sqlite_export_bytes,
     sqlite_list_databases, sqlite_open_database, sqlite_overwrite_local_bytes,
-    sqlite_refresh_database, sqlite_save_local_bytes, sqlite_scan_all_databases,
+    sqlite_refresh_database, sqlite_save_local_bytes, sqlite_scan_all_databases, sqlite_stat_database,
     sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
 };
 use commands::updater::{updater_check, updater_install, PendingUpdate};
@@ -75,7 +76,8 @@ use session::{
     session_list_devices, session_list_packages, session_list_reverse,
     session_list_targets, session_list_webview_sockets, session_open_package,
     session_reboot, session_refresh_devices, session_refresh_packages, session_refresh_targets,
-    session_remove_reverse, session_reverse, session_root, session_set_active_device,
+    session_forget_device, session_remove_reverse, session_reverse, session_root,
+    session_set_active_device,
     session_shell_command, session_tcpip, start_device_tracker, SessionRegistryState,
 };
 
@@ -197,6 +199,7 @@ pub fn run() {
             session_get_registry_state,
             session_refresh_devices,
             session_set_active_device,
+            session_forget_device,
             session_get_device_info,
             session_shell_command,
             session_tcpip,
@@ -288,11 +291,14 @@ pub fn run() {
             read_local_file_base64,
             sqlite_list_databases,
             sqlite_scan_all_databases,
+            sqlite_stat_database,
             sqlite_open_database,
             sqlite_refresh_database,
             sqlite_close_database,
             sqlite_save_local_bytes,
             sqlite_overwrite_local_bytes,
+            opfs_pull_sqlite,
+            opfs_stat_file,
             sqlite_table_columns,
             sqlite_table_indexes,
             sqlite_table_foreign_keys,

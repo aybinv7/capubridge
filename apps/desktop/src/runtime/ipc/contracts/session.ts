@@ -14,6 +14,7 @@ export interface SessionCommandMap {
   session_get_registry_state: IpcCommand<undefined, SessionRegistrySnapshot>;
   session_refresh_devices: IpcCommand<undefined, SessionRegistrySnapshot>;
   session_set_active_device: IpcCommand<{ serial: string | null }, SessionRegistrySnapshot>;
+  session_forget_device: IpcCommand<{ serial: string }, SessionRegistrySnapshot>;
   session_get_device_info: IpcCommand<{ serial: string }, DeviceInfo>;
   session_shell_command: IpcCommand<{ serial: string; command: string }, string>;
   session_tcpip: IpcCommand<{ serial: string; port: number }, void>;

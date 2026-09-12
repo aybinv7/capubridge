@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight, Radio, RefreshCw } from "lucide-vue-next";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-vue-next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,15 +20,10 @@ const props = withDefaults(
     pageSize: number;
     hasMore: boolean;
     recordCount: number;
-    liveEnabled?: boolean;
-    liveIntervalMs?: number;
     changeSummary?: SqliteChangeSummary;
     showChangesOnly?: boolean;
-    showLiveControl?: boolean;
   }>(),
-  {
-    showLiveControl: true,
-  },
+  {},
 );
 
 const emit = defineEmits<{
@@ -36,7 +31,6 @@ const emit = defineEmits<{
   prev: [];
   next: [];
   pageSizeChange: [size: number];
-  toggleLive: [];
   toggleChangesOnly: [];
 }>();
 
@@ -92,23 +86,6 @@ const pageSizeOptions = [50, 100, 500];
           -{{ props.changeSummary.delete }}
         </Badge>
       </button>
-
-      <Button
-        v-if="props.showLiveControl !== false"
-        variant="ghost"
-        size="sm"
-        class="h-7 gap-1.5 px-2 text-xs"
-        :class="props.liveEnabled ? 'text-success' : 'text-muted-foreground'"
-        :title="
-          props.liveEnabled
-            ? `Live polling every ${(props.liveIntervalMs ?? 5000) / 1000}s`
-            : 'Enable live polling'
-        "
-        @click="emit('toggleLive')"
-      >
-        <Radio :size="13" :class="{ 'animate-pulse': props.liveEnabled }" />
-        Live
-      </Button>
 
       <Select
         :model-value="String(props.pageSize)"

@@ -12,7 +12,6 @@ import {
   Plus,
   WifiOff,
   Monitor,
-  MonitorSmartphone,
   Crosshair,
   Trash2,
 } from "lucide-vue-next";
@@ -30,6 +29,7 @@ import AdbReversePopover from "@/components/layout/AdbReversePopover.vue";
 import { ChevronRight } from "lucide-vue-next";
 import AppIcon from "@/modules/devices/AppIcon.vue";
 import EmulatorLauncherPanel from "@/modules/devices/EmulatorLauncherPanel.vue";
+import DeviceManagerDeviceList from "@/components/device-manager/DeviceManagerDeviceList.vue";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: []; selectDevice: [serial: string] }>();
@@ -292,6 +292,23 @@ function selectLocalDevice() {
   activePanel.value = "local";
 }
 
+const forgettingSerial = ref<string | null>(null);
+
+async function forgetSidebarDevice(serial: string) {
+  forgettingSerial.value = serial;
+  try {
+    await devicesStore.forgetDevice(serial);
+    if (selectedSerial.value === serial) {
+      selectedSerial.value = null;
+      activePanel.value = "local";
+    }
+  } catch (err) {
+    toast.error("Failed to remove device", { description: String(err) });
+  } finally {
+    forgettingSerial.value = null;
+  }
+}
+
 async function handleDisconnectDevice() {
   if (!selectedDevice.value) return;
   const { serial, connectionType } = selectedDevice.value;
@@ -536,118 +553,19 @@ watch(
               </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-2 space-y-0.5 pb-2">
-              <button
-                @click="selectLocalDevice"
-                class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
-                :class="
-                  activePanel === 'local'
-                    ? 'bg-surface-2 border border-border/30'
-                    : 'hover:bg-surface-2/50 border border-transparent'
-                "
-              >
-                <div class="flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full shrink-0 bg-success" />
-                  <Monitor :size="11" class="text-muted-foreground/40 shrink-0" />
-                  <span class="text-[12px] font-medium text-foreground truncate">
-                    {{ localDeviceName }}
-                  </span>
-                </div>
-                <div class="flex items-center gap-1 mt-0.5 pl-3">
-                  <span class="font-mono text-[9px] text-muted-foreground/35 truncate">
-                    local-host
-                  </span>
-                  <span class="text-muted-foreground/20 text-[9px]">·</span>
-                  <span class="text-[9px] text-muted-foreground/35">Native WebView</span>
-                </div>
-              </button>
-
-              <div
-                v-if="devicesStore.devices.length === 0"
-                class="px-2.5 py-3 text-[11px] text-muted-foreground/25"
-              >
-                No Android devices connected.
-              </div>
-
-              <button
-                v-for="d in devicesStore.devices"
-                :key="d.serial"
-                @click="selectSidebarDevice(d.serial)"
-                class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
-                :class="
-                  activePanel === 'device' && selectedSerial === d.serial
-                    ? 'bg-surface-2 border border-border/30'
-                    : 'hover:bg-surface-2/50 border border-transparent'
-                "
-              >
-                <div class="flex items-center gap-1.5">
-                  <span
-                    class="w-1.5 h-1.5 rounded-full shrink-0"
-                    :class="d.status === 'online' ? 'bg-success' : 'bg-muted-foreground/25'"
-                  />
-                  <span class="text-[12px] font-medium text-foreground truncate">
-                    {{ d.model || d.serial }}
-                  </span>
-                  <span
-                    v-if="d.deviceKind === 'emulator'"
-                    class="ml-auto rounded border border-info/25 bg-info/10 px-1.5 py-0.5 text-[9px] font-medium text-info"
-                  >
-                    Emulator
-                  </span>
-                  <span
-                    v-if="d.isStale"
-                    class="ml-auto text-[9px] px-1.5 py-0.5 rounded-full border border-border/20 bg-surface-2 text-muted-foreground/45"
-                  >
-                    stale
-                  </span>
-                </div>
-                <div class="flex items-center gap-1 mt-0.5 pl-3">
-                  <span class="font-mono text-[9px] text-muted-foreground/35 truncate">
-                    {{ d.serial.slice(0, 10) }}
-                  </span>
-                  <span class="text-muted-foreground/20 text-[9px]">·</span>
-                  <component
-                    :is="d.connectionType === 'usb' ? Usb : Wifi"
-                    :size="9"
-                    class="text-muted-foreground/30 shrink-0"
-                  />
-                  <span class="text-[9px] text-muted-foreground/35">
-                    {{ d.connectionType === "usb" ? "USB" : "WiFi" }}
-                  </span>
-                </div>
-              </button>
-            </div>
-
-            <div class="px-2 pb-2 space-y-1 border-t border-border/15 pt-2">
-              <button
-                @click="activePanel = 'emulators'"
-                class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
-                :class="
-                  activePanel === 'emulators'
-                    ? 'bg-surface-2 border border-border/30'
-                    : 'hover:bg-surface-2/50 border border-transparent'
-                "
-              >
-                <div class="flex items-center gap-1.5 text-muted-foreground/40">
-                  <MonitorSmartphone :size="11" class="shrink-0" />
-                  <span class="text-[11px]">Launch emulator</span>
-                </div>
-              </button>
-              <button
-                @click="activePanel = 'connect'"
-                class="w-full text-left px-2.5 py-2 rounded-lg transition-colors"
-                :class="
-                  activePanel === 'connect'
-                    ? 'bg-surface-2 border border-border/30'
-                    : 'hover:bg-surface-2/50 border border-transparent'
-                "
-              >
-                <div class="flex items-center gap-1.5 text-muted-foreground/40">
-                  <Plus :size="11" class="shrink-0" />
-                  <span class="text-[11px]">Connect new device</span>
-                </div>
-              </button>
-            </div>
+            <DeviceManagerDeviceList
+              :devices="devicesStore.devices"
+              :local-device-name="localDeviceName"
+              :local-active="activePanel === 'local'"
+              :selected-serial="selectedSerial"
+              :device-active="activePanel === 'device'"
+              :forgetting-serial="forgettingSerial"
+              @select-local="selectLocalDevice"
+              @select-device="selectSidebarDevice"
+              @forget-device="forgetSidebarDevice"
+              @launch-emulator="activePanel = 'emulators'"
+              @connect-remote="activePanel = 'connect'"
+            />
           </div>
 
           <!-- RIGHT PANEL -->

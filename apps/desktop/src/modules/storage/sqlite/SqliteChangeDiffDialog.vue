@@ -44,7 +44,11 @@ const observedLabel = computed(() => {
 
 <template>
   <Dialog :open="open" @update:open="$emit('update:open', $event)">
-    <DialogContent class="max-w-[90vw] min-w-[70vw] w-[90vw] h-[80vh] p-0 gap-0 flex flex-col">
+    <!-- z-60 keeps the diff above any dialog already sitting at the shared
+         z-50 layer; this one is opened from inside the row viewer. -->
+    <DialogContent
+      class="z-[60] max-w-[90vw] min-w-[70vw] w-[90vw] h-[80vh] p-0 gap-0 flex flex-col"
+    >
       <DialogHeader class="px-6 py-2 border-b border-border/30 shrink-0">
         <div class="flex items-center gap-3">
           <GitCompare :size="16" class="text-amber-300" />

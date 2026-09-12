@@ -6,6 +6,7 @@ pub mod files;
 pub mod local_webview;
 pub mod mirror;
 pub mod mock_server;
+pub mod opfs_pull;
 pub mod perf;
 pub mod port_forward;
 pub mod sqlite;

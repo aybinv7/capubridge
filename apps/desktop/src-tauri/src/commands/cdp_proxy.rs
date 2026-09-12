@@ -5,10 +5,24 @@ use std::sync::LazyLock;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 use tokio::task::{JoinHandle, JoinSet};
-use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::{accept_hdr_async_with_config, connect_async_with_config};
 use tokio_util::sync::CancellationToken;
+
+/// CDP responses carry whole payloads in one message — a full OPFS/SQLite file
+/// read, a heap snapshot, a screenshot. Tungstenite's defaults (16 MiB frame,
+/// 64 MiB message) silently kill such a connection mid-transfer, so the relay
+/// runs with ample headroom on both ends.
+const MAX_CDP_MESSAGE_BYTES: usize = 1024 * 1024 * 1024;
+const MAX_CDP_FRAME_BYTES: usize = 512 * 1024 * 1024;
+
+pub fn cdp_socket_config() -> WebSocketConfig {
+    WebSocketConfig::default()
+        .max_message_size(Some(MAX_CDP_MESSAGE_BYTES))
+        .max_frame_size(Some(MAX_CDP_FRAME_BYTES))
+}
 
 struct ProxyInfo {
     local_port: u16,
@@ -34,7 +48,7 @@ fn proxy_result(local_port: u16, token: &str) -> ProxyResult {
     }
 }
 
-fn validate_upstream_url(ws_url: &str) -> Result<(), String> {
+pub(crate) fn validate_upstream_url(ws_url: &str) -> Result<(), String> {
     let uri = ws_url
         .parse::<http::Uri>()
         .map_err(|_| "Invalid CDP WebSocket URL".to_string())?;
@@ -100,9 +114,9 @@ async fn relay_connection(
 ) {
     let client_ws = tokio::select! {
         _ = cancel.cancelled() => return,
-        result = tokio_tungstenite::accept_hdr_async(client_stream, |request: &Request, response: Response| {
+        result = accept_hdr_async_with_config(client_stream, |request: &Request, response: Response| {
             authorize_request(request, &token).map(|()| response).map_err(rejection)
-        }) => match result {
+        }, Some(cdp_socket_config())) => match result {
             Ok(socket) => socket,
             Err(error) => {
                 log::warn!("[cdp_proxy] Client handshake rejected: {error}");
@@ -129,7 +143,7 @@ async fn relay_connection(
     }
     let upstream_ws = tokio::select! {
         _ = cancel.cancelled() => return,
-        result = connect_async(upstream_request) => match result {
+        result = connect_async_with_config(upstream_request, Some(cdp_socket_config()), false) => match result {
             Ok((socket, _)) => socket,
             Err(error) => {
                 log::warn!("[cdp_proxy] Upstream connection failed: {error}");
@@ -140,16 +154,32 @@ async fn relay_connection(
     let (mut client_sink, mut client_stream) = client_ws.split();
     let (mut upstream_sink, mut upstream_stream) = upstream_ws.split();
     let client_to_upstream = async {
-        while let Some(Ok(message)) = client_stream.next().await {
-            if upstream_sink.send(message).await.is_err() {
-                break;
+        while let Some(message) = client_stream.next().await {
+            match message {
+                Ok(message) => {
+                    if upstream_sink.send(message).await.is_err() {
+                        break;
+                    }
+                }
+                Err(error) => {
+                    log::warn!("[cdp_proxy] Client stream failed: {error}");
+                    break;
+                }
             }
         }
     };
     let upstream_to_client = async {
-        while let Some(Ok(message)) = upstream_stream.next().await {
-            if client_sink.send(message).await.is_err() {
-                break;
+        while let Some(message) = upstream_stream.next().await {
+            match message {
+                Ok(message) => {
+                    if client_sink.send(message).await.is_err() {
+                        break;
+                    }
+                }
+                Err(error) => {
+                    log::warn!("[cdp_proxy] Upstream stream failed: {error}");
+                    break;
+                }
             }
         }
     };

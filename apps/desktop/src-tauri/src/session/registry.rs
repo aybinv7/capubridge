@@ -207,6 +207,37 @@ impl SessionRegistry {
         Ok(snapshot)
     }
 
+    /// Drop one device from the registry and its persisted cache. Meant for a
+    /// device that will never come back on its own — a stale Wi-Fi entry whose
+    /// IP changed under DHCP is a new serial, not a device that reconnects, so
+    /// nothing else here ever prunes it.
+    pub fn forget_device(&self, serial: &str) -> Result<SessionRegistrySnapshot, String> {
+        let timestamp = now_millis();
+        let removed = {
+            let mut inner = self.inner.write();
+            let removed = inner.devices.remove(serial).is_some();
+            if !removed {
+                return Err(format!("Unknown device serial: {serial}"));
+            }
+            inner.leases.remove(serial);
+            if inner.active_serial.as_deref() == Some(serial) {
+                inner.active_serial = None;
+            }
+            inner.revision += 1;
+            inner.updated_at = timestamp;
+            removed
+        };
+        debug_assert!(removed);
+
+        if let Some(session) = self.sessions.write().remove(serial) {
+            session.shutdown();
+        }
+
+        let snapshot = self.snapshot();
+        self.persist_snapshot(&snapshot);
+        Ok(snapshot)
+    }
+
     pub fn update_tracker_status(
         &self,
         status: SessionTrackerStatus,
@@ -658,6 +689,24 @@ pub fn session_set_active_device(
         .registry()
         .set_active_serial(serial)
         .app_context("session_set_active_device")?;
+    emit_registry_snapshot(&app, snapshot.clone());
+    Ok(snapshot)
+}
+
+/// Remove a device the user asked to forget — most useful for a stale Wi-Fi
+/// entry left behind by a DHCP-reassigned IP, which will never reconnect at
+/// that address on its own. A device still reachable over ADB reappears on the
+/// next scan, this only clears history for one that will not.
+#[tauri::command]
+pub fn session_forget_device(
+    app: AppHandle,
+    state: State<'_, SessionRegistryState>,
+    serial: String,
+) -> AppResult<SessionRegistrySnapshot> {
+    let snapshot = state
+        .registry()
+        .forget_device(&serial)
+        .app_context("session_forget_device")?;
     emit_registry_snapshot(&app, snapshot.clone());
     Ok(snapshot)
 }

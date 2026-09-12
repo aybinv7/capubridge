@@ -84,6 +84,40 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
     return session;
   }
 
+  /**
+   * Adopt a snapshot Rust already streamed to disk. The bytes never enter the
+   * JS heap, so `lastSourceBytes` stays empty until something asks for a diff.
+   */
+  function adoptLocalSession(
+    label: string,
+    dbPath: string,
+    sizeBytes: number,
+    source?: LocalSqlSessionSource,
+  ): LocalSqlSession {
+    const fileName = label.includes("/") ? label.slice(label.lastIndexOf("/") + 1) : label;
+    const sourceKind = source?.kind ?? "opfs";
+    const session: LocalSqlSession = {
+      serial: LOCAL_SQL_SERIAL,
+      package: source?.packageName ?? LOCAL_SQL_PACKAGE,
+      dbPath,
+      label,
+      fileName: fileName || "database.db",
+      sizeBytes,
+      createdAt: Date.now(),
+      sourceKind,
+      sourceLabel: source?.label ?? sourceKind,
+      sourceTargetId: source?.targetId,
+      sourceOpfsPath: source?.opfsPath,
+      stripSahPoolHeader: source?.stripSahPoolHeader,
+      sourceIdbName: source?.idbName,
+      sourceStoreName: source?.storeName,
+      sourceKey: source?.key,
+    };
+    localSession.value = session;
+    lastSourceBytes.value = null;
+    return session;
+  }
+
   function clearLocalSession() {
     localSession.value = null;
     lastSourceBytes.value = null;
@@ -124,6 +158,7 @@ export const useSqlSessionStore = defineStore("sql-session", () => {
     lastSourceBytes,
     lastSourceHash,
     startLocalSession,
+    adoptLocalSession,
     clearLocalSession,
     refreshLocalSession,
     swapSnapshot,

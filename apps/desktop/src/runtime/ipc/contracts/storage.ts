@@ -8,6 +8,22 @@ import type {
 } from "@/types/sqlite.types";
 import type { IpcCommand } from "@/runtime/ipc/contracts/common";
 
+export interface SqliteFileStat {
+  size: number;
+  modifiedAt: number;
+}
+
+export interface OpfsFileStat {
+  size: number;
+  lastModified: number;
+}
+
+export interface OpfsPullResult {
+  path: string;
+  size: number;
+  lastModified: number;
+}
+
 interface SqliteDatabaseArgs {
   serial: string;
   package: string;
@@ -21,11 +37,25 @@ interface SqliteTableArgs extends SqliteDatabaseArgs {
 export interface StorageCommandMap {
   sqlite_list_databases: IpcCommand<{ serial: string; package: string }, SqliteDbFile[]>;
   sqlite_scan_all_databases: IpcCommand<{ serial: string }, SqliteDbFile[]>;
+  sqlite_stat_database: IpcCommand<
+    { serial: string; package: string; dbPath: string },
+    SqliteFileStat
+  >;
   sqlite_open_database: IpcCommand<SqliteDatabaseArgs, SqliteTableInfo[]>;
   sqlite_refresh_database: IpcCommand<SqliteDatabaseArgs, SqliteTableInfo[]>;
   sqlite_close_database: IpcCommand<SqliteDatabaseArgs, void>;
   sqlite_save_local_bytes: IpcCommand<{ name: string; base64Data: string }, string>;
   sqlite_overwrite_local_bytes: IpcCommand<{ path: string; base64Data: string }, void>;
+  opfs_stat_file: IpcCommand<{ wsUrl: string; path: string }, OpfsFileStat>;
+  opfs_pull_sqlite: IpcCommand<
+    {
+      wsUrl: string;
+      path: string;
+      label: string;
+      stripSahPoolHeader: boolean;
+    },
+    OpfsPullResult
+  >;
   sqlite_table_columns: IpcCommand<SqliteTableArgs, SqliteColumnInfo[]>;
   sqlite_table_indexes: IpcCommand<SqliteTableArgs, SqliteIndexInfo[]>;
   sqlite_table_foreign_keys: IpcCommand<SqliteTableArgs, SqliteForeignKeyInfo[]>;

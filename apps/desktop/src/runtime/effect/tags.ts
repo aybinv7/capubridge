@@ -26,6 +26,7 @@ export interface SessionBridgeService {
   listDevices: () => Effect.Effect<SessionDeviceSnapshot[], IpcError>;
   refreshDevices: () => Effect.Effect<SessionRegistrySnapshot, IpcError>;
   setActiveDevice: (serial: string | null) => Effect.Effect<SessionRegistrySnapshot, IpcError>;
+  forgetDevice: (serial: string) => Effect.Effect<SessionRegistrySnapshot, IpcError>;
   getDeviceInfo: (serial: string) => Effect.Effect<DeviceInfo, IpcError>;
   shellCommand: (serial: string, command: string) => Effect.Effect<string, IpcError>;
   tcpip: (serial: string, port: number) => Effect.Effect<void, IpcError>;

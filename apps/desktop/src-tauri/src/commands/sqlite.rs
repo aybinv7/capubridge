@@ -22,6 +22,13 @@ pub struct SqliteDbFile {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct SqliteFileStat {
+    pub size: u64,
+    pub modified_at: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SqliteTableInfo {
     pub name: String,
     pub table_type: String,
@@ -396,6 +403,40 @@ fn sqlite_value_to_json(val: &rusqlite::types::Value) -> Value {
 }
 
 // ─── Commands ───────────────────────────────────────────────────────────────────
+
+/// Size and modification time of one on-device database, without transferring
+/// it. Cheap enough to poll, so an unchanged database costs no pull at all.
+/// SQLite page writes keep the size stable, so mtime carries the real signal.
+#[tauri::command]
+pub async fn sqlite_stat_database(
+    serial: String,
+    package: String,
+    db_path: String,
+) -> Result<SqliteFileStat, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut device = get_adb_device(&serial)?;
+        let cmd = format!(
+            "run-as '{}' stat -c '%Y %s' '{}'",
+            shell_escape(&package),
+            shell_escape(&db_path)
+        );
+
+        let mut stdout = Vec::new();
+        let _ = device.shell_command(&cmd, Some(&mut stdout), None::<&mut dyn IoWrite>);
+        let output = String::from_utf8_lossy(&stdout);
+
+        let mut parts = output.split_whitespace();
+        let modified_at = parts
+            .next()
+            .and_then(|value| value.parse::<i64>().ok())
+            .ok_or_else(|| format!("Could not stat \"{db_path}\""))?;
+        let size = parts.next().and_then(|value| value.parse::<u64>().ok()).unwrap_or(0);
+
+        Ok(SqliteFileStat { size, modified_at })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 
 /// List .db files inside a package's databases/ directory.
 #[tauri::command]

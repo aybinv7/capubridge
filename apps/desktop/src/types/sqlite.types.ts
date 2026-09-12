@@ -9,6 +9,26 @@ export interface SqliteDbFile {
   sourceIdbName?: string;
   sourceStoreName?: string;
   sourceKey?: string;
+  sourceOpfsPath?: string;
+  sourceOpfsDirectory?: string;
+  stripSahPoolHeader?: boolean;
+  sourceTech?: SqliteSourceTech;
+}
+
+export type SqliteSourceTech =
+  | "native-android"
+  | "sqlite-wasm-opfsdb"
+  | "sqlite-wasm-sah-pool"
+  | "wa-sqlite-opfs"
+  | "jeep-sqlite"
+  | "imported";
+
+export interface SqliteSourceDescriptor {
+  label: string;
+  title: string;
+  description: string;
+  packageName?: string;
+  badgeClass: string;
 }
 
 export interface SqliteTableInfo {

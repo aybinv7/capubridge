@@ -14,9 +14,9 @@ import {
   Boxes,
   Info,
 } from "lucide-vue-next";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
-import { useSqlSessionStore } from "@/stores/sqlSession.store";
+import { useOpenSqliteSource } from "@/modules/storage/useOpenSqliteSource";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,9 +30,10 @@ import {
   type SahPoolDatabase,
 } from "@capubridge/cdp-protocol";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
+const route = useRoute();
 const filter = ref("");
 const selectedFile = ref<string | null>(null);
-const currentPath = ref("");
+const currentPath = ref(typeof route.query["path"] === "string" ? route.query["path"] : "");
 const view = ref<"raw" | "decoded">("raw");
 const sidebarScrollEl = ref<HTMLElement | null>(null);
 const fileTableScrollEl = ref<HTMLElement | null>(null);
@@ -43,28 +44,10 @@ const { data: entries, isLoading, isError, refetch } = useDirectory(currentPath)
 const activeEntries = computed(() => (targetId.value ? entries.value : undefined));
 
 const router = useRouter();
-const sqlSessionStore = useSqlSessionStore();
-const openingInExplorer = ref<string | null>(null);
+const { openOpfsDatabase, openingPath: openingInExplorer } = useOpenSqliteSource();
 
-async function openInExplorer(opts: { path: string; label: string; stripSahPool: boolean }) {
-  openingInExplorer.value = opts.path;
-  try {
-    const bytes = await getDomain().readSqliteBytes(opts.path, {
-      stripSahPoolHeader: opts.stripSahPool,
-    });
-    const session = await sqlSessionStore.startLocalSession(opts.label, bytes, {
-      kind: "opfs",
-      label: opts.stripSahPool ? "opfs sah-pool" : "opfs",
-      targetId: targetId.value,
-      opfsPath: opts.path,
-      stripSahPoolHeader: opts.stripSahPool,
-    });
-    await router.push(`/storage/sqlite/${encodeURIComponent(session.fileName)}`);
-  } catch (err) {
-    toast.error("Failed to open in SQL Explorer", { description: String(err) });
-  } finally {
-    openingInExplorer.value = null;
-  }
+function openInExplorer(opts: { path: string; label: string; stripSahPool: boolean }) {
+  void openOpfsDatabase(opts);
 }
 
 const techHints = computed<StorageTechHint[]>(() =>

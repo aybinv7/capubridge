@@ -42,7 +42,13 @@ import { useSQLite } from "@/composables/useSQLite";
 import { useLiveRefresh } from "@/composables/useLiveRefresh";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import { useSqlSessionStore } from "@/stores/sqlSession.store";
+import { useSqlSessionStore, type LocalSqlSession } from "@/stores/sqlSession.store";
+import { invokeCommand } from "@/runtime/ipc/client";
+import { useOpfsSnapshotCache } from "@/modules/storage/opfsSnapshotCache";
+import { useOpenSqliteSource } from "@/modules/storage/useOpenSqliteSource";
+import { useOpfsSqliteDiscovery } from "./useOpfsSqliteDiscovery";
+import { mergeSessionIntoList, resolveDbPath } from "./sqliteDatabaseList";
+import SqliteSourceBadge from "./SqliteSourceBadge.vue";
 import { useSqliteSidebarSettings } from "@/modules/storage/stores/useSqliteSidebarSettings";
 import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChangesStore";
 import {
@@ -112,32 +118,41 @@ const {
   expandDb,
 } = useSqliteSidebarSettings();
 
-const serial = computed(
-  () => localSession.value?.serial ?? devicesStore.selectedDevice?.serial ?? "",
-);
-const selectedTarget = computed(() => {
-  if (localSession.value) return null;
+// The real device stays addressable while a snapshot session is open, so
+// discovery keeps listing every source instead of only the opened one.
+const deviceSerial = computed(() => devicesStore.selectedDevice?.serial ?? "");
+const deviceTarget = computed(() => {
   const target = targetsStore.selectedTarget;
   if (!target || target.source !== "adb") {
     return null;
   }
-  if (target.deviceSerial !== serial.value) {
+  if (target.deviceSerial !== deviceSerial.value) {
     return null;
   }
   return target;
 });
-const selectedPackageName = computed(
-  () => localSession.value?.package ?? selectedTarget.value?.packageName?.trim() ?? "",
-);
+const devicePackageName = computed(() => deviceTarget.value?.packageName?.trim() ?? "");
+
+// Reads are addressed through the session when one is open: it carries the
+// synthetic local serial and the on-disk snapshot.
+const serial = computed(() => localSession.value?.serial ?? deviceSerial.value);
+const selectedTarget = computed(() => (localSession.value ? null : deviceTarget.value));
+const selectedPackageName = computed(() => localSession.value?.package ?? devicePackageName.value);
 
 const dbSearch = ref("");
 const isLoadingDbs = ref(false);
 const isLoadingTables = ref(false);
 const isLoadingRecords = ref(false);
+// Set while the 5s poll refetches, so a silent background update never flashes
+// the table's loading state the way an explicit refresh should.
+const isBackgroundRefresh = ref(false);
 const openingJeepDb = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 const databases = ref<SqliteDbFile[]>([]);
+const snapshotCache = useOpfsSnapshotCache();
+const { discoverOpfsDatabases } = useOpfsSqliteDiscovery();
+const { openOpfsDatabase, openingPath: openingOpfsPath } = useOpenSqliteSource();
 const tables = ref<SqliteTableInfo[]>([]);
 
 // Route params
@@ -145,7 +160,22 @@ const dbName = computed(() => decodeURIComponent((route.params["db"] as string) 
 const tableName = computed(() => decodeURIComponent((route.params["table"] as string) ?? ""));
 
 // Current DB file info
-const currentDb = computed(() => databases.value.find((d) => d.name === dbName.value) ?? null);
+const currentDbEntry = computed(() => databases.value.find((d) => d.name === dbName.value) ?? null);
+
+// Reads go to the session's local snapshot when this is the open database.
+const currentDb = computed(() => {
+  const found = currentDbEntry.value;
+  if (!found) return null;
+  return { ...found, path: resolveDbPath(found, localSession.value) };
+});
+
+/**
+ * The key every change record is filed under. It has to be the source's own
+ * identity, not the session's snapshot path — that one is a fresh temp file on
+ * each pull, which would scatter a database's history across unrelated keys and
+ * leave the sidebar indicators looking at an empty one.
+ */
+const currentDbIdentity = computed(() => currentDbEntry.value?.path ?? "");
 const isNativeSnapshot = computed(
   () =>
     currentDb.value?.sourceKind === "native-android" || (!isLocalMode.value && !!currentDb.value),
@@ -186,11 +216,17 @@ const pkColumnsRef = computed(() => orderKeyColumns(columnInfo.value));
 const changesStore = useSqliteChangesStore();
 const { getTableSummary, getDatabaseSummary } = useSqliteChangeIndex();
 
-const overlayDbPath = computed(() => currentDb.value?.path ?? "");
+// Change records are namespaced by the real device, never by a snapshot
+// session's synthetic serial, so a database keeps its history when you open
+// something else and come back.
+const changeSerial = computed(() => deviceSerial.value || serial.value);
+const changePackage = computed(() => devicePackageName.value || selectedPackageName.value);
+
+const overlayDbPath = computed(() => currentDbIdentity.value);
 const { changesByRowKey: tableChangesByRowKey, tableSummary: currentTableSummary } =
   useSqliteTableChangeOverlay({
-    serial,
-    packageName: selectedPackageName,
+    serial: changeSerial,
+    packageName: changePackage,
     dbPath: overlayDbPath,
     tableName,
     pkColumns: pkColumnsRef,
@@ -209,7 +245,7 @@ function openRowDiff(rowKey: string) {
     (c) =>
       c.kind === "record" &&
       c.tableName === tableName.value &&
-      c.dbPath === (currentDb.value?.path ?? "") &&
+      c.dbPath === currentDbIdentity.value &&
       c.rowKey === rowKey,
   );
   if (match) diffChangeId.value = match.id;
@@ -335,7 +371,7 @@ async function fetchJeepSqliteDatabases(): Promise<SqliteDbFile[]> {
       name: db.name,
       path: `jeep-sqlite:${db.idbName}/${db.storeName}/${db.key}`,
       size: db.size,
-      packageName: selectedPackageName.value || "jeep-sqlite",
+      packageName: devicePackageName.value || "jeep-sqlite",
       sourceKind: "jeep-sqlite",
       sourceLabel: "jeep-sqlite",
       sourceTargetId: targetsStore.cdpTargetId,
@@ -350,30 +386,13 @@ async function fetchJeepSqliteDatabases(): Promise<SqliteDbFile[]> {
 }
 
 async function fetchDatabases() {
-  if (localSession.value) {
-    if (isLocalSessionStale()) {
-      sqlSessionStore.clearLocalSession();
-      databases.value = [];
-      tables.value = [];
-      queryResult.value = null;
-      await router.replace("/storage/sqlite");
-      return;
-    }
-    const s = localSession.value;
-    databases.value = [
-      {
-        name: s.fileName,
-        path: s.dbPath,
-        size: s.sizeBytes,
-        packageName: s.package,
-        sourceKind: s.sourceKind,
-        sourceLabel: s.sourceLabel,
-        sourceTargetId: s.sourceTargetId,
-        sourceIdbName: s.sourceIdbName,
-        sourceStoreName: s.sourceStoreName,
-        sourceKey: s.sourceKey,
-      },
-    ];
+  const session = localSession.value;
+  if (session && isLocalSessionStale()) {
+    sqlSessionStore.clearLocalSession();
+    databases.value = [];
+    tables.value = [];
+    queryResult.value = null;
+    await router.replace("/storage/sqlite");
     return;
   }
 
@@ -381,12 +400,13 @@ async function fetchDatabases() {
   error.value = null;
 
   try {
-    const shouldListNative = !!serial.value && !!selectedPackageName.value;
-    const [nativeResult, jeepResult] = await Promise.allSettled([
+    const shouldListNative = !!deviceSerial.value && !!devicePackageName.value;
+    const [nativeResult, jeepResult, opfsResult] = await Promise.allSettled([
       shouldListNative
-        ? listDatabases(serial.value, selectedPackageName.value)
+        ? listDatabases(deviceSerial.value, devicePackageName.value)
         : Promise.resolve<SqliteDbFile[]>([]),
       fetchJeepSqliteDatabases(),
+      discoverOpfsDatabases(),
     ]);
     if (nativeResult.status === "rejected" && jeepResult.status === "rejected") {
       throw nativeResult.reason;
@@ -394,17 +414,22 @@ async function fetchDatabases() {
     if (nativeResult.status === "rejected") {
       error.value = String(nativeResult.reason);
     }
+    if (opfsResult.status === "rejected") {
+      console.error("[SQLite] OPFS discovery failed:", opfsResult.reason);
+    }
     const nativeDbs = nativeResult.status === "fulfilled" ? nativeResult.value : [];
     const jeepDbs = jeepResult.status === "fulfilled" ? jeepResult.value : [];
-    databases.value = [
+    const opfsDbs = opfsResult.status === "fulfilled" ? opfsResult.value : [];
+    databases.value = mergeSessionIntoList(session, [
       ...nativeDbs.map((db) => ({
         ...db,
-        packageName: db.packageName ?? selectedPackageName.value,
+        packageName: db.packageName ?? devicePackageName.value,
         sourceKind: db.sourceKind ?? "native-android",
         sourceLabel: db.sourceLabel ?? "native",
       })),
       ...jeepDbs,
-    ];
+      ...opfsDbs,
+    ]);
   } catch (err) {
     error.value = String(err);
     databases.value = [];
@@ -417,11 +442,15 @@ async function openDb(dbFile: SqliteDbFile) {
   if (!serial.value || !selectedPackageName.value) {
     return;
   }
-  isLoadingTables.value = true;
+  if (!isBackgroundRefresh.value) isLoadingTables.value = true;
   error.value = null;
 
   try {
-    tables.value = await openDatabase(serial.value, selectedPackageName.value, dbFile.path);
+    tables.value = await openDatabase(
+      serial.value,
+      selectedPackageName.value,
+      resolveDbPath(dbFile, localSession.value),
+    );
   } catch (err) {
     error.value = `Failed to open database: ${err}`;
     tables.value = [];
@@ -434,7 +463,7 @@ async function fetchTableRows() {
   const dbFile = currentDb.value;
   if (!serial.value || !selectedPackageName.value || !dbFile || !tableName.value) return;
 
-  isLoadingRecords.value = true;
+  if (!isBackgroundRefresh.value) isLoadingRecords.value = true;
   error.value = null;
 
   try {
@@ -490,6 +519,17 @@ function navigateToDb(db: SqliteDbFile) {
     void openJeepSqliteDb(db);
     return;
   }
+  if (db.sourceKind === "opfs" && db.sourceOpfsPath) {
+    void openOpfsDatabase({
+      path: db.sourceOpfsPath,
+      label: db.name,
+      stripSahPool: db.stripSahPoolHeader ?? false,
+    });
+    return;
+  }
+  // A native database is read straight off the device, so any snapshot session
+  // holding the synthetic local serial has to be released first.
+  if (localSession.value) sqlSessionStore.clearLocalSession();
   void router.push(`/storage/sqlite/${encodeURIComponent(db.name)}`);
 }
 
@@ -509,21 +549,6 @@ function isDbActive(name: string): boolean {
 
 function isTableActive(table: string): boolean {
   return tableName.value === table;
-}
-
-function sourceLabel(db: SqliteDbFile): string {
-  if (db.sourceKind === "jeep-sqlite") return "jeep";
-  if (db.sourceKind === "opfs") return "opfs";
-  if (db.sourceKind === "imported") return "file";
-  return "native";
-}
-
-function sourceBadgeClass(db: SqliteDbFile): string {
-  if (db.sourceKind === "jeep-sqlite")
-    return "border-violet-500/25 text-violet-300 bg-violet-500/10";
-  if (db.sourceKind === "opfs") return "border-info/25 text-info bg-info/10";
-  if (db.sourceKind === "imported") return "border-amber-500/25 text-amber-300 bg-amber-500/10";
-  return "border-emerald-500/20 text-emerald-300 bg-emerald-500/10";
 }
 
 const visibleDatabases = computed(() => {
@@ -614,8 +639,8 @@ async function recordSnapshotDiff(previous: Uint8Array, next: Uint8Array, dbPath
     for (const op of diff.changes) {
       changesStore.recordChange({
         operation: op.operation,
-        serial: serial.value,
-        packageName: selectedPackageName.value,
+        serial: changeSerial.value,
+        packageName: changePackage.value,
         dbPath,
         tableName: op.tableName,
         rowKey: op.rowKey,
@@ -625,8 +650,8 @@ async function recordSnapshotDiff(previous: Uint8Array, next: Uint8Array, dbPath
     }
     if (diff.truncated) {
       changesStore.recordSystemChange({
-        serial: serial.value,
-        packageName: selectedPackageName.value,
+        serial: changeSerial.value,
+        packageName: changePackage.value,
         dbPath,
         message: `Snapshot diff truncated — more than ${diff.changes.length} ops detected`,
       });
@@ -636,8 +661,8 @@ async function recordSnapshotDiff(previous: Uint8Array, next: Uint8Array, dbPath
       if (reportedSkippedTables.get(dbPath) !== signature) {
         reportedSkippedTables.set(dbPath, signature);
         changesStore.recordSystemChange({
-          serial: serial.value,
-          packageName: selectedPackageName.value,
+          serial: changeSerial.value,
+          packageName: changePackage.value,
           dbPath,
           message:
             `Change tracking unavailable for ${diff.skippedTablesWithoutPk.length} table(s) ` +
@@ -662,23 +687,49 @@ async function recordSnapshotDiff(previous: Uint8Array, next: Uint8Array, dbPath
  * repopulates the cache, meaning the subsequent row fetch reuses this single
  * pull rather than paying for a second one.
  */
-async function refreshDeviceSnapshot() {
+const deviceStatCache = new Map<string, string>();
+
+/**
+ * True when an on-device database looks different from the last pull. Background
+ * polls lean on this so an idle database costs one `stat` instead of a full
+ * re-pull every tick; an explicit refresh skips it and always re-reads.
+ */
+async function isDeviceSourceDirty(dbFile: SqliteDbFile): Promise<boolean> {
+  try {
+    const stat = await invokeCommand("sqlite_stat_database", {
+      serial: serial.value,
+      package: selectedPackageName.value,
+      dbPath: dbFile.path,
+    });
+    const signature = `${stat.size}:${stat.modifiedAt}`;
+    if (deviceStatCache.get(dbFile.path) === signature) return false;
+    deviceStatCache.set(dbFile.path, signature);
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+async function refreshDeviceSnapshot(force: boolean): Promise<boolean> {
   const dbFile = currentDb.value;
-  if (!dbFile || isLocalMode.value) return;
-  if ((dbFile.sourceKind ?? "native-android") !== "native-android") return;
-  if (!serial.value || !selectedPackageName.value) return;
+  if (!dbFile || isLocalMode.value) return false;
+  if ((dbFile.sourceKind ?? "native-android") !== "native-android") return false;
+  if (!serial.value || !selectedPackageName.value) return false;
+  if (!force && !(await isDeviceSourceDirty(dbFile))) return false;
 
   try {
     await refreshDatabase(serial.value, selectedPackageName.value, dbFile.path);
     const bytes = await exportBytes(serial.value, selectedPackageName.value, dbFile.path);
-    if (!bytes.byteLength) return;
+    if (!bytes.byteLength) return false;
 
     const previous = takeDeviceSnapshot(dbFile.path, bytes);
     if (previous && previous.byteLength > 0) {
-      await recordSnapshotDiff(previous, bytes, dbFile.path);
+      await recordSnapshotDiff(previous, bytes, currentDbIdentity.value || dbFile.path);
     }
+    return true;
   } catch (err) {
     console.error("[SQLite] refreshDeviceSnapshot failed:", err);
+    return false;
   }
 }
 
@@ -703,18 +754,74 @@ async function primeDeviceSnapshot() {
   }
 }
 
-async function refreshLocalSnapshot() {
+/**
+ * True when the OPFS file behind a session looks different from what was last
+ * pulled. Relies on the WebView reporting a fresh `lastModified` after a write;
+ * a size change alone is not enough, since SQLite page writes keep size stable.
+ */
+async function isOpfsSourceDirty(session: LocalSqlSession): Promise<boolean> {
+  const opfsPath = session.sourceOpfsPath;
+  const wsUrl = targetsStore.selectedTarget?.webSocketDebuggerUrl;
+  if (!opfsPath || !wsUrl) return true;
+  try {
+    const stat = await invokeCommand("opfs_stat_file", { wsUrl, path: opfsPath });
+    const cached = snapshotCache.get(session.sourceTargetId ?? "", opfsPath);
+    return !snapshotCache.isFresh(cached, stat);
+  } catch {
+    return true;
+  }
+}
+
+async function readSnapshotFile(path: string): Promise<Uint8Array | null> {
+  try {
+    const base64 = await invokeCommand("read_local_file_base64", { path });
+    const binary = atob(base64);
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Re-baseline the cache after a pull so the next poll can skip again. */
+async function rememberOpfsSnapshot(session: LocalSqlSession, sizeBytes: number) {
+  const opfsPath = session.sourceOpfsPath;
+  const wsUrl = targetsStore.selectedTarget?.webSocketDebuggerUrl;
+  if (!opfsPath || !wsUrl) return;
+  try {
+    const stat = await invokeCommand("opfs_stat_file", { wsUrl, path: opfsPath });
+    snapshotCache.remember(session.sourceTargetId ?? "", opfsPath, {
+      localPath: session.dbPath,
+      size: stat.size,
+      lastModified: stat.lastModified,
+      sizeBytes,
+    });
+  } catch {
+    snapshotCache.forget(session.sourceTargetId ?? "", opfsPath);
+  }
+}
+
+async function refreshLocalSnapshot(force: boolean): Promise<boolean> {
   const s = localSession.value;
-  if (!s) return;
+  if (!s) return false;
   if (isLocalSessionStale()) {
     sqlSessionStore.clearLocalSession();
     databases.value = [];
     tables.value = [];
     queryResult.value = null;
     await router.replace("/storage/sqlite");
-    return;
+    return false;
   }
   try {
+    // A stat is one cheap CDP call, where hashing makes the device read and
+    // digest the whole file. Background polls skip early when size and mtime
+    // both still match; an explicit refresh always re-reads, so a device that
+    // reports a stale mtime can never strand the user on old data.
+    if (!force && s.sourceKind === "opfs" && s.sourceOpfsPath && !(await isOpfsSourceDirty(s))) {
+      return false;
+    }
+
     let nextHash: string | null = null;
     if (s.sourceKind === "opfs" && s.sourceOpfsPath) {
       nextHash = await getOpfsDomain().hashSqliteBytes(s.sourceOpfsPath, {
@@ -728,7 +835,7 @@ async function refreshLocalSnapshot() {
       });
     }
     if (nextHash && nextHash === sqlSessionStore.lastSourceHash) {
-      return;
+      return false;
     }
 
     let bytes: Uint8Array | null = null;
@@ -744,51 +851,62 @@ async function refreshLocalSnapshot() {
         storeName: s.sourceStoreName,
       });
     }
-    if (!bytes) return;
+    if (!bytes) return false;
     sqlSessionStore.setLastSourceHash(nextHash);
-    const previous = sqlSessionStore.swapSnapshot(bytes);
+    // A session adopted from a Rust pull holds no bytes in JS, so the baseline
+    // for the first diff comes from the snapshot file still on disk.
+    const baseline = sqlSessionStore.lastSourceBytes ?? (await readSnapshotFile(s.dbPath));
+    const previous = sqlSessionStore.swapSnapshot(bytes) ?? baseline;
     if (previous && previous.byteLength > 0 && bytes.byteLength > 0) {
-      await recordSnapshotDiff(previous, bytes, s.dbPath);
+      await recordSnapshotDiff(previous, bytes, currentDbIdentity.value || s.dbPath);
     }
     await sqlSessionStore.refreshLocalSession(bytes);
+    await rememberOpfsSnapshot(s, bytes.byteLength);
+    return true;
   } catch (err) {
     console.error("[SQLite] refreshLocalSnapshot failed:", err);
+    return false;
   }
 }
 
-async function handleRefresh() {
-  if (
-    localSession.value?.sourceKind === "opfs" ||
-    localSession.value?.sourceKind === "jeep-sqlite"
-  ) {
-    await refreshLocalSnapshot();
-  } else {
-    // Drops the cached pull and re-reads the device file; without this the
-    // reads below would keep serving whatever was pulled the first time.
-    await refreshDeviceSnapshot();
-  }
-  if (currentDb.value && tableName.value) {
-    await openDb(currentDb.value);
-    await fetchTableRows();
-    await fetchColumnInfo();
-    if (activeTab.value === "structure") {
-      structureColumns.value = [];
-      await fetchStructure();
+async function handleRefresh(force = true) {
+  const isLocalSource =
+    localSession.value?.sourceKind === "opfs" || localSession.value?.sourceKind === "jeep-sqlite";
+  const changed = isLocalSource
+    ? await refreshLocalSnapshot(force)
+    : // Drops the cached pull and re-reads the device file; without this the
+      // reads below would keep serving whatever was pulled the first time.
+      await refreshDeviceSnapshot(force);
+
+  // A background poll that found nothing new stops here. Re-opening the
+  // database and refetching rows on every tick would flash the table's loading
+  // state and throw away the user's scroll position for no new data.
+  if (!force && !changed) return;
+
+  isBackgroundRefresh.value = !force;
+  try {
+    if (currentDb.value && tableName.value) {
+      await openDb(currentDb.value);
+      await fetchTableRows();
+      await fetchColumnInfo();
+      if (activeTab.value === "structure") {
+        structureColumns.value = [];
+        await fetchStructure();
+      }
+    } else if (currentDb.value) {
+      await openDb(currentDb.value);
+    } else {
+      await fetchDatabases();
     }
-  } else if (currentDb.value) {
-    await openDb(currentDb.value);
-  } else {
-    await fetchDatabases();
+  } finally {
+    isBackgroundRefresh.value = false;
   }
 }
 
-const { enabled: liveEnabled, intervalMs: liveIntervalMs } = useLiveRefresh(handleRefresh, {
-  intervalMs: 5000,
-});
-
-function toggleLive() {
-  liveEnabled.value = !liveEnabled.value;
-}
+// Change tracking runs on its own, the way the IndexedDB explorer does — there
+// is no user-facing switch. The background poll is the one path allowed to skip
+// on an unchanged stat, so an idle database costs a single stat per tick.
+useLiveRefresh(() => handleRefresh(false), { intervalMs: 5000, immediate: true });
 
 // ─── Destructive actions + cell edit ──────────────────────────────────────────
 const confirmDialog = ref<{
@@ -832,8 +950,8 @@ function handleClearTable(db: SqliteDbFile, table: string) {
     async () => {
       await execAgainstCurrentDb(`DELETE FROM ${quoteIdent(table)}`);
       changesStore.recordSystemChange({
-        serial: serial.value,
-        packageName: selectedPackageName.value,
+        serial: changeSerial.value,
+        packageName: changePackage.value,
         dbPath: db.path,
         tableName: table,
         message: `Cleared all rows from "${table}"`,
@@ -851,8 +969,8 @@ function handleDropTable(db: SqliteDbFile, table: string) {
     async () => {
       await execAgainstCurrentDb(`DROP TABLE ${quoteIdent(table)}`);
       changesStore.recordSystemChange({
-        serial: serial.value,
-        packageName: selectedPackageName.value,
+        serial: changeSerial.value,
+        packageName: changePackage.value,
         dbPath: db.path,
         tableName: table,
         message: `Dropped table "${table}"`,
@@ -1101,12 +1219,12 @@ function handleDeleteDatabase(db: SqliteDbFile) {
         return;
       }
       changesStore.recordSystemChange({
-        serial: serial.value,
-        packageName: selectedPackageName.value,
+        serial: changeSerial.value,
+        packageName: changePackage.value,
         dbPath: db.path,
         message: `Deleted database "${db.name}" at source`,
       });
-      changesStore.clearDatabaseChanges(serial.value, selectedPackageName.value, db.path);
+      changesStore.clearDatabaseChanges(changeSerial.value, changePackage.value, db.path);
       if (localSession.value && localSession.value.dbPath === db.path) {
         sqlSessionStore.clearLocalSession();
         await router.replace("/storage/sqlite");
@@ -1152,11 +1270,11 @@ function formatSummary(summary: SqliteChangeSummary) {
 }
 
 function dbSummary(db: SqliteDbFile) {
-  return getDatabaseSummary(serial.value, selectedPackageName.value, db.path);
+  return getDatabaseSummary(changeSerial.value, changePackage.value, db.path);
 }
 
 function tableSummary(db: SqliteDbFile, table: string) {
-  return getTableSummary(serial.value, selectedPackageName.value, db.path, table);
+  return getTableSummary(changeSerial.value, changePackage.value, db.path, table);
 }
 
 function quoteSqlValue(v: unknown): string {
@@ -1205,9 +1323,9 @@ async function handleRecordEdit(
     await execAgainstCurrentDb(sql);
     changesStore.recordChange({
       operation: "update",
-      serial: serial.value,
-      packageName: selectedPackageName.value,
-      dbPath: currentDb.value.path,
+      serial: changeSerial.value,
+      packageName: changePackage.value,
+      dbPath: currentDbIdentity.value,
       tableName: tableName.value,
       rowKey: buildRowKey(pkColumnsRef.value, original),
       beforeValue: original,
@@ -1235,8 +1353,8 @@ function handleRecordDelete(record: Record<string, unknown>) {
     await execAgainstCurrentDb(`DELETE FROM ${quoteIdent(tableName.value)} WHERE ${where}`);
     changesStore.recordChange({
       operation: "delete",
-      serial: serial.value,
-      packageName: selectedPackageName.value,
+      serial: changeSerial.value,
+      packageName: changePackage.value,
       dbPath: db.path,
       tableName: tableName.value,
       rowKey: buildRowKey(pkColumnsRef.value, record),
@@ -1280,8 +1398,8 @@ function handleRecordDeleteBulk(records: Record<string, unknown>[]) {
       records.forEach((record) => {
         changesStore.recordChange({
           operation: "delete",
-          serial: serial.value,
-          packageName: selectedPackageName.value,
+          serial: changeSerial.value,
+          packageName: changePackage.value,
           dbPath: db.path,
           tableName: tableName.value,
           rowKey: buildRowKey(pkColumnsRef.value, record),
@@ -1336,7 +1454,7 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
 });
 
 watch(
-  [serial, selectedPackageName, () => targetsStore.cdpTargetId],
+  [serial, selectedPackageName, deviceSerial, devicePackageName, () => targetsStore.cdpTargetId],
   async () => {
     databases.value = [];
     tables.value = [];
@@ -1540,14 +1658,9 @@ watch(
                     >
                       {{ db.name }}
                     </span>
-                    <span
-                      class="shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-mono leading-none"
-                      :class="sourceBadgeClass(db)"
-                    >
-                      {{ sourceLabel(db) }}
-                    </span>
+                    <SqliteSourceBadge :db="db" />
                     <RefreshCw
-                      v-if="openingJeepDb === db.path"
+                      v-if="openingJeepDb === db.path || openingOpfsPath === db.sourceOpfsPath"
                       :size="10"
                       class="shrink-0 animate-spin text-muted-foreground/40"
                     />
@@ -1600,7 +1713,7 @@ watch(
                       <DropdownMenuItem
                         :disabled="!hasSummaryChanges(dbSummary(db))"
                         @click="
-                          changesStore.clearDatabaseChanges(serial, selectedPackageName, db.path)
+                          changesStore.clearDatabaseChanges(changeSerial, changePackage, db.path)
                         "
                       >
                         <Eraser class="h-3.5 w-3.5 mr-2" />
@@ -1695,8 +1808,8 @@ watch(
                             :disabled="!hasSummaryChanges(tableSummary(db, t.name))"
                             @click="
                               changesStore.clearTableChanges(
-                                serial,
-                                selectedPackageName,
+                                changeSerial,
+                                changePackage,
                                 db.path,
                                 t.name,
                               )
@@ -1818,15 +1931,12 @@ watch(
                 :page-size="pageSize"
                 :has-more="hasMore"
                 :record-count="queryResult?.rowCount ?? 0"
-                :live-enabled="liveEnabled"
-                :live-interval-ms="liveIntervalMs"
                 :change-summary="currentTableSummary"
                 :show-changes-only="showChangesOnly"
                 @refresh="handleRefresh"
                 @prev="prevPage"
                 @next="nextPage"
                 @page-size-change="handlePageSizeChange"
-                @toggle-live="toggleLive"
                 @toggle-changes-only="toggleChangesOnly"
               />
 

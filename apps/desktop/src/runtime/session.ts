@@ -26,6 +26,10 @@ export function setActiveDeviceEffect(serial: string | null) {
   return invokeCommandEffect("session_set_active_device", { serial });
 }
 
+export function forgetDeviceEffect(serial: string) {
+  return invokeCommandEffect("session_forget_device", { serial });
+}
+
 export function getDeviceInfoEffect(serial: string) {
   return invokeCommandEffect("session_get_device_info", { serial });
 }
@@ -127,6 +131,7 @@ export const sessionBridgeService: SessionBridgeService = {
   listDevices: listDevicesEffect,
   refreshDevices: refreshDevicesEffect,
   setActiveDevice: setActiveDeviceEffect,
+  forgetDevice: forgetDeviceEffect,
   getDeviceInfo: getDeviceInfoEffect,
   shellCommand: shellCommandEffect,
   tcpip: tcpipEffect,

@@ -12,6 +12,7 @@ import {
   refreshDevicesEffect,
   runSessionEffect,
   setActiveDeviceEffect,
+  forgetDeviceEffect,
   subscribeSessionEventsEffect,
 } from "@/runtime/session";
 
@@ -150,6 +151,28 @@ export const useSessionStore = defineStore("session", () => {
     }
   }
 
+  async function forgetDevice(serial: string) {
+    await initialize();
+    const previous = registry.value;
+    // Drop it from the list immediately — the device is gone either way, no
+    // need to wait on the round trip to stop showing it.
+    applySnapshot({
+      ...previous,
+      devices: previous.devices.filter((device) => device.serial !== serial),
+      activeSerial: previous.activeSerial === serial ? null : previous.activeSerial,
+    });
+    try {
+      const snapshot = await runSessionEffect(forgetDeviceEffect(serial), {
+        operation: "session.forgetDevice",
+      });
+      applySnapshot(snapshot);
+      return snapshot;
+    } catch (error) {
+      registry.value = previous;
+      throw error;
+    }
+  }
+
   async function dispose() {
     const stopListening = unlisten.value;
     unlisten.value = null;
@@ -171,6 +194,7 @@ export const useSessionStore = defineStore("session", () => {
     initialize,
     refreshDevices,
     setActiveDevice,
+    forgetDevice,
     dispose,
   };
 });

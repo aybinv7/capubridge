@@ -30,6 +30,12 @@ export interface McpBridgeRequestEvent {
   payload: unknown;
 }
 
+export interface OpfsPullProgressEvent {
+  opfsPath: string;
+  loaded: number;
+  total: number;
+}
+
 export interface IpcEventMap {
   "capubridge:session-event": SessionEvent;
   "capubridge:mirror-device-clipboard": MirrorClipboardEvent;
@@ -48,6 +54,7 @@ export interface IpcEventMap {
   "mock-server-request": MockServerRequestEvent;
   "updater://progress": UpdaterProgressPayload;
   "mcp://bridge/request": McpBridgeRequestEvent;
+  "capubridge:opfs-pull-progress": OpfsPullProgressEvent;
 }
 
 export type IpcEventName = keyof IpcEventMap;
