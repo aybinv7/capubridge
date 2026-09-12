@@ -13,6 +13,9 @@ const props = withDefaults(
     showCaption?: boolean;
     /** Sets view-transition-name on the frame for a shared-element morph. */
     viewTransitionName?: string;
+    /** Override when the frame is not width-bound - the hero is capped by
+     *  viewport height, so it renders wider than the default describes. */
+    sizes?: string;
     /** Size from the available height instead of the available width, so the
      *  whole frame stays inside a height-bounded stage. */
     fill?: boolean;
@@ -24,6 +27,7 @@ const props = withDefaults(
     bordered: true,
     showCaption: true,
     fill: false,
+    sizes: "(min-width: 1024px) 80vw, 86vw",
   },
 );
 
@@ -58,9 +62,17 @@ const frameStyle = computed(() => ({
         </span>
       </div>
 
+      <!--
+        `sizes` has to describe the rendered box, not the viewport: these
+        frames sit at ~86vw in the phone carousel and fill most of the stage on
+        desktop, so without it the browser assumes 100vw and over-fetches. The
+        hero overrides it: that frame is capped by viewport height, not width.
+      -->
       <img
         v-if="!isPending"
         :src="shot.src"
+        :srcset="shot.srcset"
+        :sizes="props.sizes"
         :alt="shot.alt"
         class="h-[calc(100%-1.75rem)] w-full"
         :class="crop ? 'object-cover' : 'object-contain'"

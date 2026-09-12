@@ -43,7 +43,15 @@ watch(menuOpen, (open) => {
   <header class="fixed inset-x-0 top-0 z-[1200] transition-colors duration-300">
     <div class="mx-auto flex h-14 max-w-[1360px] items-center gap-3 px-5 md:gap-6 md:px-8">
       <a href="#top" class="flex items-center gap-2.5">
-        <img src="/icon.png" alt="" class="h-6 w-6 object-contain" width="24" height="24" />
+        <img
+          src="/icon-64.webp"
+          srcset="/icon-64.webp 64w, /icon-128.webp 128w"
+          sizes="24px"
+          alt=""
+          class="h-6 w-6 object-contain"
+          width="24"
+          height="24"
+        />
         <span class="font-[var(--font-display)] text-[15px] font-semibold tracking-[-0.01em]">
           Capubridge
         </span>
@@ -98,7 +106,15 @@ watch(menuOpen, (open) => {
       >
         <div class="flex h-14 shrink-0 items-center justify-between px-5">
           <a href="#top" class="flex items-center gap-2.5" @click="closeMenu">
-            <img src="/icon.png" alt="" class="h-6 w-6 object-contain" width="24" height="24" />
+            <img
+              src="/icon-64.webp"
+              srcset="/icon-64.webp 64w, /icon-128.webp 128w"
+              sizes="24px"
+              alt=""
+              class="h-6 w-6 object-contain"
+              width="24"
+              height="24"
+            />
             <span class="font-[var(--font-display)] text-[15px] font-semibold tracking-[-0.01em]">
               Capubridge
             </span>

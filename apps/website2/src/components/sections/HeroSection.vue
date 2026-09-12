@@ -96,7 +96,12 @@ const { inView } = useInView(hero);
       <div class="mt-12 md:mt-16">
         <ScrollTiltFrame>
           <div class="mx-auto" style="max-width: min(100%, calc(78svh * 16 / 9))">
-            <AppFrame capture="heroOverview" ratio="16 / 9" priority>
+            <AppFrame
+              capture="heroOverview"
+              ratio="16 / 9"
+              sizes="(min-width: 1024px) 90vw, 86vw"
+              priority
+            >
               <template #caption>
                 Hardware, a live mirror of the phone and the console drawer, all in one window.
               </template>

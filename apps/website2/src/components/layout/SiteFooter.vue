@@ -9,7 +9,15 @@ import { footerGroups } from "@/data/site";
       <div class="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div>
           <div class="flex items-center gap-2.5">
-            <img src="/icon.png" alt="" class="h-7 w-7 object-contain" width="28" height="28" />
+            <img
+              src="/icon-64.webp"
+              srcset="/icon-64.webp 64w, /icon-128.webp 128w"
+              sizes="28px"
+              alt=""
+              class="h-7 w-7 object-contain"
+              width="28"
+              height="28"
+            />
             <span class="font-[var(--font-display)] text-[16px] font-semibold">Capubridge</span>
           </div>
           <p class="mt-3 max-w-[34ch] text-[13px] leading-6 text-[var(--ink-3)]">

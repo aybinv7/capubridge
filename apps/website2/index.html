@@ -2,15 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="icon" type="image/webp" href="/icon-128.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Fonts: preconnect + direct <link> (not a CSS @import, which chains and
-         blocks render). display=optional avoids a post-paint swap → no CLS. -->
+    <!-- Fonts: preconnect, then load the sheet out of the critical path. A
+         plain stylesheet <link> blocks the first paint on a third-party round
+         trip; fetching it as a preload and promoting it to a stylesheet on
+         load does not. display=optional already means the first paint uses the
+         fallback stack either way, so nothing is lost and no swap lands late. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      rel="stylesheet"
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=optional"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=optional"
+      />
+    </noscript>
+
+    <!-- The hero image is painted by Vue, so the preload scanner cannot see it
+         in the markup and the LCP request starts only after the bundle has
+         parsed and mounted. Declaring it here moves discovery to the first
+         bytes of the document. -->
+    <link
+      rel="preload"
+      as="image"
+      imagesrcset="/hero-overview-480.webp 480w, /hero-overview-960.webp 960w, /hero-overview-1440.webp 1440w"
+      imagesizes="(min-width: 1024px) 90vw, 86vw"
+      fetchpriority="high"
     />
     <meta
       name="description"

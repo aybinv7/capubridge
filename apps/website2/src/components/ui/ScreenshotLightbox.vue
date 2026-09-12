@@ -116,6 +116,8 @@ watch(
           <img
             v-if="!isPending"
             :src="shot.src"
+            :srcset="shot.srcset"
+            sizes="(min-width: 640px) 90vw, 100vw"
             :alt="shot.alt"
             class="h-[calc(100%-2rem)] w-full object-contain"
             decoding="async"

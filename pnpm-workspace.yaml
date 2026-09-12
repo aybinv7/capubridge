@@ -37,6 +37,7 @@ catalog:
   pinia: ^3.0.4
   reka-ui: 2.9.3
   rrweb: 2.0.0-alpha.4
+  sharp: ^0.35.4
   shiki: ^3.23.0
   sql.js: ^1.13.0
   tailwind-merge: ^3.5.0
@@ -46,6 +47,7 @@ catalog:
   typescript: ^5
   unocss: ^66.6.7
   vite: npm:@voidzero-dev/vite-plus-core@0.1.21
+  vite-imagetools: ^12.0.1
   vite-plugin-vue-devtools: ^8.1.1
   vite-plus: 0.1.21
   vitepress: 2.0.0-alpha.17
