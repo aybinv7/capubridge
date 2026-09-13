@@ -100,7 +100,11 @@ export function useSqliteColumns(options: UseSqliteColumnsOptions) {
           const v = info.getValue();
           if (v === null || v === undefined) return "";
           if (typeof v === "object") return JSON.stringify(v);
-          return String(v);
+          if (typeof v === "string") return v;
+          if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") {
+            return `${v}`;
+          }
+          return "";
         },
         filterFn: "includesString",
       }),
