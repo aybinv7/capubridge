@@ -10,6 +10,7 @@
 mod device;
 mod emulator;
 mod frontend;
+mod mock;
 mod recording;
 mod session;
 mod web;
@@ -116,6 +117,7 @@ impl CapuBridgeTools {
                 + Self::device_tool_router()
                 + Self::recording_tool_router()
                 + Self::frontend_tool_router()
+                + Self::mock_tool_router()
                 + Self::emulator_tool_router(),
         }
     }

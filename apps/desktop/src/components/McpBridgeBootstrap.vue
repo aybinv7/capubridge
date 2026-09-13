@@ -3,8 +3,10 @@
 // select_target can drive the app UI. Mounted once in the main app window only.
 import { onMounted, onBeforeUnmount } from "vue";
 import { useMcpBridge } from "@/composables/useMcpBridge";
+import { useMockServer } from "@/composables/useMockServer";
 
 const bridge = useMcpBridge();
+useMockServer();
 let unlisten: (() => void) | null = null;
 
 onMounted(async () => {

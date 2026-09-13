@@ -3,6 +3,8 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useCDP } from "./useCDP";
 import { useRecordingSession } from "./useRecordingSession";
+import { useMockStore } from "@/modules/network/stores/useMockStore";
+import type { MockRule, MockInterceptMode } from "@/types/mock.types";
 import type { McpBridgeRequestEvent } from "@/runtime/ipc/events";
 import type { RecordingConfig } from "@/types/replay.types";
 
@@ -16,6 +18,7 @@ import type { RecordingConfig } from "@/types/replay.types";
 export function useMcpBridge() {
   const targetsStore = useTargetsStore();
   const recordingStore = useRecordingStore();
+  const mockStore = useMockStore();
   const recording = useRecordingSession();
   const { connectToTarget } = useCDP();
 
@@ -80,11 +83,41 @@ export function useMcpBridge() {
     });
   }
 
+  function upsertMockRule(payload: unknown): Promise<unknown> {
+    const rule = payload as Omit<MockRule, "id" | "hitCount" | "createdAt"> & { id?: string };
+    if (!rule?.name || !rule.urlPattern) {
+      return Promise.reject(new Error("upsert_mock_rule requires name and urlPattern"));
+    }
+    const existing = rule.id
+      ? mockStore.rules.find((candidate) => candidate.id === rule.id)
+      : undefined;
+    const next: MockRule = {
+      ...rule,
+      id: existing?.id ?? crypto.randomUUID(),
+      hitCount: existing?.hitCount ?? 0,
+      createdAt: existing?.createdAt ?? Date.now(),
+    };
+    if (existing) mockStore.updateRule(next);
+    else mockStore.addRule(next);
+    return Promise.resolve({ rule: next });
+  }
+
+  function setMockMode(payload: unknown): Promise<unknown> {
+    const { mode } = (payload ?? {}) as { mode?: MockInterceptMode };
+    if (!mode || !["off", "cdp", "http"].includes(mode)) {
+      return Promise.reject(new Error("set_mock_mode requires off, cdp, or http"));
+    }
+    mockStore.interceptMode = mode;
+    return Promise.resolve({ mode, enabledRules: mockStore.enabledCount });
+  }
+
   const handlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     select_target: selectTarget,
     start_recording: startRecording,
     stop_recording: stopRecording,
     recording_status: recordingStatus,
+    upsert_mock_rule: upsertMockRule,
+    set_mock_mode: setMockMode,
   };
 
   async function handleRequest(event: McpBridgeRequestEvent): Promise<void> {

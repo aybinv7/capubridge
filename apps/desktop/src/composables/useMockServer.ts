@@ -13,6 +13,17 @@ function toBase64(str: string): string {
   return btoa(bin);
 }
 
+function getHeader(headers: Record<string, string>, name: string): string | undefined {
+  const entry = Object.entries(headers).find(
+    ([headerName]) => headerName.toLowerCase() === name.toLowerCase(),
+  );
+  return entry?.[1];
+}
+
+function hasHeader(headers: Array<{ name: string; value: string }>, name: string): boolean {
+  return headers.some((header) => header.name.toLowerCase() === name.toLowerCase());
+}
+
 export function useMockServer() {
   const store = useMockStore();
   const { getClient } = useCDP();
@@ -23,6 +34,7 @@ export function useMockServer() {
   let fetchDomain: FetchDomain | null = null;
   let unsubPaused: (() => void) | null = null;
   let unsubHttpEvent: (() => void) | null = null;
+  let modeTransition = Promise.resolve();
 
   async function startCDP() {
     await stopCDP();
@@ -94,6 +106,13 @@ export function useMockServer() {
       ...(matched.contentType ? [{ name: "content-type", value: matched.contentType }] : []),
       ...matched.responseHeaders.map((h) => ({ name: h.name, value: h.value })),
     ];
+    const origin = getHeader(e.request.headers, "origin");
+    if (origin && !hasHeader(headers, "access-control-allow-origin")) {
+      headers.push({ name: "access-control-allow-origin", value: origin });
+    }
+    if (origin && !hasHeader(headers, "access-control-allow-credentials")) {
+      headers.push({ name: "access-control-allow-credentials", value: "true" });
+    }
 
     await fetchDomain
       ?.fulfillRequest({
@@ -174,19 +193,23 @@ export function useMockServer() {
   // React to mode changes and target changes
   watch(
     [() => store.interceptMode, targetId],
-    async ([mode, id], [prevMode]) => {
-      if (prevMode === "cdp" && mode !== "cdp") {
-        await stopCDP();
-      }
-      if (prevMode === "http" && mode !== "http") {
-        await stopHTTP();
-      }
-      if (mode === "cdp" && id) {
-        await startCDP();
-      }
-      if (mode === "http") {
-        await startHTTP();
-      }
+    ([mode, id], [prevMode]) => {
+      modeTransition = modeTransition
+        .catch(() => undefined)
+        .then(async () => {
+          if (prevMode === "cdp" && mode !== "cdp") {
+            await stopCDP();
+          }
+          if (prevMode === "http" && mode !== "http") {
+            await stopHTTP();
+          }
+          if (mode === "cdp" && id) {
+            await startCDP();
+          }
+          if (mode === "http") {
+            await startHTTP();
+          }
+        });
     },
     { immediate: true },
   );

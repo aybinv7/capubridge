@@ -346,6 +346,43 @@ pub struct StartRecordingParams {
     pub confirm: bool,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct MockRuleParams {
+    pub name: String,
+    pub method: String,
+    pub url_pattern: String,
+    pub url_match_type: String,
+    pub status_code: u16,
+    pub response_body: String,
+    #[serde(default)]
+    pub content_type: Option<String>,
+    #[serde(default)]
+    pub response_headers: Option<Vec<MockResponseHeaderParams>>,
+    #[serde(default)]
+    pub delay_ms: Option<u64>,
+    #[serde(default)]
+    pub pass_through: Option<bool>,
+    #[serde(default)]
+    pub enabled: Option<bool>,
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub confirm: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct MockResponseHeaderParams {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetMockModeParams {
+    pub mode: String,
+    #[serde(default)]
+    pub confirm: bool,
+}
+
 /// Parameters for `query_recording` — filter one track of a saved session and
 /// optionally correlate matches against another track by a timestamp window.
 #[derive(Debug, Deserialize, JsonSchema)]

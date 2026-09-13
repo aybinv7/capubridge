@@ -30,13 +30,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useMockStore } from "@/modules/network/stores/useMockStore";
-import { useMockServer } from "@/composables/useMockServer";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { MockRule, MockInterceptMode, MockResponseHeader } from "@/types/mock.types";
 import { DEFAULT_RULE_TEMPLATES } from "@/types/mock.types";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
-
-useMockServer();
 
 const store = useMockStore();
 const targetsStore = useTargetsStore();
