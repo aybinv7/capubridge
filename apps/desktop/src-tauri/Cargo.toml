@@ -64,6 +64,14 @@ schemars = "1"
 tokio-util = "0.7"
 uuid = { version = "1", features = ["v4"] }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_Environment",
+  "Win32_System_Threading",
+] }
+
 [dev-dependencies]
 rmcp = { version = "2.2", features = ["client", "transport-streamable-http-client-reqwest"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }

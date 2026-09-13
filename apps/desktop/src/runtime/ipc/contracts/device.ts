@@ -8,13 +8,18 @@ import type {
   ReverseRule,
   WebViewSocket,
 } from "@/types/adb.types";
-import type { AndroidVirtualDevice, EmulatorLaunchResult } from "@/types/emulator.types";
+import type {
+  AndroidVirtualDevice,
+  EmulatorLaunchResult,
+  EmulatorStopResult,
+} from "@/types/emulator.types";
 import type { IpcCommand, JsonValue } from "@/runtime/ipc/contracts/common";
 import type { SessionPackageScope } from "@/runtime/ipc/contracts/session";
 
 export interface DeviceCommandMap {
   emulator_list_avds: IpcCommand<undefined, AndroidVirtualDevice[]>;
   emulator_launch_avd: IpcCommand<{ avdName: string }, EmulatorLaunchResult>;
+  emulator_stop_avd: IpcCommand<{ avdName: string }, EmulatorStopResult>;
   adb_start_server: IpcCommand<undefined, string>;
   adb_list_devices: IpcCommand<undefined, ADBDevice[]>;
   adb_get_device_info: IpcCommand<{ serial: string }, DeviceInfo>;

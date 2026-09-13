@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { Loader2, Play, RefreshCw, Smartphone } from "lucide-vue-next";
+import { Loader2, Play, RefreshCw, Smartphone, Square } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { useEmulators } from "@/composables/useEmulators";
 import type { AndroidVirtualDevice } from "@/types/emulator.types";
@@ -9,10 +9,10 @@ const emit = defineEmits<{
   launched: [];
 }>();
 
-const { listAvds, launchAvd } = useEmulators();
+const { listAvds, launchAvd, stopAvd } = useEmulators();
 const avds = ref<AndroidVirtualDevice[]>([]);
 const loading = ref(false);
-const launchingName = ref<string | null>(null);
+const busyName = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 async function refresh() {
@@ -29,18 +29,41 @@ async function refresh() {
 }
 
 async function launch(avdName: string) {
-  if (launchingName.value) return;
-  launchingName.value = avdName;
+  if (busyName.value) return;
+  busyName.value = avdName;
   try {
-    await launchAvd(avdName);
-    toast.success("Emulator launch requested", {
-      description: `${avdName} will appear when ADB is ready.`,
-    });
+    const result = await launchAvd(avdName);
+    if (result.alreadyRunning) {
+      toast.info("Emulator already running", {
+        description: `${avdName} is ${result.serial ?? "already registered with ADB"}.`,
+      });
+    } else {
+      toast.success("Emulator starting", {
+        description: `${avdName} will appear in Devices once it finishes booting (about 30s).`,
+      });
+    }
     emit("launched");
   } catch (cause) {
     toast.error("Failed to launch emulator", { description: String(cause) });
   } finally {
-    launchingName.value = null;
+    busyName.value = null;
+    void refresh();
+  }
+}
+
+async function stop(avdName: string) {
+  if (busyName.value) return;
+  busyName.value = avdName;
+  try {
+    const result = await stopAvd(avdName);
+    toast.success("Emulator stopped", {
+      description: `${result.serial ?? `pid ${result.pid}`} was terminated. Next launch is a cold boot.`,
+    });
+  } catch (cause) {
+    toast.error("Failed to stop emulator", { description: String(cause) });
+  } finally {
+    busyName.value = null;
+    void refresh();
   }
 }
 
@@ -93,20 +116,44 @@ onMounted(() => {
           class="flex items-center gap-3 rounded-xl border border-border/20 bg-surface-1/50 px-4 py-3"
         >
           <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+            :class="avd.running ? 'bg-success/10 text-success' : 'bg-info/10 text-info'"
           >
             <Smartphone :size="16" />
           </div>
           <div class="min-w-0 flex-1">
             <p class="truncate text-[12px] font-medium text-foreground/85">{{ avd.name }}</p>
-            <p class="mt-0.5 text-[10px] text-muted-foreground/35">Android Virtual Device</p>
+            <p
+              v-if="avd.running"
+              class="mt-0.5 flex items-center gap-1.5 text-[10px]"
+              :class="avd.running.serial ? 'text-success' : 'text-warning'"
+            >
+              <span
+                class="inline-block h-1.5 w-1.5 rounded-full"
+                :class="avd.running.serial ? 'bg-success' : 'bg-warning animate-pulse'"
+              />
+              <template v-if="avd.running.serial">Running as {{ avd.running.serial }}</template>
+              <template v-else>Starting (pid {{ avd.running.pid }}) — not on ADB yet</template>
+            </p>
+            <p v-else class="mt-0.5 text-[10px] text-muted-foreground/35">Android Virtual Device</p>
           </div>
           <button
+            v-if="avd.running"
+            class="flex h-8 items-center gap-1.5 rounded-lg border border-error/30 px-3 text-[11px] font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-45"
+            :disabled="busyName !== null"
+            @click="void stop(avd.name)"
+          >
+            <Loader2 v-if="busyName === avd.name" :size="12" class="animate-spin" />
+            <Square v-else :size="12" />
+            Stop
+          </button>
+          <button
+            v-else
             class="flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[11px] font-medium text-background transition-opacity hover:opacity-85 disabled:opacity-45"
-            :disabled="launchingName !== null"
+            :disabled="busyName !== null"
             @click="void launch(avd.name)"
           >
-            <Loader2 v-if="launchingName === avd.name" :size="12" class="animate-spin" />
+            <Loader2 v-if="busyName === avd.name" :size="12" class="animate-spin" />
             <Play v-else :size="12" />
             Launch
           </button>

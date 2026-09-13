@@ -160,6 +160,14 @@ pub struct LaunchEmulatorParams {
     pub confirm: bool,
 }
 
+/// Parameters for `stop_emulator`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct StopEmulatorParams {
+    pub avd_name: String,
+    #[serde(default)]
+    pub confirm: bool,
+}
+
 /// Parameters for `take_screenshot`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ScreenshotParams {
