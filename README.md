@@ -265,6 +265,16 @@ vp run -r build
 xattr -cr /Applications/capubridge.app
 ```
 
+### For Linux AppImage users
+
+On recent Wayland systems using Mesa, including Hyprland-based Arch distributions, the 2.6.0 AppImage can fail during WebKitGTK EGL startup. Launch it with the host Wayland client library:
+
+```bash
+LD_PRELOAD=/usr/lib/libwayland-client.so.0 ./capubridge_2.6.0_amd64.AppImage
+```
+
+This is a temporary AppImage compatibility workaround. `.deb` and `.rpm` packages do not use the affected bundled Wayland library path.
+
 ## Acknowledgements
 
 - [aya](https://github.com/liriliri/aya) — inspiration for what a native Android devtool GUI can feel like
