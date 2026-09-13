@@ -2,17 +2,19 @@
 import { computed, ref, watch } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import {
-  AlertTriangle,
-  Check,
   ChevronDown,
+  CircleHelp,
   Clock,
   Copy,
+  Download,
   FilePlus,
   Globe,
+  Maximize2,
   Plus,
   Radio,
   Server,
   Trash2,
+  Upload,
   X,
   Zap,
 } from "lucide-vue-next";
@@ -27,13 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMockStore } from "@/modules/network/stores/useMockStore";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { MockRule, MockInterceptMode, MockResponseHeader } from "@/types/mock.types";
 import { DEFAULT_RULE_TEMPLATES } from "@/types/mock.types";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
+import JsonEditor from "@/shared/components/data/JsonEditor.vue";
+import { exportMockRule, importMockRule } from "@/modules/network/mockRuleTransfer";
 
 const store = useMockStore();
 const targetsStore = useTargetsStore();
@@ -47,6 +51,10 @@ const ruleSearch = ref("");
 const showTemplates = ref(false);
 const rulesScrollEl = ref<HTMLElement | null>(null);
 const logScrollEl = ref<HTMLElement | null>(null);
+const transferNotice = ref<string | null>(null);
+const transferPending = ref(false);
+const bodyDialogOpen = ref(false);
+const modeHelpOpen = ref(false);
 
 const selectedRule = computed(() => store.rules.find((r) => r.id === selectedId.value) ?? null);
 
@@ -71,31 +79,32 @@ const {
 
 // Open draft when rule selected
 watch(selectedRule, (rule) => {
-  draft.value = rule
-    ? { ...rule, responseHeaders: rule.responseHeaders.map((h) => ({ ...h })) }
-    : null;
+  if (!rule) {
+    draft.value = null;
+    return;
+  }
+  draft.value = {
+    ...rule,
+    responseBody: formatJsonBody(rule.responseBody, rule.contentType),
+    responseHeaders: rule.responseHeaders.map((h) => ({ ...h })),
+  };
 });
 
 // Auto-save draft with debounce
 watchDebounced(
   draft,
   (d) => {
-    if (d) store.updateRule(d);
+    if (!d) return;
+    const persisted = store.rules.find((rule) => rule.id === d.id);
+    store.updateRule({ ...d, enabled: persisted?.enabled ?? d.enabled });
   },
   { deep: true, debounce: 300 },
 );
 
-// Body validation
-const bodyError = computed(() => {
-  if (!draft.value) return null;
-  const ct = draft.value.contentType.toLowerCase();
-  if (!ct.includes("json") || !draft.value.responseBody.trim()) return null;
-  try {
-    JSON.parse(draft.value.responseBody);
-    return null;
-  } catch (e) {
-    return (e as Error).message;
-  }
+const targetScopeLabel = computed(() => {
+  const target = targetsStore.selectedTarget;
+  if (!target) return "Global mock workspace";
+  return `${target.deviceSerial ?? target.source} · ${target.title || target.url || target.id}`;
 });
 
 // Header helpers
@@ -141,6 +150,58 @@ function deleteRule(id: string) {
 function duplicateRule(id: string) {
   const newId = store.duplicateRule(id);
   if (newId) selectedId.value = newId;
+}
+
+function setRuleEnabled(id: string, enabled: boolean) {
+  const rule = store.rules.find((candidate) => candidate.id === id);
+  if (!rule || rule.enabled === enabled) return;
+  if (draft.value?.id === id) {
+    draft.value = { ...draft.value, enabled };
+  }
+  store.setRuleEnabled(id, enabled);
+}
+
+function formatJsonBody(body: string, contentType: string): string {
+  if (!contentType.includes("json") || !body.trim()) return body;
+  try {
+    return JSON.stringify(JSON.parse(body), null, 2);
+  } catch {
+    return body;
+  }
+}
+
+function openBodyDialog() {
+  if (!draft.value) return;
+  draft.value.responseBody = formatJsonBody(draft.value.responseBody, draft.value.contentType);
+  bodyDialogOpen.value = true;
+}
+
+async function importRule() {
+  transferPending.value = true;
+  try {
+    const rule = await importMockRule();
+    if (!rule) return;
+    const id = store.addRule(rule);
+    selectedId.value = id;
+    leftTab.value = "rules";
+    transferNotice.value = "Rule imported into this target workspace";
+  } catch (error) {
+    transferNotice.value = error instanceof Error ? error.message : "Could not import mock rule";
+  } finally {
+    transferPending.value = false;
+  }
+}
+
+async function exportRule(rule: MockRule) {
+  transferPending.value = true;
+  try {
+    const path = await exportMockRule(rule);
+    if (path) transferNotice.value = "Rule configuration exported";
+  } catch (error) {
+    transferNotice.value = error instanceof Error ? error.message : "Could not export mock rule";
+  } finally {
+    transferPending.value = false;
+  }
 }
 
 // Mode management
@@ -270,28 +331,52 @@ function timeAgo(ts: number): string {
 
       <div class="flex-1" />
 
+      <button
+        class="flex h-7 items-center gap-1.5 rounded px-2 text-[11px] text-muted-foreground/55 transition-colors hover:bg-surface-3 hover:text-foreground"
+        @click="modeHelpOpen = !modeHelpOpen"
+      >
+        <CircleHelp class="h-3.5 w-3.5" />
+        Mode guide
+      </button>
+
       <!-- Stats -->
-      <span class="text-[11px] text-muted-foreground/40">
-        {{ store.enabledCount }} active rule{{ store.enabledCount !== 1 ? "s" : "" }}
-      </span>
+      <div class="flex items-center gap-2 text-[11px]">
+        <span class="max-w-[220px] truncate text-muted-foreground/40" :title="targetScopeLabel">
+          {{ targetScopeLabel }}
+        </span>
+        <span class="text-muted-foreground/40">
+          {{ store.enabledCount }} active rule{{ store.enabledCount !== 1 ? "s" : "" }}
+        </span>
+      </div>
 
       <!-- New rule button + template dropdown -->
       <div class="relative">
-        <div class="flex overflow-hidden rounded border border-border/25">
+        <div class="flex items-center gap-1.5">
           <button
-            class="flex items-center gap-1 bg-surface-3 px-2.5 py-1 text-[11px] text-muted-foreground/70 transition-colors hover:bg-surface-3/80 hover:text-foreground/80"
-            @click="createRule()"
+            class="flex h-8 items-center gap-1.5 rounded-md border border-border/30 bg-surface-3 px-2.5 text-[11px] font-medium text-foreground/80 transition-colors hover:bg-surface-3/70 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="transferPending"
+            title="Import a rule configuration into this target workspace"
+            @click="importRule"
           >
-            <Plus class="h-3.5 w-3.5" />
-            New Rule
+            <Upload class="h-3.5 w-3.5" />
+            Import
           </button>
-          <button
-            class="border-l border-border/25 bg-surface-3 px-1.5 text-muted-foreground/50 transition-colors hover:bg-surface-3/80 hover:text-foreground/70"
-            title="New from template"
-            @click="showTemplates = !showTemplates"
-          >
-            <ChevronDown class="h-3 w-3" />
-          </button>
+          <div class="flex overflow-hidden rounded-md shadow-sm ring-1 ring-primary/35">
+            <button
+              class="flex h-8 items-center gap-1.5 bg-primary px-3.5 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              @click="createRule()"
+            >
+              <Plus class="h-3.5 w-3.5" />
+              Create rule
+            </button>
+            <button
+              class="border-l border-primary-foreground/20 bg-primary px-2 text-primary-foreground/75 transition-colors hover:bg-primary/90 hover:text-primary-foreground"
+              title="New from template"
+              @click="showTemplates = !showTemplates"
+            >
+              <ChevronDown class="h-3 w-3" />
+            </button>
+          </div>
         </div>
 
         <!-- Template dropdown -->
@@ -312,6 +397,43 @@ function timeAgo(ts: number): string {
             {{ tpl.label }}
           </button>
         </div>
+      </div>
+    </div>
+    <div
+      v-if="transferNotice"
+      class="flex h-7 shrink-0 items-center border-b border-border/20 bg-surface-1 px-3 text-[11px] text-muted-foreground/60"
+    >
+      {{ transferNotice }}
+      <button
+        class="ml-auto text-muted-foreground/40 hover:text-foreground/70"
+        @click="transferNotice = null"
+      >
+        <X class="h-3 w-3" />
+      </button>
+    </div>
+    <div
+      v-if="modeHelpOpen"
+      class="grid shrink-0 grid-cols-2 gap-px border-b border-border/20 bg-border/20"
+    >
+      <div class="bg-surface-1 px-4 py-3">
+        <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-success">
+          <Zap class="h-3.5 w-3.5" />
+          CDP interception
+        </div>
+        <p class="text-[11px] leading-relaxed text-muted-foreground/60">
+          Best for a running Android WebView. Capubridge replaces matching requests directly, so the
+          app keeps its normal API URL and needs no configuration change.
+        </p>
+      </div>
+      <div class="bg-surface-1 px-4 py-3">
+        <div class="mb-1 flex items-center gap-1.5 text-xs font-semibold text-info">
+          <Server class="h-3.5 w-3.5" />
+          HTTP mock server
+        </div>
+        <p class="text-[11px] leading-relaxed text-muted-foreground/60">
+          Best when the app can point at Capubridge’s local URL or proxy. Use it without WebView
+          debugging, then connect Android with ADB Reverse.
+        </p>
       </div>
     </div>
 
@@ -406,9 +528,9 @@ function timeAgo(ts: number): string {
                 >
                   <!-- Enable switch -->
                   <Switch
-                    :checked="rule.enabled"
+                    :model-value="rule.enabled"
                     class="scale-75 shrink-0"
-                    @update:checked="store.toggleRule(rule.id)"
+                    @update:model-value="setRuleEnabled(rule.id, $event)"
                     @click.stop
                   />
 
@@ -567,6 +689,14 @@ function timeAgo(ts: number): string {
                 <Copy class="h-3.5 w-3.5" />
               </button>
               <button
+                class="rounded p-1.5 text-muted-foreground/40 transition-colors hover:bg-surface-3 hover:text-foreground/60 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="transferPending"
+                title="Export rule configuration"
+                @click="exportRule(draft)"
+              >
+                <Download class="h-3.5 w-3.5" />
+              </button>
+              <button
                 class="rounded p-1.5 text-muted-foreground/40 transition-colors hover:bg-error/10 hover:text-error/70"
                 title="Delete rule"
                 @click="deleteRule(draft.id)"
@@ -712,25 +842,30 @@ function timeAgo(ts: number): string {
                 <div>
                   <div class="mb-1.5 flex items-center justify-between">
                     <span class="text-[11px] text-muted-foreground/50">Body</span>
-                    <span
-                      v-if="bodyError"
-                      class="flex items-center gap-1 text-[10px] text-error/70"
+                    <button
+                      class="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground/55 transition-colors hover:bg-surface-3 hover:text-foreground"
+                      title="Open response body editor"
+                      @click="openBodyDialog"
                     >
-                      <AlertTriangle class="h-2.5 w-2.5" />
-                      Invalid JSON
-                    </span>
-                    <span
-                      v-else-if="draft.responseBody && draft.contentType.includes('json')"
-                      class="flex items-center gap-1 text-[10px] text-success/60"
-                    >
-                      <Check class="h-2.5 w-2.5" />
-                      Valid JSON
-                    </span>
+                      <Maximize2 class="h-3 w-3" />
+                      Expand
+                    </button>
                   </div>
-                  <Textarea
+                  <div
+                    v-if="draft.contentType.includes('json')"
+                    class="h-[132px] overflow-hidden rounded-md"
+                  >
+                    <JsonEditor
+                      :value="draft.responseBody"
+                      class="h-full rounded-md border border-border/25 bg-surface-2"
+                      @update:value="draft.responseBody = $event"
+                    />
+                  </div>
+                  <textarea
+                    v-else
                     v-model="draft.responseBody"
-                    class="min-h-[140px] resize-none border-border/25 bg-surface-2 font-mono text-xs leading-relaxed text-foreground/80"
-                    placeholder='{"data": []}'
+                    class="h-[132px] w-full resize-y rounded-md border border-border/25 bg-surface-2 px-3 py-2 font-mono text-xs leading-5 text-foreground/80 outline-none focus:border-border/60"
+                    placeholder="Response body…"
                     spellcheck="false"
                   />
                 </div>
@@ -805,7 +940,7 @@ function timeAgo(ts: number): string {
                     Match URL but let request continue to real API
                   </div>
                 </div>
-                <Switch v-model:checked="draft.passThrough" />
+                <Switch v-model="draft.passThrough" />
               </div>
             </section>
 
@@ -824,5 +959,31 @@ function timeAgo(ts: number): string {
         </ScrollArea>
       </ResizablePanel>
     </ResizablePanelGroup>
+
+    <Dialog v-model:open="bodyDialogOpen">
+      <DialogContent
+        class="flex h-[85vh] w-[92vw] min-w-[70vw] max-w-[92vw] flex-col gap-0 p-0 sm:max-w-[92vw]"
+      >
+        <DialogHeader class="shrink-0 border-b border-border/30 px-5 py-3">
+          <DialogTitle class="pr-7 text-sm font-medium">
+            Response body · {{ draft?.name ?? "Rule" }}
+          </DialogTitle>
+        </DialogHeader>
+        <div v-if="draft" class="min-h-0 flex-1 p-4">
+          <JsonEditor
+            v-if="draft.contentType.includes('json')"
+            :value="draft.responseBody"
+            @update:value="draft.responseBody = $event"
+          />
+          <textarea
+            v-else
+            v-model="draft.responseBody"
+            class="h-full w-full resize-none rounded-md border border-border/25 bg-surface-2 px-3 py-2 font-mono text-xs leading-5 text-foreground/80 outline-none focus:border-border/60"
+            placeholder="Response body…"
+            spellcheck="false"
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useNetworkStore } from "@/modules/network/stores/useNetworkStore";
-import { useMockServer } from "@/composables/useMockServer";
 import type { NetworkTypeFilter } from "@/types/network.types";
 
 const TYPE_FILTERS: NetworkTypeFilter[] = [
@@ -30,8 +29,6 @@ const TYPE_FILTERS: NetworkTypeFilter[] = [
 ];
 
 const HTTP_METHODS = ["All", "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
-
-useMockServer();
 
 const store = useNetworkStore();
 const targetsStore = useTargetsStore();

@@ -53,6 +53,18 @@ export interface MockLogEntry {
   noMatch: boolean;
 }
 
+export interface MockTargetConfig {
+  rules: MockRule[];
+  interceptMode: MockInterceptMode;
+}
+
+export interface MockRuleExport {
+  format: "capubridge-mock-rule";
+  version: 1;
+  exportedAt: string;
+  rule: Omit<MockRule, "id" | "hitCount" | "createdAt">;
+}
+
 export const DEFAULT_RULE_TEMPLATES: Array<{ label: string; rule: Partial<MockRule> }> = [
   {
     label: "200 JSON",

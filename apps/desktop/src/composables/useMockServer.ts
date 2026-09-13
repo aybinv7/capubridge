@@ -26,15 +26,32 @@ function hasHeader(headers: Array<{ name: string; value: string }>, name: string
 
 export function useMockServer() {
   const store = useMockStore();
-  const { getClient } = useCDP();
+  const { getClient, connectionStore } = useCDP();
   const targetsStore = useTargetsStore();
 
   const targetId = computed(() => targetsStore.cdpTargetId);
+  const targetScope = computed(() => {
+    const target = targetsStore.selectedTarget;
+    if (!target) return "global";
+    return `${target.source}:${target.deviceSerial ?? "local"}:${target.id}`;
+  });
+  const connectionStatus = computed(() => {
+    if (!targetId.value) return "disconnected";
+    return connectionStore.connections.get(targetId.value)?.status ?? "disconnected";
+  });
 
   let fetchDomain: FetchDomain | null = null;
   let unsubPaused: (() => void) | null = null;
   let unsubHttpEvent: (() => void) | null = null;
   let modeTransition = Promise.resolve();
+
+  watch(
+    targetScope,
+    (scope) => {
+      store.setScope(scope);
+    },
+    { immediate: true },
+  );
 
   async function startCDP() {
     await stopCDP();
@@ -192,21 +209,30 @@ export function useMockServer() {
 
   // React to mode changes and target changes
   watch(
-    [() => store.interceptMode, targetId],
-    ([mode, id], [prevMode]) => {
+    [() => store.interceptMode, targetId, connectionStatus],
+    ([mode, id, status], [previousMode, previousTargetId, previousStatus]) => {
       modeTransition = modeTransition
         .catch(() => undefined)
         .then(async () => {
-          if (prevMode === "cdp" && mode !== "cdp") {
+          const modeChanged = mode !== previousMode;
+          const targetChanged = id !== previousTargetId;
+          const connected = status === "connected";
+
+          if (previousMode === "cdp" && (mode !== "cdp" || targetChanged || !connected)) {
             await stopCDP();
           }
-          if (prevMode === "http" && mode !== "http") {
+          if (previousMode === "http" && mode !== "http") {
             await stopHTTP();
           }
-          if (mode === "cdp" && id) {
+          if (
+            mode === "cdp" &&
+            id &&
+            connected &&
+            (modeChanged || targetChanged || previousStatus !== "connected")
+          ) {
             await startCDP();
           }
-          if (mode === "http") {
+          if (mode === "http" && modeChanged) {
             await startHTTP();
           }
         });

@@ -1,9 +1,20 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useLocalStorage } from "@vueuse/core";
-import type { MockRule, MockLogEntry, MockInterceptMode, UrlMatchType } from "@/types/mock.types";
+import type {
+  MockRule,
+  MockLogEntry,
+  MockInterceptMode,
+  MockTargetConfig,
+  UrlMatchType,
+} from "@/types/mock.types";
 
 const MAX_LOG = 500;
+const GLOBAL_SCOPE = "global";
+
+function emptyConfig(): MockTargetConfig {
+  return { rules: [], interceptMode: "off" };
+}
 
 function newRule(overrides: Partial<MockRule> = {}): MockRule {
   return {
@@ -26,18 +37,61 @@ function newRule(overrides: Partial<MockRule> = {}): MockRule {
 }
 
 export const useMockStore = defineStore("mock", () => {
-  // Persisted state
-  const rules = useLocalStorage<MockRule[]>("capubridge:mock-rules", []);
-  const interceptMode = useLocalStorage<MockInterceptMode>("capubridge:mock-mode", "off");
+  const scopedConfigs = useLocalStorage<Record<string, MockTargetConfig>>(
+    "capubridge:mock-target-configs",
+    {},
+  );
+  const legacyRules = useLocalStorage<MockRule[]>("capubridge:mock-rules", []);
+  const legacyMode = useLocalStorage<MockInterceptMode>("capubridge:mock-mode", "off");
+  const legacyMigrated = useLocalStorage("capubridge:mock-target-configs-migrated", false);
+  const currentScope = ref(GLOBAL_SCOPE);
   const httpPort = useLocalStorage<number>("capubridge:mock-http-port", 3001);
 
-  // In-memory only
   const log = ref<MockLogEntry[]>([]);
   const httpServerRunning = ref(false);
 
-  // Derived
+  const currentConfig = computed(() => scopedConfigs.value[currentScope.value] ?? emptyConfig());
+  const rules = computed<MockRule[]>({
+    get: () => currentConfig.value.rules,
+    set: (value) => updateCurrentConfig({ rules: value }),
+  });
+  const interceptMode = computed<MockInterceptMode>({
+    get: () => currentConfig.value.interceptMode,
+    set: (value) => updateCurrentConfig({ interceptMode: value }),
+  });
   const activeRules = computed(() => rules.value.filter((r) => r.enabled));
   const enabledCount = computed(() => activeRules.value.length);
+
+  function updateCurrentConfig(update: Partial<MockTargetConfig>) {
+    scopedConfigs.value = {
+      ...scopedConfigs.value,
+      [currentScope.value]: {
+        ...currentConfig.value,
+        ...update,
+      },
+    };
+  }
+
+  function setScope(scope: string) {
+    const nextScope = scope || GLOBAL_SCOPE;
+    if (
+      nextScope !== GLOBAL_SCOPE &&
+      !legacyMigrated.value &&
+      (legacyRules.value.length > 0 || legacyMode.value !== "off")
+    ) {
+      scopedConfigs.value = {
+        ...scopedConfigs.value,
+        [nextScope]: {
+          rules: legacyRules.value,
+          interceptMode: legacyMode.value,
+        },
+      };
+      legacyRules.value = [];
+      legacyMode.value = "off";
+      legacyMigrated.value = true;
+    }
+    currentScope.value = nextScope;
+  }
 
   // Rule actions
   function addRule(overrides: Partial<MockRule> = {}) {
@@ -69,8 +123,8 @@ export const useMockStore = defineStore("mock", () => {
     rules.value = rules.value.filter((r) => r.id !== id);
   }
 
-  function toggleRule(id: string) {
-    rules.value = rules.value.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r));
+  function setRuleEnabled(id: string, enabled: boolean) {
+    rules.value = rules.value.map((r) => (r.id === id ? { ...r, enabled } : r));
   }
 
   function incrementHitCount(id: string) {
@@ -104,15 +158,17 @@ export const useMockStore = defineStore("mock", () => {
     rules,
     interceptMode,
     httpPort,
+    currentScope,
     log,
     httpServerRunning,
     activeRules,
     enabledCount,
+    setScope,
     addRule,
     duplicateRule,
     updateRule,
     deleteRule,
-    toggleRule,
+    setRuleEnabled,
     incrementHitCount,
     clearHitCounts,
     addLogEntry,
