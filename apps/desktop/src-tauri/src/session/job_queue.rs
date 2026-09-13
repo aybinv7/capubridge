@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use std::sync::mpsc;
+use std::sync::Arc;
 
 use parking_lot::Mutex;
 
@@ -105,13 +106,68 @@ impl SessionWorkerJob {
     }
 }
 
-type SessionResponse = Result<SessionJobResult, String>;
+pub type SessionResponse = Result<SessionJobResult, String>;
 type SessionResponseSender = mpsc::Sender<SessionResponse>;
+
+const JOB_QUEUED: u8 = 0;
+const JOB_RUNNING: u8 = 1;
+const JOB_CANCELLED: u8 = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionJobCancellationOutcome {
+    CancelledBeforeExecution,
+    AlreadyRunning,
+    NotCancellable,
+}
+
+#[derive(Debug)]
+pub struct SessionEnqueuedJob {
+    pub receiver: mpsc::Receiver<SessionResponse>,
+    cancellation: Option<Arc<AtomicU8>>,
+}
+
+impl SessionEnqueuedJob {
+    pub fn cancel_before_execution(&self) -> SessionJobCancellationOutcome {
+        let Some(cancellation) = &self.cancellation else {
+            return SessionJobCancellationOutcome::NotCancellable;
+        };
+
+        match cancellation.compare_exchange(
+            JOB_QUEUED,
+            JOB_CANCELLED,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        ) {
+            Ok(_) => SessionJobCancellationOutcome::CancelledBeforeExecution,
+            Err(JOB_RUNNING) => SessionJobCancellationOutcome::AlreadyRunning,
+            Err(JOB_CANCELLED) => SessionJobCancellationOutcome::CancelledBeforeExecution,
+            Err(_) => SessionJobCancellationOutcome::AlreadyRunning,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct SessionWorkerRequest {
     pub job: SessionWorkerJob,
     pub response: Option<SessionResponseSender>,
+    cancellation: Option<Arc<AtomicU8>>,
+}
+
+impl SessionWorkerRequest {
+    pub fn begin_execution(&self) -> bool {
+        let Some(cancellation) = &self.cancellation else {
+            return true;
+        };
+
+        cancellation
+            .compare_exchange(
+                JOB_QUEUED,
+                JOB_RUNNING,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .is_ok()
+    }
 }
 
 #[derive(Debug, Default)]
@@ -130,7 +186,7 @@ impl SessionJobQueue {
         &self,
         sender: &mpsc::SyncSender<SessionWorkerRequest>,
         job: SessionWorkerJob,
-    ) -> mpsc::Receiver<SessionResponse> {
+    ) -> SessionEnqueuedJob {
         let (response_tx, response_rx) = mpsc::channel();
         let maybe_key = job.coalescing_key();
 
@@ -138,7 +194,10 @@ impl SessionJobQueue {
             let mut inner = self.inner.lock();
             if let Some(waiters) = inner.snapshot_waiters.get_mut(&key) {
                 waiters.push(response_tx);
-                return response_rx;
+                return SessionEnqueuedJob {
+                    receiver: response_rx,
+                    cancellation: None,
+                };
             }
 
             inner
@@ -149,7 +208,9 @@ impl SessionJobQueue {
         let request = SessionWorkerRequest {
             job,
             response: maybe_key.is_none().then_some(response_tx.clone()),
+            cancellation: maybe_key.is_none().then(|| Arc::new(AtomicU8::new(JOB_QUEUED))),
         };
+        let cancellation = request.cancellation.clone();
 
         self.queued_jobs.fetch_add(1, Ordering::AcqRel);
         if let Err(error) = sender.try_send(request) {
@@ -177,7 +238,10 @@ impl SessionJobQueue {
             }
         }
 
-        response_rx
+        SessionEnqueuedJob {
+            receiver: response_rx,
+            cancellation,
+        }
     }
 
     pub fn resolve_snapshot(&self, key: &SessionJobKey, result: SessionResponse) {
@@ -247,6 +311,21 @@ mod tests {
                 command: "second".to_string(),
             },
         );
-        assert!(matches!(second.recv(), Ok(Err(message)) if message.contains("queue is full")));
+        assert!(matches!(second.receiver.recv(), Ok(Err(message)) if message.contains("queue is full")));
+    }
+
+    #[test]
+    fn cancelled_direct_job_cannot_begin_execution() {
+        let queue = SessionJobQueue::default();
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let queued = queue.enqueue(&sender, SessionWorkerJob::Root);
+
+        assert_eq!(
+            queued.cancel_before_execution(),
+            SessionJobCancellationOutcome::CancelledBeforeExecution
+        );
+
+        let request = receiver.recv().expect("queued request");
+        assert!(!request.begin_execution());
     }
 }

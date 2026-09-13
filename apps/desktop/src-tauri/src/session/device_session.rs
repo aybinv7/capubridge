@@ -22,8 +22,8 @@ use crate::session::job_queue::SessionJobResult::{
     WebViewSockets,
 };
 use crate::session::job_queue::{
-    SessionJobPriority, SessionJobQueue, SessionJobResult, SessionWorkerJob,
-    SessionWorkerRequest, SESSION_QUEUE_CAPACITY,
+    SessionJobCancellationOutcome, SessionJobPriority, SessionJobQueue, SessionJobResult,
+    SessionWorkerJob, SessionWorkerRequest, SESSION_QUEUE_CAPACITY,
 };
 use crate::session::types::{
     SessionCleanupState, SessionHealthSnapshot, SessionTargetSnapshot,
@@ -318,18 +318,30 @@ impl DeviceSession {
             return Err(format!("Device session {} is shutting down", self.serial));
         }
         let cancel_packages_on_timeout = matches!(job, SessionWorkerJob::RefreshPackages { .. });
-        let receiver = self.queue.enqueue(&self.sender, job);
-        match receiver.recv_timeout(SESSION_REQUEST_TIMEOUT) {
+        let request = self.queue.enqueue(&self.sender, job);
+        match request.receiver.recv_timeout(SESSION_REQUEST_TIMEOUT) {
             Ok(result) => result,
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if cancel_packages_on_timeout {
                     adb_cancel_list_packages_inner(&self.serial);
                 }
-                let error = format!(
-                    "Timed out waiting for session worker {} after {} seconds",
-                    self.serial,
-                    SESSION_REQUEST_TIMEOUT.as_secs()
-                );
+                let error = match request.cancel_before_execution() {
+                    SessionJobCancellationOutcome::CancelledBeforeExecution => format!(
+                        "Session worker {} timed out after {} seconds; the queued operation was cancelled before execution and retry is safe",
+                        self.serial,
+                        SESSION_REQUEST_TIMEOUT.as_secs()
+                    ),
+                    SessionJobCancellationOutcome::AlreadyRunning => format!(
+                        "Session worker {} timed out after {} seconds after the operation started; outcome is unknown and mutations must not be retried automatically",
+                        self.serial,
+                        SESSION_REQUEST_TIMEOUT.as_secs()
+                    ),
+                    SessionJobCancellationOutcome::NotCancellable => format!(
+                        "Session worker {} timed out after {} seconds while a shared read was in flight; no mutation retry is implied",
+                        self.serial,
+                        SESSION_REQUEST_TIMEOUT.as_secs()
+                    ),
+                };
                 self.health.record_failure(error.clone());
                 Err(error)
             }
@@ -458,6 +470,13 @@ fn worker_loop(
             continue;
         };
         queue.mark_started();
+        if !request.begin_execution() {
+            SessionJobQueue::resolve_direct(
+                request.response,
+                Err("Session operation was cancelled before execution".to_string()),
+            );
+            continue;
+        }
         let key = request.job.coalescing_key();
         health.start_operation(request.job.operation_name());
         let result = execute_job(&serial, &request.job);
