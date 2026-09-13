@@ -24,6 +24,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 
 use super::cdp;
+use super::redaction::redact_text;
 
 const MAX_CONSOLE_ENTRIES: usize = 200;
 const MAX_NETWORK_ENTRIES: usize = 200;
@@ -119,6 +120,7 @@ impl CaptureSession {
     }
 
     fn push_console(&self, mut entry: ConsoleEntry) {
+        entry.text = redact_text(&entry.text);
         let (text, field_truncated) = truncate_utf8(&entry.text, MAX_FIELD_BYTES);
         entry.text = text;
         let mut state = self.state.write();
@@ -181,6 +183,7 @@ fn truncate_utf8(value: &str, max_bytes: usize) -> (String, bool) {
 fn bound_network_entry(entry: &mut NetworkEntry, truncated: &mut bool) {
     for field in [&mut entry.url, &mut entry.method, &mut entry.failed] {
         if let Some(value) = field {
+            *value = redact_text(value);
             let (bounded, was_truncated) = truncate_utf8(value, MAX_FIELD_BYTES);
             *value = bounded;
             *truncated |= was_truncated;
@@ -496,6 +499,21 @@ mod tests {
         let entries = session.console_snapshot();
         assert_eq!(entries[0].level, "warn");
         assert_eq!(entries[0].text, "hello 42");
+    }
+
+    #[test]
+    fn capture_never_retains_bridge_credentials() {
+        let session = CaptureSession::new();
+        handle_cdp_event(
+            &session,
+            "Runtime.consoleAPICalled",
+            &serde_json::json!({
+                "type": "log",
+                "args": [{ "type": "string", "value": "{\"bridge\":{\"accessToken\":\"fixture-secret\"}}" }]
+            }),
+        );
+        let capture = serde_json::to_string(&session.console_capture()).expect("serialize capture");
+        assert!(!capture.contains("fixture-secret"));
     }
 
     #[test]

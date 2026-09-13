@@ -24,6 +24,7 @@ use rmcp::{tool_handler, ErrorData, ServerHandler};
 use serde::Serialize;
 
 use super::capture::CaptureRegistry;
+use super::redaction::redact_value;
 use crate::session::registry::SessionRegistry;
 use crate::session::types::SessionTargetSnapshot;
 
@@ -35,8 +36,9 @@ use crate::session::types::SessionTargetSnapshot;
 /// array (e.g. from a `Vec<T>` payload) fails schema validation on strict
 /// clients, so it's only attached when the serialized payload is an object.
 fn ok_json<T: Serialize>(payload: &T) -> Result<CallToolResult, ErrorData> {
-    let value = serde_json::to_value(payload)
+    let mut value = serde_json::to_value(payload)
         .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))?;
+    redact_value(&mut value);
     let text = serde_json::to_string_pretty(&value)
         .map_err(|error| ErrorData::internal_error(format!("serialize failed: {error}"), None))?;
     let mut result = CallToolResult::success(vec![ContentBlock::text(text)]);
@@ -282,6 +284,14 @@ mod tests {
     #[test]
     fn write_png_to_temp_file_rejects_invalid_base64() {
         assert!(write_png_to_temp_file("not-base64!!!").is_err());
+    }
+
+    #[test]
+    fn tool_output_redacts_credentials_from_structured_and_text_content() {
+        let result = ok_json(&serde_json::json!({ "accessToken": "fixture-secret" }))
+            .expect("tool result");
+        let serialized = serde_json::to_string(&result).expect("serialize result");
+        assert!(!serialized.contains("fixture-secret"));
     }
 
     #[tokio::test]

@@ -14,6 +14,7 @@ pub mod config;
 pub mod device_control;
 pub mod discovery;
 pub mod recording_query;
+pub mod redaction;
 pub mod server;
 pub mod tools;
 pub mod types;
