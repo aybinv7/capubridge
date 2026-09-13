@@ -86,22 +86,10 @@
       "rationale": "Interactive documentation preview combines device, inspector, storage, console, and settings demonstrations; approved pending extraction into capability preview components."
     },
     {
-      "path": "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue",
-      "maxLines": 855,
-      "owner": "Storage module",
-      "rationale": "Storage graph surface combines graph discovery, layout, filtering, selection, and detail presentation; narrow exception remains pending graph service extraction."
-    },
-    {
       "path": "apps/desktop/src/modules/network/NetworkMock.vue",
       "maxLines": 831,
       "owner": "Network module",
       "rationale": "Network mock surface combines rule editing, persistence, interception mode, reverse setup, and request log presentation; approved pending editor and log extraction."
-    },
-    {
-      "path": "apps/desktop/src/modules/storage/sqlite/SqliteTable.vue",
-      "maxLines": 814,
-      "owner": "Storage module",
-      "rationale": "SQLite table combines column modeling, change overlays, row actions, virtualization, and table presentation; v2.4.0 extends the focused change workflow, and the narrow exception remains pending action and overlay extraction."
     }
   ]
 }

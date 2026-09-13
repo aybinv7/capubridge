@@ -1,48 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, h, watch, onUnmounted } from "vue";
-import {
-  useVueTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getGroupedRowModel,
-  getExpandedRowModel,
-  FlexRender,
-  createColumnHelper,
-  type SortingState,
-  type ColumnFiltersState,
-  type GroupingState,
-  type ExpandedState,
-  type VisibilityState,
-  type ColumnOrderState,
-  type ColumnPinningState,
-  type ColumnDef,
-  type ColumnSizingState,
-  type Row,
-} from "@tanstack/vue-table";
-import type { CheckboxCheckedState } from "reka-ui";
+import { computed, ref, watch } from "vue";
+import { FlexRender } from "@tanstack/vue-table";
 import type { SqliteColumnInfo } from "@/types/sqlite.types";
-import type { SqliteChangeOperation, SqliteRecordChange } from "@/types/sqliteChanges.types";
+import type { SqliteRecordChange } from "@/types/sqliteChanges.types";
 import { buildRowKey, orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
-import { toast } from "vue-sonner";
 import { useModalGuard } from "@/composables/useModalGuard";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 
 // UI components
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuItem,
-  DropdownMenuGroup,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -59,31 +27,20 @@ import { useSqliteRowDetail } from "./useSqliteRowDetail";
 import SqliteRowDetailDialog from "./SqliteRowDetailDialog.vue";
 import SqliteTableActions from "./SqliteTableActions.vue";
 import SqliteCellEditor from "./SqliteCellEditor.vue";
-import { useSqliteColumnEditors } from "./useSqliteColumnEditors";
-import {
-  type SqliteEditorKind,
-  EDITOR_KINDS,
-  detectEditorKind,
-  toEditorString,
-} from "./cellEditorTypes";
+import SqliteColumnHeaderMenu from "./SqliteColumnHeaderMenu.vue";
+import { useSqliteRowChangeStyles } from "./useSqliteRowChangeStyles";
+import { useSqliteColumns } from "./useSqliteColumns";
+import { useSqliteTableState } from "./useSqliteTableState";
+import { useSqliteCellInteractions } from "./useSqliteCellInteractions";
 
 // Icons
 import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Filter,
-  X,
-  EyeOff,
-  Pin,
-  Layers,
   Download,
   ChevronRight,
   ChevronDown,
-  Check,
-  Plus,
-  Pencil,
-  Trash2,
 } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -112,95 +69,21 @@ const canEditRows = computed(
 );
 
 const pkColumns = computed(() => orderKeyColumns(props.columnInfo ?? []));
+const pkColumnNames = computed(() => new Set(pkColumns.value.map((c) => c.name)));
 
-function rowChangeFor(record: Record<string, unknown>): SqliteRecordChange | null {
-  const map = props.changesByRowKey;
-  if (!map) return null;
-  const key = props.rowKeyResolver?.(record) ?? buildRowKey(pkColumns.value, record);
-  if (!key) return null;
-  return map.get(key) ?? null;
-}
-
-function rowChangeOperation(record: Record<string, unknown>): SqliteChangeOperation | null {
-  return rowChangeFor(record)?.operation ?? null;
-}
-
-/** A row shown only because it was deleted — it has no counterpart in the table. */
-function isDeletedGhost(record: Record<string, unknown>): boolean {
-  return rowChangeOperation(record) === "delete";
-}
-
-/** Single mutually-exclusive row background, matching the IndexedDB table.
- *  Returned as one string rather than a class object so two bg-* utilities
- *  can't land on the same element and race on rule order. */
-function rowChangeClass(record: Record<string, unknown>): string {
-  const operation = rowChangeOperation(record);
-  if (operation === "add") return "bg-emerald-500/4";
-  if (operation === "update") return "bg-amber-500/4";
-  if (operation === "delete") return "bg-red-500/4 opacity-75";
-  return "";
-}
-
-/** Background for pinned cells, which sit above the row and need their own
- *  opaque fill or the columns behind them show through while scrolling. */
-function stickyRowBg(record: Record<string, unknown>, isSelected: boolean): string {
-  if (isSelected) return "bg-surface-3";
-  const operation = rowChangeOperation(record);
-  if (operation === "add") return "bg-emerald-500/[0.04]";
-  if (operation === "update") return "bg-amber-500/[0.04]";
-  if (operation === "delete") return "bg-red-500/[0.04]";
-  return "bg-background";
-}
-
-function changeIndicatorClass(record: Record<string, unknown>): string {
-  const operation = rowChangeOperation(record);
-  if (operation === "add") return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
-  if (operation === "update") return "bg-amber-500/15 text-amber-400 ring-amber-500/30";
-  if (operation === "delete") return "bg-red-500/15 text-red-400 ring-red-500/30";
-  return "";
-}
-
-function changeIcon(record: Record<string, unknown>) {
-  const operation = rowChangeOperation(record);
-  if (operation === "add") return Plus;
-  if (operation === "update") return Pencil;
-  if (operation === "delete") return Trash2;
-  return null;
-}
-
-// ─── Table State ─────────────────────────────────────────────────────────────
-const sorting = ref<SortingState>([]);
-const columnFilters = ref<ColumnFiltersState>([]);
-const globalFilter = ref("");
-const grouping = ref<GroupingState>([]);
-const expanded = ref<ExpandedState>({});
-const columnVisibility = ref<VisibilityState>({});
-const columnOrder = ref<ColumnOrderState>([]);
-const columnPinning = ref<ColumnPinningState>({
-  left: ["__select"],
-  right: [],
+const {
+  rowChangeFor,
+  rowChangeOperation,
+  isDeletedGhost,
+  rowChangeClass,
+  stickyRowBg,
+  changeIndicatorClass,
+  changeIcon,
+} = useSqliteRowChangeStyles({
+  changesByRowKey: () => props.changesByRowKey,
+  rowKeyResolver: () => props.rowKeyResolver,
+  pkColumns: () => pkColumns.value,
 });
-const rowSelection = ref<Record<string, boolean>>({});
-const columnSizing = ref<ColumnSizingState>({});
-const tableScrollEl = ref<HTMLElement | null>(null);
-
-// Reset all state when table changes
-watch(
-  () => props.tableName,
-  () => {
-    sorting.value = [];
-    columnFilters.value = [];
-    globalFilter.value = "";
-    grouping.value = [];
-    expanded.value = {};
-    columnVisibility.value = {};
-    columnOrder.value = [];
-    columnPinning.value = { left: ["__select"], right: [] };
-    rowSelection.value = {};
-    columnSizing.value = {};
-    resetAdvancedFilters();
-  },
-);
 
 // ─── Transform rows into objects ─────────────────────────────────────────────
 const rawTableData = computed<RowRecord[]>(() => {
@@ -264,195 +147,22 @@ function updateFilters(filters: AdvancedFilter[]) {
   advancedFilters.value = [...filters];
 }
 
-// ─── Column Helper & Dynamic Columns ────────────────────────────────────────
-const columnHelper = createColumnHelper<RowRecord>();
-
-const columns_def = computed<ColumnDef<RowRecord, unknown>[]>(() => {
-  const selectCol = columnHelper.display({
-    id: "__select",
-    header: ({ table }) =>
-      h(Checkbox, {
-        modelValue: table.getIsAllRowsSelected()
-          ? true
-          : table.getIsSomeRowsSelected()
-            ? "indeterminate"
-            : false,
-        "onUpdate:modelValue": (value: boolean | string) => {
-          if (typeof value === "boolean") {
-            table.toggleAllRowsSelected(value);
-          } else {
-            table.toggleAllRowsSelected();
-          }
-        },
-        class: "h-3.5 w-3.5",
-      }),
-    size: 38,
-    minSize: 34,
-    maxSize: 42,
-    enableHiding: false,
-    enableResizing: false,
-    enableGrouping: false,
-    enableColumnFilter: true,
-    cell: ({ row }) =>
-      h("div", { class: "flex items-center justify-center gap-1" }, [
-        (() => {
-          const ChangeIcon = changeIcon(row.original);
-          if (!ChangeIcon) return null;
-          return h(
-            "span",
-            {
-              class: [
-                "flex size-4 items-center justify-center rounded-sm ring-1",
-                changeIndicatorClass(row.original),
-              ],
-              title: rowChangeOperation(row.original) ?? undefined,
-            },
-            [h(ChangeIcon, { class: "size-2.5" })],
-          );
-        })(),
-        h(
-          Checkbox,
-          {
-            modelValue: row.getIsSelected(),
-            disabled: isDeletedGhost(row.original),
-            "onUpdate:modelValue": (value: CheckboxCheckedState) => {
-              if (value !== row.getIsSelected()) {
-                row.toggleSelected();
-              }
-            },
-            class: "h-3.5 w-3.5",
-          },
-          {
-            default: ({ checked }: { checked: CheckboxCheckedState }) =>
-              checked
-                ? h(Check, { class: "size-3" })
-                : !checked
-                  ? null
-                  : h("div", { class: "size-2.5 bg-primary rounded-sm" }),
-          },
-        ),
-      ]),
-  });
-
-  const dataCols = props.columns.map((col) =>
-    columnHelper.accessor((row) => row[col], {
-      id: col,
-      header: col,
-      size: 200,
-      minSize: 80,
-      enableHiding: true,
-      enableResizing: true,
-      enableSorting: true,
-      enableGrouping: true,
-      enableColumnFilter: true,
-      enableGlobalFilter: true,
-      cell: (info) => {
-        const v = info.getValue();
-        if (v === null || v === undefined) return "";
-        if (typeof v === "object") return JSON.stringify(v);
-        return String(v);
-      },
-      filterFn: "includesString",
-    }),
-  );
-
-  return [selectCol, ...dataCols];
+// ─── Column Definitions ──────────────────────────────────────────────────────
+const { columnsDef } = useSqliteColumns({
+  columns: () => props.columns,
+  changeIcon,
+  changeIndicatorClass,
+  rowChangeOperation,
+  isDeletedGhost,
 });
 
-// ─── Table Instance ─────────────────────────────────────────────────────────
-const table = useVueTable({
-  get data() {
-    return filteredData.value;
-  },
-  get columns() {
-    return columns_def.value;
-  },
-  state: {
-    get sorting() {
-      return sorting.value;
-    },
-    get columnFilters() {
-      return columnFilters.value;
-    },
-    get globalFilter() {
-      return globalFilter.value;
-    },
-    get grouping() {
-      return grouping.value;
-    },
-    get expanded() {
-      return expanded.value;
-    },
-    get columnVisibility() {
-      return columnVisibility.value;
-    },
-    get columnOrder() {
-      return columnOrder.value;
-    },
-    get columnPinning() {
-      return columnPinning.value;
-    },
-    get rowSelection() {
-      return rowSelection.value;
-    },
-    get columnSizing() {
-      return columnSizing.value;
-    },
-  },
-  onSortingChange: (updater) => {
-    sorting.value = typeof updater === "function" ? updater(sorting.value) : updater;
-  },
-  onColumnFiltersChange: (updater) => {
-    columnFilters.value = typeof updater === "function" ? updater(columnFilters.value) : updater;
-  },
-  onGlobalFilterChange: (updater) => {
-    globalFilter.value = typeof updater === "function" ? updater(globalFilter.value) : updater;
-  },
-  onGroupingChange: (updater) => {
-    grouping.value = typeof updater === "function" ? updater(grouping.value) : updater;
-  },
-  onExpandedChange: (updater) => {
-    expanded.value = typeof updater === "function" ? updater(expanded.value) : updater;
-  },
-  onColumnVisibilityChange: (updater) => {
-    columnVisibility.value =
-      typeof updater === "function" ? updater(columnVisibility.value) : updater;
-  },
-  onColumnOrderChange: (updater) => {
-    columnOrder.value = typeof updater === "function" ? updater(columnOrder.value) : updater;
-  },
-  onColumnPinningChange: (updater) => {
-    columnPinning.value = typeof updater === "function" ? updater(columnPinning.value) : updater;
-  },
-  onRowSelectionChange: (updater) => {
-    rowSelection.value = typeof updater === "function" ? updater(rowSelection.value) : updater;
-  },
-  onColumnSizingChange: (updater) => {
-    columnSizing.value = typeof updater === "function" ? updater(columnSizing.value) : updater;
-  },
-  columnResizeMode: "onChange",
-  getCoreRowModel: getCoreRowModel(),
-  getSortedRowModel: getSortedRowModel(),
-  getFilteredRowModel: getFilteredRowModel(),
-  getGroupedRowModel: getGroupedRowModel(),
-  getExpandedRowModel: getExpandedRowModel(),
-  enableHiding: true,
-  enableMultiSort: true,
-  enableColumnPinning: true,
-  enableColumnResizing: true,
-  enableColumnFilters: true,
-  enableGlobalFilter: true,
-  enableFilters: true,
-  enableSorting: true,
-  enableGrouping: true,
-  enableRowPinning: true,
-  enableMultiRowSelection: true,
-  enableMultiRemove: true,
-  enableRowSelection: (row) => !isDeletedGhost(row.original),
-  enableExpanding: true,
-  enableSortingRemoval: true,
-  enableSubRowSelection: true,
-  getRowId: (_row, index) => String(index),
+// ─── Table State & Instance ─────────────────────────────────────────────────
+const { table, grouping, tableScrollEl } = useSqliteTableState({
+  tableName: () => props.tableName,
+  data: () => filteredData.value,
+  columns: () => columnsDef.value,
+  isDeletedGhost,
+  resetAdvancedFilters,
 });
 
 // ─── Export ──────────────────────────────────────────────────────────────────
@@ -494,183 +204,43 @@ const {
   },
 });
 
-// ─── Row viewer / inline cell editing ────────────────────────────────────────
-// One click opens the row viewer, a second click within the window edits the
-// cell in place.
-//
-// The short window is load-bearing, not a stylistic choice: the viewer is a
-// centered modal, so the moment it opens its overlay covers the table and the
-// second click lands on the overlay instead of the cell. Waiting lets us tell
-// the two gestures apart before anything covers the row. Anything under ~180ms
-// starts losing genuine double clicks.
-//
-// The write side differs from IndexedDB. There a record is replaced wholesale;
-// here the edit becomes `UPDATE <table> SET <col> = ? WHERE <pk> = ?`, which is
-// why primary-key columns stay read-only (they're the WHERE clause) and why
-// tables without a primary key can't be edited at all.
-const CLICK_TO_EDIT_MS = 200;
-
-const editingCell = ref<{
-  rowId: string;
-  columnId: string;
-} | null>(null);
-let clickTimer: ReturnType<typeof setTimeout> | null = null;
-
-const { getOverride, setOverride, clearOverride } = useSqliteColumnEditors();
-
-function columnInfoFor(columnId: string): SqliteColumnInfo | undefined {
-  return (props.columnInfo ?? []).find((c) => c.name === columnId);
-}
-
-/**
- * Detection needs a real value to sniff, and the clicked row's cell may be
- * NULL. Fall back to the first non-null value in the column so a NULL date
- * still gets a date picker.
- */
-function sampleValueFor(columnId: string, preferred: unknown): unknown {
-  if (preferred !== null && preferred !== undefined) return preferred;
-  for (const record of rawTableData.value) {
-    const v = record[columnId];
-    if (v !== null && v !== undefined) return v;
-  }
-  return preferred;
-}
-
-function editorKindFor(columnId: string, value: unknown): SqliteEditorKind {
-  const override = getOverride(props.dbName, props.tableName, columnId);
-  if (override) return override;
-  return detectEditorKind(columnInfoFor(columnId), sampleValueFor(columnId, value));
-}
-
-/** What "Auto" would pick for this column, shown next to the Auto menu entry. */
-function detectedKindLabel(columnId: string): SqliteEditorKind {
-  return detectEditorKind(columnInfoFor(columnId), sampleValueFor(columnId, null));
-}
-
-const pkColumnNames = computed(() => new Set(pkColumns.value.map((c) => c.name)));
-
-function isCellEditable(record: RowRecord, columnId: string): boolean {
-  if (!canEditRows.value) return false;
-  if (columnId === "__select") return false;
-  // Primary-key columns identify the row in the WHERE clause; changing one
-  // would rewrite a different row than the one on screen.
-  if (pkColumnNames.value.has(columnId)) return false;
-  return !isDeletedGhost(record);
-}
-
-function getCellEditValue(record: RowRecord, columnId: string): string {
-  return toEditorString(record[columnId]);
-}
-
-function handleCellClick(row: Row<RowRecord>, columnId: string) {
-  if (columnId === "__select") return;
-
-  if (clickTimer !== null) {
-    clearTimeout(clickTimer);
-    clickTimer = null;
-    startCellEdit(row, columnId);
-    return;
-  }
-
-  clickTimer = setTimeout(() => {
-    clickTimer = null;
-    openRowViewer(row);
-  }, CLICK_TO_EDIT_MS);
-}
-
-function startCellEdit(row: Row<RowRecord>, columnId: string) {
-  if (columnId === "__select") return;
-  if (!canEditRows.value) {
-    // Say why rather than doing nothing — a dead double click reads as a bug.
-    toast.error("Cannot edit", {
-      description: props.readOnly
-        ? "This view is read-only."
-        : "No column info for this table, so rows can't be identified.",
-    });
-    return;
-  }
-  if (isDeletedGhost(row.original)) {
-    toast.info("Row deleted", { description: "This row no longer exists in the table." });
-    return;
-  }
-  if (pkColumnNames.value.has(columnId)) {
-    toast.info("Primary key", {
-      description: `"${columnId}" identifies the row and can't be edited.`,
-    });
-    return;
-  }
-  editingCell.value = { rowId: row.id, columnId };
-}
-
-function isEditing(rowId: string, columnId: string): boolean {
-  return editingCell.value?.rowId === rowId && editingCell.value?.columnId === columnId;
-}
-
-function commitInlineEdit(next: unknown) {
-  if (!editingCell.value) return;
-  const { rowId, columnId } = editingCell.value;
-  const found = table.getRowModel().rows.find((r) => r.id === rowId);
-  editingCell.value = null;
-  if (!found) return;
-
-  const original = found.original;
-  // Skip the UPDATE when nothing actually changed.
-  if (JSON.stringify(original[columnId] ?? null) === JSON.stringify(next ?? null)) return;
-
-  emit("recordEdit", original, { ...original, [columnId]: next });
-}
-
-function cancelInlineEdit() {
-  editingCell.value = null;
-}
-
-onUnmounted(() => {
-  if (clickTimer !== null) clearTimeout(clickTimer);
+// ─── Row viewer / inline cell editing / row context menu ────────────────────
+const {
+  isEditing,
+  editorKindFor,
+  detectedKindLabel,
+  columnInfoFor,
+  handleCellClick,
+  commitInlineEdit,
+  cancelInlineEdit,
+  openRowViewer,
+  contextColumnId,
+  onCellContextMenu,
+  contextCellLabel,
+  canEditContextCell,
+  editContextCell,
+  copyContextCell,
+  copyRowAsJson,
+  getOverride,
+  setOverride,
+  clearOverride,
+} = useSqliteCellInteractions({
+  table,
+  dbName: () => props.dbName,
+  tableName: () => props.tableName,
+  columnInfo: () => props.columnInfo,
+  pkColumnNames: () => pkColumnNames.value,
+  rawTableData: () => rawTableData.value,
+  canEditRows: () => canEditRows.value,
+  readOnly: () => props.readOnly,
+  isDeletedGhost,
+  copyToClipboard,
+  openRowDetail,
+  onEdit: (original, updated) => emit("recordEdit", original, updated),
 });
-
-// ─── Row context menu ────────────────────────────────────────────────────────
-// The menu is opened by reka-ui on the row, but the actions are cell-scoped, so
-// remember which cell the right-click landed on.
-const contextColumnId = ref<string | null>(null);
-
-function onCellContextMenu(columnId: string) {
-  // A pending single click would otherwise open the viewer behind the menu.
-  if (clickTimer !== null) {
-    clearTimeout(clickTimer);
-    clickTimer = null;
-  }
-  contextColumnId.value = columnId === "__select" ? null : columnId;
-}
-
-function contextCellLabel(): string {
-  return contextColumnId.value ? `Edit "${contextColumnId.value}"` : "Edit cell";
-}
-
-function canEditContextCell(record: RowRecord): boolean {
-  return !!contextColumnId.value && isCellEditable(record, contextColumnId.value);
-}
-
-function editContextCell(row: Row<RowRecord>) {
-  if (contextColumnId.value) startCellEdit(row, contextColumnId.value);
-}
-
-function copyContextCell(record: RowRecord) {
-  if (!contextColumnId.value) return;
-  void copyToClipboard(getCellEditValue(record, contextColumnId.value));
-}
-
-function copyRowAsJson(record: RowRecord) {
-  void copyToClipboard(JSON.stringify(record, null, 2));
-}
 
 function rowKeyFor(record: RowRecord): string {
   return props.rowKeyResolver?.(record) ?? buildRowKey(pkColumns.value, record);
-}
-
-function openRowViewer(row: Row<RowRecord>) {
-  const rows = table.getFilteredRowModel().rows;
-  const idx = rows.findIndex((r) => r.id === row.id);
-  openRowDetail(row.original, idx >= 0 ? idx : undefined);
 }
 
 watch(jsonEditorValid, (v) => {
@@ -820,145 +390,18 @@ function isBlob(val: unknown): boolean {
                     </span>
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" class="w-48 max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel class="text-[10px] uppercase tracking-wider">
-                    {{ header.column.columnDef.header ?? header.column.id }}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-
-                  <!-- Sort -->
-                  <DropdownMenuGroup v-if="header.column.getCanSort()">
-                    <DropdownMenuItem
-                      class="text-xs"
-                      :class="{
-                        'bg-accent': header.column.getIsSorted() === 'asc',
-                      }"
-                      @click="header.column.toggleSorting(false)"
-                    >
-                      <ArrowUp class="h-3 w-3 mr-2" />
-                      Ascending
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      class="text-xs"
-                      :class="{
-                        'bg-accent': header.column.getIsSorted() === 'desc',
-                      }"
-                      @click="header.column.toggleSorting(true)"
-                    >
-                      <ArrowDown class="h-3 w-3 mr-2" />
-                      Descending
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      v-if="header.column.getIsSorted()"
-                      class="text-xs text-muted-foreground"
-                      @click="header.column.clearSorting()"
-                    >
-                      <ArrowUpDown class="h-3 w-3 mr-2" />
-                      Clear sort
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-
-                  <DropdownMenuSeparator v-if="header.column.getCanSort()" />
-
-                  <!-- Filter -->
-                  <DropdownMenuItem class="text-xs" @click="addFilter(header.column.id)">
-                    <Filter class="h-3 w-3 mr-2" />
-                    Filter...
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    v-if="header.column.getIsFiltered()"
-                    class="text-xs text-muted-foreground"
-                    @click="header.column.setFilterValue(undefined)"
-                  >
-                    <X class="h-3 w-3 mr-2" />
-                    Clear filter
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <!-- Group by -->
-                  <DropdownMenuItem class="text-xs" @click="toggleGrouping(header.column.id)">
-                    <Layers class="h-3 w-3 mr-2" />
-                    {{ isColumnGrouped(header.column.id) ? "Ungroup" : "Group by" }}
-                  </DropdownMenuItem>
-
-                  <!-- Editor override: SQLite has no date/bool type, so
-                       detection guesses. This makes a wrong guess fixable. -->
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger class="text-xs">
-                      <Pencil class="h-3 w-3 mr-2" />
-                      Cell editor
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem
-                        class="text-xs"
-                        @click="clearOverride(dbName, tableName, header.column.id)"
-                      >
-                        Auto
-                        <span class="ml-auto pl-2 text-[10px] text-muted-foreground/50">
-                          {{ detectedKindLabel(header.column.id) }}
-                        </span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        v-for="kind in EDITOR_KINDS"
-                        :key="kind"
-                        class="text-xs capitalize"
-                        @click="setOverride(dbName, tableName, header.column.id, kind)"
-                      >
-                        {{ kind }}
-                        <Check
-                          v-if="getOverride(dbName, tableName, header.column.id) === kind"
-                          class="ml-auto h-3 w-3"
-                        />
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <!-- Pin -->
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger class="text-xs">
-                      <Pin class="h-3 w-3 mr-2" />
-                      Pin column
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem
-                        class="text-xs"
-                        :class="{
-                          'bg-accent': header.column.getIsPinned() === 'left',
-                        }"
-                        @click="header.column.pin('left')"
-                      >
-                        Pin to left
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        class="text-xs"
-                        :class="{
-                          'bg-accent': header.column.getIsPinned() === 'right',
-                        }"
-                        @click="header.column.pin('right')"
-                      >
-                        Pin to right
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        v-if="header.column.getIsPinned()"
-                        class="text-xs text-muted-foreground"
-                        @click="header.column.pin(false)"
-                      >
-                        Unpin
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <!-- Hide -->
-                  <DropdownMenuItem
-                    class="text-xs text-muted-foreground"
-                    @click="header.column.toggleVisibility(false)"
-                  >
-                    <EyeOff class="h-3 w-3 mr-2" />
-                    Hide column
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+                <SqliteColumnHeaderMenu
+                  :header="header"
+                  :is-grouped="isColumnGrouped(header.column.id)"
+                  :db-name="dbName"
+                  :table-name="tableName"
+                  :detected-kind="detectedKindLabel(header.column.id)"
+                  :current-override="getOverride(dbName, tableName, header.column.id)"
+                  @add-filter="addFilter"
+                  @toggle-grouping="toggleGrouping"
+                  @clear-override="clearOverride"
+                  @set-override="setOverride"
+                />
               </DropdownMenu>
 
               <!-- Select column header (non-clickable) -->

@@ -17,9 +17,26 @@ import ReplayDatabaseToolbar from "./ReplayDatabaseToolbar.vue";
 import ReplayIndexedDbTable from "./ReplayIndexedDbTable.vue";
 import ReplaySqliteChangeDialog from "./ReplaySqliteChangeDialog.vue";
 import ReplaySqliteTable from "./ReplaySqliteTable.vue";
+import {
+  decorateIdbRecord,
+  idbChangeToRecord,
+  isColumnInfoArray,
+  isStringArray,
+  makeIdbChangeEntry,
+  orderKeyColumns,
+  parseJson,
+  parseMetadata,
+  parseRecord,
+  sqliteColumnInfoFromSource,
+  sqliteColumnsFromSource,
+  sqliteMetadata,
+  sqliteRecordChange,
+  sqliteRecordToRow,
+  toIdbChangeSummary,
+  toSqliteChangeSummary,
+} from "./replayDatabaseRecords";
 import type {
   DatabaseCapuEvent,
-  ReplayDatabaseChange,
   ReplayDatabaseChangeSummary,
   ReplayDatabaseChangesResult,
   ReplayDatabaseRowsResult,
@@ -52,13 +69,6 @@ interface LocalReplayStorageSource {
 type ReplayStorageSource = LocalReplayStorageSource | ReplayDatabaseSource;
 type ReplayDatabaseKind = ReplayStorageSource["kind"];
 type IndexedDBGroup = "all" | "app" | "localforage" | "dexie" | "blob" | "cache" | "sqlite";
-type ReplayDecoratedRecord = IDBRecord & {
-  __changeId?: string;
-  __changeOperation?: IndexedDBRecordChangeEntry["operation"];
-  __changeObservedAt?: string;
-  __changeDeleted?: boolean;
-  __recordChange?: IndexedDBRecordChangeEntry;
-};
 
 const selectedId = ref("");
 const selectedKind = ref<ReplayDatabaseKind>("indexedDB");
@@ -395,170 +405,6 @@ const statusText = computed(() => {
 const sqliteDiffChange = computed(() =>
   sqliteDiffRowKey.value ? (sqliteChangesByRowKey.value.get(sqliteDiffRowKey.value) ?? null) : null,
 );
-
-function parseMetadata(raw: string | null): Record<string, unknown> {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
-
-function isColumnInfoArray(value: unknown): value is SqliteColumnInfo[] {
-  return (
-    Array.isArray(value) &&
-    value.every((entry) => {
-      if (!entry || typeof entry !== "object") return false;
-      const item = entry as Partial<SqliteColumnInfo>;
-      return typeof item.name === "string" && typeof item.cid === "number";
-    })
-  );
-}
-
-function parseJson(raw: string | null): unknown {
-  if (raw === null) return undefined;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw;
-  }
-}
-
-function parseRecord(raw: string | null): Record<string, unknown> | null {
-  const parsed = parseJson(raw);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-  return parsed as Record<string, unknown>;
-}
-
-function formatKeyLabel(key: unknown): string {
-  if (typeof key === "string") return key;
-  if (typeof key === "number" || typeof key === "bigint") return String(key);
-  try {
-    return JSON.stringify(key);
-  } catch {
-    return String(key);
-  }
-}
-
-function toIdbChangeSummary(summary: ReplayDatabaseChangeSummary): IndexedDBChangeSummary {
-  return {
-    add: summary.add,
-    update: summary.update,
-    delete: summary.delete,
-    total: summary.total,
-    latestAt: summary.latestMs === null ? null : `${summary.latestMs} ms`,
-  };
-}
-
-function toSqliteChangeSummary(summary: ReplayDatabaseChangeSummary): SqliteChangeSummary {
-  return {
-    add: summary.add,
-    update: summary.update,
-    delete: summary.delete,
-    total: summary.total,
-    latestAt: summary.latestMs === null ? null : `${summary.latestMs} ms`,
-  };
-}
-
-function makeIdbChangeEntry(
-  source: ReplayDatabaseSource,
-  change: ReplayDatabaseChange,
-): IndexedDBRecordChangeEntry {
-  const key = parseJson(change.keyJson) as IDBValidKey;
-  return {
-    id: String(change.id),
-    kind: "record",
-    source: "external",
-    observedAt: `${change.tMs} ms`,
-    origin: source.origin,
-    databaseName: source.databaseName,
-    objectStoreName: source.storeName,
-    operation: change.operation,
-    key,
-    keyLabel: formatKeyLabel(key),
-    beforeValue: parseJson(change.beforeJson),
-    afterValue: parseJson(change.afterJson),
-    fieldDiffs: [],
-  };
-}
-
-function decorateIdbRecord(
-  record: IDBRecord,
-  source: ReplayDatabaseSource,
-  change: ReplayDatabaseChange | undefined,
-): IDBRecord {
-  if (!change) return record;
-  const entry = makeIdbChangeEntry(source, change);
-  return {
-    ...record,
-    __changeId: entry.id,
-    __changeOperation: entry.operation,
-    __changeObservedAt: entry.observedAt,
-    __changeDeleted: entry.operation === "delete",
-    __recordChange: entry,
-  } satisfies ReplayDecoratedRecord;
-}
-
-function idbChangeToRecord(source: ReplayDatabaseSource, change: ReplayDatabaseChange): IDBRecord {
-  const key = parseJson(change.keyJson) as IDBValidKey;
-  const value =
-    change.operation === "delete"
-      ? parseJson(change.beforeJson)
-      : parseJson(change.afterJson ?? change.beforeJson);
-  return decorateIdbRecord({ key, value }, source, change);
-}
-
-function sqliteMetadata(source: ReplayDatabaseSource) {
-  return parseMetadata(source.metadataJson);
-}
-
-function sqliteColumnsFromSource(source: ReplayDatabaseSource, records: Record<string, unknown>[]) {
-  const metadata = sqliteMetadata(source);
-  if (isStringArray(metadata.columns) && metadata.columns.length > 0) return metadata.columns;
-  if (isColumnInfoArray(metadata.columnInfo) && metadata.columnInfo.length > 0) {
-    return metadata.columnInfo.map((column) => column.name);
-  }
-  return Object.keys(records[0] ?? {});
-}
-
-function sqliteColumnInfoFromSource(source: ReplayDatabaseSource): SqliteColumnInfo[] {
-  const metadata = sqliteMetadata(source);
-  return isColumnInfoArray(metadata.columnInfo) ? metadata.columnInfo : [];
-}
-
-function sqliteRecordToRow(columns: string[], record: Record<string, unknown>): unknown[] {
-  return columns.map((column) => record[column] ?? null);
-}
-
-function sqliteRecordChange(
-  source: ReplayDatabaseSource,
-  change: ReplayDatabaseChange,
-): SqliteRecordChange {
-  const metadata = sqliteMetadata(source);
-  return {
-    id: String(change.id),
-    kind: "record",
-    operation: change.operation,
-    serial: typeof metadata.serial === "string" ? metadata.serial : "replay",
-    packageName: typeof metadata.packageName === "string" ? metadata.packageName : source.origin,
-    dbPath: typeof metadata.dbPath === "string" ? metadata.dbPath : source.databaseName,
-    tableName: source.storeName,
-    rowKey: change.keyJson,
-    beforeValue: parseRecord(change.beforeJson),
-    afterValue: parseRecord(change.afterJson),
-    observedAt: `${change.tMs} ms`,
-  };
-}
-
-function orderKeyColumns(columns: SqliteColumnInfo[]): SqliteColumnInfo[] {
-  return columns.filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk);
-}
 
 function sqliteRowKey(record: Record<string, unknown>): string {
   const pk = orderKeyColumns(sqliteColumnInfo.value);

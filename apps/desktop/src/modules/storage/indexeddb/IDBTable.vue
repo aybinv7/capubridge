@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, h, watch, nextTick, onUnmounted } from "vue";
+import { computed, ref, h, watch, nextTick } from "vue";
 import {
   useVueTable,
   getCoreRowModel,
@@ -21,7 +21,6 @@ import {
   type Row,
 } from "@tanstack/vue-table";
 import type { IDBRecord, StoreInfo } from "@capubridge/cdp-protocol";
-import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 
 // UI components
 import { Button } from "@/components/ui/button";
@@ -54,6 +53,17 @@ import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import { useAdvancedFilters, type AdvancedFilter } from "./useAdvancedFilters";
 import { useIDBTableExport } from "./useIDBTableExport";
 import { useIDBRowDetail } from "./useIDBRowDetail";
+import {
+  recordKeyStr,
+  getChangeOperation,
+  isDeletedChange,
+  getRecordChange,
+  getChangeIndicatorClass,
+  getChangeIcon,
+  getStickyRowBg,
+  useIDBRowAppearance,
+} from "./useIDBRowAppearance";
+import { useIDBCellInteractions } from "./useIDBCellInteractions";
 import IDBRowDetailDialog from "./IDBRowDetailDialog.vue";
 import IDBChangeDiffDialog from "./IDBChangeDiffDialog.vue";
 import IDBTableActions from "./IDBTableActions.vue";
@@ -72,10 +82,7 @@ import {
   Download,
   ChevronRight,
   ChevronDown,
-  Plus,
   Check,
-  Pencil,
-  Trash2,
 } from "lucide-vue-next";
 
 const props = defineProps<{
@@ -168,70 +175,7 @@ watch(
 // ─── Column Helper & Dynamic Columns ────────────────────────────────────────
 const columnHelper = createColumnHelper<IDBRecord>();
 
-function getChangeOperation(record: IDBRecord) {
-  return (record as IndexedDBDecoratedRecord).__changeOperation ?? null;
-}
-
-function isDeletedChange(record: IDBRecord | null) {
-  if (!record) return false;
-  return (record as IndexedDBDecoratedRecord).__changeDeleted === true;
-}
-
-function getRecordChange(record: IDBRecord | null) {
-  if (!record) return null;
-  return (record as IndexedDBDecoratedRecord).__recordChange ?? null;
-}
-
-function getChangeIndicatorClass(record: IDBRecord) {
-  const operation = getChangeOperation(record);
-
-  if (operation === "add") return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
-  if (operation === "update") return "bg-amber-500/15 text-amber-400 ring-amber-500/30";
-  if (operation === "delete") return "bg-red-500/15 text-red-400 ring-red-500/30";
-  return "";
-}
-
-function getChangeIcon(record: IDBRecord) {
-  const operation = getChangeOperation(record);
-
-  if (operation === "add") return Plus;
-  if (operation === "update") return Pencil;
-  if (operation === "delete") return Trash2;
-  return null;
-}
-
-function getStickyRowBg(row: Row<IDBRecord>): string {
-  if (row.getIsSelected()) return "bg-surface-3";
-  const op = getChangeOperation(row.original);
-  if (op === "add") return "bg-emerald-500/[0.04]";
-  if (op === "update") return "bg-amber-500/[0.04]";
-  if (op === "delete") return "bg-red-500/[0.04]";
-  return "bg-background";
-}
-
-// ─── Local modification tracking ─────────────────────────────────────────────
-function recordKeyStr(key: IDBValidKey): string {
-  return JSON.stringify(key);
-}
-
-function isRowLocallyModified(row: Row<IDBRecord>): boolean {
-  // Don't show local-modify indicator when the change overlay already owns this row
-  if (getChangeOperation(row.original)) return false;
-  return locallyModifiedData.value.has(recordKeyStr(row.original.key));
-}
-
-/** Returns a single mutually-exclusive background class for the row.
- *  Using a function (not a CSS-class object) avoids UnoCSS rule-order races
- *  where two bg-* utilities end up on the same element and the wrong one wins. */
-function getRowBgClass(row: Row<IDBRecord>): string {
-  if (row.getIsSelected()) return "bg-brand/10!";
-  const op = getChangeOperation(row.original);
-  if (op === "add") return "bg-emerald-500/4";
-  if (op === "update") return "bg-amber-500/4";
-  if (op === "delete") return "bg-red-500/4 opacity-75";
-  if (isRowLocallyModified(row)) return "bg-blue-500/5";
-  return "";
-}
+const { getRowBgClass } = useIDBRowAppearance(locallyModifiedData);
 
 // Preserve scroll position when grouping layout changes
 watch(
@@ -556,149 +500,37 @@ const {
   canMutate: (record) => !props.readOnly && !isDeletedChange(record as IDBRecord),
 });
 
-// ─── Row viewer / inline cell editing ────────────────────────────────────────
-// One click opens the row viewer, a second click within the window edits the
-// cell in place.
-//
-// The short window is load-bearing, not a stylistic choice: the viewer is a
-// centered modal, so the moment it opens its overlay covers the table and the
-// second click lands on the overlay instead of the cell. Waiting lets us tell
-// the two gestures apart before anything covers the row. Anything under ~180ms
-// starts losing genuine double clicks.
-const CLICK_TO_EDIT_MS = 200;
-
-const editingCell = ref<{
-  rowId: string;
-  columnId: string;
-} | null>(null);
-let clickTimer: ReturnType<typeof setTimeout> | null = null;
-
-function isCellEditable(row: Row<IDBRecord>, columnId: string): boolean {
-  if (props.readOnly) return false;
-  // The key identifies the record — editing it would target a different row.
-  if (columnId === "key") return false;
-  return !isDeletedChange(row.original);
-}
-
-function cellValue(row: Row<IDBRecord>, columnId: string): unknown {
-  if (columnId === "value") {
-    return row.original.value;
-  }
-  return (row.original.value as Record<string, unknown>)?.[columnId];
-}
-
-function getCellEditValue(row: Row<IDBRecord>, columnId: string): string {
-  const value = cellValue(row, columnId);
-  if (value === null || value === undefined) return "";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function isDateCell(row: Row<IDBRecord>, columnId: string): boolean {
-  const value = cellValue(row, columnId);
-  if (typeof value === "string") return /^\d{4}-\d{2}-\d{2}(?:[T ].*)?$/.test(value);
-  if (typeof value !== "number" || !Number.isFinite(value)) return false;
-  if (!/(date|time|at|on|deadline|expiry|expires|timestamp)$/i.test(columnId)) return false;
-  return value >= 631_152_000 && value <= 4_102_444_800_000;
-}
-
-function isNumberCell(row: Row<IDBRecord>, columnId: string): boolean {
-  return typeof cellValue(row, columnId) === "number";
-}
-
-function handleCellClick(row: Row<IDBRecord>, columnId: string) {
-  if (columnId === "__actions") return;
-
-  if (clickTimer !== null) {
-    clearTimeout(clickTimer);
-    clickTimer = null;
-    startCellEdit(row, columnId);
-    return;
-  }
-
-  clickTimer = setTimeout(() => {
-    clickTimer = null;
-    openRowViewer(row);
-  }, CLICK_TO_EDIT_MS);
-}
-
-function startCellEdit(row: Row<IDBRecord>, columnId: string) {
-  if (!isCellEditable(row, columnId)) return;
-  editingCell.value = { rowId: row.id, columnId };
-}
-
-function commitInlineEdit(value: unknown) {
-  if (!editingCell.value) return;
-  const { rowId, columnId } = editingCell.value;
-  const found = table.getRowModel().rows.find((r) => r.id === rowId);
-  if (!found) {
-    editingCell.value = null;
-    return;
-  }
-
-  const record: IDBRecord = { ...found.original };
-  if (columnId === "value") {
-    record.value = value;
-  } else {
-    record.value = { ...(record.value as Record<string, unknown>), [columnId]: value };
-  }
-
-  const beforeValue = found.original.value;
-  emit("recordEdit", record);
-  const next = new Map(locallyModifiedData.value);
-  next.set(recordKeyStr(record.key), beforeValue);
-  locallyModifiedData.value = next;
-  editingCell.value = null;
-}
-
-function cancelInlineEdit() {
-  editingCell.value = null;
-}
-
-onUnmounted(() => {
-  if (clickTimer !== null) clearTimeout(clickTimer);
-});
-
-// ─── Row context menu ────────────────────────────────────────────────────────
-// The menu is opened by reka-ui on the row, but the actions are cell-scoped, so
-// remember which cell the right-click landed on.
-const contextColumnId = ref<string | null>(null);
-
-function onCellContextMenu(columnId: string) {
-  // A pending single click would otherwise open the viewer behind the menu.
-  if (clickTimer !== null) {
-    clearTimeout(clickTimer);
-    clickTimer = null;
-  }
-  contextColumnId.value = columnId === "__actions" ? null : columnId;
-}
-
-function contextCellLabel(): string {
-  return contextColumnId.value ? `Edit "${contextColumnId.value}"` : "Edit cell";
-}
-
-function canEditContextCell(row: Row<IDBRecord>): boolean {
-  return !!contextColumnId.value && isCellEditable(row, contextColumnId.value);
-}
-
-function editContextCell(row: Row<IDBRecord>) {
-  if (contextColumnId.value) startCellEdit(row, contextColumnId.value);
-}
-
-function copyContextCell(row: Row<IDBRecord>) {
-  if (!contextColumnId.value) return;
-  void copyToClipboard(getCellEditValue(row, contextColumnId.value));
-}
-
-function copyRowAsJson(row: Row<IDBRecord>) {
-  void copyToClipboard(JSON.stringify(row.original.value, null, 2));
-}
-
+// ─── Row viewer / inline cell editing / context menu ─────────────────────────
 function openRowViewer(row: Row<IDBRecord>) {
   const rows = table.getFilteredRowModel().rows;
   const idx = rows.findIndex((r) => r.id === row.id);
   openRowDetail(row.original, idx >= 0 ? idx : undefined);
 }
+
+const {
+  editingCell,
+  cellValue,
+  getCellEditValue,
+  isDateCell,
+  isNumberCell,
+  handleCellClick,
+  commitInlineEdit,
+  cancelInlineEdit,
+  contextColumnId,
+  onCellContextMenu,
+  contextCellLabel,
+  canEditContextCell,
+  editContextCell,
+  copyContextCell,
+  copyRowAsJson,
+} = useIDBCellInteractions({
+  table,
+  readOnly: () => props.readOnly,
+  locallyModifiedData,
+  emit,
+  openRowViewer,
+  copyToClipboard,
+});
 
 const selectedRecordChange = computed(() => getRecordChange(selectedRow.value));
 const isSelectedRowLocallyModified = computed(

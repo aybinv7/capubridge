@@ -53,6 +53,12 @@ import {
   importDatabaseReplace,
 } from "./idbImportExport";
 import { useIdbSnapshotStore } from "./useIdbSnapshotStore";
+import {
+  hasSummaryChanges,
+  getSummarySegments,
+  getDatabaseSummaryStyle,
+  formatSummary,
+} from "@/modules/storage/changes/changeSummaryFormat";
 import { toast } from "vue-sonner";
 
 const route = useRoute();
@@ -329,38 +335,6 @@ function isStoreActive(db: string, store: string) {
 
 function getDbKey(db: IDBDatabaseInfo) {
   return `${db.origin}::${db.name}`;
-}
-
-function hasSummaryChanges(summary: IndexedDBChangeSummary) {
-  return summary.total > 0;
-}
-
-function getSummarySegments(summary: IndexedDBChangeSummary) {
-  return [
-    { key: "add", count: summary.add, class: "bg-emerald-500" },
-    { key: "update", count: summary.update, class: "bg-amber-500" },
-    { key: "delete", count: summary.delete, class: "bg-red-500" },
-  ].filter((entry) => entry.count > 0);
-}
-
-function getDatabaseSummaryStyle(summary: IndexedDBChangeSummary) {
-  if (summary.total === 0) return {};
-
-  const color = summary.delete > 0 ? "239,68,68" : summary.update > 0 ? "245,158,11" : "16,185,129";
-
-  return {
-    background: `linear-gradient(90deg, rgba(${color}, 0.12), rgba(${color}, 0.035) 42%, transparent 92%)`,
-  };
-}
-
-function formatSummary(summary: IndexedDBChangeSummary) {
-  const parts = [
-    summary.add > 0 ? `${summary.add} added` : "",
-    summary.update > 0 ? `${summary.update} updated` : "",
-    summary.delete > 0 ? `${summary.delete} deleted` : "",
-  ].filter(Boolean);
-
-  return parts.join(", ");
 }
 
 function prevPage() {
