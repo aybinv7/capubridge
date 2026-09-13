@@ -131,7 +131,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tauriScript: vp exec tauri
-          args: ${{ matrix.args }}
+          args: --no-sign ${{ matrix.args }}
           retryAttempts: 2
           includeUpdaterJson: false
 
