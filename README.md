@@ -2,7 +2,7 @@
 
 > A desktop devtool for developers debugging WebView-based Android apps — bridging the device world and runtime world in one place.
 
-Capubridge is a [Tauri 2](https://tauri.app) desktop application for debugging hybrid app frameworks (**Capacitor**, React Native, NativePHP, or any WebView-based Android app). It unifies ADB device management, Chrome DevTools Protocol (CDP) inspection, deep storage exploration, and live runtime tools into a single, native-feeling GUI.
+Capubridge is a [Tauri 2](https://tauri.app) desktop application for debugging Android Chromium WebViews exposed through Chrome DevTools Protocol (CDP). It unifies ADB device management, CDP inspection, deep storage exploration, and live runtime tools into a single, native-feeling GUI. Framework wrappers are supported only when their WebView exposes a debuggable CDP target; native React Native/Hermes and iOS WebKit are outside the current scope.
 
 Inspired by [aya](https://github.com/liriliri/aya) and the raw power of the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/).
 
@@ -18,7 +18,7 @@ Debugging WebView apps on physical Android devices today means juggling:
 - Manual `adb forward` port management per device
 - No integrated view of IndexedDB, LocalStorage, Cache API, or SQLite
 
-Capubridge replaces this fragmented workflow with a single desktop app that speaks ADB and CDP — works with any WebView-based Android app, whether built with Capacitor, React Native, or native Android code.
+Capubridge replaces this fragmented workflow with a single desktop app that speaks ADB and CDP for Android Chromium WebView targets.
 
 ---
 
@@ -62,7 +62,7 @@ Capubridge replaces this fragmented workflow with a single desktop app that spea
 - **LocalStorage** — inspect and modify key/value pairs live
 - **Cache API** — explore cached request/response entries
 - **OPFS** — browse origin private file system
-- **SQLite** — list, scan, and query `.db` files pulled from the device; full SQL console with Monaco editor
+- **SQLite** — list, scan, and query supported `.db` snapshots; native Android snapshots are read-only
 
 ### Network Inspector
 
@@ -75,7 +75,7 @@ Capubridge replaces this fragmented workflow with a single desktop app that spea
 
 - Live log streaming with lease-based lifecycle (stops automatically when you leave)
 - Tag and level filtering
-- xterm.js rendering — handles high-throughput output without jank
+- Bounded streaming output designed for high-throughput logs
 
 ### Performance Monitor
 

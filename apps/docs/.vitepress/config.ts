@@ -54,7 +54,7 @@ export default defineConfig({
           { text: "Session Events", link: "/reference/events" },
         ],
       },
-      { text: "GitHub", link: "https://github.com/inventor7/capubridge" },
+      { text: "GitHub", link: "https://github.com/aybinv7/capubridge" },
     ],
 
     sidebar: {
@@ -65,6 +65,7 @@ export default defineConfig({
             { text: "Introduction", link: "/guide/" },
             { text: "Installation", link: "/guide/installation" },
             { text: "Quick Start", link: "/guide/quick-start" },
+            { text: "Capability Matrix", link: "/guide/capabilities" },
           ],
         },
         {
@@ -183,7 +184,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: "https://github.com/inventor7/capubridge/edit/main/apps/docs/:path",
+      pattern: "https://github.com/aybinv7/capubridge/edit/main/apps/docs/:path",
       text: "Edit this page on GitHub",
     },
 
@@ -192,7 +193,7 @@ export default defineConfig({
       copyright: "Copyright © 2025-present Capubridge",
     },
 
-    socialLinks: [{ icon: "github", link: "https://github.com/inventor7/capubridge" }],
+    socialLinks: [{ icon: "github", link: "https://github.com/aybinv7/capubridge" }],
   },
 
   vite: {

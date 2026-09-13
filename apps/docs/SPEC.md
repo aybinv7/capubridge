@@ -1,7 +1,7 @@
 # CapuBridge product specification
 
 Status: Active beta specification  
-Application version: 2.4.3
+Application version: 2.6.0
 
 ## Product goal
 
@@ -9,7 +9,7 @@ CapuBridge is a local-first desktop developer tool for inspecting and controllin
 
 ## Supported user
 
-Primary users build or debug Android applications that embed a WebView, including Capacitor, Ionic, React Native WebView, NativePHP, and native Android applications.
+Primary users build or debug Android applications whose Chromium WebView exposes a Chrome DevTools Protocol target. Framework wrappers such as Capacitor, Ionic, NativePHP, and React Native WebView are supported only through that WebView boundary; native React Native/Hermes and iOS WebKit are not supported.
 
 ## Product guarantees
 
@@ -88,6 +88,7 @@ Primary users build or debug Android applications that embed a WebView, includin
 - Expose an embedded Model Context Protocol server so an AI assistant can drive the active device/session directly, off by default.
 - Bind localhost only; require a persistent bearer token on every request; reject non-loopback hosts. The token remains valid until regenerated, when existing MCP sessions are disconnected.
 - Default to read-only access. Mutating tools require the user to enable mutation access in Settings and the caller to pass `confirm: true`; this field records caller intent and is not proof of human approval.
+- Require the Capubridge desktop application to remain running for tools that bridge through its active UI/session, including recording workflows.
 - Surface enable/disable, connection status, and the endpoint URL/token in Settings.
 
 ## Hidden capabilities
@@ -129,7 +130,7 @@ Shared code is restricted to generic UI primitives, platform contracts, and reus
 - Tauri capabilities are assigned by window and minimum required operation.
 - CSP is explicit and deny-by-default.
 - URLs, paths, ports, serials, scripts, and expressions are validated at their privilege boundary.
-- Diagnostic exports redact secrets and inspected content by default.
+- Shareable recording exports redact sensitive headers and, by default, redact URLs, bodies, and DOM content; console and database tracks are excluded.
 
 ## IPC contract
 
@@ -165,4 +166,5 @@ The frontend uses the category to choose retry, recovery guidance, or terminal m
 - Cloud accounts or remote device sharing before local security is complete.
 - AI features beyond localhost, single-device, opt-in MCP access (e.g. cloud AI accounts, remote agents, multi-device orchestration) before a further security review.
 - iOS inspection before a WebKit transport and lifecycle specification exists.
+- Native React Native/Hermes inspection or generic agent-platform expansion before a dedicated transport specification exists.
 - A big-bang rewrite of Vue, Rust, Tauri, Pinia, TanStack Query, or the ADB transport.

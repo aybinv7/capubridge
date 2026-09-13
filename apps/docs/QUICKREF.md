@@ -8,10 +8,11 @@ capubridge/
 │   ├── desktop/
 │   │   ├── src/
 │   │   └── src-tauri/
-│   └── website/
+│   ├── docs/
+│   └── website2/
 ├── packages/
 │   └── cdp-protocol/
-└── docs/
+└── vite.config.ts
 ```
 
 ## Commands
@@ -205,3 +206,5 @@ Do not force Effect into:
 - do not hardcode transport behavior inside watchers
 - do not claim runtime validation unless user/app confirmed it
 - `git diff --check` clean still not equal runtime-safe
+- MCP binds only to localhost and requires the desktop app for UI-bridge tools; it is not remote access
+- native Android SQLite snapshots are read-only

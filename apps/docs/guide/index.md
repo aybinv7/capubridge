@@ -8,10 +8,10 @@ Capubridge bridges two worlds:
 
 ### Runtime World — inside the WebView
 
-- **CDP targets** — any page or WebView running on the device
+- **CDP targets** — Android Chromium WebViews exposed for remote debugging
 - **IndexedDB** — explore databases, object stores, and records
 - **LocalStorage** — key-value data for web apps
-- **SQLite** — browse SQLite databases via sql.js (WASM)
+- **SQLite** — inspect supported SQLite snapshots; native Android snapshots are read-only
 - **OPFS** — Origin Private File System files
 - **Cache API** — cached network responses
 - **Console** — JavaScript console output and errors
@@ -26,16 +26,18 @@ Capubridge bridges two worlds:
 - **Screen mirror** — live device screen streaming
 - **Performance metrics** — CPU, memory, FPS
 
-## Works with any WebView app
+## Supported runtime boundary
 
-Capubridge is not limited to Capacitor. It works with any Android app that embeds a WebView:
+Capubridge works with Android Chromium WebViews when the application exposes a debuggable CDP target. Capacitor, Ionic, NativePHP, and React Native WebView can work when their web content meets that requirement.
 
-- Capacitor apps
-- React Native WebView
-- NativePHP
-- Flutter WebView
-- Custom Android apps with embedded Chrome tabs
-- Chrome tabs (Chrome DevTools remote debugging)
+The following are not currently supported:
+
+- iOS WebKit inspection
+- Native React Native/Hermes runtime inspection
+- Generic WebView runtimes without a Chrome-compatible CDP target
+- Remote device sharing or remote MCP access
+
+See the [capability matrix](./capabilities) before relying on a workflow in production.
 
 ## Tech stack
 

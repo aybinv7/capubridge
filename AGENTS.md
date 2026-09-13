@@ -76,18 +76,16 @@ Full specification: see `apps/docs/SPEC.md`
 
 ## Tech Stack Quick Reference
 
-| Layer              | Technology                                  |
-| ------------------ | ------------------------------------------- |
-| Frontend framework | Vue 3 (Composition API, `<script setup>`)   |
-| Language           | TypeScript (strict)                         |
-| Build              | Vite 5                                      |
-| Styling            | UnoCSS (atomic CSS)                         |
-| State              | Pinia (setup store syntax) + TanStack Query |
-| Tables             | TanStack Table v8                           |
-| Terminal           | xterm.js v5                                 |
-| Code editor        | Monaco Editor                               |
-| Desktop            | Tauri 2                                     |
-| Backend            | Rust (thin — shell plugin + file I/O only)  |
+| Layer              | Technology                                            |
+| ------------------ | ----------------------------------------------------- |
+| Frontend framework | Vue 3 (Composition API, `<script setup>`)             |
+| Language           | TypeScript (strict)                                   |
+| Build              | Vite 5                                                |
+| Styling            | Tailwind CSS v4                                       |
+| State              | Pinia (setup store syntax) + TanStack Query           |
+| Tables             | TanStack Table v8                                     |
+| Desktop            | Tauri 2                                               |
+| Backend            | Rust session runtime, typed IPC, shared ADB transport |
 
 ---
 
@@ -254,7 +252,7 @@ Port assignment is managed in `useTargetsStore`. Never hardcode 9222 directly in
 
 Any list that could exceed 50 items must use virtual scrolling:
 
-- Logcat: xterm.js handles this natively
+- Logcat: use bounded streaming output
 - IDB table: TanStack Table with `useVirtualizer`
 - Network requests: Vue Virtual Scroller
 - File explorer: Vue Virtual Scroller
@@ -352,46 +350,24 @@ When adding a new Tauri command:
 ```rust
 #[tauri::command]
 pub async fn my_command(
-    app: tauri::AppHandle,
-    serial: String,          // params come from JS invoke() call
-) -> Result<SomeReturnType, String> {  // Err(String) maps to JS rejection
-    let output = app.shell()
-        .command("adb")
-        .args(["-s", &serial, "some-command"])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
+    serial: String,
+) -> Result<SomeReturnType, String> {
+    let mut stdout = Vec::new();
+    let mut server = get_server().lock();
+    let mut device = server
+        .get_device_by_name(&serial)
+        .map_err(|error| format!("Device not found: {error}"))?;
+    device
+        .shell_command("some-command", Some(&mut stdout), None)
+        .map_err(|error| error.to_string())?;
 
-    parse_output(&output.stdout).map_err(|e| e.to_string())
+    parse_output(&stdout).map_err(|error| error.to_string())
 }
 ```
 
 ### Streaming command template (events)
 
-```rust
-#[tauri::command]
-pub async fn start_streaming_command(
-    app: tauri::AppHandle,
-    serial: String,
-    window: tauri::WebviewWindow,
-) -> Result<(), String> {
-    let (mut rx, _child) = app.shell()
-        .command("adb")
-        .args(["-s", &serial, "logcat"])
-        .spawn()
-        .map_err(|e| e.to_string())?;
-
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            if let CommandEvent::Stdout(line) = event {
-                let _ = window.emit("event-name", parse_line(&line));
-            }
-        }
-    });
-
-    Ok(())
-}
-```
+Streaming ADB work belongs to the per-device session runtime and must use its explicit lease lifecycle, status, stop, and terminal events. Do not add an `app.shell().command("adb")` stream or a standalone `adb.exe` process. Follow the existing lease implementation in `src-tauri/src/session/live_features.rs`.
 
 ---
 
@@ -399,15 +375,7 @@ pub async fn start_streaming_command(
 
 ### ADB command errors
 
-`adb` returns exit code 0 even for some errors. Always check both stdout and stderr:
-
-```rust
-let output = app.shell().command("adb").args(&args).output().await?;
-if !output.status.success() {
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    return Err(format!("adb error: {}", stderr));
-}
-```
+Use the shared ADB server's command result and surface its command error to the typed IPC caller. Never replace this with a new process spawn; some ADB failures are reported in command output even when the daemon connection remains available.
 
 ### CDP target disconnects
 
@@ -431,12 +399,6 @@ ws.addEventListener("close", () => {
 CDP `IndexedDB.requestData` has a hard limit of 10,000 records per call.
 Always use pagination — never try to load all records at once.
 TanStack Table's server-side pagination handles this — see IDBTable.vue implementation.
-
-### Monaco Editor in Tauri
-
-Monaco needs a worker configuration to work correctly in Tauri's WebView.
-See `vite.config.ts` for the `monaco-vite-plugin` setup.
-Load Monaco lazily — it's large (~3MB). Only import in `IDBQueryConsole.vue` and `REPL.vue`.
 
 ### sql.js (WASM) in Vite
 
