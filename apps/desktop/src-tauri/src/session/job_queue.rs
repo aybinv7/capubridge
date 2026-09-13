@@ -123,7 +123,7 @@ pub enum SessionJobCancellationOutcome {
 #[derive(Debug)]
 pub struct SessionEnqueuedJob {
     pub receiver: mpsc::Receiver<SessionResponse>,
-    cancellation: Option<Arc<AtomicU8>>,
+    pub(crate) cancellation: Option<Arc<AtomicU8>>,
 }
 
 impl SessionEnqueuedJob {
@@ -150,7 +150,7 @@ impl SessionEnqueuedJob {
 pub struct SessionWorkerRequest {
     pub job: SessionWorkerJob,
     pub response: Option<SessionResponseSender>,
-    cancellation: Option<Arc<AtomicU8>>,
+    pub(crate) cancellation: Option<Arc<AtomicU8>>,
 }
 
 impl SessionWorkerRequest {

@@ -563,6 +563,7 @@ mod tests {
         SessionWorkerRequest {
             job,
             response: None,
+            cancellation: None,
         }
     }
 
