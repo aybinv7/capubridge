@@ -4,6 +4,7 @@ import {
   enabledFeatures,
   featureRegistry,
   isFeatureEnabled,
+  isRouteEnabled,
   primaryNavigationFeatures,
   registeredFeatureRoutes,
   utilityNavigationFeatures,
@@ -55,4 +56,19 @@ test("experimental features require explicit opt in", () => {
 
   expect(isFeatureEnabled(experimentalFeature, false)).toBe(false);
   expect(isFeatureEnabled(experimentalFeature, true)).toBe(true);
+});
+
+test("experimental child routes require explicit opt in", () => {
+  const networkRoute = featureRegistry.find((feature) => feature.id === "network")?.routes[0];
+  const mockRoute = networkRoute?.children?.find((route) => route.name === "network-mock");
+
+  expect(mockRoute).toBeDefined();
+
+  if (!mockRoute) {
+    throw new Error("Expected a network mock route fixture");
+  }
+
+  expect(isRouteEnabled(mockRoute, false)).toBe(false);
+  expect(isRouteEnabled(mockRoute, true)).toBe(true);
+  expect(JSON.stringify(registeredFeatureRoutes)).not.toContain('"path":"mock"');
 });

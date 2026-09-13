@@ -162,6 +162,36 @@ export function isFeatureEnabled(
   );
 }
 
+export function isRouteEnabled(
+  route: RouteRecordRaw,
+  allowExperimental = experimentalFeaturesEnabled,
+) {
+  return route.meta?.maturity !== "experimental" || allowExperimental;
+}
+
+function filterFeatureRoutes(
+  routes: readonly RouteRecordRaw[],
+  allowExperimental = experimentalFeaturesEnabled,
+): RouteRecordRaw[] {
+  const filteredRoutes: RouteRecordRaw[] = [];
+
+  for (const route of routes) {
+    if (!isRouteEnabled(route, allowExperimental)) continue;
+
+    if (route.children) {
+      filteredRoutes.push({
+        ...route,
+        children: filterFeatureRoutes(route.children, allowExperimental),
+      });
+      continue;
+    }
+
+    filteredRoutes.push(route);
+  }
+
+  return filteredRoutes;
+}
+
 export const enabledFeatures = featureRegistry.filter((feature) => isFeatureEnabled(feature));
 
 export const primaryNavigationFeatures = enabledFeatures.filter(
@@ -174,4 +204,6 @@ export const utilityNavigationFeatures = enabledFeatures.filter(
 
 export const commandPaletteFeatures = enabledFeatures.filter((feature) => feature.commandPalette);
 
-export const registeredFeatureRoutes = enabledFeatures.flatMap((feature) => [...feature.routes]);
+export const registeredFeatureRoutes = enabledFeatures.flatMap((feature) =>
+  filterFeatureRoutes(feature.routes),
+);

@@ -24,6 +24,7 @@ import {
 } from "lucide-vue-next";
 
 import { useThemeStore } from "@/stores/theme.store";
+import { isRouteEnabled } from "@/app/feature-registry";
 
 const route = useRoute();
 const router = useRouter();
@@ -92,7 +93,13 @@ const subTabs = computed(() => {
 
   return parentRoute.children
     .filter((r) => {
-      if (!r.path || r.path.startsWith(":") || !r.name || r.meta?.navigation === false)
+      if (
+        !r.path ||
+        r.path.startsWith(":") ||
+        !r.name ||
+        r.meta?.navigation === false ||
+        !isRouteEnabled(r)
+      )
         return false;
       return true;
     })
