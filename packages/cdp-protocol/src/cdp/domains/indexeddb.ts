@@ -116,16 +116,6 @@ interface MaterializedValue {
   reason?: string;
 }
 
-function supportsIndexedDbFallback(error: unknown): boolean {
-  const message = String(error).toLowerCase();
-  return (
-    message.includes("method not found") ||
-    message.includes("wasn't found") ||
-    message.includes("not supported") ||
-    message.includes("-32601")
-  );
-}
-
 function containsReadOnlyMarker(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   if (Array.isArray(value)) return value.some(containsReadOnlyMarker);
@@ -589,9 +579,12 @@ export class IDBDomain {
 
       return { records, hasMore: response.hasMore };
     } catch (err) {
-      if (!supportsIndexedDbFallback(err)) throw err;
       console.warn("[IDB] CDP requestData failed, falling back to Runtime.evaluate:", err);
-      return this.getDataViaEval(params);
+      try {
+        return await this.getDataViaEval(params);
+      } catch (evalErr) {
+        throw new Error(`IndexedDB read failed — CDP: ${String(err)}; eval: ${String(evalErr)}`);
+      }
     }
   }
 
@@ -665,7 +658,12 @@ export class IDBDomain {
     const expression = `
       (async () => {
         try {
-          const req = indexedDB.open('${params.databaseName}');
+          const dbName = ${JSON.stringify(params.databaseName)};
+          const existing = await indexedDB.databases();
+          if (!existing.some((entry) => entry.name === dbName)) {
+            return JSON.stringify({ error: 'Database "' + dbName + '" does not exist on this target' });
+          }
+          const req = indexedDB.open(dbName);
           const db = await new Promise((resolve, reject) => {
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
