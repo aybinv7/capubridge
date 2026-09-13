@@ -212,7 +212,9 @@ export function useMockServer() {
     [() => store.interceptMode, targetId, connectionStatus],
     ([mode, id, status], [previousMode, previousTargetId, previousStatus]) => {
       modeTransition = modeTransition
-        .catch(() => undefined)
+        .catch((error) => {
+          console.error("Previous mock mode transition failed", error);
+        })
         .then(async () => {
           const modeChanged = mode !== previousMode;
           const targetChanged = id !== previousTargetId;

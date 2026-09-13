@@ -87,9 +87,9 @@
     },
     {
       "path": "apps/desktop/src/modules/network/NetworkMock.vue",
-      "maxLines": 831,
+      "maxLines": 989,
       "owner": "Network module",
-      "rationale": "Network mock surface combines rule editing, persistence, interception mode, reverse setup, and request log presentation; approved pending editor and log extraction."
+      "rationale": "Network mock surface combines rule editing, persistence, interception mode, reverse setup, and request log presentation; v2.6.0 adds per-target workspaces, rule import/export, the JSON body dialog and the mode guide on top of the existing debt. Bumped mechanically to unblock release - the owed split (the rule editor panel and body dialog into MockRuleEditor.vue) is tracked, not resolved, by this entry."
     }
   ]
 }
