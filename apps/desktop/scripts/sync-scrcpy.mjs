@@ -5,44 +5,20 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { pipeline } from "node:stream/promises";
+import { scrcpy } from "./release-resources.mjs";
 
-const RELEASE_API = "https://api.github.com/repos/Genymobile/scrcpy/releases/latest";
 const scriptDir = import.meta.dirname;
-const TARGETS = {
-  "windows-x64": {
-    asset: /^scrcpy-win64-v.*\.zip$/,
-    binary: "scrcpy.exe",
-    archiveSuffix: ".zip",
-  },
-  "linux-x64": {
-    asset: /^scrcpy-linux-x86_64-v.*\.tar\.gz$/,
-    binary: "scrcpy",
-    archiveSuffix: ".tar.gz",
-  },
-  "macos-x64": {
-    asset: /^scrcpy-macos-x86_64-v.*\.tar\.gz$/,
-    binary: "scrcpy",
-    archiveSuffix: ".tar.gz",
-  },
-  "macos-arm64": {
-    asset: /^scrcpy-macos-aarch64-v.*\.tar\.gz$/,
-    binary: "scrcpy",
-    archiveSuffix: ".tar.gz",
-  },
-};
 
 function powershellQuote(value) {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
 async function fetchResponse(url) {
-  const token = process.env.GITHUB_TOKEN;
   const response = await fetch(url, {
     headers: {
       accept: "application/vnd.github+json",
       "user-agent": "capubridge-scrcpy-sync",
       "x-github-api-version": "2022-11-28",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
   });
   if (!response.ok) {
@@ -65,30 +41,23 @@ async function sha256(filePath) {
 
 async function main() {
   const requestedTarget = process.env.CAPUBRIDGE_SCRCPY_TARGET || defaultTarget();
-  const target = TARGETS[requestedTarget];
+  const target = scrcpy[requestedTarget];
   if (!target) throw new Error(`Unsupported scrcpy bundle target: ${requestedTarget ?? "unknown"}`);
   const targetDir = path.resolve(scriptDir, `../src-tauri/resources/scrcpy/${requestedTarget}`);
 
-  const release = await (await fetchResponse(RELEASE_API)).json();
-  const asset = release.assets?.find((candidate) => target.asset.test(candidate.name));
-  if (!asset?.browser_download_url) {
-    throw new Error(`The latest scrcpy release does not contain a ${requestedTarget} archive`);
-  }
-
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "capubridge-scrcpy-"));
-  const zipPath = path.join(tempDir, asset.name);
+  const assetName = path.basename(new URL(target.url).pathname);
+  const zipPath = path.join(tempDir, assetName);
   const extractDir = path.join(tempDir, "extract");
 
   try {
     await mkdir(extractDir, { recursive: true });
-    const archive = await fetchResponse(asset.browser_download_url);
+    const archive = await fetchResponse(target.url);
     if (!archive.body) throw new Error("scrcpy archive response was empty");
     await pipeline(archive.body, createWriteStream(zipPath));
-    if (asset.digest?.startsWith("sha256:")) {
-      const actualDigest = await sha256(zipPath);
-      if (actualDigest !== asset.digest.slice("sha256:".length)) {
-        throw new Error(`SHA-256 mismatch for ${asset.name}`);
-      }
+    const actualDigest = await sha256(zipPath);
+    if (actualDigest !== target.checksum) {
+      throw new Error(`SHA-256 mismatch for ${assetName}`);
     }
 
     const result =
@@ -103,14 +72,14 @@ async function main() {
             { stdio: "inherit" },
           )
         : spawnSync("tar", ["-xzf", zipPath, "-C", extractDir], { stdio: "inherit" });
-    if (result.status !== 0) throw new Error(`Failed to extract ${asset.name}`);
+    if (result.status !== 0) throw new Error(`Failed to extract ${assetName}`);
 
-    const archiveRoot = path.join(extractDir, asset.name.slice(0, -target.archiveSuffix.length));
+    const archiveRoot = path.join(extractDir, assetName.slice(0, -target.archiveSuffix.length));
     await access(path.join(archiveRoot, target.binary));
     await rm(targetDir, { recursive: true, force: true });
     await mkdir(path.dirname(targetDir), { recursive: true });
     await cp(archiveRoot, targetDir, { recursive: true });
-    console.log(`[bundle:scrcpy] ${release.tag_name} -> ${targetDir}`);
+    console.log(`[bundle:scrcpy] ${assetName} -> ${targetDir}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

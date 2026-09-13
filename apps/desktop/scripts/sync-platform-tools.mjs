@@ -1,15 +1,11 @@
-import { createWriteStream } from "node:fs";
-import { rm, mkdir, mkdtemp, access } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createReadStream, createWriteStream } from "node:fs";
+import { access, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { pipeline } from "node:stream/promises";
-
-const PLATFORM_URLS = {
-  windows: "https://dl.google.com/android/repository/platform-tools-latest-windows.zip",
-  linux: "https://dl.google.com/android/repository/platform-tools-latest-linux.zip",
-  darwin: "https://dl.google.com/android/repository/platform-tools-latest-darwin.zip",
-};
+import { platformTools } from "./release-resources.mjs";
 
 const scriptDir = import.meta.dirname;
 const resourcesDir = path.resolve(scriptDir, "../src-tauri/resources/adb");
@@ -57,6 +53,14 @@ async function downloadArchive(url, outputPath) {
   await pipeline(response.body, createWriteStream(outputPath));
 }
 
+async function verifyChecksum(filePath, algorithm, expected) {
+  const hash = createHash(algorithm);
+  for await (const chunk of createReadStream(filePath)) hash.update(chunk);
+  const actual = hash.digest("hex");
+  if (actual !== expected)
+    throw new Error(`${algorithm.toUpperCase()} mismatch for ${path.basename(filePath)}`);
+}
+
 function powershellQuote(value) {
   return `'${value.replace(/'/g, "''")}'`;
 }
@@ -86,8 +90,8 @@ function extractArchive(zipPath, destinationPath) {
 }
 
 async function syncPlatform(platform) {
-  const url = PLATFORM_URLS[platform];
-  if (!url) {
+  const resource = platformTools[platform];
+  if (!resource) {
     throw new Error(`Unsupported platform key: ${platform}`);
   }
 
@@ -96,13 +100,17 @@ async function syncPlatform(platform) {
   const targetDir = path.join(resourcesDir, platform);
 
   try {
-    await rm(targetDir, { recursive: true, force: true });
-    await mkdir(targetDir, { recursive: true });
-    await downloadArchive(url, zipPath);
-    extractArchive(zipPath, targetDir);
+    const stagedTargetDir = path.join(tempDir, "resources");
+    await downloadArchive(resource.url, zipPath);
+    await verifyChecksum(zipPath, resource.algorithm, resource.checksum);
+    await mkdir(stagedTargetDir, { recursive: true });
+    extractArchive(zipPath, stagedTargetDir);
 
-    const adbPath = path.join(targetDir, "platform-tools", adbBinaryName(platform));
+    const adbPath = path.join(stagedTargetDir, "platform-tools", adbBinaryName(platform));
     await access(adbPath);
+    await rm(targetDir, { recursive: true, force: true });
+    await mkdir(path.dirname(targetDir), { recursive: true });
+    await cp(stagedTargetDir, targetDir, { recursive: true });
     console.log(`[bundle:adb] ${platform} -> ${adbPath}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });

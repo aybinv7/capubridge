@@ -24,3 +24,9 @@ git push origin v1.15.0
 Pushing a matching tag starts the release workflow. CI verifies versions and tests first, then builds Linux, Windows, macOS Intel, and macOS Apple Silicon artifacts into a draft GitHub release.
 
 Tags containing a suffix such as `v1.16.0-beta.1` are marked as prereleases. Release notes must be reviewed and grouped by user-facing capability before the draft is published.
+
+## Supply chain and signing
+
+Release builds download Android platform-tools and scrcpy only from versioned URLs recorded in `apps/desktop/scripts/release-resources.mjs`. Each archive is verified against its recorded upstream checksum before it replaces bundled resources. Updating either dependency requires an explicit manifest change and review.
+
+Tauri updater artifacts are signed when `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` are configured in repository secrets. Windows Authenticode signing and macOS Developer ID signing/notarization are not configured by this repository. Do not claim platform installer trust outside Tauri updater verification until those credentials and CI steps exist.
