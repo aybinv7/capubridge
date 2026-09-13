@@ -184,7 +184,7 @@ Each device session runs at one of three temperatures:
 
 ## Roadmap
 
-### v1.15.0 — Beta (current)
+### Current beta scope
 
 - [x] Session model with hot/warm/cold device states
 - [x] Rust device tracker + per-device session workers
@@ -244,7 +244,7 @@ Grab the latest release for your platform from the [Releases](../../releases) pa
 irm https://vite.plus/ps1 | iex
 
 # Clone and install
-git clone https://github.com/inventor7/capubridge
+git clone https://github.com/aybinv7/capubridge
 cd capubridge
 vp install
 

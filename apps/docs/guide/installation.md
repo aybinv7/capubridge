@@ -4,21 +4,17 @@ Capubridge is a desktop app. You run it on your development machine, and it conn
 
 ## System requirements
 
-- **OS:** Windows 10/11 (primary), macOS (planned), Linux (planned)
+- **OS:** Windows 10/11, macOS, or Linux
 - **Android:** API level 21+ (Android 5.0)
 - **ADB:** Must be installed on the host machine
 
 ## Installing from release
 
 1. Go to the [releases page](https://github.com/aybinv7/capubridge/releases)
-2. Download the latest `.exe` installer
-3. Run the installer and follow the prompts
+2. Select the package for your platform: `.msi` or `.exe` on Windows, `.dmg` on macOS, or `.AppImage` / `.deb` on Linux
+3. Install or launch it using your platform's normal package flow
 
-The installer will:
-
-- Place the app in `Program Files/Capubridge`
-- Create a Start Menu shortcut
-- Add `capubridge.exe` to your PATH (optional)
+Linux AppImage users on recent Mesa/Wayland systems may need the compatibility command documented in the project README.
 
 ## Building from source
 
@@ -58,26 +54,15 @@ The built executable will be in `apps/desktop/src-tauri/target/release/`.
 
 Capubridge needs ADB (Android Debug Bridge) to communicate with devices.
 
-### Option 1: Use system ADB
+### Runtime resolution
 
-If you already have ADB installed (e.g., from Android Studio or platform-tools):
+At startup Capubridge resolves ADB in this order:
 
-1. Make sure `adb.exe` is in your PATH
-2. Capubridge will auto-detect it
+1. `CAPUBRIDGE_ADB_PATH`, when set
+2. Bundled Android platform-tools
+3. `adb` available on your system PATH
 
-### Option 2: Bundled ADB
-
-Capubridge can bundle its own ADB. In the app:
-
-1. Go to **Settings → ADB**
-2. Click **Download bunded ADB**
-3. The app downloads platform-tools automatically
-
-### Option 3: Custom path
-
-1. Go to **Settings → ADB**
-2. Set **ADB executable path** to your `adb.exe` location
-3. Optionally set **ADB server port** (default: `5037`)
+Install Android platform-tools or Android Studio only when none of those sources is available. The Settings page reports this behavior; it does not currently offer a runtime ADB-path or server-port editor.
 
 ## Verifying installation
 
@@ -100,7 +85,7 @@ Run Capubridge and look for:
 
 - The app window opens
 - The title bar shows "Capubridge"
-- The sidebar shows 6 modules: Devices, Storage, Network, Capacitor, Inspect, Settings
+- Device workspace and available modules appear after startup
 
 ### Connect a device
 
