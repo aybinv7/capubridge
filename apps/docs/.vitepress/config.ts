@@ -52,6 +52,8 @@ export default defineConfig({
           { text: "CLI Commands", link: "/reference/cli" },
           { text: "IPC Contract", link: "/reference/ipc" },
           { text: "Session Events", link: "/reference/events" },
+          { text: "Capu Archive Format", link: "/reference/capu-format" },
+          { text: "Session Store API", link: "/reference/session-store-api" },
         ],
       },
       { text: "GitHub", link: "https://github.com/aybinv7/capubridge" },
@@ -163,6 +165,13 @@ export default defineConfig({
             { text: "CLI Commands", link: "/reference/cli" },
             { text: "IPC Contract", link: "/reference/ipc" },
             { text: "Session Events", link: "/reference/events" },
+          ],
+        },
+        {
+          text: "Recording Contracts",
+          items: [
+            { text: "Capu Archive Format", link: "/reference/capu-format" },
+            { text: "Session Store API", link: "/reference/session-store-api" },
           ],
         },
         {

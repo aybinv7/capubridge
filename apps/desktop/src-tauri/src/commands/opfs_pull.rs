@@ -252,7 +252,7 @@ pub async fn opfs_stat_file(ws_url: String, path: String) -> Result<OpfsFileStat
 /// Stream an OPFS SQLite database to a local temp file and return its path.
 #[tauri::command]
 pub async fn opfs_pull_sqlite(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     ws_url: String,
     path: String,
     label: String,
@@ -274,7 +274,7 @@ pub async fn opfs_pull_sqlite(
 
 async fn pull_into_file(
     session: &mut CdpSession,
-    window: &tauri::WebviewWindow,
+    window: &tauri::Webview,
     path: &str,
     label: &str,
     strip_sah_pool_header: bool,

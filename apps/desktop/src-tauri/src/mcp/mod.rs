@@ -51,6 +51,14 @@ impl McpServerState {
             .map(|running| running.port)
     }
 
+    pub fn principals(&self) -> Option<std::sync::Arc<auth::PrincipalRegistry>> {
+        self.inner
+            .lock()
+            .running
+            .as_ref()
+            .map(RunningServer::principals)
+    }
+
     pub fn set_running(&self, running: RunningServer) {
         self.inner.lock().running = Some(running);
     }

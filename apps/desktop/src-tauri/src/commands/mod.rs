@@ -1,4 +1,7 @@
 pub mod adb;
+pub mod automation;
+pub mod artemis;
+pub mod reasoning;
 pub mod cdp_proxy;
 pub mod chrome;
 pub mod emulator;

@@ -2,6 +2,7 @@ import type { LogcatEntry, LogcatErrorPayload } from "@/types/console.types";
 import type { PerfMetrics } from "@/types/perf.types";
 import type { SessionEvent } from "@/types/session.types";
 import type { UpdaterProgressPayload } from "@/types/updater.types";
+import type { AutomationTaskEvent } from "@/types/automation.types";
 
 export interface MockServerRequestEvent {
   ruleId: string;
@@ -36,6 +37,10 @@ export interface OpfsPullProgressEvent {
   total: number;
 }
 
+export interface AutomationTaskEventPayload {
+  event: AutomationTaskEvent;
+}
+
 export interface IpcEventMap {
   "capubridge:session-event": SessionEvent;
   "capubridge:mirror-device-clipboard": MirrorClipboardEvent;
@@ -55,6 +60,7 @@ export interface IpcEventMap {
   "updater://progress": UpdaterProgressPayload;
   "mcp://bridge/request": McpBridgeRequestEvent;
   "capubridge:opfs-pull-progress": OpfsPullProgressEvent;
+  "capubridge:automation-task-event": AutomationTaskEventPayload;
 }
 
 export type IpcEventName = keyof IpcEventMap;

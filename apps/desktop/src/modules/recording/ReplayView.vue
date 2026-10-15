@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, watch, onMounted } from "vue";
+import { ref, shallowRef, computed, watch } from "vue";
 import { FolderOpen, AlertCircle, Loader2, ScanSearch } from "lucide-vue-next";
 import { open as openFilePicker } from "@tauri-apps/plugin-dialog";
 import { useRoute } from "vue-router";
@@ -14,6 +14,8 @@ import ReplayPerformanceLane from "./ReplayPerformanceLane.vue";
 import ReplayElementsPanel from "./ReplayElementsPanel.vue";
 import ReplayDatabasesPanel from "./ReplayDatabasesPanel.vue";
 import ReplaySessionPicker from "./ReplaySessionPicker.vue";
+import { describeSessionOrigin } from "./replaySessionOrigin";
+import { parseSeekMs, resolveSeekMs } from "./replaySeek";
 
 const pickerOpen = ref(false);
 
@@ -21,6 +23,9 @@ const route = useRoute();
 const { session, isLoading, error, load } = useReplaySession();
 
 const clock = useTimelineClock(0);
+const origin = computed(() =>
+  session.value ? describeSessionOrigin(session.value.manifest) : { producer: null, device: null },
+);
 
 const playerRef = ref<InstanceType<typeof ReplayPlayer> | null>(null);
 const activePane = ref<"network" | "console" | "performance" | "databases" | "elements">("network");
@@ -58,15 +63,43 @@ function startResize(e: MouseEvent) {
   window.addEventListener("mouseup", onUp);
 }
 
-onMounted(() => {
-  const filePath = route.query.file as string | undefined;
-  if (filePath) loadFile(filePath);
-});
+/** Offset requested by `?t=`, held until the session it belongs to has loaded. */
+const pendingSeekMs = ref<number | null>(null);
+/** Path currently loaded, so re-navigating to the same file only re-seeks. */
+const loadedPath = ref<string | null>(null);
+
+/**
+ * Honours `?file=` and `?t=`. Automation links the failing step as
+ * `/replay?file=X&t=NNN`, and the same session is re-entered with a different
+ * `t` each time another step is opened, so this watches the query rather than
+ * reading it once on mount.
+ */
+watch(
+  () => [route.query.file, route.query.t] as const,
+  ([file, t]) => {
+    if (typeof file !== "string" || file === "") return;
+    pendingSeekMs.value = parseSeekMs(t);
+    if (file === loadedPath.value) {
+      applyPendingSeek();
+      return;
+    }
+    void loadFile(file);
+  },
+  { immediate: true },
+);
+
+/** Applies a pending `?t=` offset clamped to the session, then clears it. */
+function applyPendingSeek() {
+  const target = pendingSeekMs.value;
+  pendingSeekMs.value = null;
+  clock.seek(resolveSeekMs(target, session.value?.manifest.duration ?? 0));
+}
 
 async function loadFile(filePath: string) {
   clock.pause();
   inspectActive.value = false;
   selectedIframeEl.value = null;
+  loadedPath.value = filePath;
   await load(filePath);
 }
 
@@ -74,8 +107,8 @@ watch(
   () => session.value,
   (s) => {
     if (!s) return;
-    clock.seek(0);
     clock.setDuration(s.manifest.duration);
+    applyPendingSeek();
   },
 );
 
@@ -182,6 +215,19 @@ function formatDuration(ms: number) {
         <template v-if="session.manifest.deviceSerial">
           <span class="text-border/60">·</span>
           <span>{{ session.manifest.deviceSerial }}</span>
+        </template>
+        <template v-if="origin.device">
+          <span class="text-border/60">·</span>
+          <span :title="session.manifest.device?.appId ?? undefined">{{ origin.device }}</span>
+        </template>
+        <template v-if="origin.producer">
+          <span class="text-border/60">·</span>
+          <span
+            class="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted-foreground/70"
+            :title="`Recorded on ${session.manifest.producer?.platform ?? 'unknown platform'}`"
+          >
+            {{ origin.producer }}
+          </span>
         </template>
         <div class="flex-1" />
 
@@ -334,6 +380,7 @@ function formatDuration(ms: number) {
               :database-path="session.databasePath"
               :position-ms="clock.positionMs.value"
               class="h-full"
+              @seek="onSeek"
             />
             <ReplayElementsPanel
               v-else
@@ -350,6 +397,7 @@ function formatDuration(ms: number) {
         :network-events="session.networkEvents"
         :console-events="session.consoleEvents"
         :perf-events="session.perfEvents"
+        :database-events="session.databaseEvents"
         @seek="onSeek"
         @play="onPlay"
         @pause="onPause"

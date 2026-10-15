@@ -18,7 +18,7 @@ use crate::mcp::types::{
     QueryRecordingParams, ReadRecordingDbParams, ReadRecordingParams, ReadRecordingTrackParams,
 };
 
-const TRACK_NAMES: [&str; 5] = ["rrweb", "network", "console", "perf", "databases"];
+const TRACK_NAMES: [&str; 6] = ["rrweb", "network", "console", "perf", "databases", "automation"];
 
 #[tool_router(router = recording_tool_router, vis = "pub(crate)")]
 impl CapuBridgeTools {

@@ -56,6 +56,11 @@ export interface RecordingCommandMap {
     { sessionId: string; track: string; ndjsonBatch: string },
     void
   >;
+  recording_session_attach: IpcCommand<
+    { sessionId: string; name: string; base64Data: string },
+    void
+  >;
+  recording_read_attachment: IpcCommand<{ filePath: string; name: string }, string>;
   recording_session_stop: IpcCommand<{ sessionId: string; manifestJson: string }, string>;
   recording_list_sessions: IpcCommand<undefined, RustSessionListItem[]>;
   recording_delete_session: IpcCommand<{ sessionId: string }, void>;

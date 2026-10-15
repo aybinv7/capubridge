@@ -7,7 +7,18 @@ export const SOURCE_LINE_LIMIT = 800;
 const root = fileURLToPath(new URL("../", import.meta.url));
 const baselineUrl = new URL("../architecture/source-size-baseline.json", import.meta.url);
 const scanRoots = ["apps", "packages", "scripts"];
-const ignoredDirectories = new Set([".git", ".vite", "coverage", "dist", "node_modules", "target"]);
+const ignoredDirectories = new Set([".git", ".vite", "coverage", "dist", "node_modules"]);
+/**
+ * Cargo build trees, matched by prefix rather than exact name so a
+ * CARGO_TARGET_DIR override such as `target-cb81-tests` is skipped too. An
+ * exact "target" entry let 8 GB of generated Rust into this scan and reported
+ * build output as oversized project source.
+ */
+const ignoredDirectoryPrefixes = ["target"];
+
+function isIgnoredDirectory(name) {
+  return ignoredDirectories.has(name) || ignoredDirectoryPrefixes.some((p) => name.startsWith(p));
+}
 const sourceExtensions = new Set([
   ".cjs",
   ".cts",
@@ -36,7 +47,7 @@ async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(
     entries.map(async (entry) => {
-      if (entry.isDirectory() && ignoredDirectories.has(entry.name)) return [];
+      if (entry.isDirectory() && isIgnoredDirectory(entry.name)) return [];
       const path = resolve(directory, entry.name);
       if (entry.isDirectory()) return collectSourceFiles(path);
       return sourceExtensions.has(extname(entry.name)) ? [path] : [];

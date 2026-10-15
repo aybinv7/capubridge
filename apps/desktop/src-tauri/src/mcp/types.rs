@@ -435,3 +435,205 @@ pub struct QueryRecordingParams {
     #[serde(default)]
     pub correlate_window_ms: Option<i64>,
 }
+
+/// Run limits for `run_agent_goal`. Any omitted bound falls back to the
+/// policy default in the app UI.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RunGoalLimits {
+    /// Maximum agent steps (default 40, higher for ARTEMIS).
+    #[serde(default)]
+    pub max_steps: Option<u64>,
+    /// Maximum wall-clock run time in milliseconds.
+    #[serde(default)]
+    pub max_duration_ms: Option<u64>,
+    /// Consecutive failures before the run halts.
+    #[serde(default)]
+    pub max_consecutive_failures: Option<u64>,
+}
+
+/// Parameters for `run_flow` - start a saved automation flow on a device.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RunFlowParams {
+    /// Flow id from `list_flows`.
+    pub flow_id: String,
+    /// ADB serial of the device to drive.
+    pub device_serial: String,
+    /// Caller intent for acting on a real device.
+    pub confirm: bool,
+}
+
+/// Parameters for `run_agent_goal` - start an agent-goal run with a policy.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RunAgentGoalParams {
+    /// Natural-language goal for jev; ignored for rules (which replays a flow).
+    pub goal: String,
+    /// Policy id: rules, artemis, or jev. Artemis runs report unavailable
+    /// until its task bridge is wired.
+    pub policy_id: String,
+    /// ADB serial of the device to drive.
+    pub device_serial: String,
+    /// Saved flow id whose steps become the intents (required for rules).
+    #[serde(default)]
+    pub flow_id: Option<String>,
+    /// Android package the goal may act in, e.g. `com.presalio.app`. The task
+    /// is authorized for this one app only. Required unless `flow_id` names a
+    /// flow that declares its own app.
+    #[serde(default)]
+    pub app_package: Option<String>,
+    /// Run bound overrides (each falls back to the policy default).
+    #[serde(default)]
+    pub limits: Option<RunGoalLimits>,
+    /// Explicit acknowledgement that a remote policy sends redacted screen
+    /// structure off this machine. Required for every non-local policy.
+    #[serde(default)]
+    pub acknowledge_data_notice: Option<bool>,
+    /// Caller intent for acting on a real device.
+    pub confirm: bool,
+}
+
+/// Parameters for `get_run_status`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RunIdParams {
+    /// Run id from `run_flow` / `run_agent_goal`.
+    pub run_id: String,
+}
+
+/// Parameters for `wait_for_run`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct WaitForRunParams {
+    /// Run id from `run_flow` / `run_agent_goal`.
+    pub run_id: String,
+    /// Longest to block, in seconds (default 50, clamped to 1..=110). A run
+    /// still going at the bound returns `done: false`; call again.
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TaskIdParams {
+    pub task_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadTaskEventsParams {
+    pub task_id: String,
+    #[serde(default)]
+    pub cursor: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CancelTaskParams {
+    pub task_id: String,
+    pub confirm: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct HandoffTaskParams {
+    pub task_id: String,
+    pub owner: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+    pub confirm: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UpdateTaskPlanParams {
+    pub task_id: String,
+    pub summary: String,
+    pub confirm: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct PauseResumeTaskParams {
+    pub task_id: String,
+    pub confirm: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ExecuteTaskBatchParams {
+    pub task_id: String,
+    pub steps: serde_json::Value,
+    pub confirm: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct VerifyTaskParams {
+    pub task_id: String,
+    pub assertion: serde_json::Value,
+}
+
+/// Parameters for `cancel_run` - cancel a running automation run.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CancelRunParams {
+    /// Run id from `run_flow` / `run_agent_goal`.
+    pub run_id: String,
+    /// Caller intent for stopping work on a real device.
+    pub confirm: bool,
+}
+
+/// Parameters for `read_run_trace` - page through a run trace.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ReadRunTraceParams {
+    /// Run id from `run_flow` / `run_agent_goal`.
+    pub run_id: String,
+    /// Records to skip (default 0).
+    #[serde(default)]
+    pub offset: Option<u64>,
+    /// Records to return (default 100, clamped to 500).
+    #[serde(default)]
+    pub limit: Option<u64>,
+}
+
+/// Parameters for `promote_run` - freeze a run into an editable manual flow.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct PromoteRunParams {
+    /// Run id from `run_flow` / `run_agent_goal`.
+    pub run_id: String,
+    /// Name for the promoted flow.
+    pub name: String,
+}
+
+/// Parameters for `save_flow` - create a validated automation flow.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SaveFlowParams {
+    /// Flow name shown in the Flows tab.
+    pub name: String,
+    /// Android app package the flow drives.
+    pub app_package: String,
+    /// Optional flow description.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Explicit flow steps; validated step by step, precisely reported on error.
+    #[serde(default)]
+    pub steps: Option<serde_json::Value>,
+}
+
+/// Parameters for `update_flow` - patch a saved automation flow.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UpdateFlowParams {
+    /// Flow id from `list_flows`.
+    pub flow_id: String,
+    /// New flow name.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// New Android app package.
+    #[serde(default)]
+    pub app_package: Option<String>,
+    /// New flow description (null clears).
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Replacement step list.
+    #[serde(default)]
+    pub steps: Option<serde_json::Value>,
+}
+
+/// Parameters for `delete_flow` - delete a saved automation flow.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct DeleteFlowParams {
+    /// Flow id from `list_flows`.
+    pub flow_id: String,
+    /// Caller intent for a destructive local delete.
+    pub confirm: bool,
+}

@@ -3,10 +3,11 @@
 //! Every tool holds an `Arc<SessionRegistry>` and calls the exact same registry
 //! / session methods the `#[tauri::command]` wrappers call — there is no
 //! duplicated device logic here. Split into per-category submodules
-//! (`session`, `web`, `device`) once the flat file crossed the repo's 800-line
-//! source-size gate; each owns its own `#[tool_router]` and they combine here
-//! via `ToolRouter`'s `Add` impl.
+//! (`session`, `web`, `device`, `automation`, …) once the flat file crossed
+//! the repo's 800-line source-size gate; each owns its own `#[tool_router]`
+//! and they combine here via `ToolRouter`'s `Add` impl.
 
+mod automation;
 mod device;
 mod emulator;
 mod frontend;
@@ -19,14 +20,62 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use base64::{engine::general_purpose, Engine as _};
-use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo};
-use rmcp::{tool_handler, ErrorData, ServerHandler};
+use http::request::Parts;
+use rmcp::handler::server::common::FromContextPart;
+use rmcp::handler::server::tool::ToolCallContext;
+use rmcp::model::{
+    CallToolRequestParams, CallToolResult, ContentBlock, Implementation, ListToolsResult,
+    PaginatedRequestParams, ServerCapabilities, ServerInfo,
+};
+use rmcp::service::RequestContext;
+use rmcp::{tool_handler, ErrorData, RoleServer, ServerHandler};
 use serde::Serialize;
 
 use super::capture::CaptureRegistry;
 use super::redaction::redact_value;
+use crate::mcp::auth::{AuthenticatedPrincipal, McpCapability};
 use crate::session::registry::SessionRegistry;
 use crate::session::types::SessionTargetSnapshot;
+
+#[derive(Clone)]
+pub struct McpRequestIdentity {
+    pub principal: AuthenticatedPrincipal,
+    pub connection_id: Option<String>,
+}
+
+#[cfg(test)]
+impl McpRequestIdentity {
+    pub(crate) fn test_identity() -> Self {
+        Self {
+            principal: AuthenticatedPrincipal::test_identity(),
+            connection_id: Some("connection-test".to_string()),
+        }
+    }
+}
+
+impl<S> FromContextPart<ToolCallContext<'_, S>> for McpRequestIdentity {
+    fn from_context_part(context: &mut ToolCallContext<S>) -> Result<Self, ErrorData> {
+        let parts = context
+            .request_context
+            .extensions
+            .get::<Parts>()
+            .ok_or_else(|| ErrorData::invalid_request("MCP request metadata is missing".to_string(), None))?;
+        let principal = parts
+            .extensions
+            .get::<AuthenticatedPrincipal>()
+            .cloned()
+            .ok_or_else(|| ErrorData::invalid_request("MCP request principal is missing".to_string(), None))?;
+        let connection_id = parts
+            .headers
+            .get("mcp-session-id")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        Ok(Self {
+            principal,
+            connection_id,
+        })
+    }
+}
 
 /// Build a successful tool result carrying both a pretty-printed text block
 /// (rendered by every client) and structured JSON content (for clients that
@@ -120,17 +169,27 @@ impl CapuBridgeTools {
                 + Self::recording_tool_router()
                 + Self::frontend_tool_router()
                 + Self::mock_tool_router()
-                + Self::emulator_tool_router(),
+                + Self::emulator_tool_router()
+                + Self::automation_tool_router(),
         }
     }
 
     /// Emit a bridge request to the frontend and await its JSON result, or a
     /// clear error if there's no app handle (unit tests) or no window responds.
     async fn bridge_call(&self, action: &str, payload: serde_json::Value) -> Result<serde_json::Value, ErrorData> {
+        self.bridge_call_with_timeout(action, payload, super::bridge::BRIDGE_TIMEOUT).await
+    }
+
+    async fn bridge_call_with_timeout(
+        &self,
+        action: &str,
+        payload: serde_json::Value,
+        timeout: std::time::Duration,
+    ) -> Result<serde_json::Value, ErrorData> {
         let app = self.app.as_ref().ok_or_else(|| {
             ErrorData::internal_error("This tool requires the running app and is unavailable here", None)
         })?;
-        super::bridge::call(app, action, payload)
+        super::bridge::call_with_timeout(app, action, payload, timeout)
             .await
             .map_err(|error| ErrorData::internal_error(error, None))
     }
@@ -171,10 +230,117 @@ impl CapuBridgeTools {
             None,
         ))
     }
+
+    fn principal(context: &RequestContext<RoleServer>) -> Option<&AuthenticatedPrincipal> {
+        context
+            .extensions
+            .get::<http::request::Parts>()
+            .and_then(|parts| parts.extensions.get::<AuthenticatedPrincipal>())
+    }
+
+    fn required_capability(tool_name: &str) -> McpCapability {
+        const READ_ONLY_TOOLS: &[&str] = &[
+            "tools/list",
+            "get_active_session",
+            "list_devices",
+            "list_targets",
+            "list_emulators",
+            "list_packages",
+            "take_screenshot",
+            "get_screen_size",
+            "read_storage",
+            "read_console",
+            "read_network",
+            "list_recordings",
+            "read_recording",
+            "read_recording_track",
+            "read_recording_db",
+            "query_recording",
+            "get_recording_status",
+            "get_run_status",
+            "wait_for_run",
+            "read_run_trace",
+            "task_get",
+            "task_read_trace",
+            "task_observe",
+            "task_verify",
+            "task_heartbeat",
+            "list_flows",
+        ];
+        const AUTHORIZATION_TOOLS: &[&str] = &["run_flow", "run_agent_goal", "task_create", "task_cancel", "task_handoff", "task_update_plan", "task_pause", "task_resume", "task_execute_batch"];
+        const ADMINISTER_TOOLS: &[&str] = &["shell_command"];
+        if READ_ONLY_TOOLS.contains(&tool_name) {
+            McpCapability::Read
+        } else if AUTHORIZATION_TOOLS.contains(&tool_name) {
+            McpCapability::Authorize
+        } else if ADMINISTER_TOOLS.contains(&tool_name) {
+            McpCapability::Administer
+        } else {
+            McpCapability::Execute
+        }
+    }
+
+    fn authorize_request(
+        context: &RequestContext<RoleServer>,
+        tool_name: &str,
+    ) -> Result<(), ErrorData> {
+        let principal = Self::principal(context).ok_or_else(|| {
+            ErrorData::invalid_request("MCP request has no authenticated principal".to_string(), None)
+        })?;
+        let required = Self::required_capability(tool_name);
+        if principal.allows(required) {
+            log::info!(
+                "[mcp-audit] allowed tool={} principal={} capability={}",
+                tool_name,
+                principal.id,
+                required.label()
+            );
+            Ok(())
+        } else {
+            log::warn!(
+                "[mcp-audit] denied tool={} principal={} required_capability={}",
+                tool_name,
+                principal.id,
+                required.label()
+            );
+            Err(ErrorData::invalid_request(
+                format!(
+                    "MCP principal '{}' lacks the '{}' capability for tool '{}'.",
+                    principal.name,
+                    required.label(),
+                    tool_name
+                ),
+                None,
+            ))
+        }
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for CapuBridgeTools {
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        Self::authorize_request(&context, request.name.as_ref())?;
+        let tool_call_context = ToolCallContext::new(self, request, context);
+        self.tool_router.call(tool_call_context).await
+    }
+
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<ListToolsResult, ErrorData> {
+        Self::authorize_request(&context, "tools/list")?;
+        Ok(ListToolsResult {
+            tools: self.tool_router.list_all(),
+            meta: None,
+            next_cursor: None,
+        })
+    }
+
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new(
@@ -191,10 +357,10 @@ impl ServerHandler for CapuBridgeTools {
                  list_emulators finds installed AVDs that are not yet running; launch_emulator \
                  opens one when explicitly confirmed, then list_devices shows it when ADB is ready. \
                  Read-only tools (read_storage, read_console, read_network, \
-                 list_packages, take_screenshot, get_screen_size) are safe to call freely; \
-                 mutation tools are unavailable unless the user enables mutation access in \
-                 CapuBridge Settings. confirm: true records caller intent and is not proof of \
-                 human approval. \
+                 list_packages, take_screenshot, get_screen_size) require the read scope; \
+                 device mutations require execute, starting an automation run requires authorize, \
+                 and arbitrary shell commands require administer. \
+                 confirm: true records caller intent and is not proof of human approval. \
                  read_console/read_network start capturing on first call for a target, so call \
                  again after a moment to see accumulated data. evaluate_js, click_element, \
                  launch_app, tap, swipe, input_text, press_key, and shell_command all act on a \
@@ -239,7 +405,16 @@ impl ServerHandler for CapuBridgeTools {
                  opt-in), stop_recording finalizes and returns the .capu path, and \
                  get_recording_status reports progress. These four tools drive the app UI, so \
                  they require the CapuBridge window to be open (it's brought to the foreground \
-                 automatically) and return a clear error if it isn't.",
+                 automatically) and return a clear error if it isn't.\n\n\
+                 For UI AUTOMATION (the outer loop; the fast inner observe/decide/act loop \
+                 stays inside the app and is never exposed here): run_flow starts a saved \
+                 flow and run_agent_goal starts a goal-driven run under a policy — both \
+                 return a run id immediately and never block, so poll with get_run_status. \
+                 read_run_trace pages one run's step records (bounded output), promote_run \
+                 freezes a run into an editable manual flow (read its warnings before \
+                 trusting it), list_flows shows saved flows, and cancel_run stops a runaway \
+                 run. A remote policy sends redacted screen structure off-machine and needs \
+                 acknowledge_data_notice: true per call.",
             )
     }
 }

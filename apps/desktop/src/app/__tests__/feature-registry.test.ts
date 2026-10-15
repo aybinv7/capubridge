@@ -3,6 +3,7 @@ import {
   commandPaletteFeatures,
   enabledFeatures,
   featureRegistry,
+  experimentalFeaturesEnabled,
   isFeatureEnabled,
   isRouteEnabled,
   primaryNavigationFeatures,
@@ -38,9 +39,10 @@ test("registered routes exclude unfinished surfaces", () => {
 
 test("enabled features own unique entry routes", () => {
   const paths = enabledFeatures.map((feature) => feature.path);
+  const registeredPaths = registeredFeatureRoutes.map((route) => route.path);
 
   expect(new Set(paths).size).toBe(paths.length);
-  expect(registeredFeatureRoutes.map((route) => route.path)).toEqual(paths);
+  expect(paths.every((path) => registeredPaths.includes(path))).toBe(true);
 });
 
 test("experimental features require explicit opt in", () => {
@@ -70,5 +72,7 @@ test("experimental child routes require explicit opt in", () => {
 
   expect(isRouteEnabled(mockRoute, false)).toBe(false);
   expect(isRouteEnabled(mockRoute, true)).toBe(true);
-  expect(JSON.stringify(registeredFeatureRoutes)).not.toContain('"path":"mock"');
+  expect(JSON.stringify(registeredFeatureRoutes).includes('"path":"mock"')).toBe(
+    experimentalFeaturesEnabled,
+  );
 });

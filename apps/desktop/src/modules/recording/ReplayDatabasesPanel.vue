@@ -17,6 +17,7 @@ import ReplayDatabaseToolbar from "./ReplayDatabaseToolbar.vue";
 import ReplayIndexedDbTable from "./ReplayIndexedDbTable.vue";
 import ReplaySqliteChangeDialog from "./ReplaySqliteChangeDialog.vue";
 import ReplaySqliteTable from "./ReplaySqliteTable.vue";
+import ReplayTableChangeList from "./ReplayTableChangeList.vue";
 import {
   decorateIdbRecord,
   idbChangeToRecord,
@@ -35,6 +36,13 @@ import {
   toIdbChangeSummary,
   toSqliteChangeSummary,
 } from "./replayDatabaseRecords";
+import {
+  TABLE_CHANGE_KIND_LABEL,
+  TABLE_CHANGE_ORDER,
+  buildTableChangeSources,
+  tableChangeSegmentClass,
+} from "./replayTableChanges";
+import type { ReplayTableChangeSource } from "./replayTableChanges";
 import type {
   DatabaseCapuEvent,
   ReplayDatabaseChangeSummary,
@@ -57,6 +65,10 @@ const props = defineProps<{
   positionMs: number;
 }>();
 
+const emit = defineEmits<{
+  seek: [ms: number];
+}>();
+
 interface LocalReplayStorageSource {
   id: string;
   kind: "localStorage";
@@ -66,7 +78,10 @@ interface LocalReplayStorageSource {
   updatedAt: number;
 }
 
-type ReplayStorageSource = LocalReplayStorageSource | ReplayDatabaseSource;
+type ReplayStorageSource =
+  | LocalReplayStorageSource
+  | ReplayDatabaseSource
+  | ReplayTableChangeSource;
 type ReplayDatabaseKind = ReplayStorageSource["kind"];
 type IndexedDBGroup = "all" | "app" | "localforage" | "dexie" | "blob" | "cache" | "sqlite";
 
@@ -143,9 +158,12 @@ const localSources = computed<LocalReplayStorageSource[]>(() => {
   }));
 });
 
+const tableChangeSources = computed(() => buildTableChangeSources(props.events));
+
 const sources = computed<ReplayStorageSource[]>(() => [
   ...replaySources.value,
   ...localSources.value,
+  ...tableChangeSources.value,
 ]);
 
 function indexedDBGroup(source: ReplayStorageSource): IndexedDBGroup {
@@ -242,7 +260,7 @@ const typeOptions = computed(() => {
       acc[source.kind] += 1;
       return acc;
     },
-    { localStorage: 0, indexedDB: 0, sqlite: 0 },
+    { localStorage: 0, indexedDB: 0, sqlite: 0, tableChange: 0 },
   );
 
   return [
@@ -253,6 +271,7 @@ const typeOptions = computed(() => {
       count: counts.localStorage,
     },
     { value: "sqlite", label: "SQLite", count: counts.sqlite },
+    { value: "tableChange", label: TABLE_CHANGE_KIND_LABEL, count: counts.tableChange },
   ] satisfies Array<{
     value: ReplayDatabaseKind;
     label: string;
@@ -292,6 +311,9 @@ const selectedSource = computed(
 
 const isIndexedDBSource = computed(() => selectedSource.value?.kind === "indexedDB");
 const isReplaySqliteSource = computed(() => selectedSource.value?.kind === "sqlite");
+const tableChangeSource = computed(() =>
+  selectedSource.value?.kind === "tableChange" ? selectedSource.value : null,
+);
 const usesReplayDatabase = computed(() => isIndexedDBSource.value || isReplaySqliteSource.value);
 
 const activeIdbChangeSummary = computed(() => {
@@ -316,7 +338,8 @@ const recordCount = computed(() => {
   if (!source) return 0;
   if (source.kind === "indexedDB") return idbRecordCount.value;
   if (source.kind === "sqlite") return sqliteRecordCount.value;
-  return source.kind === "localStorage" ? source.records.length : source.recordCount;
+  if (source.kind === "localStorage") return source.records.length;
+  return source.recordCount;
 });
 
 const hasMore = computed(() => (page.value + 1) * pageSize.value < recordCount.value);
@@ -324,13 +347,17 @@ const hasMore = computed(() => (page.value + 1) * pageSize.value < recordCount.v
 const activeStoreName = computed(() => {
   const source = selectedSource.value;
   if (!source) return "";
-  return source.kind === "localStorage" ? "entries" : source.storeName;
+  if (source.kind === "localStorage") return "entries";
+  if (source.kind === "tableChange") return source.table;
+  return source.storeName;
 });
 
 const activeDatabaseName = computed(() => {
   const source = selectedSource.value;
   if (!source) return "";
-  return source.kind === "localStorage" ? source.origin : source.databaseName;
+  if (source.kind === "localStorage") return source.origin;
+  if (source.kind === "tableChange") return source.engine;
+  return source.databaseName;
 });
 
 function sourceLabel(source: ReplayStorageSource): string {
@@ -341,6 +368,7 @@ function sourceLabel(source: ReplayStorageSource): string {
 function sourceSubLabel(source: ReplayStorageSource): string {
   if (source.kind === "indexedDB") return source.databaseName;
   if (source.kind === "sqlite") return source.databaseName;
+  if (source.kind === "tableChange") return source.engine;
   return source.origin;
 }
 
@@ -355,7 +383,7 @@ function selectIndexedDBGroup(group: IndexedDBGroup) {
 }
 
 function sourceChangeSummary(source: ReplayStorageSource) {
-  if (source.kind === "localStorage") return null;
+  if (source.kind === "localStorage" || source.kind === "tableChange") return null;
 
   const summary = sourceChangeSummaries.value.get(source.id);
   if (summary) return summary;
@@ -367,6 +395,7 @@ function sourceChangeSummary(source: ReplayStorageSource) {
 }
 
 function hasSourceChanges(source: ReplayStorageSource) {
+  if (source.kind === "tableChange") return source.recordCount > 0;
   return (sourceChangeSummary(source)?.total ?? 0) > 0;
 }
 
@@ -381,6 +410,13 @@ function sourceChangeStyle(source: ReplayStorageSource) {
 }
 
 function sourceChangeSegments(source: ReplayStorageSource) {
+  if (source.kind === "tableChange") {
+    return TABLE_CHANGE_ORDER.map((type) => ({
+      key: type,
+      count: source.counts[type],
+      class: tableChangeSegmentClass(type),
+    })).filter((entry) => entry.count > 0);
+  }
   const summary = sourceChangeSummary(source);
   if (!summary) return [];
   return [
@@ -396,6 +432,7 @@ const statusText = computed(() => {
   if (source.kind === "localStorage") {
     return `Snapshot at ${Math.max(0, source.updatedAt).toLocaleString()} ms`;
   }
+  if (source.kind === "tableChange") return "";
   if (showChangesOnly.value) {
     return `Changed rows at ${Math.max(0, queryPositionMs.value).toLocaleString()} ms`;
   }
@@ -637,7 +674,7 @@ async function loadRows() {
   const databasePath = props.databasePath;
   const request = ++rowRequest;
 
-  if (!source || source.kind === "localStorage" || !databasePath) {
+  if (!source || !databasePath || source.kind === "localStorage" || source.kind === "tableChange") {
     resetRemoteRows();
     return;
   }
@@ -865,6 +902,12 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="truncate text-xs font-medium">{{ sourceLabel(source) }}</span>
+                <span
+                  v-if="source.kind === 'tableChange'"
+                  class="shrink-0 rounded border border-border/30 px-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50"
+                >
+                  changes
+                </span>
                 <span class="ml-auto text-[10px] text-muted-foreground/40">
                   {{
                     source.kind === "localStorage"
@@ -903,7 +946,13 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
         Select captured storage
       </div>
       <div v-else class="flex h-full flex-col overflow-hidden">
-        <template v-if="isReplaySqliteSource">
+        <ReplayTableChangeList
+          v-if="tableChangeSource"
+          :source="tableChangeSource"
+          :position-ms="positionMs"
+          @seek="(ms) => emit('seek', ms)"
+        />
+        <template v-else-if="isReplaySqliteSource">
           <ReplayDatabaseToolbar
             :table-name="activeStoreName"
             :database-name="activeDatabaseName"

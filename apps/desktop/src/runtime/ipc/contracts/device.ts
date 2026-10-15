@@ -61,7 +61,10 @@ export interface DeviceCommandMap {
   read_local_file_base64: IpcCommand<{ path: string }, string>;
   local_device_name: IpcCommand<undefined, string>;
   local_webview_open_devtools: IpcCommand<{ label: string }, void>;
-  local_webview_fetch_cdp_target: IpcCommand<{ targetUrl: string }, JsonValue | null>;
+  local_webview_fetch_cdp_target: IpcCommand<
+    { label: string; claimedTargetIds: string[] },
+    JsonValue
+  >;
   local_webview_inject_scrollbar_hide: IpcCommand<{ label: string }, void>;
   local_webview_navigate: IpcCommand<{ label: string; url: string }, void>;
 }

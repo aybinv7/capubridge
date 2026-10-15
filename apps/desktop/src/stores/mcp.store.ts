@@ -2,7 +2,12 @@ import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { invokeCommand } from "@/runtime/ipc/client";
 import { DEFAULT_MCP_PORT } from "@/types/mcp.types";
-import type { McpStatus } from "@/types/mcp.types";
+import type {
+  CreatedMcpPrincipal,
+  McpCapability,
+  McpPrincipalSummary,
+  McpStatus,
+} from "@/types/mcp.types";
 
 /**
  * Owns the embedded MCP server's state. All mutations go through the typed
@@ -19,9 +24,10 @@ export const useMcpStore = defineStore("mcp", () => {
   const running = computed(() => status.value?.running ?? false);
   const port = computed(() => status.value?.port ?? DEFAULT_MCP_PORT);
   const url = computed(() => status.value?.url ?? null);
-  const token = computed(() => status.value?.token ?? "");
   const hasToken = computed(() => status.value?.hasToken ?? false);
   const allowMutations = computed(() => status.value?.allowMutations ?? false);
+  const principals = computed<McpPrincipalSummary[]>(() => status.value?.principals ?? []);
+  const lastIssuedToken = computed(() => status.value?.issuedToken ?? "");
 
   async function run(op: () => Promise<McpStatus>): Promise<void> {
     busy.value = true;
@@ -58,6 +64,31 @@ export const useMcpStore = defineStore("mcp", () => {
     await run(() => invokeCommand("mcp_set_allow_mutations", { allowMutations: value }));
   }
 
+  async function listPrincipals(): Promise<McpPrincipalSummary[]> {
+    const result = await invokeCommand("mcp_list_principals");
+    if (status.value) status.value = { ...status.value, principals: result };
+    return result;
+  }
+
+  async function createPrincipal(
+    name: string,
+    capabilities: McpCapability[],
+  ): Promise<CreatedMcpPrincipal> {
+    const created = await invokeCommand("mcp_create_principal", { name, capabilities });
+    if (status.value) {
+      status.value = {
+        ...status.value,
+        principals: [...status.value.principals, created.principal],
+      };
+    }
+    return created;
+  }
+
+  async function revokePrincipal(id: string): Promise<void> {
+    const next = await invokeCommand("mcp_revoke_principal", { id });
+    if (status.value) status.value = { ...status.value, principals: next };
+  }
+
   return {
     status,
     busy,
@@ -67,13 +98,17 @@ export const useMcpStore = defineStore("mcp", () => {
     running,
     port,
     url,
-    token,
     hasToken,
     allowMutations,
+    principals,
+    lastIssuedToken,
     refresh,
     setEnabled,
     setPort,
     regenerateToken,
     setAllowMutations,
+    listPrincipals,
+    createPrincipal,
+    revokePrincipal,
   };
 });

@@ -25,7 +25,7 @@ use crate::session::registry::SessionRegistry;
 /// and the handles needed to shut it down.
 pub struct RunningServer {
     pub port: u16,
-    pub token: String,
+    principals: Arc<auth::PrincipalRegistry>,
     cancel: CancellationToken,
     handle: JoinHandle<()>,
     captures: Arc<super::capture::CaptureRegistry>,
@@ -38,20 +38,28 @@ impl RunningServer {
         let _ = self.handle.await;
         self.captures.shutdown().await;
     }
+
+    pub(crate) fn principals(&self) -> Arc<auth::PrincipalRegistry> {
+        self.principals.clone()
+    }
 }
 
-/// Bearer-token gate. Requests without a valid `Authorization: Bearer <token>`
-/// header get a 401 before reaching the MCP service.
-async fn require_bearer(State(token): State<Arc<str>>, request: Request, next: Next) -> Response {
-    let authorized = request
+/// Bearer-token gate. Requests without a valid named principal get a 401
+/// before reaching the MCP service.
+async fn require_bearer(
+    State(principals): State<Arc<auth::PrincipalRegistry>>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let principal = request
         .headers()
         .get(AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(auth::parse_bearer)
-        .map(|presented| auth::token_matches(&token, presented))
-        .unwrap_or(false);
+        .and_then(|presented| principals.authenticate(presented));
 
-    if authorized {
+    if let Some(principal) = principal {
+        request.extensions_mut().insert(principal);
         next.run(request).await
     } else {
         (StatusCode::UNAUTHORIZED, "unauthorized").into_response()
@@ -66,10 +74,10 @@ async fn require_bearer(State(token): State<Arc<str>>, request: Request, next: N
 pub async fn start(
     registry: Arc<SessionRegistry>,
     port: u16,
-    token: String,
     sessions_dir: std::path::PathBuf,
     app: Option<tauri::AppHandle>,
-    allow_mutations: bool,
+    _allow_mutations: bool,
+    principals: Arc<auth::PrincipalRegistry>,
 ) -> Result<RunningServer, String> {
     // Default config already restricts Host to loopback; keep stateful mode for
     // client reconnection support.
@@ -91,16 +99,16 @@ pub async fn start(
                 factory_captures.clone(),
                 factory_sessions_dir.clone(),
                 factory_app.clone(),
-                allow_mutations,
+                true,
             ))
         },
         Arc::new(LocalSessionManager::default()),
         config,
     );
 
-    let token_state: Arc<str> = Arc::from(token.as_str());
+    let principal_state = principals;
     let router = axum::Router::new().nest_service("/mcp", service).layer(
-        axum::middleware::from_fn_with_state(token_state, require_bearer),
+        axum::middleware::from_fn_with_state(principal_state.clone(), require_bearer),
     );
 
     let listener = TcpListener::bind(("127.0.0.1", port))
@@ -123,7 +131,7 @@ pub async fn start(
     log::info!("[mcp] listening on http://127.0.0.1:{port}/mcp");
     Ok(RunningServer {
         port,
-        token,
+        principals: principal_state,
         cancel,
         handle,
         captures,
@@ -137,13 +145,20 @@ mod tests {
 
     #[tokio::test]
     async fn server_binds_and_enforces_bearer_token() {
+        let token = auth::generate_token();
+        let principals = auth::PrincipalRegistry::load_at(
+            &std::env::temp_dir().join(format!("capubridge-mcp-test-{}", uuid::Uuid::new_v4())),
+            Some(&token),
+            true,
+        )
+        .expect("principal registry");
         let running = start(
             Arc::new(SessionRegistry::new()),
             0,
-            auth::generate_token(),
             std::env::temp_dir(),
             None,
             false,
+            principals,
         )
             .await
             .expect("server should start");
@@ -173,7 +188,7 @@ mod tests {
         // response is anything other than 401.
         let authed = client
             .get(&url)
-            .bearer_auth(&running.token)
+            .bearer_auth(&token)
             .send()
             .await
             .expect("request sends");
@@ -201,13 +216,20 @@ mod tests {
         // is built. Server side is unaffected.
         let _ = rustls::crypto::ring::default_provider().install_default();
 
+        let token = auth::generate_token();
+        let principals = auth::PrincipalRegistry::load_at(
+            &std::env::temp_dir().join(format!("capubridge-mcp-test-{}", uuid::Uuid::new_v4())),
+            Some(&token),
+            true,
+        )
+        .expect("principal registry");
         let running = start(
             Arc::new(SessionRegistry::new()),
             0,
-            auth::generate_token(),
             std::env::temp_dir(),
             None,
             false,
+            principals,
         )
             .await
             .expect("server should start");
@@ -216,7 +238,7 @@ mod tests {
         // rmcp applies this via reqwest's `.bearer_auth(..)`, which adds the
         // `Bearer ` prefix itself — pass the raw token only.
         let mut config = StreamableHttpClientTransportConfig::with_uri(uri);
-        config.auth_header = Some(running.token.clone());
+        config.auth_header = Some(token.clone());
         let transport = StreamableHttpClientTransport::from_config(config);
 
         // `serve` performs the initialize handshake.
@@ -244,6 +266,55 @@ mod tests {
             .await
             .expect("call_tool list_devices");
         assert_ne!(result.is_error, Some(true), "list_devices should succeed");
+
+        client.cancel().await.expect("client shutdown");
+        running.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn read_only_principal_is_rejected_before_a_device_or_bridge_call() {
+        use std::collections::BTreeSet;
+
+        use rmcp::model::CallToolRequestParams;
+        use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+        use rmcp::transport::StreamableHttpClientTransport;
+        use rmcp::ServiceExt;
+
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
+        let principal_dir = tempfile::tempdir().expect("principal directory");
+        let principals = auth::PrincipalRegistry::load_at(principal_dir.path(), None, false)
+            .expect("principal registry");
+        let reader = principals
+            .create(
+                "Read only client".to_string(),
+                BTreeSet::from([auth::McpCapability::Read]),
+            )
+            .expect("read principal");
+        let running = start(
+            Arc::new(SessionRegistry::new()),
+            0,
+            std::env::temp_dir(),
+            None,
+            false,
+            principals,
+        )
+        .await
+        .expect("server should start");
+
+        let mut config = StreamableHttpClientTransportConfig::with_uri(format!(
+            "http://127.0.0.1:{}/mcp",
+            running.port
+        ));
+        config.auth_header = Some(reader.token);
+        let client = ()
+            .serve(StreamableHttpClientTransport::from_config(config))
+            .await
+            .expect("mcp initialize handshake");
+
+        let result = client.call_tool(CallToolRequestParams::new("select_device")).await;
+        let detail = format!("{result:?}");
+        assert!(detail.contains("lacks the 'execute' capability"), "{detail}");
 
         client.cancel().await.expect("client shutdown");
         running.shutdown().await;

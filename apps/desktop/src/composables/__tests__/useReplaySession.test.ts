@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { parseReplayManifest, parseReplayNdjson } from "../useReplaySession";
+import { parseDatabaseTrack, parseReplayManifest, parseReplayNdjson } from "../useReplaySession";
 
 const validManifest = JSON.stringify({
   version: 1,
@@ -36,6 +36,25 @@ describe("replay session parsing", () => {
     expect(() => parseReplayNdjson("console", '{"t":0,"data":{}}\nnot-json\n')).toThrow(
       "Corrupt console track at line 2",
     );
+  });
+
+  test("parses a databases track with both localStorage and tableChange kinds", () => {
+    const track = [
+      '{"t":0,"data":{"kind":"localStorage","origin":"https://app.example","entries":[{"key":"locale","value":"fr"}],"reason":"initial"}}',
+      '{"t":5120,"data":{"kind":"tableChange","engine":"sqlite","table":"orders","type":"update","affectedRows":1,"affectedIds":["ord_8812"],"transactionId":"tx-41"}}',
+      "",
+    ].join("\n");
+    const result = parseDatabaseTrack(track);
+    expect(result.events.map((event) => event.data.kind)).toEqual(["localStorage", "tableChange"]);
+    expect(result.skippedKinds).toEqual([]);
+  });
+
+  test("rejects a malformed tableChange line with a clear error", () => {
+    expect(() =>
+      parseDatabaseTrack(
+        '{"t":1,"data":{"kind":"tableChange","engine":"sqlite","table":"","type":"insert","affectedRows":1,"affectedIds":[],"transactionId":null}}\n',
+      ),
+    ).toThrow("Corrupt databases track at event 1: tableChange.table must be a non-empty string");
   });
 
   test("rejects invalid event envelopes", () => {

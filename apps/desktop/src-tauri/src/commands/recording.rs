@@ -7,7 +7,14 @@ use tauri::Manager;
 use zip::write::{SimpleFileOptions, ZipWriter};
 use zip::ZipArchive;
 
-const TRACK_NAMES: [&str; 5] = ["rrweb", "network", "console", "perf", "databases"];
+const TRACK_NAMES: [&str; 6] = [
+    "rrweb",
+    "network",
+    "console",
+    "perf",
+    "databases",
+    "automation",
+];
 
 pub(crate) fn sessions_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app
@@ -122,6 +129,25 @@ pub(crate) fn write_session_archive(
             .map_err(|e| format!("Failed to create database archive entry: {e}"))?;
         zip.write_all(&content)
             .map_err(|e| format!("Failed to write database artifact: {e}"))?;
+    }
+
+    let attachments_dir = work_dir.join("attachments");
+    if attachments_dir.exists() {
+        let mut names: Vec<String> = fs::read_dir(&attachments_dir)
+            .map_err(|e| format!("Failed to read attachments dir: {e}"))?
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".png"))
+            .collect();
+        names.sort();
+        for name in names {
+            let content = fs::read(attachments_dir.join(&name))
+                .map_err(|e| format!("Failed to read attachment {name}: {e}"))?;
+            zip.start_file(format!("attachments/{name}"), options)
+                .map_err(|e| format!("Failed to create attachment archive entry {name}: {e}"))?;
+            zip.write_all(&content)
+                .map_err(|e| format!("Failed to write attachment {name}: {e}"))?;
+        }
     }
 
     let output = zip
@@ -250,6 +276,7 @@ pub struct RustSessionListItem {
     pub file_size_bytes: u64,
     pub incomplete: bool,
     pub missing_tracks: Vec<String>,
+    pub automation: Option<super::automation::AutomationSummary>,
 }
 
 /// Lists all .capu sessions from the app data directory.
@@ -321,6 +348,8 @@ pub(crate) fn list_sessions_in(
                             file_size_bytes,
                             incomplete: is_partial || manifest.get("incomplete").is_some(),
                             missing_tracks,
+                            automation:
+                                super::automation::automation_summary_from_path(&path, &manifest),
                         });
                     }
                 }
@@ -359,6 +388,13 @@ pub(crate) fn list_sessions_in(
                     .collect()
             })
             .unwrap_or_default();
+        let automation = manifest.get("automation").map(|section| {
+            let ndjson = std::fs::read_to_string(path.join("tracks").join("automation.ndjson"))
+                .unwrap_or_default();
+            let (step_count, failed_step_index) =
+                super::automation::summarize_automation_track(&ndjson);
+            super::automation::automation_summary(section, step_count, failed_step_index)
+        });
         items.push(RustSessionListItem {
             session_id: session_id.to_string(),
             label: manifest["label"].as_str().unwrap_or("").to_string(),
@@ -370,6 +406,7 @@ pub(crate) fn list_sessions_in(
             file_size_bytes: 0,
             incomplete: true,
             missing_tracks,
+            automation,
         });
     }
 

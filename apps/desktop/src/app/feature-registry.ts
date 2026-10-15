@@ -13,6 +13,7 @@ import {
   Zap,
 } from "lucide-vue-next";
 import { appRoutes } from "../modules/app/public";
+import { automationRoutes } from "../modules/automation/public";
 import { browserPreviewRoutes } from "../modules/browser-preview/public";
 import { deviceRoutes } from "../modules/devices/public";
 import { inspectRoutes } from "../modules/inspect/public";
@@ -95,6 +96,16 @@ export const featureRegistry = [
     placement: "primary",
     commandPalette: true,
     routes: recordingRoutes,
+  },
+  {
+    id: "automation",
+    label: "Automation",
+    path: "/automation",
+    icon: Bot,
+    maturity: "experimental",
+    placement: "primary",
+    commandPalette: true,
+    routes: automationRoutes,
   },
   {
     id: "preview",

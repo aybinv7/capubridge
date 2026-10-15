@@ -168,9 +168,88 @@ export const MCP_TOOLS: readonly McpToolInfo[] = [
     description: "Whether a recording is in progress in the app UI.",
     readOnly: true,
   },
+  {
+    name: "run_flow",
+    description:
+      "Start a saved automation flow on a device (via the app UI). Returns a run id immediately; then call wait_for_run once instead of polling. Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "run_agent_goal",
+    description:
+      "Start an agent-goal automation run with a policy (via the app UI). Returns a run id immediately; then call wait_for_run once instead of polling. A remote policy needs acknowledgeDataNotice: true. Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "get_run_status",
+    description: "Status, current step and outcome of an automation run.",
+    readOnly: true,
+  },
+  {
+    name: "wait_for_run",
+    description:
+      "Block until an automation run finishes and return a compact summary with one line per step. Replaces polling get_run_status.",
+    readOnly: true,
+  },
+  {
+    name: "read_run_trace",
+    description:
+      "Page through an automation run's step records with decisions, outcomes and assertion results. Bounded output with offset/limit.",
+    readOnly: true,
+  },
+  {
+    name: "promote_run",
+    description:
+      "Promote an automation run into an editable manual flow. Returns the flow id and promotion warnings.",
+    readOnly: false,
+  },
+  {
+    name: "list_flows",
+    description: "Saved automation flows available to run_flow.",
+    readOnly: true,
+  },
+  {
+    name: "save_flow",
+    description:
+      "Create a validated automation flow from explicit steps. The flow appears in the Flows tab, editable and runnable.",
+    readOnly: false,
+  },
+  {
+    name: "update_flow",
+    description: "Patch a saved automation flow (name, package, description, steps).",
+    readOnly: false,
+  },
+  {
+    name: "delete_flow",
+    description: "Delete a saved automation flow. Requires confirm: true.",
+    readOnly: false,
+  },
+  {
+    name: "cancel_run",
+    description: "Cancel a running automation run. Idempotent on finished runs.",
+    readOnly: false,
+  },
 ] as const;
 
 /** Status of the embedded MCP server, mirrored from the Rust `McpStatus`. */
+export type McpCapability = "read" | "execute" | "authorize" | "administer";
+
+export interface McpPrincipalSummary {
+  id: string;
+  name: string;
+  capabilities: McpCapability[];
+  createdAt: number;
+  lastUsedAt: number | null;
+  revokedAt: number | null;
+  legacy: boolean;
+  tokenHint: string;
+}
+
+export interface CreatedMcpPrincipal {
+  principal: McpPrincipalSummary;
+  token: string;
+}
+
 export interface McpStatus {
   /** Persisted preference: whether MCP access is turned on. */
   enabled: boolean;
@@ -180,9 +259,9 @@ export interface McpStatus {
   port: number;
   /** Full endpoint URL, present only while running. */
   url: string | null;
-  /** Bearer token (empty until access is first enabled). */
-  token: string;
   /** Whether a token has been generated. */
   hasToken: boolean;
   allowMutations: boolean;
+  principals: McpPrincipalSummary[];
+  issuedToken: string | null;
 }

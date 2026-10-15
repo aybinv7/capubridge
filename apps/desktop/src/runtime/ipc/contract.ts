@@ -1,4 +1,5 @@
 import type { ConnectionCommandMap } from "@/runtime/ipc/contracts/connection";
+import type { AutomationCommandMap } from "@/runtime/ipc/contracts/automation";
 import type { DeviceCommandMap } from "@/runtime/ipc/contracts/device";
 import type { IpcCommand } from "@/runtime/ipc/contracts/common";
 import type { McpCommandMap } from "@/runtime/ipc/contracts/mcp";
@@ -13,6 +14,7 @@ export interface IpcCommandMap
   extends
     SessionCommandMap,
     DeviceCommandMap,
+    AutomationCommandMap,
     ConnectionCommandMap,
     MirrorCommandMap,
     StorageCommandMap,
@@ -151,10 +153,12 @@ export const IPC_COMMAND_NAMES = [
   "mock_server_status",
   "recording_session_start",
   "recording_session_append",
+  "recording_session_attach",
   "recording_session_stop",
   "recording_list_sessions",
   "recording_delete_session",
   "recording_read_session",
+  "recording_read_attachment",
   "recording_cleanup_orphans",
   "recording_export_preview",
   "recording_export_session",
@@ -179,7 +183,24 @@ export const IPC_COMMAND_NAMES = [
   "mcp_set_port",
   "mcp_set_allow_mutations",
   "mcp_regenerate_token",
+  "mcp_list_principals",
+  "mcp_create_principal",
+  "mcp_revoke_principal",
   "mcp_bridge_respond",
+  "jev_decide",
+  "reasoning_provider_set_credential",
+  "reasoning_provider_get_credential_status",
+  "reasoning_provider_delete_credential",
+  "reasoning_provider_complete",
+  "artemis_start_task",
+  "artemis_get_trace",
+  "artemis_get_steps",
+  "artemis_stop_task",
+  "artemis_diagnose",
+  "automation_task_upsert",
+  "automation_event_append",
+  "automation_events_read",
+  "automation_tasks_list",
 ] as const satisfies readonly IpcCommandName[];
 
 type MissingCommand = Exclude<IpcCommandName, (typeof IPC_COMMAND_NAMES)[number]>;

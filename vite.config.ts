@@ -35,6 +35,7 @@ export default defineConfig({
       },
       "test:rust": {
         command: "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+        env: ["CARGO_TARGET_DIR"],
       },
       "test:all": {
         command: "vp run -r test -- --run && vp run test:rust",

@@ -1,4 +1,5 @@
 mod adb_runtime;
+pub mod automation;
 mod commands;
 mod error;
 mod mcp;
@@ -10,6 +11,16 @@ use commands::adb::{
     adb_list_reverse, adb_list_webview_sockets, adb_open_package, adb_pair_device, adb_reboot,
     adb_remove_reverse, adb_restart_server, adb_reverse, adb_root, adb_shell_command,
     adb_start_server, adb_tcpip, start_logcat, stop_logcat,
+};
+use commands::automation::{
+    automation_event_append, automation_events_read, automation_task_upsert, automation_tasks_list,
+    jev_decide,
+    recording_read_attachment, recording_session_attach,
+};
+use commands::artemis::{artemis_diagnose, artemis_get_steps, artemis_get_trace, artemis_start_task, artemis_stop_task};
+use commands::reasoning::{
+    reasoning_provider_complete, reasoning_provider_delete_credential, reasoning_provider_get_credential_status,
+    reasoning_provider_set_credential,
 };
 use commands::cdp_proxy::{cdp_start_proxy, cdp_stop_proxy};
 use commands::chrome::{
@@ -62,11 +73,13 @@ use commands::sqlite::{
 };
 use commands::updater::{updater_check, updater_install, PendingUpdate};
 use mcp::commands::{
-    mcp_get_status, mcp_regenerate_token, mcp_set_allow_mutations, mcp_set_enabled, mcp_set_port,
+    mcp_create_principal, mcp_get_status, mcp_list_principals, mcp_regenerate_token,
+    mcp_revoke_principal, mcp_set_allow_mutations, mcp_set_enabled, mcp_set_port,
 };
 use commands::recording_export::{recording_export_preview, recording_export_session};
 use mcp::McpServerState;
 use tauri::Manager;
+use automation::store::{AutomationStore, AutomationStoreState};
 use session::{
     cache_store::SessionCacheStore,
     session_attach_console_target, session_detach_console_target, session_start_logcat_lease,
@@ -97,8 +110,30 @@ fn suppress_error_dialogs() {
     }
 }
 
+/// Name of the developer environment file loaded at startup. Only the
+/// gitignored `.env.local` is read: a plain `.env` is tracked by git here, so
+/// loading it would invite a real API key into a committable file.
+const LOCAL_ENV_FILE: &str = ".env.local";
+
+/// Loads `.env.local`, searching the working directory and its parents, so
+/// values like `CAPUBRIDGE_JEV_ENDPOINT` and `CAPUBRIDGE_JEV_API_KEY` can live
+/// beside the app instead of being exported in every shell. A variable already
+/// present in the process environment is never overwritten, so a shell export
+/// still wins. A missing file is the normal case and stays quiet; anything else
+/// is surfaced, because a silently ignored malformed file looks exactly like a
+/// key that was never configured.
+fn load_local_env() {
+    match dotenvy::from_filename(LOCAL_ENV_FILE) {
+        Ok(path) => log::info!("loaded environment from {}", path.display()),
+        Err(error) if error.not_found() => {}
+        Err(error) => log::warn!("could not read {LOCAL_ENV_FILE}: {error}"),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    load_local_env();
+
     #[cfg(target_os = "windows")]
     suppress_error_dialogs();
 
@@ -136,6 +171,13 @@ pub fn run() {
                 }
             }
 
+            match AutomationStore::new(app.handle()) {
+                Ok(store) => {
+                    app.manage(AutomationStoreState(store));
+                }
+                Err(error) => log::warn!("[automation-store] Failed to initialize: {error}"),
+            }
+
             match adb_runtime::ensure_adb_runtime(&app.handle()) {
                 Ok(status) => log::info!("[adb_runtime] startup status={status}"),
                 Err(error) => log::warn!("[adb_runtime] startup failed: {error}"),
@@ -167,10 +209,20 @@ pub fn run() {
                         match mcp::server::start(
                             registry,
                             cfg.port,
-                            cfg.token.clone(),
                             sessions_dir,
                             Some(app_handle.clone()),
                             cfg.allow_mutations,
+                            match mcp::auth::PrincipalRegistry::load(
+                                &app_handle,
+                                Some(&cfg.token),
+                                cfg.allow_mutations,
+                            ) {
+                                Ok(principals) => principals,
+                                Err(error) => {
+                                    log::warn!("[mcp] failed to load principals: {error}");
+                                    return;
+                                }
+                            },
                         )
                         .await
                         {
@@ -178,7 +230,7 @@ pub fn run() {
                                 let port = running.port;
                                 app_handle.state::<McpServerState>().set_running(running);
                                 if let Err(error) =
-                                    mcp::discovery::write_manifest(&app_handle, port, &cfg.token)
+                                    mcp::discovery::write_manifest(&app_handle, port)
                                 {
                                     log::warn!("[mcp] manifest write failed: {error}");
                                 }
@@ -313,10 +365,12 @@ pub fn run() {
             mock_server_status,
             recording_session_start,
             recording_session_append,
+            recording_session_attach,
             recording_session_stop,
             recording_list_sessions,
             recording_delete_session,
             recording_read_session,
+            recording_read_attachment,
             recording_cleanup_orphans,
             recording_export_preview,
             recording_export_session,
@@ -341,7 +395,24 @@ pub fn run() {
             mcp_set_port,
             mcp_set_allow_mutations,
             mcp_regenerate_token,
+            mcp_list_principals,
+            mcp_create_principal,
+            mcp_revoke_principal,
             mcp::bridge::mcp_bridge_respond,
+            jev_decide,
+            reasoning_provider_set_credential,
+            reasoning_provider_get_credential_status,
+            reasoning_provider_delete_credential,
+            reasoning_provider_complete,
+            automation_task_upsert,
+            automation_event_append,
+            automation_events_read,
+            automation_tasks_list,
+            artemis_start_task,
+            artemis_get_trace,
+            artemis_get_steps,
+            artemis_stop_task,
+            artemis_diagnose,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

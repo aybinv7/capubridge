@@ -23,6 +23,25 @@ import {
 } from "@/components/ui/chart";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { PerfCapuEvent, NetworkCapuEvent } from "@/types/replay.types";
+import ReplayPerfUnavailableCard from "./ReplayPerfUnavailableCard.vue";
+import {
+  batteryBarColor,
+  batteryStateLabel,
+  batteryTextColor,
+  buildPerCoreSeries,
+  buildSeries,
+  coreCountOf,
+  createStats,
+  detectPerfAvailability,
+  fmtBps,
+  fmtBytes,
+  fmtCount,
+  fmtMb,
+  fmtPct,
+  levelColor,
+  makeSeriesYDomain,
+  upperBound,
+} from "./replayPerfSeries";
 
 const props = defineProps<{
   perfEvents: PerfCapuEvent[];
@@ -34,17 +53,6 @@ const props = defineProps<{
 // ── Data layer ───────────────────────────────────────────────────────────────
 // Pre-sort once per events change (not per positionMs tick)
 const sortedEvents = computed(() => [...props.perfEvents].sort((a, b) => a.t - b.t));
-
-function upperBound(arr: PerfCapuEvent[], t: number): number {
-  let lo = 0,
-    hi = arr.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (arr[mid].t <= t) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-}
 
 // `latest` — reactive to positionMs for the stat displays (big numbers)
 // Uses O(log n) binary search, cheap enough to run every frame.
@@ -70,6 +78,7 @@ watch(
 );
 
 const hasPerfData = computed(() => sortedEvents.value.length > 0);
+const availability = computed(() => detectPerfAvailability(sortedEvents.value));
 
 // ── Accessors ────────────────────────────────────────────────────────────────
 const xAcc = (d: { x: number }) => d.x;
@@ -85,34 +94,24 @@ const perCoreY = [yValue("y")];
 
 // ── Series ───────────────────────────────────────────────────────────────────
 // These only recompute when `filtered` changes (i.e. when a new sample is included)
-const cpuSeries = computed(() => filtered.value.map((ev, i) => ({ x: i, cpu: ev.data.cpuTotal })));
-const memSeries = computed(() =>
-  filtered.value.map((ev, i) => ({ x: i, mem: ev.data.memUsedPct })),
-);
-const rxSeries = computed(() =>
-  filtered.value.map((ev, i) => ({ x: i, rx: ev.data.rxBps / 1024 })),
-);
-const txSeries = computed(() =>
-  filtered.value.map((ev, i) => ({ x: i, tx: ev.data.txBps / 1024 })),
-);
-const heapUsedSeries = computed(() =>
-  filtered.value.map((ev, i) => ({ x: i, heapUsed: ev.data.jsHeapUsedMb ?? 0 })),
-);
-const heapTotalSeries = computed(() =>
-  filtered.value.map((ev, i) => ({ x: i, heapTotal: ev.data.jsHeapTotalMb ?? 0 })),
-);
-const domNodesSeries = computed(() =>
-  filtered.value.map((ev, i) => ({ x: i, domNodes: ev.data.domNodes ?? 0 })),
-);
+const cpuSeries = computed(() => buildSeries(filtered.value, "cpuTotal", "cpu"));
+const memSeries = computed(() => buildSeries(filtered.value, "memUsedPct", "mem"));
+const rxSeries = computed(() => buildSeries(filtered.value, "rxBps", "rx", 1 / 1024));
+const txSeries = computed(() => buildSeries(filtered.value, "txBps", "tx", 1 / 1024));
+const heapUsedSeries = computed(() => buildSeries(filtered.value, "jsHeapUsedMb", "heapUsed"));
+const heapTotalSeries = computed(() => buildSeries(filtered.value, "jsHeapTotalMb", "heapTotal"));
+const domNodesSeries = computed(() => buildSeries(filtered.value, "domNodes", "domNodes"));
 
-const coreCount = computed(() => filtered.value[0]?.data.cpuCores.length ?? 0);
+const coreCount = computed(() => coreCountOf(filtered.value));
 const perCoreLatest = computed(() => latest.value?.cpuCores ?? []);
-const perCoreSeries = computed(() => {
-  const n = filtered.value[0]?.data.cpuCores.length ?? 0;
-  return Array.from({ length: n }, (_, ci) =>
-    filtered.value.map((ev, i) => ({ x: i, y: ev.data.cpuCores[ci]?.usage ?? 0 })),
-  );
-});
+const perCoreSeries = computed(() => buildPerCoreSeries(filtered.value));
+
+const latestRxKbps = computed(() =>
+  latest.value?.rxBps == null ? null : latest.value.rxBps / 1024,
+);
+const latestTxKbps = computed(() =>
+  latest.value?.txBps == null ? null : latest.value.txBps / 1024,
+);
 
 // ── Chart configs ─────────────────────────────────────────────────────────────
 const cpuChartConfig: ChartConfig = { cpu: { label: "CPU %", color: "#22d3ee" } };
@@ -161,43 +160,16 @@ const svgDefs = `
 `;
 
 // ── Axis / tooltip formatters ──────────────────────────────────────────────────
-function toNiceAxisCeil(v: number): number {
-  if (!Number.isFinite(v) || v <= 1) return 1;
-  const exp = Math.floor(Math.log10(v));
-  const mag = 10 ** exp;
-  const n = v / mag;
-  if (n <= 1) return mag;
-  if (n <= 2) return 2 * mag;
-  if (n <= 5) return 5 * mag;
-  return 10 * mag;
-}
-
-function makeSeriesYDomain(series: Array<Record<string, number>>, key: string): [number, number] {
-  const rawMax = series.reduce((max, p) => Math.max(max, Number(p[key] ?? 0)), 0);
-  return [0, toNiceAxisCeil(rawMax > 0 ? rawMax * 1.12 : 1)];
-}
-
 const rxYDomain = computed(() => makeSeriesYDomain(rxSeries.value, "rx"));
 const txYDomain = computed(() => makeSeriesYDomain(txSeries.value, "tx"));
 const heapUsedYDomain = computed(() => makeSeriesYDomain(heapUsedSeries.value, "heapUsed"));
 const heapTotalYDomain = computed(() => makeSeriesYDomain(heapTotalSeries.value, "heapTotal"));
 const domNodesYDomain = computed(() => makeSeriesYDomain(domNodesSeries.value, "domNodes"));
 
-function createStats(series: Array<Record<string, number>>, key: string) {
-  const vals = series.map((p) => Number(p[key] ?? 0)).filter(Number.isFinite);
-  if (!vals.length) return { now: 0, min: 0, max: 0, avg: 0 };
-  return {
-    now: vals.at(-1) ?? 0,
-    min: Math.min(...vals),
-    max: Math.max(...vals),
-    avg: vals.reduce((s, v) => s + v, 0) / vals.length,
-  };
-}
-
 const heapUsedStats = computed(() => createStats(heapUsedSeries.value, "heapUsed"));
 const heapTotalStats = computed(() => createStats(heapTotalSeries.value, "heapTotal"));
 const domNodesStats = computed(() => createStats(domNodesSeries.value, "domNodes"));
-const hasJsMetrics = computed(() => filtered.value.some((e) => e.data.jsHeapUsedMb !== null));
+const hasJsMetrics = computed(() => availability.value.js);
 
 const yAxisTickFormatter = (point: number | Date): string => {
   if (typeof point !== "number" || !Number.isFinite(point)) return "";
@@ -236,25 +208,6 @@ const netTooltip = makeTooltip(netChartConfig);
 const heapUsedTooltip = makeTooltip(heapUsedChartConfig);
 const heapTotalTooltip = makeTooltip(heapTotalChartConfig);
 const domTooltip = makeTooltip(domChartConfig);
-
-// ── Formatters ────────────────────────────────────────────────────────────────
-function levelColor(pct: number) {
-  return pct >= 80 ? "text-red-500" : pct >= 60 ? "text-amber-500" : "text-emerald-500";
-}
-function fmtBytes(kb: number) {
-  if (kb >= 1024 * 1024) return `${(kb / 1024 / 1024).toFixed(1)} GB`;
-  if (kb >= 1024) return `${(kb / 1024).toFixed(0)} MB`;
-  return `${kb} KB`;
-}
-function fmtBps(kbps: number) {
-  return kbps >= 1024 ? `${(kbps / 1024).toFixed(1)} MB/s` : `${kbps.toFixed(0)} KB/s`;
-}
-function fmtMb(v: number) {
-  return `${v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2)} MB`;
-}
-function fmtCount(v: number) {
-  return Math.round(v).toLocaleString();
-}
 </script>
 
 <template>
@@ -274,13 +227,22 @@ function fmtCount(v: number) {
       >
         <!-- CPU + Memory -->
         <div class="mb-3 grid grid-cols-2 gap-3">
-          <Card>
+          <ReplayPerfUnavailableCard
+            v-if="!availability.cpu"
+            title="CPU Total"
+            :icon="Cpu"
+            metric="CPU usage"
+          />
+          <Card v-else>
             <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1">
               <CardTitle class="text-sm font-medium flex items-center gap-2">
                 <Cpu class="h-4 w-4" /> CPU Total
               </CardTitle>
-              <span class="font-mono text-2xl font-bold" :class="levelColor(latest?.cpuTotal ?? 0)">
-                {{ Math.round(latest?.cpuTotal ?? 0) }}%
+              <span
+                class="font-mono text-2xl font-bold"
+                :class="levelColor(latest?.cpuTotal ?? null)"
+              >
+                {{ fmtPct(latest?.cpuTotal ?? null) }}
               </span>
             </CardHeader>
             <CardContent>
@@ -329,7 +291,13 @@ function fmtCount(v: number) {
             </CardContent>
           </Card>
 
-          <Card>
+          <ReplayPerfUnavailableCard
+            v-if="!availability.memory"
+            title="Memory"
+            :icon="MemoryStick"
+            metric="system memory"
+          />
+          <Card v-else>
             <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1">
               <CardTitle class="text-sm font-medium flex items-center gap-2">
                 <MemoryStick class="h-4 w-4 text-sky-500" /> Memory
@@ -337,11 +305,14 @@ function fmtCount(v: number) {
               <div class="text-right">
                 <span
                   class="font-mono text-2xl font-bold"
-                  :class="levelColor(latest?.memUsedPct ?? 0)"
+                  :class="levelColor(latest?.memUsedPct ?? null)"
                 >
-                  {{ Math.round(latest?.memUsedPct ?? 0) }}%
+                  {{ fmtPct(latest?.memUsedPct ?? null) }}
                 </span>
-                <p v-if="latest" class="text-[10px] text-muted-foreground">
+                <p
+                  v-if="latest?.memUsedKb != null && latest.memTotalKb != null"
+                  class="text-[10px] text-muted-foreground"
+                >
                   {{ fmtBytes(latest.memUsedKb) }} / {{ fmtBytes(latest.memTotalKb) }}
                 </p>
               </div>
@@ -448,7 +419,14 @@ function fmtCount(v: number) {
 
         <!-- Network -->
         <div class="mb-3 grid grid-cols-3 gap-3">
-          <Card class="col-span-2">
+          <ReplayPerfUnavailableCard
+            v-if="!availability.network"
+            class="col-span-2"
+            title="Network"
+            :icon="Wifi"
+            metric="network throughput"
+          />
+          <Card v-else class="col-span-2">
             <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1">
               <CardTitle class="text-sm font-medium flex items-center gap-2">
                 <Wifi class="h-4 w-4 text-violet-500" /> Network
@@ -457,13 +435,13 @@ function fmtCount(v: number) {
                 <div class="flex items-center gap-1">
                   <ArrowDown class="h-3 w-3 text-emerald-500" />
                   <span class="font-mono font-semibold text-emerald-500">
-                    {{ fmtBps(latest ? latest.rxBps / 1024 : 0) }}
+                    {{ fmtBps(latestRxKbps) }}
                   </span>
                 </div>
                 <div class="flex items-center gap-1">
                   <ArrowUp class="h-3 w-3 text-amber-500" />
                   <span class="font-mono font-semibold text-amber-500">
-                    {{ fmtBps(latest ? latest.txBps / 1024 : 0) }}
+                    {{ fmtBps(latestTxKbps) }}
                   </span>
                 </div>
               </div>
@@ -564,7 +542,13 @@ function fmtCount(v: number) {
 
           <!-- Battery + Temperature -->
           <div class="col-span-1 flex flex-col gap-3">
-            <Card>
+            <ReplayPerfUnavailableCard
+              v-if="!availability.battery"
+              title="Battery"
+              :icon="Battery"
+              metric="battery state"
+            />
+            <Card v-else>
               <CardHeader class="pb-1">
                 <CardTitle class="text-sm font-medium flex items-center gap-2">
                   <Battery class="h-4 w-4 text-emerald-500" /> Battery
@@ -573,38 +557,30 @@ function fmtCount(v: number) {
               <CardContent>
                 <div
                   class="font-mono text-3xl font-bold"
-                  :class="
-                    !latest
-                      ? 'text-muted-foreground'
-                      : latest.batteryLevel < 20
-                        ? 'text-red-500'
-                        : latest.batteryLevel < 40
-                          ? 'text-amber-500'
-                          : 'text-emerald-500'
-                  "
+                  :class="batteryTextColor(latest?.batteryLevel ?? null)"
                 >
-                  {{ latest?.batteryLevel ?? "--" }}%
+                  {{ fmtPct(latest?.batteryLevel ?? null) }}
                 </div>
                 <p class="text-xs text-muted-foreground mt-1">
-                  {{ latest?.batteryCharging ? "Charging" : "Discharging" }}
+                  {{ batteryStateLabel(latest?.batteryCharging ?? null) }}
                 </p>
                 <div class="mt-3 h-2 rounded-full bg-muted overflow-hidden">
                   <div
                     class="h-full rounded-full transition-all"
-                    :class="
-                      (latest?.batteryLevel ?? 100) < 20
-                        ? 'bg-red-500'
-                        : (latest?.batteryLevel ?? 100) < 40
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500'
-                    "
+                    :class="batteryBarColor(latest?.batteryLevel ?? null)"
                     :style="{ width: `${latest?.batteryLevel ?? 0}%` }"
                   />
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <ReplayPerfUnavailableCard
+              v-if="!availability.temperature"
+              title="Temperature"
+              :icon="Thermometer"
+              metric="thermal sensors"
+            />
+            <Card v-else>
               <CardHeader class="pb-1">
                 <CardTitle class="text-sm font-medium flex items-center gap-2">
                   <Thermometer class="h-4 w-4 text-orange-500" /> Temperature
@@ -623,7 +599,10 @@ function fmtCount(v: number) {
                 >
                   {{ latest?.cpuTemp != null ? latest.cpuTemp.toFixed(1) : "--" }}°C
                 </div>
-                <p v-if="latest?.batteryTemp" class="text-[10px] text-muted-foreground mt-1">
+                <p
+                  v-if="latest?.batteryTemp != null"
+                  class="text-[10px] text-muted-foreground mt-1"
+                >
                   Battery: {{ latest.batteryTemp.toFixed(1) }}°C
                 </p>
               </CardContent>

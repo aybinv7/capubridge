@@ -24,6 +24,7 @@ tauri-build = { version = "2.5.6", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2"
+dotenvy = "0.15"
 log = "0.4"
 tauri = { version = "2.10.3", features = ["unstable"] }
 tauri-plugin-clipboard-manager = "2.3.2"
@@ -63,6 +64,7 @@ rmcp = { version = "2.2", features = [
 schemars = "1"
 tokio-util = "0.7"
 uuid = { version = "1", features = ["v4"] }
+keyring = { version = "3.0.3", features = ["windows-native"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

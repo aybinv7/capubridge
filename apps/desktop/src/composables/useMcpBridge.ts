@@ -7,6 +7,10 @@ import { useMockStore } from "@/modules/network/stores/useMockStore";
 import type { MockRule, MockInterceptMode } from "@/types/mock.types";
 import type { McpBridgeRequestEvent } from "@/runtime/ipc/events";
 import type { RecordingConfig } from "@/types/replay.types";
+import { getRunRegistry } from "@/modules/automation/runRegistry";
+import { waitForRun } from "@/modules/automation/runWait";
+import type { PolicyId } from "@/modules/automation/policies/types";
+import type { Assertion } from "@/types/automation.types";
 
 /**
  * Frontend half of the MCP → frontend bridge (see `mcp/bridge.rs`). The MCP
@@ -111,6 +115,267 @@ export function useMcpBridge() {
     return Promise.resolve({ mode, enabledRules: mockStore.enabledCount });
   }
 
+  function automationRunFlow(payload: unknown): Promise<unknown> {
+    const { flowId, deviceSerial, principalId, connectionId, clientName } = (payload ?? {}) as {
+      flowId?: string;
+      deviceSerial?: string;
+      principalId?: string;
+      connectionId?: string | null;
+      clientName?: string;
+    };
+    if (!flowId || !deviceSerial) {
+      throw new Error("automation_run_flow requires flowId and deviceSerial");
+    }
+    return Promise.resolve({
+      runId: getRunRegistry().startFlow(flowId, deviceSerial, {
+        principal: principalId
+          ? {
+              id: principalId,
+              label: clientName ?? principalId,
+              kind: "mcp",
+              connectionId: connectionId ?? null,
+              clientName: clientName ?? null,
+            }
+          : undefined,
+      }),
+    });
+  }
+
+  function automationRunAgentGoal(payload: unknown): Promise<unknown> {
+    const params = (payload ?? {}) as {
+      goal?: string;
+      policyId?: string;
+      deviceSerial?: string;
+      flowId?: string | null;
+      limits?: {
+        maxSteps?: number;
+        maxDurationMs?: number;
+        maxConsecutiveFailures?: number;
+      } | null;
+      acknowledgeDataNotice?: boolean;
+      appPackage?: string | null;
+      principalId?: string;
+      connectionId?: string | null;
+      clientName?: string;
+    };
+    if (!params.goal || !params.policyId || !params.deviceSerial) {
+      throw new Error("automation_run_agent_goal requires goal, policyId and deviceSerial");
+    }
+    if (
+      params.policyId !== "rules" &&
+      params.policyId !== "artemis" &&
+      params.policyId !== "jev" &&
+      params.policyId !== "embedded"
+    ) {
+      throw new Error(`unknown policy '${params.policyId}'`);
+    }
+    const runId = getRunRegistry().startGoal(
+      params.goal,
+      params.policyId as PolicyId,
+      params.deviceSerial,
+      {
+        flowId: params.flowId ?? null,
+        limits: params.limits ?? null,
+        acknowledgeDataNotice: params.acknowledgeDataNotice,
+        appPackage: params.appPackage ?? null,
+        principal: params.principalId
+          ? {
+              id: params.principalId,
+              label: params.clientName ?? params.principalId,
+              kind: "mcp",
+              connectionId: params.connectionId ?? null,
+              clientName: params.clientName ?? null,
+            }
+          : undefined,
+      },
+    );
+    return Promise.resolve({ runId, taskId: getRunRegistry().getStatus(runId).taskId });
+  }
+
+  function automationGetRunStatus(payload: unknown): Promise<unknown> {
+    const { runId } = (payload ?? {}) as { runId?: string };
+    if (!runId) {
+      throw new Error("automation_get_run_status requires runId");
+    }
+    return Promise.resolve(getRunRegistry().getStatus(runId));
+  }
+
+  /**
+   * Blocks until the run finishes or the bound passes. Bounded well under the
+   * Rust bridge's own deadline for this action, so the frontend always
+   * answers first and a slow run returns a not-done summary, never an error.
+   */
+  function automationWaitForRun(payload: unknown): Promise<unknown> {
+    const { runId, timeoutMs } = (payload ?? {}) as { runId?: string; timeoutMs?: number };
+    if (!runId) {
+      throw new Error("automation_wait_for_run requires runId");
+    }
+    const requested =
+      typeof timeoutMs === "number" && Number.isFinite(timeoutMs) ? timeoutMs : 50_000;
+    return waitForRun(getRunRegistry(), runId, Math.min(Math.max(requested, 1_000), 110_000));
+  }
+
+  function automationGetTask(payload: unknown): Promise<unknown> {
+    const { taskId } = (payload ?? {}) as { taskId?: string };
+    if (!taskId) {
+      throw new Error("automation_get_task requires taskId");
+    }
+    return Promise.resolve(getRunRegistry().getTask(taskId));
+  }
+
+  function automationReadTaskEvents(payload: unknown): Promise<unknown> {
+    const { taskId, cursor, limit } = (payload ?? {}) as {
+      taskId?: string;
+      cursor?: string | null;
+      limit?: number;
+    };
+    if (!taskId) {
+      throw new Error("automation_read_task_events requires taskId");
+    }
+    return Promise.resolve(getRunRegistry().readTaskEvents(taskId, cursor ?? null, limit ?? 100));
+  }
+
+  function automationReadRunTrace(payload: unknown): Promise<unknown> {
+    const { runId, offset, limit } = (payload ?? {}) as {
+      runId?: string;
+      offset?: number;
+      limit?: number;
+    };
+    if (!runId) {
+      throw new Error("automation_read_run_trace requires runId");
+    }
+    return getRunRegistry().readTrace(runId, offset ?? 0, limit ?? 100);
+  }
+
+  function automationPromoteRun(payload: unknown): Promise<unknown> {
+    const { runId, name } = (payload ?? {}) as { runId?: string; name?: string };
+    if (!runId || !name) {
+      throw new Error("automation_promote_run requires runId and name");
+    }
+    return getRunRegistry().promoteRun(runId, name);
+  }
+
+  function automationListFlows(): Promise<unknown> {
+    return Promise.resolve({ flows: getRunRegistry().listFlows() });
+  }
+
+  function automationSaveFlow(payload: unknown): Promise<unknown> {
+    const { name, appPackage, description, steps } = (payload ?? {}) as {
+      name?: string;
+      appPackage?: string;
+      description?: string | null;
+      steps?: unknown[] | null;
+    };
+    if (!name || !appPackage) {
+      throw new Error("automation_save_flow requires name and appPackage");
+    }
+    return Promise.resolve({
+      flowId: getRunRegistry().createFlow({ name, appPackage, description, steps }),
+    });
+  }
+
+  function automationUpdateFlow(payload: unknown): Promise<unknown> {
+    const { flowId, name, appPackage, description, steps } = (payload ?? {}) as {
+      flowId?: string;
+      name?: string | null;
+      appPackage?: string | null;
+      description?: string | null;
+      steps?: unknown[] | null;
+    };
+    if (!flowId) {
+      throw new Error("automation_update_flow requires flowId");
+    }
+    return Promise.resolve({
+      flowId: getRunRegistry().updateFlow(flowId, { name, appPackage, description, steps }),
+    });
+  }
+
+  function automationDeleteFlow(payload: unknown): Promise<unknown> {
+    const { flowId } = (payload ?? {}) as { flowId?: string };
+    if (!flowId) {
+      throw new Error("automation_delete_flow requires flowId");
+    }
+    return Promise.resolve({ deleted: getRunRegistry().deleteFlow(flowId) });
+  }
+
+  function automationCancelRun(payload: unknown): Promise<unknown> {
+    const { runId } = (payload ?? {}) as { runId?: string };
+    if (!runId) {
+      throw new Error("automation_cancel_run requires runId");
+    }
+    return getRunRegistry().cancelRun(runId);
+  }
+
+  function automationCancelTask(payload: unknown): Promise<unknown> {
+    const { taskId } = (payload ?? {}) as { taskId?: string };
+    if (!taskId) {
+      throw new Error("automation_cancel_task requires taskId");
+    }
+    return getRunRegistry().cancelTask(taskId);
+  }
+
+  function automationHandoffTask(payload: unknown): Promise<unknown> {
+    const { taskId, owner, reason } = (payload ?? {}) as {
+      taskId?: string;
+      owner?: "embedded" | "mcp-host" | "artemis" | "deterministic";
+      reason?: string | null;
+    };
+    if (!taskId || !owner) {
+      throw new Error("automation_handoff_task requires taskId and owner");
+    }
+    return Promise.resolve(getRunRegistry().handoffTask(taskId, owner, reason ?? null));
+  }
+
+  function automationUpdateTaskPlan(payload: unknown): Promise<unknown> {
+    const { taskId, summary } = (payload ?? {}) as { taskId?: string; summary?: string };
+    if (!taskId || !summary) {
+      throw new Error("automation_update_task_plan requires taskId and summary");
+    }
+    return Promise.resolve(getRunRegistry().updateTaskPlan(taskId, summary));
+  }
+
+  function automationPauseTask(payload: unknown): Promise<unknown> {
+    const { taskId } = (payload ?? {}) as { taskId?: string };
+    if (!taskId) throw new Error("automation_pause_task requires taskId");
+    return getRunRegistry().pauseTask(taskId);
+  }
+
+  function automationResumeTask(payload: unknown): Promise<unknown> {
+    const { taskId } = (payload ?? {}) as { taskId?: string };
+    if (!taskId) throw new Error("automation_resume_task requires taskId");
+    return Promise.resolve(getRunRegistry().resumeTask(taskId));
+  }
+
+  function automationObserveTask(payload: unknown): Promise<unknown> {
+    const { taskId } = (payload ?? {}) as { taskId?: string };
+    if (!taskId) throw new Error("automation_observe_task requires taskId");
+    return getRunRegistry().observeTask(taskId);
+  }
+
+  function automationExecuteTaskBatch(payload: unknown): Promise<unknown> {
+    const { taskId, steps, principalId } = (payload ?? {}) as {
+      taskId?: string;
+      steps?: unknown[];
+      principalId?: string;
+    };
+    if (!taskId || !Array.isArray(steps))
+      throw new Error("automation_execute_task_batch requires taskId and steps");
+    return Promise.resolve(getRunRegistry().executeTaskBatch(taskId, steps, principalId));
+  }
+
+  function automationVerifyTask(payload: unknown): Promise<unknown> {
+    const { taskId, assertion } = (payload ?? {}) as { taskId?: string; assertion?: Assertion };
+    if (!taskId || !assertion)
+      throw new Error("automation_verify_task requires taskId and assertion");
+    return getRunRegistry().verifyTask(taskId, assertion);
+  }
+
+  function automationHeartbeatTask(payload: unknown): Promise<unknown> {
+    const { taskId } = (payload ?? {}) as { taskId?: string };
+    if (!taskId) throw new Error("automation_heartbeat_task requires taskId");
+    return Promise.resolve(getRunRegistry().heartbeatTask(taskId));
+  }
+
   const handlers: Record<string, (payload: unknown) => Promise<unknown>> = {
     select_target: selectTarget,
     start_recording: startRecording,
@@ -118,6 +383,28 @@ export function useMcpBridge() {
     recording_status: recordingStatus,
     upsert_mock_rule: upsertMockRule,
     set_mock_mode: setMockMode,
+    automation_run_flow: automationRunFlow,
+    automation_run_agent_goal: automationRunAgentGoal,
+    automation_get_run_status: automationGetRunStatus,
+    automation_wait_for_run: automationWaitForRun,
+    automation_get_task: automationGetTask,
+    automation_read_task_events: automationReadTaskEvents,
+    automation_read_run_trace: automationReadRunTrace,
+    automation_promote_run: automationPromoteRun,
+    automation_list_flows: automationListFlows,
+    automation_save_flow: automationSaveFlow,
+    automation_update_flow: automationUpdateFlow,
+    automation_delete_flow: automationDeleteFlow,
+    automation_cancel_run: automationCancelRun,
+    automation_cancel_task: automationCancelTask,
+    automation_handoff_task: automationHandoffTask,
+    automation_update_task_plan: automationUpdateTaskPlan,
+    automation_pause_task: automationPauseTask,
+    automation_resume_task: automationResumeTask,
+    automation_observe_task: automationObserveTask,
+    automation_execute_task_batch: automationExecuteTaskBatch,
+    automation_verify_task: automationVerifyTask,
+    automation_heartbeat_task: automationHeartbeatTask,
   };
 
   async function handleRequest(event: McpBridgeRequestEvent): Promise<void> {

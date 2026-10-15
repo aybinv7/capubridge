@@ -63,8 +63,11 @@ async function applyLocalWebviewViewportMode() {
   const target = selectedTarget.value;
   if (!target || target.source !== "local") return;
 
-  const readyTarget = await localWebviewStore.ensureCdpTarget(target);
-  if (!readyTarget.webSocketDebuggerUrl) return;
+  const readyTarget = await localWebviewStore.ensureCdpTarget(target).catch((error) => {
+    console.warn("Local webview viewport sync skipped: CDP unavailable", error);
+    return null;
+  });
+  if (!readyTarget?.webSocketDebuggerUrl) return;
   const client = await connectToTarget(readyTarget);
 
   await nextTick();
@@ -140,8 +143,11 @@ async function handleRefresh() {
     const target = selectedTarget.value;
     if (!target || target.source !== "local") return;
     try {
-      const readyTarget = await localWebviewStore.ensureCdpTarget(target);
-      if (readyTarget.webSocketDebuggerUrl) {
+      const readyTarget = await localWebviewStore.ensureCdpTarget(target).catch((error) => {
+        console.warn("Local webview CDP unavailable; reloading through navigation", error);
+        return null;
+      });
+      if (readyTarget?.webSocketDebuggerUrl) {
         const client = await connectToTarget(readyTarget);
         await client.send("Page.reload", { ignoreCache: true });
         await applyLocalWebviewViewportMode();

@@ -82,6 +82,7 @@ Primary users build or debug Android applications whose Chromium WebView exposes
 - Finalize portable recording artifacts after normal stop, cancellation, or disconnect where recovery is possible.
 - Replay partial artifacts safely and report corrupt or unsupported data.
 - Use shared read-only presentation primitives instead of importing another module's private UI.
+- Beta boundary: `.capu` archives produced outside Capubridge by a conforming recorder (first producer: `@cavulsqa/recorder`) are supported input for replay, subject to the version 1 contract in the [Capu archive format](./reference/capu-format) reference; browsing such archives from a remote store follows the [Session store API](./reference/session-store-api). Live inspection of field devices that are not reachable over ADB is not supported.
 
 ### AI access (MCP)
 
@@ -90,6 +91,15 @@ Primary users build or debug Android applications whose Chromium WebView exposes
 - Default to read-only access. Mutating tools require the user to enable mutation access in Settings and the caller to pass `confirm: true`; this field records caller intent and is not proof of human approval.
 - Require the Capubridge desktop application to remain running for tools that bridge through its active UI/session, including recording workflows.
 - Surface enable/disable, connection status, and the endpoint URL/token in Settings.
+- Durable task tools use `task_create`, `task_get`, `task_update_plan`, `task_observe`, `task_execute_batch`, `task_verify`, `task_read_trace`, `task_pause`, `task_resume`, `task_cancel`, and `task_handoff`. Long execution returns `taskId` and `runId` immediately; callers poll bounded task events rather than holding an MCP call open.
+- Local Claude Desktop and CLI clients use the localhost endpoint and a named principal token. ChatGPT clients must reach that same local endpoint through an explicitly configured secure MCP tunnel; subscription cookies are never embedded credentials.
+
+### Automation acceptance
+
+- The Presalio order scenario is versioned: open the selected app, clear location blocking UI, open the next stop, select three available products, set each to quantity two, review, confirm, and return evidence.
+- Reports identify the reasoning mode, run id, completed and missing milestones, action and recovery counts, duration, and evidence completeness.
+- A completed report requires both final confirmation and a returned report with verified evidence. Screen movement alone is a failure.
+- Missing provider credentials, MCP tunnels, or device services are reported as unavailable and are never counted as passed or failed benchmark runs.
 
 ## Hidden capabilities
 

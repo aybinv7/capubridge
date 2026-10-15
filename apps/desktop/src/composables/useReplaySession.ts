@@ -1,6 +1,8 @@
 import { ref } from "vue";
 import { invokeCommand } from "@/runtime/ipc/client";
+import { validateDatabaseTrack } from "@/lib/replay/databaseTrack";
 import type {
+  CapuEvent,
   SessionManifest,
   NetworkCapuEvent,
   ConsoleCapuEvent,
@@ -81,6 +83,10 @@ export function parseReplayNdjson<T>(track: string, ndjson: string): T[] {
   return events;
 }
 
+export function parseDatabaseTrack(ndjson: string) {
+  return validateDatabaseTrack(parseReplayNdjson<CapuEvent<unknown>>("databases", ndjson));
+}
+
 export function useReplaySession() {
   async function load(filePath: string): Promise<void> {
     isLoading.value = true;
@@ -106,9 +112,16 @@ export function useReplaySession() {
       const perfEvents = raw.tracks["perf"]
         ? parseReplayNdjson<PerfCapuEvent>("perf", raw.tracks["perf"])
         : [];
-      const databaseEvents = raw.tracks["databases"]
-        ? parseReplayNdjson<DatabaseCapuEvent>("databases", raw.tracks["databases"])
-        : [];
+      const databaseTrack = raw.tracks["databases"]
+        ? parseDatabaseTrack(raw.tracks["databases"])
+        : { events: [], skippedKinds: [] };
+      const databaseEvents = databaseTrack.events;
+      if (databaseTrack.skippedKinds.length > 0) {
+        console.warn(
+          "[replay] databases track skipped unknown kinds:",
+          Array.from(new Set(databaseTrack.skippedKinds)),
+        );
+      }
 
       console.log("[replay] rrweb:", rrwebEvents.length, "events");
       console.log("[replay] network:", networkEvents.length, "events");

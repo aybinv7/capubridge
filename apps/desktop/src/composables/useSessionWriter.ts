@@ -13,6 +13,7 @@ export function useSessionWriter(sessionId: string, startedAt: number, flushInte
     console: [],
     perf: [],
     databases: [],
+    automation: [],
   };
 
   let intervalId: ReturnType<typeof setInterval> | null = null;

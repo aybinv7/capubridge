@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "task": {
+    "schemaVersion": 1,
+    "id": "task-fixture-1",
+    "conversationId": "conversation-fixture-1",
+    "origin": "local-chat",
+    "principal": {
+      "id": "principal-local",
+      "label": "Capubridge",
+      "kind": "local",
+      "connectionId": null,
+      "clientName": null
+    },
+    "originalGoal": "Create the order",
+    "appPackage": "com.presalio.app",
+    "deviceSerial": "device-1",
+    "reasoningOwner": "embedded",
+    "authorizationScope": null,
+    "status": "running",
+    "activeRunId": "task-run-fixture-1",
+    "terminalReason": null,
+    "createdAt": 1000,
+    "updatedAt": 1100
+  },
+  "run": {
+    "schemaVersion": 1,
+    "id": "task-run-fixture-1",
+    "taskId": "task-fixture-1",
+    "attempt": 1,
+    "status": "running",
+    "reasoningOwner": "embedded",
+    "principalId": "principal-local",
+    "deviceLease": null,
+    "startedAt": 1100,
+    "endedAt": null
+  },
+  "events": [
+    {
+      "schemaVersion": 1,
+      "id": "event-fixture-1",
+      "taskId": "task-fixture-1",
+      "runId": "task-run-fixture-1",
+      "sequence": 1,
+      "occurredAt": 1000,
+      "origin": "local-chat",
+      "principalId": "principal-local",
+      "connectionId": null,
+      "kind": "task.created",
+      "data": {
+        "goal": "Create the order",
+        "appPackage": "com.presalio.app",
+        "deviceSerial": "device-1"
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "event-fixture-2",
+      "taskId": "task-fixture-1",
+      "runId": "task-run-fixture-1",
+      "sequence": 2,
+      "occurredAt": 1100,
+      "origin": "local-chat",
+      "principalId": "principal-local",
+      "connectionId": null,
+      "kind": "run.started",
+      "data": {
+        "attempt": 1,
+        "owner": "embedded",
+        "lease": null
+      }
+    }
+  ]
+}

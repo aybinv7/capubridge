@@ -64,21 +64,9 @@ function readWebSocketDebuggerUrl(value: JsonValue | null): string | null {
   return typeof candidate === "string" && candidate ? candidate : null;
 }
 
-async function fetchLocalCdpTarget(url: string) {
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const info = await invokeCommand("local_webview_fetch_cdp_target", { targetUrl: url }).catch(
-      (error) => {
-        console.warn("Failed to discover local preview CDP target", error);
-        return null;
-      },
-    );
-    const webSocketDebuggerUrl = readWebSocketDebuggerUrl(info);
-    if (webSocketDebuggerUrl) {
-      return { webSocketDebuggerUrl };
-    }
-    await new Promise<void>((resolve) => setTimeout(resolve, 150));
-  }
-  return null;
+function debugTargetIdFromWsUrl(webSocketDebuggerUrl: string): string | null {
+  const segment = webSocketDebuggerUrl.split("/").pop();
+  return segment ? segment : null;
 }
 
 export const useLocalWebviewStore = defineStore("local-webview", () => {
@@ -88,6 +76,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
   const entries = ref<Record<string, LocalWebviewEntry>>({});
   const webviews = shallowRef(new Map<string, Webview>());
   const creationPromises = new Map<string, Promise<Webview>>();
+  const discoveryPromises = new Map<string, Promise<string>>();
   const modalGuardCount = ref(0);
 
   if (typeof window !== "undefined") {
@@ -107,6 +96,40 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     if (import.meta.hot) {
       import.meta.hot.dispose(destroyAll);
     }
+  }
+
+  function claimedDebugTargetIds(targetId: string): string[] {
+    return targetsStore.targets.flatMap((entry) => {
+      if (entry.source !== "local" || entry.id === targetId || !entry.webSocketDebuggerUrl) {
+        return [];
+      }
+      const debugTargetId = debugTargetIdFromWsUrl(entry.webSocketDebuggerUrl);
+      return debugTargetId ? [debugTargetId] : [];
+    });
+  }
+
+  function discoverCdpEndpoint(target: LocalWebviewTarget): Promise<string> {
+    const pending = discoveryPromises.get(target.id);
+    if (pending) return pending;
+
+    const discovery = invokeCommand("local_webview_fetch_cdp_target", {
+      label: target.localWebviewLabel,
+      claimedTargetIds: claimedDebugTargetIds(target.id),
+    })
+      .then((info) => {
+        const webSocketDebuggerUrl = readWebSocketDebuggerUrl(info);
+        if (!webSocketDebuggerUrl) {
+          throw new Error("WebView2 debug target has no WebSocket endpoint.");
+        }
+        targetsStore.updateLocalTargetCdp(target.id, webSocketDebuggerUrl);
+        return webSocketDebuggerUrl;
+      })
+      .finally(() => {
+        discoveryPromises.delete(target.id);
+      });
+
+    discoveryPromises.set(target.id, discovery);
+    return discovery;
   }
 
   const activeEntry = computed(() =>
@@ -178,11 +201,10 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
               );
             });
             await injectScrollbarHide(webview);
-            const info = await fetchLocalCdpTarget(target.url);
-            if (info?.webSocketDebuggerUrl) {
-              targetsStore.updateLocalTargetCdp(target.id, info.webSocketDebuggerUrl);
-            }
             resolve(webview);
+            void discoverCdpEndpoint(target).catch((error) => {
+              console.warn("Local preview CDP discovery failed", target.localWebviewLabel, error);
+            });
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             setEntry(target, { status: "error", error: message });
@@ -271,7 +293,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     activeTargetId.value = null;
   }
 
-  async function ensureCdpTarget(target: CDPTarget) {
+  async function ensureCdpTarget(target: CDPTarget): Promise<CDPTarget> {
     if (!isLocalTarget(target)) {
       throw new Error("Target is not a local webview target.");
     }
@@ -280,17 +302,13 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     if (current.webSocketDebuggerUrl) {
       return current;
     }
-    const info = await fetchLocalCdpTarget(target.url);
-    if (info?.webSocketDebuggerUrl) {
-      targetsStore.updateLocalTargetCdp(target.id, info.webSocketDebuggerUrl);
-      return (
-        targetsStore.targets.find((entry) => entry.id === target.id) ?? {
-          ...current,
-          webSocketDebuggerUrl: info.webSocketDebuggerUrl,
-        }
-      );
-    }
-    return current;
+    const webSocketDebuggerUrl = await discoverCdpEndpoint(target);
+    return (
+      targetsStore.targets.find((entry) => entry.id === target.id) ?? {
+        ...current,
+        webSocketDebuggerUrl,
+      }
+    );
   }
 
   async function closeTarget(target: CDPTarget | null | undefined) {

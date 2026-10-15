@@ -79,8 +79,8 @@ struct BridgeRequestEvent {
 /// failing is logged, not fatal (the request still goes out).
 fn bring_window_to_front(app: &tauri::AppHandle) {
     let window = app
-        .get_webview_window("main")
-        .or_else(|| app.webview_windows().into_values().next());
+        .get_window("main")
+        .or_else(|| app.windows().into_values().next());
     let Some(window) = window else {
         log::warn!("[mcp] no app window to bring to front for a bridge request");
         return;
@@ -96,10 +96,15 @@ fn bring_window_to_front(app: &tauri::AppHandle) {
 
 /// Emit a bridge request to the frontend and await its response, with a
 /// timeout that maps a silent (no-window) frontend to a clear error.
-pub async fn call(
+///
+/// Ordinary actions pass `BRIDGE_TIMEOUT`; an action that legitimately blocks
+/// on the frontend, such as waiting for a run to finish, passes a longer one.
+/// The frontend must bound its own work below `timeout` so it answers first.
+pub async fn call_with_timeout(
     app: &tauri::AppHandle,
     action: &str,
     payload: Value,
+    timeout: Duration,
 ) -> Result<Value, String> {
     // Surface the window so its WebView is active to handle the request.
     bring_window_to_front(app);
@@ -118,7 +123,7 @@ pub async fn call(
     )
     .map_err(|error| format!("Failed to reach the app window: {error}"))?;
 
-    match tokio::time::timeout(BRIDGE_TIMEOUT, rx).await {
+    match tokio::time::timeout(timeout, rx).await {
         Ok(Ok(response)) if response.ok => Ok(response.result),
         Ok(Ok(response)) => Err(response
             .error

@@ -2,13 +2,20 @@
 import { ref, computed } from "vue";
 import { Play, Pause, SkipBack, SkipForward } from "lucide-vue-next";
 import type { TimelineClock } from "@/composables/useTimelineClock";
-import type { NetworkCapuEvent, ConsoleCapuEvent, PerfCapuEvent } from "@/types/replay.types";
+import { buildTableChangeMarkers, tableChangeMarkerClass } from "./replayTableChanges";
+import type {
+  NetworkCapuEvent,
+  ConsoleCapuEvent,
+  PerfCapuEvent,
+  DatabaseCapuEvent,
+} from "@/types/replay.types";
 
 const props = defineProps<{
   clock: TimelineClock;
   networkEvents: NetworkCapuEvent[];
   consoleEvents: ConsoleCapuEvent[];
   perfEvents?: PerfCapuEvent[];
+  databaseEvents?: DatabaseCapuEvent[];
 }>();
 
 const emit = defineEmits<{
@@ -43,12 +50,21 @@ const consoleErrorMarkers = computed(() =>
 // CPU spike markers: CPU ≥ 70 % → amber tick, ≥ 85 % → red tick
 const cpuSpikeMarkers = computed(() =>
   (props.perfEvents ?? [])
-    .filter((ev) => ev.data.cpuTotal >= 70)
+    .filter((ev) => ev.data.cpuTotal != null && ev.data.cpuTotal >= 70)
     .map((ev) => ({
       pct: toPct(ev.t),
-      hot: ev.data.cpuTotal >= 85,
+      hot: (ev.data.cpuTotal ?? 0) >= 85,
     })),
 );
+
+const tableChangeMarkers = computed(() =>
+  buildTableChangeMarkers(props.databaseEvents ?? [], props.clock.durationMs.value),
+);
+
+function seekTo(ms: number) {
+  props.clock.seek(ms);
+  emit("seek", ms);
+}
 
 function scrubFromEvent(e: MouseEvent) {
   if (!scrubberRef.value) return;
@@ -140,6 +156,20 @@ function skipForward() {
         :style="{ left: `${m.pct}%` }"
       />
 
+      <!-- Database write markers (coloured by change type, click to seek) -->
+      <button
+        v-for="m in tableChangeMarkers"
+        :key="m.id"
+        type="button"
+        class="absolute top-1/2 h-3.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:scale-y-125"
+        :class="tableChangeMarkerClass(m.type)"
+        :style="{ left: `${m.pct}%` }"
+        :title="m.title"
+        :aria-label="m.title"
+        @mousedown.stop
+        @click.stop="seekTo(m.t)"
+      />
+
       <!-- Playhead -->
       <div
         class="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-brand shadow-md -translate-x-1/2 transition-none group-hover:scale-110"
@@ -192,6 +222,13 @@ function skipForward() {
         <span v-if="perfEvents?.length" class="flex items-center gap-1">
           <span class="inline-block w-px h-2.5 rounded bg-amber-400/70" />
           CPU spike
+        </span>
+        <span v-if="tableChangeMarkers.length" class="flex items-center gap-1">
+          <span class="inline-block w-1 h-2.5 rounded bg-emerald-400/80" />
+          <span class="inline-block w-1 h-2.5 rounded bg-amber-400/80" />
+          <span class="inline-block w-1 h-2.5 rounded bg-red-400/80" />
+          <span class="inline-block w-1 h-2.5 rounded bg-violet-400/80" />
+          DB writes
         </span>
       </div>
     </div>
