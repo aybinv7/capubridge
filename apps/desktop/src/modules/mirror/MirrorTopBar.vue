@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Camera, PictureInPicture2, Square, Video } from "lucide-vue-next";
+import { Camera, CircleDot, Square, SquareArrowOutUpRight } from "lucide-vue-next";
 import { StatusDot } from "@capubridge/cladd";
 import type { MirrorSide } from "@/stores/mirror.store";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -80,7 +80,7 @@ const emit = defineEmits<{
         @click="emit('toggleRecord')"
       >
         <Square v-if="props.isRecording" :stroke-width="0" class="fill-signal-rec" />
-        <Video v-else :stroke-width="1.8" />
+        <CircleDot v-else :stroke-width="1.8" />
       </IconAction>
 
       <IconAction
@@ -89,7 +89,7 @@ const emit = defineEmits<{
         hint="Keeps the screen beside any app"
         @click="emit('detach')"
       >
-        <PictureInPicture2 :stroke-width="1.8" />
+        <SquareArrowOutUpRight :stroke-width="1.8" />
       </IconAction>
 
       <MirrorScreenMenu

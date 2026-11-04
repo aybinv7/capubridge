@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   Camera,
+  CircleDot,
   Maximize2,
   Minimize2,
   Minus,
@@ -9,7 +10,6 @@ import {
   PinOff,
   SlidersHorizontal,
   Square,
-  Video,
   X,
 } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -64,7 +64,7 @@ const windowButton =
         @click="emit('toggleRecord')"
       >
         <Square v-if="isRecording" :stroke-width="0" class="fill-signal-rec" />
-        <Video v-else :stroke-width="1.8" />
+        <CircleDot v-else :stroke-width="1.8" />
       </IconAction>
       <IconAction label="Laser pointer" toggle :pressed="laserMode" @click="emit('toggleLaser')">
         <MousePointer2 :stroke-width="1.8" />

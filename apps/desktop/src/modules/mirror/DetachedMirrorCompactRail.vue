@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Camera, MousePointer2, SlidersHorizontal, Square, Video } from "lucide-vue-next";
+import { Camera, CircleDot, MousePointer2, SlidersHorizontal, Square } from "lucide-vue-next";
 import { Toolbar } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { AndroidKeyCode } from "./useMirrorStream";
@@ -69,7 +69,7 @@ const emit = defineEmits<{
             @click="emit('toggleRecord')"
           >
             <Square v-if="isRecording" :stroke-width="0" class="fill-signal-rec" />
-            <Video v-else :stroke-width="1.8" />
+            <CircleDot v-else :stroke-width="1.8" />
           </IconAction>
           <IconAction
             label="Laser pointer"

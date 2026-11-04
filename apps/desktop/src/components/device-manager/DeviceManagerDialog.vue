@@ -57,7 +57,16 @@ function focusIn(selector: string) {
 
 function onKeydown(event: KeyboardEvent) {
   const target = event.target;
-  if (!(target instanceof HTMLElement) || !target.matches("[data-roving-item]")) return;
+  if (!(target instanceof HTMLElement)) return;
+  if (target.matches("[data-roving-region]")) {
+    if (
+      ENTRY_KEYS.has(event.key) &&
+      focusIn(`[data-roving-region='${target.dataset.rovingRegion}']`)
+    )
+      event.preventDefault();
+    return;
+  }
+  if (!target.matches("[data-roving-item]")) return;
   const region = target.closest<HTMLElement>("[data-roving-region]");
   if (!region) return;
   if (event.key === "ArrowRight" && region.dataset.rovingRegion === "devices") {
@@ -71,9 +80,16 @@ function onKeydown(event: KeyboardEvent) {
   if (moveRovingFocus(region, event.key)) event.preventDefault();
 }
 
+const ENTRY_KEYS = new Set(["ArrowDown", "ArrowUp", "Home", "End"]);
+
+/**
+ * Opening focuses the device column itself, not a row: a programmatic focus on the viewed row
+ * would draw the keyboard ring around it before the user pressed a key. The first arrow moves into
+ * the rows, starting from the viewed one.
+ */
 async function onOpened() {
   await nextTick();
-  focusIn("[data-roving-region='devices']");
+  root.value?.querySelector<HTMLElement>("[data-roving-region='devices']")?.focus();
 }
 
 function showConnect() {
@@ -94,10 +110,12 @@ function showEmulators() {
     content-class-name="flex h-full flex-row gap-0 overflow-hidden p-0"
     @opened="onOpened"
   >
-    <div ref="root" class="flex min-h-0 w-full" @keydown="onKeydown">
+    <div ref="root" class="flex h-full min-h-0 w-full" @keydown="onKeydown">
       <aside
-        class="flex w-64 shrink-0 flex-col border-r border-border-subtle"
+        class="flex min-h-0 w-64 shrink-0 flex-col overflow-hidden border-r border-border-subtle outline-none"
         data-roving-region="devices"
+        tabindex="-1"
+        aria-label="Devices"
       >
         <div class="flex h-13 shrink-0 items-center gap-2 pr-2 pl-4">
           <span class="text-sm font-medium text-foreground">Devices</span>
@@ -113,7 +131,7 @@ function showEmulators() {
           </IconAction>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3">
           <DeviceManagerDeviceList
             :devices="devicesStore.devices"
             :local-device-name="manager.localDeviceName.value"
@@ -127,11 +145,12 @@ function showEmulators() {
           />
         </div>
 
-        <div class="flex shrink-0 flex-col gap-0.5 border-t border-border-subtle p-2">
+        <div class="flex shrink-0 flex-col gap-0.5 border-t border-border p-2">
           <ListButton
             size="sm"
             :selected="activePanel === 'connect'"
             data-roving-item
+            tight-focus-ring
             class="w-full"
             content-class-name="gap-2.5 px-2.5"
             icon-class-name="text-muted-foreground"
@@ -144,6 +163,7 @@ function showEmulators() {
             size="sm"
             :selected="activePanel === 'emulators'"
             data-roving-item
+            tight-focus-ring
             class="w-full"
             content-class-name="gap-2.5 px-2.5"
             icon-class-name="text-muted-foreground"

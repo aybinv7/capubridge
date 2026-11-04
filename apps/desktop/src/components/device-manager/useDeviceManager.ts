@@ -1,5 +1,6 @@
 import { computed, onMounted, reactive, ref, watch, type Ref } from "vue";
 import { toast } from "vue-sonner";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import type { DeviceManagerPanel } from "@/stores/ui.store";
@@ -23,6 +24,7 @@ interface DeviceManagerOptions {
  */
 export function useDeviceManager(options: DeviceManagerOptions) {
   const devicesStore = useDevicesStore();
+  const deviceNames = useDeviceNamesStore();
   const localWebviewStore = useLocalWebviewStore();
   const { getDeviceOverview } = useAdb();
 
@@ -56,7 +58,11 @@ export function useDeviceManager(options: DeviceManagerOptions) {
     loadingInfoFor.value = serial;
     try {
       const info = await getDeviceOverview(serial);
-      if (info) deviceInfo[serial] = info;
+      if (info) {
+        deviceInfo[serial] = info;
+        const model = devicesStore.devices.find((entry) => entry.serial === serial)?.model;
+        if (model) deviceNames.remember(model, info.manufacturer);
+      }
     } catch (error) {
       console.warn("Failed to load device overview", serial, error);
     } finally {

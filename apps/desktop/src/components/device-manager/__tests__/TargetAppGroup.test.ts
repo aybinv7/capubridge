@@ -55,7 +55,7 @@ describe("TargetAppGroup", () => {
       [target("p1"), target("w1", "worker"), target("w2", "worker")],
       null,
     );
-    expect(container.textContent).toContain("Other WebViews");
+    expect(container.textContent).toContain("Not linked to an app");
     expect(container.textContent).toContain("p1 title");
     expect(container.textContent).not.toContain("w1 title");
 

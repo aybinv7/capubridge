@@ -11,6 +11,7 @@ import {
   Settings,
   Smartphone,
 } from "lucide-vue-next";
+import type { RailIconKey } from "@/shared/icons/shell-icons";
 import { appRoutes } from "../modules/app/public";
 import { automationRoutes } from "../modules/automation/public";
 import { browserPreviewRoutes } from "../modules/browser-preview/public";
@@ -29,6 +30,8 @@ export interface AppFeatureDefinition {
   label: string;
   path: string;
   icon: Component;
+  /** The rail glyph (`shellIcons.rail`): filled while the destination is current, regular otherwise. */
+  railIcon: RailIconKey;
   maturity: FeatureMaturity;
   placement: FeaturePlacement;
   commandPalette: boolean;
@@ -43,6 +46,7 @@ export const featureRegistry = [
     label: "Device",
     path: "/devices",
     icon: Smartphone,
+    railIcon: "device",
     maturity: "stable",
     placement: "primary",
     commandPalette: true,
@@ -54,6 +58,7 @@ export const featureRegistry = [
     label: "App",
     path: "/app",
     icon: AppWindow,
+    railIcon: "app",
     maturity: "beta",
     placement: "primary",
     commandPalette: true,
@@ -65,6 +70,7 @@ export const featureRegistry = [
     label: "Data",
     path: "/storage",
     icon: Database,
+    railIcon: "data",
     maturity: "beta",
     placement: "primary",
     commandPalette: true,
@@ -76,6 +82,7 @@ export const featureRegistry = [
     label: "Network",
     path: "/network",
     icon: Globe,
+    railIcon: "network",
     maturity: "beta",
     placement: "primary",
     commandPalette: true,
@@ -87,6 +94,7 @@ export const featureRegistry = [
     label: "Elements",
     path: "/inspect",
     icon: Crosshair,
+    railIcon: "elements",
     maturity: "beta",
     placement: "primary",
     commandPalette: true,
@@ -98,6 +106,7 @@ export const featureRegistry = [
     label: "Replay",
     path: "/replay",
     icon: MonitorPlay,
+    railIcon: "replay",
     maturity: "beta",
     placement: "primary",
     commandPalette: true,
@@ -109,6 +118,7 @@ export const featureRegistry = [
     label: "Flows",
     path: "/automation",
     icon: Bot,
+    railIcon: "flows",
     maturity: "experimental",
     placement: "primary",
     commandPalette: true,
@@ -119,6 +129,7 @@ export const featureRegistry = [
     label: "Preview",
     path: "/preview",
     icon: FlaskConical,
+    railIcon: "preview",
     maturity: "experimental",
     placement: "none",
     commandPalette: true,
@@ -129,6 +140,7 @@ export const featureRegistry = [
     label: "Settings",
     path: "/settings",
     icon: Settings,
+    railIcon: "settings",
     maturity: "stable",
     placement: "utility",
     commandPalette: true,

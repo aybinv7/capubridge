@@ -1,5 +1,6 @@
 import type { Color } from "@capubridge/cladd";
 import type { ADBDevice } from "@/types/adb.types";
+import { friendlyDeviceName, type NamedDevice } from "@/lib/device-name";
 
 export type DeviceCondition = "online" | "unauthorized" | "no-permissions" | "offline" | "absent";
 
@@ -15,8 +16,8 @@ export interface DeviceState {
   steps: string[];
 }
 
-export function deviceDisplayName(device: Pick<ADBDevice, "model" | "serial">): string {
-  return device.model?.trim() || device.serial;
+export function deviceDisplayName(device: NamedDevice, manufacturer?: string | null): string {
+  return friendlyDeviceName(device, manufacturer);
 }
 
 export function deviceCondition(device: ADBDevice): DeviceCondition {
@@ -51,8 +52,11 @@ function absentSteps(device: ADBDevice): string[] {
 }
 
 /** What a device's state means and, when it cannot be used, exactly what to do next. */
-export function describeDeviceState(device: ADBDevice, now = Date.now()): DeviceState {
-  const name = deviceDisplayName(device);
+export function describeDeviceState(
+  device: ADBDevice,
+  now = Date.now(),
+  name = deviceDisplayName(device),
+): DeviceState {
   const condition = deviceCondition(device);
   switch (condition) {
     case "online":

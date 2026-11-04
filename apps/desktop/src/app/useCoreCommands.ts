@@ -96,11 +96,11 @@ export function useCoreCommands(): void {
       },
       {
         id: "view.toggle-rail",
-        title: ui.sidebarCollapsed ? "Expand navigation rail" : "Collapse navigation rail",
+        title: ui.railHidden ? "Show navigation rail" : "Hide navigation rail",
         group: "View",
         icon: PanelLeft,
         binding: "mod+b",
-        run: () => ui.toggleSidebar(),
+        run: () => ui.toggleRail(),
       },
       {
         id: "view.toggle-dock",

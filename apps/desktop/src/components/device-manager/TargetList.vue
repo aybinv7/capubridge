@@ -97,8 +97,8 @@ const decorated = computed(() =>
     <div v-else class="flex flex-1 flex-col items-center justify-center gap-2 px-10 text-center">
       <p class="text-sm text-foreground">No debuggable WebViews on {{ props.deviceName }}</p>
       <p class="max-w-sm text-xs text-muted-foreground">
-        Open your app on the device. Only apps with WebView debugging turned on appear here, such as
-        debug builds of Capacitor and Ionic apps.
+        Open your app on the device and keep it in front. Any debuggable build appears here with no
+        code change; release builds need WebView debugging turned on.
       </p>
       <Button
         variant="solid"

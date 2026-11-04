@@ -5,7 +5,12 @@ import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
 import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
-import { targetDisplayTitle, targetTypeLabel } from "./targetGroups";
+import {
+  isUnansweredSocket,
+  targetDisplayTitle,
+  targetKindHint,
+  unansweredSocketHint,
+} from "./targetGroups";
 
 const props = defineProps<{
   target: CDPTarget;
@@ -17,13 +22,18 @@ const props = defineProps<{
 const emit = defineEmits<{ select: []; inspect: []; detach: []; remove: [] }>();
 
 const title = computed(() => targetDisplayTitle(props.target));
-const showUrl = computed(() => Boolean(props.target.title?.trim() && props.target.url));
+const unanswered = computed(() => isUnansweredSocket(props.target));
+const detail = computed(() => {
+  if (unanswered.value) return unansweredSocketHint(props.target.title.trim());
+  return props.target.title?.trim() && props.target.url ? props.target.url : null;
+});
+const kind = computed(() => targetKindHint(props.target));
 </script>
 
 <template>
   <div
     class="group/target relative flex items-center gap-1 rounded-control pr-1.5 transition-colors duration-120"
-    :class="props.active ? 'bg-surface-2 shadow-bevel' : 'hover:bg-cladd-surface-hover'"
+    :class="props.active ? 'bg-cladd-surface-next shadow-bevel' : 'hover:bg-cladd-surface-hover'"
   >
     <button
       type="button"
@@ -31,7 +41,7 @@ const showUrl = computed(() => Boolean(props.target.title?.trim() && props.targe
       :data-current="props.active || undefined"
       :aria-current="props.active ? 'true' : undefined"
       class="flex min-w-0 flex-1 items-center gap-2.5 rounded-control py-2 pr-1 pl-3 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      :title="props.active ? props.link?.description : 'Attach DevTools to this target'"
+      :title="props.active ? props.link?.description : 'Attach DevTools to this page'"
       @click="emit('select')"
     >
       <span
@@ -41,8 +51,12 @@ const showUrl = computed(() => Boolean(props.target.title?.trim() && props.targe
       />
       <span class="flex min-w-0 flex-1 flex-col">
         <span class="truncate text-sm text-foreground">{{ title }}</span>
-        <span v-if="showUrl" class="truncate font-mono text-2xs text-[var(--fg-subtle)]">
-          {{ props.target.url }}
+        <span
+          v-if="detail"
+          class="truncate text-2xs text-[var(--fg-subtle)]"
+          :class="!unanswered && 'font-mono'"
+        >
+          {{ detail }}
         </span>
       </span>
       <span
@@ -52,8 +66,8 @@ const showUrl = computed(() => Boolean(props.target.title?.trim() && props.targe
       >
         {{ props.link.label }}
       </span>
-      <span v-else class="shrink-0 text-2xs text-[var(--fg-subtle)]">
-        {{ targetTypeLabel(props.target) }}
+      <span v-else-if="kind" class="shrink-0 text-2xs text-[var(--fg-subtle)]">
+        {{ kind }}
       </span>
     </button>
 

@@ -3,10 +3,12 @@ import { computed } from "vue";
 import { Unplug, Wifi } from "lucide-vue-next";
 import { Button, Spinner, StatusDot } from "@capubridge/cladd";
 import type { ADBDevice } from "@/types/adb.types";
+import { deviceIdentity } from "@/lib/device-name";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import DeviceKindIcon from "./DeviceKindIcon.vue";
 import PortReversePopover from "./PortReversePopover.vue";
-import { describeDeviceState, deviceDisplayName } from "./deviceState";
+import { describeDeviceState } from "./deviceState";
 
 const props = defineProps<{
   device: ADBDevice;
@@ -19,8 +21,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{ useWifi: []; disconnect: []; forget: [] }>();
 
-const state = computed(() => describeDeviceState(props.device));
-const name = computed(() => deviceDisplayName(props.device));
+const names = useDeviceNamesStore();
+const name = computed(() => names.nameOf(props.device));
+const state = computed(() => describeDeviceState(props.device, Date.now(), name.value));
+const identity = computed(() => deviceIdentity(props.device));
 const online = computed(() => state.value.condition === "online");
 const transport = computed(() => {
   if (props.device.deviceKind === "emulator") return "Emulator";
@@ -43,8 +47,6 @@ const transport = computed(() => {
         <span class="shrink-0 text-xs text-muted-foreground">{{ state.label }}</span>
       </div>
       <div class="flex min-w-0 items-center gap-1.5 text-2xs text-[var(--fg-subtle)]">
-        <span class="truncate font-mono">{{ props.device.serial }}</span>
-        <span aria-hidden="true">·</span>
         <span class="shrink-0">{{ transport }}</span>
         <template v-if="props.androidVersion">
           <span aria-hidden="true">·</span>
@@ -55,6 +57,8 @@ const transport = computed(() => {
           <span class="shrink-0 font-mono">API {{ props.apiLevel }}</span>
         </template>
         <Spinner v-else-if="props.loadingInfo" size="xs" class="shrink-0" />
+        <span aria-hidden="true">·</span>
+        <span class="truncate" :title="props.device.serial">{{ identity }}</span>
       </div>
     </div>
 

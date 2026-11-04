@@ -118,8 +118,11 @@ bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome othe
   dropped link keeps it mounted under a hatched `stale` strip instead of replacing it.
 - **Notices** (app in background, another WebView on screen) never block; they sit above content.
 - **One link truth.** The context pill and gates read `activeContext.link` / `gateInput`. There is no
-  status bar: link state lives only in the title-bar pill, the console toggle sits in the rail footer
+  status bar: link state lives only in the title-bar pill, the console toggle sits in the title bar
   (with its unread mark), and recording time lives on the Record button.
+- **Device names.** A device is named by maker and model ("Xiaomi 24117RN76G", `deviceNames.store`,
+  `friendlyDeviceName`) everywhere: pill, device list, device header. Serials and addresses are the
+  quiet secondary line (`deviceIdentity`: a Wi-Fi address without its port), never the headline.
 - **Provenance** is a pattern, never a hue: `live` (solid, live dot), `cached` (dotted
   underline, `prov-cached`), `recorded` (perforated edge, `prov-recorded`), `imported` (corner
   tag, `prov-imported`), `local copy` (dashed outline, `prov-local`), `stale` (hatch,
@@ -128,25 +131,45 @@ bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome othe
 ## 8. Shell
 
 - **Window** on `bg-background`, no panel behind the title bar or the rail.
-- **Title bar** 46 px, no border: brand, back/forward ghost icons, the context pill centred (live mark ·
-  device · `/` · app · link word · chevron, a level-1 Cladd `Button` with a 1 px line and the bevel), a
-  ghost Record button (hollow ring when idle), a 220 px search pill with a quiet `KeyCaps`, and the
-  screen toggle (raised while the screen column is open). Window controls stay at the far right.
-- **Rail** Cladd `NavRail` (64 px, labels on; `mod+b` hides labels) with `NavRailItem` 54 × 50, icon
-  17 px, 11 px label; the current item is raised two levels with the bevel. The footer holds the
-  console toggle and Settings.
+- **Title bar** 46 px, no border and no brand. Left: back, forward, then search (`Search or run`
+  with its `KeyCaps`): the history arrows keep the fixed leftmost spot they have in every browser and
+  editor, and search follows them as the next way to go somewhere. Centre: the context pill (live
+  mark · device · `/` · app · link word · chevron, a level-1 Cladd `Button` with a 1 px line and the
+  bevel). Right: a ghost Record button (hollow ring when idle), the console toggle (`PanelBottom`,
+  unread dot, `mod+j`) and the screen toggle (`PanelRight`, or `PanelLeft` when the column sits left; `…Close` while open). Toggles
+  are raised while their panel is open. Window controls stay at the far right.
+- **Shell icons** come from one family, `shellIcons` (`src/shared/icons`): the rail, back/forward,
+  search and the panel toggles, each as a regular/filled pair; filled marks the current destination
+  or an open panel. The set is Tabler (outline at stroke 1.75, hand-drawn filled companions);
+  Phosphor and Fluent mappings sit beside it for comparison and switch with one line in
+  `shell-icons.ts`. Lucide stays everywhere else.
+- **Rail** Cladd `NavRail` icon-only (56 px) with `NavRailItem` 44 × 44 and 20 px icons (the
+  feature's `railIcon` key), filled while current, read from the item's scoped `icon` slot; each item is
+  named by its label and explains itself in a side tooltip (label, maturity, `KeyCaps`) that opens to
+  the right so it never covers a neighbour. The current item is raised two levels with the bevel.
+  `mod+b` (`view.toggle-rail`) hides the whole rail and brings it back; the choice persists. The
+  footer holds Settings.
 - **Surfaces** the main content and the screen column are `rounded-surface` panels with a 1 px
   `border-border-subtle` line and `shadow-bevel`, 8 px apart and 8 px from the right and bottom edges.
 - **Device manager** a Cladd `Dialog` (900 × 600): devices on the left grouped USB · Wi-Fi ·
-  Emulators · Not connected · This computer (Cladd `ListButton`, the viewed one raised), Wi-Fi and
-  emulator entry points in the footer; the right side shows the viewed device (state, numbered next
-  steps when it cannot be used) and its WebViews grouped by app with the app icon, the target in use
-  marked with the link state. Arrows move within a column, ←/→ between columns, Enter acts, Esc
-  closes. Opening never changes the selected device.
+  Emulators · This computer · Not connected (seen in the last day) · Earlier connections (folded)
+  (Cladd `ListButton` with the tight focus ring, the viewed one in Cladd's selected treatment); the
+  list scrolls above a separate footer with the Wi-Fi and emulator entry points. The right side shows
+  the viewed device (state, numbered next steps when it cannot be used) and its WebViews: one Cladd
+  `Surface` card per app (icon, app label, package as the quiet line, an `In use` chip), its pages
+  inside; pages no app was matched to sit last under "Not linked to an app" with a plain-words
+  reason, and an unanswered DevTools socket reads as "Chrome browser" with what to do. Rows name a
+  kind only when it is not a page. Opening focuses the device column, not a row, so no ring is drawn
+  until a key is pressed; arrows move within a column, ←/→ between columns, Enter acts, Esc closes.
+  Opening never changes the selected device.
 - **Screen column** a quiet 40 px top bar ("Screen", a `StatusDot`, the state word and frame rate or
-  frame age in mono, then `IconAction`s: screenshot, record, own window, settings popover), a
-  recessed well holding a black device bezel around the stream canvas, and the Android buttons as one
-  Cladd `Toolbar` (volume · back/home/recents · screen off). States: starting, waiting for the first
+  frame age in mono, then `IconAction`s: screenshot `Camera`, record `CircleDot`, own window
+  `SquareArrowOutUpRight`, settings popover), a recessed well holding a 4 px bezel fitted to the
+  stream like `object-fit: contain` (`fitDeviceFrame`: no bands, corner radius about 8.5 % of the
+  short side, a landscape stream lies on its side and widens the column), and one full-width Cladd
+  `Toolbar`: volume left, back/home/recents centred, rotation and screen off right. Rotation turns
+  auto-rotate off and holds portrait or landscape through the device settings, verified by reading
+  them back; while held, a raised lock turns auto-rotate back on. States: starting, waiting for the first
   frame, live, unchanged (scrcpy sends nothing for a still screen, so it is not called stalled),
   stopped with what happened, what to do and the raw error, and an app-in-background notice.
 - **Section tabs** Cladd `Tabs` with solid active segments: 28 px, `rounded-cladd-md`, selected raised

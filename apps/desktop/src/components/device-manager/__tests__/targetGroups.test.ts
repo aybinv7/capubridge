@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { CDPTarget } from "@/types/cdp.types";
-import { groupTargetsByApp, targetDisplayTitle, targetTypeLabel } from "../targetGroups";
+import {
+  appPackageOf,
+  groupTargetsByApp,
+  isUnansweredSocket,
+  socketDisplayName,
+  targetDisplayTitle,
+  targetKindHint,
+  targetTypeLabel,
+  unansweredSocketHint,
+} from "../targetGroups";
 
 function target(id: string, overrides: Partial<CDPTarget> = {}): CDPTarget {
   return {
@@ -34,6 +43,31 @@ describe("groupTargetsByApp", () => {
     expect(groups[0].packageName).toBeNull();
   });
 
+  it("treats an unknown package like a missing one", () => {
+    expect(appPackageOf({ packageName: "unknown" })).toBeNull();
+    expect(appPackageOf({ packageName: " com.one " })).toBe("com.one");
+    const groups = groupTargetsByApp([target("a", { packageName: "unknown" }), target("b")], null);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].packageName).toBeNull();
+  });
+
+  it("lists targets no app was matched to after every app", () => {
+    const groups = groupTargetsByApp(
+      [
+        target("a"),
+        target("b", { packageName: "com.one" }),
+        target("c", { packageName: "com.two" }),
+      ],
+      null,
+    );
+    expect(groups.map((group) => group.packageName)).toEqual(["com.one", "com.two", null]);
+  });
+
+  it("keeps the unmatched group first when it holds the selected target", () => {
+    const groups = groupTargetsByApp([target("a", { packageName: "com.one" }), target("b")], "b");
+    expect(groups.map((group) => group.packageName)).toEqual([null, "com.one"]);
+  });
+
   it("puts the app holding the selected target first", () => {
     const groups = groupTargetsByApp(
       [target("a", { packageName: "com.one" }), target("b", { packageName: "com.two" })],
@@ -60,9 +94,45 @@ describe("groupTargetsByApp", () => {
 
 describe("targetDisplayTitle", () => {
   it("prefers the title, then the URL without its scheme", () => {
-    expect(targetDisplayTitle({ title: " Shop ", url: "https://x" })).toBe("Shop");
-    expect(targetDisplayTitle({ title: "", url: "https://localhost/app" })).toBe("localhost/app");
-    expect(targetDisplayTitle({ title: "", url: "" })).toBe("Untitled");
+    expect(targetDisplayTitle({ id: "1", title: " Shop ", url: "https://x" })).toBe("Shop");
+    expect(targetDisplayTitle({ id: "2", title: "", url: "https://localhost/app" })).toBe(
+      "localhost/app",
+    );
+    expect(targetDisplayTitle({ id: "3", title: "", url: "" })).toBe("Untitled");
+  });
+
+  it("names an unanswered DevTools socket in plain words", () => {
+    const chrome = {
+      id: "adb:10.0.0.2:5555:chrome_devtools_remote",
+      title: "chrome_devtools_remote",
+      url: "",
+    };
+    expect(isUnansweredSocket(chrome)).toBe(true);
+    expect(targetDisplayTitle(chrome)).toBe("Chrome browser");
+    expect(
+      targetDisplayTitle({
+        id: "adb:R58:webview_devtools_remote_812",
+        title: "webview_devtools_remote_812",
+        url: "",
+      }),
+    ).toBe("WebView in process 812");
+    expect(isUnansweredSocket({ id: "page-1", title: "Shop", url: "" })).toBe(false);
+  });
+});
+
+describe("socket wording", () => {
+  it("explains what to do for Chrome and for any other socket", () => {
+    expect(socketDisplayName("custom_socket")).toBe("custom_socket");
+    expect(unansweredSocketHint("chrome_devtools_remote")).toMatch(/Open a page in Chrome/);
+    expect(unansweredSocketHint("webview_devtools_remote_1")).toMatch(/Bring the app to the front/);
+  });
+});
+
+describe("targetKindHint", () => {
+  it("says nothing for a page and names every other kind", () => {
+    expect(targetKindHint({ type: "page" })).toBeNull();
+    expect(targetKindHint({ type: "worker" })).toBe("Worker");
+    expect(targetKindHint({ type: "iframe" })).toBe("Frame");
   });
 });
 

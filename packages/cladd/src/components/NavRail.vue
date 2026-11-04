@@ -35,7 +35,7 @@ const rootAttrs = computed(() => {
 const rootClass = computed(() =>
   cn(
     'cladd-nav-rail flex shrink-0 flex-col items-center gap-1 pt-1',
-    labels.value ? 'w-16' : 'w-12',
+    labels.value ? 'w-16' : 'w-14',
     attrs.class,
   ),
 );

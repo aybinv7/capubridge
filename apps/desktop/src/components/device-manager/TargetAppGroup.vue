@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { ChevronRight, Globe } from "lucide-vue-next";
+import { Chip, Surface } from "@capubridge/cladd";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
 import AppIcon from "@/modules/devices/AppIcon.vue";
@@ -41,42 +42,59 @@ const secondaryLabel = computed(() => {
   const count = secondary.value.length;
   return `${count} ${count === 1 ? "worker or frame" : "workers and frames"}`;
 });
-const title = computed(() => props.appLabel || props.group.packageName || "Other WebViews");
+
+const unlinked = computed(() => props.group.packageName === null);
+const title = computed(() => {
+  if (unlinked.value) return "Not linked to an app";
+  return props.appLabel || props.group.packageName || "";
+});
+const subtitle = computed(() => {
+  if (unlinked.value) {
+    return "Android did not say which app opened these, usually because they belong to the Chrome browser.";
+  }
+  return props.appLabel ? props.group.packageName : null;
+});
 </script>
 
 <template>
-  <section class="flex flex-col gap-0.5" :aria-label="title">
-    <header class="flex items-center gap-2.5 px-1 pt-1 pb-1.5">
+  <Surface
+    as="section"
+    variant="solid"
+    level="+1"
+    outline
+    class="rounded-well"
+    content-class-name="flex flex-col gap-0.5 p-1.5"
+    :aria-label="title"
+  >
+    <header class="flex items-center gap-3 px-1.5 pt-1 pb-2">
       <AppIcon
-        v-if="props.group.packageName"
+        v-if="!unlinked && props.group.packageName"
         :serial="props.serial"
         :package-name="props.group.packageName"
         :apk-path="props.apkPath"
         :icon-path="props.iconPath"
         size="sm"
-        class="!size-7 !rounded-inner"
+        class="!size-8 !rounded-inner"
       />
       <span
         v-else
-        class="flex size-7 shrink-0 items-center justify-center rounded-inner bg-surface-2 text-muted-foreground"
+        class="flex size-8 shrink-0 items-center justify-center rounded-inner bg-cladd-surface-next text-muted-foreground"
       >
-        <Globe :size="14" :stroke-width="1.8" />
+        <Globe :size="15" :stroke-width="1.8" aria-hidden="true" />
       </span>
-      <span class="flex min-w-0 flex-1 flex-col">
+      <span class="flex min-w-0 flex-1 flex-col gap-0.5">
         <span class="truncate text-sm font-medium text-foreground">{{ title }}</span>
         <span
-          v-if="props.group.packageName && props.appLabel"
-          class="truncate font-mono text-2xs text-[var(--fg-subtle)]"
+          v-if="subtitle"
+          class="text-2xs text-[var(--fg-subtle)]"
+          :class="unlinked ? 'line-clamp-2' : 'truncate font-mono'"
         >
-          {{ props.group.packageName }}
+          {{ subtitle }}
         </span>
       </span>
-      <span
-        v-if="props.group.hasActive"
-        class="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-signal-select"
-      >
+      <Chip v-if="props.group.hasActive" size="sm" rounded color="brand" class="shrink-0">
         In use
-      </span>
+      </Chip>
     </header>
 
     <TargetRow
@@ -105,5 +123,5 @@ const title = computed(() => props.appLabel || props.group.packageName || "Other
       />
       {{ showSecondary ? "Hide" : "Show" }} {{ secondaryLabel }}
     </button>
-  </section>
+  </Surface>
 </template>

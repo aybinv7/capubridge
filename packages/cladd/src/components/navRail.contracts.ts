@@ -3,7 +3,10 @@ import type { Component } from 'vue';
 export interface NavRailProps {
   /** Polymorphic root element. Defaults to `'nav'`. */
   as?: string | Component;
-  /** Show a text label under every item icon. Default `true`. */
+  /**
+   * Show a text label under every item icon. Default `true`. Without labels the rail is icon-only:
+   * larger icons, each item named by its label and explained by a side tooltip.
+   */
   labels?: boolean;
 }
 
@@ -24,6 +27,8 @@ export interface NavRailItemProps {
   hideLabel?: boolean;
   /** Item text, drawn under the icon and used as the accessible name. */
   label: string;
+  /** Show the label in a tooltip beside the item whenever it is not drawn. Default `true`. */
+  tooltip?: boolean;
 }
 
 export type NavRailItemDefaultProps = Partial<

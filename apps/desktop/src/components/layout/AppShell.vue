@@ -13,6 +13,7 @@ import { useMirrorStore } from "@/stores/mirror.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useUIStore } from "@/stores/ui.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import { useOverlayGuard } from "@/composables/useOverlayGuard";
 import { useActiveContextStore } from "@/stores/activeContext.store";
@@ -26,6 +27,7 @@ const mirrorStore = useMirrorStore();
 const inspectStore = useInspectStore();
 const dockStore = useDockStore();
 const devicesStore = useDevicesStore();
+const uiStore = useUIStore();
 const router = useRouter();
 useOverlayGuard();
 useActiveContextStore();
@@ -210,8 +212,8 @@ onUnmounted(() => {
   <div class="flex h-screen flex-col overflow-hidden bg-background">
     <TitleBar @open-command-palette="commandsStore.openPalette()" />
 
-    <div class="flex min-h-0 flex-1 gap-2 pr-2 pb-2">
-      <Sidebar class="order-first" />
+    <div class="flex min-h-0 flex-1 gap-2 pr-2 pb-2" :class="uiStore.railHidden && 'pl-2'">
+      <Sidebar v-if="!uiStore.railHidden" class="order-first" />
 
       <div
         class="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"

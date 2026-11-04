@@ -13,11 +13,13 @@ import { AndroidKey, useMirrorStream } from "./useMirrorStream";
 import { getDetachedMirrorLayoutMetrics } from "./detachedMirrorLayout";
 import MirrorStream from "./MirrorStream.vue";
 import LocalWebviewHost from "./LocalWebviewHost.vue";
-import MirrorControls from "./MirrorControls.vue";
+import MirrorDeviceBar from "./MirrorDeviceBar.vue";
+import MirrorDeviceFrame from "./MirrorDeviceFrame.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
 import MirrorStateOverlay from "./MirrorStateOverlay.vue";
 import MirrorPresenceNotice from "./MirrorPresenceNotice.vue";
 import { describeMirrorStatus } from "./mirrorStatus";
+import { orientationOfSize } from "./deviceRotation";
 import { useMirrorFrameStats } from "./useMirrorFrameStats";
 import { useMirrorRecordingClock } from "./useMirrorRecordingClock";
 
@@ -48,14 +50,23 @@ const {
 } = useMirrorStream();
 
 const isResizing = ref(false);
-const streamAreaRef = ref<HTMLElement | null>(null);
-const mirrorFrameRef = ref<HTMLElement | null>(null);
+const deviceFrameRef = ref<InstanceType<typeof MirrorDeviceFrame> | null>(null);
+const streamAreaRef = computed(() => deviceFrameRef.value?.well ?? null);
 const { panelWidth } = useMirrorViewportWidth(streamAreaRef);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
 const androidMode = computed(() => !isLocalTarget.value && isAndroidStream.value);
 const canUseStreamActions = computed(() => !isLocalTarget.value && mirrorStore.isStreaming);
 const presenceStore = useTargetPresenceStore();
+const streamSerial = computed(() => {
+  const device = devicesStore.selectedDevice;
+  if (device?.status === "online") return device.serial;
+  const target = selectedTarget.value;
+  return target?.source === "adb" ? (target.deviceSerial ?? null) : null;
+});
+const streamOrientation = computed(() =>
+  orientationOfSize(mirrorStore.deviceWidth, mirrorStore.deviceHeight),
+);
 const streamWanted = computed(
   () => mirrorStore.isOpen && !mirrorStore.isDetached && !isLocalTarget.value,
 );
@@ -100,7 +111,7 @@ async function applyLocalWebviewViewportMode() {
   const client = await connectToTarget(readyTarget);
 
   await nextTick();
-  const frame = mirrorFrameRef.value;
+  const frame = deviceFrameRef.value?.screen ?? null;
 
   if (mirrorStore.settings.chromeViewportMode === "phone" && frame) {
     const rect = frame.getBoundingClientRect();
@@ -408,54 +419,48 @@ function toggleRecord() {
         :app-name="presenceNotice.appName"
       />
 
-      <div
-        ref="streamAreaRef"
-        class="mx-2 flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-well bg-surface-cut p-3 shadow-cut"
+      <MirrorDeviceFrame
+        ref="deviceFrameRef"
+        :device-width="mirrorStore.deviceWidth"
+        :device-height="mirrorStore.deviceHeight"
         :class="androidMode ? '' : 'mb-2'"
       >
-        <div
-          class="h-full max-w-full rounded-[22px] bg-black p-1.25 ring-1 ring-white/10"
-          :style="{
-            aspectRatio: `${mirrorStore.deviceWidth || 9} / ${mirrorStore.deviceHeight || 19.5}`,
-          }"
+        <LocalWebviewHost v-if="isLocalTarget" :target="selectedTarget" />
+        <MirrorStream
+          v-else
+          :use-canvas="useScrcpyCanvas"
+          :is-connected="isConnected"
+          :laser-mode="mirrorStore.laserMode"
+          :device-width="mirrorStore.deviceWidth"
+          :device-height="mirrorStore.deviceHeight"
+          :inspect-mode="inspectStore.inspectMode"
+          @touch="sendTouch"
+          @wheel="sendWheel"
+          @navigation="handleStreamNavigation"
+          @keyboard="sendKeyboard"
+          @inspect-hover="handleInspectHover"
+          @inspect-select="handleInspectSelect"
+          @inspect-leave="handleInspectLeave"
+          @canvas-ready="setCanvasElement"
         >
-          <div
-            ref="mirrorFrameRef"
-            class="relative flex h-full w-full items-center overflow-hidden rounded-[17px] bg-black"
-          >
-            <LocalWebviewHost v-if="isLocalTarget" :target="selectedTarget" />
-            <MirrorStream
-              v-else
-              :use-canvas="useScrcpyCanvas"
-              :is-connected="isConnected"
-              :laser-mode="mirrorStore.laserMode"
-              :device-width="mirrorStore.deviceWidth"
-              :device-height="mirrorStore.deviceHeight"
-              :inspect-mode="inspectStore.inspectMode"
-              @touch="sendTouch"
-              @wheel="sendWheel"
-              @navigation="handleStreamNavigation"
-              @keyboard="sendKeyboard"
-              @inspect-hover="handleInspectHover"
-              @inspect-select="handleInspectSelect"
-              @inspect-leave="handleInspectLeave"
-              @canvas-ready="setCanvasElement"
-            >
-              <template #state>
-                <MirrorStateOverlay
-                  :phase="status.phase"
-                  :error="streamError"
-                  :detached="mirrorStore.isDetached"
-                  @restart="startStream"
-                />
-              </template>
-            </MirrorStream>
-          </div>
-        </div>
-      </div>
+          <template #state>
+            <MirrorStateOverlay
+              :phase="status.phase"
+              :error="streamError"
+              :detached="mirrorStore.isDetached"
+              @restart="startStream"
+            />
+          </template>
+        </MirrorStream>
+      </MirrorDeviceFrame>
 
-      <div v-if="androidMode" class="flex shrink-0 justify-center px-2 pt-2 pb-2">
-        <MirrorControls @keyevent="sendKey" />
+      <div v-if="androidMode" class="shrink-0 p-2">
+        <MirrorDeviceBar
+          :serial="streamSerial"
+          :stream-orientation="streamOrientation"
+          :disabled="!streamSerial"
+          @keyevent="sendKey"
+        />
       </div>
     </div>
   </aside>

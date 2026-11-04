@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { ChevronDown } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import { useActiveContextStore } from "@/stores/activeContext.store";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useAppPackages } from "@/composables/useAppPackages";
@@ -13,6 +14,7 @@ import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 const context = useActiveContextStore();
 const devicesStore = useDevicesStore();
 const ui = useUIStore();
+const deviceNames = useDeviceNamesStore();
 
 const device = computed(() => context.device);
 const target = computed(() => context.target);
@@ -20,7 +22,7 @@ const target = computed(() => context.target);
 const sourceLabel = computed(() => {
   if (context.kind === "local") return "This PC";
   if (context.kind === "chrome") return "Chrome";
-  return device.value?.model ?? "No device";
+  return device.value ? deviceNames.nameOf(device.value) : "No device";
 });
 
 const serial = computed(() => device.value?.serial ?? "");

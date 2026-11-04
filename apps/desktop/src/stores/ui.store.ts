@@ -1,22 +1,19 @@
 import { ref } from "vue";
 import { defineStore } from "pinia";
+import { readPersisted, writePersisted } from "@/lib/persisted";
 
-const LS_RAIL_COLLAPSED = "capubridge:rail-collapsed";
+const LS_RAIL_HIDDEN = "capubridge:rail-hidden";
 
 /** Sections of the device manager a caller can open it on. */
 export type DeviceManagerPanel = "device" | "local" | "connect" | "emulators";
 
-function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(LS_RAIL_COLLAPSED) === "true";
-  } catch {
-    return false;
-  }
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
 }
 
 export const useUIStore = defineStore("ui", () => {
   const activePanel = ref<string>("/devices");
-  const sidebarCollapsed = ref(readCollapsed());
+  const railHidden = ref(readPersisted<boolean>(LS_RAIL_HIDDEN, false, isBoolean));
   const deviceManagerOpen = ref(false);
   const deviceManagerPanel = ref<DeviceManagerPanel | null>(null);
 
@@ -24,13 +21,9 @@ export const useUIStore = defineStore("ui", () => {
     activePanel.value = path;
   }
 
-  function toggleSidebar() {
-    sidebarCollapsed.value = !sidebarCollapsed.value;
-    try {
-      localStorage.setItem(LS_RAIL_COLLAPSED, String(sidebarCollapsed.value));
-    } catch (error) {
-      console.warn("Failed to persist rail state", error);
-    }
+  function toggleRail() {
+    railHidden.value = !railHidden.value;
+    writePersisted(LS_RAIL_HIDDEN, railHidden.value);
   }
 
   function openDeviceManager(panel: DeviceManagerPanel | null = null) {
@@ -45,11 +38,11 @@ export const useUIStore = defineStore("ui", () => {
 
   return {
     activePanel,
-    sidebarCollapsed,
+    railHidden,
     deviceManagerOpen,
     deviceManagerPanel,
     setActivePanel,
-    toggleSidebar,
+    toggleRail,
     openDeviceManager,
     closeDeviceManager,
   };

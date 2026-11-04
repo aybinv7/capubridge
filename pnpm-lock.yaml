@@ -21,6 +21,12 @@ catalogs:
     '@lucide/vue':
       specifier: 1.47.0
       version: 1.47.0
+    '@phosphor-icons/vue':
+      specifier: 2.2.1
+      version: 2.2.1
+    '@tabler/icons-vue':
+      specifier: 3.50.0
+      version: 3.50.0
     '@tailwindcss/vite':
       specifier: 4.2.2
       version: 4.2.2
@@ -81,6 +87,9 @@ catalogs:
     '@unovis/vue':
       specifier: ^1.6.4
       version: 1.6.4
+    '@vicons/fluent':
+      specifier: 0.13.0
+      version: 0.13.0
     '@vitejs/plugin-vue':
       specifier: 6.0.5
       version: 6.0.5
@@ -240,6 +249,12 @@ importers:
       '@lucide/vue':
         specifier: 'catalog:'
         version: 1.47.0(vue@3.5.31(typescript@5.9.3))
+      '@phosphor-icons/vue':
+        specifier: 'catalog:'
+        version: 2.2.1(vue@3.5.31(typescript@5.9.3))
+      '@tabler/icons-vue':
+        specifier: 'catalog:'
+        version: 3.50.0(vue@3.5.31(typescript@5.9.3))
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.2.2(@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0))
@@ -291,6 +306,9 @@ importers:
       '@unovis/vue':
         specifier: 'catalog:'
         version: 1.6.4(@unovis/ts@1.6.4)(vue@3.5.31(typescript@5.9.3))
+      '@vicons/fluent':
+        specifier: 'catalog:'
+        version: 0.13.0
       '@vue-flow/core':
         specifier: 'catalog:'
         version: 1.48.2(vue@3.5.31(typescript@5.9.3))
@@ -2093,6 +2111,12 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@phosphor-icons/vue@2.2.1':
+    resolution: {integrity: sha512-3RNg1utc2Z5RwPKWFkW3eXI/0BfQAwXgtFxPUPeSzi55jGYUq16b+UqcgbKLazWFlwg5R92OCLKjDiJjeiJcnA==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      vue: '>=3.2.39'
+
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
@@ -2246,6 +2270,14 @@ packages:
   '@szmarczak/http-timer@4.0.6':
     resolution: {integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==}
     engines: {node: '>=10'}
+
+  '@tabler/icons-vue@3.50.0':
+    resolution: {integrity: sha512-4ELHNkbNXMyeUEx43FUk+AoRCEz9zqVoxlOwngr1Vx374ySBUCBBCfTuQGYQGctMFhKAVZVlK2yZOnzmJ5Qr5g==}
+    peerDependencies:
+      vue: '>=3.0.1'
+
+  '@tabler/icons@3.50.0':
+    resolution: {integrity: sha512-HflLxyrH1cqC7s7jzQGSjpsTAVIoaf7+/yHjbdM59rJQBMjliibp+LYhDPFxOMcwa1M8DNpOk6ENzQiWn9a1Dg==}
 
   '@tailwindcss/node@4.2.2':
     resolution: {integrity: sha512-pXS+wJ2gZpVXqFaUEjojq7jzMpTGf8rU6ipJz5ovJV6PUGmlJ+jvIwGrzdHdQ80Sg+wmQxUFuoW1UAAwHNEdFA==}
@@ -2846,6 +2878,9 @@ packages:
   '@vercel/oidc@3.2.0':
     resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
     engines: {node: '>= 20'}
+
+  '@vicons/fluent@0.13.0':
+    resolution: {integrity: sha512-bYGZsOE3qzvm3Cm43e7tybgGlr5ZUpYqtRZq0g0Tfupe8jIzLolpvQLNUt1zS8Mgt6goTbUk5YH7Fkv16jkykg==}
 
   '@vitejs/plugin-vue@6.0.5':
     resolution: {integrity: sha512-bL3AxKuQySfk1iGcBsQnoRVexTPJq0Z/ixFVM8OhVJAP6ZXXXLtM7NFKWhLl30Kg7uTBqIaPXbh+nuQCuBDedg==}
@@ -7565,6 +7600,10 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.63.0':
     optional: true
 
+  '@phosphor-icons/vue@2.2.1(vue@3.5.31(typescript@5.9.3))':
+    dependencies:
+      vue: 3.5.31(typescript@5.9.3)
+
   '@polka/url@1.0.0-next.29': {}
 
   '@quansync/fs@1.0.0':
@@ -7686,6 +7725,13 @@ snapshots:
   '@szmarczak/http-timer@4.0.6':
     dependencies:
       defer-to-connect: 2.0.1
+
+  '@tabler/icons-vue@3.50.0(vue@3.5.31(typescript@5.9.3))':
+    dependencies:
+      '@tabler/icons': 3.50.0
+      vue: 3.5.31(typescript@5.9.3)
+
+  '@tabler/icons@3.50.0': {}
 
   '@tailwindcss/node@4.2.2':
     dependencies:
@@ -8390,6 +8436,8 @@ snapshots:
       - supports-color
 
   '@vercel/oidc@3.2.0': {}
+
+  '@vicons/fluent@0.13.0': {}
 
   '@vitejs/plugin-vue@6.0.5(@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0))(vue@3.5.31(typescript@5.9.3))':
     dependencies:

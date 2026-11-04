@@ -6,7 +6,8 @@ import type { LinkPresentation } from "@/lib/gates/link";
 import DeviceDetailHeader from "./DeviceDetailHeader.vue";
 import DeviceStateNotice from "./DeviceStateNotice.vue";
 import TargetList from "./TargetList.vue";
-import { describeDeviceState, deviceDisplayName } from "./deviceState";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
+import { describeDeviceState } from "./deviceState";
 import type { TargetGroup } from "./targetGroups";
 
 const props = defineProps<{
@@ -34,7 +35,9 @@ const emit = defineEmits<{
   detach: [target: CDPTarget];
 }>();
 
-const state = computed(() => describeDeviceState(props.device));
+const names = useDeviceNamesStore();
+const name = computed(() => names.nameOf(props.device));
+const state = computed(() => describeDeviceState(props.device, Date.now(), name.value));
 </script>
 
 <template>
@@ -62,7 +65,7 @@ const state = computed(() => describeDeviceState(props.device));
     <TargetList
       v-else
       :serial="props.device.serial"
-      :device-name="deviceDisplayName(props.device)"
+      :device-name="name"
       :groups="props.groups"
       :selected-target-id="props.selectedTargetId"
       :link="props.link"
