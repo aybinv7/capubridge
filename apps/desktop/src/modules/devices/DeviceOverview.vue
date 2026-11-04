@@ -205,11 +205,6 @@ const connectionLabel = computed(() =>
           </div>
         </div>
       </template>
-
-      <!-- No device selected -->
-      <div v-else class="flex items-center justify-center h-40 text-muted-foreground/30 text-sm">
-        No device selected
-      </div>
     </div>
   </div>
 </template>

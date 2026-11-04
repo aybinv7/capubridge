@@ -29,6 +29,7 @@ export function useTargetActivation() {
         targetsStore.selectTarget(readyTarget);
       }
     } catch (error) {
+      connectionStore.noteFailure(targetId, error);
       toast.error("Local DevTools connection failed", { description: String(error) });
     }
   }

@@ -25,13 +25,14 @@ import { useAppPackages } from "@/composables/useAppPackages";
 import { useTargetActivation } from "@/composables/useTargetActivation";
 import { normalizeInspectableUrl } from "@/lib/inspect-url";
 import type { CDPTarget } from "@/types/cdp.types";
+import type { DeviceManagerPanel } from "@/stores/ui.store";
 import AdbReversePopover from "@/components/layout/AdbReversePopover.vue";
 import { ChevronRight } from "lucide-vue-next";
 import AppIcon from "@/modules/devices/AppIcon.vue";
 import EmulatorLauncherPanel from "@/modules/devices/EmulatorLauncherPanel.vue";
 import DeviceManagerDeviceList from "@/components/device-manager/DeviceManagerDeviceList.vue";
 
-const props = defineProps<{ open: boolean }>();
+const props = defineProps<{ open: boolean; panel?: DeviceManagerPanel | null }>();
 const emit = defineEmits<{ close: []; selectDevice: [serial: string] }>();
 
 const router = useRouter();
@@ -60,8 +61,7 @@ watch(
 onUnmounted(() => window.removeEventListener("keydown", onEscape));
 const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, pairDevice } = useAdb();
 
-type Panel = "device" | "local" | "connect" | "emulators";
-const activePanel = ref<Panel>("device");
+const activePanel = ref<DeviceManagerPanel>("device");
 const selectedSerial = ref<string | null>(null);
 const { getCachedPackage } = useAppPackages(selectedSerial);
 const deviceInfoCache = reactive<Record<string, Awaited<ReturnType<typeof getDeviceOverview>>>>({});
@@ -449,6 +449,7 @@ watch(
       } else {
         selectLocalDevice();
       }
+      if (props.panel) activePanel.value = props.panel;
 
       void (async () => {
         await handleRefreshDevices();

@@ -7,6 +7,7 @@ import { useTimelineClock } from "@/composables/useTimelineClock";
 import { useReplaySession } from "@/composables/useReplaySession";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import { Button } from "@/components/ui/button";
+import ProvenanceTag from "@/components/gate/ProvenanceTag.vue";
 import ReplayPlayer from "./ReplayPlayer.vue";
 import ReplayTimeline from "./ReplayTimeline.vue";
 import ReplayNetworkPanel from "./ReplayNetworkPanel.vue";
@@ -216,10 +217,10 @@ function formatDuration(ms: number) {
     </div>
 
     <template v-else>
-      <!-- Session info bar -->
       <div
         class="flex-none flex items-center gap-4 px-4 py-2 border-b border-border/20 text-2xs text-muted-foreground bg-surface-1"
       >
+        <ProvenanceTag kind="recorded" />
         <span class="font-medium text-foreground/80">{{ session.manifest.label }}</span>
         <span class="text-border/60">·</span>
         <span>{{ formatDate(session.manifest.startedAt) }}</span>

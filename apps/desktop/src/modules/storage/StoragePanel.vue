@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterView } from "vue-router";
+import GatedRouterView from "@/components/gate/GatedRouterView.vue";
 import SubNavTabs from "@/components/layout/SubNavTabs.vue";
 import { useIndexedDBChangesTracking } from "@/modules/storage/changes/useIndexedDBChangesTracking";
 
@@ -10,7 +10,7 @@ useIndexedDBChangesTracking();
   <div class="flex h-full flex-col overflow-hidden">
     <SubNavTabs />
     <div class="flex-1 overflow-hidden">
-      <RouterView />
+      <GatedRouterView />
     </div>
   </div>
 </template>

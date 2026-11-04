@@ -5,6 +5,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useDockStore } from "@/stores/dock.store";
+import LinkIndicator from "@/components/gate/LinkIndicator.vue";
 
 const context = useActiveContextStore();
 const devicesStore = useDevicesStore();
@@ -31,22 +32,6 @@ const deviceText = computed(() => {
   const device = context.device;
   if (!device) return "no device";
   return `${device.model} · ${device.serial}${device.status === "online" ? "" : ` · ${device.status}`}`;
-});
-
-const cdp = computed(() => {
-  switch (context.targetStatus) {
-    case "connected":
-      return { label: "cdp live", tone: "text-signal-live" };
-    case "connecting":
-      return { label: "cdp connecting", tone: "text-warning" };
-    case "error":
-    case "disconnected":
-      return { label: `cdp ${context.targetStatus}`, tone: "text-error" };
-    case "idle":
-      return { label: "cdp attached", tone: "text-muted-foreground" };
-    default:
-      return { label: "no target", tone: "text-[var(--fg-subtle)]" };
-  }
 });
 
 const mirrorText = computed(() => {
@@ -98,7 +83,7 @@ const timecode = computed(() => {
       {{ adb.label }}
     </span>
     <span class="truncate" :title="deviceText">{{ deviceText }}</span>
-    <span :class="cdp.tone">{{ cdp.label }}</span>
+    <LinkIndicator :link="context.link" :prefix="context.target ? 'cdp' : undefined" />
 
     <span class="flex-1" />
 

@@ -402,13 +402,6 @@ async function executeAction() {
       </div>
     </div>
 
-    <div
-      v-else-if="!serial"
-      class="flex flex-1 items-center justify-center text-sm text-muted-foreground/25"
-    >
-      No device selected
-    </div>
-
     <ResizablePanelGroup v-else direction="horizontal" class="min-h-0 flex-1">
       <ResizablePanel :default-size="66" :min-size="42">
         <DeviceAppsList

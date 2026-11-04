@@ -20,3 +20,11 @@ export interface CDPConnection {
   sessionId?: string;
   status: "connecting" | "connected" | "disconnected" | "error";
 }
+
+/** What the device DevTools endpoint reports about one target (see `cdp_probe_target`). */
+export type TargetPresence = "visible" | "hidden" | "gone" | "unresponsive" | "unknown";
+
+export interface TargetProbe {
+  presence: TargetPresence;
+  siblingVisible: boolean;
+}

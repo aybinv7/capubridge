@@ -3,6 +3,10 @@ import { defineStore } from "pinia";
 import { useSessionStore } from "@/stores/session.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useConnectionStore } from "@/stores/connection.store";
+import { useDevicesStore } from "@/stores/devices.store";
+import { useTargetPresenceStore } from "@/stores/targetPresence.store";
+import { deriveLinkHealth, presentLink } from "@/lib/gates/link";
+import type { GateInput, GateLinkStatus } from "@/lib/gates/types";
 import type { CDPConnection } from "@/types/cdp.types";
 
 export type ActiveContextKind = "none" | "device" | "adb-target" | "local" | "chrome";
@@ -17,6 +21,8 @@ export const useActiveContextStore = defineStore("active-context", () => {
   const sessionStore = useSessionStore();
   const targetsStore = useTargetsStore();
   const connectionStore = useConnectionStore();
+  const devicesStore = useDevicesStore();
+  const presenceStore = useTargetPresenceStore();
 
   const device = computed(() => sessionStore.selectedDevice);
   const target = computed(() => targetsStore.selectedTarget);
@@ -36,6 +42,54 @@ export const useActiveContextStore = defineStore("active-context", () => {
   });
 
   const isTargetConnected = computed(() => targetStatus.value === "connected");
+
+  const linkStatus = computed<GateLinkStatus>(() => {
+    const status = targetStatus.value;
+    const selected = target.value;
+    if (!selected) return "none";
+    if (status === "connected" || status === "connecting") return status;
+    return connectionStore.failures.has(selected.id) ? "error" : status;
+  });
+
+  const linkError = computed(() => {
+    const selected = target.value;
+    return selected ? (connectionStore.failures.get(selected.id) ?? null) : null;
+  });
+
+  const link = computed(() =>
+    presentLink(
+      deriveLinkHealth(target.value?.source ?? null, linkStatus.value, presenceStore.presence),
+    ),
+  );
+
+  /** Everything a gate needs, read from the one owner of the active context. */
+  const gateInput = computed<GateInput>(() => {
+    const selected = target.value;
+    const selectedDevice = device.value;
+    return {
+      adb: devicesStore.adbServerStatus,
+      onlineDevices: devicesStore.onlineDevices.length,
+      device: selectedDevice
+        ? {
+            serial: selectedDevice.serial,
+            model: selectedDevice.model,
+            status: selectedDevice.status,
+            isStale: selectedDevice.isStale,
+          }
+        : null,
+      target: selected
+        ? {
+            id: selected.id,
+            source: selected.source,
+            title: selected.title?.trim() || selected.url,
+            packageName: selected.packageName,
+          }
+        : null,
+      link: linkStatus.value,
+      linkError: linkError.value,
+      presence: presenceStore.presence,
+    };
+  });
 
   async function alignDeviceToTarget() {
     const selected = target.value;
@@ -81,5 +135,7 @@ export const useActiveContextStore = defineStore("active-context", () => {
     kind,
     targetStatus,
     isTargetConnected,
+    link,
+    gateInput,
   };
 });

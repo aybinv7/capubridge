@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { AppWindow } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -83,25 +82,7 @@ const dialogDescription = computed(() => {
 
 <template>
   <div class="flex h-full min-h-0 flex-col overflow-hidden">
-    <div
-      v-if="!panel.selectedTarget.value || !panel.packageName.value"
-      class="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center"
-    >
-      <div
-        class="flex h-16 w-16 items-center justify-center rounded-xl border border-border/60 bg-card"
-      >
-        <AppWindow class="h-7 w-7 text-muted-foreground/35" />
-      </div>
-      <div>
-        <div class="text-lg font-medium text-foreground/80">No app target selected</div>
-        <div class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground/45">
-          Select Android WebView target from device manager. App section follows that target
-          directly.
-        </div>
-      </div>
-    </div>
-
-    <ScrollArea v-else class="h-full">
+    <ScrollArea v-if="panel.selectedTarget.value && panel.packageName.value" class="h-full">
       <div>
         <AppOverviewSurface
           :serial="panel.serial.value"

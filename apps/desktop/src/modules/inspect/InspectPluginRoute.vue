@@ -69,7 +69,7 @@ watch(
         :disabled="inspectPlugins.isDetecting.value"
         @click="refreshDetection"
       >
-        <RefreshCw :size="12" :class="inspectPlugins.isDetecting ? 'animate-spin' : ''" />
+        <RefreshCw :size="12" :class="inspectPlugins.isDetecting.value && 'animate-spin'" />
         Re-check
       </button>
     </div>

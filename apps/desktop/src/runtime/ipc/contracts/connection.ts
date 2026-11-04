@@ -1,4 +1,5 @@
 import type { ChromeFindResult, ChromeLaunchResult } from "@/types/connection.types";
+import type { TargetProbe } from "@/types/cdp.types";
 import type { CdpJsonTarget, IpcCommand } from "@/runtime/ipc/contracts/common";
 
 export interface CdpProxyResult {
@@ -12,6 +13,7 @@ export interface ConnectionCommandMap {
   adb_fetch_json_targets: IpcCommand<{ port: number }, CdpJsonTarget[]>;
   cdp_start_proxy: IpcCommand<{ wsUrl: string }, CdpProxyResult>;
   cdp_stop_proxy: IpcCommand<{ wsUrl: string }, void>;
+  cdp_probe_target: IpcCommand<{ port: number; targetId: string }, TargetProbe>;
   chrome_find: IpcCommand<undefined, ChromeFindResult>;
   chrome_is_running: IpcCommand<undefined, boolean>;
   chrome_kill_all: IpcCommand<undefined, void>;

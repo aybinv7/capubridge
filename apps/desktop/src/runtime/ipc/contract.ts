@@ -92,6 +92,7 @@ export const IPC_COMMAND_NAMES = [
   "adb_remove_forward",
   "adb_fetch_json_targets",
   "cdp_start_proxy",
+  "cdp_probe_target",
   "cdp_stop_proxy",
   "chrome_find",
   "chrome_is_running",

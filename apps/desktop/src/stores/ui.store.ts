@@ -3,6 +3,9 @@ import { defineStore } from "pinia";
 
 const LS_RAIL_COLLAPSED = "capubridge:rail-collapsed";
 
+/** Sections of the device manager a caller can open it on. */
+export type DeviceManagerPanel = "device" | "local" | "connect" | "emulators";
+
 function readCollapsed(): boolean {
   try {
     return localStorage.getItem(LS_RAIL_COLLAPSED) === "true";
@@ -14,6 +17,8 @@ function readCollapsed(): boolean {
 export const useUIStore = defineStore("ui", () => {
   const activePanel = ref<string>("/devices");
   const sidebarCollapsed = ref(readCollapsed());
+  const deviceManagerOpen = ref(false);
+  const deviceManagerPanel = ref<DeviceManagerPanel | null>(null);
 
   function setActivePanel(path: string) {
     activePanel.value = path;
@@ -28,10 +33,24 @@ export const useUIStore = defineStore("ui", () => {
     }
   }
 
+  function openDeviceManager(panel: DeviceManagerPanel | null = null) {
+    deviceManagerPanel.value = panel;
+    deviceManagerOpen.value = true;
+  }
+
+  function closeDeviceManager() {
+    deviceManagerOpen.value = false;
+    deviceManagerPanel.value = null;
+  }
+
   return {
     activePanel,
     sidebarCollapsed,
+    deviceManagerOpen,
+    deviceManagerPanel,
     setActivePanel,
     toggleSidebar,
+    openDeviceManager,
+    closeDeviceManager,
   };
 });

@@ -24,6 +24,7 @@ use commands::reasoning::{
     reasoning_provider_set_credential,
 };
 use commands::cdp_proxy::{cdp_start_proxy, cdp_stop_proxy};
+use commands::target_probe::cdp_probe_target;
 use commands::chrome::{
     chrome_activate_target, chrome_fetch_targets, chrome_find, chrome_is_running, chrome_kill_all,
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
@@ -303,6 +304,7 @@ pub fn run() {
             adb_fetch_json_targets,
             cdp_start_proxy,
             cdp_stop_proxy,
+            cdp_probe_target,
             chrome_find,
             chrome_is_running,
             chrome_kill_all,

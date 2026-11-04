@@ -178,6 +178,25 @@ pub async fn local_webview_open_devtools(app: tauri::AppHandle, label: String) -
     }
 }
 
+fn same_origin(left: &str, right: &str) -> bool {
+    let (Ok(left), Ok(right)) = (reqwest::Url::parse(left), reqwest::Url::parse(right)) else {
+        return false;
+    };
+    left.scheme() == right.scheme()
+        && left.host_str() == right.host_str()
+        && left.port_or_known_default() == right.port_or_known_default()
+}
+
+fn ambiguity_message(count: usize, current_url: &str, own_url: Option<&str>) -> String {
+    if own_url.is_some_and(|own| same_origin(own, current_url)) {
+        return format!(
+            "{current_url} is Capubridge's own dev server, so WebView2 shows it twice and cannot tell \
+             which page to attach to. Run the app you want to inspect on another port."
+        );
+    }
+    format!("{count} WebView2 pages are showing {current_url}; close duplicate local targets")
+}
+
 #[tauri::command]
 pub async fn local_webview_fetch_cdp_target(
     app: tauri::AppHandle,
@@ -215,8 +234,13 @@ pub async fn local_webview_fetch_cdp_target(
                         ) {
                             DebugTargetMatch::Found(target) => return Ok(target),
                             DebugTargetMatch::Ambiguous(count) => {
-                                last_issue = format!(
-                                    "{count} WebView2 pages are showing {current_url}; close duplicate local targets"
+                                let own_url = app
+                                    .get_webview_window("main")
+                                    .and_then(|window| window.url().ok());
+                                last_issue = ambiguity_message(
+                                    count,
+                                    current_url.as_str(),
+                                    own_url.as_ref().map(|url| url.as_str()),
                                 );
                             }
                             DebugTargetMatch::Missing => {
@@ -254,7 +278,8 @@ pub async fn local_webview_fetch_cdp_target(
 #[cfg(test)]
 mod tests {
     use super::{
-        select_debug_target, validate_local_preview_label, validate_preview_url, DebugTargetMatch,
+        ambiguity_message, select_debug_target, validate_local_preview_label, validate_preview_url,
+        DebugTargetMatch,
     };
     use serde_json::json;
 
@@ -304,6 +329,14 @@ mod tests {
             select_debug_target(targets, "about:blank", &[]),
             DebugTargetMatch::Missing
         ));
+    }
+
+    #[test]
+    fn explains_self_targeting_instead_of_blaming_duplicates() {
+        let own = ambiguity_message(2, "http://localhost:5173/storage", Some("http://localhost:5173/"));
+        assert!(own.contains("own dev server"));
+        let other = ambiguity_message(2, "http://localhost:3000/", Some("http://localhost:5173/"));
+        assert!(other.contains("close duplicate local targets"));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { RouterView } from "vue-router";
+import GatedRouterView from "@/components/gate/GatedRouterView.vue";
 import { BookMarked, Circle, Search, Trash2, X } from "lucide-vue-next";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import SubNavTabs from "@/components/layout/SubNavTabs.vue";
@@ -251,7 +251,7 @@ function formatBytes(bytes: number): string {
     </div>
 
     <div class="min-h-0 flex-1 overflow-hidden">
-      <RouterView />
+      <GatedRouterView />
     </div>
   </div>
 </template>

@@ -46,6 +46,7 @@ import { IDBDomain } from "@capubridge/cdp-protocol";
 import IDBTable from "./IDBTable.vue";
 import IDBTableToolbar from "./IDBTableToolbar.vue";
 import IDBDatabaseOverview from "./IDBDatabaseOverview.vue";
+import ProvenanceTag from "@/components/gate/ProvenanceTag.vue";
 import {
   exportDatabaseToJson,
   saveIdbExportToFile,
@@ -691,14 +692,18 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
             </button>
           </div>
 
-          <!-- Back to live IDB (snapshot mode only) -->
-          <button
+          <div
             v-if="isSnapshotMode"
-            class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-2xs text-muted-foreground/60 hover:text-foreground/80 border-b border-border/20 hover:bg-surface-3/50 transition-colors"
-            @click="router.push('/storage/indexeddb')"
+            class="flex shrink-0 items-center justify-between gap-2 border-b border-border/20 px-3 py-1.5"
           >
-            ← Back to live IndexedDB
-          </button>
+            <ProvenanceTag kind="imported" detail="read-only" />
+            <button
+              class="text-2xs text-muted-foreground transition-colors hover:text-foreground"
+              @click="router.push('/storage/indexeddb')"
+            >
+              Back to live
+            </button>
+          </div>
 
           <!-- Hidden databases toggle (only when some are hidden) -->
           <div

@@ -10,7 +10,7 @@ export const storageRoutes = [
         path: "indexeddb/:db?/:store?",
         name: "storage-indexeddb",
         component: () => import("./indexeddb/IDBExplorer.vue"),
-        meta: { label: "IndexedDB" },
+        meta: { label: "IndexedDB", requires: "target" },
       },
       {
         path: "indexeddb-snapshot/:db?/:store?",
@@ -22,25 +22,25 @@ export const storageRoutes = [
         path: "localforage",
         name: "storage-localforage",
         component: () => import("./localforage/LocalForageExplorer.vue"),
-        meta: { label: "LocalForage" },
+        meta: { label: "LocalForage", requires: "target" },
       },
       {
         path: "localstorage",
         name: "storage-localstorage",
         component: () => import("./localstorage/LSExplorer.vue"),
-        meta: { label: "LocalStorage" },
+        meta: { label: "LocalStorage", requires: "target" },
       },
       {
         path: "cache",
         name: "storage-cache",
         component: () => import("./cache/CacheExplorer.vue"),
-        meta: { label: "Cache" },
+        meta: { label: "Cache", requires: "target" },
       },
       {
         path: "opfs",
         name: "storage-opfs",
         component: () => import("./opfs/OPFSExplorer.vue"),
-        meta: { label: "OPFS" },
+        meta: { label: "OPFS", requires: "target" },
       },
       {
         path: "sqlite/:db?/:table?",

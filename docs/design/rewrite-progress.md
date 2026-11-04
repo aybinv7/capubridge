@@ -76,7 +76,20 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
       is generated from the registry. Removed the dead "Export as HAR" button. Keymap is AZERTY-safe (Shift ignored
       for punctuation chords). Commands store accepts HMR updates (an empty registry after hot reload was a dev-only
       artefact).
-- [ ] R4 Gates & states (gate component, provenance treatments, first run)
+- [x] R4 Gates & states — pure resolver in `lib/gates` (requirement × context → one blocking reason or a
+      notice), connection chain (ADB › device › target › DevTools, first break marked), copy with next actions
+      for 12 states, `WorkbenchGate` on shadcn `Empty` (full + compact), `GatedRouterView` driven by
+      `meta.requires` on Device, App, Data (IDB/LF/LS/Cache/OPFS), Network › Requests, Elements and plugins, and
+      `GatedView` on the dock. A screen that already rendered is **degraded** (hatched stale strip) instead of
+      torn down when its link drops. First run = the no-device gate (steps + live ADB watch, Wi-Fi pair,
+      emulator, This PC). `cdp_probe_target` (shared client, never forwards a port) + `targetPresence` store
+      detect **app in background / other WebView on screen / target gone**; two misses before "background".
+      One link truth (`activeContext.link`, `LinkIndicator`) for context bar, status bar and gates; connection
+      failures recorded per target and shown copyable. Device manager state moved to the UI store, opens on a
+      section, **Ctrl+Shift+D**. Provenance utilities (`prov-*`) + `ProvenanceTag` (imported IDB snapshot,
+      recorded replay, stale strip). Self-target ambiguity now says it is Capubridge's own dev server. Removed
+      9 improvised "no device / no target" branches. Windows `cargo test` fixed (Common-Controls manifest via
+      linker for every target): 173/173 Rust, 739/739 desktop tests.
 - [ ] R5 Data workbench (DataGrid, changeset, FK peek, filters/grouping, provenance)
 - [ ] R6 Network (requests, mocks as rules, recording → mocks)
 - [ ] R7 Elements + Device (tree virtualisation, a11y, lens, vitals, apps/files)
@@ -92,6 +105,7 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
 | R1       | 7        | 4.5     | 3.5        | 3      | 3        | 4.5   | 6              | 5      | 4.6     |
 | R2       | 7.5      | 5       | 6.5        | 3.5    | 4.5      | 5.5   | 6              | 5.5    | 5.5     |
 | R3       | 7.5      | 5       | 7.5        | 3.5    | 8        | 6     | 6              | 6      | 6.2     |
+| R4       | 7.5      | 5       | 8          | 7.5    | 8        | 7     | 6              | 6.5    | 6.9     |
 
 R0 notes: responsiveness gains are structural (no main-thread IPC, batched streams) but three perf pollers,
 unvirtualised lists and the unguarded screenshot loop remain; trust gains come from one context owner and
@@ -109,3 +123,22 @@ and keyboard. States only improved where the device pane was touched.
 R3 notes: the keyboard story is now best-in-class shaped (palette with data and scopes, action panel, generated
 shortcut docs) but shortcuts are not yet user-editable and only three screens contribute actions; those grow as
 each screen is rebuilt. States remain the weakest dimension — R4 is next.
+
+R4 notes: States moved most (3.5 → 7.5): every device/target screen and dock tab now shows one reason, one
+explanation and the next action, and a dropped link degrades instead of blanking. It is not 9.5 yet because
+SQLite, Graph and Network › Mock still gate themselves, the degraded strip and background/gone detection were not
+exercised live (the running binary predates `cdp_probe_target`; needs a Rust rebuild), and no screen yet has
+per-value provenance (that is R5's grid). Trust rose with one link derivation and copyable failures; it stays
+below 9 until values carry provenance everywhere and the context matrix test exists.
+
+### Open items found in R4 (assigned)
+
+- Console and network capture auto-reconnect with backoff, contradicting AGENTS.md "do not auto-reconnect" →
+  owner decision; the gate shows "disconnected" only between retries → R6
+- Detached dock windows run their own Pinia without the context bootstrap, so they are ungated and see no
+  target → R8 (detached windows subscribe to the shared context)
+- Storage queries do not key on connection status (an early "No active CDP connection" error can stick);
+  masked by the gate mounting only when connected, fixed at the root in the R5 DataGrid
+- SQLite, Graph and Network › Mock keep their own mixed gating → R5 / R6
+- `usePerfMetrics` never starts if mounted without a device; sidestepped by the gate remount → R7
+- Background / gone / degraded states need a live check after the next Rust rebuild → start of R5

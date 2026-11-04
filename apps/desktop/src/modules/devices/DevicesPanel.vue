@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterView } from "vue-router";
+import GatedRouterView from "@/components/gate/GatedRouterView.vue";
 import SubNavTabs from "@/components/layout/SubNavTabs.vue";
 </script>
 
@@ -7,7 +7,7 @@ import SubNavTabs from "@/components/layout/SubNavTabs.vue";
   <div class="flex h-full flex-col overflow-hidden">
     <SubNavTabs />
     <div class="flex-1 overflow-hidden">
-      <RouterView />
+      <GatedRouterView />
     </div>
   </div>
 </template>

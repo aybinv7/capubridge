@@ -323,9 +323,9 @@ function timeAgo(ts: number): string {
 
       <!-- CDP mode no-target warning -->
       <template v-if="store.interceptMode === 'cdp' && !hasTarget">
-        <div class="flex items-center gap-1.5 text-2xs text-warning/70">
+        <div class="flex items-center gap-1.5 text-2xs text-warning">
           <AlertTriangle class="h-3 w-3 shrink-0" />
-          No target selected — select a device tab to intercept
+          CDP mode intercepts the selected target. Choose one, or switch to HTTP mode.
         </div>
       </template>
 

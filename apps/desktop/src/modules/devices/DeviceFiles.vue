@@ -739,10 +739,7 @@ watch(
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <div v-if="!serial" class="flex flex-1 items-center justify-center text-muted-foreground/40">
-      No device connected
-    </div>
-    <template v-else>
+    <template v-if="serial">
       <div class="flex h-10 items-center gap-1 border-b border-border/30 bg-surface-2 px-3">
         <div class="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden font-mono text-xs">
           <template v-for="(crumb, i) in breadcrumbs" :key="crumb.path">

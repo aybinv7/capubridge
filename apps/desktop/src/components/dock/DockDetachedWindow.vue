@@ -90,7 +90,7 @@ async function close() {
     </div>
 
     <div class="min-h-0 flex-1 overflow-hidden" style="-webkit-app-region: no-drag">
-      <DockTabContent :tab="activeTab" />
+      <DockTabContent :tab="activeTab" :gated="false" />
     </div>
   </div>
 </template>

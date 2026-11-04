@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { ref, computed, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import type { CDPTarget, CDPConnection } from "@/types/cdp.types";
 import { CDPClient } from "@capubridge/cdp-protocol";
@@ -6,6 +6,7 @@ import { invokeCommand } from "@/runtime/ipc/client";
 
 export const useConnectionStore = defineStore("connection", () => {
   const connections = ref<Map<string, CDPConnection>>(new Map());
+  const failures = shallowRef<ReadonlyMap<string, string>>(new Map());
   const clientMap = new Map<string, CDPClient>();
   const selectedTargetId = ref<string | null>(null);
   const externalDevtoolsTargetId = ref<string | null>(null);
@@ -32,6 +33,18 @@ export const useConnectionStore = defineStore("connection", () => {
     const existing = connections.value.get(targetId);
     if (!existing) return;
     setConnection(targetId, { ...existing, status });
+  }
+
+  function recordFailure(targetId: string, error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    failures.value = new Map(failures.value).set(targetId, message);
+  }
+
+  function clearFailure(targetId: string) {
+    if (!failures.value.has(targetId)) return;
+    const next = new Map(failures.value);
+    next.delete(targetId);
+    failures.value = next;
   }
 
   async function stopProxy(targetId: string, failureMessage: string) {
@@ -139,9 +152,13 @@ export const useConnectionStore = defineStore("connection", () => {
         }
 
         updateConnectionStatus(target.id, "connected");
+        clearFailure(target.id);
         logConnection("connect:open", { targetId: target.id, wsUrl });
         logConnection("connect:ready", { targetId: target.id });
         return client;
+      } catch (error) {
+        recordFailure(target.id, error);
+        throw error;
       } finally {
         pendingConnections.delete(target.id);
       }
@@ -167,6 +184,7 @@ export const useConnectionStore = defineStore("connection", () => {
     }
 
     await stopProxy(targetId, "Failed to stop proxy");
+    clearFailure(targetId);
 
     if (selectedTargetId.value === targetId) {
       selectedTargetId.value = null;
@@ -195,10 +213,12 @@ export const useConnectionStore = defineStore("connection", () => {
 
   return {
     connections,
+    failures,
     activeConnection,
     selectedTargetId,
     externalDevtoolsTargetId,
     connect,
+    noteFailure: recordFailure,
     getClient,
     disconnectTarget,
     setStatus,

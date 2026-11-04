@@ -2,6 +2,7 @@ import { onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import {
   Bug,
+  Cable,
   Keyboard,
   Monitor,
   Moon,
@@ -149,6 +150,15 @@ export function useCoreCommands(): void {
     ),
 
     commands.registerProvider("core.devices", () => [
+      {
+        id: "device.manager",
+        title: "Choose device or target",
+        group: "Devices",
+        icon: Cable,
+        binding: "mod+shift+d",
+        keywords: ["device manager", "connect", "pair", "wifi", "emulator", "target"],
+        run: () => ui.openDeviceManager(),
+      },
       {
         id: "device.refresh",
         title: "Refresh devices",

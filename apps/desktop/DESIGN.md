@@ -73,7 +73,23 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
 `src/components/brand/BrandMark.vue` and `public/favicon.svg`: a tall bar (the phone) and a wide
 bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome otherwise.
 
-## 6. Guards
+## 6. States and provenance
+
+- **Gates.** A route declares `meta.requires` (`device`, `target`, `app-target`); panels render
+  `GatedRouterView`, the dock renders `GatedView density="compact"`. The resolver
+  (`src/lib/gates`) picks the first broken link of ADB › device › target › DevTools and shows
+  one reason, one explanation and the next actions. The connection chain is always visible so
+  the break is obvious. Never write a screen-local "no device" or "connect first" message.
+- **Degraded, not torn down.** Once a screen has rendered for a subject (device or target), a
+  dropped link keeps it mounted under a hatched `stale` strip instead of replacing it.
+- **Notices** (app in background, another WebView on screen) never block; they sit above content.
+- **One link truth.** Context bar, status bar and gates read `activeContext.link` / `gateInput`.
+- **Provenance** is a pattern, never a hue: `live` (solid, live dot), `cached` (dotted
+  underline, `prov-cached`), `recorded` (perforated edge, `prov-recorded`), `imported` (corner
+  tag, `prov-imported`), `local copy` (dashed outline, `prov-local`), `stale` (hatch,
+  `prov-stale`). Label it with `ProvenanceTag`.
+
+## 7. Guards
 
 | Check                                      | Command                         |
 | ------------------------------------------ | ------------------------------- |

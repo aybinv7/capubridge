@@ -10,7 +10,7 @@ export const networkRoutes = [
         path: "requests",
         name: "network-requests",
         component: () => import("./NetworkRequests.vue"),
-        meta: { label: "Requests" },
+        meta: { label: "Requests", requires: "target" },
       },
       {
         path: "mock",

@@ -99,8 +99,8 @@ async function saveEditAsHtml(html: string) {
           @edit-as-html="openEditAsHtml"
         />
       </template>
-      <div v-else class="text-xs text-muted-foreground/40 px-4 py-8 text-center">
-        No DOM tree loaded. Connect to a target first.
+      <div v-else class="px-4 py-8 text-center text-xs text-muted-foreground" role="status">
+        Waiting for the DOM tree. If it stays empty, reload the page on the device.
       </div>
     </div>
 
