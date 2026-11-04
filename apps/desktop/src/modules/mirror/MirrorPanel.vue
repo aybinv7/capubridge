@@ -26,6 +26,7 @@ const {
   useScrcpyCanvas,
   isAndroidStream,
   isConnected,
+  error: streamError,
   startStream,
   stopStream,
   downloadScreenshot,
@@ -415,6 +416,7 @@ function toggleRecord() {
             v-else
             :use-canvas="useScrcpyCanvas"
             :is-connected="isConnected"
+            :error="streamError"
             :laser-mode="mirrorStore.laserMode"
             :device-width="mirrorStore.deviceWidth"
             :device-height="mirrorStore.deviceHeight"
@@ -423,6 +425,7 @@ function toggleRecord() {
             @wheel="sendWheel"
             @navigation="handleStreamNavigation"
             @keyboard="sendKeyboard"
+            @retry="startStream"
             @inspect-hover="handleInspectHover"
             @inspect-select="handleInspectSelect"
             @inspect-leave="handleInspectLeave"

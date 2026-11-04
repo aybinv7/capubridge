@@ -54,8 +54,19 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
       mark + favicon; `check:design-tokens` guard in tasks and CI; contrast check rewritten for roles;
       DESIGN.md rewritten. Deviation from study: cladd-vue leaf components are vendored when a screen
       first needs them (R2+), not wholesale in R1.
-- [ ] R2 Shell (context bar, rail, tabs/splits, device pane, inspector, status bar, persistence)
-- [ ] R3 Command system (palette scopes, go-to, action panel, keymap service)
+- [x] R2 Shell — title bar with mark + wordmark; `ContextBar` (device › target, link state from
+      `activeContext`, "Select a target" call to action) replaces the pill; labelled rail (Device, App, Data,
+      Network, Elements, Replay, Flows) with selection marker and bevel, collapse persisted; accessible
+      underline sub-tabs (tablist, arrows/Home/End); `StatusBar` (adb, device, cdp link, mirror, REC
+      timecode, console); record button with recording semantics; dock/mirror toggles use selection tokens;
+      device pane side/width/settings persisted (`lib/persisted`), honest "Mirror stopped" + Retry state;
+      `flex-row-reverse` hack removed; placeholder registry entries removed.
+      Keyboard finding: WebView2 does not deliver Ctrl+1–9 or Alt+digit to the page, so rail navigation is
+      Linear-style **G then key** (`useGoShortcuts`, keys in the feature registry, shown in tooltips) and the
+      dock tab switch moved to Alt+digit while focused. Also fixed a TypeError in the shell key handler.
+      Moved: workspace document tabs/splits and the selection inspector land with the Data workbench (R5),
+      where documents and selection exist; the generic version follows from that.
+- [ ] R3 Command system (palette scopes, go-to, action panel, keymap service; palette keeps stale query; device manager ignores Esc; Settings › Shortcuts documents non-existent shortcuts)
 - [ ] R4 Gates & states (gate component, provenance treatments, first run)
 - [ ] R5 Data workbench (DataGrid, changeset, FK peek, filters/grouping, provenance)
 - [ ] R6 Network (requests, mocks as rules, recording → mocks)
@@ -70,6 +81,7 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
 | Baseline | 4        | 4       | 3.5        | 3      | 3        | 2     | 1.5            | 3.5    | 3.1     |
 | R0       | 4        | 4       | 3.5        | 3      | 3        | 4.5   | 6              | 4      | 4.0     |
 | R1       | 7        | 4.5     | 3.5        | 3      | 3        | 4.5   | 6              | 5      | 4.6     |
+| R2       | 7.5      | 5       | 6.5        | 3.5    | 4.5      | 5.5   | 6              | 5.5    | 5.5     |
 
 R0 notes: responsiveness gains are structural (no main-thread IPC, batched streams) but three perf pollers,
 unvirtualised lists and the unguarded screenshot loop remain; trust gains come from one context owner and
@@ -79,3 +91,7 @@ work yet, so identity, density, navigation, states and keyboard are unchanged by
 R1 notes: identity is now owned and guarded, but the mark is not yet in the chrome, active tabs
 borrow the ink fill (fix in R2), and categorical hues wait for their screens. Density gains are
 typographic only until the shell and grids are rebuilt.
+
+R2 notes: the shell now tells the truth about context and link state and reads as one product, but
+there are no document tabs, no inspector and the palette is still navigation-only, which caps navigation
+and keyboard. States only improved where the device pane was touched.

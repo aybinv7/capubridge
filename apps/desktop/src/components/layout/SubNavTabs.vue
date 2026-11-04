@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { Component } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInspectPlugins } from "@/modules/inspect/useInspectPlugins";
@@ -19,21 +19,14 @@ import {
   DatabaseZap,
   Table2,
   Crosshair,
-  Sun,
-  Moon,
 } from "lucide-vue-next";
 
-import { useThemeStore } from "@/stores/theme.store";
 import { isRouteEnabled } from "@/app/feature-registry";
 
 const route = useRoute();
 const router = useRouter();
 const inspectPlugins = useInspectPlugins();
-const themeStore = useThemeStore();
-
-function toggleThemeMode() {
-  themeStore.setTheme(themeStore.mode === "dark" ? "codex-light" : "codex-dark");
-}
+const tabRefs = ref<HTMLButtonElement[]>([]);
 
 const iconMap: Record<string, typeof Smartphone> = {
   "devices-overview": Smartphone,
@@ -125,38 +118,64 @@ function formatLabel(name: string): string {
 function isActive(tabPath: string): boolean {
   return route.path === tabPath || route.path.startsWith(tabPath + "/");
 }
+
+function focusTab(index: number) {
+  const count = subTabs.value.length;
+  if (count === 0) return;
+  const next = (index + count) % count;
+  tabRefs.value[next]?.focus();
+  void router.push(subTabs.value[next].path);
+}
+
+function onKeydown(event: KeyboardEvent, index: number) {
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    focusTab(index + 1);
+  } else if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    focusTab(index - 1);
+  } else if (event.key === "Home") {
+    event.preventDefault();
+    focusTab(0);
+  } else if (event.key === "End") {
+    event.preventDefault();
+    focusTab(subTabs.value.length - 1);
+  }
+}
 </script>
 
 <template>
-  <div class="h-11 border-b border-border/30 bg-surface-0 flex items-center gap-1 px-1.5 shrink-0">
+  <div
+    role="tablist"
+    class="flex h-9 shrink-0 items-stretch gap-0.5 border-b border-[var(--border-subtle)] bg-[var(--bg-chrome)] px-2"
+  >
     <button
-      v-for="tab in subTabs"
+      v-for="(tab, index) in subTabs"
       :key="tab.name"
-      @click="router.push(tab.path)"
-      class="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 rounded-xl"
+      :ref="(el) => (tabRefs[index] = el as HTMLButtonElement)"
+      role="tab"
+      :aria-selected="isActive(tab.path)"
+      :tabindex="isActive(tab.path) ? 0 : -1"
+      class="relative flex items-center gap-1.5 rounded-t-md px-2.5 text-sm transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--ring)]"
       :class="
         isActive(tab.path)
-          ? 'text-brand font-medium bg-brand-soft border border-brand/25'
-          : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-surface-2'
+          ? 'text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-[var(--bg-surface-raised)]/60'
       "
+      @click="router.push(tab.path)"
+      @keydown="onKeydown($event, index)"
     >
       <component
         v-if="tab.icon"
         :is="tab.icon"
-        :size="13"
-        :class="['shrink-0', isActive(tab.path) ? 'opacity-100' : 'opacity-50']"
+        :size="14"
+        :class="['shrink-0', isActive(tab.path) ? 'opacity-100' : 'opacity-60']"
       />
       {{ tab.label }}
+      <span
+        v-if="isActive(tab.path)"
+        class="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-signal-select"
+      />
     </button>
-    <div v-if="route.path.startsWith('/settings')" class="ml-auto flex items-center pr-1">
-      <button
-        class="w-8 h-7 flex items-center justify-center rounded-md transition-colors duration-[120ms] text-muted-foreground/50 hover:text-foreground hover:bg-surface-2"
-        :title="themeStore.mode === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'"
-        @click="toggleThemeMode()"
-      >
-        <Sun v-if="themeStore.mode === 'dark'" :size="14" />
-        <Moon v-else :size="14" />
-      </button>
-    </div>
   </div>
 </template>

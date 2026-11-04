@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from "vue";
-import { Play, Pause } from "lucide-vue-next";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useRecordingSession } from "@/composables/useRecordingSession";
 import RecordingConfigModal from "./RecordingConfigModal.vue";
@@ -56,39 +55,39 @@ async function handleClick() {
 
 <template>
   <button
-    class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-2xs transition-all border ml-1"
+    type="button"
+    class="flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-xs transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
     :class="{
-      'bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20':
+      'bg-signal-rec/12 text-signal-rec hover:bg-signal-rec/20':
         recordingStore.phase === 'recording',
-      'border-border/15 text-muted-foreground/20 cursor-not-allowed pointer-events-none':
-        recordingStore.phase === 'stopping',
-      'border-border/25 text-muted-foreground/50 hover:text-foreground hover:border-border-active hover:bg-surface-2':
+      'pointer-events-none text-[var(--fg-subtle)]': recordingStore.phase === 'stopping',
+      'text-muted-foreground hover:bg-[var(--bg-surface-raised)] hover:text-foreground':
         recordingStore.phase === 'idle',
     }"
     :disabled="recordingStore.phase === 'stopping'"
+    :aria-pressed="recordingStore.phase === 'recording'"
     :title="
       recordingStore.phase === 'recording'
         ? 'Stop recording'
         : recordingStore.phase === 'stopping'
-          ? 'Finalizing...'
-          : 'Start recording session'
+          ? 'Finalizing…'
+          : 'Record a session'
     "
     @click="handleClick"
   >
     <template v-if="recordingStore.phase === 'idle'">
-      <Play class="w-3 h-3" />
-      <span>Record</span>
+      <span class="h-2 w-2 rounded-full bg-signal-rec" />
+      <span class="font-sans">Record</span>
     </template>
 
     <template v-else-if="recordingStore.phase === 'recording'">
-      <span class="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+      <span class="h-2 w-2 rounded-sm bg-signal-rec" />
       <span>{{ formatElapsed(elapsedMs) }}</span>
-      <Pause class="w-2.5 h-2.5 fill-current" />
     </template>
 
     <template v-else>
-      <span class="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 animate-pulse" />
-      <span>Saving…</span>
+      <span class="h-2 w-2 rounded-full bg-[var(--fg-subtle)]" />
+      <span class="font-sans">Saving…</span>
     </template>
   </button>
 

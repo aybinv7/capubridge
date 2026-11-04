@@ -57,6 +57,15 @@ function handleKeydown(event: KeyboardEvent) {
     return;
   }
 
+  if (event.altKey && !hasModifier && /^Digit[1-9]$/.test(event.code)) {
+    const nextTab = visibleTabs.value[Number(event.code.slice(5)) - 1];
+    if (nextTab) {
+      event.preventDefault();
+      dockStore.setActiveTab(nextTab);
+    }
+    return;
+  }
+
   if (!hasModifier) {
     return;
   }
@@ -70,21 +79,7 @@ function handleKeydown(event: KeyboardEvent) {
   if (event.key === "ArrowDown") {
     event.preventDefault();
     dockStore.resizeBy(-80);
-    return;
   }
-
-  const tabIndex = Number.parseInt(event.key, 10);
-  if (Number.isNaN(tabIndex)) {
-    return;
-  }
-
-  const nextTab = visibleTabs.value[tabIndex - 1];
-  if (!nextTab) {
-    return;
-  }
-
-  event.preventDefault();
-  dockStore.setActiveTab(nextTab);
 }
 
 function startResize(event: MouseEvent) {
@@ -161,6 +156,7 @@ defineExpose({
 <template>
   <div
     ref="rootRef"
+    data-dock-root
     tabindex="-1"
     class="relative flex shrink-0 flex-col overflow-hidden border-t border-border bg-background shadow-[0_-16px_40px_-28px_rgb(0_0_0_/_0.9)] outline-none"
     :style="{ height: `${heightPx}px` }"

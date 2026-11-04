@@ -4,6 +4,8 @@ import { useRouter } from "vue-router";
 import BottomDock from "@/components/dock/BottomDock.vue";
 import TitleBar from "./TitleBar.vue";
 import Sidebar from "./Sidebar.vue";
+import StatusBar from "./StatusBar.vue";
+import { primaryNavigationFeatures } from "@/app/feature-registry";
 import CommandPalette from "@/components/CommandPalette.vue";
 import MirrorPanel from "@/modules/mirror/MirrorPanel.vue";
 import { clearDockOpenRequest, dockOpenEventName, readDockOpenRequest } from "@/lib/dock-events";
@@ -15,6 +17,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import { useOverlayGuard } from "@/composables/useOverlayGuard";
 import { useActiveContextStore } from "@/stores/activeContext.store";
+import { useGoShortcuts } from "@/composables/useGoShortcuts";
 import type { ADBDevice } from "@/types/adb.types";
 import type { DockTab } from "@/types/dock.types";
 import { invokeCommand, listenEvent } from "@/runtime/ipc";
@@ -30,6 +33,7 @@ const devicesStore = useDevicesStore();
 const router = useRouter();
 useOverlayGuard();
 useActiveContextStore();
+useGoShortcuts(router, primaryNavigationFeatures);
 let unlistenInspectRequest: (() => void) | null = null;
 let unlistenInspectHover: (() => void) | null = null;
 let unlistenInspectSelect: (() => void) | null = null;
@@ -225,15 +229,10 @@ onUnmounted(() => {
   <div class="flex flex-col h-screen overflow-hidden bg-background">
     <TitleBar @open-command-palette="commandPaletteOpen = true" />
 
-    <div
-      class="flex flex-1 overflow-hidden"
-      :class="{
-        'flex-row-reverse': showMirrorLeft,
-      }"
-    >
-      <Sidebar />
+    <div class="flex flex-1 overflow-hidden">
+      <Sidebar class="order-first" />
 
-      <div class="relative flex flex-1 flex-col overflow-hidden min-w-0 bg-surface-0">
+      <div class="relative order-2 flex flex-1 flex-col overflow-hidden min-w-0 bg-surface-0">
         <main ref="mainContentRef" tabindex="-1" class="flex-1 overflow-hidden outline-none">
           <RouterView />
         </main>
@@ -258,7 +257,7 @@ onUnmounted(() => {
         enter-from-class="opacity-0 -translate-x-full"
         leave-to-class="opacity-0 -translate-x-full"
       >
-        <div v-if="showMirrorLeft" class="left-0" :style="{ bottom: mirrorBottomInset }">
+        <div v-if="showMirrorLeft" class="order-1" :style="{ bottom: mirrorBottomInset }">
           <MirrorPanel />
         </div>
       </Transition>
@@ -269,11 +268,13 @@ onUnmounted(() => {
         enter-from-class="opacity-0 translate-x-full"
         leave-to-class="opacity-0 translate-x-full"
       >
-        <div v-if="showMirrorRight" class="right-0" :style="{ bottom: mirrorBottomInset }">
+        <div v-if="showMirrorRight" class="order-3" :style="{ bottom: mirrorBottomInset }">
           <MirrorPanel />
         </div>
       </Transition>
     </div>
+
+    <StatusBar />
   </div>
 
   <CommandPalette :open="commandPaletteOpen" @close="commandPaletteOpen = false" />

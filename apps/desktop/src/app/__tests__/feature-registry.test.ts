@@ -9,10 +9,12 @@ import {
   primaryNavigationFeatures,
   registeredFeatureRoutes,
   utilityNavigationFeatures,
+  type AppFeatureDefinition,
 } from "../feature-registry";
 
 test("hidden features have no production exposure", () => {
-  const hiddenFeatures = featureRegistry.filter((feature) => feature.maturity === "hidden");
+  const registry: readonly AppFeatureDefinition[] = featureRegistry;
+  const hiddenFeatures = registry.filter((feature) => feature.maturity === "hidden");
   const exposedFeatureIds = new Set<string>(
     [
       ...enabledFeatures,

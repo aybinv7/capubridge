@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
-import { MonitorOff } from "lucide-vue-next";
+import { MonitorOff, RotateCw } from "lucide-vue-next";
 
 const props = defineProps<{
   useCanvas?: boolean;
   isConnected: boolean;
+  error?: string | null;
   laserMode: boolean;
   deviceWidth: number;
   deviceHeight: number;
@@ -12,6 +13,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  retry: [];
   touch: [action: "down" | "move" | "up", x: number, y: number];
   wheel: [x: number, y: number, deltaX: number, deltaY: number];
   navigation: [action: "back" | "home"];
@@ -293,14 +295,30 @@ watch(
       class="w-full h-full object-contain pointer-events-none"
     />
 
-    <div v-else class="absolute inset-0 flex flex-col items-center justify-center gap-3">
-      <div class="relative">
-        <MonitorOff class="w-8 h-8 text-muted-foreground/20" />
-        <div
-          class="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-muted-foreground/20 animate-pulse"
-        />
-      </div>
-      <p class="text-xs text-muted-foreground/30 tracking-wide">Connecting…</p>
+    <div
+      v-else-if="error"
+      class="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center"
+      role="alert"
+    >
+      <MonitorOff class="h-7 w-7 text-error" />
+      <p class="text-sm font-medium text-foreground">Mirror stopped</p>
+      <p class="line-clamp-3 font-mono text-2xs text-muted-foreground">{{ error }}</p>
+      <button
+        type="button"
+        class="mt-1 flex h-7 items-center gap-1.5 rounded-md bg-[var(--bg-surface-raised)] px-2.5 text-xs text-foreground shadow-bevel hover:bg-[var(--bg-surface)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+        @click.stop="emit('retry')"
+        @mousedown.stop
+      >
+        <RotateCw :size="13" /> Retry
+      </button>
+    </div>
+    <div
+      v-else
+      class="absolute inset-0 flex flex-col items-center justify-center gap-2"
+      aria-live="polite"
+    >
+      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-signal-select" />
+      <p class="text-xs text-muted-foreground">Starting mirror…</p>
     </div>
 
     <Transition

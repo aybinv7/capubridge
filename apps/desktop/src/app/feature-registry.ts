@@ -10,7 +10,6 @@ import {
   MonitorPlay,
   Settings,
   Smartphone,
-  Zap,
 } from "lucide-vue-next";
 import { appRoutes } from "../modules/app/public";
 import { automationRoutes } from "../modules/automation/public";
@@ -33,13 +32,15 @@ export interface AppFeatureDefinition {
   maturity: FeatureMaturity;
   placement: FeaturePlacement;
   commandPalette: boolean;
+  goKey?: string;
   routes: readonly RouteRecordRaw[];
 }
 
 export const featureRegistry = [
   {
     id: "devices",
-    label: "Devices",
+    goKey: "d",
+    label: "Device",
     path: "/devices",
     icon: Smartphone,
     maturity: "stable",
@@ -49,6 +50,7 @@ export const featureRegistry = [
   },
   {
     id: "app",
+    goKey: "a",
     label: "App",
     path: "/app",
     icon: AppWindow,
@@ -59,7 +61,8 @@ export const featureRegistry = [
   },
   {
     id: "storage",
-    label: "Storage",
+    goKey: "s",
+    label: "Data",
     path: "/storage",
     icon: Database,
     maturity: "beta",
@@ -69,6 +72,7 @@ export const featureRegistry = [
   },
   {
     id: "network",
+    goKey: "n",
     label: "Network",
     path: "/network",
     icon: Globe,
@@ -79,7 +83,8 @@ export const featureRegistry = [
   },
   {
     id: "inspect",
-    label: "Inspect",
+    goKey: "e",
+    label: "Elements",
     path: "/inspect",
     icon: Crosshair,
     maturity: "beta",
@@ -89,6 +94,7 @@ export const featureRegistry = [
   },
   {
     id: "replay",
+    goKey: "r",
     label: "Replay",
     path: "/replay",
     icon: MonitorPlay,
@@ -99,7 +105,8 @@ export const featureRegistry = [
   },
   {
     id: "automation",
-    label: "Automation",
+    goKey: "f",
+    label: "Flows",
     path: "/automation",
     icon: Bot,
     maturity: "experimental",
@@ -126,36 +133,6 @@ export const featureRegistry = [
     placement: "utility",
     commandPalette: true,
     routes: settingsRoutes,
-  },
-  {
-    id: "capacitor",
-    label: "Capacitor",
-    path: "/capacitor",
-    icon: Zap,
-    maturity: "hidden",
-    placement: "none",
-    commandPalette: false,
-    routes: [],
-  },
-  {
-    id: "hybrid",
-    label: "Hybrid",
-    path: "/hybrid",
-    icon: AppWindow,
-    maturity: "hidden",
-    placement: "none",
-    commandPalette: false,
-    routes: [],
-  },
-  {
-    id: "assistant",
-    label: "Assistant",
-    path: "/assistant",
-    icon: Bot,
-    maturity: "hidden",
-    placement: "none",
-    commandPalette: false,
-    routes: [],
   },
 ] as const satisfies readonly AppFeatureDefinition[];
 
