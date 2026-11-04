@@ -1,3 +1,4 @@
+use crate::blocking::run_blocking;
 use crate::commands::adb::get_adb_device;
 use adb_client::ADBDeviceExt;
 use base64::{engine::general_purpose, Engine};
@@ -518,7 +519,11 @@ fn delete_permission_error(path: &str, output: &str) -> String {
 
 /// List directory contents on the device via `ls -la`.
 #[tauri::command]
-pub fn adb_list_dir(serial: String, path: String) -> Result<Vec<FileEntry>, String> {
+pub async fn adb_list_dir(serial: String, path: String) -> Result<Vec<FileEntry>, String> {
+    run_blocking(move || list_dir(&serial, &path)).await?
+}
+
+fn list_dir(serial: &str, path: &str) -> Result<Vec<FileEntry>, String> {
     let mut device = get_adb_device(&serial)?;
 
     let normalized_path = normalize_path(&path);
@@ -644,7 +649,11 @@ pub async fn adb_open_file_picker(serial: String, path: String) -> Result<String
 
 /// Delete a file or directory on the device.
 #[tauri::command]
-pub fn adb_delete_file(serial: String, path: String, is_dir: bool) -> Result<(), String> {
+pub async fn adb_delete_file(serial: String, path: String, is_dir: bool) -> Result<(), String> {
+    run_blocking(move || delete_file(&serial, &path, is_dir)).await?
+}
+
+fn delete_file(serial: &str, path: &str, is_dir: bool) -> Result<(), String> {
     let mut device = get_adb_device(&serial)?;
 
     let normalized_path = normalize_path(&path);
@@ -670,11 +679,15 @@ pub fn adb_delete_file(serial: String, path: String, is_dir: bool) -> Result<(),
 
 /// Show a file in the system file explorer
 #[tauri::command]
-pub fn show_in_folder(path: String) -> Result<(), String> {
+pub async fn show_in_folder(path: String) -> Result<(), String> {
+    run_blocking(move || reveal_in_file_manager(&path)).await?
+}
+
+fn reveal_in_file_manager(path: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
-            .args(["/select,", &path])
+            .args(["/select,", path])
             .spawn()
             .map_err(|e| format!("Failed to open folder: {}", e))?;
     }
@@ -682,7 +695,7 @@ pub fn show_in_folder(path: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("open")
-            .args(["-R", &path])
+            .args(["-R", path])
             .spawn()
             .map_err(|e| format!("Failed to open folder: {}", e))?;
     }

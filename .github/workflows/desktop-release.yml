@@ -53,6 +53,9 @@ jobs:
       - name: check silent error boundary
         run: vp run check:silent-errors
 
+      - name: check async command boundary
+        run: vp run check:async-commands
+
       - name: check source-size boundary
         run: vp run check:source-size
 

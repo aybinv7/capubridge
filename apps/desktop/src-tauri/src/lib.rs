@@ -1,5 +1,6 @@
 mod adb_runtime;
 pub mod automation;
+mod blocking;
 mod commands;
 mod error;
 mod mcp;

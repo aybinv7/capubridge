@@ -1,6 +1,7 @@
 import { ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import { useDockStore } from "@/stores/dock.store";
+import { createFrameBatcher } from "@/lib/frame-batcher";
 import {
   runSessionEffect,
   startLogcatLeaseEffect,
@@ -28,19 +29,32 @@ function trimPausedEntries(entries: LogcatEntry[]): LogcatEntry[] {
 export const useLogcatStore = defineStore("logcat", () => {
   const dockStore = useDockStore();
 
-  const entries = ref<LogcatEntry[]>([]);
+  const entries = shallowRef<LogcatEntry[]>([]);
   const serial = ref<string | null>(null);
   const isStreaming = ref(false);
   const isReady = ref(false);
   const isPaused = ref(false);
-  const pausedEntries = ref<LogcatEntry[]>([]);
+  const pausedEntries = shallowRef<LogcatEntry[]>([]);
   const pausedCount = ref(0);
   const error = ref<string | null>(null);
   const unlisten = shallowRef<null | (() => void)>(null);
 
   let initializePromise: Promise<void> | null = null;
+  let lastQueuedId: LogcatEntry["id"] | null = null;
+
+  const batcher = createFrameBatcher<LogcatEntry>((batch) => {
+    if (isPaused.value) {
+      pausedEntries.value = trimPausedEntries(pausedEntries.value.concat(batch));
+      pausedCount.value += batch.length;
+    } else {
+      entries.value = trimEntries(entries.value.concat(batch));
+    }
+    dockStore.markUnread("logcat");
+  }, maxLogcatEntries);
 
   function clear() {
+    batcher.clear();
+    lastQueuedId = null;
     entries.value = [];
     pausedEntries.value = [];
     pausedCount.value = 0;
@@ -51,20 +65,11 @@ export const useLogcatStore = defineStore("logcat", () => {
       return;
     }
 
-    const lastEntry = entries.value.at(-1);
-    if (lastEntry?.id === entry.id) {
+    if (lastQueuedId === entry.id) {
       return;
     }
-
-    if (isPaused.value) {
-      pausedEntries.value = trimPausedEntries([...pausedEntries.value, entry]);
-      pausedCount.value += 1;
-      dockStore.markUnread("logcat");
-      return;
-    }
-
-    entries.value = trimEntries([...entries.value, entry]);
-    dockStore.markUnread("logcat");
+    lastQueuedId = entry.id;
+    batcher.push(entry);
   }
 
   function handleSessionEvent(event: SessionEvent) {
@@ -192,15 +197,17 @@ export const useLogcatStore = defineStore("logcat", () => {
       return;
     }
 
+    batcher.flushNow();
     isPaused.value = false;
     if (pausedEntries.value.length > 0) {
-      entries.value = trimEntries([...entries.value, ...pausedEntries.value]);
+      entries.value = trimEntries(entries.value.concat(pausedEntries.value));
       pausedEntries.value = [];
       pausedCount.value = 0;
     }
   }
 
   function pause() {
+    batcher.flushNow();
     isPaused.value = true;
   }
 

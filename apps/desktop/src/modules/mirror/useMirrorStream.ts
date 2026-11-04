@@ -199,6 +199,11 @@ export function useMirrorStream() {
     input.cleanupClipboardListener();
     state.prepareStart();
 
+    if (targetsStore.selectedTarget?.source === "local") {
+      state.markDisconnected();
+      return;
+    }
+
     const preferredSource = resolvePreferredSource();
     if (!lifecycle.isCurrent(token)) return;
     if (!preferredSource) {

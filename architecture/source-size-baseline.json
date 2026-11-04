@@ -9,15 +9,9 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/adb.rs",
-      "maxLines": 2009,
+      "maxLines": 2045,
       "owner": "Device runtime",
-      "rationale": "Legacy ADB command adapter still combines device, package, file, shell, reverse, and parsing capabilities; keep stable while capability command modules are extracted. Bumped from 1950 for classify_am_start_output() (v2.0.0) — a small, well-tested fix for a real false-positive bug, not scope growth; extracting one helper out of the cohesive app-launch flow would be an arbitrary split, not a real module boundary. Bumped from 2000 for emulator device listing (v2.2.0) — the AVD-aware branch of device enumeration belongs with the adb device parsing it extends; the emulator's own launch/discovery logic already lives in the separate commands/emulator.rs module."
-    },
-    {
-      "path": "apps/desktop/src/data/mock-data.ts",
-      "maxLines": 1729,
-      "owner": "Application shell",
-      "rationale": "Legacy fixture corpus remains centralized during product-truth cleanup; it must move to capability-owned test fixtures or be removed before this exception closes."
+      "rationale": "Legacy ADB command adapter still combines device, package, file, shell, reverse, and parsing capabilities; keep stable while capability command modules are extracted. Bumped from 1950 for classify_am_start_output() (v2.0.0) — a small, well-tested fix for a real false-positive bug, not scope growth; extracting one helper out of the cohesive app-launch flow would be an arbitrary split, not a real module boundary. Bumped from 2000 for emulator device listing (v2.2.0) — the AVD-aware branch of device enumeration belongs with the adb device parsing it extends; the emulator's own launch/discovery logic already lives in the separate commands/emulator.rs module. Bumped from 2009 to 2045 for async IPC (UI rewrite R0.1) — every command now hands its blocking body to run_blocking so ADB I/O never runs on the main thread; the per-command wrappers stay beside the commands they guard. The split into capability modules is scheduled with the R7 device rebuild."
     },
     {
       "path": "apps/desktop/src/modules/devices/DeviceFiles.vue",
@@ -27,9 +21,9 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/mirror.rs",
-      "maxLines": 1379,
+      "maxLines": 1401,
       "owner": "Mirror runtime",
-      "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; v2.4.0 adds bundled scrcpy binary resolution across release platforms, while MIR-01 owns the staged runtime split. Bumped from 1284 to 1379 for scrcpy 4.x protocol support (v2.4.3) — the server shifted its video-header layout (a new session packet, renumbered CONFIG/KEY_FRAME flag bits) and this fix adds version-aware parsing for both the handshake and per-frame path; splitting the added branches out would fragment one wire-format concern across files, not draw a real module boundary."
+      "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; v2.4.0 adds bundled scrcpy binary resolution across release platforms, while MIR-01 owns the staged runtime split. Bumped from 1284 to 1379 for scrcpy 4.x protocol support (v2.4.3) — the server shifted its video-header layout (a new session packet, renumbered CONFIG/KEY_FRAME flag bits) and this fix adds version-aware parsing for both the handshake and per-frame path; splitting the added branches out would fragment one wire-format concern across files, not draw a real module boundary. Bumped from 1379 to 1401 for async IPC (UI rewrite R0.1) — screenshot, screen-size, keyevent and scrcpy launch/stop now run off the main thread through run_blocking; MIR-01 still owns the runtime split."
     },
     {
       "path": "apps/desktop/src/modules/network/NetworkRequests.vue",

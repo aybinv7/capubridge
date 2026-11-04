@@ -9,6 +9,8 @@ use std::time::{Duration, Instant, SystemTime};
 use serde::Serialize;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 
+use crate::blocking::run_blocking;
+
 const EARLY_EXIT_WINDOW: Duration = Duration::from_secs(8);
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
 const STOP_GRACE: Duration = Duration::from_secs(5);
@@ -442,7 +444,11 @@ fn launch_log_path(avd_name: &str) -> PathBuf {
 }
 
 #[tauri::command]
-pub fn emulator_list_avds() -> Result<Vec<AndroidVirtualDevice>, String> {
+pub async fn emulator_list_avds() -> Result<Vec<AndroidVirtualDevice>, String> {
+    run_blocking(list_avds).await?
+}
+
+fn list_avds() -> Result<Vec<AndroidVirtualDevice>, String> {
     let (_, names) = installed_avd_names()?;
 
     Ok(names
@@ -455,7 +461,11 @@ pub fn emulator_list_avds() -> Result<Vec<AndroidVirtualDevice>, String> {
 }
 
 #[tauri::command]
-pub fn emulator_launch_avd(avd_name: String) -> Result<EmulatorLaunchResult, String> {
+pub async fn emulator_launch_avd(avd_name: String) -> Result<EmulatorLaunchResult, String> {
+    run_blocking(move || launch_avd(&avd_name)).await?
+}
+
+fn launch_avd(avd_name: &str) -> Result<EmulatorLaunchResult, String> {
     let avd_name = avd_name.trim();
     if avd_name.is_empty() {
         return Err("Android Virtual Device name is required.".to_string());
@@ -541,7 +551,11 @@ pub fn emulator_launch_avd(avd_name: String) -> Result<EmulatorLaunchResult, Str
 }
 
 #[tauri::command]
-pub fn emulator_stop_avd(avd_name: String) -> Result<EmulatorStopResult, String> {
+pub async fn emulator_stop_avd(avd_name: String) -> Result<EmulatorStopResult, String> {
+    run_blocking(move || stop_avd(&avd_name)).await?
+}
+
+fn stop_avd(avd_name: &str) -> Result<EmulatorStopResult, String> {
     let avd_name = avd_name.trim();
     if avd_name.is_empty() {
         return Err("Android Virtual Device name is required.".to_string());

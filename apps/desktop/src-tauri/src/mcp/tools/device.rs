@@ -70,6 +70,7 @@ impl CapuBridgeTools {
         Parameters(ScreenshotParams { serial, inline }): Parameters<ScreenshotParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let png_base64 = adb_mirror_screenshot(serial)
+            .await
             .map_err(|error| ErrorData::internal_error(error, None))?;
         if inline {
             return ok_json(&serde_json::json!({ "pngBase64": png_base64 }));
@@ -92,6 +93,7 @@ impl CapuBridgeTools {
         Parameters(GetScreenSizeParams { serial }): Parameters<GetScreenSizeParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let size = adb_mirror_get_screen_size(serial)
+            .await
             .map_err(|error| ErrorData::internal_error(error, None))?;
         ok_json(&size)
     }
@@ -107,6 +109,7 @@ impl CapuBridgeTools {
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "tap")?;
         let size = adb_mirror_get_screen_size(serial.clone())
+            .await
             .map_err(|error| ErrorData::internal_error(error, None))?;
         device_control::validate_point(x, y, size.width, size.height)
             .map_err(|error| ErrorData::invalid_params(error, None))?;
@@ -137,6 +140,7 @@ impl CapuBridgeTools {
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "swipe")?;
         let size = adb_mirror_get_screen_size(serial.clone())
+            .await
             .map_err(|error| ErrorData::internal_error(error, None))?;
         device_control::validate_point(x1, y1, size.width, size.height)
             .map_err(|error| ErrorData::invalid_params(error, None))?;

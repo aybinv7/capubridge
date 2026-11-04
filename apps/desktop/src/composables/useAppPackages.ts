@@ -169,7 +169,10 @@ export function useAppPackages(serial: { value: string } | string) {
     return packages;
   }
 
-  function usePackages(scope: PackageFetchScope | { value: PackageFetchScope } = "third-party") {
+  function usePackages(
+    scope: PackageFetchScope | { value: PackageFetchScope } = "third-party",
+    options: { enabled?: { value: boolean } } = {},
+  ) {
     const resolvedScope = computed(() => (typeof scope === "string" ? scope : scope.value));
 
     return useQuery({
@@ -189,7 +192,8 @@ export function useAppPackages(serial: { value: string } | string) {
         }
         return readPackagesCache(currentSerial, resolvedScope.value)?.updatedAt;
       },
-      enabled: computed(() => !!activeSerial.value),
+      enabled: computed(() => !!activeSerial.value && (options.enabled?.value ?? true)),
+      retry: false,
       staleTime: PACKAGE_CACHE_STALE_MS,
       gcTime: 24 * 60 * 60 * 1000,
     });

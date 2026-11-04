@@ -944,7 +944,7 @@ pub async fn sqlite_refresh_database(
 
 /// Clean up cached temp files for a specific database.
 #[tauri::command]
-pub fn sqlite_close_database(serial: String, package: String, db_path: String) {
+pub async fn sqlite_close_database(serial: String, package: String, db_path: String) {
     let key = cache_key(&serial, &package, &db_path);
     let mut cache = DB_CACHE.lock();
     if let Some(path) = cache.remove(&key) {

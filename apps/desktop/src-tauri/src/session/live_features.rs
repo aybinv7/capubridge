@@ -25,7 +25,7 @@ fn require_hot_session(
 }
 
 #[tauri::command]
-pub fn session_start_logcat_lease(
+pub async fn session_start_logcat_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
@@ -62,7 +62,7 @@ pub fn session_start_logcat_lease(
 }
 
 #[tauri::command]
-pub fn session_stop_logcat_lease(
+pub async fn session_stop_logcat_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
@@ -117,7 +117,7 @@ pub async fn session_start_perf_lease(
 }
 
 #[tauri::command]
-pub fn session_stop_perf_lease(
+pub async fn session_stop_perf_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
@@ -132,7 +132,7 @@ pub fn session_stop_perf_lease(
 }
 
 #[tauri::command]
-pub fn session_start_mirror_lease(
+pub async fn session_start_mirror_lease(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
@@ -164,7 +164,7 @@ pub async fn session_stop_mirror_lease(
 }
 
 #[tauri::command]
-pub fn session_attach_console_target(
+pub async fn session_attach_console_target(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
@@ -180,7 +180,7 @@ pub fn session_attach_console_target(
 }
 
 #[tauri::command]
-pub fn session_detach_console_target(
+pub async fn session_detach_console_target(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,

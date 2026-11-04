@@ -30,6 +30,9 @@ export default defineConfig({
       "check:silent-errors": {
         command: "node scripts/check-silent-errors.mjs",
       },
+      "check:async-commands": {
+        command: "node scripts/check-async-commands.mjs",
+      },
       "check:source-size": {
         command: "node scripts/check-source-size.mjs",
       },
@@ -42,7 +45,7 @@ export default defineConfig({
       },
       ready: {
         command:
-          "vp check && vp run check:versions && vp run check:modules && vp run check:ipc-boundary && vp run check:silent-errors && vp run check:source-size && vp run desktop#check:contrast && vp run test:all && vp run -r build",
+          "vp check && vp run check:versions && vp run check:modules && vp run check:ipc-boundary && vp run check:silent-errors && vp run check:async-commands && vp run check:source-size && vp run desktop#check:contrast && vp run test:all && vp run -r build",
       },
     },
   },

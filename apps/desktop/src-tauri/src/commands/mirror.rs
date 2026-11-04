@@ -14,6 +14,7 @@ use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex as TokioMutex, Notify};
 
+use crate::blocking::run_blocking;
 use crate::commands::adb::get_adb_device;
 
 fn get_device(serial: &str) -> Result<ADBServerDevice, String> {
@@ -991,7 +992,11 @@ pub async fn adb_mirror_scrcpy_stop(serial: String) -> Result<(), String> {
 // ── Single screenshot ─────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn adb_mirror_screenshot(serial: String) -> Result<String, String> {
+pub async fn adb_mirror_screenshot(serial: String) -> Result<String, String> {
+    run_blocking(move || capture_screenshot(&serial)).await?
+}
+
+fn capture_screenshot(serial: &str) -> Result<String, String> {
     let mut device = get_device(&serial)?;
     let mut output = Vec::new();
     device
@@ -1017,7 +1022,11 @@ pub struct ScreenSize {
 }
 
 #[tauri::command]
-pub fn adb_mirror_get_screen_size(serial: String) -> Result<ScreenSize, String> {
+pub async fn adb_mirror_get_screen_size(serial: String) -> Result<ScreenSize, String> {
+    run_blocking(move || read_screen_size(&serial)).await?
+}
+
+fn read_screen_size(serial: &str) -> Result<ScreenSize, String> {
     let mut device = get_device(&serial)?;
     let mut output = Vec::new();
     device
@@ -1049,7 +1058,11 @@ pub fn adb_mirror_get_screen_size(serial: String) -> Result<ScreenSize, String> 
 // ── Input events ─────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn adb_mirror_keyevent(serial: String, keycode: u32) -> Result<(), String> {
+pub async fn adb_mirror_keyevent(serial: String, keycode: u32) -> Result<(), String> {
+    run_blocking(move || send_keyevent(&serial, keycode)).await?
+}
+
+fn send_keyevent(serial: &str, keycode: u32) -> Result<(), String> {
     let mut device = get_device(&serial)?;
     let mut out = Vec::new();
     device
@@ -1182,8 +1195,18 @@ fn stop_scrcpy_session(serial: &str) {
 }
 
 #[tauri::command]
-pub fn adb_mirror_launch_scrcpy(
+pub async fn adb_mirror_launch_scrcpy(
     app: AppHandle,
+    serial: String,
+    max_size: Option<u32>,
+    bit_rate_mbps: Option<u32>,
+    max_fps: Option<u32>,
+) -> Result<(), String> {
+    run_blocking(move || launch_scrcpy(&app, serial, max_size, bit_rate_mbps, max_fps)).await?
+}
+
+fn launch_scrcpy(
+    app: &AppHandle,
     serial: String,
     max_size: Option<u32>,
     bit_rate_mbps: Option<u32>,
@@ -1191,7 +1214,7 @@ pub fn adb_mirror_launch_scrcpy(
 ) -> Result<(), String> {
     stop_scrcpy_session(&serial);
 
-    let scrcpy = resolve_scrcpy_binary(&app).ok_or_else(|| {
+    let scrcpy = resolve_scrcpy_binary(app).ok_or_else(|| {
         "scrcpy is unavailable. Reinstall CapuBridge or install scrcpy in PATH and try again."
             .to_string()
     })?;
@@ -1275,9 +1298,8 @@ fn scrcpy_platform_dir_names() -> Vec<&'static str> {
 }
 
 #[tauri::command]
-pub fn adb_mirror_stop_scrcpy(serial: String) -> Result<(), String> {
-    stop_scrcpy_session(&serial);
-    Ok(())
+pub async fn adb_mirror_stop_scrcpy(serial: String) -> Result<(), String> {
+    run_blocking(move || stop_scrcpy_session(&serial)).await
 }
 
 #[tauri::command]

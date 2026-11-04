@@ -250,10 +250,18 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
       .map(([, other]) => parkWebview(other));
     await Promise.all(parkOthers);
 
-    const bounds = readElementBounds(element);
     activeTargetId.value = target.id;
+    if (modalGuardCount.value > 0) {
+      await parkWebview(webview);
+      return;
+    }
+    const bounds = readElementBounds(element);
     await webview.setPosition(new LogicalPosition(bounds.x, bounds.y));
     await webview.setSize(new LogicalSize(bounds.width, bounds.height));
+    if (modalGuardCount.value > 0) {
+      await parkWebview(webview);
+      return;
+    }
     await webview.show();
   }
 
@@ -263,7 +271,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     }
 
     const webview = webviews.value.get(target.localWebviewLabel);
-    if (!webview || activeTargetId.value !== target.id) {
+    if (!webview || activeTargetId.value !== target.id || modalGuardCount.value > 0) {
       return;
     }
 

@@ -27,12 +27,21 @@ export function useAppPanel() {
   );
   const packageName = computed(() => selectedTarget.value?.packageName ?? "");
 
-  const { usePackages } = useAppPackages(serial);
-  const { data: packages } = usePackages(computed(() => "all" as const));
-
-  const selectedPackage = computed(
-    () => packages.value?.find((entry) => entry.packageName === packageName.value) ?? null,
+  const { usePackages, getCachedPackage } = useAppPackages(serial);
+  const { data: packages } = usePackages(
+    computed(() => "all" as const),
+    { enabled: computed(() => !!packageName.value) },
   );
+
+  const selectedPackage = computed(() => {
+    if (!packageName.value) {
+      return null;
+    }
+    return (
+      packages.value?.find((entry) => entry.packageName === packageName.value) ??
+      getCachedPackage(packageName.value)
+    );
+  });
 
   const detailsQuery = useQuery({
     queryKey: computed(() => ["app-panel-details", serial.value, packageName.value]),

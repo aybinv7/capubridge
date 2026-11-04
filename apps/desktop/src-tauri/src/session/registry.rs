@@ -5,9 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use parking_lot::RwLock;
 use tauri::{AppHandle, State};
 
+use crate::blocking::run_blocking;
 use crate::error::{AppError, AppResult, AppResultExt};
 use crate::commands::adb::{
-    adb_cancel_list_packages_inner, adb_list_devices, AdbDevice, DeviceInfo, PackageListScope,
+    adb_cancel_list_packages_inner, adb_list_devices_inner, AdbDevice, DeviceInfo, PackageListScope,
     ReverseRule, WebViewSocket,
 };
 use crate::session::cache_store::SessionCacheStore;
@@ -257,7 +258,7 @@ impl SessionRegistry {
     }
 
     pub fn refresh_from_adb(&self) -> Result<SessionRegistrySnapshot, String> {
-        let devices = adb_list_devices()?;
+        let devices = adb_list_devices_inner()?;
         Ok(self.replace_devices(devices))
     }
 
@@ -464,94 +465,114 @@ impl SessionRegistryState {
 }
 
 fn session_for_online_serial(
-    state: &State<'_, SessionRegistryState>,
+    registry: &SessionRegistry,
     serial: &str,
 ) -> Result<Arc<DeviceSession>, String> {
-    require_online_session(&state.registry(), serial)
+    require_online_session(registry, serial)
+}
+
+async fn run_on_online_session<T, F>(
+    state: &State<'_, SessionRegistryState>,
+    operation: &str,
+    serial: String,
+    task: F,
+) -> AppResult<T>
+where
+    F: FnOnce(Arc<DeviceSession>) -> Result<T, String> + Send + 'static,
+    T: Send + 'static,
+{
+    let registry = state.registry();
+    run_blocking(move || session_for_online_serial(&registry, &serial).and_then(task))
+        .await
+        .app_context(operation)?
+        .app_context(operation)
 }
 
 #[tauri::command]
-pub fn session_list_devices(
+pub async fn session_list_devices(
     state: State<'_, SessionRegistryState>,
 ) -> AppResult<Vec<SessionDeviceSnapshot>> {
     Ok(state.registry().list_devices())
 }
 
 #[tauri::command]
-pub fn session_get_registry_state(
+pub async fn session_get_registry_state(
     state: State<'_, SessionRegistryState>,
 ) -> AppResult<SessionRegistrySnapshot> {
     Ok(state.registry().snapshot())
 }
 
 #[tauri::command]
-pub fn session_refresh_devices(
+pub async fn session_refresh_devices(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
 ) -> AppResult<SessionRegistrySnapshot> {
-    let snapshot = state
-        .registry()
-        .refresh_from_adb()
+    let registry = state.registry();
+    let snapshot = run_blocking(move || registry.refresh_from_adb())
+        .await
+        .app_context("session_refresh_devices")?
         .app_context("session_refresh_devices")?;
     emit_registry_snapshot(&app, snapshot.clone());
     Ok(snapshot)
 }
 
 #[tauri::command]
-pub fn session_get_device_info(
+pub async fn session_get_device_info(
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<DeviceInfo> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.get_device_info())
-        .app_context("session_get_device_info")
+    run_on_online_session(&state, "session_get_device_info", serial, |session| {
+        session.get_device_info()
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_shell_command(
+pub async fn session_shell_command(
     state: State<'_, SessionRegistryState>,
     serial: String,
     command: String,
 ) -> AppResult<String> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.shell_command(command))
-        .app_context("session_shell_command")
+    run_on_online_session(&state, "session_shell_command", serial, move |session| {
+        session.shell_command(command)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_tcpip(
+pub async fn session_tcpip(
     state: State<'_, SessionRegistryState>,
     serial: String,
     port: u16,
 ) -> AppResult<()> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.tcpip(port))
-        .app_context("session_tcpip")
+    run_on_online_session(&state, "session_tcpip", serial, move |session| {
+        session.tcpip(port)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_root(
+pub async fn session_root(
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<()> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.root())
-        .app_context("session_root")
+    run_on_online_session(&state, "session_root", serial, |session| session.root()).await
 }
 
 #[tauri::command]
-pub fn session_reboot(
+pub async fn session_reboot(
     state: State<'_, SessionRegistryState>,
     serial: String,
     mode: Option<String>,
 ) -> AppResult<()> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.reboot(mode))
-        .app_context("session_reboot")
+    run_on_online_session(&state, "session_reboot", serial, move |session| {
+        session.reboot(mode)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_list_packages(
+pub async fn session_list_packages(
     state: State<'_, SessionRegistryState>,
     serial: String,
     scope: Option<PackageListScope>,
@@ -572,18 +593,19 @@ pub fn session_list_packages(
 }
 
 #[tauri::command]
-pub fn session_refresh_packages(
+pub async fn session_refresh_packages(
     state: State<'_, SessionRegistryState>,
     serial: String,
     scope: Option<PackageListScope>,
 ) -> AppResult<Vec<crate::commands::adb::AdbPackage>> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.refresh_packages(scope))
-        .app_context("session_refresh_packages")
+    run_on_online_session(&state, "session_refresh_packages", serial, move |session| {
+        session.refresh_packages(scope)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_cancel_list_packages(
+pub async fn session_cancel_list_packages(
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<()> {
@@ -597,61 +619,66 @@ pub fn session_cancel_list_packages(
 }
 
 #[tauri::command]
-pub fn session_open_package(
+pub async fn session_open_package(
     state: State<'_, SessionRegistryState>,
     serial: String,
     package_name: String,
 ) -> AppResult<String> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.open_package(package_name))
-        .app_context("session_open_package")
+    run_on_online_session(&state, "session_open_package", serial, move |session| {
+        session.open_package(package_name)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_reverse(
+pub async fn session_reverse(
     state: State<'_, SessionRegistryState>,
     serial: String,
     remote_port: u16,
     local_port: u16,
 ) -> AppResult<()> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.reverse(remote_port, local_port))
-        .app_context("session_reverse")
+    run_on_online_session(&state, "session_reverse", serial, move |session| {
+        session.reverse(remote_port, local_port)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_remove_reverse(
+pub async fn session_remove_reverse(
     state: State<'_, SessionRegistryState>,
     serial: String,
     remote_port: u16,
 ) -> AppResult<()> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.remove_reverse(remote_port))
-        .app_context("session_remove_reverse")
+    run_on_online_session(&state, "session_remove_reverse", serial, move |session| {
+        session.remove_reverse(remote_port)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_list_reverse(
+pub async fn session_list_reverse(
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<Vec<ReverseRule>> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.list_reverse())
-        .app_context("session_list_reverse")
+    run_on_online_session(&state, "session_list_reverse", serial, |session| {
+        session.list_reverse()
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_list_webview_sockets(
+pub async fn session_list_webview_sockets(
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<Vec<WebViewSocket>> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.list_webview_sockets())
-        .app_context("session_list_webview_sockets")
+    run_on_online_session(&state, "session_list_webview_sockets", serial, |session| {
+        session.list_webview_sockets()
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_list_targets(
+pub async fn session_list_targets(
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<Vec<SessionTargetSnapshot>> {
@@ -670,24 +697,26 @@ pub fn session_list_targets(
 }
 
 #[tauri::command]
-pub fn session_refresh_targets(
+pub async fn session_refresh_targets(
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<Vec<SessionTargetSnapshot>> {
-    session_for_online_serial(&state, &serial)
-        .and_then(|session| session.refresh_targets())
-        .app_context("session_refresh_targets")
+    run_on_online_session(&state, "session_refresh_targets", serial, |session| {
+        session.refresh_targets()
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn session_set_active_device(
+pub async fn session_set_active_device(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: Option<String>,
 ) -> AppResult<SessionRegistrySnapshot> {
-    let snapshot = state
-        .registry()
-        .set_active_serial(serial)
+    let registry = state.registry();
+    let snapshot = run_blocking(move || registry.set_active_serial(serial))
+        .await
+        .app_context("session_set_active_device")?
         .app_context("session_set_active_device")?;
     emit_registry_snapshot(&app, snapshot.clone());
     Ok(snapshot)
@@ -698,14 +727,15 @@ pub fn session_set_active_device(
 /// that address on its own. A device still reachable over ADB reappears on the
 /// next scan, this only clears history for one that will not.
 #[tauri::command]
-pub fn session_forget_device(
+pub async fn session_forget_device(
     app: AppHandle,
     state: State<'_, SessionRegistryState>,
     serial: String,
 ) -> AppResult<SessionRegistrySnapshot> {
-    let snapshot = state
-        .registry()
-        .forget_device(&serial)
+    let registry = state.registry();
+    let snapshot = run_blocking(move || registry.forget_device(&serial))
+        .await
+        .app_context("session_forget_device")?
         .app_context("session_forget_device")?;
     emit_registry_snapshot(&app, snapshot.clone());
     Ok(snapshot)

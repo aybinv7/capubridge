@@ -140,13 +140,13 @@ pub async fn call_with_timeout(
 
 /// Frontend → Rust callback that completes a pending bridge request.
 #[tauri::command]
-pub fn mcp_bridge_respond(
+pub async fn mcp_bridge_respond(
     bridge: State<'_, FrontendBridge>,
     request_id: String,
     ok: bool,
     #[allow(clippy::used_underscore_binding)] result: Option<Value>,
     error: Option<String>,
-) {
+) -> Result<(), String> {
     bridge.resolve(
         &request_id,
         BridgeResponse {
@@ -155,6 +155,7 @@ pub fn mcp_bridge_respond(
             error,
         },
     );
+    Ok(())
 }
 
 #[cfg(test)]

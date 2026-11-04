@@ -145,7 +145,11 @@ watch(
       leave-from-class="opacity-100 scale-100"
       leave-to-class="opacity-0 scale-[0.98]"
     >
-      <div v-if="open" class="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
+      <div
+        v-if="open"
+        data-overlay
+        class="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
+      >
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="emit('close')" />
 
         <div

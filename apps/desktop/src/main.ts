@@ -13,7 +13,16 @@ const pinia = createPinia();
 
 app.use(pinia);
 app.use(router);
-app.use(VueQueryPlugin);
+app.use(VueQueryPlugin, {
+  queryClientConfig: {
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
+    },
+  },
+});
 
 // Apply the persisted theme + accent before mount to avoid a flash of the
 // default palette.

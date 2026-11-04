@@ -6,9 +6,10 @@
 
 use serde::Serialize;
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use super::{auth, config, discovery, server, McpServerState};
+use crate::blocking::run_blocking;
 use crate::session::registry::SessionRegistryState;
 
 #[derive(Debug, Serialize)]
@@ -96,13 +97,14 @@ async fn stop_server(app: &AppHandle, state: &McpServerState) -> Result<(), Stri
 }
 
 #[tauri::command]
-pub fn mcp_get_status(
-    app: AppHandle,
-    state: State<'_, McpServerState>,
-) -> Result<McpStatus, String> {
-    let cfg = config::load(&app)?;
-    let principals = registry_for(&app, &state, &cfg)?;
-    Ok(build_status(&cfg, &state, &principals, None))
+pub async fn mcp_get_status(app: AppHandle) -> Result<McpStatus, String> {
+    run_blocking(move || {
+        let state = app.state::<McpServerState>();
+        let cfg = config::load(&app)?;
+        let principals = registry_for(&app, &state, &cfg)?;
+        Ok(build_status(&cfg, &state, &principals, None))
+    })
+    .await?
 }
 
 #[tauri::command]
@@ -204,39 +206,48 @@ pub async fn mcp_regenerate_token(
 }
 
 #[tauri::command]
-pub fn mcp_list_principals(
+pub async fn mcp_list_principals(
     app: AppHandle,
-    state: State<'_, McpServerState>,
 ) -> Result<Vec<auth::McpPrincipalSummary>, String> {
-    let cfg = config::load(&app)?;
-    Ok(registry_for(&app, &state, &cfg)?.list())
+    run_blocking(move || {
+        let state = app.state::<McpServerState>();
+        let cfg = config::load(&app)?;
+        Ok(registry_for(&app, &state, &cfg)?.list())
+    })
+    .await?
 }
 
 #[tauri::command]
-pub fn mcp_create_principal(
+pub async fn mcp_create_principal(
     app: AppHandle,
-    state: State<'_, McpServerState>,
     name: String,
     capabilities: Vec<String>,
 ) -> Result<auth::CreatedMcpPrincipal, String> {
-    let mut cfg = config::load(&app)?;
-    if cfg.token.is_empty() {
-        cfg.ensure_token();
-        config::save(&app, &cfg)?;
-    }
-    let registry = registry_for(&app, &state, &cfg)?;
-    let capabilities = auth::parse_capabilities(&capabilities)?;
-    registry.create(name, capabilities)
+    run_blocking(move || {
+        let state = app.state::<McpServerState>();
+        let mut cfg = config::load(&app)?;
+        if cfg.token.is_empty() {
+            cfg.ensure_token();
+            config::save(&app, &cfg)?;
+        }
+        let registry = registry_for(&app, &state, &cfg)?;
+        let capabilities = auth::parse_capabilities(&capabilities)?;
+        registry.create(name, capabilities)
+    })
+    .await?
 }
 
 #[tauri::command]
-pub fn mcp_revoke_principal(
+pub async fn mcp_revoke_principal(
     app: AppHandle,
-    state: State<'_, McpServerState>,
     id: String,
 ) -> Result<Vec<auth::McpPrincipalSummary>, String> {
-    let cfg = config::load(&app)?;
-    let registry = registry_for(&app, &state, &cfg)?;
-    registry.revoke(&id)?;
-    Ok(registry.list())
+    run_blocking(move || {
+        let state = app.state::<McpServerState>();
+        let cfg = config::load(&app)?;
+        let registry = registry_for(&app, &state, &cfg)?;
+        registry.revoke(&id)?;
+        Ok(registry.list())
+    })
+    .await?
 }

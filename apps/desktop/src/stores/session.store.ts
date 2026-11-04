@@ -92,9 +92,16 @@ export const useSessionStore = defineStore("session", () => {
     isInitialized.value = true;
   }
 
+  function applyIfCurrent(snapshot: SessionRegistrySnapshot) {
+    if (isInitialized.value && snapshot.revision < registry.value.revision) {
+      return;
+    }
+    applySnapshot(snapshot);
+  }
+
   function handleSessionEvent(event: SessionEvent) {
     if (event.type === "registryUpdated") {
-      applySnapshot(event.snapshot);
+      applyIfCurrent(event.snapshot);
     }
   }
 
@@ -131,7 +138,7 @@ export const useSessionStore = defineStore("session", () => {
     const snapshot = await runSessionEffect(refreshDevicesEffect(), {
       operation: "session.refreshDevices",
     });
-    applySnapshot(snapshot);
+    applyIfCurrent(snapshot);
     return snapshot;
   }
 
@@ -143,7 +150,7 @@ export const useSessionStore = defineStore("session", () => {
       const snapshot = await runSessionEffect(setActiveDeviceEffect(serial), {
         operation: "session.setActiveDevice",
       });
-      applySnapshot(snapshot);
+      applyIfCurrent(snapshot);
       return snapshot;
     } catch (error) {
       registry.value = previous;
@@ -165,7 +172,7 @@ export const useSessionStore = defineStore("session", () => {
       const snapshot = await runSessionEffect(forgetDeviceEffect(serial), {
         operation: "session.forgetDevice",
       });
-      applySnapshot(snapshot);
+      applyIfCurrent(snapshot);
       return snapshot;
     } catch (error) {
       registry.value = previous;

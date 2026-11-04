@@ -2,10 +2,11 @@
 import { describe, test, expect, beforeEach } from "vite-plus/test";
 import { setActivePinia, createPinia } from "pinia";
 import { useUpdaterStore } from "../updater.store";
+import { installMemoryStorage } from "@/test/memory-storage";
 
 describe("updater store", () => {
   beforeEach(() => {
-    localStorage.clear();
+    installMemoryStorage();
     setActivePinia(createPinia());
   });
 

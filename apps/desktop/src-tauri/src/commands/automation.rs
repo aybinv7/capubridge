@@ -9,6 +9,7 @@ use zip::ZipArchive;
 
 use crate::automation::hedge::{hedged, Transience};
 use crate::automation::store::{AutomationEventPage, AutomationStoreState};
+use crate::blocking::run_blocking;
 
 /// Request body forwarded to the Jev System One endpoint.
 ///
@@ -180,42 +181,50 @@ pub struct AutomationEventReadPayload {
 }
 
 #[tauri::command]
-pub fn automation_task_upsert(
+pub async fn automation_task_upsert(
     state: State<'_, AutomationStoreState>,
     payload: AutomationTaskUpsertPayload,
 ) -> Result<(), String> {
-    state.0.upsert_task(payload.task, payload.run)
+    let store = state.0.clone();
+    run_blocking(move || store.upsert_task(payload.task, payload.run)).await?
 }
 
 #[tauri::command]
-pub fn automation_event_append(
+pub async fn automation_event_append(
     app: tauri::AppHandle,
     state: State<'_, AutomationStoreState>,
     payload: AutomationEventPayload,
 ) -> Result<(), String> {
-    state.0.append_event(payload.event.clone())?;
+    let store = state.0.clone();
+    let event = payload.event.clone();
+    run_blocking(move || store.append_event(event)).await??;
     app.emit("capubridge:automation-task-event", payload)
         .map_err(|error| format!("Failed emitting automation event: {error}"))
 }
 
 #[tauri::command]
-pub fn automation_events_read(
+pub async fn automation_events_read(
     state: State<'_, AutomationStoreState>,
     payload: AutomationEventReadPayload,
 ) -> Result<AutomationEventPage, String> {
-    state.0.read_events(
-        &payload.task_id,
-        &payload.run_id,
-        payload.cursor,
-        payload.limit.unwrap_or(100),
-    )
+    let store = state.0.clone();
+    run_blocking(move || {
+        store.read_events(
+            &payload.task_id,
+            &payload.run_id,
+            payload.cursor,
+            payload.limit.unwrap_or(100),
+        )
+    })
+    .await?
 }
 
 #[tauri::command]
-pub fn automation_tasks_list(
+pub async fn automation_tasks_list(
     state: State<'_, AutomationStoreState>,
-) -> Vec<serde_json::Value> {
-    state.0.list_tasks()
+) -> Result<Vec<serde_json::Value>, String> {
+    let store = state.0.clone();
+    run_blocking(move || store.list_tasks()).await
 }
 
 /// Maximum decoded bytes accepted for one session attachment.

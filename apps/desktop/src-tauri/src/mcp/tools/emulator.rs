@@ -14,8 +14,9 @@ impl CapuBridgeTools {
         annotations(read_only_hint = true)
     )]
     async fn list_emulators(&self) -> Result<CallToolResult, ErrorData> {
-        let emulators =
-            emulator_list_avds().map_err(|error| ErrorData::internal_error(error, None))?;
+        let emulators = emulator_list_avds()
+            .await
+            .map_err(|error| ErrorData::internal_error(error, None))?;
         ok_json(&emulators)
     }
 
@@ -30,6 +31,7 @@ impl CapuBridgeTools {
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "launch_emulator")?;
         let result = emulator_launch_avd(avd_name)
+            .await
             .map_err(|error| ErrorData::invalid_params(error, None))?;
         ok_json(&result)
     }
@@ -44,8 +46,9 @@ impl CapuBridgeTools {
         Parameters(StopEmulatorParams { avd_name, confirm }): Parameters<StopEmulatorParams>,
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "stop_emulator")?;
-        let result =
-            emulator_stop_avd(avd_name).map_err(|error| ErrorData::invalid_params(error, None))?;
+        let result = emulator_stop_avd(avd_name)
+            .await
+            .map_err(|error| ErrorData::invalid_params(error, None))?;
         ok_json(&result)
     }
 }

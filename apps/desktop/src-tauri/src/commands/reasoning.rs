@@ -2,6 +2,8 @@ use keyring::Entry;
 use serde::Serialize;
 use std::time::Duration;
 
+use crate::blocking::run_blocking;
+
 const CREDENTIAL_SERVICE: &str = "capubridge.desktop.reasoning";
 
 #[derive(Debug, Clone, Serialize)]
@@ -111,7 +113,13 @@ fn completion_text(provider: &str, response: serde_json::Value) -> Result<String
 
 /// Writes a provider key to the operating system credential store.
 #[tauri::command]
-pub fn reasoning_provider_set_credential(
+pub async fn reasoning_provider_set_credential(
+    payload: ReasoningProviderCredentialPayload,
+) -> Result<ReasoningProviderCredentialStatus, String> {
+    run_blocking(move || store_credential(payload)).await?
+}
+
+fn store_credential(
     payload: ReasoningProviderCredentialPayload,
 ) -> Result<ReasoningProviderCredentialStatus, String> {
     if payload.api_key.trim().is_empty() {
@@ -129,7 +137,13 @@ pub fn reasoning_provider_set_credential(
 
 /// Reports only whether a provider key exists; it never returns the key.
 #[tauri::command]
-pub fn reasoning_provider_get_credential_status(
+pub async fn reasoning_provider_get_credential_status(
+    payload: ReasoningProviderPayload,
+) -> Result<ReasoningProviderCredentialStatus, String> {
+    run_blocking(move || read_credential_status(payload)).await?
+}
+
+fn read_credential_status(
     payload: ReasoningProviderPayload,
 ) -> Result<ReasoningProviderCredentialStatus, String> {
     let provider = supported_provider(&payload.provider)?;
@@ -142,7 +156,13 @@ pub fn reasoning_provider_get_credential_status(
 
 /// Removes a provider key from the operating system credential store.
 #[tauri::command]
-pub fn reasoning_provider_delete_credential(
+pub async fn reasoning_provider_delete_credential(
+    payload: ReasoningProviderPayload,
+) -> Result<ReasoningProviderCredentialStatus, String> {
+    run_blocking(move || remove_credential(payload)).await?
+}
+
+fn remove_credential(
     payload: ReasoningProviderPayload,
 ) -> Result<ReasoningProviderCredentialStatus, String> {
     let provider = supported_provider(&payload.provider)?;

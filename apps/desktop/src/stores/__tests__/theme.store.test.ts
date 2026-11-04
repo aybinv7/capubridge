@@ -2,11 +2,12 @@
 import { describe, test, expect, beforeEach } from "vite-plus/test";
 import { setActivePinia, createPinia } from "pinia";
 import { useThemeStore } from "../theme.store";
+import { installMemoryStorage } from "@/test/memory-storage";
 
 describe("themeStore", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    localStorage.clear();
+    installMemoryStorage();
     document.documentElement.removeAttribute("data-theme");
     document.documentElement.removeAttribute("data-theme-mode");
     document.documentElement.style.cssText = "";

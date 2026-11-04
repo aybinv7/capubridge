@@ -18,6 +18,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 
 use crate::adb_runtime;
+use crate::blocking::run_blocking;
 
 pub(crate) fn map_adb_server_err(err: impl std::fmt::Display) -> String {
     let msg = err.to_string();
@@ -663,7 +664,11 @@ fn parse_device_long(dl: &DeviceLong) -> AdbDevice {
 }
 
 #[tauri::command]
-pub fn adb_list_devices() -> Result<Vec<AdbDevice>, String> {
+pub async fn adb_list_devices() -> Result<Vec<AdbDevice>, String> {
+    run_blocking(adb_list_devices_inner).await?
+}
+
+pub(crate) fn adb_list_devices_inner() -> Result<Vec<AdbDevice>, String> {
     catch_adb_panic("adb_list_devices", || {
         let devices = with_serialized_adb_server(|server| {
             server.devices_long().map_err(map_adb_server_err)
@@ -776,10 +781,13 @@ pub(crate) fn adb_get_device_info_inner(serial: &str) -> Result<DeviceInfo, Stri
 }
 
 #[tauri::command]
-pub fn adb_get_device_info(serial: String) -> Result<DeviceInfo, String> {
-    catch_adb_panic("adb_get_device_info", move || {
-        adb_get_device_info_inner(&serial)
+pub async fn adb_get_device_info(serial: String) -> Result<DeviceInfo, String> {
+    run_blocking(move || {
+        catch_adb_panic("adb_get_device_info", move || {
+            adb_get_device_info_inner(&serial)
+        })
     })
+    .await?
 }
 
 pub(crate) fn adb_shell_command_inner(serial: &str, command: &str) -> Result<String, String> {
@@ -792,10 +800,13 @@ pub(crate) fn adb_shell_command_inner(serial: &str, command: &str) -> Result<Str
 }
 
 #[tauri::command]
-pub fn adb_shell_command(serial: String, command: String) -> Result<String, String> {
-    catch_adb_panic("adb_shell_command", move || {
-        adb_shell_command_inner(&serial, &command)
+pub async fn adb_shell_command(serial: String, command: String) -> Result<String, String> {
+    run_blocking(move || {
+        catch_adb_panic("adb_shell_command", move || {
+            adb_shell_command_inner(&serial, &command)
+        })
     })
+    .await?
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1099,7 +1110,7 @@ where
 }
 
 #[tauri::command]
-pub fn start_logcat(serial: String, app: AppHandle) -> Result<(), String> {
+pub async fn start_logcat(serial: String, app: AppHandle) -> Result<(), String> {
     let line_app = app.clone();
     let error_app = app.clone();
     start_logcat_session_with_callbacks(
@@ -1117,42 +1128,54 @@ pub fn start_logcat(serial: String, app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn stop_logcat(serial: String) -> Result<(), String> {
+pub async fn stop_logcat(serial: String) -> Result<(), String> {
     stop_logcat_session(&serial);
     Ok(())
 }
 
 #[tauri::command]
-pub fn adb_connect_device(host: String, port: u16) -> Result<(), String> {
-    catch_adb_panic("adb_connect_device", move || {
-        let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-        with_serialized_adb_server(|server| {
-            server.connect_device(addr).map_err(map_adb_server_err)
+pub async fn adb_connect_device(host: String, port: u16) -> Result<(), String> {
+    run_blocking(move || {
+        catch_adb_panic("adb_connect_device", move || {
+            let addr =
+                SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
+            with_serialized_adb_server(|server| {
+                server.connect_device(addr).map_err(map_adb_server_err)
+            })
         })
     })
+    .await?
 }
 
 #[tauri::command]
-pub fn adb_disconnect_device(host: String, port: u16) -> Result<(), String> {
-    catch_adb_panic("adb_disconnect_device", move || {
-        let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-        with_serialized_adb_server(|server| {
-            server.disconnect_device(addr).map_err(map_adb_server_err)
+pub async fn adb_disconnect_device(host: String, port: u16) -> Result<(), String> {
+    run_blocking(move || {
+        catch_adb_panic("adb_disconnect_device", move || {
+            let addr =
+                SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
+            with_serialized_adb_server(|server| {
+                server.disconnect_device(addr).map_err(map_adb_server_err)
+            })
         })
     })
+    .await?
 }
 
 #[tauri::command]
-pub fn adb_pair_device(host: String, port: u16, code: String) -> Result<(), String> {
-    catch_adb_panic("adb_pair_device", move || {
-        let addr = SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
-        with_serialized_adb_server(|server| server.pair(addr, code).map_err(map_adb_server_err))
+pub async fn adb_pair_device(host: String, port: u16, code: String) -> Result<(), String> {
+    run_blocking(move || {
+        catch_adb_panic("adb_pair_device", move || {
+            let addr =
+                SocketAddrV4::new(host.parse::<Ipv4Addr>().map_err(|e| e.to_string())?, port);
+            with_serialized_adb_server(|server| server.pair(addr, code).map_err(map_adb_server_err))
+        })
     })
+    .await?
 }
 
 #[tauri::command]
-pub fn adb_tcpip(serial: String, port: u16) -> Result<(), String> {
-    adb_tcpip_inner(&serial, port)
+pub async fn adb_tcpip(serial: String, port: u16) -> Result<(), String> {
+    run_blocking(move || adb_tcpip_inner(&serial, port)).await?
 }
 
 pub(crate) fn adb_tcpip_inner(serial: &str, port: u16) -> Result<(), String> {
@@ -1163,8 +1186,8 @@ pub(crate) fn adb_tcpip_inner(serial: &str, port: u16) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn adb_reboot(serial: String, mode: Option<String>) -> Result<(), String> {
-    adb_reboot_inner(&serial, mode.as_deref())
+pub async fn adb_reboot(serial: String, mode: Option<String>) -> Result<(), String> {
+    run_blocking(move || adb_reboot_inner(&serial, mode.as_deref())).await?
 }
 
 pub(crate) fn adb_reboot_inner(serial: &str, mode: Option<&str>) -> Result<(), String> {
@@ -1180,8 +1203,8 @@ pub(crate) fn adb_reboot_inner(serial: &str, mode: Option<&str>) -> Result<(), S
 }
 
 #[tauri::command]
-pub fn adb_root(serial: String) -> Result<(), String> {
-    adb_root_inner(&serial)
+pub async fn adb_root(serial: String) -> Result<(), String> {
+    run_blocking(move || adb_root_inner(&serial)).await?
 }
 
 pub(crate) fn adb_root_inner(serial: &str) -> Result<(), String> {
@@ -1369,11 +1392,11 @@ pub(crate) fn adb_list_packages_inner(
 }
 
 #[tauri::command]
-pub fn adb_list_packages(
+pub async fn adb_list_packages(
     serial: String,
     scope: Option<PackageListScope>,
 ) -> Result<Vec<AdbPackage>, String> {
-    adb_list_packages_inner(&serial, scope)
+    run_blocking(move || adb_list_packages_inner(&serial, scope)).await?
 }
 
 pub(crate) fn adb_cancel_list_packages_inner(serial: &str) {
@@ -1381,13 +1404,20 @@ pub(crate) fn adb_cancel_list_packages_inner(serial: &str) {
 }
 
 #[tauri::command]
-pub fn adb_cancel_list_packages(serial: String) -> Result<(), String> {
+pub async fn adb_cancel_list_packages(serial: String) -> Result<(), String> {
     adb_cancel_list_packages_inner(&serial);
     Ok(())
 }
 
 #[tauri::command]
-pub fn adb_get_package_details(
+pub async fn adb_get_package_details(
+    serial: String,
+    package_name: String,
+) -> Result<AdbPackageDetails, String> {
+    run_blocking(move || adb_get_package_details_inner(serial, package_name)).await?
+}
+
+fn adb_get_package_details_inner(
     serial: String,
     package_name: String,
 ) -> Result<AdbPackageDetails, String> {
@@ -1465,10 +1495,13 @@ pub fn adb_get_package_details(
 }
 
 #[tauri::command]
-pub fn adb_open_package(serial: String, package_name: String) -> Result<String, String> {
-    catch_adb_panic("adb_open_package", move || {
-        adb_open_package_inner(&serial, &package_name)
+pub async fn adb_open_package(serial: String, package_name: String) -> Result<String, String> {
+    run_blocking(move || {
+        catch_adb_panic("adb_open_package", move || {
+            adb_open_package_inner(&serial, &package_name)
+        })
     })
+    .await?
 }
 
 /// Classify raw `am start` output as success or failure.
@@ -1745,10 +1778,13 @@ pub(crate) fn adb_list_webview_sockets_inner(serial: &str) -> Result<Vec<WebView
 }
 
 #[tauri::command]
-pub fn adb_list_webview_sockets(serial: String) -> Result<Vec<WebViewSocket>, String> {
-    catch_adb_panic("adb_list_webview_sockets", move || {
-        adb_list_webview_sockets_inner(&serial)
+pub async fn adb_list_webview_sockets(serial: String) -> Result<Vec<WebViewSocket>, String> {
+    run_blocking(move || {
+        catch_adb_panic("adb_list_webview_sockets", move || {
+            adb_list_webview_sockets_inner(&serial)
+        })
     })
+    .await?
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1759,8 +1795,8 @@ pub struct ReverseRule {
 }
 
 #[tauri::command]
-pub fn adb_reverse(serial: String, remote_port: u16, local_port: u16) -> Result<(), String> {
-    adb_reverse_inner(&serial, remote_port, local_port)
+pub async fn adb_reverse(serial: String, remote_port: u16, local_port: u16) -> Result<(), String> {
+    run_blocking(move || adb_reverse_inner(&serial, remote_port, local_port)).await?
 }
 
 pub(crate) fn adb_reverse_inner(
@@ -1777,8 +1813,8 @@ pub(crate) fn adb_reverse_inner(
 }
 
 #[tauri::command]
-pub fn adb_remove_reverse(serial: String, remote_port: u16) -> Result<(), String> {
-    adb_remove_reverse_inner(&serial, remote_port)
+pub async fn adb_remove_reverse(serial: String, remote_port: u16) -> Result<(), String> {
+    run_blocking(move || adb_remove_reverse_inner(&serial, remote_port)).await?
 }
 
 fn encode_adb_request(service: &str) -> Result<Vec<u8>, String> {
@@ -1879,8 +1915,8 @@ pub(crate) fn adb_remove_reverse_inner(serial: &str, remote_port: u16) -> Result
 }
 
 #[tauri::command]
-pub fn adb_list_reverse(serial: String) -> Result<Vec<ReverseRule>, String> {
-    adb_list_reverse_inner(&serial)
+pub async fn adb_list_reverse(serial: String) -> Result<Vec<ReverseRule>, String> {
+    run_blocking(move || adb_list_reverse_inner(&serial)).await?
 }
 
 pub(crate) fn adb_list_reverse_inner(serial: &str) -> Result<Vec<ReverseRule>, String> {

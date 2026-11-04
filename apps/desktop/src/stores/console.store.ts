@@ -1,4 +1,4 @@
-import { computed, ref, watch, type WatchStopHandle } from "vue";
+import { computed, ref, shallowRef, watch, type WatchStopHandle } from "vue";
 import { defineStore } from "pinia";
 import {
   attachConsoleTargetEffect,
@@ -8,6 +8,7 @@ import {
 import { useConnectionStore } from "@/stores/connection.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useTargetsStore } from "@/stores/targets.store";
+import { createFrameBatcher } from "@/lib/frame-batcher";
 import type { CDPTarget } from "@/types/cdp.types";
 import type {
   ConsoleArg,
@@ -153,8 +154,8 @@ export const useConsoleStore = defineStore("console", () => {
   const targetsStore = useTargetsStore();
   const dockStore = useDockStore();
 
-  const entries = ref<ConsoleEntry[]>([]);
-  const exceptions = ref<ConsoleExceptionEntry[]>([]);
+  const entries = shallowRef<ConsoleEntry[]>([]);
+  const exceptions = shallowRef<ConsoleExceptionEntry[]>([]);
   const replHistory = ref<ReplHistoryEntry[]>([]);
   const boundTargetId = ref<string | null>(null);
   const leasedTargetId = ref<string | null>(null);
@@ -179,6 +180,16 @@ export const useConsoleStore = defineStore("console", () => {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retryDelay = initialRetryDelay;
 
+  const entryBatcher = createFrameBatcher<ConsoleEntry>((batch) => {
+    entries.value = trimList(entries.value.concat(batch), maxConsoleEntries);
+    maybeMarkConsoleUnread();
+  }, maxConsoleEntries);
+
+  const exceptionBatcher = createFrameBatcher<ConsoleExceptionEntry>((batch) => {
+    exceptions.value = trimList(exceptions.value.concat(batch), maxExceptionEntries);
+    maybeMarkExceptionsUnread();
+  }, maxExceptionEntries);
+
   function clearRetry() {
     if (retryTimer) {
       clearTimeout(retryTimer);
@@ -195,6 +206,8 @@ export const useConsoleStore = defineStore("console", () => {
     clearRetry();
     retryDelay = initialRetryDelay;
     boundTargetId.value = targetId;
+    entryBatcher.clear();
+    exceptionBatcher.clear();
     entries.value = [];
     exceptions.value = [];
     replHistory.value = [];
@@ -204,11 +217,13 @@ export const useConsoleStore = defineStore("console", () => {
   }
 
   function clearConsole() {
+    entryBatcher.clear();
     entries.value = [];
     groupStack = [];
   }
 
   function clearExceptions() {
+    exceptionBatcher.clear();
     exceptions.value = [];
   }
 
@@ -226,7 +241,7 @@ export const useConsoleStore = defineStore("console", () => {
 
   function pushConsoleEntry(entry: ConsoleEntry) {
     if (!entry.isGroup) {
-      const lastEntry = entries.value.at(-1);
+      const lastEntry = entryBatcher.last() ?? entries.value.at(-1);
       if (
         lastEntry &&
         lastEntry.origin === entry.origin &&
@@ -240,13 +255,11 @@ export const useConsoleStore = defineStore("console", () => {
       }
     }
 
-    entries.value = trimList([...entries.value, entry], maxConsoleEntries);
-    maybeMarkConsoleUnread();
+    entryBatcher.push(entry);
   }
 
   function pushException(entry: ConsoleExceptionEntry) {
-    exceptions.value = trimList([...exceptions.value, entry], maxExceptionEntries);
-    maybeMarkExceptionsUnread();
+    exceptionBatcher.push(entry);
   }
 
   function pushReplEntry(entry: ReplHistoryEntry) {

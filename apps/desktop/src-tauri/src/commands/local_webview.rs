@@ -112,7 +112,7 @@ fn select_debug_target(
 }
 
 #[tauri::command]
-pub fn local_device_name() -> String {
+pub async fn local_device_name() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
         .ok()
@@ -121,7 +121,7 @@ pub fn local_device_name() -> String {
 }
 
 #[tauri::command]
-pub fn local_webview_inject_scrollbar_hide(
+pub async fn local_webview_inject_scrollbar_hide(
     app: tauri::AppHandle,
     label: String,
 ) -> Result<(), String> {
@@ -145,7 +145,7 @@ pub fn local_webview_inject_scrollbar_hide(
 }
 
 #[tauri::command]
-pub fn local_webview_navigate(
+pub async fn local_webview_navigate(
     app: tauri::AppHandle,
     label: String,
     url: String,
@@ -162,7 +162,7 @@ pub fn local_webview_navigate(
 }
 
 #[tauri::command]
-pub fn local_webview_open_devtools(app: tauri::AppHandle, label: String) -> Result<(), String> {
+pub async fn local_webview_open_devtools(app: tauri::AppHandle, label: String) -> Result<(), String> {
     let webview = local_preview_webview(&app, &label)?;
 
     #[cfg(debug_assertions)]
