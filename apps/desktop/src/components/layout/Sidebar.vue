@@ -38,7 +38,7 @@ const navBindings = computed(() => {
     <ul class="flex flex-col gap-1 px-1.5">
       <li v-for="feature in primaryNavigationFeatures" :key="feature.id">
         <Tooltip
-          position="right"
+          position="bottom"
           :offset="8"
           content-class-name="flex items-center gap-2 px-2 py-1 text-xs"
         >
@@ -77,7 +77,7 @@ const navBindings = computed(() => {
     <ul class="flex flex-col gap-1 px-1.5">
       <li v-for="feature in utilityNavigationFeatures" :key="feature.id">
         <Tooltip
-          position="right"
+          position="bottom"
           :offset="8"
           content-class-name="flex items-center gap-2 px-2 py-1 text-xs"
         >

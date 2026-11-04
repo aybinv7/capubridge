@@ -1,0 +1,101 @@
+{
+  "apps/desktop/src/components/DeviceManagerModal.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInput.vue": {
+    "errors": 2
+  },
+  "apps/desktop/src/components/dock/DockDetachedWindow.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/components/dock/DockTabBar.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/components/layout/AdbReversePopover.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/components/ui/chart/ChartLegendContent.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/app/AppIcon.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/automation/AgentWorkspace.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/automation/AutomationWorkbench.vue": {
+    "errors": 6
+  },
+  "apps/desktop/src/modules/automation/RunsDrawer.vue": {
+    "errors": 6
+  },
+  "apps/desktop/src/modules/automation/StepCanvas.vue": {
+    "errors": 2
+  },
+  "apps/desktop/src/modules/automation/TargetFields.vue": {
+    "errors": 4
+  },
+  "apps/desktop/src/modules/automation/TaskHistoryRail.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/devices/AppIcon.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceAppsList.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceFiles.vue": {
+    "errors": 2
+  },
+  "apps/desktop/src/modules/devices/DeviceOverview.vue": {
+    "errors": 3
+  },
+  "apps/desktop/src/modules/inspect/StylesTab.vue": {
+    "errors": 2
+  },
+  "apps/desktop/src/modules/recording/RecordingConfigModal.vue": {
+    "errors": 4
+  },
+  "apps/desktop/src/modules/recording/ReplayDatabasesPanel.vue": {
+    "errors": 14
+  },
+  "apps/desktop/src/modules/recording/ReplayPlayer.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/storage/cache/CacheExplorer.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue": {
+    "errors": 3
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
+    "errors": 5
+  },
+  "apps/desktop/src/modules/storage/indexeddb/FilterBuilder.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue": {
+    "errors": 9
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBTable.vue": {
+    "errors": 5
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBTableActions.vue": {
+    "errors": 6
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBTableToolbar.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/storage/localstorage/LSExplorer.vue": {
+    "errors": 1
+  },
+  "apps/desktop/src/modules/storage/opfs/OPFSExplorer.vue": {
+    "errors": 3
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteDatabaseOverview.vue": {
+    "errors": 2
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteTableToolbar.vue": {
+    "errors": 1
+  }
+}

@@ -74,6 +74,7 @@ catalog:
   vue-sonner: 2.0.9
   vue-stick-to-bottom: 1.0.1
   vue-stream-markdown: 2.0.0-beta.5
+  vue-tsc: ^3.3.14
 
 catalogMode: prefer
 

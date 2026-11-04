@@ -115,6 +115,22 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
         (wrong record from page 2 on). Device scripts are executed in tests against fake-indexeddb.
         Decision: menus, context menu, tree and combobox stay Reka behaviour in the app, skinned with Cladd
         tokens; cladd-vue keeps its no-headless-runtime rule.
+  - [ ] R5b Shared DataGrid — **SQLite Browse done**; IndexedDB, LocalStorage, LocalForage, Cache and the SQL
+        tab still to migrate. `shared/components/data/grid`: TanStack column model, row + column virtualisation,
+        `role="grid"` with active-descendant, sticky header and row gutter, type glyphs + PK/FK markers,
+        content-aware widths (90th percentile, kept through empty results), one click selects / Enter edits /
+        Space inspects, spreadsheet keys, TSV/JSON copy, selection aggregates, Cladd-skinned context menu (also
+        from the keyboard), row-state overlays for the changeset, `dir="auto"` cells for Arabic data. The
+        inspector follows the selection (replaces modal-on-click) with an FK link. SQLite: filters run as SQL
+        WHERE on the database with a true filtered count ("Filter = value" from the context menu), Columns menu,
+        CSV/JSON/INSERT export of the whole (filtered) table, copy as INSERT. Fixed: the 99/51/50 row counts;
+        every SQLite edit silently lost on refresh (device databases are now honestly read-only `local copy`,
+        only imported files accept writes, clear/drop/delete guarded); OPFS databases vanishing when the app is
+        backgrounded (kept, marked unreachable, rediscovered on return and when DevTools connects, since the
+        first scan raced the connection); deep links lost on reload; sidebar names truncated to "c."; the
+        WebView2 browser menu (Back/Refresh/Print/Inspect) on right-click. Removed the 17-file SqliteTable
+        stack. New guard `check:vue-types`: vp check never type-checked Vue templates; vue-tsc found 107 errors
+        (94 left, ratcheted).
 - [ ] R6 Network (requests, mocks as rules, recording → mocks)
 - [ ] R7 Elements + Device (tree virtualisation, a11y, lens, vitals, apps/files)
 - [ ] R8 Timeline + Sessions (global buffer, lanes, scrub, A/B diff, write tap, export with redaction)
@@ -178,3 +194,15 @@ below 9 until values carry provenance everywhere and the context matrix test exi
   Still to check in the Tauri window: high-contrast theme and the native-webview overlay guard with a Cladd
   overlay → R5b
 - 220 shadcn imports still to migrate as each screen is rebuilt (R5–R9)
+
+### Open items found in R5b (assigned)
+
+- 94 pre-existing Vue template type errors (ratcheted; burn down as files are touched) → R5–R9
+- SQL tab (DataGrid results, run on open, Ctrl+Enter), Structure tab (formatted DDL, FK list, indexes) and
+  the database overview's error state still use the old views → next R5b slice
+- A deep link to a _table_ inside an OPFS database reopens at the database overview (the pulled session lives
+  in memory) → R5d, when the session is persisted with the write path
+- Cladd `Tooltip` has only top/bottom positions, so rail tooltips sit below their item → Cladd extension → R7
+- The Columns popover once opened by itself after a reload; not reproduced since → watch during R5 checks
+- Owner idea: an optional helper APK for data and control ADB/CDP cannot reach; it conflicts with the
+  website's "no helper APK" claim → owner decision, evaluate with R8

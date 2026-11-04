@@ -13,6 +13,8 @@ export interface SqliteDbFile {
   sourceOpfsDirectory?: string;
   stripSahPoolHeader?: boolean;
   sourceTech?: SqliteSourceTech;
+  /** Listed from an earlier discovery; its WebView cannot be reached right now. */
+  unreachable?: boolean;
 }
 
 export type SqliteSourceTech =

@@ -3,7 +3,7 @@
   "exceptions": [
     {
       "path": "apps/desktop/src/modules/storage/sqlite/SqliteExplorer.vue",
-      "maxLines": 2203,
+      "maxLines": 2195,
       "owner": "Storage module",
       "rationale": "Legacy SQLite orchestration combines discovery, routing, CRUD, import/export, change overlays, and SQL console responsibilities; v2.5.0 adds OPFS auto-discovery, the Rust-backed snapshot cache/dirty-check, and automatic change tracking on top of the existing SIZE-01 debt. Bumped mechanically to unblock release — the owed split (snapshot/diff/discovery orchestration into their own composables) is tracked, not resolved, by this entry."
     },

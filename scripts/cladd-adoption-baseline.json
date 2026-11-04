@@ -401,48 +401,20 @@
     "input": 1,
     "tooltip": 1
   },
-  "apps/desktop/src/modules/storage/sqlite/SqliteCellEditor.vue": {
-    "popover": 1,
-    "switch": 1
-  },
   "apps/desktop/src/modules/storage/sqlite/SqliteChangeDiffDialog.vue": {
     "badge": 1,
     "dialog": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteColumnSettings.vue": {
-    "button": 1,
-    "checkbox": 1
   },
   "apps/desktop/src/modules/storage/sqlite/SqliteExplorer.vue": {
     "button": 1,
     "confirm-dialog": 1
   },
-  "apps/desktop/src/modules/storage/sqlite/SqliteFilterBuilder.vue": {
-    "button": 1,
-    "input": 1,
-    "popover": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteRowDetailDialog.vue": {
-    "button": 1,
-    "dialog": 1
-  },
   "apps/desktop/src/modules/storage/sqlite/SqliteSourceBadge.vue": {
     "tooltip": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteTable.vue": {
-    "button": 1,
-    "checkbox": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteTableActions.vue": {
-    "button": 1,
-    "input": 1
   },
   "apps/desktop/src/modules/storage/sqlite/SqliteTableToolbar.vue": {
     "badge": 1,
     "button": 1,
     "select": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/useSqliteColumns.ts": {
-    "checkbox": 1
   }
 }

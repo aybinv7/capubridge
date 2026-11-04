@@ -47,7 +47,8 @@ import { invokeCommand } from "@/runtime/ipc/client";
 import { useOpfsSnapshotCache } from "@/modules/storage/opfsSnapshotCache";
 import { useOpenSqliteSource } from "@/modules/storage/useOpenSqliteSource";
 import { useOpfsSqliteDiscovery } from "./useOpfsSqliteDiscovery";
-import { mergeSessionIntoList, resolveDbPath } from "./sqliteDatabaseList";
+import { carryOverUnreachable, mergeSessionIntoList, resolveDbPath } from "./sqliteDatabaseList";
+import { useSqliteRediscovery } from "./useSqliteRediscovery";
 import {
   hasSummaryChanges,
   getSummarySegments,
@@ -62,7 +63,6 @@ import {
   useSqliteTableChangeOverlay,
 } from "@/modules/storage/changes/useSqliteChangeOverlay";
 import { buildRowKey, orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
-import type { SqliteChangeSummary } from "@/types/sqliteChanges.types";
 import type {
   SqliteDbFile,
   SqliteTableInfo,
@@ -71,7 +71,10 @@ import type {
   SqliteIndexInfo,
   SqliteForeignKeyInfo,
 } from "@/types/sqlite.types";
-import SqliteTable from "./SqliteTable.vue";
+import SqliteBrowse from "./browse/SqliteBrowse.vue";
+import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
+import { useSqliteWriteAccess } from "./browse/sqliteWriteAccess";
+import { quoteIdent, sqlLiteral } from "./browse/sqliteQuery";
 import SqliteTableToolbar from "./SqliteTableToolbar.vue";
 import SqliteDatabaseOverview from "./SqliteDatabaseOverview.vue";
 import SqliteChangeDiffDialog from "./SqliteChangeDiffDialog.vue";
@@ -142,7 +145,6 @@ const devicePackageName = computed(() => deviceTarget.value?.packageName?.trim()
 // Reads are addressed through the session when one is open: it carries the
 // synthetic local serial and the on-disk snapshot.
 const serial = computed(() => localSession.value?.serial ?? deviceSerial.value);
-const selectedTarget = computed(() => (localSession.value ? null : deviceTarget.value));
 const selectedPackageName = computed(() => localSession.value?.package ?? devicePackageName.value);
 
 const dbSearch = ref("");
@@ -156,6 +158,9 @@ const openingJeepDb = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 const databases = ref<SqliteDbFile[]>([]);
+const rediscovery = useSqliteRediscovery(databases, () => fetchDatabases());
+/** Whether the last scan heard from every source; until then a missing database is not gone. */
+let discoveryComplete = false;
 const snapshotCache = useOpfsSnapshotCache();
 const { discoverOpfsDatabases } = useOpfsSqliteDiscovery();
 const { openOpfsDatabase, openingPath: openingOpfsPath } = useOpenSqliteSource();
@@ -182,10 +187,6 @@ const currentDb = computed(() => {
  * leave the sidebar indicators looking at an empty one.
  */
 const currentDbIdentity = computed(() => currentDbEntry.value?.path ?? "");
-const isNativeSnapshot = computed(
-  () =>
-    currentDb.value?.sourceKind === "native-android" || (!isLocalMode.value && !!currentDb.value),
-);
 
 // Pagination
 const page = ref(0);
@@ -195,10 +196,35 @@ const orderDir = ref<"ASC" | "DESC" | null>(null);
 
 // Data
 const queryResult = ref<SqliteQueryResult | null>(null);
-const hasMore = computed(() => {
-  if (!queryResult.value) return false;
-  return queryResult.value.rowCount >= pageSize.value;
+const moreRowsAvailable = ref(false);
+const tableQuery = useSqliteTableQuery({
+  run: (sql) => {
+    const db = currentDb.value;
+    if (!db) return Promise.reject(new Error("No database is open"));
+    return executeQuery(serial.value, selectedPackageName.value, db.path, sql);
+  },
+  table: tableName,
+  database: dbName,
+  orderBy,
+  orderDir,
+  page,
+  pageSize,
+  tableRowCount: () => currentTable.value?.rowCount ?? null,
+  currentColumns: () => queryResult.value?.columns ?? null,
+  refetch: () => fetchTableRows(),
 });
+const {
+  whereClause,
+  filterError,
+  tableTotal,
+  setWhere,
+  addFilter,
+  exportTable,
+  copyAsInsert,
+  gridSort,
+  setSort: setGridSort,
+} = tableQuery;
+const hasMore = computed(() => queryResult.value !== null && moreRowsAvailable.value);
 
 // Table tabs (Browse / Structure / SQL)
 const activeTab = ref<"browse" | "structure" | "sql">("browse");
@@ -420,13 +446,16 @@ async function fetchDatabases() {
     if (nativeResult.status === "rejected") {
       error.value = String(nativeResult.reason);
     }
-    if (opfsResult.status === "rejected") {
+    if (opfsResult.status === "rejected" && !rediscovery.webviewAway()) {
       console.error("[SQLite] OPFS discovery failed:", opfsResult.reason);
     }
     const nativeDbs = nativeResult.status === "fulfilled" ? nativeResult.value : [];
     const jeepDbs = jeepResult.status === "fulfilled" ? jeepResult.value : [];
     const opfsDbs = opfsResult.status === "fulfilled" ? opfsResult.value : [];
-    databases.value = mergeSessionIntoList(session, [
+    const webviewAway = rediscovery.webviewAway();
+    discoveryComplete =
+      opfsResult.status === "fulfilled" && jeepResult.status === "fulfilled" && !webviewAway;
+    const discovered: SqliteDbFile[] = [
       ...nativeDbs.map((db) => ({
         ...db,
         packageName: db.packageName ?? devicePackageName.value,
@@ -435,7 +464,17 @@ async function fetchDatabases() {
       })),
       ...jeepDbs,
       ...opfsDbs,
-    ]);
+    ];
+    databases.value = mergeSessionIntoList(
+      session,
+      carryOverUnreachable(databases.value, discovered, {
+        opfs: opfsResult.status === "fulfilled" && !(webviewAway && opfsDbs.length === 0),
+        jeep: jeepResult.status === "fulfilled" && !(webviewAway && jeepDbs.length === 0),
+      }),
+    );
+    if (discoveryComplete && dbName.value && !currentDbEntry.value) {
+      await router.replace("/storage/sqlite");
+    }
   } catch (err) {
     error.value = String(err);
     databases.value = [];
@@ -473,24 +512,31 @@ async function fetchTableRows() {
   error.value = null;
 
   try {
-    const result = await tableRows(
-      serial.value,
-      selectedPackageName.value,
-      dbFile.path,
-      tableName.value,
-      page.value * pageSize.value,
-      pageSize.value + 1,
-      orderBy.value ?? undefined,
-      orderDir.value ?? undefined,
-    );
+    const result = whereClause.value
+      ? await tableQuery.fetchFilteredPage()
+      : await tableRows(
+          serial.value,
+          selectedPackageName.value,
+          dbFile.path,
+          tableName.value,
+          page.value * pageSize.value,
+          pageSize.value + 1,
+          orderBy.value ?? undefined,
+          orderDir.value ?? undefined,
+        );
+    filterError.value = null;
 
-    if (result.rows.length > pageSize.value) {
-      result.rows = result.rows.slice(0, pageSize.value);
-    }
+    moreRowsAvailable.value = result.rows.length > pageSize.value;
+    if (moreRowsAvailable.value) result.rows = result.rows.slice(0, pageSize.value);
+    result.rowCount = result.rows.length;
     queryResult.value = result;
   } catch (err) {
-    error.value = `Query failed: ${err}`;
-    queryResult.value = null;
+    if (whereClause.value) {
+      filterError.value = String(err).replace(/^Error:\s*/, "");
+    } else {
+      error.value = `Query failed: ${err}`;
+      queryResult.value = null;
+    }
   } finally {
     isLoadingRecords.value = false;
   }
@@ -939,10 +985,19 @@ async function runConfirmedAction() {
   }
 }
 
+const {
+  readOnlyReason,
+  provenance: tableProvenance,
+  guardWrite,
+} = useSqliteWriteAccess(localSession, currentDb);
+
+function followForeignKey(target: string) {
+  const table = target.split(".")[0];
+  if (table) navigateToForeignTable(table);
+}
+
 async function execAgainstCurrentDb(sql: string): Promise<void> {
-  if (isNativeSnapshot.value) {
-    throw new Error("Native Android snapshots are read-only; export a copy to edit locally.");
-  }
+  if (readOnlyReason.value !== null) throw new Error(readOnlyReason.value);
   if (!serial.value || !selectedPackageName.value || !currentDb.value) {
     throw new Error("No active database");
   }
@@ -950,6 +1005,7 @@ async function execAgainstCurrentDb(sql: string): Promise<void> {
 }
 
 function handleClearTable(db: SqliteDbFile, table: string) {
+  if (!guardWrite()) return;
   openConfirm(
     "Clear all rows",
     `Delete every row in "${table}"? This cannot be undone.`,
@@ -969,6 +1025,7 @@ function handleClearTable(db: SqliteDbFile, table: string) {
 }
 
 function handleDropTable(db: SqliteDbFile, table: string) {
+  if (!guardWrite()) return;
   openConfirm(
     "Drop table",
     `Permanently drop the table "${table}" and all its data? The schema will lose this table.`,
@@ -988,10 +1045,6 @@ function handleDropTable(db: SqliteDbFile, table: string) {
       toast.success(`Dropped "${table}"`);
     },
   );
-}
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
 }
 
 function describeDbSource(db: SqliteDbFile): string {
@@ -1115,7 +1168,8 @@ async function handleExportSqliteFile(db: SqliteDbFile) {
   const promise = exportSqliteFile(target.serial, target.pkg, db.path, db.name);
   toast.promise(promise, {
     loading: `Exporting "${db.name}"…`,
-    success: (saved) => (saved ? `Exported "${db.name}" to ${saved}` : "Export cancelled"),
+    success: (saved: string | null) =>
+      saved ? `Exported "${db.name}" to ${saved}` : "Export cancelled",
     error: (err: unknown) => `Export failed: ${err instanceof Error ? err.message : String(err)}`,
   });
 }
@@ -1135,7 +1189,8 @@ async function handleExportSqlDump(db: SqliteDbFile) {
   const promise = exportSqlDump(target.serial, target.pkg, db.path, tableList, db.name);
   toast.promise(promise, {
     loading: `Building SQL dump for "${db.name}"…`,
-    success: (saved) => (saved ? `Exported "${db.name}.sql" to ${saved}` : "Export cancelled"),
+    success: (saved: string | null) =>
+      saved ? `Exported "${db.name}.sql" to ${saved}` : "Export cancelled",
     error: (err: unknown) => `Export failed: ${err instanceof Error ? err.message : String(err)}`,
   });
 }
@@ -1205,7 +1260,7 @@ async function handleImportSqlDumpInto(db: SqliteDbFile) {
         .then(() => picked.name);
       await toast.promise(promise, {
         loading: `Replaying "${picked.name}"…`,
-        success: (name) => `Imported "${name}"`,
+        success: (name: string) => `Imported "${name}"`,
         error: (err: unknown) =>
           `Import failed: ${err instanceof Error ? err.message : String(err)}`,
       });
@@ -1253,96 +1308,12 @@ function tableSummary(db: SqliteDbFile, table: string) {
   return getTableSummary(changeSerial.value, changePackage.value, db.path, table);
 }
 
-function quoteSqlValue(v: unknown): string {
-  if (v === null || v === undefined) return "NULL";
-  if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  if (typeof v === "boolean") return v ? "1" : "0";
-  const s = typeof v === "string" ? v : JSON.stringify(v);
-  return `'${s.replace(/'/g, "''")}'`;
-}
-
 function pkColumns(): SqliteColumnInfo[] {
   return orderKeyColumns(columnInfo.value);
 }
 
-async function handleRecordEdit(
-  original: Record<string, unknown>,
-  updated: Record<string, unknown>,
-) {
-  if (!serial.value || !selectedPackageName.value || !currentDb.value || !tableName.value) return;
-  const pks = pkColumns();
-  if (pks.length === 0) {
-    toast.error("Cannot save", { description: "Table has no primary key." });
-    return;
-  }
-
-  const changed: string[] = [];
-  for (const col of columnInfo.value) {
-    if (pks.some((p) => p.name === col.name)) continue;
-    const before = original[col.name];
-    const after = updated[col.name];
-    if (JSON.stringify(before) !== JSON.stringify(after)) {
-      changed.push(`${quoteIdent(col.name)} = ${quoteSqlValue(after)}`);
-    }
-  }
-  if (changed.length === 0) {
-    toast.info("Nothing to save", { description: "No editable fields changed." });
-    return;
-  }
-
-  const where = pks
-    .map((c) => `${quoteIdent(c.name)} = ${quoteSqlValue(original[c.name])}`)
-    .join(" AND ");
-
-  const sql = `UPDATE ${quoteIdent(tableName.value)} SET ${changed.join(", ")} WHERE ${where}`;
-  try {
-    await execAgainstCurrentDb(sql);
-    changesStore.recordChange({
-      operation: "update",
-      serial: changeSerial.value,
-      packageName: changePackage.value,
-      dbPath: currentDbIdentity.value,
-      tableName: tableName.value,
-      rowKey: buildRowKey(pkColumnsRef.value, original),
-      beforeValue: original,
-      afterValue: updated,
-    });
-    await fetchTableRows();
-    toast.success("Row saved");
-  } catch (err) {
-    toast.error("Save failed", { description: String(err) });
-  }
-}
-
-function handleRecordDelete(record: Record<string, unknown>) {
-  const db = currentDb.value;
-  if (!serial.value || !selectedPackageName.value || !db || !tableName.value) return;
-  const pks = pkColumns();
-  if (pks.length === 0) {
-    toast.error("Cannot delete", { description: "Table has no primary key." });
-    return;
-  }
-  const where = pks
-    .map((c) => `${quoteIdent(c.name)} = ${quoteSqlValue(record[c.name])}`)
-    .join(" AND ");
-  openConfirm("Delete row", "Permanently delete this row? This cannot be undone.", async () => {
-    await execAgainstCurrentDb(`DELETE FROM ${quoteIdent(tableName.value)} WHERE ${where}`);
-    changesStore.recordChange({
-      operation: "delete",
-      serial: changeSerial.value,
-      packageName: changePackage.value,
-      dbPath: db.path,
-      tableName: tableName.value,
-      rowKey: buildRowKey(pkColumnsRef.value, record),
-      beforeValue: record,
-      afterValue: null,
-    });
-    await fetchTableRows();
-    toast.success("Row deleted");
-  });
-}
-
 function handleRecordDeleteBulk(records: Record<string, unknown>[]) {
+  if (!guardWrite()) return;
   const db = currentDb.value;
   if (
     !serial.value ||
@@ -1360,7 +1331,7 @@ function handleRecordDeleteBulk(records: Record<string, unknown>[]) {
   const predicates = records
     .map((record) => {
       const where = pks
-        .map((column) => `${quoteIdent(column.name)} = ${quoteSqlValue(record[column.name])}`)
+        .map((column) => `${quoteIdent(column.name)} = ${sqlLiteral(record[column.name])}`)
         .join(" AND ");
       return `(${where})`;
     })
@@ -1402,6 +1373,7 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
   structureError.value = null;
   columnInfo.value = [];
   showChangesOnly.value = false;
+  tableQuery.reset();
   sqlInput.value = newTable ? `SELECT * FROM ${quoteIdent(newTable)} LIMIT 100;` : "";
   sqlResult.value = null;
   sqlError.value = null;
@@ -1418,7 +1390,7 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
       if (newDb !== oldDb || tables.value.length === 0) {
         await openDb(dbFile);
       }
-      await Promise.all([fetchTableRows(), fetchColumnInfo()]);
+      await Promise.all([fetchTableRows(), fetchColumnInfo(), fetchStructure()]);
       await primeDeviceSnapshot();
     }
   } else if (newDb) {
@@ -1431,7 +1403,17 @@ watch([dbName, tableName], async ([newDb, newTable], [oldDb]) => {
 
 watch(
   [serial, selectedPackageName, deviceSerial, devicePackageName, () => targetsStore.cdpTargetId],
-  async () => {
+  async (next, previous) => {
+    const sameApp =
+      previous !== undefined &&
+      next[0] === previous[0] &&
+      next[1] === previous[1] &&
+      next[2] === previous[2] &&
+      next[3] === previous[3];
+    if (sameApp) {
+      await fetchDatabases();
+      return;
+    }
     databases.value = [];
     tables.value = [];
     queryResult.value = null;
@@ -1440,11 +1422,6 @@ watch(
     orderDir.value = null;
 
     await fetchDatabases();
-
-    if (!currentDb.value && (dbName.value || tableName.value)) {
-      await router.replace("/storage/sqlite");
-      return;
-    }
 
     if (currentDb.value) {
       await openDb(currentDb.value);
@@ -1472,8 +1449,19 @@ watch(activeTab, (next) => {
 
 watch(
   currentDb,
-  (db) => {
-    if (db) expandDb(db.path);
+  async (db, previous) => {
+    if (!db) return;
+    expandDb(db.path);
+    if (previous || !dbName.value || tables.value.length > 0) return;
+    const pulled = db.sourceKind === "opfs" || db.sourceKind === "jeep-sqlite";
+    if (pulled && !localSession.value) {
+      navigateToDb(db);
+      return;
+    }
+    await openDb(db);
+    if (tableName.value && !queryResult.value) {
+      await Promise.all([fetchTableRows(), fetchColumnInfo(), fetchStructure()]);
+    }
   },
   { immediate: true },
 );
@@ -1493,9 +1481,13 @@ watch(
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
-    <ResizablePanelGroup direction="horizontal" class="flex-1 min-h-0">
+    <ResizablePanelGroup
+      direction="horizontal"
+      auto-save-id="capubridge:sqlite-explorer"
+      class="flex-1 min-h-0"
+    >
       <!-- Sidebar -->
-      <ResizablePanel :default-size="15" :min-size="10" :max-size="30" class="min-h-0">
+      <ResizablePanel :default-size="18" :min-size="12" :max-size="35" class="min-h-0">
         <div class="flex h-full flex-col border-r border-border/30 min-h-0">
           <!-- Search -->
           <div class="shrink-0 border-b border-border/20 p-2 flex items-center gap-1">
@@ -1557,7 +1549,7 @@ watch(
             </div>
 
             <div
-              v-else-if="error"
+              v-else-if="error && !databases.length"
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <Database :size="16" class="text-muted-foreground/30 mb-2" />
@@ -1626,22 +1618,37 @@ watch(
                       :size="12"
                     />
                   </button>
-                  <button class="flex flex-1 min-w-0 items-center gap-2" @click="navigateToDb(db)">
-                    <Database :size="12" class="shrink-0 opacity-40" />
-                    <span
-                      class="flex-1 truncate text-left"
-                      :class="{ 'opacity-40': isDbHidden(db.path) }"
-                    >
-                      {{ db.name }}
-                    </span>
-                    <SqliteSourceBadge :db="db" />
-                    <RefreshCw
-                      v-if="openingJeepDb === db.path || openingOpfsPath === db.sourceOpfsPath"
-                      :size="10"
-                      class="shrink-0 animate-spin text-muted-foreground/40"
-                    />
-                    <span class="shrink-0 text-2xs font-mono text-muted-foreground/40">
-                      {{ (db.size / 1024).toFixed(0) }}KB
+                  <button
+                    class="flex min-w-0 flex-1 items-start gap-2 text-left"
+                    :title="
+                      db.unreachable
+                        ? `${db.name} — app in background; showing the last copy`
+                        : db.name
+                    "
+                    @click="navigateToDb(db)"
+                  >
+                    <Database :size="12" class="mt-0.5 shrink-0 opacity-40" />
+                    <span class="flex min-w-0 flex-1 flex-col gap-1">
+                      <span
+                        class="truncate"
+                        :class="{ 'opacity-40': isDbHidden(db.path) || db.unreachable }"
+                      >
+                        {{ db.name }}
+                      </span>
+                      <span class="flex min-w-0 items-center gap-1.5">
+                        <SqliteSourceBadge :db="db" />
+                        <span class="shrink-0 font-mono text-2xs text-muted-foreground">
+                          {{ (db.size / 1024).toFixed(0) }} KB
+                        </span>
+                        <span v-if="db.unreachable" class="truncate text-2xs text-warning"
+                          >app in background</span
+                        >
+                        <RefreshCw
+                          v-if="openingJeepDb === db.path || openingOpfsPath === db.sourceOpfsPath"
+                          :size="10"
+                          class="shrink-0 animate-spin text-muted-foreground"
+                        />
+                      </span>
                     </span>
                   </button>
                   <DropdownMenu>
@@ -1679,13 +1686,13 @@ watch(
                         Export SQL dump
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        v-if="!isNativeSnapshot"
+                        v-if="readOnlyReason === null"
                         @click="handleImportSqlDumpInto(db)"
                       >
                         <Upload class="h-3.5 w-3.5 mr-2" />
                         Import SQL dump (replace)
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator v-if="!isNativeSnapshot" />
+                      <DropdownMenuSeparator v-if="readOnlyReason === null" />
                       <DropdownMenuItem
                         :disabled="!hasSummaryChanges(dbSummary(db))"
                         @click="
@@ -1695,9 +1702,9 @@ watch(
                         <Eraser class="h-3.5 w-3.5 mr-2" />
                         Clear DB changes
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator v-if="!isNativeSnapshot" />
+                      <DropdownMenuSeparator v-if="readOnlyReason === null" />
                       <DropdownMenuItem
-                        v-if="!isNativeSnapshot"
+                        v-if="readOnlyReason === null"
                         class="text-error focus:text-error"
                         @click="handleDeleteDatabase(db)"
                       >
@@ -1779,7 +1786,7 @@ watch(
                             />
                             {{ isTableHidden(db.path, t.name) ? "Unhide table" : "Hide table" }}
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator v-if="!isNativeSnapshot" />
+                          <DropdownMenuSeparator v-if="readOnlyReason === null" />
                           <DropdownMenuItem
                             :disabled="!hasSummaryChanges(tableSummary(db, t.name))"
                             @click="
@@ -1796,7 +1803,7 @@ watch(
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            v-if="!isNativeSnapshot"
+                            v-if="readOnlyReason === null"
                             class="text-error focus:text-error"
                             @click="handleClearTable(db, t.name)"
                           >
@@ -1804,7 +1811,7 @@ watch(
                             Clear all rows
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            v-if="!isNativeSnapshot"
+                            v-if="readOnlyReason === null"
                             class="text-error focus:text-error"
                             @click="handleDropTable(db, t.name)"
                           >
@@ -1906,7 +1913,7 @@ watch(
                 :page="page"
                 :page-size="pageSize"
                 :has-more="hasMore"
-                :record-count="queryResult?.rowCount ?? 0"
+                :record-count="tableTotal ?? queryResult?.rowCount ?? 0"
                 :change-summary="currentTableSummary"
                 :show-changes-only="showChangesOnly"
                 @refresh="handleRefresh"
@@ -1923,19 +1930,28 @@ watch(
                 {{ error }}
               </div>
 
-              <SqliteTable
-                :columns="queryResult?.columns ?? []"
-                :rows="queryResult?.rows ?? []"
-                :is-loading="isLoadingRecords"
+              <SqliteBrowse
                 :table-name="tableName"
-                :db-name="dbName"
+                :result="queryResult"
                 :column-info="columnInfo"
+                :foreign-keys="structureForeignKeys"
+                :loading="isLoadingRecords"
+                :sort="gridSort"
+                :offset="page * pageSize"
+                :total="tableTotal"
+                :where="whereClause"
+                :filter-error="filterError"
                 :changes-by-row-key="tableChangesByRowKey"
-                :show-changes-only="showChangesOnly"
-                @refresh="handleRefresh"
-                @record-edit="handleRecordEdit"
-                @record-delete="handleRecordDelete"
-                @record-delete-bulk="handleRecordDeleteBulk"
+                :read-only-reason="readOnlyReason"
+                :provenance="tableProvenance"
+                @update:sort="setGridSort"
+                @follow-foreign-key="followForeignKey"
+                :changes-only="showChangesOnly"
+                @delete="handleRecordDeleteBulk"
+                @update:where="setWhere"
+                @add-filter="addFilter"
+                @export="exportTable"
+                @copy-insert="copyAsInsert"
                 @open-row-diff="openRowDiff"
               />
             </template>

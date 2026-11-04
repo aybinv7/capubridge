@@ -48,3 +48,34 @@ export function mergeSessionIntoList(
   const alreadyListed = discovered.some((db) => isSameSource(db, session));
   return alreadyListed ? discovered : [sessionEntry(session), ...discovered];
 }
+
+export interface DiscoveryReach {
+  /** OPFS discovery answered (the WebView was reachable). */
+  opfs: boolean;
+  /** jeep-sqlite discovery answered. */
+  jeep: boolean;
+}
+
+/**
+ * A WebView in the background cannot be asked for its databases, but they still
+ * exist and their last pulled copy is still readable. Entries a failed discovery
+ * would drop stay listed, marked unreachable, instead of vanishing (and taking the
+ * open table with them).
+ */
+export function carryOverUnreachable(
+  previous: readonly SqliteDbFile[],
+  discovered: readonly SqliteDbFile[],
+  reach: DiscoveryReach,
+): SqliteDbFile[] {
+  const present = new Set(discovered.map((db) => db.path));
+  const carried = previous.filter((db) => {
+    if (present.has(db.path)) return false;
+    if (db.sourceKind === "opfs") return !reach.opfs;
+    if (db.sourceKind === "jeep-sqlite") return !reach.jeep;
+    return false;
+  });
+  return [
+    ...discovered.map((db) => ({ ...db, unreachable: false })),
+    ...carried.map((db) => ({ ...db, unreachable: true })),
+  ];
+}

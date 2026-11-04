@@ -64,6 +64,9 @@ jobs:
       - name: Check Cladd adoption ratchet
         run: vp run check:cladd-adoption
 
+      - name: Check Vue template types (ratchet)
+        run: vp run check:vue-types
+
       - name: check source-size boundary
         run: vp run check:source-size
 

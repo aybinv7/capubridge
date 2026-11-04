@@ -16,7 +16,8 @@ export function useOpfsSqliteDiscovery() {
     const targetId = targetsStore.cdpTargetId;
     if (!targetId) return [];
     const client = getClient(targetId);
-    if (!client) return [];
+    if (!client)
+      throw new Error("The WebView is not connected yet; its databases cannot be listed");
 
     const found = await new OpfsSqliteDiscovery(client).discover();
     return found.map((db) => ({

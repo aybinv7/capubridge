@@ -33,7 +33,8 @@ vp run ready
 
 **Critical rules for Vite+:**
 
-- `vp check` replaces `vue-tsc`, `eslint`, and `oxfmt` — use it, not them
+- `vp check` replaces `eslint` and `oxfmt` and type-checks `.ts`, but it does **not** type-check Vue
+  templates: `vp run check:vue-types` runs vue-tsc as a ratchet (no new template errors)
 - `vp test` replaces `vitest` — never install or run vitest directly
 - `vp lint` and `vp fmt` work standalone if you need just one step
 - To run a custom `package.json` script that shares a name with a built-in (e.g. a custom `dev`), use `vp run dev` not `vp dev`

@@ -7,12 +7,14 @@ import ObservabilityBootstrap from "@/components/ObservabilityBootstrap.vue";
 import { CladdProvider } from "@capubridge/cladd";
 import { Toaster } from "@/components/ui/sonner";
 import { useThemeStore } from "@/stores/theme.store";
+import { useNativeContextMenuGuard } from "@/composables/useNativeContextMenuGuard";
 import { isDockTab } from "@/types/dock.types";
 
 const searchParams = new URLSearchParams(window.location.search);
 const isMirrorWindow = searchParams.get("mirror") === "1";
 const isDockWindow = !isMirrorWindow && isDockTab(searchParams.get("dock"));
 const themeStore = useThemeStore();
+useNativeContextMenuGuard();
 
 const MirrorWindow = isMirrorWindow
   ? defineAsyncComponent(() => import("@/modules/mirror/MirrorWindow.vue"))
