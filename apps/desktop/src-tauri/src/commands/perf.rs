@@ -48,9 +48,9 @@ pub struct NetMetric {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BatteryMetric {
-    pub level: u32,
-    pub temperature: f32,
-    pub charging: bool,
+    pub level: Option<u32>,
+    pub temperature: Option<f32>,
+    pub charging: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -228,22 +228,28 @@ fn net_bps(prev: &NetBytes, curr: &NetBytes, elapsed_secs: f64) -> NetMetric {
 // ── Battery parsing ───────────────────────────────────────────────────────────
 
 fn parse_battery(text: &str) -> BatteryMetric {
-    let mut level: u32 = 0;
-    let mut temperature: f32 = 0.0;
-    let mut charging = false;
+    let mut level = None;
+    let mut temperature = None;
+    let mut status = None;
+    let mut plugged = None;
     for line in text.lines() {
         let trimmed = line.trim();
         if let Some(val) = trimmed.strip_prefix("level: ") {
-            level = val.parse().unwrap_or(0);
+            level = val.trim().parse::<u32>().ok().filter(|v| *v <= 100);
         } else if let Some(val) = trimmed.strip_prefix("temperature: ") {
-            // dumpsys reports in tenths of degrees
-            let raw: f32 = val.parse().unwrap_or(0.0);
-            temperature = raw / 10.0;
+            temperature = val.trim().parse::<f32>().ok().map(|raw| raw / 10.0);
         } else if let Some(val) = trimmed.strip_prefix("status: ") {
-            // 2 = charging
-            charging = val.trim() == "2";
+            status = val.trim().parse::<u32>().ok();
+        } else if let Some(val) = trimmed.strip_prefix("plugged: ") {
+            plugged = val.trim().parse::<u32>().ok();
         }
     }
+    let charging = match (status, plugged) {
+        (Some(2), _) => Some(true),
+        (Some(3 | 4), _) => Some(false),
+        (_, Some(p)) => Some(p != 0),
+        _ => None,
+    };
     BatteryMetric {
         level,
         temperature,
@@ -462,10 +468,18 @@ where
             tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
         }
 
-        if let Ok(mut sessions) = PERF_SESSIONS.lock() {
-            sessions.remove(&serial_clone);
+        let still_owned = PERF_SESSIONS.lock().is_ok_and(|mut sessions| {
+            let owned = sessions
+                .get(&serial_clone)
+                .is_some_and(|current| Arc::ptr_eq(&current.stop_flag, &stop_flag));
+            if owned {
+                sessions.remove(&serial_clone);
+            }
+            owned
+        });
+        if still_owned {
+            on_stopped(serial_clone);
         }
-        on_stopped(serial_clone);
     });
 
     Ok(())
@@ -494,4 +508,32 @@ pub async fn adb_perf_start(serial: String, app: AppHandle) -> Result<(), String
 pub async fn adb_perf_stop(serial: String) -> Result<(), String> {
     stop_perf_session(&serial);
     Ok(())
+}
+
+#[cfg(test)]
+mod battery_tests {
+    use super::parse_battery;
+
+    #[test]
+    fn charging_comes_from_status_or_plug() {
+        let charging =
+            parse_battery("  level: 57\n  status: 2\n  plugged: 2\n  temperature: 301\n");
+        assert_eq!(charging.level, Some(57));
+        assert_eq!(charging.charging, Some(true));
+        assert_eq!(charging.temperature, Some(30.1));
+
+        let full = parse_battery("  level: 100\n  status: 5\n  plugged: 1\n");
+        assert_eq!(full.charging, Some(true));
+
+        let unplugged = parse_battery("  level: 40\n  status: 3\n  plugged: 0\n");
+        assert_eq!(unplugged.charging, Some(false));
+    }
+
+    #[test]
+    fn missing_fields_stay_unknown() {
+        let empty = parse_battery("Current Battery Service state:\n");
+        assert_eq!(empty.level, None);
+        assert_eq!(empty.charging, None);
+        assert_eq!(empty.temperature, None);
+    }
 }

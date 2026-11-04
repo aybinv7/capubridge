@@ -24,11 +24,13 @@ import {
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePerfMetrics } from "./usePerfMetrics";
+import { sampleAccessor, seriesStats, seriesYDomain, type SeriesStats } from "./perfSeries";
 
 const {
   start,
   isRunning,
   error,
+  firstSampleOverdue,
   tickCount,
   latest,
   coreCount,
@@ -52,15 +54,14 @@ onMounted(() => void start());
 // ── Accessors ────────────────────────────────────────────────────────────────
 
 const xAcc = (d: { x: number }) => d.x;
-const yValue = (key: string) => (d: Record<string, number>) => Number(d[key] ?? 0);
-const cpuY = [yValue("cpu")];
-const memY = [yValue("mem")];
-const rxY = [yValue("rx")];
-const txY = [yValue("tx")];
-const heapUsedY = [yValue("heapUsed")];
-const heapTotalY = [yValue("heapTotal")];
-const domNodesY = [yValue("domNodes")];
-const perCoreY = [yValue("y")];
+const cpuY = [sampleAccessor("cpu")];
+const memY = [sampleAccessor("mem")];
+const rxY = [sampleAccessor("rx")];
+const txY = [sampleAccessor("tx")];
+const heapUsedY = [sampleAccessor("heapUsed")];
+const heapTotalY = [sampleAccessor("heapTotal")];
+const domNodesY = [sampleAccessor("domNodes")];
+const perCoreY = [sampleAccessor("y")];
 
 // ── Chart configs ───────────────────────────────────────────────────────────
 
@@ -85,7 +86,7 @@ const domChartConfig: ChartConfig = {
 };
 
 const latestSampleX = computed(() => cpuSeries.value.at(-1)?.x ?? 0);
-const latestSampleTimestamp = computed(() => latest.value?.timestamp ?? Date.now());
+const latestSampleTimestamp = computed(() => latest.value?.timestamp ?? null);
 const perfTimeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "2-digit",
   minute: "2-digit",
@@ -98,6 +99,9 @@ function toSampleTimestamp(point: number | Date): number | null {
     return point.getTime();
   }
   if (!Number.isFinite(point)) {
+    return null;
+  }
+  if (latestSampleTimestamp.value === null) {
     return null;
   }
   const secondsAgo = Math.max(0, Math.round(latestSampleX.value - point));
@@ -148,55 +152,22 @@ const heapUsedTooltipContent = makeTooltipContent(heapUsedChartConfig);
 const heapTotalTooltipContent = makeTooltipContent(heapTotalChartConfig);
 const domTooltipContent = makeTooltipContent(domChartConfig);
 
-function toNiceAxisCeil(value: number): number {
-  if (!Number.isFinite(value) || value <= 1) {
-    return 1;
+const rxYDomain = computed(() => seriesYDomain(rxSeries.value, "rx"));
+const txYDomain = computed(() => seriesYDomain(txSeries.value, "tx"));
+const heapUsedYDomain = computed(() => seriesYDomain(heapUsedSeries.value, "heapUsed"));
+const heapTotalYDomain = computed(() => seriesYDomain(heapTotalSeries.value, "heapTotal"));
+const domNodesYDomain = computed(() => seriesYDomain(domNodesSeries.value, "domNodes"));
+
+const heapUsedStats = computed(() => seriesStats(heapUsedSeries.value, "heapUsed"));
+const heapTotalStats = computed(() => seriesStats(heapTotalSeries.value, "heapTotal"));
+const domNodesStats = computed(() => seriesStats(domNodesSeries.value, "domNodes"));
+
+function statsLine(stats: SeriesStats | null, format: (value: number) => string): string {
+  if (!stats) {
+    return "No samples yet";
   }
-  const exponent = Math.floor(Math.log10(value));
-  const magnitude = 10 ** exponent;
-  const normalized = value / magnitude;
-  if (normalized <= 1) return magnitude;
-  if (normalized <= 2) return 2 * magnitude;
-  if (normalized <= 5) return 5 * magnitude;
-  return 10 * magnitude;
+  return `Now ${format(stats.now)} · Avg ${format(stats.avg)} · Peak ${format(stats.max)}`;
 }
-
-function makeSeriesYDomain(series: Array<Record<string, number>>, key: string): [number, number] {
-  const rawMax = series.reduce((max, point) => Math.max(max, Number(point[key] ?? 0)), 0);
-  const paddedMax = rawMax > 0 ? rawMax * 1.12 : 1;
-  return [0, toNiceAxisCeil(paddedMax)];
-}
-
-const rxYDomain = computed(() => makeSeriesYDomain(rxSeries.value, "rx"));
-const txYDomain = computed(() => makeSeriesYDomain(txSeries.value, "tx"));
-const heapUsedYDomain = computed(() => makeSeriesYDomain(heapUsedSeries.value, "heapUsed"));
-const heapTotalYDomain = computed(() => makeSeriesYDomain(heapTotalSeries.value, "heapTotal"));
-const domNodesYDomain = computed(() => makeSeriesYDomain(domNodesSeries.value, "domNodes"));
-
-interface SeriesStats {
-  now: number;
-  min: number;
-  max: number;
-  avg: number;
-}
-
-function createSeriesStats(series: Array<Record<string, number>>, key: string): SeriesStats {
-  const values = series
-    .map((point) => Number(point[key] ?? 0))
-    .filter((value) => Number.isFinite(value));
-  if (values.length === 0) {
-    return { now: 0, min: 0, max: 0, avg: 0 };
-  }
-  const now = values.at(-1) ?? 0;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
-  return { now, min, max, avg };
-}
-
-const heapUsedStats = computed(() => createSeriesStats(heapUsedSeries.value, "heapUsed"));
-const heapTotalStats = computed(() => createSeriesStats(heapTotalSeries.value, "heapTotal"));
-const domNodesStats = computed(() => createSeriesStats(domNodesSeries.value, "domNodes"));
 
 // ── Formatters ───────────────────────────────────────────────────────────────
 
@@ -206,7 +177,8 @@ function fmtBytes(kb: number): string {
   return `${kb} KB`;
 }
 
-function fmtBps(kbps: number): string {
+function fmtBps(kbps: number | null): string {
+  if (kbps === null) return "—";
   if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
   return `${kbps.toFixed(0)} KB/s`;
 }
@@ -226,7 +198,8 @@ function fmtSource(value: string | null | undefined): string {
   return value.replace(/[-_]/g, " ");
 }
 
-function levelColor(pct: number): string {
+function levelColor(pct: number | null): string {
+  if (pct === null) return "text-muted-foreground";
   if (pct >= 80) return "text-error";
   if (pct >= 60) return "text-warning";
   return "text-success";
@@ -240,11 +213,19 @@ function battColor(lvl: number): string {
 
 // ── Computed display values ───────────────────────────────────────────────────
 
-const cpuPct = computed(() => Math.round(latest.value?.cpuTotal ?? 0));
-const memPct = computed(() => Math.round(latest.value?.memory.usedPct ?? 0));
-const rx = computed(() => (latest.value ? latest.value.network.rxBps / 1024 : 0));
-const tx = computed(() => (latest.value ? latest.value.network.txBps / 1024 : 0));
+const cpuPct = computed(() => (latest.value ? Math.round(latest.value.cpuTotal) : null));
+const memPct = computed(() => (latest.value ? Math.round(latest.value.memory.usedPct) : null));
+const rx = computed(() => (latest.value ? latest.value.network.rxBps / 1024 : null));
+const tx = computed(() => (latest.value ? latest.value.network.txBps / 1024 : null));
 const battery = computed(() => latest.value?.battery ?? null);
+const batteryLevel = computed(() => battery.value?.level ?? null);
+const batteryState = computed(() => {
+  const charging = battery.value?.charging;
+  if (charging === true) return "Charging";
+  if (charging === false) return "On battery";
+  return "Charging state unknown";
+});
+const hasAnySample = computed(() => tickCount.value > 0 || cdpLastUpdatedAt.value !== null);
 const cpuTemp = computed(() => latest.value?.cpuTemp ?? null);
 const cpuTempSource = computed(() => fmtSource(latest.value?.cpuTempSource));
 
@@ -336,9 +317,27 @@ const svgDefs = `
       </div>
     </div>
 
+    <div
+      v-else-if="isRunning"
+      class="flex flex-1 flex-col items-center justify-center gap-1 p-6 text-center"
+    >
+      <p class="text-sm font-medium text-foreground">
+        {{
+          firstSampleOverdue ? "No reading from the device yet" : "Waiting for the first reading…"
+        }}
+      </p>
+      <p class="max-w-md text-xs text-muted-foreground">
+        {{
+          firstSampleOverdue
+            ? "ADB is connected, but the device has not answered /proc/stat or dumpsys yet. Values appear as soon as it does."
+            : "CPU, memory, network and battery are read over ADB about once a second."
+        }}
+      </p>
+    </div>
+
     <!-- Main content -->
     <div
-      v-else-if="isRunning || tickCount > 0"
+      v-else-if="hasAnySample"
       class="flex-1 overflow-y-auto p-3 [&_[data-slot=card]]:gap-3 [&_[data-slot=card]]:py-4 [&_[data-slot=card-content]]:px-4 [&_[data-slot=card-header]]:px-4"
     >
       <!-- ── CPU + Memory Row ──────────────────────────────────────────────── -->
@@ -351,7 +350,7 @@ const svgDefs = `
               CPU Total
             </CardTitle>
             <span class="font-mono text-2xl font-bold" :class="levelColor(cpuPct)">
-              {{ cpuPct }}%
+              {{ cpuPct === null ? "—" : `${cpuPct}%` }}
             </span>
           </CardHeader>
           <CardContent>
@@ -395,7 +394,9 @@ const svgDefs = `
                 <ChartCrosshair :template="cpuTooltipContent" />
               </VisXYContainer>
             </ChartContainer>
-            <p class="text-xs text-muted-foreground mt-2">{{ coreCount }} cores · avg across all</p>
+            <p v-if="coreCount > 0" class="text-xs text-muted-foreground mt-2">
+              {{ coreCount }} cores · avg across all
+            </p>
           </CardContent>
         </Card>
 
@@ -408,7 +409,7 @@ const svgDefs = `
             </CardTitle>
             <div class="text-right">
               <span class="font-mono text-2xl font-bold" :class="levelColor(memPct)">
-                {{ memPct }}%
+                {{ memPct === null ? "—" : `${memPct}%` }}
               </span>
               <p v-if="latest?.memory" class="text-2xs text-muted-foreground">
                 {{ fmtBytes(latest.memory.usedKb) }} /
@@ -466,7 +467,7 @@ const svgDefs = `
         <CardHeader class="pb-1">
           <CardTitle class="text-sm font-medium flex items-center gap-2">
             <Cpu class="h-4 w-4" />
-            Per Core — live
+            Per core
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -515,7 +516,7 @@ const svgDefs = `
             </div>
           </div>
           <div v-else class="flex h-20 items-center justify-center text-sm text-muted-foreground">
-            Waiting for CPU data…
+            No per-core reading yet
           </div>
         </CardContent>
       </Card>
@@ -654,24 +655,24 @@ const svgDefs = `
             <CardContent>
               <div
                 class="font-mono text-3xl font-bold"
-                :class="battery ? battColor(battery.level) : 'text-muted-foreground'"
+                :class="batteryLevel === null ? 'text-muted-foreground' : battColor(batteryLevel)"
               >
-                {{ battery?.level ?? "--" }}%
+                {{ batteryLevel === null ? "—" : `${batteryLevel}%` }}
               </div>
               <p class="text-xs text-muted-foreground mt-1">
-                {{ battery?.charging ? "Charging" : "Discharging" }}
+                {{ batteryState }}
               </p>
               <div class="mt-3 h-2 rounded-full bg-muted overflow-hidden">
                 <div
                   class="h-full rounded-full transition-all duration-700"
                   :class="
-                    battery && battery.level < 20
+                    batteryLevel !== null && batteryLevel < 20
                       ? 'bg-error'
-                      : battery && battery.level < 40
+                      : batteryLevel !== null && batteryLevel < 40
                         ? 'bg-warning'
                         : 'bg-success'
                   "
-                  :style="{ width: `${battery?.level ?? 0}%` }"
+                  :style="{ width: `${batteryLevel ?? 0}%` }"
                 />
               </div>
             </CardContent>
@@ -772,8 +773,7 @@ const svgDefs = `
                 </VisXYContainer>
               </ChartContainer>
               <p class="mt-2 text-2xs text-muted-foreground">
-                Now {{ fmtMb(heapUsedStats.now) }} · Avg {{ fmtMb(heapUsedStats.avg) }} · Peak
-                {{ fmtMb(heapUsedStats.max) }}
+                {{ statsLine(heapUsedStats, fmtMb) }}
               </p>
             </div>
             <div>
@@ -818,8 +818,7 @@ const svgDefs = `
                 </VisXYContainer>
               </ChartContainer>
               <p class="mt-2 text-2xs text-muted-foreground">
-                Now {{ fmtMb(heapTotalStats.now) }} · Avg {{ fmtMb(heapTotalStats.avg) }} · Peak
-                {{ fmtMb(heapTotalStats.max) }}
+                {{ statsLine(heapTotalStats, fmtMb) }}
               </p>
             </div>
             <div>
@@ -864,8 +863,7 @@ const svgDefs = `
                 </VisXYContainer>
               </ChartContainer>
               <p class="mt-2 text-2xs text-muted-foreground">
-                Now {{ fmtCount(domNodesStats.now) }} · Avg {{ fmtCount(domNodesStats.avg) }} · Peak
-                {{ fmtCount(domNodesStats.max) }}
+                {{ statsLine(domNodesStats, fmtCount) }}
               </p>
             </div>
           </div>

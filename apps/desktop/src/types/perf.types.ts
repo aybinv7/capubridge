@@ -16,10 +16,11 @@ export interface PerfMetrics {
     rxBps: number;
     txBps: number;
   };
+  /** Each field is `null` when `dumpsys battery` did not report it. */
   battery: {
-    level: number;
-    temperature: number;
-    charging: boolean;
+    level: number | null;
+    temperature: number | null;
+    charging: boolean | null;
   };
   cpuTemp: number | null;
   cpuTempSource?: string | null;

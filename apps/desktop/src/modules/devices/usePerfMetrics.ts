@@ -9,25 +9,22 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useConnectionStore } from "@/stores/connection.store";
 import type { CpuCoreMetric, PerfMetrics } from "@/types/perf.types";
 import type { SessionEvent } from "@/types/session.types";
-
-const HISTORY = 60;
+import { emptyHistory, pushSample, toSeries, type MetricHistory } from "./perfSeries";
 
 export type CdpMetricsStatus = "idle" | "waiting" | "active" | "degraded" | "error";
 
-function emptyHistory<T>(defaultVal: T): T[] {
-  return Array.from({ length: HISTORY }, () => defaultVal);
-}
+/** How long a running monitor may go without its first device sample before the UI says so. */
+const FIRST_SAMPLE_DEADLINE_MS = 6000;
 
 export function usePerfMetrics() {
   const devicesStore = useDevicesStore();
   const connectionStore = useConnectionStore();
 
-  // Rolling buffers
-  const cpuTotalHistory = ref<number[]>(emptyHistory(0));
-  const memHistory = ref<number[]>(emptyHistory(0));
-  const rxHistory = ref<number[]>(emptyHistory(0));
-  const txHistory = ref<number[]>(emptyHistory(0));
-  const batteryHistory = ref<number[]>(emptyHistory(0));
+  const cpuTotalHistory = ref<MetricHistory>(emptyHistory());
+  const memHistory = ref<MetricHistory>(emptyHistory());
+  const rxHistory = ref<MetricHistory>(emptyHistory());
+  const txHistory = ref<MetricHistory>(emptyHistory());
+  const batteryHistory = ref<MetricHistory>(emptyHistory());
 
   // Live snapshot
   const latest = ref<PerfMetrics | null>(null);
@@ -36,12 +33,12 @@ export function usePerfMetrics() {
   const tickCount = ref(0);
   const coreCount = ref(0);
   const perCoreLatest = ref<CpuCoreMetric[]>([]);
-  const perCoreHistory = ref<number[][]>([]);
+  const perCoreHistory = ref<MetricHistory[]>([]);
+  const firstSampleOverdue = ref(false);
 
-  // CDP WebView metrics
-  const jsHeapUsed = ref<number[]>(emptyHistory(0));
-  const domNodes = ref<number[]>(emptyHistory(0));
-  const jsHeapTotal = ref<number[]>(emptyHistory(0));
+  const jsHeapUsed = ref<MetricHistory>(emptyHistory());
+  const domNodes = ref<MetricHistory>(emptyHistory());
+  const jsHeapTotal = ref<MetricHistory>(emptyHistory());
   const cdpMetricsStatus = ref<CdpMetricsStatus>("idle");
   const cdpMetricsMessage = ref("Not started");
   const cdpMetricsSource = ref<"none" | "performance" | "runtime-fallback">("none");
@@ -52,14 +49,23 @@ export function usePerfMetrics() {
   let initializePromise: Promise<void> | null = null;
   let stopSessionEvents: (() => void) | null = null;
   let cdpTimer: ReturnType<typeof setInterval> | null = null;
+  let firstSampleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function push<T>(arr: T[], val: T): T[] {
-    return [...arr.slice(1), val];
+  function clearFirstSampleDeadline() {
+    if (firstSampleTimer) {
+      clearTimeout(firstSampleTimer);
+      firstSampleTimer = null;
+    }
+    firstSampleOverdue.value = false;
   }
 
-  function pushWithCarry(arr: number[], next: number | null): number[] {
-    const fallback = arr.at(-1) ?? 0;
-    return push(arr, next ?? fallback);
+  function armFirstSampleDeadline() {
+    clearFirstSampleDeadline();
+    if (tickCount.value > 0) return;
+    firstSampleTimer = setTimeout(() => {
+      firstSampleTimer = null;
+      if (tickCount.value === 0 && isRunning.value) firstSampleOverdue.value = true;
+    }, FIRST_SAMPLE_DEADLINE_MS);
   }
 
   function stopCdpMetricsPolling() {
@@ -81,20 +87,21 @@ export function usePerfMetrics() {
     tickCount.value++;
     latest.value = metrics;
     error.value = null;
+    clearFirstSampleDeadline();
 
-    cpuTotalHistory.value = push(cpuTotalHistory.value, metrics.cpuTotal);
-    memHistory.value = push(memHistory.value, metrics.memory.usedPct);
-    rxHistory.value = push(rxHistory.value, metrics.network.rxBps / 1024);
-    txHistory.value = push(txHistory.value, metrics.network.txBps / 1024);
-    batteryHistory.value = push(batteryHistory.value, metrics.battery.level);
+    cpuTotalHistory.value = pushSample(cpuTotalHistory.value, metrics.cpuTotal);
+    memHistory.value = pushSample(memHistory.value, metrics.memory.usedPct);
+    rxHistory.value = pushSample(rxHistory.value, metrics.network.rxBps / 1024);
+    txHistory.value = pushSample(txHistory.value, metrics.network.txBps / 1024);
+    batteryHistory.value = pushSample(batteryHistory.value, metrics.battery.level);
 
     const cores = metrics.cpuCores;
     if (cores.length !== coreCount.value) {
       coreCount.value = cores.length;
-      perCoreHistory.value = Array.from({ length: cores.length }, () => emptyHistory(0));
+      perCoreHistory.value = Array.from({ length: cores.length }, () => emptyHistory());
     }
     perCoreLatest.value = cores;
-    perCoreHistory.value = perCoreHistory.value.map((hist, i) => push(hist, cores[i]?.usage ?? 0));
+    perCoreHistory.value = perCoreHistory.value.map((hist, i) => pushSample(hist, cores[i]?.usage));
   }
 
   function handleSessionEvent(event: SessionEvent) {
@@ -115,6 +122,7 @@ export function usePerfMetrics() {
       error.value = event.message;
       currentSerial = null;
       isRunning.value = false;
+      clearFirstSampleDeadline();
       return;
     }
 
@@ -268,9 +276,9 @@ export function usePerfMetrics() {
 
         const hasFreshSample = heapUsedMb !== null || heapTotalMb !== null || nodes !== null;
 
-        jsHeapUsed.value = pushWithCarry(jsHeapUsed.value, heapUsedMb);
-        jsHeapTotal.value = pushWithCarry(jsHeapTotal.value, heapTotalMb);
-        domNodes.value = pushWithCarry(domNodes.value, nodes);
+        jsHeapUsed.value = pushSample(jsHeapUsed.value, heapUsedMb);
+        jsHeapTotal.value = pushSample(jsHeapTotal.value, heapTotalMb);
+        domNodes.value = pushSample(domNodes.value, nodes);
 
         cdpLastUpdatedAt.value = Date.now();
         if (!hasFreshSample) {
@@ -352,9 +360,11 @@ export function usePerfMetrics() {
     () => isRunning.value,
     (running) => {
       if (running) {
+        armFirstSampleDeadline();
         void startCdpMetrics();
         return;
       }
+      clearFirstSampleDeadline();
       resetCdpMetricsState();
     },
   );
@@ -417,24 +427,11 @@ export function usePerfMetrics() {
   );
 
   onUnmounted(() => {
+    clearFirstSampleDeadline();
     void stop();
     stopSessionEvents?.();
     stopSessionEvents = null;
   });
-
-  function toSeries(
-    history: number[],
-    key: string,
-    latestTick: number,
-  ): Array<Record<string, number>> {
-    const xStart = latestTick - history.length + 1;
-    return history.map((value, i) => ({ x: xStart + i, [key]: value }));
-  }
-
-  function toLegacySeries(history: number[], latestTick: number): Array<{ x: number; y: number }> {
-    const xStart = latestTick - history.length + 1;
-    return history.map((y, i) => ({ x: xStart + i, y }));
-  }
 
   const cpuSeries = computed(() => toSeries(cpuTotalHistory.value, "cpu", tickCount.value));
   const memSeries = computed(() => toSeries(memHistory.value, "mem", tickCount.value));
@@ -445,7 +442,7 @@ export function usePerfMetrics() {
   const heapTotalSeries = computed(() => toSeries(jsHeapTotal.value, "heapTotal", tickCount.value));
   const domNodesSeries = computed(() => toSeries(domNodes.value, "domNodes", tickCount.value));
   const perCoreSeries = computed(() =>
-    perCoreHistory.value.map((hist) => toLegacySeries(hist, tickCount.value)),
+    perCoreHistory.value.map((hist) => toSeries(hist, "y", tickCount.value)),
   );
 
   return {
@@ -453,6 +450,7 @@ export function usePerfMetrics() {
     stop,
     isRunning,
     error,
+    firstSampleOverdue,
     tickCount,
     latest,
     coreCount,
