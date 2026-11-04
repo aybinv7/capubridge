@@ -8,9 +8,8 @@ async function readJson(path) {
 
 const rootPackage = await readJson("package.json");
 const desktopPackage = await readJson("apps/desktop/package.json");
-const uiPlaygroundPackage = await readJson("apps/ui-playground/package.json");
 const cdpProtocolPackage = await readJson("packages/cdp-protocol/package.json");
-const uiPackage = await readJson("packages/ui/package.json");
+const claddPackage = await readJson("packages/cladd/package.json");
 const tauriConfig = await readJson("apps/desktop/src-tauri/tauri.conf.json");
 const cargoManifest = await readFile(new URL("apps/desktop/src-tauri/Cargo.toml", rootUrl), "utf8");
 const readme = await readFile(new URL("README.md", rootUrl), "utf8");
@@ -19,9 +18,8 @@ const expectedVersion = rootPackage.version;
 const versions = new Map([
   ["root package", expectedVersion],
   ["desktop package", desktopPackage.version],
-  ["UI playground package", uiPlaygroundPackage.version],
   ["CDP protocol package", cdpProtocolPackage.version],
-  ["UI package", uiPackage.version],
+  ["Cladd package", claddPackage.version],
   ["Tauri config", tauriConfig.version],
   ["Cargo manifest", cargoVersion],
 ]);

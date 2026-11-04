@@ -1,0 +1,33 @@
+@source "./";
+@source "./components";
+
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
+
+/* Applies to direct children of a hovered surface that is not "self-pressed".
+   Direct-child `>` keeps nested surfaces isolated from ancestor state.
+   Guarded by `(hover: hover)` so the state doesn't stick on touch devices. */
+@custom-variant cladd-surface-hover {
+  @media (hover: hover) {
+    &:where(
+      .cladd-hoverable:hover:not(
+          .cladd-clickable:active:not(:has(.cladd-clickable:active))
+        )
+        > *
+    ) {
+      @slot;
+    }
+  }
+}
+
+/* Applies to direct children of a "self-pressed" surface — :active and not
+   wrapping another active clickable, i.e. the deepest pressed surface. */
+@custom-variant cladd-surface-press (&:where(.cladd-clickable:active:not(:has(.cladd-clickable:active)) > *));
+@import "./styles/colors.css";
+@import "./styles/radius.css";
+@import "./styles/spacing.css";
+@import "./styles/safe-areas.css";
+@import "./styles/spinner.css";
+@import "./styles/slider.css";
+@import "./styles/input.css";
+@import "./styles/font-size.css";

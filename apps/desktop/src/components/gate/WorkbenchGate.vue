@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Check, CircleX, Copy, TriangleAlert } from "lucide-vue-next";
+import { Button, Spinner } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
 import {
   Empty,
@@ -9,8 +10,6 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import GateChain from "@/components/gate/GateChain.vue";
 import GateActions from "@/components/gate/GateActions.vue";
 import { useActiveContextStore } from "@/stores/activeContext.store";
@@ -69,7 +68,7 @@ async function copyDetail() {
     :data-gate="kind"
   >
     <div class="flex min-w-0 max-w-2xl items-center gap-3">
-      <Spinner v-if="content.tone === 'waiting'" class="text-warning" />
+      <Spinner v-if="content.tone === 'waiting'" size="xs" color="yellow" />
       <TriangleAlert
         v-else-if="content.tone === 'warning'"
         :size="14"
@@ -101,7 +100,7 @@ async function copyDetail() {
 
       <EmptyHeader class="max-w-none items-start gap-1.5 text-left">
         <EmptyTitle class="flex items-center gap-2 text-lg font-medium text-foreground">
-          <Spinner v-if="content.tone === 'waiting'" class="text-warning" />
+          <Spinner v-if="content.tone === 'waiting'" size="sm" color="yellow" />
           <TriangleAlert v-else-if="content.tone === 'warning'" :size="16" class="text-warning" />
           <CircleX v-else-if="content.tone === 'error'" :size="16" class="text-error" />
           {{ content.title }}
@@ -144,13 +143,14 @@ async function copyDetail() {
           {{ errorDetail }}
         </code>
         <Button
-          size="icon-sm"
-          variant="ghost"
-          class="size-6"
+          size="xs"
+          square
+          variant="transparent"
+          :outline="false"
           aria-label="Copy error"
           @click="copyDetail"
         >
-          <Copy />
+          <Copy :size="12" aria-hidden="true" />
         </Button>
       </div>
 

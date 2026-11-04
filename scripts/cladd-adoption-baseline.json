@@ -1,0 +1,448 @@
+{
+  "apps/desktop/src/components/ai-elements/code-block/CodeBlockCopyButton.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/components/ai-elements/code-block/CodeBlockLanguageSelector.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/code-block/CodeBlockLanguageSelectorContent.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/code-block/CodeBlockLanguageSelectorItem.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/code-block/CodeBlockLanguageSelectorTrigger.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/code-block/CodeBlockLanguageSelectorValue.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/conversation/ConversationScrollButton.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/components/ai-elements/message/MessageAction.vue": {
+    "button": 2,
+    "tooltip": 1
+  },
+  "apps/desktop/src/components/ai-elements/message/MessageBranchNext.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/components/ai-elements/message/MessageBranchPage.vue": {
+    "button-group": 1
+  },
+  "apps/desktop/src/components/ai-elements/message/MessageBranchPrevious.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/components/ai-elements/message/MessageBranchSelector.vue": {
+    "button-group": 1
+  },
+  "apps/desktop/src/components/ai-elements/model-selector/ModelSelector.vue": {
+    "dialog": 1
+  },
+  "apps/desktop/src/components/ai-elements/model-selector/ModelSelectorContent.vue": {
+    "dialog": 1
+  },
+  "apps/desktop/src/components/ai-elements/model-selector/ModelSelectorTrigger.vue": {
+    "dialog": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInput.vue": {
+    "input-group": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputButton.vue": {
+    "input-group": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputFooter.vue": {
+    "input-group": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputHeader.vue": {
+    "input-group": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputSelect.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputSelectContent.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputSelectItem.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputSelectTrigger.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputSelectValue.vue": {
+    "select": 1
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputSubmit.vue": {
+    "input-group": 2
+  },
+  "apps/desktop/src/components/ai-elements/prompt-input/PromptInputTextarea.vue": {
+    "input-group": 1
+  },
+  "apps/desktop/src/components/ai-elements/tool/Tool.vue": {
+    "collapsible": 1
+  },
+  "apps/desktop/src/components/ai-elements/tool/ToolContent.vue": {
+    "collapsible": 1
+  },
+  "apps/desktop/src/components/ai-elements/tool/ToolHeader.vue": {
+    "collapsible": 1
+  },
+  "apps/desktop/src/components/ai-elements/tool/ToolStatusBadge.vue": {
+    "badge": 1
+  },
+  "apps/desktop/src/components/dock/DockPopoutButton.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/components/dock/DockTabBar.vue": {
+    "button": 1,
+    "tabs": 1
+  },
+  "apps/desktop/src/components/layout/AdbReversePopover.vue": {
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/app/AppBatteryTab.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/modules/app/AppDataUsagePage.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/modules/app/AppInspectorPanel.vue": {
+    "confirm-dialog": 1
+  },
+  "apps/desktop/src/modules/app/AppNetworkTab.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/modules/app/AppOverviewSurface.vue": {
+    "badge": 1,
+    "button": 1
+  },
+  "apps/desktop/src/modules/app/AppPermissionsTab.vue": {
+    "badge": 1,
+    "button": 1
+  },
+  "apps/desktop/src/modules/automation/AgentAppSelector.vue": {
+    "button": 1,
+    "popover": 1
+  },
+  "apps/desktop/src/modules/automation/AgentComposerSettings.vue": {
+    "button": 1,
+    "input": 1,
+    "label": 1,
+    "popover": 1
+  },
+  "apps/desktop/src/modules/automation/AgentWorkspace.vue": {
+    "badge": 1,
+    "button": 1,
+    "dialog": 1,
+    "textarea": 1
+  },
+  "apps/desktop/src/modules/automation/AutomationWorkbench.vue": {
+    "badge": 1,
+    "button": 1,
+    "input": 1,
+    "label": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/automation/FlowSourceEditor.vue": {
+    "button": 1,
+    "textarea": 1
+  },
+  "apps/desktop/src/modules/automation/RunsDrawer.vue": {
+    "badge": 1,
+    "button": 1,
+    "dialog": 1,
+    "label": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/automation/StepInspector.vue": {
+    "badge": 1,
+    "button": 1,
+    "input": 1,
+    "label": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/automation/StepRow.vue": {
+    "badge": 1
+  },
+  "apps/desktop/src/modules/automation/TargetFields.vue": {
+    "input": 1,
+    "label": 1,
+    "select": 1,
+    "switch": 1
+  },
+  "apps/desktop/src/modules/automation/TaskEventInspector.vue": {
+    "badge": 1,
+    "button": 1
+  },
+  "apps/desktop/src/modules/automation/TaskHistoryRail.vue": {
+    "badge": 1,
+    "button": 1
+  },
+  "apps/desktop/src/modules/browser-preview/BrowserPreviewAddressBar.vue": {
+    "button": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/browser-preview/BrowserPreviewPanel.vue": {
+    "badge": 1,
+    "button": 1
+  },
+  "apps/desktop/src/modules/console/ConsoleExceptions.vue": {
+    "badge": 1,
+    "button": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/console/ConsoleOutput.vue": {
+    "badge": 1,
+    "button": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/console/ConsoleRepl.vue": {
+    "badge": 1,
+    "button": 1,
+    "textarea": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceAppInspector.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceApps.vue": {
+    "button": 1,
+    "confirm-dialog": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceAppsToolbar.vue": {
+    "button": 1,
+    "input": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceFileUnsupportedPopover.vue": {
+    "button": 1,
+    "popover": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceFileViewerDialog.vue": {
+    "button": 1,
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceFiles.vue": {
+    "button": 1,
+    "input": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceLogcat.vue": {
+    "badge": 1,
+    "button": 1,
+    "input": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/devices/DeviceOverview.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/modules/devices/DevicePerf.vue": {
+    "card": 1
+  },
+  "apps/desktop/src/modules/inspect/EditAsHtmlDialog.vue": {
+    "button": 1,
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/network/NetworkMock.vue": {
+    "dialog": 1,
+    "input": 1,
+    "select": 1,
+    "switch": 1
+  },
+  "apps/desktop/src/modules/network/NetworkPanel.vue": {
+    "input": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/network/NetworkRequests.vue": {
+    "switch": 1
+  },
+  "apps/desktop/src/modules/recording/RecordingConfigModal.vue": {
+    "button": 1,
+    "collapsible": 1,
+    "dialog": 1,
+    "input": 1,
+    "switch": 1
+  },
+  "apps/desktop/src/modules/recording/ReplayDatabasesPanel.vue": {
+    "input": 1
+  },
+  "apps/desktop/src/modules/recording/ReplayIndexedDbTable.vue": {
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/recording/ReplayNetworkPanel.vue": {
+    "input": 1
+  },
+  "apps/desktop/src/modules/recording/ReplayPerfUnavailableCard.vue": {
+    "card": 1
+  },
+  "apps/desktop/src/modules/recording/ReplayPerformanceLane.vue": {
+    "card": 1
+  },
+  "apps/desktop/src/modules/recording/ReplaySessionPicker.vue": {
+    "button": 1,
+    "checkbox": 1,
+    "dialog": 1,
+    "input": 1,
+    "label": 1
+  },
+  "apps/desktop/src/modules/recording/ReplaySqliteChangeDialog.vue": {
+    "badge": 1,
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/recording/ReplaySqliteTable.vue": {
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/recording/ReplayTableChangeList.vue": {
+    "badge": 1
+  },
+  "apps/desktop/src/modules/recording/ReplayView.vue": {
+    "button": 1
+  },
+  "apps/desktop/src/modules/settings/SettingsAdb.vue": {
+    "badge": 1
+  },
+  "apps/desktop/src/modules/settings/SettingsChrome.vue": {
+    "badge": 1
+  },
+  "apps/desktop/src/modules/settings/SettingsMcp.vue": {
+    "badge": 1,
+    "button": 1,
+    "input": 1,
+    "switch": 1
+  },
+  "apps/desktop/src/modules/settings/SettingsModal.vue": {
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/settings/SettingsUpdates.vue": {
+    "button": 1,
+    "switch": 1
+  },
+  "apps/desktop/src/modules/storage/cache/CacheExplorer.vue": {
+    "button": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphCanvasDock.vue": {
+    "button": 1,
+    "tooltip": 1
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphEntityNode.vue": {
+    "badge": 1
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue": {
+    "badge": 1,
+    "input": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
+    "badge": 1,
+    "button": 1,
+    "dialog": 1,
+    "input": 1,
+    "textarea": 1
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphSelectionToolbar.vue": {
+    "button": 1,
+    "tooltip": 1
+  },
+  "apps/desktop/src/modules/storage/graph/StorageGraphViewportToolbar.vue": {
+    "button": 1,
+    "tooltip": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/FilterBuilder.vue": {
+    "button": 1,
+    "input": 1,
+    "popover": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBCellEditor.vue": {
+    "popover": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBChangeDiffDialog.vue": {
+    "badge": 1,
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBColumnSettings.vue": {
+    "button": 1,
+    "checkbox": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue": {
+    "confirm-dialog": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBRowDetailDialog.vue": {
+    "button": 1,
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBTable.vue": {
+    "button": 1,
+    "checkbox": 1,
+    "confirm-dialog": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBTableActions.vue": {
+    "button": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/storage/indexeddb/IDBTableToolbar.vue": {
+    "badge": 1,
+    "button": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/storage/localforage/LocalForageExplorer.vue": {
+    "button": 1,
+    "dialog": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/storage/localstorage/LSExplorer.vue": {
+    "button": 1,
+    "dialog": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/storage/opfs/OPFSExplorer.vue": {
+    "badge": 1,
+    "button": 1,
+    "input": 1,
+    "tooltip": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteCellEditor.vue": {
+    "popover": 1,
+    "switch": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteChangeDiffDialog.vue": {
+    "badge": 1,
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteColumnSettings.vue": {
+    "button": 1,
+    "checkbox": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteExplorer.vue": {
+    "button": 1,
+    "confirm-dialog": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteFilterBuilder.vue": {
+    "button": 1,
+    "input": 1,
+    "popover": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteRowDetailDialog.vue": {
+    "button": 1,
+    "dialog": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteSourceBadge.vue": {
+    "tooltip": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteTable.vue": {
+    "button": 1,
+    "checkbox": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteTableActions.vue": {
+    "button": 1,
+    "input": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/SqliteTableToolbar.vue": {
+    "badge": 1,
+    "button": 1,
+    "select": 1
+  },
+  "apps/desktop/src/modules/storage/sqlite/useSqliteColumns.ts": {
+    "checkbox": 1
+  }
+}

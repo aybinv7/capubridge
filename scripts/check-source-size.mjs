@@ -42,8 +42,14 @@ export function countPhysicalLines(content) {
   return newlineCount + (/\r\n$|\r$|\n$/.test(content) ? 0 : 1);
 }
 
+/**
+ * Generated or vendored trees. `packages/cladd` is a copy of cladd-vue (see its VENDORED.md):
+ * its structure is owned and reviewed upstream, so splitting files here would fork it.
+ */
+const skippedTrees = new Set(["apps/docs/.vitepress/cache", "packages/cladd"]);
+
 async function collectSourceFiles(directory) {
-  if (normalizedPath(relative(root, directory)) === "apps/docs/.vitepress/cache") return [];
+  if (skippedTrees.has(normalizedPath(relative(root, directory)))) return [];
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(
     entries.map(async (entry) => {

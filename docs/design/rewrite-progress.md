@@ -91,6 +91,20 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
       9 improvised "no device / no target" branches. Windows `cargo test` fixed (Common-Controls manifest via
       linker for every target): 173/173 Rust, 739/739 desktop tests.
 - [ ] R5 Data workbench (DataGrid, changeset, FK peek, filters/grouping, provenance)
+  - [x] R5a Cladd foundation (D3 enforced) — cladd-vue re-pinned to upstream Cladd 0.19.0 (`1aaad0a`) in
+        its own repo (Dialog inert release with a lingering popover, nested-dialog inert, deferred-open and
+        transition-less close, Textarea `plaintext-only`; regression tests fail on the old code), then
+        vendored as `packages/cladd` by `scripts/sync-cladd.mjs` (216/216 behaviour tests; parity suite and
+        calendar components stay upstream). `packages/ui` and `apps/ui-playground` deleted (an older fork and
+        its catalogue). `cladd-bridge.css` maps Cladd's base variables to Bench roles and its accents to
+        Bench meaning, clamps Cladd type to 11 px, radius 6 px; verified by compiling `main.css` with the
+        Tailwind compiler (`dark:` stays the app's variant, `light:` is Cladd's class variant).
+        `CladdProvider` (neutral accent, theme mode, overlays in `body`); overlay guard also matches Cladd
+        dialogs/popups/popovers. Retrofitted: gate actions and copy button → Cladd Button, spinners → Cladd
+        Spinner, `KeyCaps` → Cladd Shortcut via `bindingTokens`, rail tooltips → Cladd Tooltip with keys from
+        the command registry (fixes the rail showing "Ctrl+," for every utility entry). Removed the shadcn
+        `xs` button size. New ratchet `check:cladd-adoption` (220 retiring shadcn imports, none may be added;
+        in `ready` and both CI workflows). Script guard tests now run in `test:all` (they never ran in CI).
 - [ ] R6 Network (requests, mocks as rules, recording → mocks)
 - [ ] R7 Elements + Device (tree virtualisation, a11y, lens, vitals, apps/files)
 - [ ] R8 Timeline + Sessions (global buffer, lanes, scrub, A/B diff, write tap, export with redaction)
@@ -142,3 +156,13 @@ below 9 until values carry provenance everywhere and the context matrix test exi
 - SQLite, Graph and Network › Mock keep their own mixed gating → R5 / R6
 - `usePerfMetrics` never starts if mounted without a device; sidestepped by the gate remount → R7
 - Background / gone / degraded states need a live check after the next Rust rebuild → start of R5
+
+### Open items found in R5a (assigned)
+
+- cladd-vue's architecture forbids "a general headless component runtime", while the R5 owner decision says
+  new Cladd primitives (menu, context menu, combobox, tree, scroll area, resizable) are "built on Reka
+  behaviour" → owner decision before the first new primitive (R5b needs a context menu)
+- R5a is not yet verified in the running app (needs a frontend reload; Cladd bevels and the gate buttons
+  should be checked in dark, light and high contrast) → first step of R5b
+- Cladd `Shortcut` renders `cmd` as CTRL on Windows; confirm the 11 px floor keeps `xs` keys legible → R5b
+- 220 shadcn imports still to migrate as each screen is rebuilt (R5–R9)

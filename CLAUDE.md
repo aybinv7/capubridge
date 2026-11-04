@@ -50,15 +50,17 @@ capubridge/
 │   │   ├── src/        # Frontend Vue source
 │   │   └── src-tauri/  # Rust backend (Tauri commands)
 │   ├── docs/           # VitePress documentation app
-│   ├── ui-playground/  # Interactive catalog for @capubridge/ui
 │   └── website2/       # Marketing/docs website (Vite)
 ├── packages/
 │   ├── cdp-protocol/   # Typed CDP client and domain adapters
-│   └── ui/             # Reusable Vue component library ported from Cladd (no Reka UI)
+│   └── cladd/          # Vendored cladd-vue: the visual foundation (sync, do not edit)
 └── vite.config.ts      # Root Vite+ config (fmt, lint, staged hooks)
 ```
 
-The `desktop` app imports the CDP package via workspace. The `ui-playground` app consumes `@capubridge/ui` through its public export and development-only `source` condition.
+The `desktop` app imports the CDP package and `@capubridge/cladd` via workspace. `packages/cladd` is a
+vendored copy of cladd-vue: add or fix primitives in cladd-vue, then run `vp run sync:cladd`. New UI uses
+Cladd components; shadcn-vue components that have a Cladd equivalent are retiring, and
+`vp run check:cladd-adoption` blocks new imports of them (see `apps/desktop/DESIGN.md`).
 
 ---
 
@@ -78,18 +80,18 @@ Full specification: see `apps/docs/SPEC.md`
 
 ## Tech Stack Quick Reference
 
-| Layer              | Technology                                  |
-| ------------------ | ------------------------------------------- |
-| Frontend framework | Vue 3 (Composition API, `<script setup>`)   |
-| Language           | TypeScript (strict)                         |
-| Build              | Vite 5                                      |
-| Styling            | UnoCSS (atomic CSS)                         |
-| State              | Pinia (setup store syntax) + TanStack Query |
-| Tables             | TanStack Table v8                           |
-| Terminal           | xterm.js v5                                 |
-| Code editor        | Monaco Editor                               |
-| Desktop            | Tauri 2                                     |
-| Backend            | Rust (thin — shell plugin + file I/O only)  |
+| Layer              | Technology                                    |
+| ------------------ | --------------------------------------------- |
+| Frontend framework | Vue 3 (Composition API, `<script setup>`)     |
+| Language           | TypeScript (strict)                           |
+| Build              | Vite 5                                        |
+| Styling            | Tailwind CSS v4 + Cladd (`@capubridge/cladd`) |
+| State              | Pinia (setup store syntax) + TanStack Query   |
+| Tables             | TanStack Table v8                             |
+| Terminal           | xterm.js v5                                   |
+| Code editor        | Monaco Editor                                 |
+| Desktop            | Tauri 2                                       |
+| Backend            | Rust (thin — shell plugin + file I/O only)    |
 
 ---
 

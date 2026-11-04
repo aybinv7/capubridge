@@ -99,6 +99,9 @@ catalogs:
     clsx:
       specifier: ^2.1.1
       version: 2.1.1
+    date-fns:
+      specifier: ^4.4.0
+      version: 4.4.0
     effect:
       specifier: ^3.21.1
       version: 3.21.1
@@ -108,15 +111,30 @@ catalogs:
     geist:
       specifier: ^1.7.0
       version: 1.7.0
+    gsap:
+      specifier: ^3.15.0
+      version: 3.15.0
     happy-dom:
       specifier: ^20.9.0
       version: 20.10.6
+    jsrepo:
+      specifier: ^3.7.0
+      version: 3.7.0
     lucide-vue-next:
       specifier: 1.0.0
       version: 1.0.0
+    motion-v:
+      specifier: ^1.10.3
+      version: 1.10.3
     nanoid:
       specifier: 6.0.1
       version: 6.0.1
+    ogl:
+      specifier: ^1.0.11
+      version: 1.0.11
+    oxc-minify:
+      specifier: ^0.128.0
+      version: 0.128.0
     pinia:
       specifier: ^3.0.4
       version: 3.0.4
@@ -129,6 +147,9 @@ catalogs:
     shadcn-vue:
       specifier: ^2.8.2
       version: 2.8.2
+    sharp:
+      specifier: ^0.35.4
+      version: 0.35.4
     shiki:
       specifier: 3.23.0
       version: 3.23.0
@@ -147,12 +168,18 @@ catalogs:
     tw-animate-css:
       specifier: ^1.4.0
       version: 1.4.0
+    typescript:
+      specifier: ^5
+      version: 5.9.3
     vite-plugin-vue-devtools:
       specifier: ^8.1.1
       version: 8.1.1
     vite-plus:
       specifier: 0.1.21
       version: 0.1.21
+    vitepress:
+      specifier: 2.0.0-alpha.17
+      version: 2.0.0-alpha.17
     vue:
       specifier: ^3.5.31
       version: 3.5.31
@@ -189,6 +216,9 @@ importers:
       '@capubridge/cdp-protocol':
         specifier: workspace:*
         version: link:../../packages/cdp-protocol
+      '@capubridge/cladd':
+        specifier: workspace:*
+        version: link:../../packages/cladd
       '@devicefarmer/adbkit':
         specifier: ^3.3.8
         version: 3.3.8
@@ -387,46 +417,6 @@ importers:
         specifier: 'catalog:'
         version: 3.5.31(typescript@6.0.2)
 
-  apps/ui-playground:
-    dependencies:
-      '@capubridge/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      shiki:
-        specifier: 'catalog:'
-        version: 3.23.0
-      vue:
-        specifier: 'catalog:'
-        version: 3.5.31(typescript@5.9.3)
-      vue-router:
-        specifier: 'catalog:'
-        version: 5.0.4(@vue/compiler-sfc@3.5.31)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.31(typescript@5.9.3)))(vue@3.5.31(typescript@5.9.3))
-    devDependencies:
-      '@tailwindcss/vite':
-        specifier: 'catalog:'
-        version: 4.2.2(@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0))
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.12.0
-      '@vitejs/plugin-vue':
-        specifier: 'catalog:'
-        version: 6.0.5(@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0))(vue@3.5.31(typescript@5.9.3))
-      '@vue/tsconfig':
-        specifier: ^0.9.1
-        version: 0.9.1(typescript@5.9.3)(vue@3.5.31(typescript@5.9.3))
-      tailwindcss:
-        specifier: 'catalog:'
-        version: 4.2.2
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@0.1.21
-        version: '@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)'
-      vite-plus:
-        specifier: 'catalog:'
-        version: 0.1.21(@types/node@24.12.0)(@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0))(esbuild@0.28.1)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)
-
   apps/website2:
     dependencies:
       '@tailwindcss/vite':
@@ -485,24 +475,24 @@ importers:
         specifier: ^0.1.14
         version: 0.1.21(@types/node@25.5.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@25.5.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
 
-  packages/ui:
+  packages/cladd:
     dependencies:
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
+      date-fns:
+        specifier: 'catalog:'
+        version: 4.4.0
       tailwind-merge:
         specifier: 'catalog:'
         version: 3.5.0
     devDependencies:
-      '@tailwindcss/vite':
-        specifier: 'catalog:'
-        version: 4.2.2(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.0
       '@vitejs/plugin-vue':
         specifier: 'catalog:'
-        version: 6.0.5(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(vue@3.5.31(typescript@6.0.2))
+        version: 6.0.5(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(vue@3.5.31(typescript@5.9.3))
       happy-dom:
         specifier: 'catalog:'
         version: 20.10.6
@@ -510,14 +500,14 @@ importers:
         specifier: 'catalog:'
         version: 4.2.2
       typescript:
-        specifier: ^6.0.2
-        version: 6.0.2
+        specifier: 'catalog:'
+        version: 5.9.3
       vite-plus:
         specifier: 'catalog:'
-        version: 0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
+        version: 0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
       vue:
         specifier: 'catalog:'
-        version: 3.5.31(typescript@6.0.2)
+        version: 3.5.31(typescript@5.9.3)
 
 packages:
 
@@ -3082,17 +3072,6 @@ packages:
   '@vue/shared@3.5.31':
     resolution: {integrity: sha512-nBxuiuS9Lj5bPkPbWogPUnjxxWpkRniX7e5UBQDWl6Fsf4roq9wwV+cR7ezQ4zXswNvPIlsdj1slcLB7XCsRAw==}
 
-  '@vue/tsconfig@0.9.1':
-    resolution: {integrity: sha512-buvjm+9NzLCJL29KY1j1991YYJ5e6275OiK+G4jtmfIb+z4POywbdm0wXusT9adVWqe0xqg70TbI7+mRx4uU9w==}
-    peerDependencies:
-      typescript: '>= 5.8'
-      vue: ^3.4.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-      vue:
-        optional: true
-
   '@vuedx/template-ast-types@0.7.1':
     resolution: {integrity: sha512-Mqugk/F0lFN2u9bhimH6G1kSu2hhLi2WoqgCVxrMvgxm2kDc30DtdvVGRq+UgEmKVP61OudcMtZqkUoGQeFBUQ==}
 
@@ -3732,6 +3711,9 @@ packages:
   d3@7.9.0:
     resolution: {integrity: sha512-e1U46jVP+w7Iut8Jt8ri1YsPOvFpg46k+K8TpCb0P+zjCkjkPnV7WzfDJzMHy1LnA+wj5pLT1wjO901gLXeEhA==}
     engines: {node: '>=12'}
+
+  date-fns@4.4.0:
+    resolution: {integrity: sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w==}
 
   debug@4.3.7:
     resolution: {integrity: sha512-Er2nc/H7RrMXZBFCEim6TCmMk02Z8vLC2Rbi1KEBggpo0fS6l0S1nnapwmIi3yW/+GOJap1Krg4w0Hg80oCqgQ==}
@@ -7714,13 +7696,6 @@ snapshots:
       tailwindcss: 4.2.2
       vite: '@voidzero-dev/vite-plus-core@0.1.21(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0)'
 
-  '@tailwindcss/vite@4.2.2(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))':
-    dependencies:
-      '@tailwindcss/node': 4.2.2
-      '@tailwindcss/oxide': 4.2.2
-      tailwindcss: 4.2.2
-      vite: 8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0)
-
   '@tanstack/ai-anthropic@0.18.9(@tanstack/ai@0.57.0(zod@3.25.76))(zod@3.25.76)':
     dependencies:
       '@anthropic-ai/sdk': 0.97.1(zod@3.25.76)
@@ -8110,6 +8085,7 @@ snapshots:
   '@types/node@26.1.2':
     dependencies:
       undici-types: 8.3.0
+    optional: true
 
   '@types/parse-json@4.0.2': {}
 
@@ -8361,11 +8337,11 @@ snapshots:
       vite: '@voidzero-dev/vite-plus-core@0.1.21(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0)'
       vue: 3.5.31(typescript@6.0.2)
 
-  '@vitejs/plugin-vue@6.0.5(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(vue@3.5.31(typescript@6.0.2))':
+  '@vitejs/plugin-vue@6.0.5(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(vue@3.5.31(typescript@5.9.3))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-rc.2
       vite: 8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0)
-      vue: 3.5.31(typescript@6.0.2)
+      vue: 3.5.31(typescript@5.9.3)
 
   '@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)':
     dependencies:
@@ -8383,7 +8359,7 @@ snapshots:
       typescript: 5.9.3
       yaml: 2.9.0
 
-  '@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0)':
+  '@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)':
     dependencies:
       '@oxc-project/runtime': 0.129.0
       '@oxc-project/types': 0.129.0
@@ -8395,7 +8371,7 @@ snapshots:
       jiti: 2.6.1
       stylus: 0.57.0
       tsx: 4.23.1
-      typescript: 6.0.2
+      typescript: 5.9.3
       yaml: 2.9.0
 
   '@voidzero-dev/vite-plus-core@0.1.21(@types/node@25.5.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0)':
@@ -8474,7 +8450,7 @@ snapshots:
       sirv: 3.0.2
       std-env: 4.0.0
       tinybench: 2.9.0
-      tinyexec: 1.0.4
+      tinyexec: 1.3.1
       tinyglobby: 0.2.17
       vite: '@voidzero-dev/vite-plus-core@0.1.21(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)'
       ws: 8.21.1
@@ -8503,11 +8479,11 @@ snapshots:
       - utf-8-validate
       - yaml
 
-  '@voidzero-dev/vite-plus-test@0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)':
+  '@voidzero-dev/vite-plus-test@0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/chai': 5.2.3
-      '@voidzero-dev/vite-plus-core': 0.1.21(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0)
+      '@voidzero-dev/vite-plus-core': 0.1.21(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)
       es-module-lexer: 1.7.0
       obug: 2.1.1
       pixelmatch: 7.1.0
@@ -8515,7 +8491,7 @@ snapshots:
       sirv: 3.0.2
       std-env: 4.0.0
       tinybench: 2.9.0
-      tinyexec: 1.0.4
+      tinyexec: 1.3.1
       tinyglobby: 0.2.17
       vite: 8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0)
       ws: 8.21.1
@@ -8556,7 +8532,7 @@ snapshots:
       sirv: 3.0.2
       std-env: 4.0.0
       tinybench: 2.9.0
-      tinyexec: 1.0.4
+      tinyexec: 1.3.1
       tinyglobby: 0.2.17
       vite: 8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@25.5.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0)
       ws: 8.21.1
@@ -8597,7 +8573,7 @@ snapshots:
       sirv: 3.0.2
       std-env: 4.0.0
       tinybench: 2.9.0
-      tinyexec: 1.0.4
+      tinyexec: 1.3.1
       tinyglobby: 0.2.17
       vite: '@voidzero-dev/vite-plus-core@0.1.21(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0)'
       ws: 8.21.1
@@ -8638,7 +8614,7 @@ snapshots:
       sirv: 3.0.2
       std-env: 4.0.0
       tinybench: 2.9.0
-      tinyexec: 1.0.4
+      tinyexec: 1.3.1
       tinyglobby: 0.2.17
       vite: 8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0)
       ws: 8.21.1
@@ -8837,11 +8813,6 @@ snapshots:
       vue: 3.5.31(typescript@6.0.2)
 
   '@vue/shared@3.5.31': {}
-
-  '@vue/tsconfig@0.9.1(typescript@5.9.3)(vue@3.5.31(typescript@5.9.3))':
-    optionalDependencies:
-      typescript: 5.9.3
-      vue: 3.5.31(typescript@5.9.3)
 
   '@vuedx/template-ast-types@0.7.1':
     dependencies:
@@ -9477,6 +9448,8 @@ snapshots:
       d3-transition: 3.0.1(d3-selection@3.0.0)
       d3-zoom: 3.0.0
 
+  date-fns@4.4.0: {}
+
   debug@4.3.7:
     dependencies:
       ms: 2.1.3
@@ -10051,7 +10024,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.7.4
+      semver: 7.8.5
       serialize-error: 7.0.1
     optional: true
 
@@ -10105,7 +10078,7 @@ snapshots:
 
   happy-dom@20.10.6:
     dependencies:
-      '@types/node': 26.1.2
+      '@types/node': 25.5.0
       '@types/whatwg-mimetype': 3.0.2
       '@types/ws': 8.18.1
       buffer-image-size: 0.6.4
@@ -11195,8 +11168,8 @@ snapshots:
       '@internationalized/date': 3.12.0
       '@internationalized/number': 3.6.5
       '@tanstack/vue-virtual': 3.13.23(vue@3.5.31(typescript@5.9.3))
-      '@vueuse/core': 14.3.0(vue@3.5.31(typescript@5.9.3))
-      '@vueuse/shared': 14.3.0(vue@3.5.31(typescript@5.9.3))
+      '@vueuse/core': 14.4.0(vue@3.5.31(typescript@5.9.3))
+      '@vueuse/shared': 14.4.0(vue@3.5.31(typescript@5.9.3))
       aria-hidden: 1.2.6
       defu: 6.1.6
       ohash: 2.0.11
@@ -11833,7 +11806,8 @@ snapshots:
 
   undici-types@7.18.2: {}
 
-  undici-types@8.3.0: {}
+  undici-types@8.3.0:
+    optional: true
 
   undici@7.29.1: {}
 
@@ -12007,11 +11981,11 @@ snapshots:
       - vite
       - yaml
 
-  vite-plus@0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0):
+  vite-plus@0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0):
     dependencies:
       '@oxc-project/types': 0.129.0
-      '@voidzero-dev/vite-plus-core': 0.1.21(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0)
-      '@voidzero-dev/vite-plus-test': 0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
+      '@voidzero-dev/vite-plus-core': 0.1.21(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(yaml@2.9.0)
+      '@voidzero-dev/vite-plus-test': 0.1.21(@types/node@24.12.0)(happy-dom@20.10.6)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@5.9.3)(vite@8.0.3(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(@types/node@24.12.0)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(yaml@2.9.0))(yaml@2.9.0)
       oxfmt: 0.48.0
       oxlint: 1.63.0(oxlint-tsgolint@0.22.1)
       oxlint-tsgolint: 0.22.1
@@ -12266,7 +12240,7 @@ snapshots:
       '@vitejs/plugin-vue': 6.0.5(@voidzero-dev/vite-plus-core@0.1.21(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.6.1)(stylus@0.57.0)(tsx@4.23.1)(typescript@6.0.2)(yaml@2.9.0))(vue@3.5.31(typescript@6.0.2))
       '@vue/devtools-api': 8.1.1
       '@vue/shared': 3.5.31
-      '@vueuse/core': 14.3.0(vue@3.5.31(typescript@6.0.2))
+      '@vueuse/core': 14.4.0(vue@3.5.31(typescript@6.0.2))
       '@vueuse/integrations': 14.3.0(focus-trap@8.1.0)(vue@3.5.31(typescript@6.0.2))
       focus-trap: 8.1.0
       mark.js: 8.11.1

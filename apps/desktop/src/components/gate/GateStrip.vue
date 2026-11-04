@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CircleX, TriangleAlert } from "lucide-vue-next";
-import { Spinner } from "@/components/ui/spinner";
+import { Spinner } from "@capubridge/cladd";
 import GateActions from "@/components/gate/GateActions.vue";
 import ProvenanceTag from "@/components/gate/ProvenanceTag.vue";
 import { useGateActions } from "@/composables/useGateActions";
@@ -21,7 +21,7 @@ const { run, running } = useGateActions();
     role="status"
     aria-live="polite"
   >
-    <Spinner v-if="content.tone === 'waiting'" class="size-3.5 text-warning" />
+    <Spinner v-if="content.tone === 'waiting'" size="xs" color="yellow" />
     <CircleX v-else-if="content.tone === 'error'" :size="14" class="shrink-0 text-error" />
     <TriangleAlert v-else :size="14" class="shrink-0 text-warning" />
     <span class="shrink-0 font-medium text-foreground">{{ content.title }}</span>

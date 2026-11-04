@@ -37,6 +37,7 @@ catalog:
   ai: 7.0.107
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
+  date-fns: ^4.4.0
   effect: ^3.21.1
   elkjs: 0.10.2
   geist: ^1.7.0

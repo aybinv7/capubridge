@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@capubridge/cladd";
 import KeyCaps from "@/components/command/KeyCaps.vue";
-import { formatBinding } from "@/lib/commands/keymap";
+import { bindingTokens } from "@/lib/commands/keymap";
 import { GATE_ACTIONS } from "@/components/gate/gate-actions";
 import type { GateActionId } from "@/lib/gates/types";
 
@@ -23,19 +22,22 @@ const shown = computed(() => (props.limit ? props.actions.slice(0, props.limit) 
     <Button
       v-for="(action, index) in shown"
       :key="action"
-      size="xs"
-      :variant="index === 0 ? 'default' : 'ghost'"
-      :disabled="running !== null"
+      size="sm"
+      :variant="index === 0 ? 'solid-fill' : 'transparent'"
+      :outline="index === 0"
+      :loading="running === action"
+      :disabled="running !== null && running !== action"
+      :read-only="running === action"
       :data-gate-action="action"
+      content-class-name="gap-1.5"
       @click="emit('run', action, GATE_ACTIONS[action].label)"
     >
-      <Spinner v-if="running === action" data-icon="inline-start" />
-      <component :is="GATE_ACTIONS[action].icon" v-else data-icon="inline-start" />
+      <component :is="GATE_ACTIONS[action].icon" :size="14" aria-hidden="true" />
       {{ GATE_ACTIONS[action].label }}
       <KeyCaps
         v-if="index === 0 && GATE_ACTIONS[action].binding"
-        :keys="formatBinding(GATE_ACTIONS[action].binding ?? '')"
-        class="ml-1 opacity-80"
+        :keys="bindingTokens(GATE_ACTIONS[action].binding ?? '')"
+        class="ml-1"
       />
     </Button>
   </div>

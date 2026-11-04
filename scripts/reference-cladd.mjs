@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const remote = "https://github.com/cladd-ui/cladd.git";
-const commit = "fadd8efe935111f31d7c933238db5ce5d3a55d71";
+const commit = "1aaad0ac5b13541823ed876a227949fcc806ca5e";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const targetDir = join(repoRoot, "reference", "cladd");

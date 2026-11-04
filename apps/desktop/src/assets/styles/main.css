@@ -3,6 +3,8 @@
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@capubridge/cladd/css";
+@import "./cladd-bridge.css";
 
 @import "@vue-flow/core/dist/style.css";
 @import "@vue-flow/core/dist/theme-default.css";

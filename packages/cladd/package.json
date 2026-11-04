@@ -1,0 +1,42 @@
+{
+  "name": "@capubridge/cladd",
+  "version": "2.7.0",
+  "private": true,
+  "description": "Vendored cladd-vue: the Cladd visual foundation for CapuBridge.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "./src/cladd.css",
+    "./src/styles/**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./css": "./src/cladd.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "vp test",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "clsx": "catalog:",
+    "date-fns": "catalog:",
+    "tailwind-merge": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "happy-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vue": "catalog:"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^4.2.0",
+    "vue": "^3.5.0"
+  }
+}

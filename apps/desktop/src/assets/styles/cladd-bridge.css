@@ -1,0 +1,64 @@
+/* -----------------------------------------------------------------------
+ * Cladd → Bench bridge.
+ * Cladd derives every surface level, hover, press and outline from a few base
+ * variables. Pointing those at the Bench roles re-skins the whole library, so
+ * Cladd components and app screens share one palette, one ink and one depth.
+ * `:root[data-brand]` outranks Cladd's `.dark .cladd-color-neutral` scopes.
+ * --------------------------------------------------------------------- */
+
+:root[data-brand="bench"],
+:root[data-brand="bench"] .cladd-color-neutral {
+  --cladd-bg: var(--bg-app);
+  --cladd-surface: var(--bg-surface);
+  --cladd-surface-cut: var(--bg-surface-cut);
+  --cladd-primary: var(--fg-default);
+  --cladd-on-primary: var(--bg-app);
+  --cladd-fg: var(--fg-default);
+  --cladd-fg-soft: var(--fg-muted);
+  --cladd-fg-softer: var(--fg-subtle);
+  --cladd-fg-softest: color-mix(in oklab, var(--fg-subtle) 70%, var(--bg-surface));
+  --cladd-outline: var(--border-default);
+  --cladd-bg-outline: var(--border-subtle);
+  --cladd-surface-white: var(--highlight);
+}
+
+/* Accent hues follow Bench meaning, so a "red" Cladd button is the danger hue. */
+:root[data-brand="bench"] {
+  --cladd-radius: 6px;
+
+  --text-cladd-md: 0.875rem;
+  --text-cladd-sm: 0.8125rem;
+  --text-cladd-xs: 0.75rem;
+  --text-cladd-2xs: 0.6875rem;
+  --text-cladd-3xs: 0.6875rem;
+  --text-cladd-4xs: 0.6875rem;
+
+  .cladd-color-brand {
+    --cladd-theme: var(--signal-select);
+  }
+  .cladd-color-red {
+    --cladd-theme: var(--state-danger);
+  }
+  .cladd-color-orange,
+  .cladd-color-yellow {
+    --cladd-theme: var(--state-warning);
+  }
+  .cladd-color-green {
+    --cladd-theme: var(--state-success);
+  }
+  .cladd-color-blue {
+    --cladd-theme: var(--state-info);
+  }
+  .cladd-color-lime {
+    --cladd-theme: var(--signal-live);
+  }
+  .cladd-color-cyan {
+    --cladd-theme: var(--cat-network);
+  }
+  .cladd-color-purple {
+    --cladd-theme: var(--cat-storage);
+  }
+  .cladd-color-pink {
+    --cladd-theme: var(--cat-agent);
+  }
+}

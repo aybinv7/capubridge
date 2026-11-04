@@ -68,6 +68,8 @@ export function applyTheme(theme: Theme): void {
   html.dataset.theme = theme.id;
   html.dataset.themeMode = theme.mode;
   html.dataset.brand = theme.direction;
+  html.classList.toggle("dark", theme.mode === "dark");
+  html.classList.toggle("light", theme.mode === "light");
 
   for (const key of Object.keys(TOKEN_TO_CSS_VAR) as (keyof ThemeTokens)[]) {
     html.style.setProperty(TOKEN_TO_CSS_VAR[key], theme.tokens[key]);

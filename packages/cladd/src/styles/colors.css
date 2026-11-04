@@ -1,0 +1,442 @@
+@theme {
+  --color-cladd-theme: var(--cladd-theme);
+  --color-cladd-bg: var(--cladd-bg);
+  --color-cladd-backdrop: var(--cladd-backdrop);
+  --color-cladd-primary: var(--cladd-primary);
+  --color-cladd-on-primary: var(--cladd-on-primary);
+  --color-cladd-surface: var(--cladd-surface);
+  --color-cladd-surface-cut: var(--cladd-surface-cut);
+  --color-cladd-surface-prev: var(--cladd-surface-prev);
+  --color-cladd-surface-minus: var(--cladd-surface-minus);
+  --color-cladd-surface-plus: var(--cladd-surface-plus);
+  --color-cladd-surface-next: var(--cladd-surface-next);
+  --color-cladd-fg: var(--cladd-fg);
+  --color-cladd-fg-soft: var(--cladd-fg-soft);
+  --color-cladd-fg-softer: var(--cladd-fg-softer);
+  --color-cladd-fg-softest: var(--cladd-fg-softest);
+  --color-cladd-surface-white: var(--cladd-surface-white);
+  --color-cladd-surface-black: var(--cladd-surface-black);
+  --color-cladd-surface-hover: var(--cladd-surface-hover);
+  --color-cladd-surface-hover-fill: var(--cladd-surface-hover-fill);
+  --color-cladd-surface-pressed: var(--cladd-surface-pressed);
+  --color-cladd-bg-outline: var(--cladd-bg-outline);
+  --color-cladd-outline: var(--cladd-outline);
+  --color-cladd-surface-highlight: var(--cladd-surface-highlight);
+
+  /* SHADOWS */
+  --shadow-cladd-outline: var(--shadow-cladd-outline);
+  --shadow-cladd-outline-fill: var(--shadow-cladd-outline-fill);
+  --shadow-cladd-cut-outline: var(--shadow-cladd-cut-outline);
+  --shadow-cladd-popover: 0 24px 64px -12px rgb(0 0 0 / 0.5);
+
+  /* PRIMARY COLOR TUNE */
+  --cladd-dark-primary-lightness: 0.95;
+  --cladd-dark-primary-chroma: 0.18;
+  --cladd-light-primary-lightness: 0.5;
+  --cladd-light-primary-chroma: 0.18;
+}
+
+:root,
+.cladd-color-neutral {
+  --cladd-theme: #fff;
+}
+.cladd-color-brand {
+  --cladd-theme: #388aff;
+}
+.cladd-color-red {
+  --cladd-theme: #ff0b0b;
+}
+.cladd-color-pink {
+  --cladd-theme: #ff0bac;
+}
+.cladd-color-purple {
+  --cladd-theme: #a20bff;
+}
+.cladd-color-blue {
+  --cladd-theme: #0047ff;
+}
+.cladd-color-cyan {
+  --cladd-theme: #00f9ff;
+}
+.cladd-color-lime {
+  --cladd-theme: #7dff0b;
+}
+.cladd-color-green {
+  --cladd-theme: #0bff23;
+}
+.cladd-color-yellow {
+  --cladd-theme: #fff800;
+}
+.cladd-color-orange {
+  --cladd-theme: #ff7a00;
+}
+/* NEUTRAL DARK */
+:root,
+.dark .cladd-color-neutral,
+.dark.cladd-color-neutral {
+  --cladd-bg: #0f0f0f;
+  --cladd-backdrop: #000;
+  --cladd-primary: oklch(
+    from var(--cladd-theme) var(--cladd-dark-primary-lightness) 0 h
+  );
+  --cladd-on-primary: oklch(from var(--cladd-theme) 0.2 0 h);
+  --cladd-surface: oklch(from var(--cladd-theme) 0.21 0 h);
+  --cladd-surface-cut: oklch(from var(--cladd-theme) 0.19 0 h);
+  --cladd-fg: oklch(from var(--cladd-theme) 0.9 0 h);
+  --cladd-fg-soft: oklch(from var(--cladd-theme) 0.65 0 h);
+  --cladd-fg-softer: oklch(from var(--cladd-theme) 0.5 0 h);
+  --cladd-fg-softest: oklch(from var(--cladd-theme) 0.4 0 h);
+  --cladd-surface-white: oklch(from var(--cladd-theme) 1 0 h);
+  --cladd-surface-black: oklch(from var(--cladd-theme) 0 0 h);
+  --cladd-bg-outline: oklch(from var(--cladd-theme) 0.23 0 h);
+  --cladd-outline: oklch(from var(--cladd-theme) 0.3 0 h);
+
+  --cladd-surface-hover: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 5%,
+    transparent
+  );
+  --cladd-surface-pressed: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 3%,
+    transparent
+  );
+  --cladd-surface-hover-fill: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 20%,
+    transparent
+  );
+
+  --cladd-surface-mix-color: var(--cladd-surface-white);
+  --cladd-surface-mix-amount: 6%;
+
+  --shadow-cladd-cut-outline:
+    -1px -1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 2%, transparent) inset,
+    0px 0px 0px 1px
+      color-mix(in oklab, var(--cladd-surface-white) 7%, transparent) inset;
+
+  --shadow-cladd-outline:
+    1px 1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 8%, transparent) inset,
+    -1px -1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 7%, transparent) inset;
+
+  --shadow-cladd-outline-fill:
+    1px 1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 20%, transparent) inset,
+    -1px -1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 20%, transparent) inset;
+}
+
+/* COLORS DARK */
+[class*="cladd-color-"]:not(.cladd-color-neutral),
+.dark [class*="cladd-color-"]:not(.cladd-color-neutral),
+.light .dark [class*="cladd-color-"]:not(.cladd-color-neutral),
+.dark[class*="cladd-color-"]:not(.cladd-color-neutral) {
+  --cladd-bg: oklch(from var(--cladd-theme) 0.18 0.02 h);
+  --cladd-backdrop: #000;
+  --cladd-primary: oklch(
+    from var(--cladd-theme) var(--cladd-dark-primary-lightness)
+      var(--cladd-dark-primary-chroma) h
+  );
+  --cladd-on-primary: oklch(from var(--cladd-theme) 0.2 0.05 h);
+  --cladd-surface: oklch(from var(--cladd-theme) 0.23 0.027 h);
+  --cladd-surface-cut: oklch(from var(--cladd-theme) 0.19 0.027 h);
+  --cladd-fg: oklch(from var(--cladd-theme) 0.9 0.04 h);
+  --cladd-fg-soft: oklch(from var(--cladd-theme) 0.65 0.04 h);
+  --cladd-fg-softer: oklch(from var(--cladd-theme) 0.5 0.04 h);
+  --cladd-fg-softest: oklch(from var(--cladd-theme) 0.4 0.04 h);
+  --cladd-surface-white: oklch(from var(--cladd-theme) 0.92 0.05 h);
+  --cladd-surface-black: oklch(from var(--cladd-theme) 0.08 0.02 h);
+  --cladd-bg-outline: oklch(from var(--cladd-theme) 0.25 0.02 h);
+  --cladd-outline: oklch(from var(--cladd-theme) 0.28 0.025 h);
+
+  --cladd-surface-hover: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 5%,
+    transparent
+  );
+  --cladd-surface-pressed: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 3%,
+    transparent
+  );
+  --cladd-surface-hover-fill: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 40%,
+    transparent
+  );
+  --cladd-surface-mix-color: var(--cladd-surface-white);
+  --cladd-surface-mix-amount: 6%;
+
+  --shadow-cladd-cut-outline:
+    -1px -1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 2%, transparent) inset,
+    0px 0px 0px 1px
+      color-mix(in oklab, var(--cladd-surface-white) 7%, transparent) inset;
+
+  --shadow-cladd-outline:
+    1px 1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 8%, transparent) inset,
+    -1px -1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 7%, transparent) inset;
+  --shadow-cladd-outline-fill:
+    1px 1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 30%, transparent) inset,
+    -1px -1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 30%, transparent) inset;
+}
+
+.light,
+.dark .light {
+  --highlight-white-mix: 50%;
+}
+
+/* NEUTRAL LIGHT */
+:root.light,
+.dark .light,
+:root .light,
+.light .cladd-color-neutral,
+.light .cladd-color-neutral,
+.light.cladd-color-neutral,
+.cladd-color-neutral .light {
+  --cladd-bg: #fff;
+  --cladd-backdrop: oklch(0.91 0 0);
+  --cladd-primary: oklch(from var(--cladd-theme) 0.1 0 h);
+  --cladd-on-primary: oklch(from var(--cladd-theme) 0.96 0 h);
+  --cladd-surface: oklch(0.97 0 0);
+  --cladd-surface-cut: oklch(from var(--cladd-theme) 0.93 0 h);
+  --cladd-fg: oklch(0.32 0 0);
+  --cladd-fg-soft: oklch(0.5 0 0);
+  --cladd-fg-softer: oklch(0.65 0 0);
+  --cladd-fg-softest: oklch(0.75 0 0);
+  --cladd-surface-white: oklch(1 0 0);
+  --cladd-surface-black: oklch(0 0 0);
+  --cladd-bg-outline: oklch(0.89 0 0);
+  --cladd-outline: oklch(0.89 0 0);
+
+  --cladd-surface-hover: color-mix(
+    in oklab,
+    var(--cladd-surface-black) 3%,
+    transparent
+  );
+  --cladd-surface-pressed: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 6%,
+    transparent
+  );
+
+  --cladd-surface-mix-amount: 4%;
+  --cladd-surface-mix-color: var(--cladd-surface-black);
+
+  --shadow-cladd-cut-outline:
+    0.5px 0.5px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-black) 10%, transparent) inset,
+    0px 0px 0px 0.5px
+      color-mix(in oklab, var(--cladd-surface-black) 5%, transparent) inset;
+  --shadow-cladd-outline-fill:
+    0px 0px 0px 0.5px
+      color-mix(in oklab, var(--cladd-surface-black) 20%, transparent) inset,
+    1px 1px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-white) 30%, transparent) inset;
+  &,
+  [class*="cladd-surface-level-"] {
+    --shadow-cladd-outline:
+      0px 0px 0px 1px var(--color-cladd-outline) inset,
+      1.5px 1.5px 0px 0px
+        color-mix(in oklab, var(--cladd-surface-white) 60%, transparent) inset;
+  }
+}
+/* COLORS LIGHT */
+.light [class*="cladd-color-"]:not(.cladd-color-neutral),
+.dark .light [class*="cladd-color-"]:not(.cladd-color-neutral),
+.light[class*="cladd-color-"]:not(.cladd-color-neutral) {
+  --cladd-bg: oklch(from var(--cladd-theme) 1 0.015 h);
+  --cladd-backdrop: oklch(0.74 0.018 100);
+  --cladd-primary: oklch(
+    from var(--cladd-theme) var(--cladd-light-primary-lightness)
+      var(--cladd-light-primary-chroma) h
+  );
+  --cladd-on-primary: oklch(from var(--cladd-theme) 0.97 0.04 h);
+  --cladd-surface: oklch(from var(--cladd-theme) 0.97 0.015 h);
+  --cladd-surface-cut: oklch(from var(--cladd-theme) 0.93 0.02 h);
+  --cladd-fg: oklch(from var(--cladd-theme) 0.25 0.015 h);
+  --cladd-fg-soft: oklch(from var(--cladd-theme) 0.5 0.025 h);
+  --cladd-fg-softer: oklch(from var(--cladd-theme) 0.65 0.025 h);
+  --cladd-fg-softest: oklch(from var(--cladd-theme) 0.75 0.025 h);
+  --cladd-surface-white: oklch(from var(--cladd-theme) 0.98 0.04 h);
+  --cladd-surface-black: oklch(from var(--cladd-theme) 0.4 0.07 h);
+  --cladd-bg-outline: oklch(from var(--cladd-theme) 0.74 0.03 h);
+  --cladd-outline: oklch(from var(--cladd-theme) 0.88 0.025 h);
+
+  --cladd-surface-hover: color-mix(
+    in oklab,
+    var(--cladd-surface-black) 6%,
+    transparent
+  );
+  --cladd-surface-hover-fill: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 10%,
+    transparent
+  );
+  --cladd-surface-pressed: color-mix(
+    in oklab,
+    var(--cladd-surface-white) 6%,
+    transparent
+  );
+
+  --cladd-surface-mix-amount: 5%;
+  --cladd-surface-mix-color: var(--cladd-surface-black);
+
+  --shadow-cladd-cut-outline:
+    0.5px 0.5px 0px 0px
+      color-mix(in oklab, var(--cladd-surface-black) 10%, transparent) inset,
+    0px 0px 0px 0.5px
+      color-mix(in oklab, var(--cladd-surface-black) 5%, transparent) inset;
+
+  --shadow-cladd-outline-fill:
+    0px 0px 0px 1px
+      color-mix(in oklab, var(--cladd-surface-black) 40%, transparent) inset,
+    1px 1px 0px 0.25px
+      color-mix(in oklab, var(--cladd-surface-white) 30%, transparent) inset;
+
+  &,
+  [class*="cladd-surface-level-"] {
+    --shadow-cladd-outline:
+      0px 0px 0px 1px var(--color-cladd-outline) inset,
+      1.5px 1.5px 0px 0px
+        color-mix(in oklab, var(--cladd-surface-white) 80%, transparent) inset;
+  }
+}
+
+/* COMMON */
+.light,
+.dark,
+[class*="cladd-color-"] {
+  --color-cladd-bg: var(--cladd-bg);
+  --color-cladd-primary: var(--cladd-primary);
+  --color-cladd-on-primary: var(--cladd-on-primary);
+  --color-cladd-surface-white: var(--cladd-surface-white);
+  --color-cladd-surface-black: var(--cladd-surface-black);
+  --color-cladd-surface-hover: var(--cladd-surface-hover);
+  --color-cladd-surface-hover-fill: var(--cladd-surface-hover-fill);
+  --color-cladd-surface-pressed: var(--cladd-surface-pressed);
+  --color-background-outline: var(--cladd-bg-outline);
+}
+
+/* LEVELS */
+[class*="cladd-surface-level-"],
+[class*="cladd-color-"] {
+  --cladd-surface-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(var(--cladd-surface-mix-amount) * var(--cladd-surface-multiplier, 0)),
+    var(--cladd-surface) 100%
+  );
+  --cladd-surface-prev-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(
+        var(--cladd-surface-mix-amount) *
+          calc(var(--cladd-surface-multiplier, 0) - 1)
+      ),
+    var(--cladd-surface) 100%
+  );
+  --cladd-surface-minus-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(
+        var(--cladd-surface-mix-amount) *
+          calc(var(--cladd-surface-multiplier, 0) - 0.5)
+      ),
+    var(--cladd-surface) 100%
+  );
+  --cladd-surface-plus-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(
+        var(--cladd-surface-mix-amount) *
+          calc(var(--cladd-surface-multiplier, 0) + 0.5)
+      ),
+    var(--cladd-surface) 100%
+  );
+  --cladd-surface-next-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(
+        var(--cladd-surface-mix-amount) *
+          calc(var(--cladd-surface-multiplier, 0) + 1)
+      ),
+    var(--cladd-surface) 100%
+  );
+  --cladd-surface-cut-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(var(--cladd-surface-mix-amount) * var(--cladd-surface-multiplier, 0)),
+    var(--cladd-surface-cut) var(--cladd-surface-original-mix, 100%)
+  );
+
+  --cladd-fg-leveled: var(--cladd-fg);
+  --cladd-fg-soft-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(var(--cladd-surface-mix-amount) * var(--cladd-surface-multiplier, 0)),
+    var(--cladd-fg-soft) var(--cladd-surface-original-mix, 100%)
+  );
+  --cladd-fg-softer-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(var(--cladd-surface-mix-amount) * var(--cladd-surface-multiplier, 0)),
+    var(--cladd-fg-softer) var(--cladd-surface-original-mix, 100%)
+  );
+  --cladd-fg-softest-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(var(--cladd-surface-mix-amount) * var(--cladd-surface-multiplier, 0)),
+    var(--cladd-fg-softest) var(--cladd-surface-original-mix, 100%)
+  );
+  --cladd-outline-leveled: color-mix(
+    in oklab,
+    var(--cladd-surface-mix-color)
+      calc(var(--cladd-surface-mix-amount) * var(--cladd-surface-multiplier, 0)),
+    var(--cladd-outline)
+  );
+
+  --color-cladd-surface: var(--cladd-surface-leveled);
+  --color-cladd-surface-prev: var(--cladd-surface-prev-leveled);
+  --color-cladd-surface-minus: var(--cladd-surface-minus-leveled);
+  --color-cladd-surface-plus: var(--cladd-surface-plus-leveled);
+  --color-cladd-surface-next: var(--cladd-surface-next-leveled);
+  --color-cladd-surface-cut: var(--cladd-surface-cut-leveled);
+  --color-cladd-outline: var(--cladd-outline-leveled);
+  --color-cladd-fg: var(--cladd-fg-leveled);
+  --color-cladd-fg-soft: var(--cladd-fg-soft-leveled);
+  --color-cladd-fg-softer: var(--cladd-fg-softer-leveled);
+  --color-cladd-fg-softest: var(--cladd-fg-softest-leveled);
+  --color-cladd-surface-highlight: color-mix(
+    in oklab,
+    var(--color-cladd-surface-white) var(--highlight-white-mix, 3%),
+    var(--color-cladd-surface) var(--highlight-original-mix, 100%)
+  );
+}
+.cladd-surface-level-1,
+.cladd-surface-level-1[class*="cladd-color-"] {
+  --cladd-surface-multiplier: 0;
+}
+.cladd-surface-level-2,
+.cladd-surface-level-2[class*="cladd-color-"] {
+  --cladd-surface-multiplier: 1;
+}
+.cladd-surface-level-3,
+.cladd-surface-level-3[class*="cladd-color-"] {
+  --cladd-surface-multiplier: 2;
+}
+.cladd-surface-level-4,
+.cladd-surface-level-4[class*="cladd-color-"] {
+  --cladd-surface-multiplier: 3;
+}
+.cladd-surface-level-5,
+.cladd-surface-level-5[class*="cladd-color-"] {
+  --cladd-surface-multiplier: 4;
+}

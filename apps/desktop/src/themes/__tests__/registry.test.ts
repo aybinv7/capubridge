@@ -40,6 +40,16 @@ describe("applyTheme", () => {
     expect(dataset.brand).toBe("bench");
   });
 
+  test("sets exactly one Cladd mode class so Cladd scopes follow the theme", () => {
+    const html = document.documentElement;
+    applyTheme(getTheme("bench-light"));
+    expect(html.classList.contains("light")).toBe(true);
+    expect(html.classList.contains("dark")).toBe(false);
+    applyTheme(getTheme("bench-dark"));
+    expect(html.classList.contains("dark")).toBe(true);
+    expect(html.classList.contains("light")).toBe(false);
+  });
+
   test("writes token, signal and category variables", () => {
     const theme = getTheme("bench-dark");
     applyTheme(theme);

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vite-plus/test";
 import { fuzzyScore, rankByScore } from "../fuzzy";
-import { formatBinding, parseBinding } from "../keymap";
+import { bindingTokens, parseBinding } from "../keymap";
 import { resolveKeydown, SEQUENCE_TIMEOUT_MS } from "../dispatch";
 import type { Command } from "../types";
 
@@ -50,10 +50,13 @@ describe("keymap", () => {
     expect(parseBinding("g d")).toEqual({ kind: "sequence", keys: ["g", "d"] });
   });
 
-  test("formats bindings as key caps", () => {
-    expect(formatBinding("mod+k")).toEqual(["Ctrl", "K"]);
-    expect(formatBinding("g d")).toEqual(["G", "D"]);
-    expect(formatBinding("mod+,")).toEqual(["Ctrl", ","]);
+  test("turns bindings into Cladd shortcut tokens", () => {
+    expect(bindingTokens("mod+k")).toBe("cmd k");
+    expect(bindingTokens("mod+shift+d")).toBe("cmd shift d");
+    expect(bindingTokens("g d")).toBe("g d");
+    expect(bindingTokens("mod+,")).toBe("cmd ,");
+    expect(bindingTokens("escape")).toBe("esc");
+    expect(bindingTokens("mod+arrowup")).toBe("cmd up");
   });
 });
 

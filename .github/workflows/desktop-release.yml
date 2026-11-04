@@ -59,6 +59,9 @@ jobs:
       - name: check design tokens
         run: vp run check:design-tokens
 
+      - name: Check Cladd adoption ratchet
+        run: vp run check:cladd-adoption
+
       - name: check source-size boundary
         run: vp run check:source-size
 

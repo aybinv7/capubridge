@@ -56,29 +56,32 @@ export function matchesChord(chord: ParsedChord, event: KeyboardEvent): boolean 
   );
 }
 
-const KEY_LABELS: Record<string, string> = {
-  escape: "Esc",
-  enter: "Enter",
-  arrowup: "↑",
-  arrowdown: "↓",
-  arrowleft: "←",
-  arrowright: "→",
-  ",": ",",
-  ".": ".",
+/** Cladd `Shortcut` token names for keys whose `KeyboardEvent.key` differs from the glyph name. */
+const SHORTCUT_TOKENS: Record<string, string> = {
+  escape: "esc",
+  arrowup: "up",
+  arrowdown: "down",
+  arrowleft: "left",
+  arrowright: "right",
+  " ": "space",
+  delete: "del",
 };
 
-function keyLabel(key: string): string {
-  return KEY_LABELS[key] ?? key.toUpperCase();
+function keyToken(key: string): string {
+  return SHORTCUT_TOKENS[key] ?? key;
 }
 
-/** Display form, split into keycaps: `mod+shift+p` → ["Ctrl", "Shift", "P"], `g d` → ["G", "D"]. */
-export function formatBinding(binding: string): string[] {
+/**
+ * Cladd `Shortcut` input for a binding: `mod+shift+d` → `cmd shift d`, `g d` → `g d`.
+ * `cmd` renders as ⌘ on macOS and CTRL elsewhere, matching what `mod` means.
+ */
+export function bindingTokens(binding: string): string {
   const parsed = parseBinding(binding);
-  if (parsed.kind === "sequence") return parsed.keys.map(keyLabel);
-  const caps: string[] = [];
-  if (parsed.chord.mod) caps.push(isMac ? "⌘" : "Ctrl");
-  if (parsed.chord.alt) caps.push(isMac ? "⌥" : "Alt");
-  if (parsed.chord.shift) caps.push(isMac ? "⇧" : "Shift");
-  caps.push(keyLabel(parsed.chord.key));
-  return caps;
+  if (parsed.kind === "sequence") return parsed.keys.map(keyToken).join(" ");
+  const tokens: string[] = [];
+  if (parsed.chord.mod) tokens.push("cmd");
+  if (parsed.chord.alt) tokens.push("alt");
+  if (parsed.chord.shift) tokens.push("shift");
+  tokens.push(keyToken(parsed.chord.key));
+  return tokens.join(" ");
 }

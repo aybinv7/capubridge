@@ -40,6 +40,17 @@ describe("hasBlockingOverlay", () => {
     expect(hasBlockingOverlay(document.body)).toBe(true);
   });
 
+  test("detects Cladd dialogs, popups and popovers but not Cladd tooltips", () => {
+    for (const overlay of ["cladd-dialog", "cladd-popup", "cladd-popover"]) {
+      document.body.innerHTML = "";
+      portal(`<div class="${overlay}"></div>`);
+      expect(hasBlockingOverlay(document.body)).toBe(true);
+    }
+    document.body.innerHTML = "";
+    portal('<div class="cladd-tooltip pointer-events-none" role="tooltip"></div>');
+    expect(hasBlockingOverlay(document.body)).toBe(false);
+  });
+
   test("does not treat tooltips as blocking", () => {
     portal('<div data-reka-popper-content-wrapper><div role="tooltip">hint</div></div>');
     expect(hasBlockingOverlay(document.body)).toBe(false);

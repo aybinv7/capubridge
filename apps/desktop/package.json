@@ -16,6 +16,7 @@
   "dependencies": {
     "@babel/parser": "catalog:",
     "@capubridge/cdp-protocol": "workspace:*",
+    "@capubridge/cladd": "workspace:*",
     "@devicefarmer/adbkit": "^3.3.8",
     "@fontsource-variable/ibm-plex-sans": "catalog:",
     "@fontsource/ibm-plex-mono": "catalog:",

@@ -4,6 +4,7 @@ import AppShell from "@/components/layout/AppShell.vue";
 import UpdaterBootstrap from "@/components/UpdaterBootstrap.vue";
 import McpBridgeBootstrap from "@/components/McpBridgeBootstrap.vue";
 import ObservabilityBootstrap from "@/components/ObservabilityBootstrap.vue";
+import { CladdProvider } from "@capubridge/cladd";
 import { Toaster } from "@/components/ui/sonner";
 import { useThemeStore } from "@/stores/theme.store";
 import { isDockTab } from "@/types/dock.types";
@@ -23,21 +24,23 @@ const DockDetachedWindow = isDockWindow
 </script>
 
 <template>
-  <MirrorWindow v-if="isMirrorWindow && MirrorWindow" />
+  <CladdProvider accent-color="neutral" :theme="themeStore.mode" overlays-root="body">
+    <MirrorWindow v-if="isMirrorWindow && MirrorWindow" />
 
-  <DockDetachedWindow v-else-if="isDockWindow && DockDetachedWindow" />
+    <DockDetachedWindow v-else-if="isDockWindow && DockDetachedWindow" />
 
-  <template v-else>
-    <AppShell />
-    <UpdaterBootstrap />
-    <McpBridgeBootstrap />
-    <ObservabilityBootstrap />
-    <Toaster
-      position="bottom-left"
-      :theme="themeStore.mode"
-      :rich-colors="true"
-      :visible-toasts="5"
-      :duration="4000"
-    />
-  </template>
+    <template v-else>
+      <AppShell />
+      <UpdaterBootstrap />
+      <McpBridgeBootstrap />
+      <ObservabilityBootstrap />
+      <Toaster
+        position="bottom-left"
+        :theme="themeStore.mode"
+        :rich-colors="true"
+        :visible-toasts="5"
+        :duration="4000"
+      />
+    </template>
+  </CladdProvider>
 </template>

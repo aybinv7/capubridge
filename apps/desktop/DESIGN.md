@@ -59,7 +59,9 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
 ## 4. Density, radius, depth, motion
 
 - **Controls** 28 px default; nested controls −8 px. **Rows** 22 (compact) / 26 (default) / 30.
-- **Radius** base 6 px (`rounded-lg`), 4 px controls (`rounded-md`), 2 px chips (`rounded-sm`).
+- **Radius** base 6 px (`--cladd-radius`, `rounded-lg`). Cladd controls scale it with their height
+  (`rounded-cladd-*`: 28 px control → 6 px, 24 px → ~5 px, 20 px → ~4 px); chips use the pill variants.
+  Hand-built app surfaces keep `rounded-lg` panels and `rounded-md` controls until migrated.
 - **Depth** (ported from Cladd):
   - `shadow-bevel` — raised surfaces (1 px top-left highlight, 1 px bottom-right shade).
   - `shadow-bevel-strong` — pressed/emphasised raised surfaces.
@@ -68,12 +70,35 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
 - **Motion roles:** 80 ms feedback · 120 ms state · 200 ms panel · 300 ms overlay. Honour
   `prefers-reduced-motion`. Only a live recording indicator may pulse.
 
-## 5. Mark
+## 5. Components: Cladd
+
+- **Cladd is the visual foundation** (decision D3). `@capubridge/cladd` is vendored cladd-vue: add or fix
+  a primitive in cladd-vue (parity-tested against upstream Cladd), then `vp run sync:cladd`. Never edit
+  `packages/cladd/src` here.
+- **One palette.** `src/assets/styles/cladd-bridge.css` points Cladd's base variables at the Bench roles
+  (surfaces, ink, outline) and its accents at Bench meaning (`red` → danger, `green` → success,
+  `yellow`/`orange` → warning, `blue` → info, `brand` → select, `lime` → live, `cyan`/`purple`/`pink` →
+  categories). Cladd's surface levels, hover and press derive from those, so no Cladd colour is tuned by
+  hand. Cladd type tokens are clamped to the 11 px floor.
+- **Neutral by default.** `App.vue` wraps everything in `CladdProvider accent-color="neutral"`: a primary
+  action is `variant="solid-fill"` (ink on paper); secondary is `variant="transparent"`.
+- **Mode.** `applyTheme` sets `data-theme-mode` (the app's `dark:` variant) and the `dark`/`light` class
+  (Cladd scopes and its `light:` variant).
+- **Overlays** portal to `body`, so the native-webview overlay guard sees Cladd dialogs, popups and
+  popovers.
+- **Retiring shadcn-vue.** Button, Input, Badge (→ Chip), Select, Tooltip, Switch, Checkbox, Textarea,
+  Label (→ FieldLabel), InputGroup, Collapsible, Spinner, Tabs, ButtonGroup (→ Toolbar/Segmented), Card
+  (→ Surface), Popover and Dialog may not gain imports (`vp run check:cladd-adoption`, a ratchet that only
+  goes down). Menus, command, scroll area, resizable and sheet stay on Reka until Cladd has them.
+- **Key hints** use `KeyCaps` (Cladd `Shortcut`) fed by `bindingTokens(binding)` from the command
+  registry; never hand-write a key label.
+
+## 6. Mark
 
 `src/components/brand/BrandMark.vue` and `public/favicon.svg`: a tall bar (the phone) and a wide
 bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome otherwise.
 
-## 6. States and provenance
+## 7. States and provenance
 
 - **Gates.** A route declares `meta.requires` (`device`, `target`, `app-target`); panels render
   `GatedRouterView`, the dock renders `GatedView density="compact"`. The resolver
@@ -89,13 +114,14 @@ bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome othe
   tag, `prov-imported`), `local copy` (dashed outline, `prov-local`), `stale` (hatch,
   `prov-stale`). Label it with `ProvenanceTag`.
 
-## 7. Guards
+## 8. Guards
 
 | Check                                      | Command                         |
 | ------------------------------------------ | ------------------------------- |
 | Contrast of every role on every background | `vp run desktop#check:contrast` |
 | Type scale and semantic colours only       | `vp run check:design-tokens`    |
 | No synchronous IPC                         | `vp run check:async-commands`   |
+| No new shadcn where Cladd has a component  | `vp run check:cladd-adoption`   |
 
 Remaining migrations (owned by later rounds): categorical hues (violet, teal, indigo, cyan, pink)
 in network, elements, storage and replay become `cat-*` / code-syntax tokens as those screens are

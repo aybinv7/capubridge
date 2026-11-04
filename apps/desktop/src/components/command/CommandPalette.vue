@@ -17,7 +17,7 @@ import {
 import { Search } from "lucide-vue-next";
 import { useCommandsStore } from "@/stores/commands.store";
 import { rankByScore } from "@/lib/commands/fuzzy";
-import { formatBinding } from "@/lib/commands/keymap";
+import { bindingTokens } from "@/lib/commands/keymap";
 import type { Command, CommandGroup } from "@/lib/commands/types";
 import KeyCaps from "./KeyCaps.vue";
 
@@ -217,7 +217,7 @@ const placeholder = computed(() => {
                   {{ command.detail }}
                 </span>
                 <span v-else class="flex-1" />
-                <KeyCaps v-if="command.binding" :keys="formatBinding(command.binding)" />
+                <KeyCaps v-if="command.binding" :keys="bindingTokens(command.binding)" />
               </ListboxItem>
             </ListboxGroup>
 
@@ -238,9 +238,9 @@ const placeholder = computed(() => {
           <div
             class="flex h-8 items-center gap-4 border-t border-[var(--border-subtle)] px-3.5 text-2xs text-muted-foreground"
           >
-            <span class="flex items-center gap-1.5"><KeyCaps :keys="['↑', '↓']" /> navigate</span>
-            <span class="flex items-center gap-1.5"><KeyCaps :keys="['Enter']" /> run</span>
-            <span class="flex items-center gap-1.5"><KeyCaps :keys="['Esc']" /> close</span>
+            <span class="flex items-center gap-1.5"><KeyCaps keys="up down" /> navigate</span>
+            <span class="flex items-center gap-1.5"><KeyCaps keys="enter" /> run</span>
+            <span class="flex items-center gap-1.5"><KeyCaps keys="esc" /> close</span>
             <span class="flex-1" />
             <span><span class="font-mono text-foreground">&gt;</span> commands</span>
             <span><span class="font-mono text-foreground">@</span> devices &amp; targets</span>

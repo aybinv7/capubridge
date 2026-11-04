@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useCommandsStore } from "@/stores/commands.store";
-import { formatBinding } from "@/lib/commands/keymap";
+import { bindingTokens } from "@/lib/commands/keymap";
 import KeyCaps from "@/components/command/KeyCaps.vue";
 import SettingsSection from "./components/SettingsSection.vue";
 import SettingsRow from "./components/SettingsRow.vue";
@@ -9,21 +9,21 @@ import SettingsRow from "./components/SettingsRow.vue";
 const commands = useCommandsStore();
 
 const bound = computed(() => {
-  const groups = new Map<string, Array<{ id: string; title: string; keys: string[] }>>();
+  const groups = new Map<string, Array<{ id: string; title: string; keys: string }>>();
   for (const command of commands.commands) {
     if (!command.binding) continue;
     const list = groups.get(command.group) ?? [];
-    list.push({ id: command.id, title: command.title, keys: formatBinding(command.binding) });
+    list.push({ id: command.id, title: command.title, keys: bindingTokens(command.binding) });
     groups.set(command.group, list);
   }
   return [...groups.entries()].map(([group, items]) => ({ group, items }));
 });
 
 const dockShortcuts = [
-  { keys: ["Alt", "1–9"], action: "Switch dock tab" },
-  { keys: ["Ctrl", "↑"], action: "Grow the dock" },
-  { keys: ["Ctrl", "↓"], action: "Shrink the dock" },
-  { keys: ["Esc"], action: "Return focus to the main view" },
+  { keys: "alt 1–9", action: "Switch dock tab" },
+  { keys: "cmd up", action: "Grow the dock" },
+  { keys: "cmd down", action: "Shrink the dock" },
+  { keys: "esc", action: "Return focus to the main view" },
 ];
 </script>
 
@@ -51,10 +51,10 @@ const dockShortcuts = [
       description="Ctrl K opens it; start with > for commands or @ for devices and targets."
     >
       <SettingsRow label="Navigate results">
-        <KeyCaps :keys="['↑', '↓']" />
+        <KeyCaps keys="up down" />
       </SettingsRow>
       <SettingsRow label="Run the highlighted command">
-        <KeyCaps :keys="['Enter']" />
+        <KeyCaps keys="enter" />
       </SettingsRow>
     </SettingsSection>
   </div>

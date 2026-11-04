@@ -8,6 +8,9 @@ const OVERLAY_SELECTOR = [
   '[role="listbox"]',
   "[data-reka-popper-content-wrapper]",
   "[data-overlay]",
+  ".cladd-dialog",
+  ".cladd-popup",
+  ".cladd-popover",
 ].join(",");
 
 function isBlockingOverlay(element: Element): boolean {
