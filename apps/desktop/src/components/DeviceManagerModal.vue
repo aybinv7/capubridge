@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from "vue";
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import {
   Usb,
@@ -20,9 +20,9 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useConnectionStore } from "@/stores/connection.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
-import { useMirrorStore } from "@/stores/mirror.store";
 import { useAdb } from "@/composables/useAdb";
 import { useAppPackages } from "@/composables/useAppPackages";
+import { useTargetActivation } from "@/composables/useTargetActivation";
 import { normalizeInspectableUrl } from "@/lib/inspect-url";
 import type { CDPTarget } from "@/types/cdp.types";
 import AdbReversePopover from "@/components/layout/AdbReversePopover.vue";
@@ -39,7 +39,25 @@ const devicesStore = useDevicesStore();
 const targetsStore = useTargetsStore();
 const connectionStore = useConnectionStore();
 const localWebviewStore = useLocalWebviewStore();
-const mirrorStore = useMirrorStore();
+const { activateTarget } = useTargetActivation();
+
+function onEscape(event: KeyboardEvent) {
+  if (event.key === "Escape" && !event.defaultPrevented) {
+    event.preventDefault();
+    emit("close");
+  }
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) window.addEventListener("keydown", onEscape);
+    else window.removeEventListener("keydown", onEscape);
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => window.removeEventListener("keydown", onEscape));
 const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, pairDevice } = useAdb();
 
 type Panel = "device" | "local" | "connect" | "emulators";
@@ -180,52 +198,11 @@ async function handleRefreshDevices() {
   }
 }
 
-async function connectRemoteTarget(target: CDPTarget) {
-  const prevId = connectionStore.selectedTargetId;
-  if (prevId && prevId !== target.id) {
-    await connectionStore.disconnectTarget(prevId);
-  }
-  connectionStore.clearExternalDevtoolsTarget(target.id);
-  targetsStore.selectTarget(target);
-  await connectionStore.connect(target);
-}
-
-async function connectLocalTarget(target: CDPTarget) {
-  const prevId = connectionStore.selectedTargetId;
-  if (prevId && prevId !== target.id) {
-    await connectionStore.disconnectTarget(prevId);
-  }
-  targetsStore.selectTarget(target);
-  await localWebviewStore.ensureWebview(target);
-}
-
-async function warmLocalTargetCdp(targetId: string) {
-  const target = targetsStore.targets.find((entry) => entry.id === targetId);
-  if (!target || target.source !== "local") return;
-  try {
-    const readyTarget = await localWebviewStore.ensureCdpTarget(target);
-    await connectionStore.connect(readyTarget);
-    if (targetsStore.selectedTarget?.id === targetId) {
-      targetsStore.selectTarget(readyTarget);
-    }
-  } catch (err) {
-    toast.error("Local DevTools connection failed", { description: String(err) });
-  }
-}
-
 async function handleSelectTarget(target: CDPTarget) {
   const wasPolling = devicesStore.isPolling;
   if (wasPolling) devicesStore.stopPolling();
   try {
-    if (target.source === "local") {
-      await connectLocalTarget(target);
-      mirrorStore.open();
-      emit("close");
-      void warmLocalTargetCdp(target.id);
-      return;
-    }
-
-    await connectRemoteTarget(target);
+    await activateTarget(target);
     emit("close");
   } catch (err) {
     toast.error("Failed to connect to target", { description: String(err) });
@@ -236,16 +213,13 @@ async function handleSelectTarget(target: CDPTarget) {
 async function handleInspectTarget(target: CDPTarget, event: Event) {
   event.stopPropagation();
   try {
+    await activateTarget(target);
     if (target.source === "local") {
-      await connectLocalTarget(target);
-      mirrorStore.open();
       emit("close");
-      void warmLocalTargetCdp(target.id);
       await localWebviewStore.openDevtools(target);
       return;
     }
 
-    await connectRemoteTarget(target);
     emit("close");
     await router.push("/inspect/elements");
   } catch (err) {

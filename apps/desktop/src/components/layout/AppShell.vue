@@ -5,35 +5,33 @@ import BottomDock from "@/components/dock/BottomDock.vue";
 import TitleBar from "./TitleBar.vue";
 import Sidebar from "./Sidebar.vue";
 import StatusBar from "./StatusBar.vue";
-import { primaryNavigationFeatures } from "@/app/feature-registry";
-import CommandPalette from "@/components/CommandPalette.vue";
+import CommandPalette from "@/components/command/CommandPalette.vue";
+import { useCoreCommands } from "@/app/useCoreCommands";
+import { useCommandsStore } from "@/stores/commands.store";
 import MirrorPanel from "@/modules/mirror/MirrorPanel.vue";
 import { clearDockOpenRequest, dockOpenEventName, readDockOpenRequest } from "@/lib/dock-events";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useInspectStore } from "@/stores/inspect.store";
-import { useUIStore } from "@/stores/ui.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import { useOverlayGuard } from "@/composables/useOverlayGuard";
 import { useActiveContextStore } from "@/stores/activeContext.store";
-import { useGoShortcuts } from "@/composables/useGoShortcuts";
 import type { ADBDevice } from "@/types/adb.types";
 import type { DockTab } from "@/types/dock.types";
 import { invokeCommand, listenEvent } from "@/runtime/ipc";
 
-const commandPaletteOpen = ref(false);
 const mainContentRef = ref<HTMLElement | null>(null);
 const bottomDockRef = ref<InstanceType<typeof BottomDock> | null>(null);
 const mirrorStore = useMirrorStore();
 const inspectStore = useInspectStore();
-const uiStore = useUIStore();
 const dockStore = useDockStore();
 const devicesStore = useDevicesStore();
 const router = useRouter();
 useOverlayGuard();
 useActiveContextStore();
-useGoShortcuts(router, primaryNavigationFeatures);
+const commandsStore = useCommandsStore();
+useCoreCommands();
 let unlistenInspectRequest: (() => void) | null = null;
 let unlistenInspectHover: (() => void) | null = null;
 let unlistenInspectSelect: (() => void) | null = null;
@@ -78,32 +76,17 @@ function handleDockOpenRequest(event: Event) {
   openDock(customEvent.detail?.tab);
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-    e.preventDefault();
-    commandPaletteOpen.value = true;
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === "j") {
-    e.preventDefault();
-    if (dockStore.isOpen) {
-      dockStore.closeDock();
-      focusMainContent();
-      return;
-    }
-
-    openDock();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === "b") {
-    e.preventDefault();
-    uiStore.toggleSidebar();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === ",") {
-    e.preventDefault();
-    if (!router.currentRoute.value.path.startsWith("/settings")) {
-      void router.push("/settings");
-    }
-  }
+function onKeydown(event: KeyboardEvent) {
+  commandsStore.handleKeydown(event);
 }
+
+watch(
+  () => dockStore.isOpen,
+  (isOpen, wasOpen) => {
+    if (isOpen && !wasOpen) void focusDock();
+    if (!isOpen && wasOpen) focusMainContent();
+  },
+);
 
 function onResize() {
   dockStore.syncToViewport();
@@ -227,7 +210,7 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col h-screen overflow-hidden bg-background">
-    <TitleBar @open-command-palette="commandPaletteOpen = true" />
+    <TitleBar @open-command-palette="commandsStore.openPalette()" />
 
     <div class="flex flex-1 overflow-hidden">
       <Sidebar class="order-first" />
@@ -277,5 +260,5 @@ onUnmounted(() => {
     <StatusBar />
   </div>
 
-  <CommandPalette :open="commandPaletteOpen" @close="commandPaletteOpen = false" />
+  <CommandPalette />
 </template>

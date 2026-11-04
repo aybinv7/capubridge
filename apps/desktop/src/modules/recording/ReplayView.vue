@@ -5,6 +5,7 @@ import { open as openFilePicker } from "@tauri-apps/plugin-dialog";
 import { useRoute } from "vue-router";
 import { useTimelineClock } from "@/composables/useTimelineClock";
 import { useReplaySession } from "@/composables/useReplaySession";
+import { useCommandProvider } from "@/composables/useCommandProvider";
 import { Button } from "@/components/ui/button";
 import ReplayPlayer from "./ReplayPlayer.vue";
 import ReplayTimeline from "./ReplayTimeline.vue";
@@ -115,6 +116,18 @@ watch(
 function openPicker() {
   pickerOpen.value = true;
 }
+
+useCommandProvider("screen.replay", () => [
+  {
+    id: "replay.open-session",
+    title: "Open a recorded session",
+    group: "Session",
+    icon: FolderOpen,
+    screen: true,
+    keywords: ["capu", "recording", "replay", "load"],
+    run: openPicker,
+  },
+]);
 
 async function openFromDisk() {
   const selected = await openFilePicker({

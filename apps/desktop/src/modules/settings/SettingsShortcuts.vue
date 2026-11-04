@@ -1,34 +1,60 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useCommandsStore } from "@/stores/commands.store";
+import { formatBinding } from "@/lib/commands/keymap";
+import KeyCaps from "@/components/command/KeyCaps.vue";
 import SettingsSection from "./components/SettingsSection.vue";
 import SettingsRow from "./components/SettingsRow.vue";
 
-const shortcuts = [
-  { keys: "Ctrl+K", action: "Open command palette" },
-  { keys: "Ctrl+,", action: "Open settings" },
-  { keys: "Ctrl+J", action: "Toggle bottom dock" },
-  { keys: "Ctrl+B", action: "Toggle sidebar" },
-  { keys: "Ctrl+1-5", action: "Switch to panel 1-5" },
-  { keys: "Ctrl+1-5 (dock)", action: "Jump dock tabs while dock is focused" },
-  { keys: "Ctrl+↑ / Ctrl+↓", action: "Resize dock while dock is focused" },
-  { keys: "Esc", action: "Return focus from dock to main content" },
-  { keys: "Ctrl+R", action: "Refresh active panel data" },
-  { keys: "Ctrl+Enter", action: "Run query in active console" },
-  { keys: "Ctrl+S", action: "Save current snapshot" },
-  { keys: "Ctrl+F", action: "Focus search in active panel" },
-  { keys: "Ctrl+Shift+C", action: "Clear active log/network/console" },
-  { keys: "F5", action: "Reconnect to selected target" },
+const commands = useCommandsStore();
+
+const bound = computed(() => {
+  const groups = new Map<string, Array<{ id: string; title: string; keys: string[] }>>();
+  for (const command of commands.commands) {
+    if (!command.binding) continue;
+    const list = groups.get(command.group) ?? [];
+    list.push({ id: command.id, title: command.title, keys: formatBinding(command.binding) });
+    groups.set(command.group, list);
+  }
+  return [...groups.entries()].map(([group, items]) => ({ group, items }));
+});
+
+const dockShortcuts = [
+  { keys: ["Alt", "1–9"], action: "Switch dock tab" },
+  { keys: ["Ctrl", "↑"], action: "Grow the dock" },
+  { keys: ["Ctrl", "↓"], action: "Shrink the dock" },
+  { keys: ["Esc"], action: "Return focus to the main view" },
 ];
 </script>
 
 <template>
   <div class="mx-auto max-w-3xl space-y-8 p-6">
-    <SettingsSection title="Keyboard shortcuts" description="Read-only for now.">
-      <SettingsRow v-for="sc in shortcuts" :key="sc.keys" :label="sc.action">
-        <kbd
-          class="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 font-mono text-2xs text-[var(--fg-muted)]"
-        >
-          {{ sc.keys }}
-        </kbd>
+    <SettingsSection
+      v-for="entry in bound"
+      :key="entry.group"
+      :title="entry.group"
+      description="Generated from the command registry — every key listed here is wired."
+    >
+      <SettingsRow v-for="item in entry.items" :key="item.id" :label="item.title">
+        <KeyCaps :keys="item.keys" />
+      </SettingsRow>
+    </SettingsSection>
+
+    <SettingsSection title="In the console dock" description="Active while the dock has focus.">
+      <SettingsRow v-for="item in dockShortcuts" :key="item.action" :label="item.action">
+        <KeyCaps :keys="item.keys" />
+      </SettingsRow>
+    </SettingsSection>
+
+    <SettingsSection
+      title="Command palette"
+      description="Ctrl K opens it; start with > for commands or @ for devices and targets."
+    >
+      <SettingsRow label="Navigate results">
+        <KeyCaps :keys="['↑', '↓']" />
+      </SettingsRow>
+      <SettingsRow label="Run the highlighted command">
+        <KeyCaps :keys="['Enter']" />
       </SettingsRow>
     </SettingsSection>
   </div>

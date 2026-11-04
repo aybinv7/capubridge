@@ -20,6 +20,7 @@ import { useQuery } from "@tanstack/vue-query";
 import { Button } from "@/components/ui/button";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useAdb } from "@/composables/useAdb";
+import { useCommandProvider } from "@/composables/useCommandProvider";
 
 const devicesStore = useDevicesStore();
 const { getDeviceOverview } = useAdb();
@@ -93,6 +94,19 @@ const infoCards = computed(() => {
     },
   ];
 });
+
+useCommandProvider("screen.device-overview", () => [
+  {
+    id: "device.refresh-info",
+    title: "Refresh device info",
+    group: "Devices",
+    icon: RefreshCw,
+    screen: true,
+    keywords: ["reload", "overview", "specs"],
+    when: () => serial.value !== "",
+    run: () => refetch(),
+  },
+]);
 
 const deviceName = computed(() => {
   const d = info.value;

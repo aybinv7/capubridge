@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { RouterView } from "vue-router";
-import { BookMarked, Circle, Download, Search, Trash2, X } from "lucide-vue-next";
+import { BookMarked, Circle, Search, Trash2, X } from "lucide-vue-next";
+import { useCommandProvider } from "@/composables/useCommandProvider";
 import SubNavTabs from "@/components/layout/SubNavTabs.vue";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,6 +34,49 @@ const HTTP_METHODS = ["All", "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "O
 const store = useNetworkStore();
 const targetsStore = useTargetsStore();
 const hasTarget = computed(() => !!targetsStore.selectedTarget?.id);
+
+useCommandProvider("screen.network", () => [
+  {
+    id: "network.toggle-capture",
+    title: store.isRecording ? "Pause capture" : "Resume capture",
+    group: "Network",
+    icon: Circle,
+    screen: true,
+    keywords: ["record", "capture", "requests"],
+    run: () => {
+      store.isRecording = !store.isRecording;
+    },
+  },
+  {
+    id: "network.clear",
+    title: "Clear requests",
+    group: "Network",
+    icon: Trash2,
+    screen: true,
+    keywords: ["reset", "empty"],
+    when: () => store.requestCount > 0,
+    run: () => store.clear(),
+  },
+  {
+    id: "network.preserve",
+    title: store.preserveLog ? "Stop preserving log" : "Preserve log across reloads",
+    group: "Network",
+    icon: BookMarked,
+    screen: true,
+    run: () => {
+      store.preserveLog = !store.preserveLog;
+    },
+  },
+  {
+    id: "network.filter",
+    title: "Filter requests",
+    group: "Network",
+    icon: Search,
+    screen: true,
+    keywords: ["search", "find"],
+    run: () => store.triggerFocusSearch(),
+  },
+]);
 
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
 
@@ -189,14 +233,6 @@ function formatBytes(bytes: number): string {
       >
         <BookMarked class="h-3 w-3" />
         Preserve
-      </button>
-
-      <!-- Export HAR -->
-      <button
-        class="flex h-7 w-7 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground/70"
-        title="Export as HAR"
-      >
-        <Download class="h-3.5 w-3.5" />
       </button>
     </div>
 

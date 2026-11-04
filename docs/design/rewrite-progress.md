@@ -66,7 +66,16 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
       dock tab switch moved to Alt+digit while focused. Also fixed a TypeError in the shell key handler.
       Moved: workspace document tabs/splits and the selection inspector land with the Data workbench (R5),
       where documents and selection exist; the generic version follows from that.
-- [ ] R3 Command system (palette scopes, go-to, action panel, keymap service; palette keeps stale query; device manager ignores Esc; Settings › Shortcuts documents non-existent shortcuts)
+- [x] R3 Command system — one registry (`stores/commands.store.ts`) fed by providers; pure keymap
+      (`lib/commands`: fuzzy ranking per field, binding parse/format, chord + "G then key" dispatch, editable
+      guard). New palette on Reka Dialog + Listbox: ranked results, live devices and targets, recents, key caps on
+      every row, scopes `>` commands · `@` devices & targets · `:` this screen, footer hints, stale devices
+      dormant until searched, caret kept after the scope prefix. **Ctrl+.** opens the action panel; Network, Device
+      overview and Replay contribute actions via `useCommandProvider`. Target activation extracted to
+      `useTargetActivation` (device manager + palette share it). Device manager closes on Esc. Settings › Shortcuts
+      is generated from the registry. Removed the dead "Export as HAR" button. Keymap is AZERTY-safe (Shift ignored
+      for punctuation chords). Commands store accepts HMR updates (an empty registry after hot reload was a dev-only
+      artefact).
 - [ ] R4 Gates & states (gate component, provenance treatments, first run)
 - [ ] R5 Data workbench (DataGrid, changeset, FK peek, filters/grouping, provenance)
 - [ ] R6 Network (requests, mocks as rules, recording → mocks)
@@ -82,6 +91,7 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
 | R0       | 4        | 4       | 3.5        | 3      | 3        | 4.5   | 6              | 4      | 4.0     |
 | R1       | 7        | 4.5     | 3.5        | 3      | 3        | 4.5   | 6              | 5      | 4.6     |
 | R2       | 7.5      | 5       | 6.5        | 3.5    | 4.5      | 5.5   | 6              | 5.5    | 5.5     |
+| R3       | 7.5      | 5       | 7.5        | 3.5    | 8        | 6     | 6              | 6      | 6.2     |
 
 R0 notes: responsiveness gains are structural (no main-thread IPC, batched streams) but three perf pollers,
 unvirtualised lists and the unguarded screenshot loop remain; trust gains come from one context owner and
@@ -95,3 +105,7 @@ typographic only until the shell and grids are rebuilt.
 R2 notes: the shell now tells the truth about context and link state and reads as one product, but
 there are no document tabs, no inspector and the palette is still navigation-only, which caps navigation
 and keyboard. States only improved where the device pane was touched.
+
+R3 notes: the keyboard story is now best-in-class shaped (palette with data and scopes, action panel, generated
+shortcut docs) but shortcuts are not yet user-editable and only three screens contribute actions; those grow as
+each screen is rebuilt. States remain the weakest dimension — R4 is next.
