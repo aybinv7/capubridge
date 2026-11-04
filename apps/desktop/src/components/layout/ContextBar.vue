@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { ChevronDown, Globe, Monitor, Smartphone } from "lucide-vue-next";
+import { ChevronDown } from "lucide-vue-next";
+import { Button } from "@capubridge/cladd";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useAppPackages } from "@/composables/useAppPackages";
 import DeviceManagerModal from "@/components/DeviceManagerModal.vue";
-import LinkIndicator from "@/components/gate/LinkIndicator.vue";
-import AppIcon from "@/modules/devices/AppIcon.vue";
+import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 
 const context = useActiveContextStore();
 const devicesStore = useDevicesStore();
@@ -15,14 +15,6 @@ const ui = useUIStore();
 
 const device = computed(() => context.device);
 const target = computed(() => context.target);
-const serial = computed(() => device.value?.serial ?? "");
-const { getCachedPackage } = useAppPackages(serial);
-
-const sourceIcon = computed(() => {
-  if (context.kind === "local") return Monitor;
-  if (context.kind === "chrome") return Globe;
-  return Smartphone;
-});
 
 const sourceLabel = computed(() => {
   if (context.kind === "local") return "This PC";
@@ -30,20 +22,38 @@ const sourceLabel = computed(() => {
   return device.value?.model ?? "No device";
 });
 
-const deviceOnline = computed(() => device.value?.status === "online");
+const serial = computed(() => device.value?.serial ?? "");
+const { getCachedPackage } = useAppPackages(serial);
 
 const targetLabel = computed(() => {
   const selected = target.value;
   if (!selected) return null;
+  const packageName = selected.source === "adb" ? selected.packageName : null;
+  const appLabel = packageName ? getCachedPackage(packageName)?.label?.trim() : null;
+  if (appLabel) return appLabel;
   const title = selected.title?.trim();
   return title ? title : selected.url;
 });
 
-const deviceDot = computed(() => {
-  if (context.kind === "local" || context.kind === "chrome") return "bg-success";
-  if (deviceOnline.value) return "bg-success";
-  if (device.value) return "bg-[var(--fg-subtle)]";
-  return "bg-transparent ring-1 ring-[var(--border-strong)]";
+const leadMark = computed(() => {
+  if (target.value) return LINK_TONE_MARK[context.link.tone];
+  if (context.kind === "local" || context.kind === "chrome") return "rounded-full bg-success";
+  if (device.value?.status === "online") return "rounded-full bg-success";
+  if (device.value) return "rounded-full bg-[var(--fg-subtle)]";
+  return "rounded-full ring-1 ring-inset ring-[var(--border-strong)]";
+});
+
+const linkText = computed(() =>
+  context.link.tone === "live" ? "text-muted-foreground" : LINK_TONE_TEXT[context.link.tone],
+);
+
+const title = computed(() => {
+  const parts = [sourceLabel.value];
+  if (device.value && context.kind !== "local" && context.kind !== "chrome") {
+    parts.push(device.value.serial, device.value.status);
+  }
+  if (targetLabel.value) parts.push(targetLabel.value, context.link.description);
+  return parts.join(" · ");
 });
 
 function onDeviceSelected(selectedSerial: string) {
@@ -53,39 +63,27 @@ function onDeviceSelected(selectedSerial: string) {
 </script>
 
 <template>
-  <button
-    type="button"
-    class="group flex h-7 min-w-[220px] max-w-[460px] items-center gap-2 rounded-md bg-[var(--bg-surface-cut)] px-2.5 shadow-cut transition-colors duration-[120ms] hover:bg-[var(--bg-surface)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+  <Button
+    variant="solid"
+    surface-level="1"
+    class="h-7.5 max-w-[460px] min-w-0 border border-border text-sm font-normal"
+    content-class-name="min-w-0 gap-2.5 overflow-hidden px-3 [&>svg]:size-3"
     aria-haspopup="dialog"
-    :aria-label="`Context: ${sourceLabel}${targetLabel ? ` › ${targetLabel}, ${context.link.label}` : ''}. Change device or target`"
+    :aria-label="`Context: ${sourceLabel}${targetLabel ? `, ${targetLabel}, ${context.link.label}` : ''}. Change device or target`"
+    :title="title"
     style="-webkit-app-region: no-drag"
     @click="ui.openDeviceManager()"
   >
-    <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="deviceDot" />
-    <component :is="sourceIcon" :size="13" class="shrink-0 text-muted-foreground" />
-    <span class="shrink-0 truncate text-xs font-medium text-foreground">{{ sourceLabel }}</span>
-
-    <span class="shrink-0 text-xs text-[var(--fg-subtle)]">›</span>
-
+    <span class="size-1.75 shrink-0" :class="leadMark" aria-hidden="true" />
+    <span class="shrink-0 truncate font-medium text-foreground">{{ sourceLabel }}</span>
+    <span class="shrink-0 text-[var(--fg-subtle)]" aria-hidden="true">/</span>
     <template v-if="targetLabel">
-      <AppIcon
-        v-if="target?.source === 'adb' && target?.packageName"
-        :serial="serial"
-        :package-name="target.packageName"
-        :apk-path="getCachedPackage(target.packageName)?.apkPath ?? ''"
-        :icon-path="getCachedPackage(target.packageName)?.iconPath"
-        size="sm"
-        class="!h-4 !w-4 !rounded-sm"
-      />
-      <span class="min-w-0 flex-1 truncate text-left text-xs text-muted-foreground">
-        {{ targetLabel }}
-      </span>
-      <LinkIndicator :link="context.link" />
+      <span class="min-w-0 truncate text-foreground">{{ targetLabel }}</span>
+      <span class="shrink-0" :class="linkText">{{ context.link.label }}</span>
     </template>
-    <span v-else class="flex-1 text-left text-xs text-signal-select"> Select a target </span>
-
-    <ChevronDown :size="12" class="shrink-0 text-[var(--fg-subtle)] group-hover:text-foreground" />
-  </button>
+    <span v-else class="shrink-0 text-signal-select">Select a target</span>
+    <ChevronDown :size="12" class="shrink-0 text-[var(--fg-subtle)]" aria-hidden="true" />
+  </Button>
 
   <DeviceManagerModal
     :open="ui.deviceManagerOpen"

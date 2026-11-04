@@ -353,19 +353,24 @@ function toggleRecord() {
 </script>
 
 <template>
-  <div class="flex shrink-0 h-full" :style="{ width: `${panelWidth + 4}px` }">
+  <aside
+    aria-label="Device screen"
+    class="relative flex h-full shrink-0"
+    :style="{ width: `${panelWidth}px` }"
+  >
     <div
-      v-if="mirrorStore.side === 'right'"
-      class="w-1 cursor-col-resize group shrink-0 flex items-center justify-center hover:bg-border/60 transition-colors"
-      :class="isResizing ? 'bg-border' : ''"
+      class="group absolute inset-y-0 z-10 flex w-2 cursor-col-resize items-center justify-center"
+      :class="mirrorStore.side === 'right' ? '-left-2' : '-right-2'"
       @mousedown.prevent="startResize"
     >
-      <div class="w-px h-8 bg-border/40 group-hover:bg-border transition-colors" />
+      <div
+        class="h-8 w-px rounded-full transition-colors group-hover:bg-border-active"
+        :class="isResizing ? 'bg-border-active' : 'bg-transparent'"
+      />
     </div>
 
     <div
-      class="flex-1 flex flex-col overflow-hidden border-border/20 bg-background"
-      :class="mirrorStore.side === 'right' ? 'border-l' : 'border-r'"
+      class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
     >
       <MirrorTopBar
         :is-recording="mirrorStore.isRecording"
@@ -394,18 +399,15 @@ function toggleRecord() {
         enter-from-class="opacity-0 max-h-0"
         leave-to-class="opacity-0 max-h-0"
       >
-        <div v-if="settingsOpen" class="overflow-hidden border-b border-border/30 max-h-48">
+        <div v-if="settingsOpen" class="max-h-48 overflow-hidden border-b border-border-subtle">
           <MirrorSettingsPanel :android-mode="androidMode" />
         </div>
       </Transition>
 
-      <div
-        ref="streamAreaRef"
-        class="flex-1 overflow-hidden flex items-center justify-center p-2 bg-zinc-950"
-      >
+      <div ref="streamAreaRef" class="flex flex-1 items-center justify-center overflow-hidden p-2">
         <div
           ref="mirrorFrameRef"
-          class="h-full max-w-full overflow-hidden rounded-lg shadow-2xl ring-1 ring-white/5"
+          class="h-full max-w-full overflow-hidden rounded-well ring-1 ring-border"
           :style="{
             width: 'auto',
             aspectRatio: `${mirrorStore.deviceWidth || 9} / ${mirrorStore.deviceHeight || 19.5}`,
@@ -451,14 +453,5 @@ function toggleRecord() {
         </div>
       </Transition>
     </div>
-
-    <div
-      v-if="mirrorStore.side === 'left'"
-      class="w-1 cursor-col-resize group shrink-0 flex items-center justify-center hover:bg-border/60 transition-colors"
-      :class="isResizing ? 'bg-border' : ''"
-      @mousedown.prevent="startResize"
-    >
-      <div class="w-px h-8 bg-border/40 group-hover:bg-border transition-colors" />
-    </div>
-  </div>
+  </aside>
 </template>

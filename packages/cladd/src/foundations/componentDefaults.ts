@@ -48,6 +48,10 @@ import type {
   InputGroupTextareaDefaultProps,
 } from '../components/inputGroup.contracts.ts';
 import type { LinkDefaultProps } from '../components/link.contracts.ts';
+import type {
+  NavRailDefaultProps,
+  NavRailItemDefaultProps,
+} from '../components/navRail.contracts.ts';
 import type { NumberFieldDefaultProps } from '../components/numberField.contracts.ts';
 import type { NumberScrubberDefaultProps } from '../components/numberScrubber.contracts.ts';
 import type {
@@ -165,6 +169,8 @@ export interface ComponentDefaults {
   DatePicker?: DatePickerDefaultProps;
   ColorPicker?: ColorPickerDefaultProps;
   Link?: LinkDefaultProps;
+  NavRail?: NavRailDefaultProps;
+  NavRailItem?: NavRailItemDefaultProps;
   NumberField?: NumberFieldDefaultProps;
   NumberScrubber?: NumberScrubberDefaultProps;
   OTPField?: OTPFieldDefaultProps;

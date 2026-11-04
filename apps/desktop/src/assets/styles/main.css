@@ -21,25 +21,25 @@
 
 :root {
   /* Fallbacks equal bench-dark so the first paint before applyTheme() matches. */
-  --bg-app: oklch(0.165 0.005 95);
-  --bg-chrome: oklch(0.165 0.005 95);
-  --bg-surface: oklch(0.195 0.006 95);
-  --bg-surface-raised: oklch(0.235 0.007 95);
-  --bg-surface-cut: oklch(0.175 0.006 95);
-  --bg-overlay: oklch(0.1 0.004 95 / 0.72);
+  --bg-app: #0f0f0f;
+  --bg-chrome: #0f0f0f;
+  --bg-surface: #161616;
+  --bg-surface-raised: #1c1c1c;
+  --bg-surface-cut: #111111;
+  --bg-overlay: oklch(0.1 0 0 / 0.72);
 
-  --fg-default: oklch(0.935 0.008 95);
-  --fg-muted: oklch(0.74 0.01 95);
-  --fg-subtle: oklch(0.62 0.01 95);
+  --fg-default: #e8e8e8;
+  --fg-muted: #b0b0b0;
+  --fg-subtle: #8c8c8c;
   --fg-on-accent: var(--bg-app);
 
-  --border-default: oklch(0.28 0.006 95);
-  --border-strong: oklch(0.52 0.008 95);
-  --border-subtle: oklch(0.235 0.006 95);
+  --border-default: #272727;
+  --border-strong: #6b6b6b;
+  --border-subtle: #1f1f1f;
 
   --signal-live: oklch(0.89 0.19 122);
   --signal-rec: oklch(0.68 0.21 27);
-  --signal-select: oklch(0.8 0.115 222);
+  --signal-select: #7cc4f5;
   --signal-mark: oklch(0.86 0.13 85);
 
   --cat-network: oklch(0.79 0.12 215);
@@ -64,9 +64,7 @@
   --state-danger: oklch(0.7 0.19 22);
   --state-info: oklch(0.78 0.11 245);
 
-  --bevel:
-    inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 7%, transparent),
-    inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 4%, transparent);
+  --bevel: inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 5%, transparent);
   --bevel-strong:
     inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 14%, transparent),
     inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 8%, transparent);
@@ -218,6 +216,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-surface: 14px;
+  --radius-well: 10px;
+  --radius-control: 8px;
+  --radius-inner: 6px;
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
   --shadow-sm: var(--shadow-sm);

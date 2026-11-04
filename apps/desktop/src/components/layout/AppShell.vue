@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import BottomDock from "@/components/dock/BottomDock.vue";
 import TitleBar from "./TitleBar.vue";
 import Sidebar from "./Sidebar.vue";
-import StatusBar from "./StatusBar.vue";
 import CommandPalette from "@/components/command/CommandPalette.vue";
 import { useCoreCommands } from "@/app/useCoreCommands";
 import { useCommandsStore } from "@/stores/commands.store";
@@ -45,7 +44,6 @@ const showMirrorLeft = computed(
 const showMirrorRight = computed(
   () => mirrorStore.isOpen && !mirrorStore.isDetached && mirrorStore.side === "right",
 );
-const mirrorBottomInset = computed(() => (dockStore.isOpen ? `${dockStore.heightPx}px` : "0px"));
 
 async function syncInspectModeToDetached(enabled: boolean) {
   try {
@@ -209,14 +207,20 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen overflow-hidden bg-background">
+  <div class="flex h-screen flex-col overflow-hidden bg-background">
     <TitleBar @open-command-palette="commandsStore.openPalette()" />
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="flex min-h-0 flex-1 gap-2 pr-2 pb-2">
       <Sidebar class="order-first" />
 
-      <div class="relative order-2 flex flex-1 flex-col overflow-hidden min-w-0 bg-surface-0">
-        <main ref="mainContentRef" tabindex="-1" class="flex-1 overflow-hidden outline-none">
+      <div
+        class="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
+      >
+        <main
+          ref="mainContentRef"
+          tabindex="-1"
+          class="min-h-0 flex-1 overflow-hidden outline-none"
+        >
           <RouterView />
         </main>
 
@@ -240,9 +244,7 @@ onUnmounted(() => {
         enter-from-class="opacity-0 -translate-x-full"
         leave-to-class="opacity-0 -translate-x-full"
       >
-        <div v-if="showMirrorLeft" class="order-1" :style="{ bottom: mirrorBottomInset }">
-          <MirrorPanel />
-        </div>
+        <MirrorPanel v-if="showMirrorLeft" class="order-1" />
       </Transition>
 
       <Transition
@@ -251,13 +253,9 @@ onUnmounted(() => {
         enter-from-class="opacity-0 translate-x-full"
         leave-to-class="opacity-0 translate-x-full"
       >
-        <div v-if="showMirrorRight" class="order-3" :style="{ bottom: mirrorBottomInset }">
-          <MirrorPanel />
-        </div>
+        <MirrorPanel v-if="showMirrorRight" class="order-3" />
       </Transition>
     </div>
-
-    <StatusBar />
   </div>
 
   <CommandPalette />

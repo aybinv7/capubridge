@@ -20,20 +20,21 @@ Study and rationale: `docs/design/2026-11-04-ui-ux-rewrite-study.md`.
 
 ## 2. Colour roles
 
-All values are OKLCH. Dark is primary; light and High Contrast (AAA) share the same roles.
+Bench Dark neutrals are the approved shell design's hex values (pure neutral, no hue); everything else
+is OKLCH. Dark is primary; light and High Contrast (AAA) share the same roles.
 
 | Role                             | Token / utility                                                    | Bench Dark                     | Bench Light      | Meaning                                      |
 | -------------------------------- | ------------------------------------------------------------------ | ------------------------------ | ---------------- | -------------------------------------------- |
-| App background                   | `bg-background`                                                    | `0.165 0.005 95`               | `0.965 0.005 95` | Window fill, chrome                          |
-| Panel                            | `bg-surface-0` / `bg-card`                                         | `0.195 0.006 95`               | `0.985 0.004 95` | Default content surface                      |
-| Raised                           | `bg-surface-2` / `bg-popover`                                      | `0.235 0.007 95`               | `0.94 0.006 95`  | Hover, menus, popovers                       |
-| Cut                              | `bg-surface-cut`                                                   | `0.175 0.006 95`               | `0.95 0.005 95`  | Recessed wells: inputs, code, tracks         |
-| Text                             | `text-foreground`                                                  | `0.935 0.008 95`               | `0.24 0.01 95`   | Primary text                                 |
-| Muted text                       | `text-muted-foreground`                                            | `0.74 0.01 95`                 | `0.46 0.012 95`  | Secondary text                               |
-| Subtle text                      | `var(--fg-subtle)`                                                 | `0.62 0.01 95`                 | `0.51 0.012 95`  | Tertiary text (still ≥ 4.5:1)                |
+| App background                   | `bg-background`                                                    | `#0f0f0f`                      | `0.965 0.005 95` | Window fill, chrome                          |
+| Panel                            | `bg-surface-0` / `bg-card`                                         | `#161616`                      | `0.985 0.004 95` | Default content surface                      |
+| Raised                           | `bg-surface-2` / `bg-popover`                                      | `#1c1c1c`                      | `0.94 0.006 95`  | Hover, menus, popovers                       |
+| Cut                              | `bg-surface-cut`                                                   | `#111111`                      | `0.95 0.005 95`  | Recessed wells: inputs, code, tracks         |
+| Text                             | `text-foreground`                                                  | `#e8e8e8`                      | `0.24 0.01 95`   | Primary text                                 |
+| Muted text                       | `text-muted-foreground`                                            | `#b0b0b0`                      | `0.46 0.012 95`  | Secondary text                               |
+| Subtle text                      | `var(--fg-subtle)`                                                 | `#8c8c8c`                      | `0.51 0.012 95`  | Tertiary text (still ≥ 4.5:1)                |
 | **Live**                         | `signal-live`                                                      | `0.89 0.19 122`                | `0.49 0.13 128`  | Live data, now-edge, playhead. Nothing else. |
 | **Recording**                    | `signal-rec`                                                       | `0.68 0.21 27`                 | `0.55 0.2 27`    | Recording in progress. Nothing else.         |
-| **Selection**                    | `signal-select` (`ring`, `accent`)                                 | `0.8 0.115 222`                | `0.5 0.13 235`   | Selection, focus, active navigation          |
+| **Selection**                    | `signal-select` (`ring`, `accent`)                                 | `#7cc4f5`                      | `0.5 0.13 235`   | Selection, focus, active navigation          |
 | **Mark**                         | `signal-mark`                                                      | `0.86 0.13 85`                 | `0.5 0.12 75`    | User marks, bookmarks, annotations           |
 | Success / Warning / Error / Info | `success` `warning` `error` `info`                                 | 160 / 72 / 22 / 245 hue        | same hues        | Outcomes                                     |
 | Categories                       | `cat-network` `cat-storage` `cat-device` `cat-console` `cat-agent` | 215 / 300 / 180 / 95 / 345 hue | same hues        | Evidence kinds (lanes, badges)               |
@@ -59,11 +60,14 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
 ## 4. Density, radius, depth, motion
 
 - **Controls** 28 px default; nested controls −8 px. **Rows** 22 (compact) / 26 (default) / 30.
-- **Radius** base 6 px (`--cladd-radius`, `rounded-lg`). Cladd controls scale it with their height
-  (`rounded-cladd-*`: 28 px control → 6 px, 24 px → ~5 px, 20 px → ~4 px); chips use the pill variants.
-  Hand-built app surfaces keep `rounded-lg` panels and `rounded-md` controls until migrated.
+- **Radius** from the shell design's radius 12: `rounded-surface` 14 px (shell surfaces), `rounded-well` 10 px,
+  `rounded-control` 8 px, `rounded-inner` 6 px. `--cladd-radius` is 8 px, so Cladd controls scale with their
+  height (`rounded-cladd-*`: 28 px → 8 px, 24 px → ~7 px, 20 px → ~6 px); chips use the pill variants.
+  Hand-built screens keep `rounded-lg` panels and `rounded-md` controls until their phase-B rebuild.
 - **Depth** (ported from Cladd):
-  - `shadow-bevel` — raised surfaces (1 px top-left highlight, 1 px bottom-right shade).
+  - `shadow-bevel` — raised surfaces. Dark is the soft bevel: one 1 px top-left highlight at 5 %, no
+    shade and no drop shadow. Cladd's outline (`shadow-cladd-outline`) is bridged to the same bevel, and
+    one Cladd surface level is the panel → raised step (`--cladd-surface-mix-amount` 3.4 %).
   - `shadow-bevel-strong` — pressed/emphasised raised surfaces.
   - `shadow-cut` — recessed wells.
   - `shadow-float` — the only drop shadow; overlays only.
@@ -108,13 +112,30 @@ bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome othe
 - **Degraded, not torn down.** Once a screen has rendered for a subject (device or target), a
   dropped link keeps it mounted under a hatched `stale` strip instead of replacing it.
 - **Notices** (app in background, another WebView on screen) never block; they sit above content.
-- **One link truth.** Context bar, status bar and gates read `activeContext.link` / `gateInput`.
+- **One link truth.** The context pill and gates read `activeContext.link` / `gateInput`. There is no
+  status bar: link state lives only in the title-bar pill, the console toggle sits in the rail footer
+  (with its unread mark), and recording time lives on the Record button.
 - **Provenance** is a pattern, never a hue: `live` (solid, live dot), `cached` (dotted
   underline, `prov-cached`), `recorded` (perforated edge, `prov-recorded`), `imported` (corner
   tag, `prov-imported`), `local copy` (dashed outline, `prov-local`), `stale` (hatch,
   `prov-stale`). Label it with `ProvenanceTag`.
 
-## 8. Guards
+## 8. Shell
+
+- **Window** on `bg-background`, no panel behind the title bar or the rail.
+- **Title bar** 46 px, no border: brand, back/forward ghost icons, the context pill centred (live mark ·
+  device · `/` · app · link word · chevron, a level-1 Cladd `Button` with a 1 px line and the bevel), a
+  ghost Record button (hollow ring when idle), a 220 px search pill with a quiet `KeyCaps`, and the
+  screen toggle (raised while the screen column is open). Window controls stay at the far right.
+- **Rail** Cladd `NavRail` (64 px, labels on; `mod+b` hides labels) with `NavRailItem` 54 × 50, icon
+  17 px, 11 px label; the current item is raised two levels with the bevel. The footer holds the
+  console toggle and Settings.
+- **Surfaces** the main content and the screen column are `rounded-surface` panels with a 1 px
+  `border-border-subtle` line and `shadow-bevel`, 8 px apart and 8 px from the right and bottom edges.
+- **Section tabs** Cladd `Tabs` with solid active segments: 28 px, `rounded-cladd-md`, selected raised
+  with the bevel and medium weight, a 1 px soft line under the row.
+
+## 9. Guards
 
 | Check                                      | Command                         |
 | ------------------------------------------ | ------------------------------- |

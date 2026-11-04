@@ -8,9 +8,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div
-    class="h-10 flex items-center justify-between px-2 border-t border-border/30 bg-background/80 shrink-0"
-  >
+  <div class="flex h-10 shrink-0 items-center justify-between px-2">
     <!-- Volume -->
     <div class="flex gap-0.5">
       <button

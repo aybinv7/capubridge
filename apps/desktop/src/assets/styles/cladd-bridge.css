@@ -22,9 +22,16 @@
   --cladd-surface-white: var(--highlight);
 }
 
+:root[data-brand="bench"].dark,
+:root[data-brand="bench"].dark .cladd-color-neutral {
+  --cladd-surface-mix-amount: 3.4%;
+  --shadow-cladd-outline: inset 1px 1px 0 0
+    color-mix(in oklab, var(--cladd-surface-white) 5%, transparent);
+}
+
 /* Accent hues follow Bench meaning, so a "red" Cladd button is the danger hue. */
 :root[data-brand="bench"] {
-  --cladd-radius: 6px;
+  --cladd-radius: 8px;
 
   --text-cladd-md: 0.875rem;
   --text-cladd-sm: 0.8125rem;

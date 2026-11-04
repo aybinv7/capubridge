@@ -1,7 +1,7 @@
 import { computed, onMounted, onUnmounted, ref, watch, type Ref } from "vue";
 import { useMirrorStore } from "@/stores/mirror.store";
 
-const STREAM_HORIZONTAL_PADDING_PX = 16;
+const STREAM_HORIZONTAL_PADDING_PX = 18;
 const PANEL_MIN_WIDTH_PX = 220;
 const PANEL_MAX_WIDTH_PX = 560;
 

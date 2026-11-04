@@ -4,6 +4,7 @@ import { useRecordingStore } from "@/stores/recording.store";
 import { useRecordingSession } from "@/composables/useRecordingSession";
 import RecordingConfigModal from "./RecordingConfigModal.vue";
 import { toast } from "vue-sonner";
+import { Button } from "@capubridge/cladd";
 
 const recordingStore = useRecordingStore();
 const { stop } = useRecordingSession();
@@ -54,16 +55,17 @@ async function handleClick() {
 </script>
 
 <template>
-  <button
-    type="button"
-    class="flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-xs transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+  <Button
+    variant="transparent"
+    :outline="false"
+    class="h-7.5 border text-sm font-normal"
     :class="{
-      'bg-signal-rec/12 text-signal-rec hover:bg-signal-rec/20':
+      'border-signal-rec/40 bg-signal-rec/12 font-mono text-signal-rec':
         recordingStore.phase === 'recording',
-      'pointer-events-none text-[var(--fg-subtle)]': recordingStore.phase === 'stopping',
-      'text-muted-foreground hover:bg-[var(--bg-surface-raised)] hover:text-foreground':
-        recordingStore.phase === 'idle',
+      'border-border text-[var(--fg-subtle)]': recordingStore.phase === 'stopping',
+      'border-border text-muted-foreground hover:text-foreground': recordingStore.phase === 'idle',
     }"
+    content-class-name="gap-2 px-3"
     :disabled="recordingStore.phase === 'stopping'"
     :aria-pressed="recordingStore.phase === 'recording'"
     :title="
@@ -76,20 +78,23 @@ async function handleClick() {
     @click="handleClick"
   >
     <template v-if="recordingStore.phase === 'idle'">
-      <span class="h-2 w-2 rounded-full bg-signal-rec" />
-      <span class="font-sans">Record</span>
+      <span
+        class="size-1.75 shrink-0 rounded-full border-[1.5px] border-current"
+        aria-hidden="true"
+      />
+      <span>Record</span>
     </template>
 
     <template v-else-if="recordingStore.phase === 'recording'">
-      <span class="h-2 w-2 rounded-sm bg-signal-rec" />
+      <span class="size-2 shrink-0 rounded-sm bg-signal-rec" aria-hidden="true" />
       <span>{{ formatElapsed(elapsedMs) }}</span>
     </template>
 
     <template v-else>
-      <span class="h-2 w-2 rounded-full bg-[var(--fg-subtle)]" />
-      <span class="font-sans">Saving…</span>
+      <span class="size-2 shrink-0 rounded-full bg-[var(--fg-subtle)]" aria-hidden="true" />
+      <span>Saving…</span>
     </template>
-  </button>
+  </Button>
 
   <RecordingConfigModal v-model:open="modalOpen" />
 </template>

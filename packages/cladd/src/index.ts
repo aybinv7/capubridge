@@ -232,6 +232,16 @@ export type {
   TableSortState,
 } from './components/table.contracts.ts';
 
+export { default as NavRail } from './components/NavRail.vue';
+export { default as NavRailItem } from './components/NavRailItem.vue';
+export type {
+  NavRailDefaultProps,
+  NavRailItemCurrent,
+  NavRailItemDefaultProps,
+  NavRailItemProps,
+  NavRailProps,
+} from './components/navRail.contracts.ts';
+
 // Upstream declares a size union per component rather than a shared one.
 export type { ButtonSize } from './components/button.contracts.ts';
 export type { CheckboxSize } from './components/checkbox.contracts.ts';

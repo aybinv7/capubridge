@@ -19,16 +19,16 @@ export const storageRoutes = [
         meta: { label: "IndexedDB Snapshot", navigation: false },
       },
       {
+        path: "localstorage",
+        name: "storage-localstorage",
+        component: () => import("./localstorage/LSExplorer.vue"),
+        meta: { label: "Local storage", requires: "target" },
+      },
+      {
         path: "localforage",
         name: "storage-localforage",
         component: () => import("./localforage/LocalForageExplorer.vue"),
         meta: { label: "LocalForage", requires: "target" },
-      },
-      {
-        path: "localstorage",
-        name: "storage-localstorage",
-        component: () => import("./localstorage/LSExplorer.vue"),
-        meta: { label: "LocalStorage", requires: "target" },
       },
       {
         path: "cache",

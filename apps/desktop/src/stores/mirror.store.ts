@@ -41,7 +41,7 @@ export interface MirrorSettings {
 export const useMirrorStore = defineStore("mirror", () => {
   const savedLayout = readPersisted<MirrorLayout>(
     LS_MIRROR_LAYOUT,
-    { side: "right", width: 272 },
+    { side: "right", width: 330 },
     isMirrorLayout,
   );
   const isOpen = ref(false);

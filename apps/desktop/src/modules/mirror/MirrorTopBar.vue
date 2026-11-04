@@ -40,9 +40,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div
-    class="h-8 flex items-center gap-0.5 px-1.5 border-b border-border/30 bg-background/80 shrink-0"
-  >
+  <div class="flex h-9 shrink-0 items-center gap-0.5 px-2">
     <!-- Side switch (attached only) -->
     <button
       v-if="!isDetached"
