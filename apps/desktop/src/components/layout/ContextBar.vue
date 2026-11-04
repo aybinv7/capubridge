@@ -6,6 +6,7 @@ import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useAppPackages } from "@/composables/useAppPackages";
+import AppIcon from "@/modules/devices/AppIcon.vue";
 import DeviceManagerModal from "@/components/DeviceManagerModal.vue";
 import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 
@@ -25,10 +26,15 @@ const sourceLabel = computed(() => {
 const serial = computed(() => device.value?.serial ?? "");
 const { getCachedPackage } = useAppPackages(serial);
 
+const targetPackage = computed(() => {
+  const selected = target.value;
+  return selected?.source === "adb" && selected.packageName ? selected.packageName : null;
+});
+
 const targetLabel = computed(() => {
   const selected = target.value;
   if (!selected) return null;
-  const packageName = selected.source === "adb" ? selected.packageName : null;
+  const packageName = targetPackage.value;
   const appLabel = packageName ? getCachedPackage(packageName)?.label?.trim() : null;
   if (appLabel) return appLabel;
   const title = selected.title?.trim();
@@ -78,6 +84,15 @@ function onDeviceSelected(selectedSerial: string) {
     <span class="shrink-0 truncate font-medium text-foreground">{{ sourceLabel }}</span>
     <span class="shrink-0 text-[var(--fg-subtle)]" aria-hidden="true">/</span>
     <template v-if="targetLabel">
+      <AppIcon
+        v-if="targetPackage"
+        :serial="serial"
+        :package-name="targetPackage"
+        :apk-path="getCachedPackage(targetPackage)?.apkPath ?? ''"
+        :icon-path="getCachedPackage(targetPackage)?.iconPath"
+        size="sm"
+        class="!size-4 shrink-0 !rounded-[4px]"
+      />
       <span class="min-w-0 truncate text-foreground">{{ targetLabel }}</span>
       <span class="shrink-0" :class="linkText">{{ context.link.label }}</span>
     </template>
