@@ -85,3 +85,37 @@ export function bindingTokens(binding: string): string {
   tokens.push(keyToken(parsed.chord.key));
   return tokens.join(" ");
 }
+
+const LABEL_NAMES: Record<string, string> = {
+  escape: "Esc",
+  enter: "Enter",
+  arrowup: "↑",
+  arrowdown: "↓",
+  arrowleft: "←",
+  arrowright: "→",
+  " ": "Space",
+  delete: "Del",
+};
+
+function keyLabel(key: string): string {
+  return LABEL_NAMES[key] ?? key.toUpperCase();
+}
+
+/**
+ * Plain-text form for `title` and `aria-keyshortcuts`-style hints: `mod+shift+d` → `Ctrl+Shift+D`
+ * (`⌘⇧D` on macOS), `g d` → `G then D`. Use `bindingTokens` for rendered key caps.
+ */
+export function bindingLabel(binding: string): string {
+  const parsed = parseBinding(binding);
+  if (parsed.kind === "sequence") return parsed.keys.map(keyLabel).join(" then ");
+  const { chord } = parsed;
+  if (isMac) {
+    return `${chord.mod ? "⌘" : ""}${chord.alt ? "⌥" : ""}${chord.shift ? "⇧" : ""}${keyLabel(chord.key)}`;
+  }
+  const parts: string[] = [];
+  if (chord.mod) parts.push("Ctrl");
+  if (chord.alt) parts.push("Alt");
+  if (chord.shift) parts.push("Shift");
+  parts.push(keyLabel(chord.key));
+  return parts.join("+");
+}

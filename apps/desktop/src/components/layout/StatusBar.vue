@@ -5,6 +5,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useDockStore } from "@/stores/dock.store";
+import { useBindingHint } from "@/composables/useBindingHint";
 import LinkIndicator from "@/components/gate/LinkIndicator.vue";
 
 const context = useActiveContextStore();
@@ -12,6 +13,7 @@ const devicesStore = useDevicesStore();
 const mirrorStore = useMirrorStore();
 const recordingStore = useRecordingStore();
 const dockStore = useDockStore();
+const { hint } = useBindingHint();
 
 const adb = computed(() => {
   switch (devicesStore.adbServerStatus) {
@@ -100,7 +102,7 @@ const timecode = computed(() => {
       type="button"
       class="flex items-center gap-1 rounded-sm px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
       :class="dockStore.hasUnread && 'text-foreground'"
-      title="Toggle dock (Ctrl+J)"
+      :title="hint('Toggle dock', 'view.toggle-dock')"
       @click="dockStore.toggleDock()"
     >
       <span v-if="dockStore.hasUnread" class="h-1.5 w-1.5 rounded-full bg-signal-select" />

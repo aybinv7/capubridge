@@ -3,10 +3,18 @@ import { computed } from "vue";
 import { useCommandsStore } from "@/stores/commands.store";
 import { bindingTokens } from "@/lib/commands/keymap";
 import KeyCaps from "@/components/command/KeyCaps.vue";
+import { useBindingHint } from "@/composables/useBindingHint";
 import SettingsSection from "./components/SettingsSection.vue";
 import SettingsRow from "./components/SettingsRow.vue";
 
 const commands = useCommandsStore();
+const { labelOf } = useBindingHint();
+
+const paletteDescription = computed(() => {
+  const opener = labelOf("view.palette");
+  const lead = opener ? `${opener} opens it; start` : "Start";
+  return `${lead} with > for commands, @ for devices and targets, or : for this screen.`;
+});
 
 const bound = computed(() => {
   const groups = new Map<string, Array<{ id: string; title: string; keys: string }>>();
@@ -46,10 +54,7 @@ const dockShortcuts = [
       </SettingsRow>
     </SettingsSection>
 
-    <SettingsSection
-      title="Command palette"
-      description="Ctrl K opens it; start with > for commands or @ for devices and targets."
-    >
+    <SettingsSection title="Command palette" :description="paletteDescription">
       <SettingsRow label="Navigate results">
         <KeyCaps keys="up down" />
       </SettingsRow>

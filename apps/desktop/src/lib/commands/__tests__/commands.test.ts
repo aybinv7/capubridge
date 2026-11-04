@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from "vite-plus/test";
 import { fuzzyScore, rankByScore } from "../fuzzy";
-import { bindingTokens, parseBinding } from "../keymap";
+import { bindingLabel, bindingTokens, parseBinding } from "../keymap";
 import { resolveKeydown, SEQUENCE_TIMEOUT_MS } from "../dispatch";
 import type { Command } from "../types";
 
@@ -57,6 +57,13 @@ describe("keymap", () => {
     expect(bindingTokens("mod+,")).toBe("cmd ,");
     expect(bindingTokens("escape")).toBe("esc");
     expect(bindingTokens("mod+arrowup")).toBe("cmd up");
+  });
+
+  test("turns bindings into plain-text hints", () => {
+    expect(bindingLabel("mod+j")).toBe("Ctrl+J");
+    expect(bindingLabel("mod+shift+d")).toBe("Ctrl+Shift+D");
+    expect(bindingLabel("g n")).toBe("G then N");
+    expect(bindingLabel("escape")).toBe("Esc");
   });
 });
 

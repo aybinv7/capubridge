@@ -17,6 +17,8 @@ import { useMirrorStore } from "@/stores/mirror.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useUIStore } from "@/stores/ui.store";
 import BrandMark from "@/components/brand/BrandMark.vue";
+import KeyCaps from "@/components/command/KeyCaps.vue";
+import { useBindingHint } from "@/composables/useBindingHint";
 import ContextBar from "./ContextBar.vue";
 import RecordingButton from "@/modules/recording/RecordingButton.vue";
 
@@ -27,6 +29,7 @@ const context = useActiveContextStore();
 const mirrorStore = useMirrorStore();
 const dockStore = useDockStore();
 const uiStore = useUIStore();
+const { hint, keysOf } = useBindingHint();
 
 const isMaximized = ref(false);
 type AppWindowHandle = {
@@ -90,7 +93,7 @@ const iconButton =
       <button
         type="button"
         class="flex h-7 items-center gap-1.5 rounded-md px-1.5 text-foreground transition-colors duration-[120ms] hover:bg-[var(--bg-surface-raised)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
-        title="Toggle rail (Ctrl+B)"
+        :title="hint('Toggle rail', 'view.toggle-rail')"
         aria-label="Toggle navigation rail"
         @click="uiStore.toggleSidebar()"
       >
@@ -135,7 +138,7 @@ const iconButton =
       >
         <Search :size="13" class="shrink-0" />
         <span class="flex-1 text-left">Search or run…</span>
-        <kbd class="font-mono text-2xs text-[var(--fg-subtle)]">Ctrl K</kbd>
+        <KeyCaps v-if="keysOf('view.palette')" :keys="keysOf('view.palette') ?? ''" />
       </button>
 
       <button
@@ -143,7 +146,7 @@ const iconButton =
         class="relative"
         :class="[iconButton, dockStore.isOpen && 'bg-[var(--accent-soft)] text-signal-select']"
         :aria-pressed="dockStore.isOpen"
-        title="Toggle console dock (Ctrl+J)"
+        :title="hint('Toggle console dock', 'view.toggle-dock')"
         aria-label="Toggle console dock"
         @click="dockStore.toggleDock()"
       >

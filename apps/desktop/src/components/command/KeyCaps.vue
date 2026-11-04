@@ -6,5 +6,5 @@ defineProps<{ keys: string }>();
 </script>
 
 <template>
-  <Shortcut size="xs" variant="solid" class="shrink-0">{{ keys }}</Shortcut>
+  <Shortcut size="sm" variant="solid" class="shrink-0">{{ keys }}</Shortcut>
 </template>

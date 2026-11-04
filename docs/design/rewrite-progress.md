@@ -162,7 +162,10 @@ below 9 until values carry provenance everywhere and the context matrix test exi
 - cladd-vue's architecture forbids "a general headless component runtime", while the R5 owner decision says
   new Cladd primitives (menu, context menu, combobox, tree, scroll area, resizable) are "built on Reka
   behaviour" → owner decision before the first new primitive (R5b needs a context menu)
-- R5a is not yet verified in the running app (needs a frontend reload; Cladd bevels and the gate buttons
-  should be checked in dark, light and high contrast) → first step of R5b
-- Cladd `Shortcut` renders `cmd` as CTRL on Windows; confirm the 11 px floor keeps `xs` keys legible → R5b
+- Verified in the browser pane (frontend only, no Tauri): gate, palette and title bar render on Cladd in dark
+  and light; ink primary 14.8:1, key caps 12.7:1. Found and fixed: `xs` key caps were 12 px tall around 11 px
+  text (Cladd nests them; upstream sizes them for 8 px), now `sm` = 16 px keys in 24 px buttons; five
+  hand-written key labels (title bar, status bar, settings) now come from the registry (`useBindingHint`).
+  Still to check in the Tauri window: high-contrast theme and the native-webview overlay guard with a Cladd
+  overlay → R5b
 - 220 shadcn imports still to migrate as each screen is rebuilt (R5–R9)

@@ -37,6 +37,19 @@ export const useCommandsStore = defineStore("commands", () => {
 
   const available = computed(() => commands.value.filter((command) => command.when?.() ?? true));
 
+  const bindings = computed(() => {
+    const map = new Map<string, string>();
+    for (const command of commands.value) {
+      if (command.binding) map.set(command.id, command.binding);
+    }
+    return map;
+  });
+
+  /** The registered binding of a command, so no surface hand-writes a key label. */
+  function bindingOf(id: string): string | null {
+    return bindings.value.get(id) ?? null;
+  }
+
   const recent = computed(() =>
     recentIds.value
       .map((id) => available.value.find((command) => command.id === id))
@@ -101,6 +114,7 @@ export const useCommandsStore = defineStore("commands", () => {
     paletteOpen,
     paletteQuery,
     registerProvider,
+    bindingOf,
     run,
     openPalette,
     closePalette,
