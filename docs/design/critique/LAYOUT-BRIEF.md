@@ -27,17 +27,22 @@ The shell is laid out in these regions:
 | Left rail   | Seven labelled items: Device, App, Data, Network, Elements, Replay, Flows. Settings sits at the bottom.                  |
 | Sub-tab bar | One per area                                                                                                             |
 | Content     | The area's screen                                                                                                        |
-| Mirror pane | A **native child webview** for scrcpy, on the right, about 400 px                                                        |
+| Mirror pane | The scrcpy stream drawn on a `<canvas>`, on the right, about 400 px; local previews use a native webview                 |
 | Status bar  | Connection states in mono                                                                                                |
 | Dock        | Console and Logcat, hidden by default                                                                                    |
 
-## The hard constraint: the native mirror
+## The layering constraint (corrected in round 02)
 
-The mirror is a native child webview. **HTML cannot draw over it**: no popover, dialog, menu, toast or
-tooltip can overlap its rectangle.
+Round-02 designers verified this in the code, and it corrects the first version of this brief:
 
-Today the app hides the mirror or moves it out of the way while a modal is open. Every proposal must
-design its layer stack around this, and say exactly what happens to the mirror for each overlay type.
+- **The scrcpy phone mirror is an HTML `<canvas>`** (`MirrorStream.vue`). It can be overlaid like any
+  other element.
+- **The local browser preview target is a native child webview** (`localWebview.store.ts`). HTML cannot
+  draw over it: no popover, dialog, menu, toast or tooltip can overlap its rectangle. Today the app hides
+  or moves that webview while a modal is open.
+
+A proposal may still reserve the phone area as a zone that nothing overlaps, for consistency. It must
+say exactly what happens to each surface for every overlay type.
 
 ## The questions every proposal must answer
 
@@ -56,7 +61,7 @@ design its layer stack around this, and say exactly what happens to the mirror f
    - How does the context bar show the device, app, target, tier and freshness?
 4. **Layer stack.** Give the z-order from base to top: shell, panes, sticky headers, inspector,
    popovers, menus, the palette, dialogs, toasts, drag ghosts. For each layer, say how it coexists with
-   the native mirror.
+   the mirror canvas and with the native preview webview.
 5. **Docking and splitting.**
    - What can be split, dragged, pinned or detached?
    - What persists across relaunches?

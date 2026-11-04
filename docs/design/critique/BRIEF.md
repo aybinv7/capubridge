@@ -67,7 +67,8 @@ work, so treat those scores as unverified.
 
 - **Platform:** Windows 11 is primary, macOS and Linux later. Android is the device platform; iOS is not
   supported today.
-- **Native webview layering:** the mirror is a native child webview, so HTML cannot draw over it.
+- **Native webview layering:** the local browser preview is a native child webview, so HTML cannot draw
+  over it. The phone mirror is an HTML canvas (corrected in round 02).
 - **Writes:** device writes always go through the real target, never as local fakes. Native Android
   databases are read-only today.
 - **Privacy:** screenshots in the evidence pack show real app data. Never transcribe IP addresses,
