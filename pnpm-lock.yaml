@@ -108,6 +108,9 @@ catalogs:
     elkjs:
       specifier: 0.10.2
       version: 0.10.2
+    fake-indexeddb:
+      specifier: ^6.2.7
+      version: 6.2.7
     geist:
       specifier: ^1.7.0
       version: 1.7.0
@@ -468,6 +471,9 @@ importers:
       bumpp:
         specifier: ^11.0.1
         version: 11.0.1
+      fake-indexeddb:
+        specifier: 'catalog:'
+        version: 6.2.7
       typescript:
         specifier: ^6.0.2
         version: 6.0.2
@@ -4034,6 +4040,10 @@ packages:
     resolution: {integrity: sha512-GDhU9ntwuKyGXdZBUgTIe+vXnWj0fppUEtMDL0+idd5Sta8TGpHssn/eusA9mrPr9qNDym6SxAYZjNvCn/9RBg==}
     engines: {node: '>= 10.17.0'}
     hasBin: true
+
+  fake-indexeddb@6.2.7:
+    resolution: {integrity: sha512-g0ghQ+BmU3CSZaHup5FigEAAtCmtNyxkrmID7OAeK2qONHghw1aQ2l2T1RxmfhP1H1tEXVRWArUTGVCk5832ww==}
+    engines: {node: '>=18'}
 
   fast-check@3.23.2:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
@@ -9828,6 +9838,8 @@ snapshots:
       '@types/yauzl': 2.10.3
     transitivePeerDependencies:
       - supports-color
+
+  fake-indexeddb@6.2.7: {}
 
   fast-check@3.23.2:
     dependencies:

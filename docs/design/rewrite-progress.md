@@ -105,6 +105,16 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
         the command registry (fixes the rail showing "Ctrl+," for every utility entry). Removed the shadcn
         `xs` button size. New ratchet `check:cladd-adoption` (220 retiring shadcn imports, none may be added;
         in `ready` and both CI workflows). Script guard tests now run in `test:all` (they never ran in CI).
+  - [x] R5e Storage write correctness — all 27 device scripts in `cdp-protocol` go through `evaluateChecked`
+        (device exceptions were read as `undefined`); host data enters scripts only as `jsLiteral` (LocalForage
+        ran the edited value as code and quoted keys by hand; Cache and OPFS escaped only quotes). LocalForage
+        and Cache writes surface `{ error }` and missing entries; LocalForage rename writes before it deletes.
+        IndexedDB: editing an inline key moves the record in one transaction (was a duplicate), a record that
+        drops its key field is refused, aborts are awaited; toasts fire only after the device answers
+        (`idbWrites`); snapshot mode is read-only in the table too; detail navigation uses global offsets
+        (wrong record from page 2 on). Device scripts are executed in tests against fake-indexeddb.
+        Decision: menus, context menu, tree and combobox stay Reka behaviour in the app, skinned with Cladd
+        tokens; cladd-vue keeps its no-headless-runtime rule.
 - [ ] R6 Network (requests, mocks as rules, recording → mocks)
 - [ ] R7 Elements + Device (tree virtualisation, a11y, lens, vitals, apps/files)
 - [ ] R8 Timeline + Sessions (global buffer, lanes, scrub, A/B diff, write tap, export with redaction)
@@ -159,9 +169,8 @@ below 9 until values carry provenance everywhere and the context matrix test exi
 
 ### Open items found in R5a (assigned)
 
-- cladd-vue's architecture forbids "a general headless component runtime", while the R5 owner decision says
-  new Cladd primitives (menu, context menu, combobox, tree, scroll area, resizable) are "built on Reka
-  behaviour" → owner decision before the first new primitive (R5b needs a context menu)
+- Decided (owner delegated): behaviour-heavy primitives Cladd lacks stay Reka in the app with a Cladd skin;
+  cladd-vue keeps its no-headless-runtime rule
 - Verified in the browser pane (frontend only, no Tauri): gate, palette and title bar render on Cladd in dark
   and light; ink primary 14.8:1, key caps 12.7:1. Found and fixed: `xs` key caps were 12 px tall around 11 px
   text (Cladd nests them; upstream sizes them for 8 px), now `sm` = 16 px keys in 24 px buttons; five

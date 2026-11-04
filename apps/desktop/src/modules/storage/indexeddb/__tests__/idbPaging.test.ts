@@ -1,8 +1,9 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import {
   INDEXED_DB_DEFAULT_PAGE_SIZE,
   INDEXED_DB_PROTOCOL_PAGE_LIMIT,
   indexedDbProtocolPageSize,
+  globalRecordOffset,
 } from "../idbPaging";
 
 test("caps IndexedDB requests at the protocol limit", () => {
@@ -17,4 +18,16 @@ test("normalizes invalid IndexedDB page sizes", () => {
   expect(indexedDbProtocolPageSize(-10)).toBe(1);
   expect(indexedDbProtocolPageSize(42.9)).toBe(42);
   expect(indexedDbProtocolPageSize(Number.NaN)).toBe(INDEXED_DB_DEFAULT_PAGE_SIZE);
+});
+
+describe("globalRecordOffset", () => {
+  test("maps a page-local row to its global offset", () => {
+    expect(globalRecordOffset(0, 50, 50)).toBe(50);
+    expect(globalRecordOffset(2, 50, 0)).toBe(100);
+    expect(globalRecordOffset(2, 50, 50)).toBe(150);
+  });
+
+  test("never produces a negative offset", () => {
+    expect(globalRecordOffset(-1, 50, -3)).toBe(0);
+  });
 });

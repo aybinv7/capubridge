@@ -7,6 +7,13 @@ export {
 } from "./cdp/client.js";
 export type { CDPClientOptions, CDPCommandOptions } from "./cdp/client.js";
 export { fetchLocalTargets } from "./cdp/targets.js";
+export {
+  assertNoDeviceError,
+  DeviceEvaluationError,
+  evaluateChecked,
+  jsLiteral,
+} from "./cdp/evaluate.js";
+export type { EvaluateParams } from "./cdp/evaluate.js";
 export type { RawCDPTarget } from "./cdp/targets.js";
 export { IDBDomain } from "./cdp/domains/indexeddb.js";
 export type {

@@ -1,3 +1,4 @@
+import { evaluateChecked } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 
 export interface JeepSqliteDatabase {
@@ -19,7 +20,7 @@ export class JeepSqliteDomain {
   constructor(private client: CDPClient) {}
 
   async listDatabases(): Promise<JeepSqliteDatabase[]> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           const dbNames = ["jeepSQLiteStore", "jeepSqliteStore"];
@@ -121,7 +122,7 @@ export class JeepSqliteDomain {
     idbName?: string;
     storeName?: string;
   }): Promise<void> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           const idbName = ${JSON.stringify(params.idbName ?? "jeepSQLiteStore")};
@@ -179,7 +180,7 @@ export class JeepSqliteDomain {
     idbName?: string;
     storeName?: string;
   }): Promise<string | null> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           const idbName = ${JSON.stringify(params.idbName ?? "jeepSQLiteStore")};
@@ -260,7 +261,7 @@ export class JeepSqliteDomain {
     idbName?: string;
     storeName?: string;
   }): Promise<Uint8Array> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           const idbName = ${JSON.stringify(params.idbName ?? "jeepSQLiteStore")};

@@ -1,3 +1,9 @@
+import {
+  assertNoDeviceError,
+  DeviceEvaluationError,
+  evaluateChecked,
+  jsLiteral,
+} from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 
 export interface LocalForageEntry {
@@ -9,7 +15,7 @@ export class LocalForageDomain {
   constructor(private client: CDPClient) {}
 
   private async evalExpression(expression: string): Promise<unknown> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression,
       awaitPromise: true,
       returnByValue: true,
@@ -116,79 +122,60 @@ export class LocalForageDomain {
     return parsed as LocalForageEntry[];
   }
 
-  async setItem(origin: string, key: string, value: string): Promise<void> {
-    await this.evalExpression(`
-      (async () => {
-        try {
-          const value = ${value};
-          
-          // Try localforage API first
-          if (typeof localforage !== 'undefined') {
-            const lfDriver = localforage.createInstance({
-              name: 'localforage',
-              storeName: 'keyvaluepairs'
-            });
-            await lfDriver.setItem('${key.replace(/'/g, "\\'")}', value);
-            return JSON.stringify({ ok: true });
-          }
-
-          // Fallback: raw IndexedDB
-          const db = await new Promise((resolve, reject) => {
-            const req = indexedDB.open('localforage');
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-          });
-
-          const tx = db.transaction('keyvaluepairs', 'readwrite');
-          const store = tx.objectStore('keyvaluepairs');
-          store.put(value, '${key.replace(/'/g, "\\'")}');
-          await new Promise((resolve, reject) => {
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-          });
-          db.close();
-          return JSON.stringify({ ok: true });
-        } catch (e) {
-          return JSON.stringify({ error: e.message });
-        }
-      })()
-    `);
+  /**
+   * Writes one entry. `value` is JSON text (objects, numbers, booleans keep their type);
+   * text that is not valid JSON is stored as a plain string. Never evaluated as code.
+   */
+  async setItem(_origin: string, key: string, value: string): Promise<void> {
+    await this.mutate("set", key, value);
   }
 
-  async deleteItem(origin: string, key: string): Promise<void> {
-    await this.evalExpression(`
+  async deleteItem(_origin: string, key: string): Promise<void> {
+    await this.mutate("delete", key, null);
+  }
+
+  private async mutate(op: "set" | "delete", key: string, raw: string | null): Promise<void> {
+    const outcome = await this.evalExpression(`
       (async () => {
+        const { op, key, raw } = ${jsLiteral({ op, key, raw })};
         try {
-          // Try localforage API first
-          if (typeof localforage !== 'undefined') {
-            const lfDriver = localforage.createInstance({
-              name: 'localforage',
-              storeName: 'keyvaluepairs'
-            });
-            await lfDriver.removeItem('${key.replace(/'/g, "\\'")}');
+          let value = null;
+          if (op === "set") {
+            try { value = JSON.parse(raw); } catch { value = raw; }
+          }
+          if (typeof localforage !== "undefined") {
+            const lfDriver = localforage.createInstance({ name: "localforage", storeName: "keyvaluepairs" });
+            if (op === "set") await lfDriver.setItem(key, value);
+            else await lfDriver.removeItem(key);
             return JSON.stringify({ ok: true });
           }
-
-          // Fallback: raw IndexedDB
           const db = await new Promise((resolve, reject) => {
-            const req = indexedDB.open('localforage');
+            const req = indexedDB.open("localforage");
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
           });
-
-          const tx = db.transaction('keyvaluepairs', 'readwrite');
-          const store = tx.objectStore('keyvaluepairs');
-          store.delete('${key.replace(/'/g, "\\'")}');
-          await new Promise((resolve, reject) => {
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-          });
-          db.close();
+          try {
+            const tx = db.transaction("keyvaluepairs", "readwrite");
+            const store = tx.objectStore("keyvaluepairs");
+            if (op === "set") store.put(value, key);
+            else store.delete(key);
+            await new Promise((resolve, reject) => {
+              tx.oncomplete = () => resolve();
+              tx.onerror = () => reject(tx.error);
+              tx.onabort = () => reject(tx.error ?? new Error("Transaction aborted"));
+            });
+          } finally {
+            db.close();
+          }
           return JSON.stringify({ ok: true });
         } catch (e) {
-          return JSON.stringify({ error: e.message });
+          return JSON.stringify({ error: e && e.message ? e.message : String(e) });
         }
       })()
     `);
+    if (typeof outcome !== "string") {
+      throw new DeviceEvaluationError("LocalForage write returned no result");
+    }
+    assertNoDeviceError(JSON.parse(outcome));
   }
 }

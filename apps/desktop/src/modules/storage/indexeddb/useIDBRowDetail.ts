@@ -128,7 +128,6 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
       } as IDBRecordWithIdentity;
       onEdit(record);
       editOriginalJson.value = editJson.value;
-      toast.success("Record saved", { description: `Key: ${editKey.value}` });
     } catch (error) {
       toast.error("Record contains invalid JSON", { description: String(error) });
     }
@@ -139,7 +138,6 @@ export function useIDBRowDetail(options: UseIDBRowDetailOptions) {
     const recordToDelete = selectedRow.value;
     if (recordToDelete && options.canMutate && !options.canMutate(recordToDelete)) return;
     onDelete(selectedKey.value as IDBValidKey);
-    toast.success("Record deleted", { description: `Key: ${editKey.value}` });
     const total = totalRecords() ?? getFilteredRows().length;
     void navigateRow("next");
     if (currentRowIndex.value >= total) {

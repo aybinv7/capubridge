@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { toast } from "vue-sonner";
 import {
   Search,
   Copy,
@@ -194,7 +195,7 @@ async function executeDelete() {
     await getDomain().deleteItem(selectedOrigin.value, deleteTargetKey.value);
     void refetchEntries();
   } catch (err) {
-    console.error("Failed to delete:", err);
+    toast.error(`Could not delete "${deleteTargetKey.value}"`, { description: String(err) });
   }
   showDeleteConfirm.value = false;
   deleteTargetKey.value = "";
@@ -280,10 +281,11 @@ async function saveEdit() {
     if (isCreate.value) {
       await getDomain().setItem(selectedOrigin.value, editKey.value.trim(), editValue.value);
     } else {
-      if (editKey.value !== editOriginalKey.value) {
+      const nextKey = editKey.value.trim();
+      await getDomain().setItem(selectedOrigin.value, nextKey, editValue.value);
+      if (nextKey !== editOriginalKey.value) {
         await getDomain().deleteItem(selectedOrigin.value, editOriginalKey.value);
       }
-      await getDomain().setItem(selectedOrigin.value, editKey.value.trim(), editValue.value);
     }
     editOriginalValue.value = editValue.value;
     void refetchEntries();

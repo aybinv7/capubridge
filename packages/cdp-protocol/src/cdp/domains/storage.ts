@@ -1,3 +1,4 @@
+import { DeviceEvaluationError, evaluateChecked, jsLiteral } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 
 export interface LSOrigin {
@@ -85,7 +86,7 @@ export class CacheAPIDomain {
   constructor(private client: CDPClient) {}
 
   async getCacheNames(): Promise<string[]> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -106,16 +107,17 @@ export class CacheAPIDomain {
   }
 
   async getEntries(cacheName: string): Promise<CacheEntry[]> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
-            const cache = await caches.open('${cacheName.replace(/'/g, "\\'")}');
+            const cacheName = ${jsLiteral(cacheName)};
+            const cache = await caches.open(cacheName);
             const requests = await cache.keys();
             const entries = requests.map(req => ({
               url: req.url,
               method: req.method,
-              cacheName: '${cacheName.replace(/'/g, "\\'")}'
+              cacheName
             }));
             return JSON.stringify(entries);
           } catch (e) {
@@ -133,24 +135,30 @@ export class CacheAPIDomain {
   }
 
   async deleteCache(cacheName: string): Promise<void> {
-    await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
-      expression: `caches.delete('${cacheName.replace(/'/g, "\\'")}')`,
+    const result = await evaluateChecked(this.client, {
+      expression: `caches.delete(${jsLiteral(cacheName)})`,
       awaitPromise: true,
       returnByValue: true,
     });
+    if (result.result.value !== true) {
+      throw new DeviceEvaluationError(`Cache "${cacheName}" was not found on the device`);
+    }
   }
 
   async deleteEntry(cacheName: string, url: string): Promise<void> {
-    await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
-          const cache = await caches.open('${cacheName.replace(/'/g, "\\'")}');
-          await cache.delete('${url.replace(/'/g, "\\'")}');
+          const cache = await caches.open(${jsLiteral(cacheName)});
+          return cache.delete(${jsLiteral(url)});
         })()
       `,
       awaitPromise: true,
       returnByValue: true,
     });
+    if (result.result.value !== true) {
+      throw new DeviceEvaluationError(`${url} is no longer in cache "${cacheName}"`);
+    }
   }
 
   async getStorageSize(): Promise<number> {
@@ -158,11 +166,11 @@ export class CacheAPIDomain {
     let totalSize = 0;
 
     for (const cacheName of cacheNames) {
-      const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      const result = await evaluateChecked(this.client, {
         expression: `
           (async () => {
             try {
-              const cache = await caches.open('${cacheName.replace(/'/g, "\\'")}');
+              const cache = await caches.open(${jsLiteral(cacheName)});
               const requests = await cache.keys();
               let total = 0;
               for (const req of requests) {

@@ -51,7 +51,7 @@
     },
     {
       "path": "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue",
-      "maxLines": 1073,
+      "maxLines": 1038,
       "owner": "Storage module",
       "rationale": "IndexedDB explorer remains an orchestration surface for routing, metadata, paging, mutations, imports, exports, changes, and dialogs; approved pending focused composables."
     },

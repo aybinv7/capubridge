@@ -1,3 +1,4 @@
+import { evaluateChecked, singleQuotedContent } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 
 export interface OPFSEntry {
@@ -234,15 +235,12 @@ export function detectStorageTechs(entries: OPFSEntry[]): StorageTechHint[] {
   return hints;
 }
 
-function escapeJsString(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
-}
 export class OPFSDomain {
   constructor(private client: CDPClient) {}
 
   async listDirectory(path: string = ""): Promise<OPFSEntry[]> {
-    const escaped = escapeJsString(path);
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const escaped = singleQuotedContent(path);
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -291,10 +289,10 @@ export class OPFSDomain {
     const parts = path.split("/").filter(Boolean);
     const name = parts.pop();
     if (!name) throw new Error("Empty path");
-    const parentEscaped = escapeJsString(parts.join("/"));
-    const nameEscaped = escapeJsString(name);
+    const parentEscaped = singleQuotedContent(parts.join("/"));
+    const nameEscaped = singleQuotedContent(name);
 
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -338,8 +336,8 @@ export class OPFSDomain {
   }
 
   async fileSize(path: string): Promise<number> {
-    const escaped = escapeJsString(path);
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const escaped = singleQuotedContent(path);
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -400,8 +398,8 @@ export class OPFSDomain {
   }
 
   private async readFileChunk(path: string, offset: number, length: number): Promise<Uint8Array> {
-    const escaped = escapeJsString(path);
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const escaped = singleQuotedContent(path);
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -455,8 +453,8 @@ export class OPFSDomain {
   }
 
   async listSahPoolDatabases(dirPath: string): Promise<SahPoolDatabase[]> {
-    const escaped = escapeJsString(dirPath);
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const escaped = singleQuotedContent(dirPath);
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -526,9 +524,9 @@ export class OPFSDomain {
     path: string,
     opts?: { stripSahPoolHeader?: boolean },
   ): Promise<string | null> {
-    const escaped = escapeJsString(path);
+    const escaped = singleQuotedContent(path);
     const offset = opts?.stripSahPoolHeader ? SAH_POOL_HEADER_DATA_OFFSET : 0;
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -568,9 +566,9 @@ export class OPFSDomain {
   }
 
   async releaseSahPoolSlot(path: string): Promise<{ released: boolean; via: "sah" | "writable" }> {
-    const escaped = escapeJsString(path);
+    const escaped = singleQuotedContent(path);
     const headerSize = SAH_POOL_HEADER_DATA_OFFSET;
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {

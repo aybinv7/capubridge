@@ -1,3 +1,4 @@
+import { evaluateChecked, jsLiteral } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 
 export interface IDBDatabaseInfo {
@@ -132,7 +133,7 @@ export class IDBDomain {
   }
 
   async discoverDatabases(): Promise<IDBDatabaseInfo[]> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
           (async () => {
             try {
@@ -261,7 +262,7 @@ export class IDBDomain {
     sampleSize: number,
   ): Promise<{ bytes: number; count: number }> {
     try {
-      const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+      const result = await evaluateChecked(this.client, {
         expression: `
           (async () => {
             try {
@@ -310,7 +311,7 @@ export class IDBDomain {
   }
 
   async getStorageEstimate(): Promise<{ usage: number; idbUsage: number; quota: number }> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -364,7 +365,7 @@ export class IDBDomain {
     value: unknown,
     primaryKey?: IDBValidKey,
   ): Promise<void> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -376,15 +377,44 @@ export class IDBDomain {
             });
             const tx = db.transaction(${JSON.stringify(objectStoreName)}, 'readwrite');
             const store = tx.objectStore(${JSON.stringify(objectStoreName)});
-            const key = ${primaryKey === undefined ? "undefined" : JSON.stringify(primaryKey)};
-            if (store.keyPath === null && key === undefined) throw new Error('Out-of-line key required');
-            if (key === undefined || store.keyPath !== null) store.put(${JSON.stringify(value)});
-            else store.put(${JSON.stringify(value)}, key);
-            await new Promise((resolve, reject) => {
+            const key = ${primaryKey === undefined ? "undefined" : jsLiteral(primaryKey)};
+            const value = ${jsLiteral(value)};
+            const readPath = (source, path) => path.split('.').reduce(
+              (node, part) => (node == null ? undefined : node[part]),
+              source,
+            );
+            const inlineKey = (path) => Array.isArray(path)
+              ? path.map((part) => readPath(value, part))
+              : readPath(value, path);
+            const done = new Promise((resolve, reject) => {
               tx.oncomplete = () => resolve(true);
               tx.onerror = () => reject(tx.error?.message ?? 'put failed');
+              tx.onabort = () => reject(tx.error?.message ?? 'transaction aborted');
             });
-            db.close();
+            try {
+              if (store.keyPath === null) {
+                if (key === undefined) throw new Error('Out-of-line key required');
+                store.put(value, key);
+              } else {
+                const nextKey = inlineKey(store.keyPath);
+                const missing = Array.isArray(nextKey) ? nextKey.some((part) => part === undefined) : nextKey === undefined;
+                if (missing && key !== undefined) {
+                  throw new Error('The record must keep its key field (' + JSON.stringify(store.keyPath) + ')');
+                }
+                store.put(value);
+                if (!missing && key !== undefined && indexedDB.cmp(nextKey, key) !== 0) store.delete(key);
+              }
+            } catch (error) {
+              tx.abort();
+              await done.catch(() => undefined);
+              db.close();
+              throw error;
+            }
+            try {
+              await done;
+            } finally {
+              db.close();
+            }
             return JSON.stringify({ ok: true });
           } catch (e) {
             return JSON.stringify({ error: String(e) });
@@ -405,7 +435,7 @@ export class IDBDomain {
     objectStoreName: string,
     key: IDBValidKey,
   ): Promise<void> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -441,7 +471,7 @@ export class IDBDomain {
     databaseName: string,
     objectStoreName: string,
   ): Promise<void> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -476,7 +506,7 @@ export class IDBDomain {
     databaseName: string,
     objectStoreName: string,
   ): Promise<void> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {
@@ -511,7 +541,7 @@ export class IDBDomain {
   }
 
   async deleteDatabase(_securityOrigin: string, databaseName: string): Promise<void> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         new Promise((resolve, reject) => {
           const req = indexedDB.deleteDatabase(${JSON.stringify(databaseName)});
@@ -719,7 +749,7 @@ export class IDBDomain {
       })()
     `;
 
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression,
       awaitPromise: true,
       returnByValue: true,

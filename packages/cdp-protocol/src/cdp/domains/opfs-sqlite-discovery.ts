@@ -1,3 +1,4 @@
+import { evaluateChecked } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 import {
   SAH_POOL_HEADER_DATA_OFFSET,
@@ -31,7 +32,7 @@ export class OpfsSqliteDiscovery {
   constructor(private client: CDPClient) {}
 
   async discover(): Promise<DiscoveredOpfsDatabase[]> {
-    const result = await this.client.send<{ result: { result: unknown } }>("Runtime.evaluate", {
+    const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
           try {

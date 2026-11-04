@@ -34,7 +34,8 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { useStorageSize } from "@/composables/useStorageSize";
 import { useSidebarSettings } from "@/modules/storage/stores/useSidebarSettingsStore";
 import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
-import { indexedDbProtocolPageSize } from "./idbPaging";
+import { indexedDbProtocolPageSize, globalRecordOffset } from "./idbPaging";
+import { idbWrites } from "./idbWrites";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
 import {
   useIndexedDBChangeIndex,
@@ -349,7 +350,8 @@ function handlePageSizeChange(size: number) {
   page.value = 0;
 }
 
-async function fetchSingleRecord(index: number): Promise<IDBRecord | null> {
+async function fetchSingleRecord(rowIndex: number): Promise<IDBRecord | null> {
+  const index = globalRecordOffset(page.value, pageSize.value, rowIndex);
   if (isSnapshotMode.value) {
     return snapshotAllRecords.value[index] ?? null;
   }
@@ -376,68 +378,34 @@ function getDomain(): IDBDomain | null {
   return client ? new IDBDomain(client) : null;
 }
 
-async function handleRecordEdit(record: IDBRecord) {
+function writer() {
   if (isSnapshotMode.value) {
     readonlyToast();
-    return;
+    return null;
   }
   const domain = getDomain();
-  if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
-  const recordWithMetadata = record as IDBRecord & {
-    primaryKey?: IDBValidKey;
-    editable?: boolean;
-    readOnlyReason?: string;
-  };
-  if (recordWithMetadata.editable === false) {
-    toast.error("Record is read-only", {
-      description: recordWithMetadata.readOnlyReason ?? "Unsupported value",
-    });
-    return;
-  }
-  try {
-    await domain.putRecord(
-      selectedOrigin.value,
-      dbName.value,
-      storeName.value,
-      record.value,
-      recordWithMetadata.primaryKey ?? record.key,
-    );
-    void refetchRecords();
-  } catch (err) {
-    console.error("[IDB] Failed to save record:", err);
-  }
+  if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return null;
+  return idbWrites(domain, {
+    origin: selectedOrigin.value,
+    database: dbName.value,
+    store: storeName.value,
+  });
+}
+
+async function handleRecordEdit(record: IDBRecord) {
+  const writes = writer();
+  if (writes && (await writes.save(record))) void refetchRecords();
 }
 
 async function handleRecordDelete(key: IDBValidKey) {
-  if (isSnapshotMode.value) {
-    readonlyToast();
-    return;
-  }
-  const domain = getDomain();
-  if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
-  try {
-    await domain.deleteRecord(selectedOrigin.value, dbName.value, storeName.value, key);
-    void refetchRecords();
-  } catch (err) {
-    console.error("[IDB] Failed to delete record:", err);
-  }
+  await handleRecordDeleteBulk([key]);
 }
 
 async function handleRecordDeleteBulk(keys: IDBValidKey[]) {
-  if (isSnapshotMode.value) {
-    readonlyToast();
-    return;
-  }
-  const domain = getDomain();
-  if (!domain || !storeName.value || !dbName.value || !selectedOrigin.value) return;
-  try {
-    for (const key of keys) {
-      await domain.deleteRecord(selectedOrigin.value, dbName.value, storeName.value, key);
-    }
-    void refetchRecords();
-  } catch (err) {
-    console.error("[IDB] Failed to delete records:", err);
-  }
+  const writes = writer();
+  if (!writes) return;
+  await writes.remove(keys);
+  void refetchRecords();
 }
 
 // ─── Destructive actions ──────────────────────────────────────────────────────
@@ -1045,6 +1013,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
               :total-records="totalRecords"
               :store-info="storeInfoData ?? []"
               :fetch-record="fetchSingleRecord"
+              :read-only="isSnapshotMode"
               :show-changes-only="showChangesOnly"
               @refresh="refetch"
               @record-edit="handleRecordEdit"
