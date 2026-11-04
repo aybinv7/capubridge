@@ -184,7 +184,10 @@ async function readWebviewSnapshot(serial: string, hostBounds?: [number, number,
   }
   const screen =
     hostBounds === undefined
-      ? await invokeCommand("adb_mirror_get_screen_size", { serial }).catch(() => null)
+      ? await invokeCommand("adb_mirror_get_screen_size", { serial }).catch((error: unknown) => {
+          console.warn("automation screen size unavailable, webview bounds unscaled", error);
+          return null;
+        })
       : null;
   const host =
     hostBounds ??
