@@ -211,19 +211,10 @@ const tableQuery = useSqliteTableQuery({
   pageSize,
   tableRowCount: () => currentTable.value?.rowCount ?? null,
   currentColumns: () => queryResult.value?.columns ?? null,
+  allColumns: () => columnInfo.value.map((column) => column.name),
   refetch: () => fetchTableRows(),
 });
-const {
-  whereClause,
-  filterError,
-  tableTotal,
-  setWhere,
-  addFilter,
-  exportTable,
-  copyAsInsert,
-  gridSort,
-  setSort: setGridSort,
-} = tableQuery;
+const { filterError, tableTotal } = tableQuery;
 const hasMore = computed(() => queryResult.value !== null && moreRowsAvailable.value);
 
 // Table tabs (Browse / Structure / SQL)
@@ -512,7 +503,7 @@ async function fetchTableRows() {
   error.value = null;
 
   try {
-    const result = whereClause.value
+    const result = tableQuery.needsQuery.value
       ? await tableQuery.fetchFilteredPage()
       : await tableRows(
           serial.value,
@@ -531,7 +522,7 @@ async function fetchTableRows() {
     result.rowCount = result.rows.length;
     queryResult.value = result;
   } catch (err) {
-    if (whereClause.value) {
+    if (tableQuery.needsQuery.value) {
       filterError.value = String(err).replace(/^Error:\s*/, "");
     } else {
       error.value = `Query failed: ${err}`;
@@ -1936,22 +1927,15 @@ watch(
                 :column-info="columnInfo"
                 :foreign-keys="structureForeignKeys"
                 :loading="isLoadingRecords"
-                :sort="gridSort"
+                :database-name="dbName"
+                :query="tableQuery"
                 :offset="page * pageSize"
-                :total="tableTotal"
-                :where="whereClause"
-                :filter-error="filterError"
                 :changes-by-row-key="tableChangesByRowKey"
                 :read-only-reason="readOnlyReason"
                 :provenance="tableProvenance"
-                @update:sort="setGridSort"
                 @follow-foreign-key="followForeignKey"
                 :changes-only="showChangesOnly"
                 @delete="handleRecordDeleteBulk"
-                @update:where="setWhere"
-                @add-filter="addFilter"
-                @export="exportTable"
-                @copy-insert="copyAsInsert"
                 @open-row-diff="openRowDiff"
               />
             </template>

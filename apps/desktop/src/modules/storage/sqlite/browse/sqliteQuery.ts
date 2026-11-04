@@ -1,4 +1,5 @@
 export type SqliteExportFormat = "csv" | "json" | "sql";
+export type SqliteExportScope = "all" | "selected";
 
 /** `"name"` with embedded quotes doubled, safe for any identifier. */
 export function quoteIdent(name: string): string {
@@ -61,4 +62,82 @@ export function buildPageQuery(query: PageQuery): string {
 
 export function buildCountQuery(table: string, where: string): string {
   return `SELECT COUNT(*) AS total FROM ${quoteIdent(table)}${whereSql(where)}`;
+}
+
+export type ColumnFilterOperator =
+  | PredicateOperator
+  | "contains"
+  | "starts"
+  | "ends"
+  | ">"
+  | ">="
+  | "<"
+  | "<=";
+
+/** LIKE escape character; `!` keeps patterns free of backslash ambiguity. */
+const LIKE_ESCAPE = "!";
+
+/** The value as a LIKE literal fragment: its own `%`, `_` and `!` match literally. */
+function likePattern(value: unknown): string {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  return text.replace(/[!%_]/g, (char) => `${LIKE_ESCAPE}${char}`);
+}
+
+function like(ident: string, pattern: string): string {
+  return `${ident} LIKE ${sqlLiteral(pattern)} ESCAPE '${LIKE_ESCAPE}'`;
+}
+
+/** Clause for the column filter form; text matching is case-insensitive LIKE with escapes. */
+export function columnFilter(
+  column: string,
+  operator: ColumnFilterOperator,
+  value?: unknown,
+): string {
+  const ident = quoteIdent(column);
+  switch (operator) {
+    case "contains":
+      return like(ident, `%${likePattern(value)}%`);
+    case "starts":
+      return like(ident, `${likePattern(value)}%`);
+    case "ends":
+      return like(ident, `%${likePattern(value)}`);
+    case ">":
+    case ">=":
+    case "<":
+    case "<=":
+      return `${ident} ${operator} ${sqlLiteral(numericOr(value))}`;
+    default:
+      return predicate(column, operator, value);
+  }
+}
+
+function numericOr(value: unknown): unknown {
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+  return value;
+}
+
+/** "Search all columns": any column whose text form contains the query. */
+export function searchClause(columns: readonly string[], query: string): string {
+  const needle = query.trim();
+  if (!needle || columns.length === 0) return "";
+  const pattern = `%${likePattern(needle)}%`;
+  return `(${columns.map((column) => like(`CAST(${quoteIdent(column)} AS TEXT)`, pattern)).join(" OR ")})`;
+}
+
+/** Distinct values of one column with their row counts, most frequent first. */
+export function buildGroupQuery(
+  table: string,
+  where: string,
+  column: string,
+  offset: number,
+  limit: number,
+): string {
+  const ident = quoteIdent(column);
+  return `SELECT ${ident}, COUNT(*) AS "rows" FROM ${quoteIdent(table)}${whereSql(where)} GROUP BY ${ident} ORDER BY "rows" DESC LIMIT ${Math.max(1, Math.floor(limit))} OFFSET ${Math.max(0, Math.floor(offset))}`;
+}
+
+export function buildGroupCountQuery(table: string, where: string, column: string): string {
+  return `SELECT COUNT(*) AS total FROM (SELECT 1 FROM ${quoteIdent(table)}${whereSql(where)} GROUP BY ${quoteIdent(column)})`;
 }

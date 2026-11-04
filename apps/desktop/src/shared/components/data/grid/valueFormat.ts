@@ -31,12 +31,51 @@ function isTypedBlob(
   return "__type" in value && typeof (value as { __type: unknown }).__type === "string";
 }
 
+/** Epoch numbers: seconds below 10^11 (year 5138), milliseconds above. */
+function epochToIso(value: number): string | null {
+  const ms = Math.abs(value) < 1e11 ? value * 1000 : value;
+  const date = new Date(ms);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/**
+ * Honours a column's display type ("Show values as") when the raw value is stored in
+ * another form: epoch numbers as dates, JSON kept in TEXT columns, values forced to text.
+ */
+function applyDisplayType(value: unknown, type?: GridColumnType): FormattedCell | null {
+  if (type === "text") {
+    return { kind: "string", text: clip(cellToText(value)), align: "start" };
+  }
+  if (type === "date") {
+    const numeric =
+      typeof value === "string" && /^-?\d+(\.\d+)?$/.test(value) ? Number(value) : value;
+    if (typeof numeric === "number") {
+      const iso = epochToIso(numeric);
+      if (iso) return { kind: "date", text: iso, align: "end" };
+    }
+    return null;
+  }
+  if (type === "json" && typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      return typeof parsed === "object" && parsed !== null ? formatCell(parsed) : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * Display form of any storage value. Pure and allocation-light: it runs for every
  * visible cell on every scroll frame.
  */
 export function formatCell(value: unknown, type?: GridColumnType): FormattedCell {
   if (value === null || value === undefined) return { kind: "null", text: "NULL", align: "start" };
+  const shown = applyDisplayType(value, type);
+  if (shown) return shown;
   if (typeof value === "boolean") return { kind: "boolean", text: String(value), align: "start" };
   if (typeof value === "number" || typeof value === "bigint") {
     if (type === "boolean" && (value === 0 || value === 1)) {

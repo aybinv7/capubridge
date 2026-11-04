@@ -139,12 +139,28 @@ describe("DataGrid", () => {
     const { grid, events } = await mount({
       sort: { columnId: "name", direction: "asc" } as GridSort,
     });
-    const headers = grid.querySelectorAll<HTMLButtonElement>('[role="columnheader"] button');
+    const headers = grid.querySelectorAll<HTMLButtonElement>(
+      '[role="columnheader"] > button:first-child',
+    );
     headers[1]?.click();
     headers[0]?.click();
     expect(events.sort).toEqual([
       [{ columnId: "name", direction: "desc" }],
       [{ columnId: "id", direction: "asc" }],
     ]);
+  });
+});
+
+describe("DataGrid row activation", () => {
+  test("Enter opens the row instead of editing when rows activate", async () => {
+    const { grid, events } = await mount({
+      readOnly: true,
+      activateRows: true,
+      onActivate: (id: string) => (events.activate ??= []).push([id]),
+    });
+    cell(grid, 1, 1).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+    press(grid, "Enter");
+    expect(events.activate).toEqual([["pk:2"]]);
+    expect(events.edit).toBeUndefined();
   });
 });

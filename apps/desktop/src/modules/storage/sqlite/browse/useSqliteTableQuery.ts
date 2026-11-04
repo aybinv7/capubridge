@@ -3,7 +3,16 @@ import { toast } from "vue-sonner";
 import { toCsv, toSqlInserts, type GridSort } from "@/shared/components/data/grid";
 import { downloadText, fileStem } from "@/lib/download";
 import type { SqliteQueryResult } from "@/types/sqlite.types";
-import { andWhere, buildCountQuery, buildPageQuery, type SqliteExportFormat } from "./sqliteQuery";
+import {
+  andWhere,
+  buildCountQuery,
+  buildGroupCountQuery,
+  buildGroupQuery,
+  buildPageQuery,
+  predicate,
+  searchClause,
+  type SqliteExportFormat,
+} from "./sqliteQuery";
 
 export interface SqliteTableQueryContext {
   /** Runs a read-only query against the open database. */
@@ -18,6 +27,8 @@ export interface SqliteTableQueryContext {
   tableRowCount: () => number | null;
   /** Columns of the page on screen, for "copy as INSERT". */
   currentColumns: () => readonly string[] | null;
+  /** Every column of the table, for "search all columns". */
+  allColumns: () => readonly string[];
   refetch: () => Promise<void>;
 }
 
@@ -30,15 +41,28 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
   const whereClause = ref("");
   const filterError = ref<string | null>(null);
   const filteredTotal = ref<number | null>(null);
+  const search = ref("");
+  /** Column whose distinct values are listed with counts, or `null` for plain rows. */
+  const groupBy = ref<string | null>(null);
+
+  /** The user's WHERE combined with "search all columns". */
+  const effectiveWhere = computed(() => {
+    const searched = searchClause(context.allColumns(), search.value);
+    if (!searched) return whereClause.value;
+    return whereClause.value.trim() ? andWhere(whereClause.value, searched) : searched;
+  });
+
+  /** Plain, unfiltered rows come from the table reader; anything else is a query. */
+  const needsQuery = computed(() => effectiveWhere.value.trim() !== "" || groupBy.value !== null);
 
   const tableTotal = computed(() =>
-    whereClause.value ? filteredTotal.value : context.tableRowCount(),
+    needsQuery.value ? filteredTotal.value : context.tableRowCount(),
   );
 
   function pageQuery(offset: number, limit: number) {
     return {
       table: context.table.value,
-      where: whereClause.value,
+      where: effectiveWhere.value,
       orderBy: context.orderBy.value,
       direction: context.orderDir.value,
       offset,
@@ -52,9 +76,18 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
       context.page.value * context.pageSize.value,
       context.pageSize.value + 1,
     );
+    const group = groupBy.value;
     const [rows, count] = await Promise.all([
-      context.run(buildPageQuery(query)),
-      context.run(buildCountQuery(query.table, query.where)),
+      context.run(
+        group
+          ? buildGroupQuery(query.table, query.where, group, query.offset, query.limit)
+          : buildPageQuery(query),
+      ),
+      context.run(
+        group
+          ? buildGroupCountQuery(query.table, query.where, group)
+          : buildCountQuery(query.table, query.where),
+      ),
     ]);
     const total = count.rows[0]?.[0];
     filteredTotal.value = typeof total === "number" ? total : null;
@@ -90,10 +123,35 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
     setWhere(andWhere(whereClause.value, clause));
   }
 
+  function setSearch(query: string) {
+    if (query === search.value) return;
+    search.value = query;
+    filteredTotal.value = null;
+    context.page.value = 0;
+    void context.refetch();
+  }
+
+  function setGroupBy(column: string | null) {
+    groupBy.value = column;
+    filteredTotal.value = null;
+    context.page.value = 0;
+    void context.refetch();
+  }
+
+  /** Leaves the grouped view for the rows of one group. */
+  function openGroup(value: unknown) {
+    const column = groupBy.value;
+    if (!column) return;
+    groupBy.value = null;
+    addFilter(predicate(column, "=", value));
+  }
+
   function reset() {
     whereClause.value = "";
     filterError.value = null;
     filteredTotal.value = null;
+    search.value = "";
+    groupBy.value = null;
   }
 
   async function exportTable(format: SqliteExportFormat) {
@@ -103,7 +161,7 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
       const stem = fileStem(
         context.database.value,
         context.table.value,
-        whereClause.value ? "filtered" : "",
+        effectiveWhere.value ? "filtered" : "",
       );
       if (format === "csv") {
         downloadText(toCsv(result.columns, result.rows), `${stem}.csv`, "text/csv");
@@ -146,6 +204,12 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
   return {
     whereClause,
     filterError,
+    search,
+    groupBy,
+    needsQuery,
+    setSearch,
+    setGroupBy,
+    openGroup,
     tableTotal,
     fetchFilteredPage,
     setWhere,

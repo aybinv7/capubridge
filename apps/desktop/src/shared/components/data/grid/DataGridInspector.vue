@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { Copy, KeyRound, Link2, X } from "lucide-vue-next";
-import { Button } from "@capubridge/cladd";
+import { Button, Segmented, SegmentedButton } from "@capubridge/cladd";
+import { readPersisted, writePersisted } from "@/lib/persisted";
 import { toast } from "vue-sonner";
 import JsonViewer from "../JsonViewer.vue";
 import { cellToText, formatCell } from "./valueFormat";
@@ -24,10 +25,35 @@ const STATE_LABEL: Record<GridRowState, string> = {
   recent: "written by the app just now",
 };
 
+const VIEW_KEY = "capubridge:inspector-view";
+type InspectorView = "fields" | "json";
+
+const view = ref<InspectorView>(
+  readPersisted<InspectorView>(VIEW_KEY, "fields", (v) => v === "fields" || v === "json"),
+);
+watch(view, (next) => writePersisted(VIEW_KEY, next));
+
+const fieldQuery = ref("");
+
+/** The row as one JSON document, keyed in column order, for the JSON view. */
+const rowDocument = computed(() =>
+  props.row
+    ? Object.fromEntries(props.columns.map((column) => [column.id, props.row?.cells[column.id]]))
+    : null,
+);
+
 const fields = computed(() => {
   const row = props.row;
   if (!row) return [];
-  return props.columns.map((column) => {
+  const needle = fieldQuery.value.trim().toLowerCase();
+  const columns = needle
+    ? props.columns.filter(
+        (column) =>
+          column.title.toLowerCase().includes(needle) ||
+          cellToText(row.cells[column.id]).toLowerCase().includes(needle),
+      )
+    : props.columns;
+  return columns.map((column) => {
     const value = row.cells[column.id];
     const formatted = formatCell(value, column.type);
     const structured =
@@ -58,11 +84,11 @@ async function copyRow() {
 
 <template>
   <aside
-    class="flex h-full min-h-0 flex-col border-l border-[var(--border-subtle)] bg-[var(--bg-surface)]"
+    class="cladd-surface-level-1 flex h-full min-h-0 flex-col rounded-cladd-md border border-cladd-outline bg-cladd-bg"
     aria-label="Row inspector"
   >
     <header
-      class="flex h-9 shrink-0 items-center gap-2 border-b border-[var(--border-subtle)] px-3"
+      class="flex h-9 shrink-0 items-center gap-2 border-b border-cladd-outline bg-cladd-surface px-3"
     >
       <span class="truncate text-xs font-medium text-foreground">{{ title ?? "Row" }}</span>
       <span v-if="state" class="truncate text-2xs text-signal-mark">{{ STATE_LABEL[state] }}</span>
@@ -90,17 +116,41 @@ async function copyRow() {
       </Button>
     </header>
 
+    <div
+      v-if="row"
+      class="flex shrink-0 items-center gap-2 border-b border-cladd-outline px-3 py-1.5"
+    >
+      <Segmented size="xs" aria-label="Inspector view">
+        <SegmentedButton :active="view === 'fields'" @click="view = 'fields'"
+          >Fields</SegmentedButton
+        >
+        <SegmentedButton :active="view === 'json'" @click="view = 'json'">JSON</SegmentedButton>
+      </Segmented>
+      <input
+        v-if="view === 'fields'"
+        v-model="fieldQuery"
+        type="search"
+        placeholder="Find a field or value"
+        aria-label="Find a field or value"
+        class="h-6 min-w-0 flex-1 rounded-cladd-2xs bg-cladd-surface-cut px-2 text-cladd-xs text-cladd-fg outline-none placeholder:text-cladd-fg-softer focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+      />
+    </div>
+
     <div v-if="!row" class="flex flex-1 items-center justify-center px-6 text-center">
       <p class="text-xs text-muted-foreground">
         Select a row to see every field. Arrow keys move; the inspector follows.
       </p>
     </div>
 
+    <div v-else-if="view === 'json'" class="min-h-0 flex-1 overflow-auto p-2">
+      <JsonViewer :value="rowDocument" />
+    </div>
+
     <dl v-else class="min-h-0 flex-1 overflow-auto py-1">
       <div
         v-for="field in fields"
         :key="field.column.id"
-        class="group/field border-b border-[var(--border-subtle)] px-3 py-1.5"
+        class="group/field border-b border-cladd-outline px-3 py-1.5"
       >
         <dt class="flex items-center gap-1.5 text-2xs text-[var(--fg-subtle)]">
           <KeyRound v-if="field.column.primaryKey" :size="11" class="text-signal-mark" />

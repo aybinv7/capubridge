@@ -123,14 +123,16 @@ export function useGridSelection(options: GridSelectionOptions) {
   const summary = computed<GridSummary>(() => {
     const rowCount = options.rows.value.length;
     const ids = targetIds();
-    if (ids.length === 0) return { rowCount, selectedRows: 0, selectedCells: 0, aggregate: null };
+    if (ids.length === 0) {
+      return { rowCount, selectedRows: 0, selectedRowIds: [], selectedCells: 0, aggregate: null };
+    }
     const { columns, values } = matrix();
     const selectedCells = values.length * columns.length;
     const aggregate =
       selectedCells > 1 && selectedCells <= AGGREGATE_CELL_LIMIT
         ? aggregateValues(values.flat())
         : null;
-    return { rowCount, selectedRows: ids.length, selectedCells, aggregate };
+    return { rowCount, selectedRows: ids.length, selectedRowIds: ids, selectedCells, aggregate };
   });
 
   return {

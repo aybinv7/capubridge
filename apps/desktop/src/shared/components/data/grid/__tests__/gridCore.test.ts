@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
 import { cellToText, formatCell } from "../valueFormat";
-import { MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, measureColumnWidths } from "../columnSizing";
+import {
+  MAX_COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+  fillToWidth,
+  measureColumnWidths,
+} from "../columnSizing";
 import {
   EMPTY_SELECTION,
   focusCell,
@@ -239,5 +244,40 @@ describe("export formats", () => {
     ).toBe(
       `INSERT INTO "we""ird" ("id", "name") VALUES (1, 'it''s');\nINSERT INTO "we""ird" ("id", "name") VALUES (2, NULL);`,
     );
+  });
+});
+
+describe("show values as", () => {
+  test("epoch seconds and milliseconds read as ISO dates", () => {
+    expect(formatCell(1700000000, "date").text).toBe("2023-11-14T22:13:20.000Z");
+    expect(formatCell(1700000000000, "date").text).toBe("2023-11-14T22:13:20.000Z");
+    expect(formatCell("1700000000", "date").kind).toBe("date");
+  });
+
+  test("JSON stored as text is shown as structure", () => {
+    expect(formatCell('{"a":1,"b":[2]}', "json")).toMatchObject({ kind: "json", badge: "{2}" });
+    expect(formatCell("not json", "json").kind).toBe("string");
+  });
+
+  test("text forces the raw form", () => {
+    expect(formatCell(42, "text")).toMatchObject({ kind: "string", text: "42", align: "start" });
+  });
+});
+
+describe("fillToWidth", () => {
+  test("shares spare width in proportion, leaving resized columns alone", () => {
+    const filled = fillToWidth(
+      { a: 100, b: 300, c: 100 },
+      ["a", "b", "c"],
+      new Set(["a", "b"]),
+      900,
+    );
+    expect(filled.c).toBe(100);
+    expect(filled.a + filled.b + filled.c).toBe(900);
+    expect(filled.b / filled.a).toBeCloseTo(3, 1);
+  });
+
+  test("never shrinks columns that already overflow", () => {
+    expect(fillToWidth({ a: 500 }, ["a"], new Set(["a"]), 300)).toEqual({ a: 500 });
   });
 });

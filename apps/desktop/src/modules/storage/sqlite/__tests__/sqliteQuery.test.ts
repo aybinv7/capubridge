@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
   andWhere,
+  buildGroupCountQuery,
+  buildGroupQuery,
+  columnFilter,
+  searchClause,
   buildCountQuery,
   buildPageQuery,
   predicate,
@@ -48,5 +52,32 @@ describe("page and count queries", () => {
       `SELECT * FROM "sale_order" WHERE (state = 'draft') ORDER BY "date" DESC LIMIT 51 OFFSET 100`,
     );
     expect(buildCountQuery("sale_order", "")).toBe(`SELECT COUNT(*) AS total FROM "sale_order"`);
+  });
+});
+
+describe("column filter, search and grouping", () => {
+  test("LIKE operators escape wildcards in the user's value", () => {
+    expect(columnFilter("name", "contains", "50%_off!")).toBe(
+      `"name" LIKE '%50!%!_off!!%' ESCAPE '!'`,
+    );
+    expect(columnFilter("name", "starts", "it's")).toBe(`"name" LIKE 'it''s%' ESCAPE '!'`);
+    expect(columnFilter("qty", ">=", "10")).toBe(`"qty" >= 10`);
+    expect(columnFilter("note", "null")).toBe(`"note" IS NULL`);
+  });
+
+  test("search matches any column's text form", () => {
+    expect(searchClause(["a", "b"], " kg ")).toBe(
+      `(CAST("a" AS TEXT) LIKE '%kg%' ESCAPE '!' OR CAST("b" AS TEXT) LIKE '%kg%' ESCAPE '!')`,
+    );
+    expect(searchClause(["a"], "  ")).toBe("");
+  });
+
+  test("group by counts rows per value on the database", () => {
+    expect(buildGroupQuery("t", "x > 1", "state", 0, 51)).toBe(
+      `SELECT "state", COUNT(*) AS "rows" FROM "t" WHERE (x > 1) GROUP BY "state" ORDER BY "rows" DESC LIMIT 51 OFFSET 0`,
+    );
+    expect(buildGroupCountQuery("t", "", "state")).toBe(
+      `SELECT COUNT(*) AS total FROM (SELECT 1 FROM "t" GROUP BY "state")`,
+    );
   });
 });

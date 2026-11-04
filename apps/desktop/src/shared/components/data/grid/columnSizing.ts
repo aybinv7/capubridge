@@ -4,7 +4,8 @@ import { formatCell } from "./valueFormat";
 export const MIN_COLUMN_WIDTH = 56;
 export const MAX_COLUMN_WIDTH = 360;
 const CELL_PADDING = 20;
-const HEADER_CHROME = 36;
+/** Header padding, type glyph, sort arrow and the column-menu button around the title. */
+const HEADER_CHROME = 64;
 const SAMPLE_ROWS = 200;
 
 /**
@@ -62,4 +63,33 @@ export function createCanvasMeasure(font: string): TextMeasure {
   if (!context) return estimateMonoWidth;
   context.font = font;
   return (text) => Math.ceil(context.measureText(text).width);
+}
+
+/**
+ * Grows columns to fill the viewport when their natural widths leave space, like a
+ * full-width table. Extra space is shared in proportion to each column's width and
+ * only among `fillable` columns (never ones the user resized).
+ */
+export function fillToWidth(
+  widths: Readonly<Record<string, number>>,
+  order: readonly string[],
+  fillable: ReadonlySet<string>,
+  available: number,
+): Record<string, number> {
+  const total = order.reduce((sum, id) => sum + (widths[id] ?? 0), 0);
+  const growable = order.filter((id) => fillable.has(id));
+  const growableTotal = growable.reduce((sum, id) => sum + (widths[id] ?? 0), 0);
+  const extra = Math.floor(available - total);
+  if (extra <= 0 || growableTotal <= 0) return { ...widths };
+  const next: Record<string, number> = { ...widths };
+  let given = 0;
+  growable.forEach((id, index) => {
+    const share =
+      index === growable.length - 1
+        ? extra - given
+        : Math.floor((extra * (widths[id] ?? 0)) / growableTotal);
+    next[id] = (widths[id] ?? 0) + share;
+    given += share;
+  });
+  return next;
 }

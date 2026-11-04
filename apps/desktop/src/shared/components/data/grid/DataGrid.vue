@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from "vue";
+import { computed, ref, shallowRef, useId, watch } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import {
   getCoreRowModel,
@@ -8,6 +8,7 @@ import {
   type VisibilityState,
 } from "@tanstack/vue-table";
 import { Copy } from "lucide-vue-next";
+import { toast } from "vue-sonner";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -16,15 +17,18 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import DataGridHeaderCell from "./DataGridHeaderCell.vue";
-import DataGridRow, { type VisibleColumn } from "./DataGridRow.vue";
-import { createCanvasMeasure, measureColumnWidths, type TextMeasure } from "./columnSizing";
-import { gridIntent } from "./gridKeys";
-import { useGridSelection } from "./useGridSelection";
 import { bindingLabel } from "@/lib/commands/keymap";
+import DataGridHeaderCell from "./DataGridHeaderCell.vue";
+import DataGridRow from "./DataGridRow.vue";
+import { gridIntent } from "./gridKeys";
+import { useGridColumns } from "./useGridColumns";
+import { useGridSelection } from "./useGridSelection";
 import {
   ROW_HEIGHT,
   type GridColumn,
+  type GridColumnFeatures,
+  type GridColumnMenuAction,
+  type GridColumnType,
   type GridContextAction,
   type GridContextTarget,
   type GridDensity,
@@ -48,6 +52,13 @@ const props = withDefaults(
     /** Number shown in the gutter for the first row (pages after the first). */
     rowNumberOffset?: number;
     columnVisibility?: Readonly<Record<string, boolean>>;
+    /** Display-type overrides chosen with "Show values as". */
+    showAs?: Readonly<Record<string, GridColumnType>>;
+    /** Column the host is grouping by, if any. */
+    groupedColumn?: string | null;
+    columnFeatures?: GridColumnFeatures;
+    /** Rows open something (a group, a record) on Enter / double-click instead of editing. */
+    activateRows?: boolean;
     contextActions?: (target: GridContextTarget) => GridContextAction[];
   }>(),
   {
@@ -58,13 +69,20 @@ const props = withDefaults(
     sort: null,
     rowNumberOffset: 0,
     columnVisibility: undefined,
+    showAs: undefined,
+    groupedColumn: null,
+    columnFeatures: () => ({ filter: false, group: false, showAs: true }),
+    activateRows: false,
     contextActions: undefined,
   },
 );
 
 const emit = defineEmits<{
   "update:sort": [sort: GridSort | null];
+  /** Header-menu requests the host owns: filter, group, show as, hide. */
+  columnAction: [columnId: string, action: GridColumnMenuAction];
   edit: [rowId: string, columnId: string];
+  activate: [rowId: string];
   inspect: [rowId: string];
   delete: [rowIds: string[]];
   contextAction: [actionId: string, target: GridContextTarget];
@@ -75,8 +93,7 @@ const emit = defineEmits<{
 defineSlots<{ empty?: () => unknown }>();
 
 const gridId = `grid-${useId()}`;
-const HEADER_HEIGHT = 28;
-/** First-frame viewport before the scroller is measured, so the first paint is not empty. */
+const HEADER_HEIGHT = 30;
 const INITIAL_RECT = { width: 1200, height: 720 };
 const scroller = ref<HTMLElement | null>(null);
 
@@ -112,40 +129,19 @@ const visibleColumns = computed<GridColumn[]>(() =>
 );
 const displayRows = computed<GridRow[]>(() => table.getRowModel().rows.map((row) => row.original));
 
-let measureText: TextMeasure | null = null;
-function measurer(): TextMeasure {
-  if (!measureText) {
-    const family =
-      getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim() ||
-      "monospace";
-    measureText = createCanvasMeasure(`400 12px ${family}`);
-  }
-  return measureText;
-}
-
-const autoWidths = shallowRef<Record<string, number>>({});
-const userWidths = ref<Record<string, number>>({});
-const columnsKey = computed(() => props.columns.map((column) => column.id).join("\u0000"));
-const hasRows = computed(() => props.rows.length > 0);
-let measuredWithRows: string | null = null;
-
-watch(
-  [columnsKey, hasRows],
-  ([key, rowsPresent]) => {
-    if (!rowsPresent && measuredWithRows === key) return;
-    autoWidths.value = measureColumnWidths(props.columns, props.rows, measurer());
-    measuredWithRows = rowsPresent ? key : null;
-  },
-  { immediate: true },
-);
-
-function widthOf(id: string): number {
-  return userWidths.value[id] ?? autoWidths.value[id] ?? 120;
-}
-
 const rowHeight = computed(() => ROW_HEIGHT[props.density]);
 const lastRowNumber = computed(() => props.rowNumberOffset + Math.max(1, displayRows.value.length));
-const gutterWidth = computed(() => Math.max(36, String(lastRowNumber.value).length * 7 + 18));
+const gutterWidth = computed(() => Math.max(40, String(lastRowNumber.value).length * 7 + 20));
+
+const layout = useGridColumns({
+  columns: visibleColumns,
+  visibility: computed(() => undefined),
+  showAs: computed(() => props.showAs),
+  rows: displayRows,
+  gutterWidth,
+  scroller,
+});
+const orderedColumns = layout.ordered;
 
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
@@ -158,48 +154,16 @@ const rowVirtualizer = useVirtualizer(
     initialRect: INITIAL_RECT,
   })),
 );
-
-const columnVirtualizer = useVirtualizer(
-  computed(() => ({
-    horizontal: true,
-    count: visibleColumns.value.length,
-    getScrollElement: () => scroller.value,
-    estimateSize: (index: number) => widthOf(visibleColumns.value[index]?.id ?? ""),
-    paddingStart: gutterWidth.value,
-    scrollPaddingStart: gutterWidth.value,
-    overscan: 3,
-    initialRect: INITIAL_RECT,
-  })),
-);
-
-watch(
-  [autoWidths, userWidths, visibleColumns, gutterWidth],
-  () => columnVirtualizer.value.measure(),
-  {
-    deep: true,
-  },
-);
 watch(rowHeight, () => rowVirtualizer.value.measure());
 
-const virtualColumns = computed<VisibleColumn[]>(() =>
-  columnVirtualizer.value.getVirtualItems().flatMap((item) => {
-    const column = visibleColumns.value[item.index];
-    return column ? [{ column, index: item.index, width: item.size }] : [];
-  }),
-);
-const leadingSpace = computed(() => {
-  const first = columnVirtualizer.value.getVirtualItems()[0];
-  return first ? first.start - gutterWidth.value : 0;
-});
-const totalWidth = computed(() => columnVirtualizer.value.getTotalSize());
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize());
 
 const grid = useGridSelection({
   rows: displayRows,
-  columns: visibleColumns,
+  columns: orderedColumns,
   onReveal: (row, col) => {
     rowVirtualizer.value.scrollToIndex(row, { align: "auto" });
-    columnVirtualizer.value.scrollToIndex(col, { align: "auto" });
+    layout.reveal(col);
   },
 });
 
@@ -230,6 +194,7 @@ function gutterFromEvent(event: Event): number | null {
 
 function onPointerDown(event: PointerEvent) {
   if (event.button !== 0) return;
+  if (event.target instanceof Element && event.target.closest('[role="columnheader"]')) return;
   scroller.value?.focus({ preventScroll: true });
   const gutter = gutterFromEvent(event);
   if (gutter !== null) {
@@ -241,15 +206,15 @@ function onPointerDown(event: PointerEvent) {
   if (cell) grid.focusAt(cell.row, cell.col, event.shiftKey);
 }
 
-function canEdit(columnIndex: number): boolean {
-  const column = visibleColumns.value[columnIndex];
-  return !props.readOnly && column !== undefined && column.readOnly !== true;
-}
-
 function requestEdit(row: number, col: number) {
   const rowId = displayRows.value[row]?.id;
-  const column = visibleColumns.value[col];
-  if (rowId && column && canEdit(col)) emit("edit", rowId, column.id);
+  const column = orderedColumns.value[col];
+  if (props.activateRows) {
+    if (rowId) emit("activate", rowId);
+    return;
+  }
+  if (props.readOnly || !rowId || !column || column.readOnly) return;
+  emit("edit", rowId, column.id);
 }
 
 function onDoubleClick(event: MouseEvent) {
@@ -308,36 +273,39 @@ function toggleSort(columnId: string) {
   else emit("update:sort", null);
 }
 
-let stopResize: (() => void) | null = null;
-
-function startResize(columnId: string, event: PointerEvent) {
-  const startX = event.clientX;
-  const startWidth = widthOf(columnId);
-  const onMove = (moveEvent: PointerEvent) => {
-    const next = Math.min(1200, Math.max(48, startWidth + moveEvent.clientX - startX));
-    userWidths.value = { ...userWidths.value, [columnId]: next };
-  };
-  const onUp = () => stopResize?.();
-  stopResize = () => {
-    window.removeEventListener("pointermove", onMove);
-    window.removeEventListener("pointerup", onUp);
-    document.body.style.cursor = "";
-    stopResize = null;
-  };
-  document.body.style.cursor = "col-resize";
-  window.addEventListener("pointermove", onMove);
-  window.addEventListener("pointerup", onUp);
+async function copyName(columnId: string) {
+  try {
+    await navigator.clipboard.writeText(columnId);
+    toast.success("Copied column name");
+  } catch (error) {
+    toast.error("Could not copy", { description: String(error) });
+  }
 }
 
-function autosize(columnId: string) {
-  const column = columnsById.value.get(columnId);
-  if (!column) return;
-  const { [columnId]: _dropped, ...rest } = userWidths.value;
-  const measured = measureColumnWidths([{ ...column, width: undefined }], props.rows, measurer());
-  userWidths.value = { ...rest, [columnId]: measured[columnId] ?? widthOf(columnId) };
+function onColumnAction(columnId: string, action: GridColumnMenuAction) {
+  switch (action.kind) {
+    case "sort":
+      emit("update:sort", action.direction ? { columnId, direction: action.direction } : null);
+      return;
+    case "pin":
+      layout.pin(columnId, action.side);
+      return;
+    case "autosizeAll":
+      layout.autosizeAll();
+      return;
+    case "copyName":
+      void copyName(columnId);
+      return;
+    default:
+      emit("columnAction", columnId, action);
+  }
 }
 
-onBeforeUnmount(() => stopResize?.());
+const headerCells = computed(() => [
+  ...layout.pinnedLeft.value,
+  ...layout.scrolling.value,
+  ...layout.pinnedRight.value,
+]);
 
 const menuTarget = shallowRef<GridContextTarget | null>(null);
 
@@ -352,12 +320,11 @@ function onContextMenu(event: MouseEvent) {
     return;
   }
   const rowId = displayRows.value[rowIndex]?.id ?? null;
-  const covered = grid.targetIds();
-  if (!rowId || !covered.includes(rowId)) {
+  if (!rowId || !grid.targetIds().includes(rowId)) {
     if (cell) grid.focusAt(cell.row, cell.col);
     else grid.pickRow(rowIndex, "replace");
   }
-  const column = cell ? visibleColumns.value[cell.col] : undefined;
+  const column = cell ? orderedColumns.value[cell.col] : undefined;
   const row = displayRows.value[rowIndex];
   menuTarget.value = {
     rowId,
@@ -382,6 +349,7 @@ defineExpose({
     if (index >= 0) grid.focusAt(index, grid.selection.value.focus?.col ?? 0);
   },
   clearSelection: () => grid.clear(),
+  autosizeAll: () => layout.autosizeAll(),
 });
 </script>
 
@@ -395,7 +363,7 @@ defineExpose({
         tabindex="0"
         :aria-label="label"
         :aria-rowcount="displayRows.length + 1"
-        :aria-colcount="visibleColumns.length + 1"
+        :aria-colcount="orderedColumns.length + 1"
         aria-multiselectable="true"
         :aria-activedescendant="
           grid.selection.value.focus
@@ -403,7 +371,8 @@ defineExpose({
             : undefined
         "
         :aria-busy="loading || undefined"
-        class="relative h-full min-h-0 overflow-auto bg-[var(--bg-surface)] outline-none focus-visible:shadow-[inset_0_0_0_1px_var(--ring)]"
+        :class="layout.fits.value ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto'"
+        class="cladd-surface-level-1 relative h-full min-h-0 rounded-cladd-md border border-cladd-outline bg-cladd-bg text-cladd-fg outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
         @pointerdown="onPointerDown"
         @dblclick="onDoubleClick"
         @keydown="onKeydown"
@@ -411,30 +380,51 @@ defineExpose({
       >
         <div
           class="relative"
-          :style="{ width: `${totalWidth}px`, height: `${Math.max(totalHeight, HEADER_HEIGHT)}px` }"
+          :style="{
+            width: `${layout.totalWidth.value}px`,
+            height: `${Math.max(totalHeight, HEADER_HEIGHT)}px`,
+          }"
         >
           <div
             role="row"
             aria-rowindex="1"
-            class="sticky top-0 z-20 flex border-b border-[var(--border-default)] bg-[var(--bg-chrome)]"
-            :style="{ height: `${HEADER_HEIGHT}px`, width: `${totalWidth}px` }"
+            class="sticky top-0 z-30 flex border-b border-cladd-outline bg-cladd-surface"
+            :style="{ height: `${HEADER_HEIGHT}px`, width: `${layout.totalWidth.value}px` }"
           >
             <div
-              class="sticky left-0 z-10 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-chrome)]"
+              class="sticky left-0 z-30 shrink-0 border-r border-cladd-outline bg-cladd-surface"
               :style="{ width: `${gutterWidth}px` }"
             />
-            <div v-if="leadingSpace > 0" class="shrink-0" :style="{ width: `${leadingSpace}px` }" />
-            <DataGridHeaderCell
-              v-for="entry in virtualColumns"
-              :key="entry.column.id"
-              :column="entry.column"
-              :width="entry.width"
-              :sortable="!loading"
-              :sort="sort?.columnId === entry.column.id ? sort.direction : null"
-              @sort="toggleSort(entry.column.id)"
-              @resize-start="startResize(entry.column.id, $event)"
-              @autosize="autosize(entry.column.id)"
-            />
+            <template v-for="entry in headerCells" :key="entry.column.id">
+              <div
+                v-if="
+                  !entry.stick &&
+                  entry === layout.scrolling.value[0] &&
+                  layout.leadingSpace.value > 0
+                "
+                class="shrink-0"
+                :style="{ width: `${layout.leadingSpace.value}px` }"
+              />
+              <div
+                v-if="entry.stick?.side === 'right' && entry === layout.pinnedRight.value[0]"
+                class="min-w-0 flex-1"
+              />
+              <DataGridHeaderCell
+                :column="entry.column"
+                :width="entry.width"
+                :stick="entry.stick"
+                :sortable="!loading"
+                :sort="sort?.columnId === entry.column.id ? sort.direction : null"
+                :features="columnFeatures"
+                :grouped="groupedColumn === entry.column.id"
+                :pinned="layout.pins.value[entry.column.id] ?? null"
+                :show-as="showAs?.[entry.column.id] ?? null"
+                @sort="toggleSort(entry.column.id)"
+                @action="onColumnAction(entry.column.id, $event)"
+                @resize-start="layout.startResize(entry.column.id, $event)"
+                @autosize="layout.autosize(entry.column.id)"
+              />
+            </template>
           </div>
 
           <DataGridRow
@@ -444,14 +434,16 @@ defineExpose({
             :style="{
               top: `${item.start}px`,
               height: `${item.size}px`,
-              width: `${totalWidth}px`,
+              width: `${layout.totalWidth.value}px`,
             }"
             :grid-id="gridId"
             :row="displayRows[item.index] ?? { id: '', cells: {} }"
             :index="item.index"
             :row-number="rowNumberOffset + item.index + 1"
-            :columns="virtualColumns"
-            :leading-space="leadingSpace"
+            :pinned-left="layout.pinnedLeft.value"
+            :columns="layout.scrolling.value"
+            :pinned-right="layout.pinnedRight.value"
+            :leading-space="layout.leadingSpace.value"
             :gutter-width="gutterWidth"
             :state="rowStates?.get(displayRows[item.index]?.id ?? '')"
             :row-selected="grid.selection.value.rows.has(displayRows[item.index]?.id ?? '')"
@@ -471,11 +463,11 @@ defineExpose({
             <div
               v-for="n in 6"
               :key="n"
-              class="h-3 animate-pulse rounded-sm bg-[var(--bg-surface-raised)]"
+              class="h-3 animate-pulse rounded-cladd-3xs bg-cladd-surface"
               :style="{ width: `${40 + ((n * 37) % 50)}%` }"
             />
           </template>
-          <div v-else class="pointer-events-auto text-sm text-muted-foreground">
+          <div v-else class="pointer-events-auto text-cladd-xs text-cladd-fg-soft">
             <slot name="empty">No rows</slot>
           </div>
         </div>

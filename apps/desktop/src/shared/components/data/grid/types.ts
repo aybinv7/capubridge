@@ -92,7 +92,37 @@ export interface GridSummary {
   rowCount: number;
   /** Rows the current selection covers (gutter rows or the cell range's rows). */
   selectedRows: number;
+  /** Ids of those rows, in display order. */
+  selectedRowIds: readonly string[];
   /** Cells in the selection; 0 without a selection. */
   selectedCells: number;
   aggregate: SelectionAggregate | null;
+}
+
+/** What the column header menu asks for. Sort, pin and sizing are handled by the grid. */
+export type GridColumnMenuAction =
+  | { kind: "sort"; direction: "asc" | "desc" | null }
+  | { kind: "filter" }
+  | { kind: "group" }
+  | { kind: "showAs"; type: GridColumnType | null }
+  | { kind: "pin"; side: "left" | "right" | null }
+  | { kind: "hide" }
+  | { kind: "autosizeAll" }
+  | { kind: "copyName" };
+
+/** Header-menu features the host implements (the grid hides the rest). */
+export interface GridColumnFeatures {
+  filter: boolean;
+  group: boolean;
+  showAs: boolean;
+}
+
+/** A column as laid out for one frame of the grid. */
+export interface VisibleColumn {
+  column: GridColumn;
+  /** Position in display order (pinned-left, scrolling, pinned-right). */
+  index: number;
+  width: number;
+  /** Sticky offset in px for pinned columns. */
+  stick?: { side: "left" | "right"; offset: number };
 }
