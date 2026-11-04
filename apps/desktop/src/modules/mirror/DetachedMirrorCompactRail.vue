@@ -1,17 +1,9 @@
 <script setup lang="ts">
-import {
-  ChevronLeft,
-  Home,
-  LayoutGrid,
-  Volume2,
-  VolumeX,
-  Power,
-  Camera,
-  Video,
-  Zap,
-  Settings2,
-} from "lucide-vue-next";
-import { AndroidKey, type AndroidKeyCode } from "./useMirrorStream";
+import { Camera, MousePointer2, SlidersHorizontal, Square, Video } from "lucide-vue-next";
+import { Toolbar } from "@capubridge/cladd";
+import IconAction from "@/shared/components/presentation/IconAction.vue";
+import type { AndroidKeyCode } from "./useMirrorStream";
+import MirrorControls from "./MirrorControls.vue";
 import MirrorSettingsPanel from "./MirrorSettingsPanel.vue";
 
 defineProps<{
@@ -43,122 +35,66 @@ const emit = defineEmits<{
         >
           <div
             v-if="settingsOpen"
-            class="absolute left-11 top-0 w-44 overflow-hidden rounded-xl border border-border/35 bg-background/96 shadow-2xl backdrop-blur-md"
+            class="absolute top-0 left-11 w-56 overflow-hidden rounded-surface bg-popover shadow-float ring-1 ring-border-subtle"
           >
             <MirrorSettingsPanel :android-mode="androidMode" />
           </div>
         </Transition>
 
-        <div
-          class="flex w-10 flex-col gap-2 rounded-xl border border-border/30 bg-background/82 p-1.5 shadow-2xl backdrop-blur-md"
+        <Toolbar
+          size="sm"
+          aria-label="Screen actions"
+          aria-orientation="vertical"
+          content-class-name="flex-col gap-0.5 p-1"
         >
-          <button
-            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-            :class="
-              isStreaming
-                ? 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-                : 'cursor-not-allowed text-muted-foreground/20'
-            "
+          <IconAction
+            label="Take a screenshot"
+            hint="Saved as PNG to Downloads"
+            size="sm"
+            position="top"
             :disabled="!isStreaming"
-            title="Screenshot"
-            @click="isStreaming && emit('screenshot')"
+            @click="emit('screenshot')"
           >
-            <Camera class="h-3.5 w-3.5" />
-          </button>
-
-          <button
+            <Camera :stroke-width="1.8" />
+          </IconAction>
+          <IconAction
             v-if="androidMode"
-            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-            :class="
-              isRecording
-                ? 'bg-signal-rec/12 text-error hover:bg-signal-rec/18'
-                : isStreaming
-                  ? 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-                  : 'cursor-not-allowed text-muted-foreground/20'
-            "
+            :label="isRecording ? 'Stop and save the recording' : 'Record the screen'"
+            hint="Saved as MP4 to Downloads"
+            size="sm"
+            position="top"
+            toggle
+            :pressed="isRecording"
             :disabled="!isStreaming && !isRecording"
-            :title="isRecording ? 'Stop recording' : 'Start recording'"
-            @click="(isStreaming || isRecording) && emit('toggleRecord')"
+            @click="emit('toggleRecord')"
           >
-            <div v-if="isRecording" class="h-3 w-3 rounded-sm bg-signal-rec" />
-            <Video v-else class="h-3.5 w-3.5" />
-          </button>
-
-          <button
-            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-            :class="
-              laserMode
-                ? 'bg-signal-rec/12 text-error hover:bg-signal-rec/18'
-                : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-            "
-            title="Laser"
+            <Square v-if="isRecording" :stroke-width="0" class="fill-signal-rec" />
+            <Video v-else :stroke-width="1.8" />
+          </IconAction>
+          <IconAction
+            label="Laser pointer"
+            size="sm"
+            position="top"
+            toggle
+            :pressed="laserMode"
             @click="emit('toggleLaser')"
           >
-            <Zap class="h-3.5 w-3.5" />
-          </button>
-
-          <button
-            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-            :class="
-              settingsOpen
-                ? 'bg-accent text-foreground'
-                : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-            "
-            title="Settings"
+            <MousePointer2 :stroke-width="1.8" />
+          </IconAction>
+          <IconAction
+            label="Screen settings"
+            size="sm"
+            position="top"
+            toggle
+            :pressed="settingsOpen"
             @click="emit('update:settingsOpen', !settingsOpen)"
           >
-            <Settings2 class="h-3.5 w-3.5" />
-          </button>
-        </div>
+            <SlidersHorizontal :stroke-width="1.8" />
+          </IconAction>
+        </Toolbar>
       </div>
 
-      <div
-        v-if="androidMode"
-        class="flex w-10 flex-col gap-2 rounded-xl border border-border/30 bg-background/82 p-1.5 shadow-2xl backdrop-blur-md"
-      >
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
-          title="Volume down"
-          @click="emit('keyevent', AndroidKey.VOLUME_DOWN)"
-        >
-          <VolumeX class="h-3.5 w-3.5" />
-        </button>
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
-          title="Volume up"
-          @click="emit('keyevent', AndroidKey.VOLUME_UP)"
-        >
-          <Volume2 class="h-3.5 w-3.5" />
-        </button>
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
-          title="Back"
-          @click="emit('keyevent', AndroidKey.BACK)"
-        >
-          <ChevronLeft class="h-3.5 w-3.5" />
-        </button>
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
-          title="Home"
-          @click="emit('keyevent', AndroidKey.HOME)"
-        >
-          <Home class="h-3.5 w-3.5" />
-        </button>
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
-          title="Recent apps"
-          @click="emit('keyevent', AndroidKey.RECENTS)"
-        >
-          <LayoutGrid class="h-3.5 w-3.5" />
-        </button>
-        <button
-          class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
-          title="Screen sleep"
-          @click="emit('keyevent', AndroidKey.SLEEP)"
-        >
-          <Power class="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <MirrorControls v-if="androidMode" vertical @keyevent="emit('keyevent', $event)" />
     </div>
   </div>
 </template>

@@ -1,163 +1,107 @@
 <script setup lang="ts">
-import {
-  Camera,
-  Video,
-  Zap,
-  Settings2,
-  RefreshCw,
-  PanelRightOpen,
-  PanelLeftOpen,
-  ExternalLink,
-  Pin,
-  PinOff,
-  Maximize2,
-} from "lucide-vue-next";
+import { Camera, PictureInPicture2, Square, Video } from "lucide-vue-next";
+import { StatusDot } from "@capubridge/cladd";
 import type { MirrorSide } from "@/stores/mirror.store";
+import IconAction from "@/shared/components/presentation/IconAction.vue";
+import type { MirrorStatus } from "./mirrorStatus";
+import MirrorScreenMenu from "./MirrorScreenMenu.vue";
 
 const props = defineProps<{
+  status: MirrorStatus;
   isRecording: boolean;
-  laserMode: boolean;
-  alwaysOnTop: boolean;
-  side: MirrorSide;
-  isDetached: boolean;
-  isStreaming: boolean;
-  settingsOpen: boolean;
+  recordingTimecode: string;
+  canCapture: boolean;
   androidMode: boolean;
+  isLocal: boolean;
+  laserMode: boolean;
+  side: MirrorSide;
 }>();
 
 const emit = defineEmits<{
   screenshot: [];
   toggleRecord: [];
+  detach: [];
   toggleLaser: [];
-  toggleAlwaysOnTop: [];
   toggleSide: [];
-  toggleDetach: [];
   launchScrcpy: [];
   refresh: [];
-  "update:settingsOpen": [val: boolean];
-  maximize: [];
 }>();
 </script>
 
 <template>
-  <div class="flex h-9 shrink-0 items-center gap-0.5 px-2">
-    <!-- Side switch (attached only) -->
-    <button
-      v-if="!isDetached"
-      class="w-6 h-6 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground hover:bg-accent transition-colors"
-      :title="side === 'right' ? 'Move to left side' : 'Move to right side'"
-      @click="emit('toggleSide')"
-    >
-      <PanelRightOpen v-if="side === 'left'" class="w-3.5 h-3.5" />
-      <PanelLeftOpen v-else class="w-3.5 h-3.5" />
-    </button>
+  <header class="flex h-10 shrink-0 items-center gap-2 pr-1.5 pl-3.5">
+    <div class="flex min-w-0 flex-1 items-center gap-2" :title="props.status.description">
+      <span class="shrink-0 text-sm font-medium text-foreground">Screen</span>
+      <template v-if="props.isRecording">
+        <span
+          class="size-1.5 shrink-0 rounded-full bg-signal-rec motion-safe:animate-pulse"
+          aria-hidden="true"
+        />
+        <span class="truncate text-xs text-signal-rec">Recording</span>
+        <span class="shrink-0 font-mono text-2xs tabular-nums text-signal-rec">
+          {{ props.recordingTimecode }}
+        </span>
+      </template>
+      <template v-else-if="!props.isLocal">
+        <StatusDot
+          :color="props.status.dotColor"
+          :variant="props.status.dotVariant"
+          :pulse="props.status.pulse"
+        />
+        <span class="truncate text-xs text-muted-foreground">{{ props.status.label }}</span>
+        <span
+          v-if="props.status.meta"
+          class="shrink-0 font-mono text-2xs tabular-nums text-[var(--fg-subtle)]"
+        >
+          {{ props.status.meta }}
+        </span>
+      </template>
+      <span v-else class="truncate text-xs text-muted-foreground">Local webview</span>
+    </div>
 
-    <!-- Screenshot -->
-    <button
-      class="w-6 h-6 flex items-center justify-center rounded transition-colors"
-      :class="
-        isStreaming
-          ? 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
-          : 'text-muted-foreground/20 cursor-not-allowed'
-      "
-      title="Screenshot"
-      :disabled="!isStreaming"
-      @click="isStreaming && emit('screenshot')"
-    >
-      <Camera class="w-3.5 h-3.5" />
-    </button>
+    <div class="flex shrink-0 items-center gap-0.5">
+      <IconAction
+        v-if="!props.isLocal"
+        label="Take a screenshot"
+        hint="Saved as PNG to Downloads"
+        :disabled="!props.canCapture"
+        @click="emit('screenshot')"
+      >
+        <Camera :stroke-width="1.8" />
+      </IconAction>
 
-    <!-- Record -->
-    <button
-      v-if="androidMode"
-      class="w-6 h-6 flex items-center justify-center rounded transition-colors"
-      :class="
-        isRecording
-          ? 'text-error bg-signal-rec/10 hover:bg-signal-rec/20'
-          : isStreaming
-            ? 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
-            : 'text-muted-foreground/20 cursor-not-allowed'
-      "
-      :title="isRecording ? 'Stop recording' : 'Start recording'"
-      :disabled="!isStreaming && !isRecording"
-      @click="(isStreaming || isRecording) && emit('toggleRecord')"
-    >
-      <div v-if="isRecording" class="w-3 h-3 rounded-sm bg-signal-rec" />
-      <Video v-else class="w-3.5 h-3.5" />
-    </button>
+      <IconAction
+        v-if="props.androidMode"
+        :label="props.isRecording ? 'Stop and save the recording' : 'Record the screen'"
+        hint="Saved as MP4 to Downloads"
+        toggle
+        :pressed="props.isRecording"
+        :disabled="!props.canCapture && !props.isRecording"
+        @click="emit('toggleRecord')"
+      >
+        <Square v-if="props.isRecording" :stroke-width="0" class="fill-signal-rec" />
+        <Video v-else :stroke-width="1.8" />
+      </IconAction>
 
-    <!-- Laser -->
-    <button
-      class="w-6 h-6 flex items-center justify-center rounded transition-colors"
-      :class="
-        laserMode
-          ? 'text-error bg-signal-rec/10 hover:bg-signal-rec/20'
-          : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
-      "
-      title="Laser pointer"
-      @click="emit('toggleLaser')"
-    >
-      <Zap class="w-3.5 h-3.5" />
-    </button>
+      <IconAction
+        v-if="!props.isLocal"
+        label="Open in its own window"
+        hint="Keeps the screen beside any app"
+        @click="emit('detach')"
+      >
+        <PictureInPicture2 :stroke-width="1.8" />
+      </IconAction>
 
-    <div class="flex-1" />
-
-    <!-- Native scrcpy -->
-    <button
-      v-if="androidMode"
-      class="h-6 min-w-8 px-1 flex items-center justify-center rounded text-2xs font-semibold tracking-wide text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors"
-      title="Open native scrcpy window (high performance)"
-      @click="emit('launchScrcpy')"
-    >
-      SC
-    </button>
-
-    <!-- Settings popover trigger -->
-    <button
-      class="w-6 h-6 flex items-center justify-center rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-colors"
-      title="Refresh mirror"
-      @click="emit('refresh')"
-    >
-      <RefreshCw class="w-3.5 h-3.5" />
-    </button>
-
-    <button
-      class="w-6 h-6 flex items-center justify-center rounded transition-colors"
-      :class="
-        settingsOpen
-          ? 'text-foreground bg-accent'
-          : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
-      "
-      title="Settings"
-      @click="emit('update:settingsOpen', !settingsOpen)"
-    >
-      <Settings2 class="w-3.5 h-3.5" />
-    </button>
-
-    <!-- Always-on-top (detached window only) -->
-    <button
-      v-if="isDetached"
-      class="w-6 h-6 flex items-center justify-center rounded transition-colors"
-      :class="
-        alwaysOnTop
-          ? 'text-info bg-info/10 hover:bg-info/20'
-          : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
-      "
-      :title="alwaysOnTop ? 'Unpin from top' : 'Pin on top of all windows'"
-      @click="emit('toggleAlwaysOnTop')"
-    >
-      <Pin v-if="alwaysOnTop" class="w-3.5 h-3.5" />
-      <PinOff v-else class="w-3.5 h-3.5" />
-    </button>
-
-    <!-- Detach / maximize -->
-    <button
-      class="w-6 h-6 flex items-center justify-center rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-colors"
-      :title="isDetached ? 'Maximize window' : 'Pop out to own window'"
-      @click="isDetached ? emit('maximize') : emit('toggleDetach')"
-    >
-      <Maximize2 v-if="isDetached" class="w-3.5 h-3.5" />
-      <ExternalLink v-else class="w-3.5 h-3.5" />
-    </button>
-  </div>
+      <MirrorScreenMenu
+        :android-mode="props.androidMode"
+        :is-local="props.isLocal"
+        :side="props.side"
+        :laser-mode="props.laserMode"
+        @toggle-laser="emit('toggleLaser')"
+        @toggle-side="emit('toggleSide')"
+        @launch-scrcpy="emit('launchScrcpy')"
+        @refresh="emit('refresh')"
+      />
+    </div>
+  </header>
 </template>

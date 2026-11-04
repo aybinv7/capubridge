@@ -9,6 +9,7 @@ import { useSourceStore } from "@/stores/source.store";
 import type { CDPTarget } from "@/types/cdp.types";
 import MediaSavedToast from "@/components/common/MediaSavedToast.vue";
 import { createMirrorDecoder } from "./mirrorDecoder";
+import { createFrameClock } from "./mirrorFrameClock";
 import { createMirrorInput } from "./mirrorInput";
 import { createMirrorLifecycle } from "./mirrorLifecycle";
 import { createMirrorStreamState } from "./mirrorState";
@@ -25,6 +26,7 @@ export function useMirrorStream() {
   const { activeClient, connectToTarget, targetsStore, connectionStore } = useCDP();
   const state = createMirrorStreamState(mirrorStore);
   const adb = createAdbMirrorTransport();
+  const frameClock = createFrameClock();
 
   const lifecycle = createMirrorLifecycle({
     start: (serial) =>
@@ -77,6 +79,7 @@ export function useMirrorStream() {
     onChromeFailure: failChrome,
     onDeviceSize: mirrorStore.setDeviceSize,
     onFrameRendered: lifecycle.clearStartupTimeout,
+    onFrameDrawn: () => frameClock.record(performance.now()),
     getFallbackSize: () => ({
       deviceWidth: mirrorStore.deviceWidth || 1080,
       deviceHeight: mirrorStore.deviceHeight || 1920,
@@ -120,6 +123,7 @@ export function useMirrorStream() {
 
   function cleanupControllers() {
     lifecycle.clearStartupTimeout();
+    frameClock.reset();
     decoder.cleanup();
     chrome.cleanup();
     input.reset();
@@ -382,5 +386,6 @@ export function useMirrorStream() {
     launchExternalScrcpy,
     setCanvasElement: state.setCanvasElement,
     applyChromeViewportMode,
+    readFrames: () => frameClock.read(performance.now()),
   };
 }

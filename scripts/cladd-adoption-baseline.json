@@ -97,9 +97,6 @@
     "button": 1,
     "tabs": 1
   },
-  "apps/desktop/src/components/layout/AdbReversePopover.vue": {
-    "dialog": 1
-  },
   "apps/desktop/src/modules/app/AppBatteryTab.vue": {
     "button": 1
   },

@@ -13,6 +13,7 @@ interface MirrorDecoderOptions {
   onChromeFailure: (reason: string, sessionId: number) => Promise<void>;
   onDeviceSize: (width: number, height: number) => void;
   onFrameRendered: () => void;
+  onFrameDrawn: () => void;
   getFallbackSize: () => ScreencastFrameMetadata;
 }
 
@@ -96,6 +97,7 @@ export function createMirrorDecoder(options: MirrorDecoderOptions) {
     }
     context.drawImage(frame, 0, 0);
     frame.close();
+    options.onFrameDrawn();
   }
 
   function queueVideoFrame(frame: VideoFrame) {
@@ -243,6 +245,7 @@ export function createMirrorDecoder(options: MirrorDecoderOptions) {
       options.onDeviceSize(frame.metadata.deviceWidth, frame.metadata.deviceHeight);
       try {
         await drawChromeFrame(frame.data, frame.metadata, sessionId);
+        options.onFrameDrawn();
         options.onFrameRendered();
       } catch (cause) {
         await options.onChromeFailure(`frame render failed: ${String(cause)}`, sessionId);

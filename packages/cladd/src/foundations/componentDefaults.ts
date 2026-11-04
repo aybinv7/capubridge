@@ -78,6 +78,7 @@ import type {
 } from '../components/segmented.contracts.ts';
 import type { SelectDefaultProps } from '../components/select.contracts.ts';
 import type { SliderDefaultProps } from '../components/slider.contracts.ts';
+import type { StatusDotDefaultProps } from '../components/statusDot.contracts.ts';
 import type {
   SurfaceContentDefaultProps,
   SurfaceCutContentDefaultProps,
@@ -164,6 +165,7 @@ export interface ComponentDefaults {
   Shortcut?: ShortcutDefaultProps;
   Slider?: SliderDefaultProps;
   Spinner?: SpinnerDefaultProps;
+  StatusDot?: StatusDotDefaultProps;
   Calendar?: CalendarDefaultProps;
   ColorEditor?: ColorEditorDefaultProps;
   DatePicker?: DatePickerDefaultProps;

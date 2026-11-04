@@ -7,7 +7,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useAppPackages } from "@/composables/useAppPackages";
 import AppIcon from "@/modules/devices/AppIcon.vue";
-import DeviceManagerModal from "@/components/DeviceManagerModal.vue";
+import DeviceManagerDialog from "@/components/device-manager/DeviceManagerDialog.vue";
 import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 
 const context = useActiveContextStore();
@@ -100,7 +100,7 @@ function onDeviceSelected(selectedSerial: string) {
     <ChevronDown :size="12" class="shrink-0 text-[var(--fg-subtle)]" aria-hidden="true" />
   </Button>
 
-  <DeviceManagerModal
+  <DeviceManagerDialog
     :open="ui.deviceManagerOpen"
     :panel="ui.deviceManagerPanel"
     @close="ui.closeDeviceManager()"

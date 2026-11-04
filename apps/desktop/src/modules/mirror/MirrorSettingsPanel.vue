@@ -1,108 +1,85 @@
 <script setup lang="ts">
+import { Segmented, SegmentedButton } from "@capubridge/cladd";
 import { useMirrorStore } from "@/stores/mirror.store";
+
+const props = defineProps<{ androidMode: boolean }>();
 
 const mirrorStore = useMirrorStore();
 
 const fpsOptions = [5, 10, 15, 30] as const;
 const qualityOptions = ["720p", "1080p", "1440p"] as const;
 const bitrateOptions = [4, 8, 16, 20] as const;
-const props = defineProps<{
-  androidMode: boolean;
-}>();
+
+const labelClass = "text-xs text-muted-foreground";
+const hintClass = "text-2xs text-[var(--fg-subtle)]";
 </script>
 
 <template>
-  <div class="p-3 space-y-4">
-    <div v-if="!props.androidMode">
-      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">Viewport</p>
-      <div class="flex gap-1">
-        <button
-          class="flex-1 h-6 text-xs rounded transition-colors border"
-          :class="
-            mirrorStore.settings.chromeViewportMode === 'phone'
-              ? 'bg-accent border-border text-foreground'
-              : 'border-border/30 text-muted-foreground hover:text-foreground hover:bg-accent/50'
-          "
+  <div class="flex flex-col gap-3.5 p-3">
+    <div v-if="!props.androidMode" class="flex flex-col gap-1.5">
+      <span :class="labelClass">Viewport</span>
+      <Segmented size="xs" aria-label="Viewport" class="w-full">
+        <SegmentedButton
+          class="flex-1"
+          :active="mirrorStore.settings.chromeViewportMode === 'phone'"
           @click="mirrorStore.settings.chromeViewportMode = 'phone'"
         >
           Phone
-        </button>
-        <button
-          class="flex-1 h-6 text-xs rounded transition-colors border"
-          :class="
-            mirrorStore.settings.chromeViewportMode === 'desktop'
-              ? 'bg-accent border-border text-foreground'
-              : 'border-border/30 text-muted-foreground hover:text-foreground hover:bg-accent/50'
-          "
+        </SegmentedButton>
+        <SegmentedButton
+          class="flex-1"
+          :active="mirrorStore.settings.chromeViewportMode === 'desktop'"
           @click="mirrorStore.settings.chromeViewportMode = 'desktop'"
         >
           Desktop
-        </button>
-      </div>
+        </SegmentedButton>
+      </Segmented>
     </div>
 
-    <!-- FPS (polling rate) -->
-    <div>
-      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">Stream FPS</p>
-      <div class="flex gap-1">
-        <button
+    <div v-if="!props.androidMode" class="flex flex-col gap-1.5">
+      <span :class="labelClass">Frame rate</span>
+      <Segmented size="xs" aria-label="Frame rate" class="w-full">
+        <SegmentedButton
           v-for="fps in fpsOptions"
           :key="fps"
-          class="flex-1 h-6 text-xs rounded transition-colors border"
-          :class="
-            mirrorStore.settings.fps === fps
-              ? 'bg-accent border-border text-foreground'
-              : 'border-border/30 text-muted-foreground hover:text-foreground hover:bg-accent/50'
-          "
+          class="flex-1 font-mono tabular-nums"
+          :active="mirrorStore.settings.fps === fps"
           @click="mirrorStore.settings.fps = fps"
         >
           {{ fps }}
-        </button>
-      </div>
+        </SegmentedButton>
+      </Segmented>
     </div>
 
-    <!-- Recording quality -->
-    <div v-if="props.androidMode">
-      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">
-        Record Quality
-      </p>
-      <div class="flex gap-1">
-        <button
-          v-for="q in qualityOptions"
-          :key="q"
-          class="flex-1 h-6 text-xs rounded transition-colors border"
-          :class="
-            mirrorStore.settings.recordQuality === q
-              ? 'bg-accent border-border text-foreground'
-              : 'border-border/30 text-muted-foreground hover:text-foreground hover:bg-accent/50'
-          "
-          @click="mirrorStore.settings.recordQuality = q"
+    <div v-if="props.androidMode" class="flex flex-col gap-1.5">
+      <span :class="labelClass">Quality</span>
+      <Segmented size="xs" aria-label="Stream and recording quality" class="w-full">
+        <SegmentedButton
+          v-for="quality in qualityOptions"
+          :key="quality"
+          class="flex-1 font-mono tabular-nums"
+          :active="mirrorStore.settings.recordQuality === quality"
+          @click="mirrorStore.settings.recordQuality = quality"
         >
-          {{ q }}
-        </button>
-      </div>
+          {{ quality }}
+        </SegmentedButton>
+      </Segmented>
+      <span :class="hintClass">Applies to new recordings, and to the picture after a restart.</span>
     </div>
 
-    <!-- Bitrate -->
-    <div v-if="props.androidMode">
-      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">
-        Record Bitrate (Mbps)
-      </p>
-      <div class="flex gap-1">
-        <button
-          v-for="br in bitrateOptions"
-          :key="br"
-          class="flex-1 h-6 text-xs rounded transition-colors border"
-          :class="
-            mirrorStore.settings.recordBitrate === br
-              ? 'bg-accent border-border text-foreground'
-              : 'border-border/30 text-muted-foreground hover:text-foreground hover:bg-accent/50'
-          "
-          @click="mirrorStore.settings.recordBitrate = br"
+    <div v-if="props.androidMode" class="flex flex-col gap-1.5">
+      <span :class="labelClass">Bitrate <span class="text-[var(--fg-subtle)]">Mbps</span></span>
+      <Segmented size="xs" aria-label="Bitrate in megabits per second" class="w-full">
+        <SegmentedButton
+          v-for="bitrate in bitrateOptions"
+          :key="bitrate"
+          class="flex-1 font-mono tabular-nums"
+          :active="mirrorStore.settings.recordBitrate === bitrate"
+          @click="mirrorStore.settings.recordBitrate = bitrate"
         >
-          {{ br }}
-        </button>
-      </div>
+          {{ bitrate }}
+        </SegmentedButton>
+      </Segmented>
     </div>
   </div>
 </template>

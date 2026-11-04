@@ -44,12 +44,6 @@
       "rationale": "Replay database surface coordinates IndexedDB and SQLite snapshots, changes, filters, dialogs, and tables; REC-01 owns further capability separation."
     },
     {
-      "path": "apps/desktop/src/components/DeviceManagerModal.vue",
-      "maxLines": 1088,
-      "owner": "Devices module",
-      "rationale": "Legacy device manager modal combines discovery, pairing, connection, package selection, target selection, and dialog presentation; approved pending module-owned workflow extraction. Bumped from 1062 to mount the emulator launcher (v2.2.0) — the panel itself is an extracted component (EmulatorLauncherPanel.vue); only its wiring lives here, and it is one more entry point for the same pending workflow extraction."
-    },
-    {
       "path": "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue",
       "maxLines": 1038,
       "owner": "Storage module",

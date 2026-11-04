@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import {
   Camera,
-  Video,
-  Settings2,
-  Pin,
-  PinOff,
-  Minus,
   Maximize2,
   Minimize2,
+  Minus,
+  MousePointer2,
+  Pin,
+  PinOff,
+  SlidersHorizontal,
+  Square,
+  Video,
   X,
-  Zap,
 } from "lucide-vue-next";
+import IconAction from "@/shared/components/presentation/IconAction.vue";
 
 defineProps<{
   deviceLabel: string;
@@ -33,115 +35,90 @@ const emit = defineEmits<{
   toggleWindowMaximize: [];
   closeWindow: [];
 }>();
+
+const windowButton =
+  "flex h-8 w-9 items-center justify-center text-[var(--fg-subtle)] transition-colors hover:bg-surface-2 hover:text-foreground";
 </script>
 
 <template>
   <div
-    class="relative flex h-10 shrink-0 items-center border-b border-border/30 bg-background/90 px-2 backdrop-blur-md"
+    class="relative flex h-10 shrink-0 items-center bg-background px-2"
     style="-webkit-app-region: drag"
   >
-    <div class="z-10 flex items-center gap-1" style="-webkit-app-region: no-drag">
-      <button
-        class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-        :class="
-          isStreaming
-            ? 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-            : 'cursor-not-allowed text-muted-foreground/20'
-        "
+    <div class="z-10 flex items-center gap-0.5" style="-webkit-app-region: no-drag">
+      <IconAction
+        label="Take a screenshot"
+        hint="Saved as PNG to Downloads"
         :disabled="!isStreaming"
-        title="Screenshot"
-        @click="isStreaming && emit('screenshot')"
+        @click="emit('screenshot')"
       >
-        <Camera class="h-3.5 w-3.5" />
-      </button>
-
-      <button
+        <Camera :stroke-width="1.8" />
+      </IconAction>
+      <IconAction
         v-if="androidMode"
-        class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-        :class="
-          isRecording
-            ? 'bg-signal-rec/12 text-error hover:bg-signal-rec/18'
-            : isStreaming
-              ? 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-              : 'cursor-not-allowed text-muted-foreground/20'
-        "
+        :label="isRecording ? 'Stop and save the recording' : 'Record the screen'"
+        hint="Saved as MP4 to Downloads"
+        toggle
+        :pressed="isRecording"
         :disabled="!isStreaming && !isRecording"
-        :title="isRecording ? 'Stop recording' : 'Start recording'"
-        @click="(isStreaming || isRecording) && emit('toggleRecord')"
+        @click="emit('toggleRecord')"
       >
-        <div v-if="isRecording" class="h-3 w-3 rounded-sm bg-signal-rec" />
-        <Video v-else class="h-3.5 w-3.5" />
-      </button>
-
-      <button
-        class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-        :class="
-          laserMode
-            ? 'bg-signal-rec/12 text-error hover:bg-signal-rec/18'
-            : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-        "
-        title="Laser pen"
-        @click="emit('toggleLaser')"
-      >
-        <Zap class="h-3.5 w-3.5" />
-      </button>
-
-      <button
-        class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-        :class="
-          settingsOpen
-            ? 'bg-accent text-foreground'
-            : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-        "
-        title="Settings"
+        <Square v-if="isRecording" :stroke-width="0" class="fill-signal-rec" />
+        <Video v-else :stroke-width="1.8" />
+      </IconAction>
+      <IconAction label="Laser pointer" toggle :pressed="laserMode" @click="emit('toggleLaser')">
+        <MousePointer2 :stroke-width="1.8" />
+      </IconAction>
+      <IconAction
+        label="Screen settings"
+        toggle
+        :pressed="settingsOpen"
         @click="emit('update:settingsOpen', !settingsOpen)"
       >
-        <Settings2 class="h-3.5 w-3.5" />
-      </button>
-
-      <button
-        class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-        :class="
-          alwaysOnTop
-            ? 'bg-info/12 text-info hover:bg-info/18'
-            : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-        "
-        :title="alwaysOnTop ? 'Unpin window' : 'Pin window on top'"
+        <SlidersHorizontal :stroke-width="1.8" />
+      </IconAction>
+      <IconAction
+        :label="alwaysOnTop ? 'Stop keeping on top' : 'Keep on top of other windows'"
+        toggle
+        :pressed="alwaysOnTop"
         @click="emit('toggleAlwaysOnTop')"
       >
-        <Pin v-if="alwaysOnTop" class="h-3.5 w-3.5" />
-        <PinOff v-else class="h-3.5 w-3.5" />
-      </button>
+        <Pin v-if="alwaysOnTop" :stroke-width="1.8" />
+        <PinOff v-else :stroke-width="1.8" />
+      </IconAction>
     </div>
 
     <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-24">
-      <div class="max-w-[44%] truncate text-sm font-semibold text-foreground/72">
+      <div class="max-w-[44%] truncate text-sm font-medium text-foreground">
         {{ deviceLabel }}
       </div>
     </div>
 
     <div class="z-10 ml-auto flex items-center" style="-webkit-app-region: no-drag">
       <button
-        class="flex h-8 w-9 items-center justify-center text-muted-foreground/45 transition-colors hover:bg-accent hover:text-foreground"
-        title="Minimize"
+        type="button"
+        :class="windowButton"
+        aria-label="Minimize"
         @click="emit('minimizeWindow')"
       >
-        <Minus class="h-3 w-3" />
+        <Minus class="size-3" />
       </button>
       <button
-        class="flex h-8 w-9 items-center justify-center text-muted-foreground/45 transition-colors hover:bg-accent hover:text-foreground"
-        :title="isWindowMaximized ? 'Restore window' : 'Maximize window'"
+        type="button"
+        :class="windowButton"
+        :aria-label="isWindowMaximized ? 'Restore window' : 'Maximize window'"
         @click="emit('toggleWindowMaximize')"
       >
-        <Minimize2 v-if="isWindowMaximized" class="h-3 w-3" />
-        <Maximize2 v-else class="h-3 w-3" />
+        <Minimize2 v-if="isWindowMaximized" class="size-3" />
+        <Maximize2 v-else class="size-3" />
       </button>
       <button
-        class="flex h-8 w-9 items-center justify-center text-muted-foreground/45 transition-colors hover:bg-destructive/80 hover:text-destructive-foreground"
-        title="Close"
+        type="button"
+        class="flex h-8 w-9 items-center justify-center text-[var(--fg-subtle)] transition-colors hover:bg-error hover:text-background"
+        aria-label="Close"
         @click="emit('closeWindow')"
       >
-        <X class="h-3 w-3" />
+        <X class="size-3" />
       </button>
     </div>
   </div>

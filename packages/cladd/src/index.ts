@@ -242,6 +242,14 @@ export type {
   NavRailProps,
 } from './components/navRail.contracts.ts';
 
+export { default as StatusDot } from './components/StatusDot.vue';
+export type {
+  StatusDotDefaultProps,
+  StatusDotProps,
+  StatusDotSize,
+  StatusDotVariant,
+} from './components/statusDot.contracts.ts';
+
 // Upstream declares a size union per component rather than a shared one.
 export type { ButtonSize } from './components/button.contracts.ts';
 export type { CheckboxSize } from './components/checkbox.contracts.ts';

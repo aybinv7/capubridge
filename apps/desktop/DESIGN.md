@@ -96,6 +96,11 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
   goes down). Menus, command, scroll area, resizable and sheet stay on Reka until Cladd has them.
 - **Key hints** use `KeyCaps` (Cladd `Shortcut`) fed by `bindingTokens(binding)` from the command
   registry; never hand-write a key label.
+- **Icon buttons** use `IconAction` (`src/shared/components/presentation`): a quiet square Cladd `Button`
+  whose `label` is both its tooltip and its accessible name, with an optional `hint` line and `KeyCaps`.
+  An unexplained icon is a defect. `pressed` raises it like a selected segment.
+- **State marks** use Cladd `StatusDot` (extension): solid for a present state, hollow for absent or
+  unknown, an accent only when the state means something, always next to a word that names it.
 
 ## 6. Mark
 
@@ -132,6 +137,18 @@ bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome othe
   console toggle and Settings.
 - **Surfaces** the main content and the screen column are `rounded-surface` panels with a 1 px
   `border-border-subtle` line and `shadow-bevel`, 8 px apart and 8 px from the right and bottom edges.
+- **Device manager** a Cladd `Dialog` (900 × 600): devices on the left grouped USB · Wi-Fi ·
+  Emulators · Not connected · This computer (Cladd `ListButton`, the viewed one raised), Wi-Fi and
+  emulator entry points in the footer; the right side shows the viewed device (state, numbered next
+  steps when it cannot be used) and its WebViews grouped by app with the app icon, the target in use
+  marked with the link state. Arrows move within a column, ←/→ between columns, Enter acts, Esc
+  closes. Opening never changes the selected device.
+- **Screen column** a quiet 40 px top bar ("Screen", a `StatusDot`, the state word and frame rate or
+  frame age in mono, then `IconAction`s: screenshot, record, own window, settings popover), a
+  recessed well holding a black device bezel around the stream canvas, and the Android buttons as one
+  Cladd `Toolbar` (volume · back/home/recents · screen off). States: starting, waiting for the first
+  frame, live, unchanged (scrcpy sends nothing for a still screen, so it is not called stalled),
+  stopped with what happened, what to do and the raw error, and an app-in-background notice.
 - **Section tabs** Cladd `Tabs` with solid active segments: 28 px, `rounded-cladd-md`, selected raised
   with the bevel and medium weight, a 1 px soft line under the row.
 

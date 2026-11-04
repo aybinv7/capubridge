@@ -6,6 +6,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
+import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useCDP } from "@/composables/useCDP";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
@@ -14,7 +15,11 @@ import MirrorStream from "./MirrorStream.vue";
 import LocalWebviewHost from "./LocalWebviewHost.vue";
 import MirrorControls from "./MirrorControls.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
-import MirrorSettingsPanel from "./MirrorSettingsPanel.vue";
+import MirrorStateOverlay from "./MirrorStateOverlay.vue";
+import MirrorPresenceNotice from "./MirrorPresenceNotice.vue";
+import { describeMirrorStatus } from "./mirrorStatus";
+import { useMirrorFrameStats } from "./useMirrorFrameStats";
+import { useMirrorRecordingClock } from "./useMirrorRecordingClock";
 
 const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
@@ -39,9 +44,9 @@ const {
   launchExternalScrcpy,
   setCanvasElement,
   applyChromeViewportMode,
+  readFrames,
 } = useMirrorStream();
 
-const settingsOpen = ref(false);
 const isResizing = ref(false);
 const streamAreaRef = ref<HTMLElement | null>(null);
 const mirrorFrameRef = ref<HTMLElement | null>(null);
@@ -50,6 +55,29 @@ const selectedTarget = computed(() => targetsStore.selectedTarget);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
 const androidMode = computed(() => !isLocalTarget.value && isAndroidStream.value);
 const canUseStreamActions = computed(() => !isLocalTarget.value && mirrorStore.isStreaming);
+const presenceStore = useTargetPresenceStore();
+const streamWanted = computed(
+  () => mirrorStore.isOpen && !mirrorStore.isDetached && !isLocalTarget.value,
+);
+const { frames } = useMirrorFrameStats(readFrames, streamWanted);
+const { timecode: recordingTimecode } = useMirrorRecordingClock(
+  computed(() => mirrorStore.isRecording),
+);
+const status = computed(() =>
+  describeMirrorStatus({
+    active: streamWanted.value,
+    isConnected: isConnected.value,
+    error: streamError.value,
+    frames: frames.value,
+  }),
+);
+const presenceNotice = computed(() => {
+  const target = selectedTarget.value;
+  if (!androidMode.value || target?.source !== "adb") return null;
+  const presence = presenceStore.presence;
+  if (presence !== "background" && presence !== "view-hidden") return null;
+  return { presence, appName: target.title?.trim() || target.packageName || "The app" };
+});
 
 function syncLocalViewportSize() {
   if (!isLocalTarget.value) return;
@@ -315,22 +343,6 @@ async function handleDetach() {
   }
 }
 
-async function handleToggleAlwaysOnTop() {
-  mirrorStore.alwaysOnTop = !mirrorStore.alwaysOnTop;
-}
-
-async function handleMaximize() {
-  try {
-    const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-    const win = getCurrentWebviewWindow();
-    const isMax = await win.isMaximized();
-    if (isMax) win.unmaximize();
-    else win.maximize();
-  } catch (error) {
-    toast.error("Failed to resize mirror window", { description: String(error) });
-  }
-}
-
 function handleInspectHover(x: number, y: number) {
   if (!inspectStore.inspectMode) return;
   inspectStore.setMirrorHoverPoint(x, y);
@@ -373,85 +385,78 @@ function toggleRecord() {
       class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
     >
       <MirrorTopBar
+        :status="status"
         :is-recording="mirrorStore.isRecording"
-        :laser-mode="mirrorStore.laserMode"
-        :always-on-top="mirrorStore.alwaysOnTop"
-        :side="mirrorStore.side"
-        :is-detached="false"
-        :is-streaming="canUseStreamActions"
-        :settings-open="settingsOpen"
+        :recording-timecode="recordingTimecode"
+        :can-capture="canUseStreamActions"
         :android-mode="androidMode"
+        :is-local="isLocalTarget"
+        :laser-mode="mirrorStore.laserMode"
+        :side="mirrorStore.side"
         @screenshot="downloadScreenshot"
         @toggle-record="toggleRecord"
+        @detach="handleDetach"
         @toggle-laser="mirrorStore.laserMode = !mirrorStore.laserMode"
-        @toggle-always-on-top="handleToggleAlwaysOnTop"
         @toggle-side="mirrorStore.setSide(mirrorStore.side === 'right' ? 'left' : 'right')"
-        @toggle-detach="handleDetach"
         @launch-scrcpy="launchExternalScrcpy"
         @refresh="handleRefresh"
-        @maximize="handleMaximize"
-        @update:settings-open="settingsOpen = $event"
       />
 
-      <Transition
-        enter-active-class="transition-all duration-200 ease-out"
-        leave-active-class="transition-all duration-150 ease-in"
-        enter-from-class="opacity-0 max-h-0"
-        leave-to-class="opacity-0 max-h-0"
-      >
-        <div v-if="settingsOpen" class="max-h-48 overflow-hidden border-b border-border-subtle">
-          <MirrorSettingsPanel :android-mode="androidMode" />
-        </div>
-      </Transition>
+      <MirrorPresenceNotice
+        v-if="presenceNotice"
+        :presence="presenceNotice.presence"
+        :app-name="presenceNotice.appName"
+      />
 
-      <div ref="streamAreaRef" class="flex flex-1 items-center justify-center overflow-hidden p-2">
+      <div
+        ref="streamAreaRef"
+        class="mx-2 flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-well bg-surface-cut p-3 shadow-cut"
+        :class="androidMode ? '' : 'mb-2'"
+      >
         <div
-          ref="mirrorFrameRef"
-          class="h-full max-w-full overflow-hidden rounded-well ring-1 ring-border"
+          class="h-full max-w-full rounded-[22px] bg-black p-1.25 ring-1 ring-white/10"
           :style="{
-            width: 'auto',
             aspectRatio: `${mirrorStore.deviceWidth || 9} / ${mirrorStore.deviceHeight || 19.5}`,
           }"
         >
-          <LocalWebviewHost v-if="isLocalTarget" :target="selectedTarget" />
-          <MirrorStream
-            v-else
-            :use-canvas="useScrcpyCanvas"
-            :is-connected="isConnected"
-            :error="streamError"
-            :laser-mode="mirrorStore.laserMode"
-            :device-width="mirrorStore.deviceWidth"
-            :device-height="mirrorStore.deviceHeight"
-            :inspect-mode="inspectStore.inspectMode"
-            @touch="sendTouch"
-            @wheel="sendWheel"
-            @navigation="handleStreamNavigation"
-            @keyboard="sendKeyboard"
-            @retry="startStream"
-            @inspect-hover="handleInspectHover"
-            @inspect-select="handleInspectSelect"
-            @inspect-leave="handleInspectLeave"
-            @canvas-ready="setCanvasElement"
-          />
+          <div
+            ref="mirrorFrameRef"
+            class="relative flex h-full w-full items-center overflow-hidden rounded-[17px] bg-black"
+          >
+            <LocalWebviewHost v-if="isLocalTarget" :target="selectedTarget" />
+            <MirrorStream
+              v-else
+              :use-canvas="useScrcpyCanvas"
+              :is-connected="isConnected"
+              :laser-mode="mirrorStore.laserMode"
+              :device-width="mirrorStore.deviceWidth"
+              :device-height="mirrorStore.deviceHeight"
+              :inspect-mode="inspectStore.inspectMode"
+              @touch="sendTouch"
+              @wheel="sendWheel"
+              @navigation="handleStreamNavigation"
+              @keyboard="sendKeyboard"
+              @inspect-hover="handleInspectHover"
+              @inspect-select="handleInspectSelect"
+              @inspect-leave="handleInspectLeave"
+              @canvas-ready="setCanvasElement"
+            >
+              <template #state>
+                <MirrorStateOverlay
+                  :phase="status.phase"
+                  :error="streamError"
+                  :detached="mirrorStore.isDetached"
+                  @restart="startStream"
+                />
+              </template>
+            </MirrorStream>
+          </div>
         </div>
       </div>
 
-      <MirrorControls v-if="androidMode" @keyevent="sendKey" />
-
-      <Transition
-        enter-active-class="transition-all duration-300"
-        leave-active-class="transition-all duration-200"
-        enter-from-class="opacity-0 translate-y-1"
-        leave-to-class="opacity-0 translate-y-1"
-      >
-        <div
-          v-if="mirrorStore.isRecording"
-          class="h-5 bg-signal-rec/10 border-t border-signal-rec/20 flex items-center justify-center gap-1.5 shrink-0"
-        >
-          <div class="w-1.5 h-1.5 rounded-full bg-signal-rec animate-pulse" />
-          <span class="text-2xs text-signal-rec font-medium tracking-wide">RECORDING</span>
-        </div>
-      </Transition>
+      <div v-if="androidMode" class="flex shrink-0 justify-center px-2 pt-2 pb-2">
+        <MirrorControls @keyevent="sendKey" />
+      </div>
     </div>
   </aside>
 </template>

@@ -18,6 +18,9 @@ import MirrorSettingsPanel from "./MirrorSettingsPanel.vue";
 import DetachedMirrorHeader from "./DetachedMirrorHeader.vue";
 import DetachedMirrorTitleBar from "./DetachedMirrorTitleBar.vue";
 import DetachedMirrorCompactRail from "./DetachedMirrorCompactRail.vue";
+import MirrorStateOverlay from "./MirrorStateOverlay.vue";
+import { deriveMirrorPhase } from "./mirrorStatus";
+import { useMirrorFrameStats } from "./useMirrorFrameStats";
 
 const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
@@ -27,6 +30,8 @@ const {
   useScrcpyCanvas,
   isAndroidStream,
   isConnected,
+  error: streamError,
+  readFrames,
   startStream,
   stopStream,
   downloadScreenshot,
@@ -41,6 +46,15 @@ const {
 } = useMirrorStream();
 
 const settingsOpen = ref(false);
+const { frames } = useMirrorFrameStats(readFrames, isConnected);
+const streamPhase = computed(() =>
+  deriveMirrorPhase({
+    active: true,
+    isConnected: isConnected.value,
+    error: streamError.value,
+    frames: frames.value,
+  }),
+);
 const immersiveMode = ref(false);
 const detachedLayoutMode = ref<DetachedMirrorLayoutMode>("panel");
 const isWindowMaximized = ref(false);
@@ -467,7 +481,15 @@ function toggleRecord() {
             @inspect-select="handleInspectSelect"
             @inspect-leave="handleInspectLeave"
             @canvas-ready="setCanvasElement"
-          />
+          >
+            <template #state>
+              <MirrorStateOverlay
+                :phase="streamPhase"
+                :error="streamError"
+                @restart="startStream"
+              />
+            </template>
+          </MirrorStream>
         </div>
 
         <Transition
@@ -478,10 +500,10 @@ function toggleRecord() {
         >
           <div
             v-if="mirrorStore.isRecording && !immersiveMode && detachedLayoutMode === 'large'"
-            class="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-signal-rec/25 bg-background/86 px-3 py-1.5 text-2xs font-medium tracking-[0.24em] text-signal-rec backdrop-blur-md"
+            class="absolute right-4 bottom-4 flex items-center gap-2 rounded-full bg-popover px-3 py-1.5 text-2xs font-medium text-signal-rec shadow-float"
           >
-            <div class="h-1.5 w-1.5 rounded-full bg-signal-rec animate-pulse" />
-            REC
+            <div class="size-1.5 rounded-full bg-signal-rec motion-safe:animate-pulse" />
+            Recording
           </div>
         </Transition>
 
@@ -493,9 +515,9 @@ function toggleRecord() {
         >
           <div
             v-if="immersiveMode"
-            class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border/25 bg-background/74 px-3 py-1.5 text-2xs uppercase tracking-[0.24em] text-muted-foreground/72 backdrop-blur-md"
+            class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-popover px-3 py-1.5 text-2xs text-muted-foreground shadow-float"
           >
-            Esc to exit
+            Press Esc to leave full screen
           </div>
         </Transition>
 

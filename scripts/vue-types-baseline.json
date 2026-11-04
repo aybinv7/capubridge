@@ -1,7 +1,4 @@
 {
-  "apps/desktop/src/components/DeviceManagerModal.vue": {
-    "errors": 1
-  },
   "apps/desktop/src/components/ai-elements/prompt-input/PromptInput.vue": {
     "errors": 2
   },
@@ -9,9 +6,6 @@
     "errors": 1
   },
   "apps/desktop/src/components/dock/DockTabBar.vue": {
-    "errors": 1
-  },
-  "apps/desktop/src/components/layout/AdbReversePopover.vue": {
     "errors": 1
   },
   "apps/desktop/src/components/ui/chart/ChartLegendContent.vue": {
