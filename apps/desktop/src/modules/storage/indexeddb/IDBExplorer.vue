@@ -694,7 +694,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
           <!-- Back to live IDB (snapshot mode only) -->
           <button
             v-if="isSnapshotMode"
-            class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-[10px] text-muted-foreground/60 hover:text-foreground/80 border-b border-border/20 hover:bg-surface-3/50 transition-colors"
+            class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-2xs text-muted-foreground/60 hover:text-foreground/80 border-b border-border/20 hover:bg-surface-3/50 transition-colors"
             @click="router.push('/storage/indexeddb')"
           >
             ← Back to live IndexedDB
@@ -705,11 +705,11 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
             v-if="hiddenDbCount > 0"
             class="shrink-0 flex items-center justify-between px-3 py-1 border-b border-border/20 bg-surface-2/50"
           >
-            <span class="text-[10px] text-muted-foreground/50">
+            <span class="text-2xs text-muted-foreground/50">
               {{ hiddenDbCount }} hidden database{{ hiddenDbCount > 1 ? "s" : "" }}
             </span>
             <button
-              class="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground/70 transition-colors"
+              class="flex items-center gap-1 text-2xs text-muted-foreground/60 hover:text-foreground/70 transition-colors"
               @click="showHiddenDbs = !showHiddenDbs"
             >
               <component :is="showHiddenDbs ? Eye : EyeOff" :size="10" />
@@ -722,11 +722,11 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
             v-if="hiddenStoreCount > 0"
             class="shrink-0 flex items-center justify-between px-3 py-1 border-b border-border/20 bg-surface-2/50"
           >
-            <span class="text-[10px] text-muted-foreground/50">
+            <span class="text-2xs text-muted-foreground/50">
               {{ hiddenStoreCount }} hidden store{{ hiddenStoreCount > 1 ? "s" : "" }}
             </span>
             <button
-              class="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground/70 transition-colors"
+              class="flex items-center gap-1 text-2xs text-muted-foreground/60 hover:text-foreground/70 transition-colors"
               @click="showHidden = !showHidden"
             >
               <component :is="showHidden ? Eye : EyeOff" :size="10" />
@@ -745,11 +745,11 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <Database :size="16" class="text-muted-foreground/30 mb-2" />
-              <p class="text-[11px] text-muted-foreground/40">
+              <p class="text-2xs text-muted-foreground/40">
                 {{ isSnapshotMode ? "No snapshots imported" : "No IndexedDB databases found" }}
               </p>
               <button
-                class="mt-3 flex items-center gap-1.5 rounded border border-border/30 bg-surface-3 px-2.5 py-1 text-[10px] text-foreground/70 hover:bg-surface-2 transition-colors"
+                class="mt-3 flex items-center gap-1.5 rounded border border-border/30 bg-surface-3 px-2.5 py-1 text-2xs text-foreground/70 hover:bg-surface-2 transition-colors"
                 @click="handleImportDatabase()"
               >
                 <Upload :size="10" />
@@ -790,7 +790,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                       {{ db.name }}
                     </span>
                     <span
-                      class="text-[10px] font-mono text-muted-foreground/40 shrink-0"
+                      class="text-2xs font-mono text-muted-foreground/40 shrink-0"
                       :class="{ 'opacity-40': isDbHidden(db.origin, db.name) }"
                     >
                       v{{ db.version }}
@@ -798,7 +798,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                   </button>
                   <!-- Click DB name to show overview -->
                   <button
-                    class="text-[10px] text-muted-foreground/40 hover:text-foreground/60 transition-colors px-1 py-0.5 rounded hover:bg-surface-3"
+                    class="text-2xs text-muted-foreground/40 hover:text-foreground/60 transition-colors px-1 py-0.5 rounded hover:bg-surface-3"
                     title="View database overview"
                     @click.stop="navigateToDbOverview(db)"
                   >
@@ -967,7 +967,7 @@ const hiddenStoreCount = computed(() => hiddenStores.value.size);
                   <!-- No match state -->
                   <li
                     v-if="storeSearch && getVisibleStores(db).length === 0"
-                    class="px-7 py-1.5 text-[10px] text-muted-foreground/30 italic"
+                    class="px-7 py-1.5 text-2xs text-muted-foreground/30 italic"
                   >
                     No stores match
                   </li>

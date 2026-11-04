@@ -71,7 +71,7 @@ const emit = defineEmits<{
             class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
             :class="
               isRecording
-                ? 'bg-red-400/12 text-red-400 hover:bg-red-400/18'
+                ? 'bg-signal-rec/12 text-error hover:bg-signal-rec/18'
                 : isStreaming
                   ? 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
                   : 'cursor-not-allowed text-muted-foreground/20'
@@ -80,7 +80,7 @@ const emit = defineEmits<{
             :title="isRecording ? 'Stop recording' : 'Start recording'"
             @click="(isStreaming || isRecording) && emit('toggleRecord')"
           >
-            <div v-if="isRecording" class="h-3 w-3 rounded-sm bg-red-400" />
+            <div v-if="isRecording" class="h-3 w-3 rounded-sm bg-signal-rec" />
             <Video v-else class="h-3.5 w-3.5" />
           </button>
 
@@ -88,7 +88,7 @@ const emit = defineEmits<{
             class="flex h-7 w-7 items-center justify-center rounded-md transition-colors"
             :class="
               laserMode
-                ? 'bg-red-400/12 text-red-400 hover:bg-red-400/18'
+                ? 'bg-signal-rec/12 text-error hover:bg-signal-rec/18'
                 : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
             "
             title="Laser"

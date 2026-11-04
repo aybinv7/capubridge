@@ -113,25 +113,25 @@ function formatTimestamp(value?: string | null): string {
                 {{ appDisplayName(app) }}
               </div>
               <div
-                class="mt-1 break-all font-mono text-[11px] leading-relaxed text-muted-foreground/50"
+                class="mt-1 break-all font-mono text-2xs leading-relaxed text-muted-foreground/50"
               >
                 {{ app.packageName }}
               </div>
             </div>
             <div class="flex flex-wrap items-center justify-center gap-1.5">
               <span
-                class="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider"
+                class="rounded-full px-2 py-0.5 text-2xs font-medium uppercase tracking-wider"
                 :class="
-                  app.system ? 'bg-amber-500/10 text-amber-300/80' : 'bg-primary/10 text-primary/80'
+                  app.system ? 'bg-warning/10 text-warning/80' : 'bg-primary/10 text-primary/80'
                 "
               >
                 {{ packageKind(app) }}
               </span>
               <span
-                class="rounded-full px-2 py-0.5 text-[10px]"
+                class="rounded-full px-2 py-0.5 text-2xs"
                 :class="
                   app.enabled
-                    ? 'bg-emerald-500/10 text-emerald-400/80'
+                    ? 'bg-success/10 text-success/80'
                     : 'bg-muted/20 text-muted-foreground/60'
                 "
               >
@@ -143,7 +143,7 @@ function formatTimestamp(value?: string | null): string {
           <div class="grid grid-cols-2 gap-2">
             <div class="rounded-lg border border-border/20 bg-surface-2 p-3">
               <div
-                class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground/40"
+                class="flex items-center gap-2 text-2xs uppercase tracking-wider text-muted-foreground/40"
               >
                 <Package class="h-3 w-3" />
                 Version
@@ -151,14 +151,14 @@ function formatTimestamp(value?: string | null): string {
               <div class="mt-2 text-sm font-medium text-foreground/85">
                 {{ details?.versionName || "Unknown" }}
               </div>
-              <div class="mt-1 text-[10px] text-muted-foreground/45">
+              <div class="mt-1 text-2xs text-muted-foreground/45">
                 code {{ details?.versionCode || "—" }}
               </div>
             </div>
 
             <div class="rounded-lg border border-border/20 bg-surface-2 p-3">
               <div
-                class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground/40"
+                class="flex items-center gap-2 text-2xs uppercase tracking-wider text-muted-foreground/40"
               >
                 <Database class="h-3 w-3" />
                 Storage
@@ -166,12 +166,12 @@ function formatTimestamp(value?: string | null): string {
               <div class="mt-2 text-sm font-medium text-foreground/85">
                 {{ formatBytes(selectedTotalSize) }}
               </div>
-              <div class="mt-1 text-[10px] text-muted-foreground/45">app + data + cache</div>
+              <div class="mt-1 text-2xs text-muted-foreground/45">app + data + cache</div>
             </div>
 
             <div class="rounded-lg border border-border/20 bg-surface-2 p-3">
               <div
-                class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground/40"
+                class="flex items-center gap-2 text-2xs uppercase tracking-wider text-muted-foreground/40"
               >
                 <Smartphone class="h-3 w-3" />
                 SDK
@@ -179,14 +179,14 @@ function formatTimestamp(value?: string | null): string {
               <div class="mt-2 text-sm font-medium text-foreground/85">
                 min {{ details?.minSdkVersion ?? "—" }}
               </div>
-              <div class="mt-1 text-[10px] text-muted-foreground/45">
+              <div class="mt-1 text-2xs text-muted-foreground/45">
                 target {{ details?.targetSdkVersion ?? "—" }}
               </div>
             </div>
 
             <div class="rounded-lg border border-border/20 bg-surface-2 p-3">
               <div
-                class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground/40"
+                class="flex items-center gap-2 text-2xs uppercase tracking-wider text-muted-foreground/40"
               >
                 <Shield class="h-3 w-3" />
                 Installer
@@ -194,22 +194,22 @@ function formatTimestamp(value?: string | null): string {
               <div class="mt-2 truncate text-sm font-medium text-foreground/85">
                 {{ details?.installerPackageName || "Unknown" }}
               </div>
-              <div class="mt-1 text-[10px] text-muted-foreground/45">source package</div>
+              <div class="mt-1 text-2xs text-muted-foreground/45">source package</div>
             </div>
           </div>
 
           <div class="space-y-2">
-            <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
+            <div class="text-2xs font-medium uppercase tracking-wider text-muted-foreground/40">
               Timeline
             </div>
             <div class="rounded-lg border border-border/20 bg-surface-2 divide-y divide-border/20">
-              <div class="flex items-center justify-between gap-4 px-3 py-2.5 text-[11px]">
+              <div class="flex items-center justify-between gap-4 px-3 py-2.5 text-2xs">
                 <span class="text-muted-foreground/45">First install</span>
                 <span class="text-right text-foreground/75">
                   {{ formatTimestamp(details?.firstInstallTime) }}
                 </span>
               </div>
-              <div class="flex items-center justify-between gap-4 px-3 py-2.5 text-[11px]">
+              <div class="flex items-center justify-between gap-4 px-3 py-2.5 text-2xs">
                 <span class="text-muted-foreground/45">Last update</span>
                 <span class="text-right text-foreground/75">
                   {{ formatTimestamp(details?.lastUpdateTime) }}
@@ -219,24 +219,24 @@ function formatTimestamp(value?: string | null): string {
           </div>
 
           <div class="space-y-2">
-            <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
+            <div class="text-2xs font-medium uppercase tracking-wider text-muted-foreground/40">
               Sizes
             </div>
             <div class="grid grid-cols-3 gap-2">
               <div class="rounded-lg border border-border/20 bg-surface-2 px-3 py-2.5">
-                <div class="text-[10px] text-muted-foreground/40">APK</div>
+                <div class="text-2xs text-muted-foreground/40">APK</div>
                 <div class="mt-1 text-xs font-medium text-foreground/80">
                   {{ formatBytes(details?.appSize) }}
                 </div>
               </div>
               <div class="rounded-lg border border-border/20 bg-surface-2 px-3 py-2.5">
-                <div class="text-[10px] text-muted-foreground/40">Data</div>
+                <div class="text-2xs text-muted-foreground/40">Data</div>
                 <div class="mt-1 text-xs font-medium text-foreground/80">
                   {{ formatBytes(details?.dataSize) }}
                 </div>
               </div>
               <div class="rounded-lg border border-border/20 bg-surface-2 px-3 py-2.5">
-                <div class="text-[10px] text-muted-foreground/40">Cache</div>
+                <div class="text-2xs text-muted-foreground/40">Cache</div>
                 <div class="mt-1 text-xs font-medium text-foreground/80">
                   {{ formatBytes(details?.cacheSize) }}
                 </div>
@@ -245,7 +245,7 @@ function formatTimestamp(value?: string | null): string {
           </div>
 
           <div class="space-y-2">
-            <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
+            <div class="text-2xs font-medium uppercase tracking-wider text-muted-foreground/40">
               Paths
             </div>
             <div class="space-y-2">
@@ -256,17 +256,17 @@ function formatTimestamp(value?: string | null): string {
               >
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <div class="text-[10px] text-muted-foreground/40">
+                    <div class="text-2xs text-muted-foreground/40">
                       {{ pathEntry.label }}
                     </div>
-                    <div class="mt-1 break-all font-mono text-[11px] text-muted-foreground/65">
+                    <div class="mt-1 break-all font-mono text-2xs text-muted-foreground/65">
                       {{ pathEntry.path }}
                     </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    class="h-7 shrink-0 gap-1.5 px-2 text-[11px]"
+                    class="h-7 shrink-0 gap-1.5 px-2 text-2xs"
                     @click="emit('openFiles', pathEntry.path)"
                   >
                     <ExternalLink class="h-3 w-3" />
@@ -287,16 +287,16 @@ function formatTimestamp(value?: string | null): string {
 
           <div
             v-else-if="isDetailsError"
-            class="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5 text-xs text-red-400"
+            class="rounded-lg border border-error/20 bg-error/5 px-3 py-2.5 text-xs text-error"
           >
             <div class="font-medium">Could not load package details</div>
-            <div class="mt-1 font-mono text-[10px] text-red-400/65">
+            <div class="mt-1 font-mono text-2xs text-error/65">
               {{ detailsError }}
             </div>
             <Button
               variant="ghost"
               size="sm"
-              class="mt-2 h-7 px-2 text-red-400 hover:text-red-300"
+              class="mt-2 h-7 px-2 text-error hover:text-error"
               @click="emit('retryDetails')"
             >
               Retry
@@ -304,7 +304,7 @@ function formatTimestamp(value?: string | null): string {
           </div>
 
           <div class="space-y-1.5">
-            <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40">
+            <div class="text-2xs font-medium uppercase tracking-wider text-muted-foreground/40">
               Actions
             </div>
 
@@ -321,26 +321,22 @@ function formatTimestamp(value?: string | null): string {
                 <div class="text-xs font-medium text-foreground/80 group-hover:text-foreground">
                   Open App
                 </div>
-                <div class="text-[10px] text-muted-foreground/40">
-                  Launch on the connected device
-                </div>
+                <div class="text-2xs text-muted-foreground/40">Launch on the connected device</div>
               </div>
             </button>
 
             <button
-              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-sky-500/30 hover:bg-sky-500/5"
+              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-info/30 hover:bg-info/5"
               @click="emit('openFiles', details?.dataDir ?? `/data/data/${app.packageName}`)"
             >
-              <div
-                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-500/10"
-              >
-                <FolderOpen class="h-3.5 w-3.5 text-sky-400" />
+              <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-info/10">
+                <FolderOpen class="h-3.5 w-3.5 text-info" />
               </div>
               <div>
                 <div class="text-xs font-medium text-foreground/80 group-hover:text-foreground">
                   Browse Internal Data
                 </div>
-                <div class="text-[10px] text-muted-foreground/40">Jump to the app sandbox path</div>
+                <div class="text-2xs text-muted-foreground/40">Jump to the app sandbox path</div>
               </div>
             </button>
 
@@ -362,7 +358,7 @@ function formatTimestamp(value?: string | null): string {
                 <div class="text-xs font-medium text-foreground/80 group-hover:text-foreground">
                   Browse Android/data
                 </div>
-                <div class="text-[10px] text-muted-foreground/40">
+                <div class="text-2xs text-muted-foreground/40">
                   Jump to the app external storage folder
                 </div>
               </div>
@@ -370,55 +366,53 @@ function formatTimestamp(value?: string | null): string {
 
             <button
               :disabled="isActing"
-              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-amber-500/30 hover:bg-amber-500/5 disabled:cursor-not-allowed disabled:opacity-40"
+              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-warning/30 hover:bg-warning/5 disabled:cursor-not-allowed disabled:opacity-40"
               @click="emit('action', 'forceStop')"
             >
               <div
-                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10"
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-warning/10"
               >
-                <StopCircle class="h-3.5 w-3.5 text-amber-400" />
+                <StopCircle class="h-3.5 w-3.5 text-warning" />
               </div>
               <div>
                 <div class="text-xs font-medium text-foreground/80 group-hover:text-foreground">
                   Force Stop
                 </div>
-                <div class="text-[10px] text-muted-foreground/40">Kill the app process</div>
+                <div class="text-2xs text-muted-foreground/40">Kill the app process</div>
               </div>
             </button>
 
             <button
               :disabled="isActing"
-              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-orange-500/30 hover:bg-orange-500/5 disabled:cursor-not-allowed disabled:opacity-40"
+              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-warning/30 hover:bg-warning/5 disabled:cursor-not-allowed disabled:opacity-40"
               @click="emit('action', 'clearData')"
             >
               <div
-                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-orange-500/10"
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-warning/10"
               >
-                <Eraser class="h-3.5 w-3.5 text-orange-400" />
+                <Eraser class="h-3.5 w-3.5 text-warning" />
               </div>
               <div>
                 <div class="text-xs font-medium text-foreground/80 group-hover:text-foreground">
                   Clear Data
                 </div>
-                <div class="text-[10px] text-muted-foreground/40">Remove app data and cache</div>
+                <div class="text-2xs text-muted-foreground/40">Remove app data and cache</div>
               </div>
             </button>
 
             <button
               :disabled="isActing"
-              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-red-500/30 hover:bg-red-500/5 disabled:cursor-not-allowed disabled:opacity-40"
+              class="group flex w-full items-center gap-2.5 rounded-lg border border-border/20 bg-surface-2 px-3 py-2 text-left transition-colors hover:border-error/30 hover:bg-error/5 disabled:cursor-not-allowed disabled:opacity-40"
               @click="emit('action', 'uninstall')"
             >
-              <div
-                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-red-500/10"
-              >
-                <Trash2 class="h-3.5 w-3.5 text-red-400" />
+              <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-error/10">
+                <Trash2 class="h-3.5 w-3.5 text-error" />
               </div>
               <div>
-                <div class="text-xs font-medium text-red-400/80 group-hover:text-red-400">
+                <div class="text-xs font-medium text-error/80 group-hover:text-error">
                   Uninstall
                 </div>
-                <div class="text-[10px] text-muted-foreground/40">Remove from this device</div>
+                <div class="text-2xs text-muted-foreground/40">Remove from this device</div>
               </div>
             </button>
           </div>

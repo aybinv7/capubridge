@@ -76,7 +76,7 @@ function submit() {
             @click="emit('openPort', preset)"
           >
             <span class="flex-1">{{ preset.label }}</span>
-            <span class="text-[11px] text-muted-foreground/55">
+            <span class="text-2xs text-muted-foreground/55">
               {{ checkingPort === preset.port ? "checking" : `:${preset.port}` }}
             </span>
           </DropdownMenuItem>
@@ -86,7 +86,7 @@ function submit() {
             <DropdownMenuItem
               v-for="recentUrl in recentUrls"
               :key="recentUrl"
-              class="max-w-56 truncate font-mono text-[11px]"
+              class="max-w-56 truncate font-mono text-2xs"
               @click="emit('navigate', recentUrl)"
             >
               {{ recentUrl }}

@@ -135,7 +135,7 @@ function skipForward() {
       <div
         v-for="(m, i) in networkMarkers"
         :key="`net-${i}`"
-        class="absolute top-1/2 -translate-y-1/2 w-0.5 h-2 rounded-full bg-sky-400/60 pointer-events-none"
+        class="absolute top-1/2 -translate-y-1/2 w-0.5 h-2 rounded-full bg-info/60 pointer-events-none"
         :style="{ left: `${m.pct}%` }"
       />
 
@@ -143,7 +143,7 @@ function skipForward() {
       <div
         v-for="(m, i) in consoleErrorMarkers"
         :key="`err-${i}`"
-        class="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full bg-red-400/80 pointer-events-none"
+        class="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 rounded-full bg-error/80 pointer-events-none"
         :style="{ left: `${m.pct}%` }"
       />
 
@@ -152,7 +152,7 @@ function skipForward() {
         v-for="(m, i) in cpuSpikeMarkers"
         :key="`cpu-${i}`"
         class="absolute top-1/2 -translate-y-1/2 w-px h-2.5 rounded-full pointer-events-none"
-        :class="m.hot ? 'bg-red-500/70' : 'bg-amber-400/70'"
+        :class="m.hot ? 'bg-error/70' : 'bg-warning/70'"
         :style="{ left: `${m.pct}%` }"
       />
 
@@ -203,30 +203,30 @@ function skipForward() {
         </button>
       </div>
 
-      <span class="font-mono text-[11px] text-muted-foreground tabular-nums">
+      <span class="font-mono text-2xs text-muted-foreground tabular-nums">
         {{ formatTime(clock.positionMs.value) }}
         <span class="text-muted-foreground/40">/ {{ formatTime(clock.durationMs.value) }}</span>
       </span>
 
       <div class="flex-1" />
 
-      <div class="flex items-center gap-3 text-[11px] text-muted-foreground/50">
+      <div class="flex items-center gap-3 text-2xs text-muted-foreground/50">
         <span class="flex items-center gap-1">
-          <span class="inline-block w-2 h-1 rounded bg-sky-400/60" />
+          <span class="inline-block w-2 h-1 rounded bg-info/60" />
           Network
         </span>
         <span class="flex items-center gap-1">
-          <span class="inline-block w-2 h-1.5 rounded bg-red-400/80" />
+          <span class="inline-block w-2 h-1.5 rounded bg-error/80" />
           Errors
         </span>
         <span v-if="perfEvents?.length" class="flex items-center gap-1">
-          <span class="inline-block w-px h-2.5 rounded bg-amber-400/70" />
+          <span class="inline-block w-px h-2.5 rounded bg-warning/70" />
           CPU spike
         </span>
         <span v-if="tableChangeMarkers.length" class="flex items-center gap-1">
-          <span class="inline-block w-1 h-2.5 rounded bg-emerald-400/80" />
-          <span class="inline-block w-1 h-2.5 rounded bg-amber-400/80" />
-          <span class="inline-block w-1 h-2.5 rounded bg-red-400/80" />
+          <span class="inline-block w-1 h-2.5 rounded bg-success/80" />
+          <span class="inline-block w-1 h-2.5 rounded bg-warning/80" />
+          <span class="inline-block w-1 h-2.5 rounded bg-error/80" />
           <span class="inline-block w-1 h-2.5 rounded bg-violet-400/80" />
           DB writes
         </span>

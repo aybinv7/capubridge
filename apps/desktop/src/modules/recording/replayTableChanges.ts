@@ -141,11 +141,11 @@ export function formatAffectedRows(change: Pick<ReplayTableChangeEntry, "affecte
 export function tableChangeBadgeClass(type: TableChangeType): string {
   switch (type) {
     case "insert":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+      return "border-success/30 bg-success/10 text-success";
     case "update":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+      return "border-warning/30 bg-warning/10 text-warning";
     case "delete":
-      return "border-red-500/30 bg-red-500/10 text-red-300";
+      return "border-error/30 bg-error/10 text-error";
     case "bulk":
       return "border-violet-500/30 bg-violet-500/10 text-violet-300";
   }
@@ -154,11 +154,11 @@ export function tableChangeBadgeClass(type: TableChangeType): string {
 export function tableChangeMarkerClass(type: TableChangeType): string {
   switch (type) {
     case "insert":
-      return "bg-emerald-400/80";
+      return "bg-success/80";
     case "update":
-      return "bg-amber-400/80";
+      return "bg-warning/80";
     case "delete":
-      return "bg-red-400/80";
+      return "bg-error/80";
     case "bulk":
       return "bg-violet-400/80";
   }
@@ -167,11 +167,11 @@ export function tableChangeMarkerClass(type: TableChangeType): string {
 export function tableChangeSegmentClass(type: TableChangeType): string {
   switch (type) {
     case "insert":
-      return "bg-emerald-500";
+      return "bg-success";
     case "update":
-      return "bg-amber-500";
+      return "bg-warning";
     case "delete":
-      return "bg-red-500";
+      return "bg-error";
     case "bulk":
       return "bg-violet-500";
   }

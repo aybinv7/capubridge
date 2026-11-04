@@ -373,7 +373,7 @@ watch(origins, (newOrigins) => {
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <AlertCircle :size="16" class="text-muted-foreground/30 mb-2" />
-              <p class="text-[11px] text-muted-foreground/40">No origins found</p>
+              <p class="text-2xs text-muted-foreground/40">No origins found</p>
             </div>
             <div v-else>
               <button
@@ -438,7 +438,7 @@ watch(origins, (newOrigins) => {
                 class="flex flex-col items-center justify-center py-8 px-3 text-center"
               >
                 <AlertCircle :size="16" class="text-muted-foreground/30 mb-2" />
-                <p class="text-[11px] text-muted-foreground/40">
+                <p class="text-2xs text-muted-foreground/40">
                   {{ isError ? "Failed to load" : "No LocalStorage entries" }}
                 </p>
               </div>
@@ -555,7 +555,7 @@ watch(origins, (newOrigins) => {
 
             <!-- type chip -->
             <span
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-3 text-muted-foreground/50 font-mono"
+              class="text-2xs px-1.5 py-0.5 rounded-full bg-surface-3 text-muted-foreground/50 font-mono"
             >
               {{ isCreate ? inferType(editValue) : originalType }}
             </span>
@@ -563,7 +563,7 @@ watch(origins, (newOrigins) => {
             <!-- status badge: invalid > unsaved -->
             <span
               v-if="badge === 'invalid'"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400 font-medium flex items-center gap-1"
+              class="text-2xs px-1.5 py-0.5 rounded-full bg-error/10 text-error font-medium flex items-center gap-1"
               :title="!validation.valid ? validation.reason : ''"
             >
               <AlertTriangle :size="10" />
@@ -571,7 +571,7 @@ watch(origins, (newOrigins) => {
             </span>
             <span
               v-else-if="badge === 'unsaved'"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-medium"
+              class="text-2xs px-1.5 py-0.5 rounded-full bg-warning/10 text-warning font-medium"
             >
               Unsaved
             </span>
@@ -583,7 +583,7 @@ watch(origins, (newOrigins) => {
               class="text-muted-foreground/40 hover:text-foreground transition-colors p-1"
               @click="copyValue()"
             >
-              <Check v-if="copiedRaw" :size="13" class="text-green-500" />
+              <Check v-if="copiedRaw" :size="13" class="text-success" />
               <Copy v-else :size="13" />
             </Button>
             <!-- Save button -->
@@ -605,7 +605,7 @@ watch(origins, (newOrigins) => {
                 <Info :size="13" />
               </Button>
               <div
-                class="absolute right-0 top-8 z-50 w-48 rounded-lg border border-border/30 bg-surface-1 px-3 py-2 text-[11px] text-muted-foreground/60 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none group-hover:pointer-events-auto"
+                class="absolute right-0 top-8 z-50 w-48 rounded-lg border border-border/30 bg-surface-1 px-3 py-2 text-2xs text-muted-foreground/60 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none group-hover:pointer-events-auto"
               >
                 <div class="space-y-1">
                   <div class="flex justify-between">
@@ -638,7 +638,7 @@ watch(origins, (newOrigins) => {
       </div>
 
       <div v-if="editError" class="px-6 py-2 border-t border-border/20 shrink-0">
-        <div class="flex items-center gap-2 text-xs text-red-500">
+        <div class="flex items-center gap-2 text-xs text-error">
           <AlertTriangle :size="14" />{{ editError }}
         </div>
       </div>
@@ -646,7 +646,7 @@ watch(origins, (newOrigins) => {
       <!-- Validation error bar -->
       <div
         v-if="!validation.valid"
-        class="px-6 py-1.5 border-t border-red-500/20 bg-red-500/5 shrink-0 flex items-center gap-2 text-xs text-red-400"
+        class="px-6 py-1.5 border-t border-error/20 bg-error/5 shrink-0 flex items-center gap-2 text-xs text-error"
       >
         <AlertTriangle :size="12" />
         <span class="font-mono">{{ !validation.valid ? validation.reason : "" }}</span>
@@ -658,7 +658,7 @@ watch(origins, (newOrigins) => {
   <Dialog v-model:open="showDeleteConfirm">
     <DialogContent class="max-w-sm">
       <DialogHeader>
-        <DialogTitle class="flex items-center gap-2 text-red-500">
+        <DialogTitle class="flex items-center gap-2 text-error">
           <AlertTriangle :size="18" />Delete Entry
         </DialogTitle>
       </DialogHeader>

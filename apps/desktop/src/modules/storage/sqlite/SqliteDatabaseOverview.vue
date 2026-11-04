@@ -69,14 +69,14 @@ function toggleExpanded(tableName: string, e: Event) {
         dbName
       }}</span>
       <span
-        class="shrink-0 font-mono text-[10px] text-muted-foreground/50 bg-surface-3 px-1.5 py-0.5 rounded"
+        class="shrink-0 font-mono text-2xs text-muted-foreground/50 bg-surface-3 px-1.5 py-0.5 rounded"
         :title="dbPath"
       >
         {{ formatBytes(dbSize) }}
       </span>
       <span
         v-if="packageName"
-        class="shrink-0 font-mono text-[10px] text-muted-foreground/40 truncate max-w-[200px]"
+        class="shrink-0 font-mono text-2xs text-muted-foreground/40 truncate max-w-[200px]"
       >
         {{ packageName }}
       </span>
@@ -97,25 +97,25 @@ function toggleExpanded(tableName: string, e: Event) {
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           fmtNum(tableCount)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Tables</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Tables</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           fmtNum(viewCount)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Views</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Views</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           fmtNum(totalRows)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Rows</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Rows</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           formatBytes(dbSize)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Size</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Size</span>
       </div>
     </div>
 
@@ -150,9 +150,7 @@ function toggleExpanded(tableName: string, e: Event) {
       <template v-else>
         <!-- Distribution chart -->
         <div v-if="nonEmptyTables.length > 0" class="border-b border-border/20 px-4 py-3">
-          <p
-            class="text-[9px] uppercase tracking-widest text-muted-foreground/40 mb-2.5 font-medium"
-          >
+          <p class="text-2xs uppercase tracking-widest text-muted-foreground/40 mb-2.5 font-medium">
             By row count
           </p>
           <div class="flex flex-col gap-1.5">
@@ -163,7 +161,7 @@ function toggleExpanded(tableName: string, e: Event) {
               @click="emit('selectTable', table.name)"
             >
               <span
-                class="w-32 truncate text-right font-mono text-[11px] text-muted-foreground/60 group-hover:text-foreground/70 transition-colors shrink-0"
+                class="w-32 truncate text-right font-mono text-2xs text-muted-foreground/60 group-hover:text-foreground/70 transition-colors shrink-0"
                 :title="table.name"
                 >{{ table.name }}</span
               >
@@ -173,13 +171,13 @@ function toggleExpanded(tableName: string, e: Event) {
                   :style="{ width: barPct(table.rowCount) }"
                 />
               </div>
-              <span class="w-12 text-right font-mono text-[11px] text-muted-foreground/55 shrink-0">
+              <span class="w-12 text-right font-mono text-2xs text-muted-foreground/55 shrink-0">
                 {{ fmtNum(table.rowCount) }}
               </span>
             </div>
             <p
               v-if="nonEmptyTables.length > 10"
-              class="text-[9px] text-muted-foreground/30 text-right font-mono mt-0.5"
+              class="text-2xs text-muted-foreground/30 text-right font-mono mt-0.5"
             >
               +{{ nonEmptyTables.length - 10 }} more
             </p>
@@ -192,17 +190,17 @@ function toggleExpanded(tableName: string, e: Event) {
             <tr class="text-left">
               <th class="px-3 py-2.5 w-6"></th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50"
               >
                 Table
               </th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50 text-right w-32"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50 text-right w-32"
               >
                 Rows
               </th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50 text-center w-16"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50 text-center w-16"
               >
                 Type
               </th>
@@ -260,7 +258,7 @@ function toggleExpanded(tableName: string, e: Event) {
                   </div>
                 </td>
                 <td class="px-2 py-2.5 text-center">
-                  <span class="text-[10px] font-mono text-muted-foreground/40 capitalize">
+                  <span class="text-2xs font-mono text-muted-foreground/40 capitalize">
                     {{ table.tableType }}
                   </span>
                 </td>
@@ -272,12 +270,12 @@ function toggleExpanded(tableName: string, e: Event) {
                   <td colspan="4" class="px-10 py-3">
                     <div class="flex items-start gap-2">
                       <span
-                        class="text-[9px] uppercase tracking-widest text-muted-foreground/35 font-medium shrink-0 mt-1"
+                        class="text-2xs uppercase tracking-widest text-muted-foreground/35 font-medium shrink-0 mt-1"
                       >
                         SQL
                       </span>
                       <pre
-                        class="text-[11px] font-mono text-foreground/60 whitespace-pre-wrap break-all flex-1"
+                        class="text-2xs font-mono text-foreground/60 whitespace-pre-wrap break-all flex-1"
                         >{{ table.sql }}</pre
                       >
                     </div>

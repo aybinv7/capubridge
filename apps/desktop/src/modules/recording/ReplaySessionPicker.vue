@@ -314,7 +314,7 @@ function shortPath(p: string | null | undefined): string {
           <FolderOpen class="w-4 h-4 text-muted-foreground/70" />
           Open replay session
         </DialogTitle>
-        <DialogDescription class="text-[11px] text-muted-foreground/60">
+        <DialogDescription class="text-2xs text-muted-foreground/60">
           Pick a recorded .capu session, or open one from disk.
         </DialogDescription>
       </DialogHeader>
@@ -334,14 +334,14 @@ function shortPath(p: string | null | undefined): string {
         <Button
           variant="ghost"
           size="sm"
-          class="h-7 gap-1 text-[11px]"
+          class="h-7 gap-1 text-2xs"
           :disabled="isLoading"
           @click="refresh"
         >
           <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isLoading }" />
           Refresh
         </Button>
-        <Button variant="outline" size="sm" class="h-7 gap-1 text-[11px]" @click="openFromDisk">
+        <Button variant="outline" size="sm" class="h-7 gap-1 text-2xs" @click="openFromDisk">
           <FolderOpen class="w-3 h-3" />
           Open from disk…
         </Button>
@@ -365,7 +365,7 @@ function shortPath(p: string | null | undefined): string {
         >
           <AlertCircle class="w-5 h-5 text-error" />
           <p>{{ error }}</p>
-          <Button variant="outline" size="sm" class="h-6 text-[11px]" @click="refresh">
+          <Button variant="outline" size="sm" class="h-6 text-2xs" @click="refresh">
             Try again
           </Button>
         </div>
@@ -378,7 +378,7 @@ function shortPath(p: string | null | undefined): string {
           <FolderOpen class="w-6 h-6" />
           <p v-if="search">No sessions match "{{ search }}"</p>
           <p v-else>No recorded sessions yet</p>
-          <Button variant="outline" size="sm" class="h-6 text-[11px] mt-1" @click="openFromDisk">
+          <Button variant="outline" size="sm" class="h-6 text-2xs mt-1" @click="openFromDisk">
             <FolderOpen class="w-3 h-3 mr-1" />
             Open from disk
           </Button>
@@ -388,7 +388,7 @@ function shortPath(p: string | null | undefined): string {
         <div v-else class="overflow-auto h-full">
           <table class="w-full text-xs">
             <thead
-              class="sticky top-0 z-10 bg-surface-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground/50 border-b border-border/30"
+              class="sticky top-0 z-10 bg-surface-2 text-left text-2xs uppercase tracking-wider text-muted-foreground/50 border-b border-border/30"
             >
               <tr>
                 <th class="px-4 py-2 font-medium cursor-pointer" @click="toggleSort('label')">
@@ -458,7 +458,7 @@ function shortPath(p: string | null | undefined): string {
                     {{ item.label || item.sessionId }}
                     <span
                       v-if="item.incomplete"
-                      class="ml-1 rounded bg-warning/15 px-1 py-0.5 text-[9px] font-medium text-warning"
+                      class="ml-1 rounded bg-warning/15 px-1 py-0.5 text-2xs font-medium text-warning"
                       :title="`Missing tracks: ${item.missingTracks.join(', ') || 'unknown'}`"
                     >
                       Incomplete
@@ -466,12 +466,12 @@ function shortPath(p: string | null | undefined): string {
                   </div>
                   <div
                     v-if="item.targetUrl"
-                    class="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground/50 truncate max-w-[260px]"
+                    class="mt-0.5 inline-flex items-center gap-1 text-2xs text-muted-foreground/50 truncate max-w-[260px]"
                   >
                     <Globe class="w-2.5 h-2.5" />
                     {{ item.targetUrl }}
                   </div>
-                  <div class="mt-0.5 text-[10px] font-mono text-muted-foreground/30 truncate">
+                  <div class="mt-0.5 text-2xs font-mono text-muted-foreground/30 truncate">
                     {{ shortPath(item.filePath) }}
                   </div>
                 </td>
@@ -523,7 +523,7 @@ function shortPath(p: string | null | undefined): string {
 
       <!-- Footer -->
       <div
-        class="flex items-center justify-between px-5 py-2.5 border-t border-border/30 bg-surface-1/50 text-[10px] text-muted-foreground/50"
+        class="flex items-center justify-between px-5 py-2.5 border-t border-border/30 bg-surface-1/50 text-2xs text-muted-foreground/50"
       >
         <span>
           {{ filtered.length }}
@@ -561,7 +561,7 @@ function shortPath(p: string | null | undefined): string {
           />
           <span
             ><Label>Mask URLs</Label
-            ><span class="block text-[11px] text-muted-foreground"
+            ><span class="block text-2xs text-muted-foreground"
               >Removes paths and query values.</span
             ></span
           >
@@ -576,7 +576,7 @@ function shortPath(p: string | null | undefined): string {
           />
           <span
             ><Label>Mask request and response bodies</Label
-            ><span class="block text-[11px] text-muted-foreground"
+            ><span class="block text-2xs text-muted-foreground"
               >Removes captured payload contents.</span
             ></span
           >
@@ -591,7 +591,7 @@ function shortPath(p: string | null | undefined): string {
           />
           <span
             ><Label>Remove DOM replay</Label
-            ><span class="block text-[11px] text-muted-foreground"
+            ><span class="block text-2xs text-muted-foreground"
               >Prevents page text and form values from being shared.</span
             ></span
           >

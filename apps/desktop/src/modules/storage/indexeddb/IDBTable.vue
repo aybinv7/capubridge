@@ -735,7 +735,7 @@ function confirmBulkDelete() {
                   </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" class="w-48 max-h-72 overflow-y-auto">
-                  <DropdownMenuLabel class="text-[10px] uppercase tracking-wider">
+                  <DropdownMenuLabel class="text-2xs uppercase tracking-wider">
                     {{ header.column.columnDef.header ?? header.column.id }}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -891,7 +891,7 @@ function confirmBulkDelete() {
                     />
                     <span>
                       {{ row.groupingColumnId }}:
-                      <code class="text-[10px] bg-surface-3 px-1 rounded">
+                      <code class="text-2xs bg-surface-3 px-1 rounded">
                         {{ row.getValue(row.groupingColumnId ?? "") }}
                       </code>
                       <span class="text-muted-foreground/40 ml-1">
@@ -992,7 +992,7 @@ function confirmBulkDelete() {
     <div
       class="flex shrink-0 items-center justify-between border-t border-border/30 bg-surface-2 px-3 py-1.5"
     >
-      <span class="text-[10px] text-muted-foreground/40 tabular-nums">
+      <span class="text-2xs text-muted-foreground/40 tabular-nums">
         {{ filteredRowCount.toLocaleString() }} / {{ totalCount.toLocaleString() }} rows
       </span>
 
@@ -1009,7 +1009,7 @@ function confirmBulkDelete() {
           </Button>
         </template>
 
-        <span class="text-[10px] text-muted-foreground/30">
+        <span class="text-2xs text-muted-foreground/30">
           Drag column edges to resize · Double-click row to view details
         </span>
       </div>

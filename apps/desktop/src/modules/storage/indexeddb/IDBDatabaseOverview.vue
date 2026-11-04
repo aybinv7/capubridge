@@ -93,12 +93,12 @@ function formatBytes(bytes: number | undefined | null): string {
         dbName
       }}</span>
       <span
-        class="shrink-0 font-mono text-[10px] text-muted-foreground/50 bg-surface-3 px-1.5 py-0.5 rounded"
+        class="shrink-0 font-mono text-2xs text-muted-foreground/50 bg-surface-3 px-1.5 py-0.5 rounded"
       >
         {{ dbOrigin }}
       </span>
       <span
-        class="shrink-0 font-mono text-[10px] text-info/70 border border-info/25 px-1.5 py-0.5 rounded"
+        class="shrink-0 font-mono text-2xs text-info/70 border border-info/25 px-1.5 py-0.5 rounded"
       >
         v{{ dbVersion }}
       </span>
@@ -119,25 +119,25 @@ function formatBytes(bytes: number | undefined | null): string {
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           fmtNum(storeCount)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Stores</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Stores</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           fmtNum(totalRecords)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Records</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Records</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           fmtNum(totalIndexes)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Indexes</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Indexes</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
         <span class="font-mono text-base font-semibold text-foreground/90">{{
           fmtNum(autoIncCount)
         }}</span>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50">Auto-Inc</span>
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">Auto-Inc</span>
       </div>
       <div class="flex-1 flex flex-col items-center justify-center py-3 gap-0.5">
         <div class="flex items-center gap-1.5">
@@ -151,18 +151,16 @@ function formatBytes(bytes: number | undefined | null): string {
           >
             {{ formatBytes(dbEstimatedSize) }}
           </span>
-          <span v-if="totalIdbSize != null" class="text-muted-foreground/30 text-[10px]">/</span>
+          <span v-if="totalIdbSize != null" class="text-muted-foreground/30 text-2xs">/</span>
           <span
             v-if="totalIdbSize != null"
-            class="font-mono text-[13px]"
+            class="font-mono text-sm"
             :class="totalIdbSize > 0 ? 'text-muted-foreground/50' : 'text-muted-foreground/20'"
           >
             {{ formatBytes(totalIdbSize) }}
           </span>
         </div>
-        <span class="text-[9px] uppercase tracking-widest text-muted-foreground/50"
-          >DB / Total</span
-        >
+        <span class="text-2xs uppercase tracking-widest text-muted-foreground/50">DB / Total</span>
       </div>
     </div>
 
@@ -203,7 +201,7 @@ function formatBytes(bytes: number | undefined | null): string {
           <!-- By records -->
           <div class="px-4 py-3">
             <p
-              class="text-[9px] uppercase tracking-widest text-muted-foreground/40 mb-2.5 font-medium"
+              class="text-2xs uppercase tracking-widest text-muted-foreground/40 mb-2.5 font-medium"
             >
               By records
             </p>
@@ -215,7 +213,7 @@ function formatBytes(bytes: number | undefined | null): string {
                 @click="emit('selectStore', store.name)"
               >
                 <span
-                  class="w-36 truncate text-right font-mono text-[11px] text-muted-foreground/60 group-hover:text-foreground/70 transition-colors shrink-0"
+                  class="w-36 truncate text-right font-mono text-2xs text-muted-foreground/60 group-hover:text-foreground/70 transition-colors shrink-0"
                   :title="store.name"
                   >{{ store.name }}</span
                 >
@@ -225,15 +223,13 @@ function formatBytes(bytes: number | undefined | null): string {
                     :style="{ width: barPct(store.recordCount) }"
                   />
                 </div>
-                <span
-                  class="w-12 text-right font-mono text-[11px] text-muted-foreground/55 shrink-0"
-                >
+                <span class="w-12 text-right font-mono text-2xs text-muted-foreground/55 shrink-0">
                   {{ fmtNum(store.recordCount) }}
                 </span>
               </div>
               <p
                 v-if="nonEmptyStores.length > 10"
-                class="text-[9px] text-muted-foreground/30 text-right font-mono mt-0.5"
+                class="text-2xs text-muted-foreground/30 text-right font-mono mt-0.5"
               >
                 +{{ nonEmptyStores.length - 10 }} more
               </p>
@@ -243,7 +239,7 @@ function formatBytes(bytes: number | undefined | null): string {
           <!-- By size -->
           <div class="px-4 py-3">
             <p
-              class="text-[9px] uppercase tracking-widest text-muted-foreground/40 mb-2.5 font-medium"
+              class="text-2xs uppercase tracking-widest text-muted-foreground/40 mb-2.5 font-medium"
             >
               By size
               <span class="normal-case tracking-normal text-muted-foreground/25">(estimated)</span>
@@ -256,7 +252,7 @@ function formatBytes(bytes: number | undefined | null): string {
                 @click="emit('selectStore', store.name)"
               >
                 <span
-                  class="w-36 truncate text-right font-mono text-[11px] text-muted-foreground/60 group-hover:text-foreground/70 transition-colors shrink-0"
+                  class="w-36 truncate text-right font-mono text-2xs text-muted-foreground/60 group-hover:text-foreground/70 transition-colors shrink-0"
                   :title="store.name"
                   >{{ store.name }}</span
                 >
@@ -266,21 +262,19 @@ function formatBytes(bytes: number | undefined | null): string {
                     :style="{ width: sizePct(store.estimatedSize) }"
                   />
                 </div>
-                <span
-                  class="w-14 text-right font-mono text-[11px] text-muted-foreground/55 shrink-0"
-                >
+                <span class="w-14 text-right font-mono text-2xs text-muted-foreground/55 shrink-0">
                   {{ formatBytes(store.estimatedSize) }}
                 </span>
               </div>
               <p
                 v-if="sortedBySize.length > 10"
-                class="text-[9px] text-muted-foreground/30 text-right font-mono mt-0.5"
+                class="text-2xs text-muted-foreground/30 text-right font-mono mt-0.5"
               >
                 +{{ sortedBySize.length - 10 }} more
               </p>
             </div>
             <div v-else class="flex items-center h-8">
-              <span class="text-[10px] text-muted-foreground/25 font-mono">No size data yet</span>
+              <span class="text-2xs text-muted-foreground/25 font-mono">No size data yet</span>
             </div>
           </div>
         </div>
@@ -291,32 +285,32 @@ function formatBytes(bytes: number | undefined | null): string {
             <tr class="text-left">
               <th class="px-3 py-2.5 w-6"></th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50"
               >
                 Store
               </th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50"
               >
                 Key Path
               </th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50 text-right w-36"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50 text-right w-36"
               >
                 Records
               </th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50 w-24"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50 w-24"
               >
                 Next Key
               </th>
               <th
-                class="px-2 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50 text-center w-12"
+                class="px-2 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50 text-center w-12"
               >
                 Idx
               </th>
               <th
-                class="px-3 py-2.5 font-medium text-[9px] uppercase tracking-widest text-muted-foreground/50 text-center w-10"
+                class="px-3 py-2.5 font-medium text-2xs uppercase tracking-widest text-muted-foreground/50 text-center w-10"
               >
                 AI
               </th>
@@ -349,7 +343,7 @@ function formatBytes(bytes: number | undefined | null): string {
                 <!-- Key path -->
                 <td class="px-2 py-2.5">
                   <span
-                    class="font-mono text-[11px] text-muted-foreground/55 bg-surface-3 px-1.5 py-0.5 rounded"
+                    class="font-mono text-2xs text-muted-foreground/55 bg-surface-3 px-1.5 py-0.5 rounded"
                   >
                     {{ formatKey(store.keyPath) }}
                   </span>
@@ -382,19 +376,19 @@ function formatBytes(bytes: number | undefined | null): string {
                 <td class="px-2 py-2.5">
                   <span
                     v-if="store.autoIncrement && store.keyGeneratorValue != null"
-                    class="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/60"
+                    class="inline-flex items-center gap-1 font-mono text-2xs text-muted-foreground/60"
                   >
                     <ArrowRight :size="9" class="text-muted-foreground/35" />
                     {{ fmtNum(store.keyGeneratorValue) }}
                   </span>
-                  <span v-else class="text-muted-foreground/20 font-mono text-[11px]">—</span>
+                  <span v-else class="text-muted-foreground/20 font-mono text-2xs">—</span>
                 </td>
 
                 <!-- Index count (click to expand) -->
                 <td class="px-2 py-2.5 text-center">
                   <button
                     v-if="store.indexCount > 0"
-                    class="inline-flex items-center gap-0.5 font-mono text-[11px] px-1.5 py-0.5 rounded transition-colors"
+                    class="inline-flex items-center gap-0.5 font-mono text-2xs px-1.5 py-0.5 rounded transition-colors"
                     :class="
                       expandedStores.has(store.name)
                         ? 'bg-info/15 text-info/80'
@@ -410,7 +404,7 @@ function formatBytes(bytes: number | undefined | null): string {
                     />
                     {{ store.indexCount }}
                   </button>
-                  <span v-else class="text-muted-foreground/20 font-mono text-[11px]">—</span>
+                  <span v-else class="text-muted-foreground/20 font-mono text-2xs">—</span>
                 </td>
 
                 <!-- Auto-increment dot -->
@@ -420,7 +414,7 @@ function formatBytes(bytes: number | undefined | null): string {
                     class="inline-block w-1.5 h-1.5 rounded-full bg-success/60"
                     title="Auto-increment"
                   />
-                  <span v-else class="text-muted-foreground/15 font-mono text-[11px]">—</span>
+                  <span v-else class="text-muted-foreground/15 font-mono text-2xs">—</span>
                 </td>
               </tr>
 
@@ -430,25 +424,25 @@ function formatBytes(bytes: number | undefined | null): string {
                 <tr class="bg-surface-0/80 border-b border-border/10">
                   <td colspan="2" class="pl-10 pr-2 py-1.5">
                     <span
-                      class="text-[9px] uppercase tracking-widest text-muted-foreground/35 font-medium"
+                      class="text-2xs uppercase tracking-widest text-muted-foreground/35 font-medium"
                       >Index</span
                     >
                   </td>
                   <td class="px-2 py-1.5">
                     <span
-                      class="text-[9px] uppercase tracking-widest text-muted-foreground/35 font-medium"
+                      class="text-2xs uppercase tracking-widest text-muted-foreground/35 font-medium"
                       >Key Path</span
                     >
                   </td>
                   <td class="px-2 py-1.5 text-right">
                     <span
-                      class="text-[9px] uppercase tracking-widest text-muted-foreground/35 font-medium"
+                      class="text-2xs uppercase tracking-widest text-muted-foreground/35 font-medium"
                       >Unique</span
                     >
                   </td>
                   <td class="px-2 py-1.5 text-center">
                     <span
-                      class="text-[9px] uppercase tracking-widest text-muted-foreground/35 font-medium"
+                      class="text-2xs uppercase tracking-widest text-muted-foreground/35 font-medium"
                       >Multi</span
                     >
                   </td>
@@ -462,12 +456,12 @@ function formatBytes(bytes: number | undefined | null): string {
                 >
                   <!-- Indent + index name -->
                   <td colspan="2" class="pl-10 pr-2 py-1.5">
-                    <span class="font-mono text-[11px] text-info/60">{{ idx.name }}</span>
+                    <span class="font-mono text-2xs text-info/60">{{ idx.name }}</span>
                   </td>
                   <!-- Key path -->
                   <td class="px-2 py-1.5">
                     <span
-                      class="font-mono text-[11px] text-muted-foreground/50 bg-surface-2 px-1.5 py-0.5 rounded"
+                      class="font-mono text-2xs text-muted-foreground/50 bg-surface-2 px-1.5 py-0.5 rounded"
                     >
                       {{ formatKey(idx.keyPath as string | string[] | null) }}
                     </span>
@@ -478,7 +472,7 @@ function formatBytes(bytes: number | undefined | null): string {
                       v-if="idx.unique"
                       class="inline-block w-1.5 h-1.5 rounded-full bg-success/55"
                     />
-                    <span v-else class="text-muted-foreground/20 font-mono text-[10px]">—</span>
+                    <span v-else class="text-muted-foreground/20 font-mono text-2xs">—</span>
                   </td>
                   <!-- Multi-entry -->
                   <td class="px-2 py-1.5 text-center">
@@ -486,7 +480,7 @@ function formatBytes(bytes: number | undefined | null): string {
                       v-if="idx.multiEntry"
                       class="inline-block w-1.5 h-1.5 rounded-full bg-warning/55"
                     />
-                    <span v-else class="text-muted-foreground/20 font-mono text-[10px]">—</span>
+                    <span v-else class="text-muted-foreground/20 font-mono text-2xs">—</span>
                   </td>
                   <td colspan="2" class="px-2 py-1.5"></td>
                 </tr>

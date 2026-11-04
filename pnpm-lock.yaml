@@ -9,6 +9,12 @@ catalogs:
     '@babel/parser':
       specifier: ^7.29.3
       version: 7.29.3
+    '@fontsource-variable/ibm-plex-sans':
+      specifier: ^5.3.0
+      version: 5.3.0
+    '@fontsource/ibm-plex-mono':
+      specifier: ^5.3.0
+      version: 5.3.0
     '@internationalized/date':
       specifier: ^3.12.0
       version: 3.12.0
@@ -102,30 +108,15 @@ catalogs:
     geist:
       specifier: ^1.7.0
       version: 1.7.0
-    gsap:
-      specifier: ^3.15.0
-      version: 3.15.0
     happy-dom:
       specifier: ^20.9.0
       version: 20.10.6
-    jsrepo:
-      specifier: ^3.7.0
-      version: 3.7.0
     lucide-vue-next:
       specifier: 1.0.0
       version: 1.0.0
-    motion-v:
-      specifier: ^1.10.3
-      version: 1.10.3
     nanoid:
       specifier: 6.0.1
       version: 6.0.1
-    ogl:
-      specifier: ^1.0.11
-      version: 1.0.11
-    oxc-minify:
-      specifier: ^0.128.0
-      version: 0.128.0
     pinia:
       specifier: ^3.0.4
       version: 3.0.4
@@ -138,9 +129,6 @@ catalogs:
     shadcn-vue:
       specifier: ^2.8.2
       version: 2.8.2
-    sharp:
-      specifier: ^0.35.4
-      version: 0.35.4
     shiki:
       specifier: 3.23.0
       version: 3.23.0
@@ -159,18 +147,12 @@ catalogs:
     tw-animate-css:
       specifier: ^1.4.0
       version: 1.4.0
-    typescript:
-      specifier: ^5
-      version: 5.9.3
     vite-plugin-vue-devtools:
       specifier: ^8.1.1
       version: 8.1.1
     vite-plus:
       specifier: 0.1.21
       version: 0.1.21
-    vitepress:
-      specifier: 2.0.0-alpha.17
-      version: 2.0.0-alpha.17
     vue:
       specifier: ^3.5.31
       version: 3.5.31
@@ -210,6 +192,12 @@ importers:
       '@devicefarmer/adbkit':
         specifier: ^3.3.8
         version: 3.3.8
+      '@fontsource-variable/ibm-plex-sans':
+        specifier: 'catalog:'
+        version: 5.3.0
+      '@fontsource/ibm-plex-mono':
+        specifier: 'catalog:'
+        version: 5.3.0
       '@internationalized/date':
         specifier: 'catalog:'
         version: 3.12.0
@@ -1118,6 +1106,12 @@ packages:
 
   '@floating-ui/vue@1.1.11':
     resolution: {integrity: sha512-HzHKCNVxnGS35r9fCHBc3+uCnjw9IWIlCPL683cGgM9Kgj2BiAl8x1mS7vtvP6F9S/e/q4O6MApwSHj8hNLGfw==}
+
+  '@fontsource-variable/ibm-plex-sans@5.3.0':
+    resolution: {integrity: sha512-agG8tXFEo0hD9+J7npa4vbbWult52eMLVaQ6WQRlhs/iCAojrMAoejru85W9HTVXHfyUj96KM7gp/KGAS87XaQ==}
+
+  '@fontsource/ibm-plex-mono@5.3.0':
+    resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
 
   '@hono/node-server@2.1.1':
     resolution: {integrity: sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg==}
@@ -6866,6 +6860,10 @@ snapshots:
     transitivePeerDependencies:
       - '@vue/composition-api'
       - vue
+
+  '@fontsource-variable/ibm-plex-sans@5.3.0': {}
+
+  '@fontsource/ibm-plex-mono@5.3.0': {}
 
   '@hono/node-server@2.1.1(hono@4.13.8)':
     dependencies:

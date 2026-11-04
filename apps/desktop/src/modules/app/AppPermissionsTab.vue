@@ -88,17 +88,17 @@ const installTimeOnly = computed(() => {
   <div class="min-h-0 overflow-hidden">
     <div class="flex h-9 items-center gap-3 border-b border-border/20 bg-surface-1 px-3">
       <div class="flex items-center gap-2 text-xs font-medium text-foreground/80">Permissions</div>
-      <div class="flex items-center gap-2 text-[10px] text-muted-foreground/55">
+      <div class="flex items-center gap-2 text-2xs text-muted-foreground/55">
         <span>{{ stats.total }} runtime</span>
-        <span class="text-emerald-400">{{ stats.granted }} granted</span>
-        <span class="text-red-400">{{ stats.denied }} denied</span>
-        <span class="text-amber-400">{{ stats.sensitive }} sensitive</span>
+        <span class="text-success">{{ stats.granted }} granted</span>
+        <span class="text-error">{{ stats.denied }} denied</span>
+        <span class="text-warning">{{ stats.sensitive }} sensitive</span>
       </div>
       <div class="ml-auto flex items-center gap-1">
         <button
           v-for="item in FILTERS"
           :key="item.key"
-          class="h-6 rounded px-2 text-[11px] transition-colors"
+          class="h-6 rounded px-2 text-2xs transition-colors"
           :class="
             filter === item.key
               ? 'bg-surface-3 text-foreground'
@@ -111,7 +111,7 @@ const installTimeOnly = computed(() => {
         <Button
           variant="ghost"
           size="sm"
-          class="h-7 gap-1.5 px-2 text-[11px]"
+          class="h-7 gap-1.5 px-2 text-2xs"
           :disabled="isLoading"
           @click="emit('refresh')"
         >
@@ -124,10 +124,10 @@ const installTimeOnly = computed(() => {
 
     <div
       v-if="error"
-      class="flex items-start gap-2 border-b border-red-500/20 bg-red-500/6 px-3 py-2 text-xs text-red-300"
+      class="flex items-start gap-2 border-b border-error/20 bg-error/6 px-3 py-2 text-xs text-error"
     >
       <AlertCircle class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <span class="font-mono text-[11px]">{{ error }}</span>
+      <span class="font-mono text-2xs">{{ error }}</span>
     </div>
 
     <div
@@ -158,7 +158,7 @@ const installTimeOnly = computed(() => {
       <table class="w-full table-fixed text-xs">
         <thead class="sticky top-0 z-10 bg-surface-2">
           <tr
-            class="border-b border-border/25 text-left text-[10px] uppercase text-muted-foreground/45"
+            class="border-b border-border/25 text-left text-2xs uppercase text-muted-foreground/45"
           >
             <th class="w-8 px-3 py-2" />
             <th class="w-[24%] px-3 py-2 font-medium">Name</th>
@@ -178,14 +178,14 @@ const installTimeOnly = computed(() => {
               <component
                 :is="permission.granted ? ShieldCheck : ShieldX"
                 class="h-3.5 w-3.5"
-                :class="permission.granted ? 'text-emerald-500' : 'text-red-500'"
+                :class="permission.granted ? 'text-success' : 'text-error'"
               />
             </td>
             <td class="truncate px-3 py-2 font-medium" :title="permission.shortName">
               {{ permission.shortName }}
             </td>
             <td
-              class="truncate px-3 py-2 font-mono text-[11px] text-muted-foreground/60"
+              class="truncate px-3 py-2 font-mono text-2xs text-muted-foreground/60"
               :title="permission.name"
             >
               {{ permission.name }}
@@ -196,13 +196,13 @@ const installTimeOnly = computed(() => {
             <td class="px-3 py-2">
               <Badge
                 variant="outline"
-                class="h-5 border-border/40 px-1.5 text-[10px]"
-                :class="permission.granted ? 'text-emerald-400' : 'text-red-400'"
+                class="h-5 border-border/40 px-1.5 text-2xs"
+                :class="permission.granted ? 'text-success' : 'text-error'"
               >
                 {{ permission.granted ? "Granted" : "Denied" }}
               </Badge>
             </td>
-            <td class="truncate px-3 py-2 font-mono text-[10px] text-muted-foreground/45">
+            <td class="truncate px-3 py-2 font-mono text-2xs text-muted-foreground/45">
               {{ permission.flags || "—" }}
             </td>
           </tr>
@@ -212,12 +212,12 @@ const installTimeOnly = computed(() => {
 
     <div v-if="installTimeOnly.length" class="border-t border-border/20 px-3 py-2">
       <div class="flex flex-wrap items-center gap-1.5">
-        <span class="mr-1 text-[10px] uppercase text-muted-foreground/40"> Install-time </span>
+        <span class="mr-1 text-2xs uppercase text-muted-foreground/40"> Install-time </span>
         <Badge
           v-for="name in installTimeOnly"
           :key="name"
           variant="outline"
-          class="max-w-full truncate border-border/35 font-mono text-[10px] text-muted-foreground/60"
+          class="max-w-full truncate border-border/35 font-mono text-2xs text-muted-foreground/60"
         >
           {{ name.replace("android.permission.", "") }}
         </Badge>

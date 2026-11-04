@@ -55,7 +55,7 @@ function idsTitle(change: ReplayTableChangeEntry) {
     >
       <div class="min-w-0">
         <div class="truncate text-xs font-medium text-foreground/80">{{ source.table }}</div>
-        <div class="truncate font-mono text-[10px] text-muted-foreground/40">
+        <div class="truncate font-mono text-2xs text-muted-foreground/40">
           {{ source.engine }} · {{ source.recordCount.toLocaleString() }} changes · no row content
           recorded
         </div>
@@ -64,7 +64,7 @@ function idsTitle(change: ReplayTableChangeEntry) {
         <span
           v-for="segment in segments"
           :key="segment.type"
-          class="flex items-center gap-1 font-mono text-[10px] text-muted-foreground/60"
+          class="flex items-center gap-1 font-mono text-2xs text-muted-foreground/60"
         >
           <span class="inline-block h-1.5 w-1.5 rounded-full" :class="segment.class" />
           {{ segment.count.toLocaleString() }} {{ segment.type }}
@@ -73,7 +73,7 @@ function idsTitle(change: ReplayTableChangeEntry) {
     </div>
 
     <div
-      class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1/40 px-3 text-[10px] text-muted-foreground/50"
+      class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1/40 px-3 text-2xs text-muted-foreground/50"
     >
       <GitCompare class="h-3 w-3" />
       <span>
@@ -93,11 +93,11 @@ function idsTitle(change: ReplayTableChangeEntry) {
           <button
             v-if="group.transactionId !== null"
             type="button"
-            class="mb-1.5 flex w-full items-center gap-2 rounded px-1 py-0.5 text-left font-mono text-[10px] text-muted-foreground/60 transition-colors hover:bg-surface-2 hover:text-foreground"
+            class="mb-1.5 flex w-full items-center gap-2 rounded px-1 py-0.5 text-left font-mono text-2xs text-muted-foreground/60 transition-colors hover:bg-surface-2 hover:text-foreground"
             :title="`Seek to ${group.tMs.toLocaleString()} ms`"
             @click="emit('seek', group.tMs)"
           >
-            <GitCommitHorizontal class="h-3 w-3 shrink-0 text-sky-300/80" />
+            <GitCommitHorizontal class="h-3 w-3 shrink-0 text-info/80" />
             <span class="truncate">tx {{ group.transactionId }}</span>
             <span class="ml-auto shrink-0">{{ group.changes.length }} changes</span>
           </button>
@@ -111,17 +111,17 @@ function idsTitle(change: ReplayTableChangeEntry) {
             :title="`Seek to ${change.tMs.toLocaleString()} ms`"
             @click="emit('seek', change.tMs)"
           >
-            <span class="w-20 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/50">
+            <span class="w-20 shrink-0 font-mono text-2xs tabular-nums text-muted-foreground/50">
               {{ change.tMs.toLocaleString() }} ms
             </span>
             <Badge
               variant="outline"
-              class="h-5 shrink-0 border px-1.5 font-mono text-[10px] uppercase tracking-wider"
+              class="h-5 shrink-0 border px-1.5 font-mono text-2xs uppercase tracking-wider"
               :class="tableChangeBadgeClass(change.type)"
             >
               {{ change.type }}
             </Badge>
-            <span class="w-16 shrink-0 font-mono text-[10px] text-muted-foreground/70">
+            <span class="w-16 shrink-0 font-mono text-2xs text-muted-foreground/70">
               {{ formatAffectedRows(change) }}
             </span>
             <span
@@ -132,18 +132,18 @@ function idsTitle(change: ReplayTableChangeEntry) {
                 <span
                   v-for="id in idsOf(change).shown"
                   :key="id"
-                  class="max-w-40 truncate rounded border border-border/30 bg-surface-3 px-1 font-mono text-[10px] text-foreground/80"
+                  class="max-w-40 truncate rounded border border-border/30 bg-surface-3 px-1 font-mono text-2xs text-foreground/80"
                 >
                   {{ id }}
                 </span>
                 <span
                   v-if="idsOf(change).hidden > 0"
-                  class="font-mono text-[10px] text-muted-foreground/50"
+                  class="font-mono text-2xs text-muted-foreground/50"
                 >
                   +{{ idsOf(change).hidden }} more
                 </span>
               </template>
-              <span v-else class="font-mono text-[10px] text-muted-foreground/40">
+              <span v-else class="font-mono text-2xs text-muted-foreground/40">
                 {{ change.affectedIds === null ? "ids not recorded" : "no ids" }}
               </span>
             </span>

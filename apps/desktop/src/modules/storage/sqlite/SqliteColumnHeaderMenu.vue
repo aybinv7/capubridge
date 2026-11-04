@@ -44,7 +44,7 @@ const emit = defineEmits<{
 
 <template>
   <DropdownMenuContent align="start" class="w-48 max-h-72 overflow-y-auto">
-    <DropdownMenuLabel class="text-[10px] uppercase tracking-wider">
+    <DropdownMenuLabel class="text-2xs uppercase tracking-wider">
       {{ header.column.columnDef.header ?? header.column.id }}
     </DropdownMenuLabel>
     <DropdownMenuSeparator />
@@ -114,7 +114,7 @@ const emit = defineEmits<{
           @click="emit('clearOverride', dbName, tableName, header.column.id)"
         >
           Auto
-          <span class="ml-auto pl-2 text-[10px] text-muted-foreground/50">
+          <span class="ml-auto pl-2 text-2xs text-muted-foreground/50">
             {{ detectedKind }}
           </span>
         </DropdownMenuItem>

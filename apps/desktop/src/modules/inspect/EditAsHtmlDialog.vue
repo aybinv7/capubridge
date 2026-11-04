@@ -40,7 +40,7 @@ function save() {
       <textarea
         v-model="draft"
         spellcheck="false"
-        class="w-full h-72 bg-surface-2 border border-border/40 rounded p-2 font-mono text-xs text-foreground/90 outline-none focus:border-blue-400/40"
+        class="w-full h-72 bg-surface-2 border border-border/40 rounded p-2 font-mono text-xs text-foreground/90 outline-none focus:border-info/40"
       />
       <div class="flex justify-end gap-2">
         <Button variant="ghost" size="sm" @click="close">Cancel</Button>

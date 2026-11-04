@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vite-plus/test";
-import { relativeLuminance, contrastRatio, classifyContrast } from "../contrast";
+import { relativeLuminance, contrastRatio, classifyContrast, toHex } from "../contrast";
 
 describe("relativeLuminance", () => {
   test("returns 1 for pure white", () => {
@@ -44,5 +44,21 @@ describe("classifyContrast", () => {
   test("AAA at 7:1 and above", () => {
     expect(classifyContrast(7)).toBe("AAA");
     expect(classifyContrast(15)).toBe("AAA");
+  });
+});
+
+describe("oklch parsing", () => {
+  test("pure white and black in oklch match hex", () => {
+    expect(relativeLuminance("oklch(1 0 0)")).toBeCloseTo(1, 3);
+    expect(relativeLuminance("oklch(0 0 0)")).toBeCloseTo(0, 3);
+  });
+  test("accepts percentage lightness and an alpha channel", () => {
+    expect(relativeLuminance("oklch(100% 0 0 / 0.5)")).toBeCloseTo(1, 3);
+  });
+  test("round-trips a saturated colour to the expected hex", () => {
+    expect(toHex("oklch(0.627955 0.257683 29.2339)")).toBe("#ff0000");
+  });
+  test("rejects unsupported syntax", () => {
+    expect(() => relativeLuminance("rgb(0 0 0)")).toThrow();
   });
 });

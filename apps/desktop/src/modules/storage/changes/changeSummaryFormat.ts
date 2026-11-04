@@ -12,9 +12,9 @@ export function hasSummaryChanges(summary: StorageChangeSummaryLike): boolean {
 
 export function getSummarySegments(summary: StorageChangeSummaryLike) {
   return [
-    { key: "add", count: summary.add, class: "bg-emerald-500" },
-    { key: "update", count: summary.update, class: "bg-amber-500" },
-    { key: "delete", count: summary.delete, class: "bg-red-500" },
+    { key: "add", count: summary.add, class: "bg-success" },
+    { key: "update", count: summary.update, class: "bg-warning" },
+    { key: "delete", count: summary.delete, class: "bg-error" },
   ].filter((entry) => entry.count > 0);
 }
 

@@ -43,11 +43,11 @@ function changeFor(record: Record<string, unknown>) {
 function rowClass(record: Record<string, unknown>) {
   switch (changeFor(record)?.operation) {
     case "add":
-      return "bg-emerald-500/10";
+      return "bg-success/10";
     case "update":
-      return "bg-amber-500/10";
+      return "bg-warning/10";
     case "delete":
-      return "bg-red-500/10 opacity-70";
+      return "bg-error/10 opacity-70";
     default:
       return "hover:bg-surface-2/70";
   }
@@ -69,7 +69,7 @@ function rowClass(record: Record<string, unknown>) {
       No rows captured
     </div>
     <table v-else class="min-w-full border-collapse text-left text-xs">
-      <thead class="sticky top-0 z-10 bg-surface-1 text-[10px] uppercase text-muted-foreground/50">
+      <thead class="sticky top-0 z-10 bg-surface-1 text-2xs uppercase text-muted-foreground/50">
         <tr>
           <th
             v-for="column in columns"
@@ -101,7 +101,7 @@ function rowClass(record: Record<string, unknown>) {
               <button
                 v-if="changeFor(record)"
                 type="button"
-                class="flex size-7 items-center justify-center rounded-md text-amber-300/70 hover:bg-amber-500/15 hover:text-amber-200"
+                class="flex size-7 items-center justify-center rounded-md text-warning/70 hover:bg-warning/15 hover:text-warning"
                 aria-label="View row change"
                 @click="emit('openRowDiff', rowKeyResolver(record))"
               >

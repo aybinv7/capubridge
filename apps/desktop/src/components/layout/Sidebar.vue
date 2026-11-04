@@ -57,7 +57,7 @@ function isActive(path: string) {
                   </span>
                   <span
                     v-if="feature.maturity !== 'stable'"
-                    class="group-data-[collapsible=icon]:hidden rounded-full border border-border/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/65"
+                    class="group-data-[collapsible=icon]:hidden rounded-full border border-border/40 px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground/65"
                   >
                     {{ feature.maturity }}
                   </span>

@@ -149,14 +149,12 @@ function saveNode() {
         </div>
 
         <div class="space-y-2">
-          <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
-            >Name</label
-          >
+          <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35">Name</label>
           <Input v-model="clusterName" class="h-10 rounded-xl text-sm" />
         </div>
 
         <div class="space-y-2">
-          <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+          <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
             >Description</label
           >
           <Textarea
@@ -182,7 +180,7 @@ function saveNode() {
 
         <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
               >Members</label
             >
             <Badge variant="outline">{{ selectedCluster.memberIds.length }}</Badge>
@@ -240,14 +238,14 @@ function saveNode() {
 
         <template v-if="isNoteNode">
           <div class="space-y-2">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
               >Title</label
             >
             <Input v-model="noteTitle" class="h-10 rounded-xl text-sm" placeholder="Note title" />
           </div>
 
           <div class="space-y-2">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
               >Body</label
             >
             <Textarea
@@ -258,7 +256,7 @@ function saveNode() {
           </div>
 
           <div class="space-y-2">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
               >Accent</label
             >
             <input
@@ -307,7 +305,7 @@ function saveNode() {
 
           <div class="space-y-2">
             <div class="flex items-center justify-between">
-              <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+              <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
                 >Field map</label
               >
               <Badge variant="outline" class="gap-1 rounded-full">
@@ -326,7 +324,7 @@ function saveNode() {
 
           <div v-if="relatedTables.length > 0" class="space-y-2">
             <div class="flex items-center justify-between">
-              <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+              <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
                 >Related tables</label
               >
               <Badge variant="outline">{{ relatedTables.length }}</Badge>
@@ -342,10 +340,10 @@ function saveNode() {
                 <span class="truncate text-xs font-medium text-foreground/85">
                   {{ relation.title }}
                 </span>
-                <Badge variant="outline" class="shrink-0 text-[9px]">{{ relation.kind }}</Badge>
+                <Badge variant="outline" class="shrink-0 text-2xs">{{ relation.kind }}</Badge>
               </div>
               <div
-                class="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground/55"
+                class="mt-1.5 flex items-center gap-1.5 font-mono text-2xs text-muted-foreground/55"
               >
                 <span>{{ relation.sourceFieldName || "table" }}</span>
                 <ArrowRight :size="11" />
@@ -385,7 +383,7 @@ function saveNode() {
 
           <div class="grid grid-cols-2 gap-2 px-4 py-4">
             <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
-              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
+              <div class="text-2xs uppercase tracking-[0.16em] text-muted-foreground/35">
                 Confidence
               </div>
               <div class="pt-2 text-sm font-semibold text-foreground">
@@ -393,9 +391,7 @@ function saveNode() {
               </div>
             </div>
             <div class="rounded-2xl border border-border/15 bg-surface-1 px-3 py-3">
-              <div class="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/35">
-                Type
-              </div>
+              <div class="text-2xs uppercase tracking-[0.16em] text-muted-foreground/35">Type</div>
               <div class="pt-2 text-sm font-semibold text-foreground">
                 {{ selectedEdge.kind }}
               </div>
@@ -404,9 +400,7 @@ function saveNode() {
         </div>
 
         <div class="space-y-2">
-          <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
-            >Label</label
-          >
+          <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35">Label</label>
           <Input v-model="edgeLabel" class="h-10 rounded-xl text-sm" placeholder="Link label" />
         </div>
 
@@ -450,7 +444,7 @@ function saveNode() {
         </DialogHeader>
         <div class="flex flex-col gap-4 py-2">
           <div class="flex flex-col gap-2">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
               >Alias</label
             >
             <Input
@@ -460,7 +454,7 @@ function saveNode() {
             />
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/35"
+            <label class="text-2xs uppercase tracking-[0.18em] text-muted-foreground/35"
               >Attached note</label
             >
             <Textarea

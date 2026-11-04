@@ -139,7 +139,7 @@ function entryBadge(
 
 function badgeClass(tone: "sqlite" | "journal" | "opaque" | "neutral"): string {
   if (tone === "sqlite") return "bg-info/10 text-info border-info/20";
-  if (tone === "journal") return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+  if (tone === "journal") return "bg-warning/10 text-warning border-warning/20";
   if (tone === "opaque") return "bg-violet-500/10 text-violet-300 border-violet-500/20";
   return "bg-surface-3 text-muted-foreground/60 border-border/30";
 }
@@ -228,14 +228,14 @@ async function deleteEntry(name: string) {
         <Button
           variant="ghost"
           size="sm"
-          class="h-6 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
+          class="h-6 px-2 text-2xs text-muted-foreground/60 hover:text-foreground"
           :disabled="!currentPath"
           @click="goUp"
         >
           <ChevronLeft :size="12" /> Up
         </Button>
 
-        <div class="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50">
+        <div class="flex items-center gap-1 text-2xs font-mono text-muted-foreground/50">
           <button class="hover:text-foreground transition-colors" @click="goRoot">opfs:/</button>
           <template v-for="(part, idx) in breadcrumbs" :key="idx">
             <span class="text-muted-foreground/25">/</span>
@@ -250,7 +250,7 @@ async function deleteEntry(name: string) {
             v-if="isSahPoolHere"
             variant="ghost"
             size="sm"
-            class="h-6 px-2 text-[11px]"
+            class="h-6 px-2 text-2xs"
             :class="view === 'raw' ? 'text-foreground bg-surface-3' : 'text-muted-foreground/60'"
             @click="view = 'raw'"
           >
@@ -260,7 +260,7 @@ async function deleteEntry(name: string) {
             v-if="isSahPoolHere"
             variant="ghost"
             size="sm"
-            class="h-6 px-2 text-[11px]"
+            class="h-6 px-2 text-2xs"
             :class="
               view === 'decoded' ? 'text-foreground bg-surface-3' : 'text-muted-foreground/60'
             "
@@ -271,7 +271,7 @@ async function deleteEntry(name: string) {
           <Button
             variant="ghost"
             size="sm"
-            class="h-6 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
+            class="h-6 px-2 text-2xs text-muted-foreground/60 hover:text-foreground"
             @click="void refetch()"
           >
             <RefreshCw :size="12" />
@@ -283,20 +283,20 @@ async function deleteEntry(name: string) {
         v-if="techHints.length"
         class="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/20 bg-surface-0/60 px-3 py-2"
       >
-        <span class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+        <span class="text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40">
           Detected
         </span>
         <Tooltip v-for="hint in techHints" :key="hint.id">
           <TooltipTrigger as-child>
             <span
-              class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-mono cursor-default"
+              class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-2xs font-mono cursor-default"
               :class="confidenceClass(hint.confidence)"
             >
               <Info :size="10" />
               {{ hint.label }}
             </span>
           </TooltipTrigger>
-          <TooltipContent side="bottom" class="max-w-sm text-[11px]">
+          <TooltipContent side="bottom" class="max-w-sm text-2xs">
             <div class="space-y-1">
               <div class="font-medium">{{ hint.label }}</div>
               <div v-if="hint.packageName" class="font-mono text-muted-foreground/70">
@@ -304,7 +304,7 @@ async function deleteEntry(name: string) {
               </div>
               <p class="text-muted-foreground/80">{{ hint.description }}</p>
               <div v-if="hint.evidence.length" class="pt-1">
-                <div class="text-[9px] uppercase tracking-wider text-muted-foreground/40">
+                <div class="text-2xs uppercase tracking-wider text-muted-foreground/40">
                   Evidence
                 </div>
                 <ul class="list-inside list-disc text-muted-foreground/70">
@@ -340,12 +340,12 @@ async function deleteEntry(name: string) {
                 class="flex flex-col items-center justify-center px-3 py-8 text-center"
               >
                 <HardDrive :size="16" class="mb-2 text-muted-foreground/30" />
-                <p class="text-[11px] text-muted-foreground/40">Failed to load OPFS</p>
+                <p class="text-2xs text-muted-foreground/40">Failed to load OPFS</p>
               </div>
 
               <div
                 v-else-if="!filtered.length"
-                class="px-3 py-8 text-center text-[11px] text-muted-foreground/40"
+                class="px-3 py-8 text-center text-2xs text-muted-foreground/40"
               >
                 Empty directory
               </div>
@@ -368,7 +368,7 @@ async function deleteEntry(name: string) {
                 >
                   <component :is="getFileIcon(entry)" class="h-3.5 w-3.5 shrink-0 opacity-50" />
                   <span class="truncate text-left font-mono">{{ entry.name }}</span>
-                  <span class="ml-auto text-[10px] font-mono text-muted-foreground/30">{{
+                  <span class="ml-auto text-2xs font-mono text-muted-foreground/30">{{
                     formatSize(entry.size)
                   }}</span>
                 </button>
@@ -388,21 +388,21 @@ async function deleteEntry(name: string) {
             <template v-if="view === 'decoded' && isSahPoolHere">
               <div v-if="sahPoolLoading" class="flex items-center justify-center py-12">
                 <RefreshCw :size="14" class="animate-spin text-muted-foreground/40" />
-                <span class="ml-2 text-[11px] text-muted-foreground/50"
+                <span class="ml-2 text-2xs text-muted-foreground/50"
                   >Decoding SAH-Pool headers…</span
                 >
               </div>
 
               <div
                 v-else-if="sahPoolError"
-                class="flex flex-col items-center justify-center px-3 py-12 text-center text-[11px] text-error/80"
+                class="flex flex-col items-center justify-center px-3 py-12 text-center text-2xs text-error/80"
               >
                 Failed to decode SAH-Pool. The directory may not be in pool format.
               </div>
 
               <div
                 v-else-if="!filteredSahPool.length"
-                class="flex flex-col items-center justify-center px-3 py-12 text-center text-[11px] text-muted-foreground/50"
+                class="flex flex-col items-center justify-center px-3 py-12 text-center text-2xs text-muted-foreground/50"
               >
                 No live databases inside this pool (all slots empty).
               </div>
@@ -491,7 +491,7 @@ async function deleteEntry(name: string) {
                         <Badge
                           v-if="entryBadge(entry)"
                           variant="outline"
-                          class="ml-1 h-4 border px-1.5 text-[9px] font-mono uppercase tracking-wider"
+                          class="ml-1 h-4 border px-1.5 text-2xs font-mono uppercase tracking-wider"
                           :class="badgeClass(entryBadgeTone(entry))"
                         >
                           {{ entryBadgeLabel(entry) }}

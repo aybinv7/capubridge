@@ -66,7 +66,7 @@ const facts = computed(() => {
       <div class="max-w-2xl rounded-2xl border border-border/40 bg-surface-2 px-6 py-5">
         <div
           class="flex items-center gap-2 text-sm font-medium"
-          :class="status === 'error' || isBlocked ? 'text-amber-400' : 'text-foreground'"
+          :class="status === 'error' || isBlocked ? 'text-warning' : 'text-foreground'"
         >
           <AlertTriangle v-if="status === 'error' || isBlocked" :size="15" />
           {{ capability?.title ?? statusLabel }}
@@ -79,7 +79,7 @@ const facts = computed(() => {
         <p v-if="capability?.hint" class="mt-3 text-sm leading-6 text-foreground/85">
           {{ capability.hint }}
         </p>
-        <p v-if="errorMessage" class="mt-3 text-sm text-red-400">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="mt-3 text-sm text-error">{{ errorMessage }}</p>
 
         <div
           v-if="facts.length"

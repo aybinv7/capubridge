@@ -67,21 +67,21 @@ const pageSizeOptions = [50, 100, 500];
         <Badge
           v-if="props.changeSummary.add"
           variant="outline"
-          class="h-5 border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[10px] text-emerald-400"
+          class="h-5 border-success/30 bg-success/10 px-1.5 text-2xs text-success"
         >
           +{{ props.changeSummary.add }}
         </Badge>
         <Badge
           v-if="props.changeSummary.update"
           variant="outline"
-          class="h-5 border-amber-500/30 bg-amber-500/10 px-1.5 text-[10px] text-amber-400"
+          class="h-5 border-warning/30 bg-warning/10 px-1.5 text-2xs text-warning"
         >
           ~{{ props.changeSummary.update }}
         </Badge>
         <Badge
           v-if="props.changeSummary.delete"
           variant="outline"
-          class="h-5 border-red-500/30 bg-red-500/10 px-1.5 text-[10px] text-red-400"
+          class="h-5 border-error/30 bg-error/10 px-1.5 text-2xs text-error"
         >
           -{{ props.changeSummary.delete }}
         </Badge>

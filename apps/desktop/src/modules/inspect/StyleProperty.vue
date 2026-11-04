@@ -114,7 +114,7 @@ function toggleDisabled() {
       class="w-3 h-3 mr-1 shrink-0 self-center border rounded-[2px] flex items-center justify-center transition-opacity"
       :class="
         disabled
-          ? 'opacity-100 border-blue-400/60 bg-blue-500/20'
+          ? 'opacity-100 border-info/60 bg-info/20'
           : 'opacity-0 group-hover:opacity-100 border-muted-foreground/40 bg-transparent hover:border-muted-foreground/70'
       "
       :title="disabled ? 'Enable property' : 'Disable property'"
@@ -122,7 +122,7 @@ function toggleDisabled() {
     >
       <svg
         v-if="!disabled"
-        class="w-2.5 h-2.5 text-blue-400"
+        class="w-2.5 h-2.5 text-info"
         viewBox="0 0 12 12"
         fill="none"
         stroke="currentColor"
@@ -137,7 +137,7 @@ function toggleDisabled() {
       v-if="editingName"
       ref="nameInput"
       v-model="nameDraft"
-      class="text-[11px] font-mono bg-surface-3 text-blue-300 outline-none px-0.5 rounded-sm border border-blue-400/40 min-w-0"
+      class="text-2xs font-mono bg-surface-3 text-info outline-none px-0.5 rounded-sm border border-info/40 min-w-0"
       :style="{ width: `${Math.max(nameDraft.length, 4) + 1}ch` }"
       @blur="commitName"
       @keydown.enter.prevent="commitName"
@@ -149,9 +149,9 @@ function toggleDisabled() {
     />
     <span
       v-else
-      class="text-[11px] font-mono cursor-text shrink-0"
+      class="text-2xs font-mono cursor-text shrink-0"
       :class="[
-        disabled ? 'text-muted-foreground/40 line-through' : 'text-blue-400',
+        disabled ? 'text-muted-foreground/40 line-through' : 'text-info',
         editable ? 'hover:bg-surface-3 rounded-sm px-0.5' : 'px-0.5',
       ]"
       @click.stop="startEditName"
@@ -166,21 +166,21 @@ function toggleDisabled() {
       v-if="editingValue"
       ref="valueInput"
       v-model="valueDraft"
-      class="text-[11px] font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 rounded-sm border border-blue-400/40 flex-1 min-w-0"
+      class="text-2xs font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 rounded-sm border border-info/40 flex-1 min-w-0"
       @blur="commitValue"
       @keydown.enter.prevent="commitValue"
       @keydown.escape.prevent="cancelValue"
     />
     <span
       v-else
-      class="text-[11px] font-mono break-all cursor-text"
+      class="text-2xs font-mono break-all cursor-text"
       :class="[
         disabled ? 'text-muted-foreground/40 line-through' : 'text-foreground/85',
         editable ? 'hover:bg-surface-3 rounded-sm px-0.5' : 'px-0.5',
       ]"
       @click.stop="startEditValue"
     >
-      {{ property.value }}<span v-if="important" class="text-red-400">&nbsp;!important</span>
+      {{ property.value }}<span v-if="important" class="text-error">&nbsp;!important</span>
     </span>
 
     <span class="text-muted-foreground" :class="{ 'opacity-40': disabled }">;</span>

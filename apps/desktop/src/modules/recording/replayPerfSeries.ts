@@ -123,17 +123,17 @@ export function createStats(series: SeriesPoint[], key: string): SeriesStats {
 
 export function levelColor(pct: number | null): string {
   if (pct == null) return "text-muted-foreground";
-  return pct >= 80 ? "text-red-500" : pct >= 60 ? "text-amber-500" : "text-emerald-500";
+  return pct >= 80 ? "text-error" : pct >= 60 ? "text-warning" : "text-success";
 }
 
 export function batteryTextColor(level: number | null): string {
   if (level == null) return "text-muted-foreground";
-  return level < 20 ? "text-red-500" : level < 40 ? "text-amber-500" : "text-emerald-500";
+  return level < 20 ? "text-error" : level < 40 ? "text-warning" : "text-success";
 }
 
 export function batteryBarColor(level: number | null): string {
   if (level == null) return "bg-muted-foreground/30";
-  return level < 20 ? "bg-red-500" : level < 40 ? "bg-amber-500" : "bg-emerald-500";
+  return level < 20 ? "bg-error" : level < 40 ? "bg-warning" : "bg-success";
 }
 
 export function batteryStateLabel(charging: boolean | null): string {

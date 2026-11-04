@@ -81,7 +81,7 @@ function handleOpen() {
         </DialogTitle>
       </DialogHeader>
 
-      <p class="text-[11px] text-muted-foreground/60 -mt-1">
+      <p class="text-2xs text-muted-foreground/60 -mt-1">
         Forwards a device TCP port to a local port on this machine.
         <span class="font-mono text-muted-foreground/50">adb reverse tcp:device tcp:local</span>
       </p>
@@ -89,26 +89,26 @@ function handleOpen() {
       <!-- Add rule -->
       <div class="flex items-center gap-1.5 mt-1">
         <div class="flex flex-col gap-0.5 flex-1">
-          <label class="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wide"
+          <label class="text-2xs text-muted-foreground/50 font-medium uppercase tracking-wide"
             >Device</label
           >
           <input
             v-model.number="remoteInput"
             type="number"
             placeholder="3000"
-            class="h-7 w-full bg-surface-2 border border-border/40 rounded-md px-2 text-[12px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            class="h-7 w-full bg-surface-2 border border-border/40 rounded-md px-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         </div>
         <ArrowLeftRight :size="12" class="text-muted-foreground/30 mt-4 shrink-0" />
         <div class="flex flex-col gap-0.5 flex-1">
-          <label class="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wide"
+          <label class="text-2xs text-muted-foreground/50 font-medium uppercase tracking-wide"
             >Local</label
           >
           <input
             v-model.number="localInput"
             type="number"
             placeholder="3000"
-            class="h-7 w-full bg-surface-2 border border-border/40 rounded-md px-2 text-[12px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
+            class="h-7 w-full bg-surface-2 border border-border/40 rounded-md px-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/30"
           />
         </div>
         <button
@@ -127,9 +127,7 @@ function handleOpen() {
       </div>
 
       <div v-else-if="rules.length" class="flex flex-col gap-1 mt-1">
-        <div
-          class="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-wide mb-0.5"
-        >
+        <div class="text-2xs text-muted-foreground/40 font-medium uppercase tracking-wide mb-0.5">
           Active rules
         </div>
         <div
@@ -137,7 +135,7 @@ function handleOpen() {
           :key="rule.remotePort"
           class="flex items-center gap-2 px-2.5 py-1.5 bg-surface-2 border border-border/30 rounded-md"
         >
-          <span class="font-mono text-[11px] text-muted-foreground/70 flex-1">
+          <span class="font-mono text-2xs text-muted-foreground/70 flex-1">
             tcp:{{ rule.remotePort }}
             <span class="text-muted-foreground/30 mx-1">→</span>
             tcp:{{ rule.localPort }}
@@ -151,7 +149,7 @@ function handleOpen() {
         </div>
       </div>
 
-      <p v-else class="text-[11px] text-muted-foreground/30 text-center py-2 mt-1">
+      <p v-else class="text-2xs text-muted-foreground/30 text-center py-2 mt-1">
         No active reverse rules
       </p>
     </DialogContent>

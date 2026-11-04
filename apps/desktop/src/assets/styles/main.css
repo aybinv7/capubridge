@@ -1,3 +1,6 @@
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -15,39 +18,70 @@
  * --------------------------------------------------------------------- */
 
 :root {
-  /* New Layer-B vars start with safe fallbacks so SSR/static rendering
-     before applyTheme() runs doesn't show a flash of unstyled content. */
-  --bg-app: #0e0e10;
-  --bg-chrome: #0e0e10;
-  --bg-surface: #121214;
-  --bg-surface-raised: #1c1c20;
-  --bg-overlay: rgba(8, 8, 10, 0.72);
+  /* Fallbacks equal bench-dark so the first paint before applyTheme() matches. */
+  --bg-app: oklch(0.165 0.005 95);
+  --bg-chrome: oklch(0.165 0.005 95);
+  --bg-surface: oklch(0.195 0.006 95);
+  --bg-surface-raised: oklch(0.235 0.007 95);
+  --bg-surface-cut: oklch(0.175 0.006 95);
+  --bg-overlay: oklch(0.1 0.004 95 / 0.72);
 
-  --fg-default: #f2efe9;
-  --fg-muted: #a8a59c;
-  --fg-subtle: #6f6c63;
-  --fg-on-accent: #ffffff;
+  --fg-default: oklch(0.935 0.008 95);
+  --fg-muted: oklch(0.74 0.01 95);
+  --fg-subtle: oklch(0.62 0.01 95);
+  --fg-on-accent: var(--bg-app);
 
-  --border-default: #2a2a2f;
-  --border-strong: #3a3a40;
-  --border-subtle: #1f1f23;
+  --border-default: oklch(0.28 0.006 95);
+  --border-strong: oklch(0.52 0.008 95);
+  --border-subtle: oklch(0.235 0.006 95);
 
-  --accent: #e8765a;
-  --accent-hover: #ef8367;
-  --accent-soft: #2a1d17;
-  --ring: var(--accent);
+  --signal-live: oklch(0.89 0.19 122);
+  --signal-rec: oklch(0.68 0.21 27);
+  --signal-select: oklch(0.8 0.115 222);
+  --signal-mark: oklch(0.86 0.13 85);
 
-  /* Brand button fallbacks (codex-dark + coral). applyTheme() overrides these
-     with the AA-optimal step/ink for the active theme × accent. */
-  --brand: #e8765a;
-  --brand-foreground: #0e0e10;
-  --brand-hover: #f08c70;
+  --cat-network: oklch(0.79 0.12 215);
+  --cat-storage: oklch(0.78 0.13 300);
+  --cat-device: oklch(0.8 0.1 180);
+  --cat-console: oklch(0.84 0.11 95);
+  --cat-agent: oklch(0.78 0.14 345);
 
-  --state-success: #4fb06a;
-  --state-warning: #e0a528;
-  --state-danger: #d75a4a;
-  --state-info: #6c9be0;
+  --highlight: oklch(1 0 0);
 
+  --accent: var(--signal-select);
+  --accent-hover: var(--signal-select);
+  --accent-soft: color-mix(in oklab, var(--signal-select) 16%, var(--bg-surface));
+  --ring: var(--signal-select);
+
+  --brand: var(--fg-default);
+  --brand-foreground: var(--bg-app);
+  --brand-hover: color-mix(in oklab, var(--fg-default) 86%, var(--bg-app));
+
+  --state-success: oklch(0.8 0.14 160);
+  --state-warning: oklch(0.82 0.15 72);
+  --state-danger: oklch(0.7 0.19 22);
+  --state-info: oklch(0.78 0.11 245);
+
+  --bevel:
+    inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 7%, transparent),
+    inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 4%, transparent);
+  --bevel-strong:
+    inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 14%, transparent),
+    inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 8%, transparent);
+  --cut:
+    inset 1px 1px 0 0 oklch(0 0 0 / 0.35),
+    inset 0 0 0 1px color-mix(in oklab, var(--highlight) 5%, transparent);
+  --shadow-float: 0 24px 64px -12px oklch(0 0 0 / 0.55);
+}
+
+[data-theme-mode="light"] {
+  --bevel: inset 0 0 0 1px var(--border-default), inset 1px 1.5px 0 0 oklch(1 0 0 / 0.75);
+  --bevel-strong: inset 0 0 0 1px var(--border-strong), inset 1px 1.5px 0 0 oklch(1 0 0 / 0.85);
+  --cut: inset 1px 1px 0 0 oklch(0 0 0 / 0.08), inset 0 0 0 1px oklch(0 0 0 / 0.05);
+  --shadow-float: 0 24px 64px -16px oklch(0.25 0.01 95 / 0.28);
+}
+
+:root {
   /* Legacy aliases — components currently read these. */
   --background: var(--bg-app);
   --foreground: var(--fg-default);
@@ -85,11 +119,10 @@
   --sidebar-border: var(--border-subtle);
   --sidebar-ring: var(--accent);
 
-  /* Typography + radii (unchanged from before). */
-  --font-sans: "Geist", ui-sans-serif, sans-serif, system-ui;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --font-serif: ui-serif, serif;
-  --radius: 0.625rem;
+  --radius: 0.375rem;
 
   /* Shadows (unchanged). */
   --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.2);
@@ -162,6 +195,20 @@
   --color-sidebar-accent-foreground: var(--fg-default);
   --color-sidebar-border: var(--border-subtle);
   --color-sidebar-ring: var(--accent);
+  --color-surface-cut: var(--bg-surface-cut);
+  --color-signal-live: var(--signal-live);
+  --color-signal-rec: var(--signal-rec);
+  --color-signal-select: var(--signal-select);
+  --color-signal-mark: var(--signal-mark);
+  --color-cat-network: var(--cat-network);
+  --color-cat-storage: var(--cat-storage);
+  --color-cat-device: var(--cat-device);
+  --color-cat-console: var(--cat-console);
+  --color-cat-agent: var(--cat-agent);
+  --shadow-bevel: var(--bevel);
+  --shadow-bevel-strong: var(--bevel-strong);
+  --shadow-cut: var(--cut);
+  --shadow-float: var(--shadow-float);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
@@ -177,10 +224,22 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
-  --text-2xs: 0.625rem;
-  --text-2xs--line-height: 0.875rem;
-  --text-3xs: 0.5625rem;
-  --text-3xs--line-height: 0.8125rem;
+  --text-3xs: 0.6875rem;
+  --text-3xs--line-height: 1rem;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.125rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.25rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.375rem;
+  --text-xl: 1.125rem;
+  --text-xl--line-height: 1.5rem;
+  --text-2xl: 1.375rem;
+  --text-2xl--line-height: 1.75rem;
 }
 
 @layer base {
@@ -190,7 +249,6 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     user-select: none;
@@ -211,6 +269,14 @@
   }
   ::-webkit-scrollbar-corner {
     background: transparent;
+  }
+
+  .font-mono,
+  code,
+  kbd,
+  samp,
+  pre {
+    font-variant-numeric: tabular-nums;
   }
 }
 

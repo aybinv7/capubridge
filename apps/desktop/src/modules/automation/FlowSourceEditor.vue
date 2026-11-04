@@ -141,7 +141,7 @@ watch(
       v-if="dslCompletions.length > 0"
       class="max-h-28 overflow-auto rounded-md border border-border/40 bg-surface-1 p-2"
     >
-      <div class="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
+      <div class="mb-1 flex items-center justify-between text-2xs text-muted-foreground">
         <span>Suggestions</span>
         <span>Tab to insert · ↑↓ to choose</span>
       </div>
@@ -151,13 +151,13 @@ watch(
           :key="`${completion.label}-${index}`"
           size="sm"
           variant="ghost"
-          class="h-7 max-w-full justify-start px-2 font-mono text-[11px]"
+          class="h-7 max-w-full justify-start px-2 font-mono text-2xs"
           :class="index === dslCompletionIndex ? 'bg-accent' : ''"
           @mousedown.prevent
           @click="applyDslCompletion(completion)"
         >
           <span class="max-w-56 truncate">{{ completion.label }}</span>
-          <span class="ml-2 max-w-56 truncate text-[10px] text-muted-foreground">
+          <span class="ml-2 max-w-56 truncate text-2xs text-muted-foreground">
             {{ completion.detail }}
           </span>
         </Button>
@@ -188,7 +188,7 @@ watch(
         :title="candidate.label"
         @click="insertDslCandidate(candidate)"
       >
-        <span class="mr-1 text-[10px] uppercase text-muted-foreground">{{ candidate.source }}</span>
+        <span class="mr-1 text-2xs uppercase text-muted-foreground">{{ candidate.source }}</span>
         <span class="max-w-52 truncate">{{ candidate.label }}</span>
       </Button>
     </div>
@@ -201,7 +201,7 @@ watch(
         :key="command"
         size="sm"
         variant="ghost"
-        class="h-7 px-2 font-mono text-[11px]"
+        class="h-7 px-2 font-mono text-2xs"
         @click="insertDslCommand(command)"
       >
         {{ command.split(" ")[0] }}

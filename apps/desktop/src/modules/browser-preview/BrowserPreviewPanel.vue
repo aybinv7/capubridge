@@ -30,7 +30,7 @@ const primaryPresets = computed(() => BROWSER_PREVIEW_PORT_PRESETS.slice(0, 6));
 
     <div
       v-if="notice"
-      class="flex h-7 shrink-0 items-center gap-2 border-b border-amber-500/15 bg-amber-500/8 px-3 text-[11px] text-amber-300/90"
+      class="flex h-7 shrink-0 items-center gap-2 border-b border-warning/15 bg-warning/8 px-3 text-2xs text-warning/90"
     >
       <AlertTriangle class="h-3.5 w-3.5 shrink-0" />
       <span class="truncate">{{ notice }}</span>
@@ -38,9 +38,9 @@ const primaryPresets = computed(() => BROWSER_PREVIEW_PORT_PRESETS.slice(0, 6));
 
     <div
       v-if="showEmbedHint"
-      class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1 px-3 text-[11px] text-muted-foreground/60"
+      class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1 px-3 text-2xs text-muted-foreground/60"
     >
-      <AlertTriangle class="h-3.5 w-3.5 shrink-0 text-amber-300/80" />
+      <AlertTriangle class="h-3.5 w-3.5 shrink-0 text-warning/80" />
       <span class="truncate">External pages can block iframe embedding.</span>
     </div>
 
@@ -77,7 +77,7 @@ const primaryPresets = computed(() => BROWSER_PREVIEW_PORT_PRESETS.slice(0, 6));
             @click="store.openPortPreset(preset)"
           >
             {{ preset.label }}
-            <Badge variant="outline" class="border-border/30 px-1.5 py-0 font-mono text-[10px]">
+            <Badge variant="outline" class="border-border/30 px-1.5 py-0 font-mono text-2xs">
               :{{ preset.port }}
             </Badge>
           </Button>

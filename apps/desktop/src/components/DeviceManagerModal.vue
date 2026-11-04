@@ -536,11 +536,11 @@ watch(
           <div class="w-[196px] border-r border-border/20 flex flex-col shrink-0 bg-surface-0/60">
             <div class="px-3 pt-4 pb-2 flex items-center gap-2">
               <span
-                class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                class="text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
               >
                 Devices
               </span>
-              <span class="ml-auto text-[10px] font-mono text-muted-foreground/30">
+              <span class="ml-auto text-2xs font-mono text-muted-foreground/30">
                 {{ devicesStore.onlineDevices.length + 1 }}/{{ devicesStore.devices.length + 1 }}
               </span>
               <button
@@ -578,11 +578,11 @@ watch(
                   <div class="flex items-start gap-3">
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2 mb-0.5">
-                        <span class="text-[15px] font-semibold text-foreground">
+                        <span class="text-base font-semibold text-foreground">
                           {{ selectedDevice.model || selectedDevice.serial }}
                         </span>
                         <span
-                          class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                          class="text-2xs px-1.5 py-0.5 rounded-full font-medium"
                           :class="
                             selectedDevice.status === 'online'
                               ? 'bg-success/10 text-success border border-success/20'
@@ -593,7 +593,7 @@ watch(
                         </span>
                       </div>
                       <div
-                        class="flex items-center gap-2 text-[11px] text-muted-foreground/40 font-mono"
+                        class="flex items-center gap-2 text-2xs text-muted-foreground/40 font-mono"
                       >
                         <span>{{ selectedDevice.serial }}</span>
                         <template v-if="selectedDeviceInfo">
@@ -615,7 +615,7 @@ watch(
                         v-if="isUsb"
                         @click="handleWifiDebug"
                         :disabled="isWifiConnecting"
-                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/25 bg-surface-2 hover:border-border/45 hover:bg-surface-3 transition-colors text-[11px] text-muted-foreground/60 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/25 bg-surface-2 hover:border-border/45 hover:bg-surface-3 transition-colors text-2xs text-muted-foreground/60 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
                         title="Switch to WiFi debugging"
                       >
                         <Loader2 v-if="isWifiConnecting" :size="11" class="animate-spin" />
@@ -625,7 +625,7 @@ watch(
                       <AdbReversePopover :serial="selectedDevice.serial" />
                       <button
                         @click="handleDisconnectDevice"
-                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/25 bg-surface-2 hover:border-error/30 hover:bg-error/10 hover:text-error transition-colors text-[11px] text-muted-foreground/50"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/25 bg-surface-2 hover:border-error/30 hover:bg-error/10 hover:text-error transition-colors text-2xs text-muted-foreground/50"
                         title="Disconnect device"
                       >
                         <WifiOff v-if="selectedDevice.connectionType !== 'usb'" :size="11" />
@@ -641,12 +641,12 @@ watch(
                   <div>
                     <div class="flex items-center justify-between mb-2">
                       <span
-                        class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                        class="text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                       >
                         Targets
                       </span>
                       <button
-                        class="flex items-center gap-1 text-[10px] transition-colors"
+                        class="flex items-center gap-1 text-2xs transition-colors"
                         :class="
                           scanningTargets || isFetchingTargets
                             ? 'text-muted-foreground/20 cursor-not-allowed'
@@ -698,10 +698,10 @@ watch(
                             <Globe :size="14" />
                           </div>
                           <div class="min-w-0 flex-1">
-                            <div class="truncate text-[12px] font-medium text-foreground/85">
+                            <div class="truncate text-xs font-medium text-foreground/85">
                               {{ group.packageName }}
                             </div>
-                            <div class="mt-0.5 text-[10px] text-muted-foreground/40">
+                            <div class="mt-0.5 text-2xs text-muted-foreground/40">
                               {{ group.targets.length }} targets
                             </div>
                           </div>
@@ -777,13 +777,13 @@ watch(
 
                     <div
                       v-else-if="scanningTargets || isFetchingTargets"
-                      class="flex items-center gap-2 py-6 text-[11px] text-muted-foreground/35"
+                      class="flex items-center gap-2 py-6 text-2xs text-muted-foreground/35"
                     >
                       <Loader2 :size="12" class="animate-spin" />
                       Scanning for targets…
                     </div>
 
-                    <div v-else class="py-6 text-center text-[11px] text-muted-foreground/25">
+                    <div v-else class="py-6 text-center text-2xs text-muted-foreground/25">
                       No debuggable targets found.
                       <button
                         class="underline underline-offset-2 hover:text-muted-foreground/50 transition-colors ml-1"
@@ -802,7 +802,7 @@ watch(
                 class="flex-1 flex flex-col items-center justify-center gap-2 text-center px-8"
               >
                 <Smartphone :size="28" class="text-muted-foreground/15" />
-                <p class="text-[12px] text-muted-foreground/30">Select a device from the sidebar</p>
+                <p class="text-xs text-muted-foreground/30">Select a device from the sidebar</p>
               </div>
             </template>
 
@@ -812,16 +812,16 @@ watch(
                   <div class="flex-1">
                     <div class="flex items-center gap-2 mb-0.5">
                       <Monitor :size="15" class="text-muted-foreground/50" />
-                      <span class="text-[15px] font-semibold text-foreground">
+                      <span class="text-base font-semibold text-foreground">
                         {{ localDeviceName }}
                       </span>
                       <span
-                        class="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-success/10 text-success border border-success/20"
+                        class="text-2xs px-1.5 py-0.5 rounded-full font-medium bg-success/10 text-success border border-success/20"
                       >
                         connected
                       </span>
                     </div>
-                    <div class="text-[11px] text-muted-foreground/35">
+                    <div class="text-2xs text-muted-foreground/35">
                       Native child WebView · created targets only
                     </div>
                   </div>
@@ -831,11 +831,11 @@ watch(
               <div class="flex-1 overflow-y-auto px-6 py-4">
                 <div class="flex items-center justify-between mb-2">
                   <span
-                    class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                    class="text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                   >
                     Targets
                   </span>
-                  <span class="text-[10px] text-muted-foreground/30">URL creates target</span>
+                  <span class="text-2xs text-muted-foreground/30">URL creates target</span>
                 </div>
 
                 <div
@@ -845,13 +845,13 @@ watch(
                   <input
                     v-model="localTargetUrl"
                     placeholder="http://localhost:5173"
-                    class="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground outline-none placeholder:text-muted-foreground/25"
+                    class="min-w-0 flex-1 bg-transparent font-mono text-2xs text-foreground outline-none placeholder:text-muted-foreground/25"
                     @keydown.enter="void handleCreateLocalTarget()"
                   />
                   <button
                     @click="void handleCreateLocalTarget()"
                     :disabled="creatingLocalTarget"
-                    class="h-7 rounded-md border border-border/30 bg-surface-2 px-3 text-[11px] text-foreground/70 transition-colors hover:bg-surface-3 disabled:opacity-50"
+                    class="h-7 rounded-md border border-border/30 bg-surface-2 px-3 text-2xs text-foreground/70 transition-colors hover:bg-surface-3 disabled:opacity-50"
                   >
                     <Loader2 v-if="creatingLocalTarget" :size="11" class="animate-spin" />
                     <span v-else>Add</span>
@@ -880,23 +880,23 @@ watch(
                     />
                     <Globe :size="13" class="shrink-0 text-muted-foreground/35" />
                     <div class="flex-1 min-w-0">
-                      <div class="text-[12px] text-foreground/80 truncate">
+                      <div class="text-xs text-foreground/80 truncate">
                         {{ t.title || "(no title)" }}
                       </div>
-                      <div class="text-[10px] font-mono text-muted-foreground/35 truncate mt-0.5">
+                      <div class="text-2xs font-mono text-muted-foreground/35 truncate mt-0.5">
                         {{ t.url }}
                       </div>
                     </div>
                     <button
                       @click="handleInspectTarget(t, $event)"
-                      class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-surface-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                      class="flex items-center gap-1 px-2 py-1 rounded-md text-2xs text-muted-foreground/50 hover:text-foreground hover:bg-surface-3 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
                       title="Inspect child webview"
                     >
                       <Crosshair :size="11" />
                     </button>
                     <button
                       @click="handleDisconnectTarget(t.id, $event)"
-                      class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground/50 hover:text-error hover:bg-error/10 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                      class="flex items-center gap-1 px-2 py-1 rounded-md text-2xs text-muted-foreground/50 hover:text-error hover:bg-error/10 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
                       title="Remove"
                     >
                       <Trash2 :size="11" />
@@ -908,7 +908,7 @@ watch(
                   </div>
                 </div>
 
-                <div v-else class="py-8 text-center text-[11px] text-muted-foreground/25">
+                <div v-else class="py-8 text-center text-2xs text-muted-foreground/25">
                   Add a URL to create a local child webview target.
                 </div>
               </div>
@@ -921,8 +921,8 @@ watch(
             <!-- ── CONNECT NEW PANEL ── -->
             <template v-else-if="activePanel === 'connect'">
               <div class="px-6 pt-5 pb-3 border-b border-border/15 shrink-0">
-                <h2 class="text-[15px] font-semibold text-foreground">Connect New Device</h2>
-                <p class="text-[11px] text-muted-foreground/40 mt-0.5">
+                <h2 class="text-base font-semibold text-foreground">Connect New Device</h2>
+                <p class="text-2xs text-muted-foreground/40 mt-0.5">
                   Connect wirelessly via TCP/IP or Wireless Debugging
                 </p>
               </div>
@@ -931,11 +931,11 @@ watch(
                 <!-- TCP/IP -->
                 <div class="space-y-2">
                   <div
-                    class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                    class="text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                   >
                     TCP / IP (Android ≤ 10)
                   </div>
-                  <div class="text-[11px] text-muted-foreground/35 font-mono">
+                  <div class="text-2xs text-muted-foreground/35 font-mono">
                     Run
                     <span
                       class="bg-surface-2 px-1.5 py-0.5 rounded border border-border/20 text-foreground/60"
@@ -947,20 +947,20 @@ watch(
                     <input
                       v-model="wifiIp"
                       placeholder="192.168.1.100"
-                      class="flex-1 h-8 px-3 bg-surface-2 border border-border/30 rounded-lg text-[12px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/25"
+                      class="flex-1 h-8 px-3 bg-surface-2 border border-border/30 rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/25"
                     />
                     <div
                       class="flex items-center bg-surface-2 border border-border/30 rounded-lg px-2"
                     >
-                      <span class="text-[11px] text-muted-foreground/35">:</span>
+                      <span class="text-2xs text-muted-foreground/35">:</span>
                       <input
                         v-model="wifiPort"
-                        class="w-14 h-8 bg-transparent text-[12px] font-mono text-foreground focus:outline-none px-1 placeholder:text-muted-foreground/25"
+                        class="w-14 h-8 bg-transparent text-xs font-mono text-foreground focus:outline-none px-1 placeholder:text-muted-foreground/25"
                       />
                     </div>
                     <button
                       @click="handleTcpConnect"
-                      class="px-4 h-8 bg-foreground text-background text-[12px] font-medium rounded-lg hover:opacity-85 transition-opacity flex items-center gap-1.5"
+                      class="px-4 h-8 bg-foreground text-background text-xs font-medium rounded-lg hover:opacity-85 transition-opacity flex items-center gap-1.5"
                     >
                       <Link :size="12" /> Connect
                     </button>
@@ -970,27 +970,27 @@ watch(
                 <!-- Wireless Debugging (Android 11+) -->
                 <div class="space-y-2">
                   <div
-                    class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                    class="text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                   >
                     Wireless Debugging (Android 11+)
                   </div>
-                  <p class="text-[11px] text-muted-foreground/35 leading-relaxed">
+                  <p class="text-2xs text-muted-foreground/35 leading-relaxed">
                     Settings → Developer options → Wireless debugging → Pair with pairing code
                   </p>
                   <div class="flex gap-2">
                     <input
                       v-model="pairAddr"
                       placeholder="192.168.1.100:37261"
-                      class="flex-1 h-8 px-3 bg-surface-2 border border-border/30 rounded-lg text-[12px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/25"
+                      class="flex-1 h-8 px-3 bg-surface-2 border border-border/30 rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/25"
                     />
                     <input
                       v-model="pairCode"
                       placeholder="123456"
-                      class="w-24 h-8 px-3 bg-surface-2 border border-border/30 rounded-lg text-[12px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/25"
+                      class="w-24 h-8 px-3 bg-surface-2 border border-border/30 rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/25"
                     />
                     <button
                       @click="handlePair"
-                      class="px-4 h-8 bg-surface-2 border border-border/30 text-[12px] text-foreground/70 font-medium rounded-lg hover:bg-surface-3 hover:text-foreground transition-colors flex items-center gap-1.5"
+                      class="px-4 h-8 bg-surface-2 border border-border/30 text-xs text-foreground/70 font-medium rounded-lg hover:bg-surface-3 hover:text-foreground transition-colors flex items-center gap-1.5"
                     >
                       <Wifi :size="12" /> Pair
                     </button>

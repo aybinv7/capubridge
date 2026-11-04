@@ -15,17 +15,17 @@ function toggleExpand(requestId: string) {
 
 function statusColor(status: number | null): string {
   if (status === null) return "text-muted-foreground/40";
-  if (status < 300) return "text-green-400";
-  if (status < 400) return "text-yellow-400";
-  return "text-red-400";
+  if (status < 300) return "text-success";
+  if (status < 400) return "text-warning";
+  return "text-error";
 }
 
 function methodColor(method: string): string {
   const m = method.toUpperCase();
-  if (m === "GET") return "text-sky-400";
+  if (m === "GET") return "text-info";
   if (m === "POST") return "text-violet-400";
-  if (m === "PUT" || m === "PATCH") return "text-amber-400";
-  if (m === "DELETE") return "text-red-400";
+  if (m === "PUT" || m === "PATCH") return "text-warning";
+  if (m === "DELETE") return "text-error";
   return "text-muted-foreground";
 }
 
@@ -73,22 +73,22 @@ const visibleEvents = computed(() =>
 <template>
   <div class="flex flex-col h-full min-h-0">
     <div class="flex-none px-3 py-1.5 border-b border-border/20 flex items-center gap-2">
-      <span class="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+      <span class="text-2xs font-medium text-muted-foreground uppercase tracking-wide">
         Network
       </span>
-      <span class="text-[11px] text-muted-foreground/40">
+      <span class="text-2xs text-muted-foreground/40">
         {{ visibleEvents.length }} / {{ events.length }}
       </span>
     </div>
 
     <div class="flex-1 overflow-y-auto min-h-0">
       <div v-if="visibleEvents.length === 0" class="flex items-center justify-center h-16">
-        <p class="text-[11px] text-muted-foreground/40">No network requests yet</p>
+        <p class="text-2xs text-muted-foreground/40">No network requests yet</p>
       </div>
 
       <template v-for="ev in visibleEvents" :key="ev.data.requestId">
         <div
-          class="grid items-center px-2 py-1 text-[11px] border-b border-border/10 hover:bg-surface-1/50 cursor-pointer select-none"
+          class="grid items-center px-2 py-1 text-2xs border-b border-border/10 hover:bg-surface-1/50 cursor-pointer select-none"
           style="grid-template-columns: 60px 36px 28px 46px 1fr"
           @click="toggleExpand(ev.data.requestId)"
         >
@@ -115,7 +115,7 @@ const visibleEvents = computed(() =>
 
         <div
           v-if="expandedId === ev.data.requestId"
-          class="px-3 py-2 bg-surface-1 border-b border-border/20 text-[11px] space-y-1"
+          class="px-3 py-2 bg-surface-1 border-b border-border/20 text-2xs space-y-1"
         >
           <div class="font-mono text-muted-foreground/50 break-all">{{ ev.data.url }}</div>
           <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1.5">

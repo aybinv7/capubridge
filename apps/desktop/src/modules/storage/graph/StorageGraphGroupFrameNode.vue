@@ -24,7 +24,7 @@ defineProps<NodeProps<StorageGraphGroupFrameNodeData>>();
   >
     <div class="flex h-12 items-center px-4">
       <span
-        class="max-w-[calc(100%_-_1rem)] truncate rounded-full border border-border/20 bg-surface-0 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] shadow-sm"
+        class="max-w-[calc(100%_-_1rem)] truncate rounded-full border border-border/20 bg-surface-0 px-2.5 py-1 text-2xs font-medium uppercase tracking-[0.16em] shadow-sm"
         :class="
           data.variant === 'relationship'
             ? 'text-success'

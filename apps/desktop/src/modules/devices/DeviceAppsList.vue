@@ -99,25 +99,25 @@ function promptAction(app: AdbPackage, action: AppAction) {
       <thead class="sticky top-0 z-10">
         <tr class="bg-surface-2/95 backdrop-blur-sm">
           <th
-            class="w-10 border-b border-border/20 px-4 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40"
+            class="w-10 border-b border-border/20 px-4 py-2.5 text-left text-2xs font-medium uppercase tracking-wider text-muted-foreground/40"
           />
           <th
-            class="border-b border-border/20 px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40"
+            class="border-b border-border/20 px-3 py-2.5 text-left text-2xs font-medium uppercase tracking-wider text-muted-foreground/40"
           >
             Package
           </th>
           <th
-            class="w-24 border-b border-border/20 px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40"
+            class="w-24 border-b border-border/20 px-3 py-2.5 text-left text-2xs font-medium uppercase tracking-wider text-muted-foreground/40"
           >
             Type
           </th>
           <th
-            class="w-24 border-b border-border/20 px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40"
+            class="w-24 border-b border-border/20 px-3 py-2.5 text-left text-2xs font-medium uppercase tracking-wider text-muted-foreground/40"
           >
             Status
           </th>
           <th
-            class="hidden border-b border-border/20 px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground/40 xl:table-cell"
+            class="hidden border-b border-border/20 px-3 py-2.5 text-left text-2xs font-medium uppercase tracking-wider text-muted-foreground/40 xl:table-cell"
           >
             APK Path
           </th>
@@ -148,7 +148,7 @@ function promptAction(app: AdbPackage, action: AppAction) {
             <div class="font-medium text-foreground/90">
               {{ appDisplayName(app) }}
             </div>
-            <div class="mt-0.5 max-w-xs truncate font-mono text-[10px] text-muted-foreground/40">
+            <div class="mt-0.5 max-w-xs truncate font-mono text-2xs text-muted-foreground/40">
               {{ app.packageName }}
             </div>
           </td>
@@ -157,10 +157,10 @@ function promptAction(app: AdbPackage, action: AppAction) {
           </td>
           <td class="px-3 py-2.5">
             <span
-              class="rounded-full px-1.5 py-0.5 text-[10px]"
+              class="rounded-full px-1.5 py-0.5 text-2xs"
               :class="
                 app.enabled
-                  ? 'bg-emerald-500/10 text-emerald-400/80'
+                  ? 'bg-success/10 text-success/80'
                   : 'bg-muted/20 text-muted-foreground/60'
               "
             >
@@ -168,7 +168,7 @@ function promptAction(app: AdbPackage, action: AppAction) {
             </span>
           </td>
           <td class="hidden px-3 py-2.5 xl:table-cell">
-            <span class="block max-w-sm truncate font-mono text-[10px] text-muted-foreground/30">
+            <span class="block max-w-sm truncate font-mono text-2xs text-muted-foreground/30">
               {{ app.apkPath }}
             </span>
           </td>
@@ -185,21 +185,21 @@ function promptAction(app: AdbPackage, action: AppAction) {
               </button>
               <button
                 title="Force stop"
-                class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/30 transition-colors hover:bg-amber-400/10 hover:text-amber-400"
+                class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/30 transition-colors hover:bg-warning/10 hover:text-warning"
                 @click.stop="promptAction(app, 'forceStop')"
               >
                 <StopCircle class="h-3.5 w-3.5" />
               </button>
               <button
                 title="Clear data"
-                class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/30 transition-colors hover:bg-orange-400/10 hover:text-orange-400"
+                class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/30 transition-colors hover:bg-warning/10 hover:text-warning"
                 @click.stop="promptAction(app, 'clearData')"
               >
                 <Eraser class="h-3.5 w-3.5" />
               </button>
               <button
                 title="Uninstall"
-                class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/30 transition-colors hover:bg-red-400/10 hover:text-red-400"
+                class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/30 transition-colors hover:bg-error/10 hover:text-error"
                 @click.stop="promptAction(app, 'uninstall')"
               >
                 <Trash2 class="h-3.5 w-3.5" />

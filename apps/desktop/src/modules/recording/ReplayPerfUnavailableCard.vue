@@ -18,7 +18,7 @@ defineProps<{
     </CardHeader>
     <CardContent>
       <p class="text-xs text-muted-foreground/60">Not recorded</p>
-      <p class="text-[10px] text-muted-foreground/40 mt-0.5">
+      <p class="text-2xs text-muted-foreground/40 mt-0.5">
         This recorder had no access to {{ metric }} on the device.
       </p>
     </CardContent>

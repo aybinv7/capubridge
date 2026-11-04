@@ -75,14 +75,14 @@ function formatBytes(bytes: number): string {
       >
         <span
           v-if="store.isRecording"
-          class="h-[9px] w-[9px] rounded-full bg-red-500"
-          :class="hasTarget ? 'animate-pulse' : 'opacity-40'"
+          class="h-[9px] w-[9px] rounded-full"
+          :class="hasTarget ? 'bg-signal-live' : 'bg-[var(--fg-subtle)]'"
         />
         <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/50" />
       </button>
 
       <span
-        class="ml-1 rounded-full border px-2 py-0.5 font-mono text-[10px]"
+        class="ml-1 rounded-full border px-2 py-0.5 font-mono text-2xs"
         :class="
           store.captureStatus === 'live'
             ? 'border-success/30 bg-success/10 text-success'
@@ -109,7 +109,7 @@ function formatBytes(bytes: number): string {
       <!-- Search scope select -->
       <Select v-model="store.searchScope">
         <SelectTrigger
-          class="h-7 gap-1 border-border/25 bg-surface-3 px-2 text-[11px] focus:ring-0 focus-visible:ring-0"
+          class="h-7 gap-1 border-border/25 bg-surface-3 px-2 text-2xs focus:ring-0 focus-visible:ring-0"
           size="sm"
         >
           <SelectValue />
@@ -145,7 +145,7 @@ function formatBytes(bytes: number): string {
         <button
           v-for="f in TYPE_FILTERS"
           :key="f"
-          class="h-6 rounded px-2 text-[11px] transition-colors"
+          class="h-6 rounded px-2 text-2xs transition-colors"
           :class="
             store.typeFilter === f
               ? 'bg-surface-3 font-medium text-foreground'
@@ -162,7 +162,7 @@ function formatBytes(bytes: number): string {
       <!-- Method filter -->
       <Select v-model="store.methodFilter">
         <SelectTrigger
-          class="h-7 gap-1 border-border/25 bg-surface-3 px-2 text-[11px] focus:ring-0 focus-visible:ring-0"
+          class="h-7 gap-1 border-border/25 bg-surface-3 px-2 text-2xs focus:ring-0 focus-visible:ring-0"
           size="sm"
         >
           <SelectValue placeholder="Method" />
@@ -178,7 +178,7 @@ function formatBytes(bytes: number): string {
 
       <!-- Preserve log -->
       <button
-        class="flex h-6 items-center gap-1 rounded px-2 text-[11px] transition-colors"
+        class="flex h-6 items-center gap-1 rounded px-2 text-2xs transition-colors"
         :class="
           store.preserveLog
             ? 'bg-surface-3 text-foreground'
@@ -203,7 +203,7 @@ function formatBytes(bytes: number): string {
     <!-- Stats bar -->
     <div
       v-if="hasTarget"
-      class="flex h-6 shrink-0 items-center gap-3 border-b border-border/15 bg-surface-1 px-3 text-[10px] text-muted-foreground/45"
+      class="flex h-6 shrink-0 items-center gap-3 border-b border-border/15 bg-surface-1 px-3 text-2xs text-muted-foreground/45"
     >
       <span>{{ store.requestCount }} requests</span>
       <span>{{ formatBytes(store.transferredBytes) }} transferred</span>

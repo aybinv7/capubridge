@@ -75,7 +75,7 @@ const emit = defineEmits<{
       class="w-6 h-6 flex items-center justify-center rounded transition-colors"
       :class="
         isRecording
-          ? 'text-red-400 bg-red-400/10 hover:bg-red-400/20'
+          ? 'text-error bg-signal-rec/10 hover:bg-signal-rec/20'
           : isStreaming
             ? 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
             : 'text-muted-foreground/20 cursor-not-allowed'
@@ -84,7 +84,7 @@ const emit = defineEmits<{
       :disabled="!isStreaming && !isRecording"
       @click="(isStreaming || isRecording) && emit('toggleRecord')"
     >
-      <div v-if="isRecording" class="w-3 h-3 rounded-sm bg-red-400" />
+      <div v-if="isRecording" class="w-3 h-3 rounded-sm bg-signal-rec" />
       <Video v-else class="w-3.5 h-3.5" />
     </button>
 
@@ -93,7 +93,7 @@ const emit = defineEmits<{
       class="w-6 h-6 flex items-center justify-center rounded transition-colors"
       :class="
         laserMode
-          ? 'text-red-400 bg-red-400/10 hover:bg-red-400/20'
+          ? 'text-error bg-signal-rec/10 hover:bg-signal-rec/20'
           : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
       "
       title="Laser pointer"
@@ -107,7 +107,7 @@ const emit = defineEmits<{
     <!-- Native scrcpy -->
     <button
       v-if="androidMode"
-      class="h-6 min-w-8 px-1 flex items-center justify-center rounded text-[10px] font-semibold tracking-wide text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors"
+      class="h-6 min-w-8 px-1 flex items-center justify-center rounded text-2xs font-semibold tracking-wide text-muted-foreground/60 hover:text-foreground hover:bg-accent transition-colors"
       title="Open native scrcpy window (high performance)"
       @click="emit('launchScrcpy')"
     >
@@ -142,7 +142,7 @@ const emit = defineEmits<{
       class="w-6 h-6 flex items-center justify-center rounded transition-colors"
       :class="
         alwaysOnTop
-          ? 'text-blue-400 bg-blue-400/10 hover:bg-blue-400/20'
+          ? 'text-info bg-info/10 hover:bg-info/20'
           : 'text-muted-foreground/50 hover:text-foreground hover:bg-accent'
       "
       :title="alwaysOnTop ? 'Unpin from top' : 'Pin on top of all windows'"

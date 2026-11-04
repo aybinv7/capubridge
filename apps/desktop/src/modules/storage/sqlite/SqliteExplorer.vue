@@ -1522,11 +1522,11 @@ watch(
             v-if="hiddenDbCount > 0"
             class="shrink-0 flex items-center justify-between px-3 py-1 border-b border-border/20 bg-surface-2/50"
           >
-            <span class="text-[10px] text-muted-foreground/50">
+            <span class="text-2xs text-muted-foreground/50">
               {{ hiddenDbCount }} hidden database{{ hiddenDbCount > 1 ? "s" : "" }}
             </span>
             <button
-              class="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground/70 transition-colors"
+              class="flex items-center gap-1 text-2xs text-muted-foreground/60 hover:text-foreground/70 transition-colors"
               @click="showHiddenDbs = !showHiddenDbs"
             >
               <component :is="showHiddenDbs ? Eye : EyeOff" :size="10" />
@@ -1538,11 +1538,11 @@ watch(
             v-if="hiddenTableCount > 0"
             class="shrink-0 flex items-center justify-between px-3 py-1 border-b border-border/20 bg-surface-2/50"
           >
-            <span class="text-[10px] text-muted-foreground/50">
+            <span class="text-2xs text-muted-foreground/50">
               {{ hiddenTableCount }} hidden table{{ hiddenTableCount > 1 ? "s" : "" }}
             </span>
             <button
-              class="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-foreground/70 transition-colors"
+              class="flex items-center gap-1 text-2xs text-muted-foreground/60 hover:text-foreground/70 transition-colors"
               @click="showHiddenTables = !showHiddenTables"
             >
               <component :is="showHiddenTables ? Eye : EyeOff" :size="10" />
@@ -1561,9 +1561,9 @@ watch(
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <Database :size="16" class="text-muted-foreground/30 mb-2" />
-              <p class="text-[11px] text-error/70">{{ error }}</p>
+              <p class="text-2xs text-error/70">{{ error }}</p>
               <button
-                class="mt-2 text-[10px] text-muted-foreground/50 underline underline-offset-2 hover:text-foreground/60"
+                class="mt-2 text-2xs text-muted-foreground/50 underline underline-offset-2 hover:text-foreground/60"
                 @click="void fetchDatabases()"
               >
                 Retry
@@ -1575,10 +1575,10 @@ watch(
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <Database :size="16" class="text-muted-foreground/30 mb-2" />
-              <p class="text-[11px] text-muted-foreground/40">
+              <p class="text-2xs text-muted-foreground/40">
                 {{ selectedPackageName ? "No SQLite databases found" : "No target selected" }}
               </p>
-              <p class="mt-1 text-[10px] text-muted-foreground/30">
+              <p class="mt-1 text-2xs text-muted-foreground/30">
                 {{
                   selectedPackageName
                     ? "The selected target package does not expose databases/"
@@ -1586,7 +1586,7 @@ watch(
                 }}
               </p>
               <button
-                class="mt-3 flex items-center gap-1.5 rounded border border-border/30 bg-surface-3 px-2.5 py-1 text-[10px] text-foreground/70 hover:bg-surface-2 transition-colors"
+                class="mt-3 flex items-center gap-1.5 rounded border border-border/30 bg-surface-3 px-2.5 py-1 text-2xs text-foreground/70 hover:bg-surface-2 transition-colors"
                 @click="handleImportSqliteFile()"
               >
                 <Upload :size="10" />
@@ -1640,7 +1640,7 @@ watch(
                       :size="10"
                       class="shrink-0 animate-spin text-muted-foreground/40"
                     />
-                    <span class="shrink-0 text-[10px] font-mono text-muted-foreground/40">
+                    <span class="shrink-0 text-2xs font-mono text-muted-foreground/40">
                       {{ (db.size / 1024).toFixed(0) }}KB
                     </span>
                   </button>
@@ -1750,7 +1750,7 @@ watch(
                         >
                           {{ t.name }}
                         </span>
-                        <span class="text-[10px] font-mono text-muted-foreground/30">
+                        <span class="text-2xs font-mono text-muted-foreground/30">
                           {{ t.rowCount }}
                         </span>
                       </button>
@@ -1862,7 +1862,7 @@ watch(
               <Button
                 variant="ghost"
                 size="sm"
-                class="h-7 gap-1.5 px-3 text-[11px]"
+                class="h-7 gap-1.5 px-3 text-2xs"
                 :class="
                   activeTab === 'browse'
                     ? 'text-foreground bg-surface-3'
@@ -1875,7 +1875,7 @@ watch(
               <Button
                 variant="ghost"
                 size="sm"
-                class="h-7 gap-1.5 px-3 text-[11px]"
+                class="h-7 gap-1.5 px-3 text-2xs"
                 :class="
                   activeTab === 'structure'
                     ? 'text-foreground bg-surface-3'
@@ -1888,7 +1888,7 @@ watch(
               <Button
                 variant="ghost"
                 size="sm"
-                class="h-7 gap-1.5 px-3 text-[11px]"
+                class="h-7 gap-1.5 px-3 text-2xs"
                 :class="
                   activeTab === 'sql' ? 'text-foreground bg-surface-3' : 'text-muted-foreground/60'
                 "
@@ -1944,7 +1944,7 @@ watch(
               <ScrollArea class="min-h-0 flex-1">
                 <div
                   v-if="isLoadingStructure"
-                  class="flex items-center justify-center py-12 text-[11px] text-muted-foreground/50"
+                  class="flex items-center justify-center py-12 text-2xs text-muted-foreground/50"
                 >
                   <RefreshCw :size="14" class="mr-2 animate-spin" />
                   Loading structure…
@@ -1963,7 +1963,7 @@ watch(
                     <div class="mb-2 flex items-center gap-2">
                       <Table2 :size="12" class="text-muted-foreground/40" />
                       <span
-                        class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                        class="text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                       >
                         Columns
                       </span>
@@ -1973,7 +1973,7 @@ watch(
                       class="w-full overflow-hidden rounded-lg border border-border/30 bg-surface-1 font-mono"
                     >
                       <thead class="border-b border-border/30 bg-surface-2/60">
-                        <tr class="text-left text-[10px] font-semibold text-muted-foreground/65">
+                        <tr class="text-left text-2xs font-semibold text-muted-foreground/65">
                           <th class="w-12 px-3 py-3">#</th>
                           <th class="px-3 py-3">Column</th>
                           <th class="px-3 py-3">Type</th>
@@ -1991,7 +1991,7 @@ watch(
                           <td class="px-3 py-3 text-muted-foreground/55">{{ col.cid }}</td>
                           <td class="px-3 py-3 font-semibold text-foreground/90">{{ col.name }}</td>
                           <td class="px-3 py-3 text-foreground/85">
-                            <span class="rounded-full bg-surface-3 px-2.5 py-1 text-[11px]">{{
+                            <span class="rounded-full bg-surface-3 px-2.5 py-1 text-2xs">{{
                               col.colType || "—"
                             }}</span>
                           </td>
@@ -2007,7 +2007,7 @@ watch(
                           <td class="px-3 py-3 text-center">
                             <span
                               v-if="col.pk"
-                              class="rounded-full bg-warning px-2 py-1 text-[10px] font-semibold text-warning-foreground"
+                              class="rounded-full bg-warning px-2 py-1 text-2xs font-semibold text-warning-foreground"
                             >
                               PK{{ col.pk > 1 ? ` ${col.pk}` : "" }}
                             </span>
@@ -2021,7 +2021,7 @@ watch(
 
                   <section v-if="structureIndexes.length">
                     <div
-                      class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                      class="mb-2 text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                     >
                       Indexes
                     </div>
@@ -2053,7 +2053,7 @@ watch(
 
                   <section v-if="structureForeignKeys.length">
                     <div
-                      class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                      class="mb-2 text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                     >
                       Foreign keys
                     </div>
@@ -2098,12 +2098,12 @@ watch(
 
                   <section v-if="currentTable?.sql">
                     <div
-                      class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40"
+                      class="mb-2 text-2xs font-semibold uppercase tracking-widest text-muted-foreground/40"
                     >
                       CREATE statement
                     </div>
                     <pre
-                      class="overflow-x-auto rounded-md border border-border/30 bg-surface-3 p-3 font-mono text-[11px] text-secondary-foreground"
+                      class="overflow-x-auto rounded-md border border-border/30 bg-surface-3 p-3 font-mono text-2xs text-secondary-foreground"
                       >{{ currentTable.sql }}</pre
                     >
                   </section>
@@ -2124,17 +2124,17 @@ watch(
                   <Button
                     variant="ghost"
                     size="sm"
-                    class="h-7 gap-1.5 border border-border/30 bg-surface-3 px-3 text-[11px] text-foreground hover:bg-surface-2"
+                    class="h-7 gap-1.5 border border-border/30 bg-surface-3 px-3 text-2xs text-foreground hover:bg-surface-2"
                     :disabled="isRunningSql"
                     @click="runSql"
                   >
                     <Play :size="11" /> Run
                   </Button>
-                  <span v-if="isRunningSql" class="text-[11px] text-muted-foreground/50">
+                  <span v-if="isRunningSql" class="text-2xs text-muted-foreground/50">
                     Running…
                   </span>
-                  <span v-else-if="sqlError" class="text-[11px] text-error">{{ sqlError }}</span>
-                  <span v-else-if="sqlResult" class="text-[11px] text-muted-foreground/50">
+                  <span v-else-if="sqlError" class="text-2xs text-error">{{ sqlError }}</span>
+                  <span v-else-if="sqlResult" class="text-2xs text-muted-foreground/50">
                     {{ sqlResult.rowCount }} row(s)
                   </span>
                 </div>
@@ -2143,7 +2143,7 @@ watch(
               <div class="min-h-0 flex-1 overflow-hidden">
                 <div
                   v-if="!sqlResult && !sqlError"
-                  class="px-3 py-8 text-center text-[11px] text-muted-foreground/40"
+                  class="px-3 py-8 text-center text-2xs text-muted-foreground/40"
                 >
                   Run a query to see results.
                 </div>

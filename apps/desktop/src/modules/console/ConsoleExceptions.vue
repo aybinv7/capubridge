@@ -29,14 +29,14 @@ const filteredEntries = computed(() => {
       <div class="flex h-11 items-center gap-2 px-3">
         <div class="min-w-0 flex-1">
           <div class="truncate text-sm font-medium">Exceptions</div>
-          <div class="text-[11px] text-muted-foreground/60">
+          <div class="text-2xs text-muted-foreground/60">
             {{ consoleStore.activeTargetLabel }} · {{ filteredEntries.length }} visible ·
             {{ consoleStore.exceptions.length }} total
           </div>
         </div>
         <Badge
           variant="outline"
-          class="h-6 rounded-full border border-error/30 bg-error/10 px-2 font-mono text-[10px] text-error"
+          class="h-6 rounded-full border border-error/30 bg-error/10 px-2 font-mono text-2xs text-error"
         >
           {{ consoleStore.exceptions.length }} faults
         </Badge>
@@ -85,17 +85,17 @@ const filteredEntries = computed(() => {
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-foreground">{{ entry.message }}</span>
-                <span class="font-mono text-[10px] text-muted-foreground/60">{{
+                <span class="font-mono text-2xs text-muted-foreground/60">{{
                   entry.timestampLabel
                 }}</span>
               </div>
-              <div class="mt-1 text-[11px] text-muted-foreground/70">
+              <div class="mt-1 text-2xs text-muted-foreground/70">
                 {{ entry.source }}
                 <span v-if="entry.url" class="font-mono"> · {{ entry.url }}</span>
               </div>
               <pre
                 v-if="entry.stack.length"
-                class="mt-3 overflow-x-auto rounded-lg border border-border/20 bg-surface-3 p-3 font-mono text-[11px] leading-5 text-foreground/80"
+                class="mt-3 overflow-x-auto rounded-lg border border-border/20 bg-surface-3 p-3 font-mono text-2xs leading-5 text-foreground/80"
                 >{{ entry.stack.join("\n") }}</pre
               >
             </div>

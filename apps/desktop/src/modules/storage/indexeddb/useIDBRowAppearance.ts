@@ -25,9 +25,9 @@ export function getRecordChange(record: IDBRecord | null) {
 export function getChangeIndicatorClass(record: IDBRecord) {
   const operation = getChangeOperation(record);
 
-  if (operation === "add") return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
-  if (operation === "update") return "bg-amber-500/15 text-amber-400 ring-amber-500/30";
-  if (operation === "delete") return "bg-red-500/15 text-red-400 ring-red-500/30";
+  if (operation === "add") return "bg-success/15 text-success ring-success/30";
+  if (operation === "update") return "bg-warning/15 text-warning ring-warning/30";
+  if (operation === "delete") return "bg-error/15 text-error ring-error/30";
   return "";
 }
 
@@ -43,9 +43,9 @@ export function getChangeIcon(record: IDBRecord) {
 export function getStickyRowBg(row: Row<IDBRecord>): string {
   if (row.getIsSelected()) return "bg-surface-3";
   const op = getChangeOperation(row.original);
-  if (op === "add") return "bg-emerald-500/[0.04]";
-  if (op === "update") return "bg-amber-500/[0.04]";
-  if (op === "delete") return "bg-red-500/[0.04]";
+  if (op === "add") return "bg-success/[0.04]";
+  if (op === "update") return "bg-warning/[0.04]";
+  if (op === "delete") return "bg-error/[0.04]";
   return "bg-background";
 }
 
@@ -62,10 +62,10 @@ export function useIDBRowAppearance(locallyModifiedData: Ref<Map<string, unknown
   function getRowBgClass(row: Row<IDBRecord>): string {
     if (row.getIsSelected()) return "bg-brand/10!";
     const op = getChangeOperation(row.original);
-    if (op === "add") return "bg-emerald-500/4";
-    if (op === "update") return "bg-amber-500/4";
-    if (op === "delete") return "bg-red-500/4 opacity-75";
-    if (isRowLocallyModified(row)) return "bg-blue-500/5";
+    if (op === "add") return "bg-success/4";
+    if (op === "update") return "bg-warning/4";
+    if (op === "delete") return "bg-error/4 opacity-75";
+    if (isRowLocallyModified(row)) return "bg-info/5";
     return "";
   }
 

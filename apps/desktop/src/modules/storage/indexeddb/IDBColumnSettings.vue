@@ -163,7 +163,7 @@ const sortedColumns = computed(() => {
             />
             <span
               v-else-if="isColumnIndexed(col.id)"
-              class="w-2 h-2 rounded-full bg-green-500"
+              class="w-2 h-2 rounded-full bg-success"
               title="Indexed"
             />
           </span>

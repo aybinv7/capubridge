@@ -167,27 +167,27 @@ const infoRows = computed(() => [
             <Badge
               v-if="packageInfo"
               variant="outline"
-              class="h-5 border-border/35 px-1.5 text-[10px] text-muted-foreground/65"
+              class="h-5 border-border/35 px-1.5 text-2xs text-muted-foreground/65"
             >
               {{ packageInfo.system ? "system" : "user" }}
             </Badge>
             <Badge
               v-if="packageInfo"
               variant="outline"
-              class="h-5 border-border/35 px-1.5 text-[10px]"
-              :class="packageInfo.enabled ? 'text-emerald-400' : 'text-muted-foreground/55'"
+              class="h-5 border-border/35 px-1.5 text-2xs"
+              :class="packageInfo.enabled ? 'text-success' : 'text-muted-foreground/55'"
             >
               {{ packageInfo.enabled ? "enabled" : "disabled" }}
             </Badge>
             <Badge
               v-if="capacitorInfo?.isCapacitor"
               variant="outline"
-              class="h-5 border-cyan-500/25 px-1.5 text-[10px] text-cyan-300"
+              class="h-5 border-cyan-500/25 px-1.5 text-2xs text-cyan-300"
             >
               capacitor
             </Badge>
           </div>
-          <div class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground/50">
+          <div class="mt-0.5 truncate font-mono text-2xs text-muted-foreground/50">
             {{ packageName }}
           </div>
         </div>
@@ -218,22 +218,20 @@ const infoRows = computed(() => [
       <div class="flex h-9 items-center gap-2 border-b border-border/20 px-3">
         <AppWindow class="h-3.5 w-3.5 text-muted-foreground/45" />
         <span class="text-xs font-medium">App info</span>
-        <span class="ml-auto text-[10px] text-muted-foreground/40">
-          runtime, package, storage
-        </span>
+        <span class="ml-auto text-2xs text-muted-foreground/40"> runtime, package, storage </span>
       </div>
 
       <div class="grid shrink-0 border-b border-border/20 bg-surface-0 text-xs md:grid-cols-4">
         <div class="min-w-0 border-r border-border/20 px-3 py-2">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase text-muted-foreground/40">
+          <div class="flex items-center gap-1.5 text-2xs uppercase text-muted-foreground/40">
             <Globe class="h-3 w-3" />Origin
           </div>
-          <div class="mt-1 truncate font-mono text-[11px]" :title="targetOrigin">
+          <div class="mt-1 truncate font-mono text-2xs" :title="targetOrigin">
             {{ targetOrigin }}
           </div>
         </div>
         <div class="min-w-0 border-r border-border/20 px-3 py-2">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase text-muted-foreground/40">
+          <div class="flex items-center gap-1.5 text-2xs uppercase text-muted-foreground/40">
             <SquareStack class="h-3 w-3" />Runtime
           </div>
           <div class="mt-1 truncate">
@@ -244,7 +242,7 @@ const infoRows = computed(() => [
           </div>
         </div>
         <div class="min-w-0 border-r border-border/20 px-3 py-2">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase text-muted-foreground/40">
+          <div class="flex items-center gap-1.5 text-2xs uppercase text-muted-foreground/40">
             <Package2 class="h-3 w-3" />Package
           </div>
           <div class="mt-1 truncate">
@@ -255,7 +253,7 @@ const infoRows = computed(() => [
           </div>
         </div>
         <div class="min-w-0 px-3 py-2">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase text-muted-foreground/40">
+          <div class="flex items-center gap-1.5 text-2xs uppercase text-muted-foreground/40">
             <BatteryCharging class="h-3 w-3" />Signals
           </div>
           <div class="mt-1 truncate">
@@ -281,10 +279,10 @@ const infoRows = computed(() => [
               :key="row.label"
               class="min-w-0 border-r border-border/15 px-3 py-2 last:border-r-0"
             >
-              <div class="text-[10px] uppercase text-muted-foreground/40">
+              <div class="text-2xs uppercase text-muted-foreground/40">
                 {{ row.label }}
               </div>
-              <div class="mt-1 truncate font-mono text-[11px] font-medium" :title="row.value">
+              <div class="mt-1 truncate font-mono text-2xs font-medium" :title="row.value">
                 {{ row.value }}
               </div>
             </div>
@@ -296,7 +294,7 @@ const infoRows = computed(() => [
               class="flex min-w-0 items-center justify-between gap-3 border-b border-border/15 px-3 py-2"
             >
               <span class="shrink-0 text-muted-foreground/50">{{ row.label }}</span>
-              <span class="min-w-0 truncate font-mono text-[11px]" :title="row.value">
+              <span class="min-w-0 truncate font-mono text-2xs" :title="row.value">
                 {{ row.value }}
               </span>
             </div>
@@ -333,7 +331,7 @@ const infoRows = computed(() => [
             >
               <span class="flex min-w-0 items-center gap-2">
                 <FolderOpen class="h-3.5 w-3.5 shrink-0 text-muted-foreground/45" />
-                <span class="min-w-0 truncate font-mono text-[11px]">{{ internalPath }}</span>
+                <span class="min-w-0 truncate font-mono text-2xs">{{ internalPath }}</span>
               </span>
               <ExternalLink class="h-3.5 w-3.5 shrink-0 text-muted-foreground/45" />
             </button>
@@ -343,7 +341,7 @@ const infoRows = computed(() => [
             >
               <span class="flex min-w-0 items-center gap-2">
                 <FolderOpen class="h-3.5 w-3.5 shrink-0 text-muted-foreground/45" />
-                <span class="min-w-0 truncate font-mono text-[11px]">{{ externalPath }}</span>
+                <span class="min-w-0 truncate font-mono text-2xs">{{ externalPath }}</span>
               </span>
               <ExternalLink class="h-3.5 w-3.5 shrink-0 text-muted-foreground/45" />
             </button>

@@ -44,7 +44,16 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
 
 ## Rounds 1–9
 
-- [ ] R1 Identity + system (packages/cladd, tokens, A/C prototypes, decision)
+- [x] R1 Identity + system — **Bench chosen** over Tape after live A/B: Bench keeps four distinct
+      signal roles (Tape merged live≡rec and select≡mark), IBM Plex Mono is denser than Martian Mono,
+      and the neutral base keeps category hues true. Tokens in `src/themes` (OKLCH, roles: surfaces,
+      cut, signals, states, categories, highlight); borrowed themes and the accent picker removed;
+      primary actions are neutral ink; Cladd depth ported as `shadow-bevel`/`shadow-cut`/`shadow-float`;
+      IBM Plex self-hosted (Google Fonts removed); type scale with 11 px floor (676 arbitrary sizes
+      replaced); ~550 raw state palette classes → semantic tokens, recording/live dots → signals;
+      mark + favicon; `check:design-tokens` guard in tasks and CI; contrast check rewritten for roles;
+      DESIGN.md rewritten. Deviation from study: cladd-vue leaf components are vendored when a screen
+      first needs them (R2+), not wholesale in R1.
 - [ ] R2 Shell (context bar, rail, tabs/splits, device pane, inspector, status bar, persistence)
 - [ ] R3 Command system (palette scopes, go-to, action panel, keymap service)
 - [ ] R4 Gates & states (gate component, provenance treatments, first run)
@@ -60,8 +69,13 @@ Decisions D1–D7 taken as recommended (owner delegated, 2026-11-04). D4: protot
 | -------- | -------- | ------- | ---------- | ------ | -------- | ----- | -------------- | ------ | ------- |
 | Baseline | 4        | 4       | 3.5        | 3      | 3        | 2     | 1.5            | 3.5    | 3.1     |
 | R0       | 4        | 4       | 3.5        | 3      | 3        | 4.5   | 6              | 4      | 4.0     |
+| R1       | 7        | 4.5     | 3.5        | 3      | 3        | 4.5   | 6              | 5      | 4.6     |
 
 R0 notes: responsiveness gains are structural (no main-thread IPC, batched streams) but three perf pollers,
 unvirtualised lists and the unguarded screenshot loop remain; trust gains come from one context owner and
 ordered snapshots, but provenance treatments and the header/inspect state mismatch are still open. No visual
 work yet, so identity, density, navigation, states and keyboard are unchanged by design.
+
+R1 notes: identity is now owned and guarded, but the mark is not yet in the chrome, active tabs
+borrow the ink fill (fix in R2), and categorical hues wait for their screens. Density gains are
+typographic only until the shell and grids are rebuilt.

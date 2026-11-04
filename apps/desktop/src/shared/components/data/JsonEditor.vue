@@ -235,9 +235,7 @@ function highlightLine(raw: string, lineIdx: number): string {
         matchPositions.value[activeMatchIdx.value]?.start === idx;
       parts.push(
         `<span class="${
-          cur
-            ? "bg-yellow-500/40 ring-1 ring-yellow-500/60 rounded-sm"
-            : "bg-yellow-500/20 rounded-sm"
+          cur ? "bg-warning/40 ring-1 ring-warning/60 rounded-sm" : "bg-warning/20 rounded-sm"
         }" data-match-line="${lineIdx}">${e.slice(idx, idx + term.length)}</span>`,
       );
       last = idx + term.length;
@@ -252,9 +250,7 @@ function highlightLine(raw: string, lineIdx: number): string {
   const charHighlight = props.lineCharHighlight?.(lineIdx);
   if (charHighlight && charHighlight.ranges.length > 0) {
     const cls =
-      charHighlight.kind === "add"
-        ? "bg-emerald-500/40 rounded-[1px]"
-        : "bg-red-500/40 rounded-[1px]";
+      charHighlight.kind === "add" ? "bg-success/40 rounded-[1px]" : "bg-error/40 rounded-[1px]";
     return highlightCharRanges(raw, charHighlight.ranges, cls);
   }
 
@@ -370,7 +366,7 @@ defineExpose({
         @keydown.arrow-up.prevent="prevMatch()"
         @keydown.escape="clearFilter()"
       />
-      <span v-if="filterActive" class="text-[10px] text-muted-foreground/40 tabular-nums shrink-0">
+      <span v-if="filterActive" class="text-2xs text-muted-foreground/40 tabular-nums shrink-0">
         <template v-if="matchPositions.length > 0"
           >{{ activeMatchIdx + 1 }} / {{ matchPositions.length }}</template
         >
@@ -410,9 +406,7 @@ defineExpose({
           :key="item.idx"
           class="h-5 leading-5 pr-3"
           :class="
-            jsonError && jsonError.line === item.idx
-              ? 'text-red-400/80'
-              : 'text-muted-foreground/30'
+            jsonError && jsonError.line === item.idx ? 'text-error/80' : 'text-muted-foreground/30'
           "
         >
           {{ item.displayLine }}
@@ -428,8 +422,8 @@ defineExpose({
           :class="[
             props.lineClass?.(item.idx),
             {
-              'bg-yellow-500/5': matchLineSet.has(item.idx),
-              'bg-red-500/8': jsonError && jsonError.line === item.idx,
+              'bg-warning/5': matchLineSet.has(item.idx),
+              'bg-error/8': jsonError && jsonError.line === item.idx,
             },
           ]"
           @click.stop
@@ -454,7 +448,7 @@ defineExpose({
           <!-- error annotation -->
           <span
             v-if="jsonError && jsonError.line === item.idx"
-            class="ml-3 text-[10px] text-red-400/60 font-sans"
+            class="ml-3 text-2xs text-error/60 font-sans"
             :title="jsonError.message"
             >⚠ {{ jsonError.message }}</span
           >
@@ -477,9 +471,7 @@ defineExpose({
           v-for="(_, i) in rawLines.length"
           :key="i"
           class="h-5 leading-5 pr-3"
-          :class="
-            jsonError && jsonError.line === i ? 'text-red-400/80' : 'text-muted-foreground/30'
-          "
+          :class="jsonError && jsonError.line === i ? 'text-error/80' : 'text-muted-foreground/30'"
         >
           {{ i + 1 }}
         </div>
@@ -501,15 +493,15 @@ defineExpose({
               :class="[
                 props.lineClass?.(i),
                 {
-                  'bg-yellow-500/5': matchLineSet.has(i),
-                  'bg-red-500/8': jsonError && jsonError.line === i,
+                  'bg-warning/5': matchLineSet.has(i),
+                  'bg-error/8': jsonError && jsonError.line === i,
                 },
               ]"
             >
               <span v-html="highlightLine(line.raw, i)" />
               <span
                 v-if="jsonError && jsonError.line === i"
-                class="ml-3 text-[10px] text-red-400/60 font-sans"
+                class="ml-3 text-2xs text-error/60 font-sans"
                 :title="jsonError.message"
                 >⚠ {{ jsonError.message }}</span
               >

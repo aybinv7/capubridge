@@ -1,23 +1,26 @@
 // @vitest-environment happy-dom
 import { describe, test, expect, beforeEach } from "vite-plus/test";
-import { themes, getTheme, applyTheme, DEFAULT_THEME_ID, DEFAULT_ACCENT_ID } from "../registry";
-import { getAccentRamp } from "../accent-ramps";
+import { themes, getTheme, applyTheme, DEFAULT_THEME_ID } from "../registry";
 
 describe("themes registry", () => {
-  test("ships exactly 6 themes", () => {
-    expect(themes).toHaveLength(6);
+  test("ships the Bench brand in dark and light plus high contrast", () => {
+    expect(themes.map((theme) => theme.id)).toEqual(["bench-dark", "bench-light", "high-contrast"]);
   });
-  test("default theme id is codex-dark", () => {
-    expect(DEFAULT_THEME_ID).toBe("codex-dark");
+
+  test("default theme is bench-dark", () => {
+    expect(DEFAULT_THEME_ID).toBe("bench-dark");
   });
-  test("default accent id is coral-amber", () => {
-    expect(DEFAULT_ACCENT_ID).toBe("coral-amber");
+
+  test("getTheme returns a theme by id and falls back for unknown ids", () => {
+    expect(getTheme("bench-light").id).toBe("bench-light");
+    expect(getTheme("codex-dark").id).toBe(DEFAULT_THEME_ID);
   });
-  test("getTheme returns a theme by id", () => {
-    expect(getTheme("nord").id).toBe("nord");
-  });
-  test("getTheme falls back to default for unknown id", () => {
-    expect(getTheme("does-not-exist").id).toBe(DEFAULT_THEME_ID);
+
+  test("every theme defines every token role", () => {
+    const roles = Object.keys(getTheme(DEFAULT_THEME_ID).tokens).sort();
+    for (const theme of themes) {
+      expect(Object.keys(theme.tokens).sort()).toEqual(roles);
+    }
   });
 });
 
@@ -25,32 +28,48 @@ describe("applyTheme", () => {
   beforeEach(() => {
     document.documentElement.removeAttribute("data-theme");
     document.documentElement.removeAttribute("data-theme-mode");
+    document.documentElement.removeAttribute("data-brand");
     document.documentElement.style.cssText = "";
   });
 
-  test("sets data-theme on the html element", () => {
-    applyTheme(getTheme("nord"), getAccentRamp("blue"));
-    expect(document.documentElement.dataset.theme).toBe("nord");
+  test("marks the document with theme, mode and brand direction", () => {
+    applyTheme(getTheme("bench-light"));
+    const { dataset } = document.documentElement;
+    expect(dataset.theme).toBe("bench-light");
+    expect(dataset.themeMode).toBe("light");
+    expect(dataset.brand).toBe("bench");
   });
 
-  test("writes --accent and the seven accent step vars", () => {
-    applyTheme(getTheme("codex-dark"), getAccentRamp("coral-amber"));
-    const html = document.documentElement;
-    expect(html.style.getPropertyValue("--accent")).toBeTruthy();
-    expect(html.style.getPropertyValue("--accent-0")).toBeTruthy();
-    expect(html.style.getPropertyValue("--accent-6")).toBeTruthy();
+  test("writes token, signal and category variables", () => {
+    const theme = getTheme("bench-dark");
+    applyTheme(theme);
+    const style = document.documentElement.style;
+    expect(style.getPropertyValue("--bg-surface")).toBe(theme.tokens.bgSurface);
+    expect(style.getPropertyValue("--signal-live")).toBe(theme.tokens.signalLive);
+    expect(style.getPropertyValue("--cat-network")).toBe(theme.tokens.catNetwork);
   });
 
-  test("writes the semantic Layer-B vars", () => {
-    applyTheme(getTheme("codex-dark"), getAccentRamp("coral-amber"));
-    expect(document.documentElement.style.getPropertyValue("--bg-surface")).toBe("#121214");
-    expect(document.documentElement.style.getPropertyValue("--fg-default")).toBe("#f2efe9");
+  test("selection drives the accent and ring aliases; primary is neutral ink", () => {
+    const theme = getTheme("bench-dark");
+    applyTheme(theme);
+    const style = document.documentElement.style;
+    expect(style.getPropertyValue("--accent")).toBe(theme.tokens.signalSelect);
+    expect(style.getPropertyValue("--ring")).toBe(theme.tokens.signalSelect);
+    expect(style.getPropertyValue("--brand")).toBe(theme.tokens.fgDefault);
+    expect(style.getPropertyValue("--brand-foreground")).toBe(theme.tokens.bgApp);
   });
 
-  test("idempotent: applying the same theme twice produces the same state", () => {
-    applyTheme(getTheme("nord"), getAccentRamp("blue"));
+  test("writes the direction's font stacks", () => {
+    const theme = getTheme("bench-light");
+    applyTheme(theme);
+    expect(document.documentElement.style.getPropertyValue("--font-sans")).toBe(theme.fonts.sans);
+    expect(document.documentElement.style.getPropertyValue("--font-mono")).toBe(theme.fonts.mono);
+  });
+
+  test("is idempotent", () => {
+    applyTheme(getTheme("bench-light"));
     const snapshot = document.documentElement.style.cssText;
-    applyTheme(getTheme("nord"), getAccentRamp("blue"));
+    applyTheme(getTheme("bench-light"));
     expect(document.documentElement.style.cssText).toBe(snapshot);
   });
 });

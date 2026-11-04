@@ -51,13 +51,13 @@ function onKeydown(event: KeyboardEvent) {
       <div class="flex h-11 items-center gap-2 px-3">
         <div class="min-w-0 flex-1">
           <div class="truncate text-sm font-medium">REPL</div>
-          <div class="text-[11px] text-muted-foreground/60">
+          <div class="text-2xs text-muted-foreground/60">
             {{ consoleStore.activeTargetLabel }} · {{ consoleStore.replHistory.length }} evaluations
           </div>
         </div>
         <Badge
           variant="outline"
-          class="h-6 rounded-full border px-2 font-mono text-[10px]"
+          class="h-6 rounded-full border px-2 font-mono text-2xs"
           :class="
             consoleStore.boundTargetId
               ? 'border-success/30 bg-success/10 text-success'
@@ -93,12 +93,12 @@ function onKeydown(event: KeyboardEvent) {
             "
           >
             <div class="flex items-center justify-between gap-3">
-              <span class="font-mono text-[10px] text-muted-foreground/60">{{
+              <span class="font-mono text-2xs text-muted-foreground/60">{{
                 entry.timestampLabel
               }}</span>
               <Badge
                 variant="outline"
-                class="h-5 rounded-full border px-1.5 font-mono text-[10px]"
+                class="h-5 rounded-full border px-1.5 font-mono text-2xs"
                 :class="
                   entry.status === 'error'
                     ? 'border-error/30 bg-error/10 text-error'
@@ -109,11 +109,11 @@ function onKeydown(event: KeyboardEvent) {
               </Badge>
             </div>
             <pre
-              class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-[11px] text-sky-300"
+              class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-2xs text-info"
               >{{ entry.expression }}</pre
             >
             <pre
-              class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-[11px]"
+              class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-2xs"
               :class="entry.status === 'error' ? 'text-error' : 'text-foreground/85'"
               >{{ entry.result }}</pre
             >
@@ -129,10 +129,10 @@ function onKeydown(event: KeyboardEvent) {
           @keydown="onKeydown"
         />
         <div class="mt-2 flex items-center gap-2">
-          <div class="text-[11px] text-muted-foreground/60">
+          <div class="text-2xs text-muted-foreground/60">
             Enter to run · Shift+Enter for newline
           </div>
-          <div v-if="localError" class="truncate text-[11px] text-error">{{ localError }}</div>
+          <div v-if="localError" class="truncate text-2xs text-error">{{ localError }}</div>
           <div class="ml-auto">
             <Button
               size="sm"

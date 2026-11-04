@@ -189,8 +189,8 @@ function highlightLine(line: string, lineIdx: number): string {
         matchPositions.value[activeMatchIdx.value]?.start === idx;
 
       const matchClass = isCurrentMatch
-        ? "bg-yellow-500/40 ring-1 ring-yellow-500/60 rounded-sm"
-        : "bg-yellow-500/20 rounded-sm";
+        ? "bg-warning/40 ring-1 ring-warning/60 rounded-sm"
+        : "bg-warning/20 rounded-sm";
 
       parts.push(
         `<span class="${matchClass}" data-match-line="${lineIdx}">${escaped.slice(idx, idx + term.length)}</span>`,
@@ -250,7 +250,7 @@ defineExpose({ expandAll, collapseAll, toggleAll, filterInputRef });
         @keydown.arrow-up.prevent="prevMatch()"
         @keydown.escape="clearFilter()"
       />
-      <span v-if="filterActive" class="text-[10px] text-muted-foreground/40 tabular-nums shrink-0">
+      <span v-if="filterActive" class="text-2xs text-muted-foreground/40 tabular-nums shrink-0">
         <template v-if="matchPositions.length > 0">
           {{ activeMatchIdx + 1 }} / {{ matchPositions.length }}
         </template>
@@ -288,7 +288,7 @@ defineExpose({ expandAll, collapseAll, toggleAll, filterInputRef });
           v-for="{ line, idx } in getVisibleLines()"
           :key="idx"
           class="relative h-5 whitespace-pre pl-5 select-text"
-          :class="{ 'bg-yellow-500/5': matchLines.includes(idx) }"
+          :class="{ 'bg-warning/5': matchLines.includes(idx) }"
         >
           <button
             v-if="line.isCollapsible"

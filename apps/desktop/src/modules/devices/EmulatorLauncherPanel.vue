@@ -78,13 +78,13 @@ onMounted(() => {
       class="flex shrink-0 items-start justify-between gap-4 border-b border-border/15 px-6 pb-4 pt-5"
     >
       <div>
-        <h2 class="text-[15px] font-semibold text-foreground">Android Emulators</h2>
-        <p class="mt-0.5 text-[11px] text-muted-foreground/40">
+        <h2 class="text-base font-semibold text-foreground">Android Emulators</h2>
+        <p class="mt-0.5 text-2xs text-muted-foreground/40">
           Launch an installed AVD. It will appear in Devices once ADB connects.
         </p>
       </div>
       <button
-        class="flex h-8 items-center gap-1.5 rounded-lg border border-border/25 bg-surface-2 px-3 text-[11px] text-muted-foreground/60 transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-50"
+        class="flex h-8 items-center gap-1.5 rounded-lg border border-border/25 bg-surface-2 px-3 text-2xs text-muted-foreground/60 transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-50"
         :disabled="loading"
         @click="void refresh()"
       >
@@ -96,14 +96,14 @@ onMounted(() => {
     <div class="flex-1 overflow-y-auto px-6 py-5">
       <div
         v-if="error"
-        class="rounded-xl border border-error/25 bg-error/5 px-4 py-3 text-[11px] text-error"
+        class="rounded-xl border border-error/25 bg-error/5 px-4 py-3 text-2xs text-error"
       >
         {{ error }}
       </div>
 
       <div
         v-else-if="loading && avds.length === 0"
-        class="flex items-center gap-2 py-8 text-[11px] text-muted-foreground/35"
+        class="flex items-center gap-2 py-8 text-2xs text-muted-foreground/35"
       >
         <Loader2 :size="13" class="animate-spin" />
         Discovering installed AVDs…
@@ -122,10 +122,10 @@ onMounted(() => {
             <Smartphone :size="16" />
           </div>
           <div class="min-w-0 flex-1">
-            <p class="truncate text-[12px] font-medium text-foreground/85">{{ avd.name }}</p>
+            <p class="truncate text-xs font-medium text-foreground/85">{{ avd.name }}</p>
             <p
               v-if="avd.running"
-              class="mt-0.5 flex items-center gap-1.5 text-[10px]"
+              class="mt-0.5 flex items-center gap-1.5 text-2xs"
               :class="avd.running.serial ? 'text-success' : 'text-warning'"
             >
               <span
@@ -135,11 +135,11 @@ onMounted(() => {
               <template v-if="avd.running.serial">Running as {{ avd.running.serial }}</template>
               <template v-else>Starting (pid {{ avd.running.pid }}) — not on ADB yet</template>
             </p>
-            <p v-else class="mt-0.5 text-[10px] text-muted-foreground/35">Android Virtual Device</p>
+            <p v-else class="mt-0.5 text-2xs text-muted-foreground/35">Android Virtual Device</p>
           </div>
           <button
             v-if="avd.running"
-            class="flex h-8 items-center gap-1.5 rounded-lg border border-error/30 px-3 text-[11px] font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-45"
+            class="flex h-8 items-center gap-1.5 rounded-lg border border-error/30 px-3 text-2xs font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-45"
             :disabled="busyName !== null"
             @click="void stop(avd.name)"
           >
@@ -149,7 +149,7 @@ onMounted(() => {
           </button>
           <button
             v-else
-            class="flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[11px] font-medium text-background transition-opacity hover:opacity-85 disabled:opacity-45"
+            class="flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-2xs font-medium text-background transition-opacity hover:opacity-85 disabled:opacity-45"
             :disabled="busyName !== null"
             @click="void launch(avd.name)"
           >
@@ -162,8 +162,8 @@ onMounted(() => {
 
       <div v-else class="flex flex-col items-center gap-2 py-12 text-center">
         <Smartphone :size="28" class="text-muted-foreground/15" />
-        <p class="text-[12px] text-muted-foreground/35">No Android Virtual Devices found.</p>
-        <p class="max-w-sm text-[11px] text-muted-foreground/25">
+        <p class="text-xs text-muted-foreground/35">No Android Virtual Devices found.</p>
+        <p class="max-w-sm text-2xs text-muted-foreground/25">
           Create an AVD in Android Studio, then refresh this list.
         </p>
       </div>

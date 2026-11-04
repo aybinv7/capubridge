@@ -265,7 +265,7 @@ function timeAgo(ts: number): string {
         <button
           v-for="mode in ['off', 'cdp', 'http'] as MockInterceptMode[]"
           :key="mode"
-          class="flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium capitalize transition-colors"
+          class="flex items-center gap-1.5 rounded px-2.5 py-1 text-2xs font-medium capitalize transition-colors"
           :class="
             store.interceptMode === mode
               ? mode === 'off'
@@ -298,32 +298,32 @@ function timeAgo(ts: number): string {
       <!-- HTTP port input when HTTP mode -->
       <template v-if="store.interceptMode === 'http'">
         <div class="flex items-center gap-1 rounded border border-border/25 bg-surface-3 px-2">
-          <span class="text-[11px] text-muted-foreground/50">Port:</span>
+          <span class="text-2xs text-muted-foreground/50">Port:</span>
           <input
             v-model.number="store.httpPort"
             type="number"
-            class="w-14 bg-transparent text-[11px] font-mono text-foreground/80 outline-none"
+            class="w-14 bg-transparent text-2xs font-mono text-foreground/80 outline-none"
             min="1024"
             max="65535"
           />
         </div>
         <button
-          class="flex items-center gap-1 rounded border border-border/25 bg-surface-3 px-2 py-1 text-[11px] text-muted-foreground/60 transition-colors hover:text-foreground/70"
+          class="flex items-center gap-1 rounded border border-border/25 bg-surface-3 px-2 py-1 text-2xs text-muted-foreground/60 transition-colors hover:text-foreground/70"
           title="Setup ADB reverse port forwarding"
           @click="setupAdbReverse"
         >
           <Radio class="h-3 w-3" />
           ADB Reverse
         </button>
-        <span v-if="store.httpServerRunning" class="text-[11px] text-success/80">
+        <span v-if="store.httpServerRunning" class="text-2xs text-success/80">
           Server running :{{ store.httpPort }}
         </span>
-        <span v-else class="text-[11px] text-muted-foreground/40">Server stopped</span>
+        <span v-else class="text-2xs text-muted-foreground/40">Server stopped</span>
       </template>
 
       <!-- CDP mode no-target warning -->
       <template v-if="store.interceptMode === 'cdp' && !hasTarget">
-        <div class="flex items-center gap-1.5 text-[11px] text-warning/70">
+        <div class="flex items-center gap-1.5 text-2xs text-warning/70">
           <AlertTriangle class="h-3 w-3 shrink-0" />
           No target selected — select a device tab to intercept
         </div>
@@ -332,7 +332,7 @@ function timeAgo(ts: number): string {
       <div class="flex-1" />
 
       <button
-        class="flex h-7 items-center gap-1.5 rounded px-2 text-[11px] text-muted-foreground/55 transition-colors hover:bg-surface-3 hover:text-foreground"
+        class="flex h-7 items-center gap-1.5 rounded px-2 text-2xs text-muted-foreground/55 transition-colors hover:bg-surface-3 hover:text-foreground"
         @click="modeHelpOpen = !modeHelpOpen"
       >
         <CircleHelp class="h-3.5 w-3.5" />
@@ -340,7 +340,7 @@ function timeAgo(ts: number): string {
       </button>
 
       <!-- Stats -->
-      <div class="flex items-center gap-2 text-[11px]">
+      <div class="flex items-center gap-2 text-2xs">
         <span class="max-w-[220px] truncate text-muted-foreground/40" :title="targetScopeLabel">
           {{ targetScopeLabel }}
         </span>
@@ -353,7 +353,7 @@ function timeAgo(ts: number): string {
       <div class="relative">
         <div class="flex items-center gap-1.5">
           <button
-            class="flex h-8 items-center gap-1.5 rounded-md border border-border/30 bg-surface-3 px-2.5 text-[11px] font-medium text-foreground/80 transition-colors hover:bg-surface-3/70 disabled:cursor-not-allowed disabled:opacity-50"
+            class="flex h-8 items-center gap-1.5 rounded-md border border-border/30 bg-surface-3 px-2.5 text-2xs font-medium text-foreground/80 transition-colors hover:bg-surface-3/70 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="transferPending"
             title="Import a rule configuration into this target workspace"
             @click="importRule"
@@ -363,7 +363,7 @@ function timeAgo(ts: number): string {
           </button>
           <div class="flex overflow-hidden rounded-md shadow-sm ring-1 ring-primary/35">
             <button
-              class="flex h-8 items-center gap-1.5 bg-primary px-3.5 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              class="flex h-8 items-center gap-1.5 bg-primary px-3.5 text-2xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               @click="createRule()"
             >
               <Plus class="h-3.5 w-3.5" />
@@ -388,7 +388,7 @@ function timeAgo(ts: number): string {
           <button
             v-for="tpl in DEFAULT_RULE_TEMPLATES"
             :key="tpl.label"
-            class="flex w-full items-center px-3 py-1.5 text-left text-[11px] text-muted-foreground/70 transition-colors hover:bg-surface-3 hover:text-foreground/80"
+            class="flex w-full items-center px-3 py-1.5 text-left text-2xs text-muted-foreground/70 transition-colors hover:bg-surface-3 hover:text-foreground/80"
             @click="
               createRule(tpl.rule);
               showTemplates = false;
@@ -401,7 +401,7 @@ function timeAgo(ts: number): string {
     </div>
     <div
       v-if="transferNotice"
-      class="flex h-7 shrink-0 items-center border-b border-border/20 bg-surface-1 px-3 text-[11px] text-muted-foreground/60"
+      class="flex h-7 shrink-0 items-center border-b border-border/20 bg-surface-1 px-3 text-2xs text-muted-foreground/60"
     >
       {{ transferNotice }}
       <button
@@ -420,7 +420,7 @@ function timeAgo(ts: number): string {
           <Zap class="h-3.5 w-3.5" />
           CDP interception
         </div>
-        <p class="text-[11px] leading-relaxed text-muted-foreground/60">
+        <p class="text-2xs leading-relaxed text-muted-foreground/60">
           Best for a running Android WebView. Capubridge replaces matching requests directly, so the
           app keeps its normal API URL and needs no configuration change.
         </p>
@@ -430,7 +430,7 @@ function timeAgo(ts: number): string {
           <Server class="h-3.5 w-3.5" />
           HTTP mock server
         </div>
-        <p class="text-[11px] leading-relaxed text-muted-foreground/60">
+        <p class="text-2xs leading-relaxed text-muted-foreground/60">
           Best when the app can point at Capubridge’s local URL or proxy. Use it without WebView
           debugging, then connect Android with ADB Reverse.
         </p>
@@ -449,7 +449,7 @@ function timeAgo(ts: number): string {
             <button
               v-for="tab in ['rules', 'log'] as const"
               :key="tab"
-              class="h-6 rounded px-2.5 text-[11px] capitalize transition-colors"
+              class="h-6 rounded px-2.5 text-2xs capitalize transition-colors"
               :class="
                 leftTab === tab
                   ? 'bg-surface-3 font-medium text-foreground'
@@ -462,14 +462,14 @@ function timeAgo(ts: number): string {
             <div class="flex-1" />
             <button
               v-if="leftTab === 'log' && store.log.length"
-              class="h-5 rounded px-1.5 text-[10px] text-muted-foreground/40 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+              class="h-5 rounded px-1.5 text-2xs text-muted-foreground/40 transition-colors hover:bg-surface-3 hover:text-foreground/60"
               @click="store.clearLog()"
             >
               Clear
             </button>
             <button
               v-if="leftTab === 'rules' && store.rules.length"
-              class="h-5 rounded px-1.5 text-[10px] text-muted-foreground/40 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+              class="h-5 rounded px-1.5 text-2xs text-muted-foreground/40 transition-colors hover:bg-surface-3 hover:text-foreground/60"
               title="Reset all hit counts"
               @click="store.clearHitCounts()"
             >
@@ -485,7 +485,7 @@ function timeAgo(ts: number): string {
             >
               <input
                 v-model="ruleSearch"
-                class="min-w-0 flex-1 bg-transparent text-[11px] font-mono outline-none placeholder:text-muted-foreground/30"
+                class="min-w-0 flex-1 bg-transparent text-2xs font-mono outline-none placeholder:text-muted-foreground/30"
                 placeholder="Search rules…"
               />
               <button
@@ -505,7 +505,7 @@ function timeAgo(ts: number): string {
               <FilePlus class="h-7 w-7 opacity-30" />
               <span class="text-xs">No rules yet</span>
               <button
-                class="mt-1 rounded border border-border/25 px-3 py-1 text-[11px] text-muted-foreground/55 transition-colors hover:border-border/50 hover:text-foreground/70"
+                class="mt-1 rounded border border-border/25 px-3 py-1 text-2xs text-muted-foreground/55 transition-colors hover:border-border/50 hover:text-foreground/70"
                 @click="createRule()"
               >
                 Create first rule
@@ -536,7 +536,7 @@ function timeAgo(ts: number): string {
 
                   <!-- Method badge -->
                   <span
-                    class="shrink-0 rounded px-1.5 py-[1px] font-mono text-[9px] font-semibold leading-none"
+                    class="shrink-0 rounded px-1.5 py-[1px] font-mono text-2xs font-semibold leading-none"
                     :class="methodBadge(rule.method)"
                   >
                     {{ rule.method }}
@@ -545,24 +545,24 @@ function timeAgo(ts: number): string {
                   <!-- Name + URL pattern -->
                   <div class="min-w-0 flex-1 overflow-hidden">
                     <div
-                      class="truncate text-[11px] font-medium text-foreground/80"
+                      class="truncate text-2xs font-medium text-foreground/80"
                       :class="!rule.enabled ? 'opacity-40' : ''"
                     >
                       {{ rule.name }}
                     </div>
-                    <div class="truncate font-mono text-[10px] text-muted-foreground/45">
+                    <div class="truncate font-mono text-2xs text-muted-foreground/45">
                       {{ rule.urlPattern || "(no pattern)" }}
                     </div>
                   </div>
 
                   <!-- Status + hits -->
                   <div class="flex shrink-0 flex-col items-end gap-0.5">
-                    <span class="font-mono text-[10px]" :class="statusColor(rule.statusCode)">
+                    <span class="font-mono text-2xs" :class="statusColor(rule.statusCode)">
                       {{ rule.statusCode }}
                     </span>
                     <span
                       v-if="rule.hitCount > 0"
-                      class="rounded bg-surface-3 px-1 font-mono text-[9px] text-muted-foreground/50"
+                      class="rounded bg-surface-3 px-1 font-mono text-2xs text-muted-foreground/50"
                     >
                       {{ rule.hitCount }}×
                     </span>
@@ -594,7 +594,7 @@ function timeAgo(ts: number): string {
               <span class="text-xs">No intercepted requests yet</span>
             </div>
             <div v-else ref="logScrollEl" class="min-h-0 flex-1 overflow-auto">
-              <div class="py-1 font-mono text-[10px]">
+              <div class="py-1 font-mono text-2xs">
                 <div v-if="logTopSpacerHeight > 0" :style="{ height: `${logTopSpacerHeight}px` }" />
                 <div
                   v-for="{ data: entry } in virtualLogEntries"
@@ -664,7 +664,7 @@ function timeAgo(ts: number): string {
           <Globe class="h-10 w-10 opacity-20" />
           <p class="text-xs">Select a rule to edit</p>
           <button
-            class="mt-1 rounded border border-border/25 px-3 py-1.5 text-[11px] text-muted-foreground/55 transition-colors hover:border-border/50 hover:text-foreground/70"
+            class="mt-1 rounded border border-border/25 px-3 py-1.5 text-2xs text-muted-foreground/55 transition-colors hover:border-border/50 hover:text-foreground/70"
             @click="createRule()"
           >
             + New rule
@@ -708,7 +708,7 @@ function timeAgo(ts: number): string {
             <!-- Section: Match -->
             <section>
               <h3
-                class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50"
+                class="mb-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50"
               >
                 Match
               </h3>
@@ -758,12 +758,12 @@ function timeAgo(ts: number): string {
                 </div>
                 <!-- Match type -->
                 <div class="flex items-center gap-2">
-                  <span class="text-[11px] text-muted-foreground/50">URL match:</span>
+                  <span class="text-2xs text-muted-foreground/50">URL match:</span>
                   <div class="flex gap-0.5">
                     <button
                       v-for="t in ['contains', 'glob', 'regex', 'exact'] as const"
                       :key="t"
-                      class="rounded px-2 py-0.5 text-[11px] capitalize transition-colors"
+                      class="rounded px-2 py-0.5 text-2xs capitalize transition-colors"
                       :class="
                         draft.urlMatchType === t
                           ? 'bg-surface-3 font-medium text-foreground'
@@ -781,7 +781,7 @@ function timeAgo(ts: number): string {
             <!-- Section: Response -->
             <section>
               <h3
-                class="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50"
+                class="mb-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50"
               >
                 Response
               </h3>
@@ -789,7 +789,7 @@ function timeAgo(ts: number): string {
                 <!-- Status + Content-Type + Delay row -->
                 <div class="flex flex-wrap gap-2">
                   <div class="flex items-center gap-1.5">
-                    <span class="text-[11px] text-muted-foreground/50">Status</span>
+                    <span class="text-2xs text-muted-foreground/50">Status</span>
                     <input
                       v-model.number="draft.statusCode"
                       type="number"
@@ -799,7 +799,7 @@ function timeAgo(ts: number): string {
                     />
                   </div>
                   <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span class="shrink-0 text-[11px] text-muted-foreground/50">Type</span>
+                    <span class="shrink-0 text-2xs text-muted-foreground/50">Type</span>
                     <Select v-model="draft.contentType">
                       <SelectTrigger
                         class="h-8 flex-1 border-border/25 bg-surface-2 text-xs font-mono"
@@ -826,7 +826,7 @@ function timeAgo(ts: number): string {
                     </Select>
                   </div>
                   <div class="flex items-center gap-1.5">
-                    <span class="text-[11px] text-muted-foreground/50">Delay</span>
+                    <span class="text-2xs text-muted-foreground/50">Delay</span>
                     <input
                       v-model.number="draft.delayMs"
                       type="number"
@@ -834,16 +834,16 @@ function timeAgo(ts: number): string {
                       min="0"
                       max="60000"
                     />
-                    <span class="text-[11px] text-muted-foreground/40">ms</span>
+                    <span class="text-2xs text-muted-foreground/40">ms</span>
                   </div>
                 </div>
 
                 <!-- Body -->
                 <div>
                   <div class="mb-1.5 flex items-center justify-between">
-                    <span class="text-[11px] text-muted-foreground/50">Body</span>
+                    <span class="text-2xs text-muted-foreground/50">Body</span>
                     <button
-                      class="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground/55 transition-colors hover:bg-surface-3 hover:text-foreground"
+                      class="flex items-center gap-1 rounded px-1.5 py-1 text-2xs text-muted-foreground/55 transition-colors hover:bg-surface-3 hover:text-foreground"
                       title="Open response body editor"
                       @click="openBodyDialog"
                     >
@@ -876,12 +876,12 @@ function timeAgo(ts: number): string {
             <section>
               <div class="mb-2.5 flex items-center justify-between">
                 <h3
-                  class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50"
+                  class="text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50"
                 >
                   Response Headers
                 </h3>
                 <button
-                  class="flex items-center gap-1 text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground/70"
+                  class="flex items-center gap-1 text-2xs text-muted-foreground/50 transition-colors hover:text-foreground/70"
                   @click="addHeader"
                 >
                   <Plus class="h-3 w-3" />
@@ -890,7 +890,7 @@ function timeAgo(ts: number): string {
               </div>
               <div
                 v-if="!draft.responseHeaders.length"
-                class="text-[11px] italic text-muted-foreground/30"
+                class="text-2xs italic text-muted-foreground/30"
               >
                 No custom headers
               </div>
@@ -902,7 +902,7 @@ function timeAgo(ts: number): string {
                 >
                   <input
                     :value="header.name"
-                    class="h-7 flex-1 rounded border border-border/20 bg-surface-2 px-2 font-mono text-[11px] text-foreground/80 outline-none focus:border-border/50"
+                    class="h-7 flex-1 rounded border border-border/20 bg-surface-2 px-2 font-mono text-2xs text-foreground/80 outline-none focus:border-border/50"
                     placeholder="header-name"
                     @input="
                       updateHeader(header.id, 'name', ($event.target as HTMLInputElement).value)
@@ -910,7 +910,7 @@ function timeAgo(ts: number): string {
                   />
                   <input
                     :value="header.value"
-                    class="h-7 flex-1 rounded border border-border/20 bg-surface-2 px-2 font-mono text-[11px] text-foreground/80 outline-none focus:border-border/50"
+                    class="h-7 flex-1 rounded border border-border/20 bg-surface-2 px-2 font-mono text-2xs text-foreground/80 outline-none focus:border-border/50"
                     placeholder="value"
                     @input="
                       updateHeader(header.id, 'value', ($event.target as HTMLInputElement).value)
@@ -929,14 +929,14 @@ function timeAgo(ts: number): string {
             <!-- Section: Behavior -->
             <section class="border-t border-border/20 pt-4">
               <h3
-                class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50"
+                class="mb-3 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50"
               >
                 Behavior
               </h3>
               <div class="flex items-center justify-between">
                 <div>
                   <div class="text-xs font-medium text-foreground/75">Pass through</div>
-                  <div class="mt-0.5 text-[11px] text-muted-foreground/45">
+                  <div class="mt-0.5 text-2xs text-muted-foreground/45">
                     Match URL but let request continue to real API
                   </div>
                 </div>
@@ -947,7 +947,7 @@ function timeAgo(ts: number): string {
             <!-- HTTP server info when HTTP mode -->
             <template v-if="store.interceptMode === 'http'">
               <section class="rounded border border-info/20 bg-info/5 p-3">
-                <p class="text-[11px] leading-relaxed text-info/70">
+                <p class="text-2xs leading-relaxed text-info/70">
                   HTTP server is running on
                   <code class="font-mono">http://127.0.0.1:{{ store.httpPort }}</code
                   >. Configure your Android app to point to this URL, then use

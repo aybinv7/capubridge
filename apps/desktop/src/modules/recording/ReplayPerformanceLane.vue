@@ -218,7 +218,7 @@ const domTooltip = makeTooltip(domChartConfig);
     >
       <Activity class="h-8 w-8 opacity-30" />
       <p class="text-xs">Performance track not recorded</p>
-      <p class="text-[11px] opacity-60">Enable the Performance track in the recording config</p>
+      <p class="text-2xs opacity-60">Enable the Performance track in the recording config</p>
     </div>
 
     <ScrollArea v-else class="flex-1 min-h-0">
@@ -300,7 +300,7 @@ const domTooltip = makeTooltip(domChartConfig);
           <Card v-else>
             <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1">
               <CardTitle class="text-sm font-medium flex items-center gap-2">
-                <MemoryStick class="h-4 w-4 text-sky-500" /> Memory
+                <MemoryStick class="h-4 w-4 text-info" /> Memory
               </CardTitle>
               <div class="text-right">
                 <span
@@ -311,7 +311,7 @@ const domTooltip = makeTooltip(domChartConfig);
                 </span>
                 <p
                   v-if="latest?.memUsedKb != null && latest.memTotalKb != null"
-                  class="text-[10px] text-muted-foreground"
+                  class="text-2xs text-muted-foreground"
                 >
                   {{ fmtBytes(latest.memUsedKb) }} / {{ fmtBytes(latest.memTotalKb) }}
                 </p>
@@ -381,7 +381,7 @@ const domTooltip = makeTooltip(domChartConfig);
                 class="flex flex-col gap-1 rounded-lg bg-muted/50 p-2"
               >
                 <div class="flex items-center justify-between">
-                  <span class="text-[10px] text-muted-foreground">CPU{{ core.core }}</span>
+                  <span class="text-2xs text-muted-foreground">CPU{{ core.core }}</span>
                   <span
                     class="font-mono text-xs font-semibold"
                     :style="{ color: coreColors[i % coreColors.length] }"
@@ -433,14 +433,14 @@ const domTooltip = makeTooltip(domChartConfig);
               </CardTitle>
               <div class="flex items-center gap-4 text-xs">
                 <div class="flex items-center gap-1">
-                  <ArrowDown class="h-3 w-3 text-emerald-500" />
-                  <span class="font-mono font-semibold text-emerald-500">
+                  <ArrowDown class="h-3 w-3 text-success" />
+                  <span class="font-mono font-semibold text-success">
                     {{ fmtBps(latestRxKbps) }}
                   </span>
                 </div>
                 <div class="flex items-center gap-1">
-                  <ArrowUp class="h-3 w-3 text-amber-500" />
-                  <span class="font-mono font-semibold text-amber-500">
+                  <ArrowUp class="h-3 w-3 text-warning" />
+                  <span class="font-mono font-semibold text-warning">
                     {{ fmtBps(latestTxKbps) }}
                   </span>
                 </div>
@@ -450,7 +450,7 @@ const domTooltip = makeTooltip(domChartConfig);
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <p class="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                    <ArrowDown class="h-3 w-3 text-emerald-500" /> Download
+                    <ArrowDown class="h-3 w-3 text-success" /> Download
                   </p>
                   <ChartContainer :config="netChartConfig" class="aspect-auto h-[128px] w-full">
                     <VisXYContainer
@@ -494,7 +494,7 @@ const domTooltip = makeTooltip(domChartConfig);
                 </div>
                 <div>
                   <p class="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                    <ArrowUp class="h-3 w-3 text-amber-500" /> Upload
+                    <ArrowUp class="h-3 w-3 text-warning" /> Upload
                   </p>
                   <ChartContainer :config="netChartConfig" class="aspect-auto h-[128px] w-full">
                     <VisXYContainer
@@ -551,7 +551,7 @@ const domTooltip = makeTooltip(domChartConfig);
             <Card v-else>
               <CardHeader class="pb-1">
                 <CardTitle class="text-sm font-medium flex items-center gap-2">
-                  <Battery class="h-4 w-4 text-emerald-500" /> Battery
+                  <Battery class="h-4 w-4 text-success" /> Battery
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -583,7 +583,7 @@ const domTooltip = makeTooltip(domChartConfig);
             <Card v-else>
               <CardHeader class="pb-1">
                 <CardTitle class="text-sm font-medium flex items-center gap-2">
-                  <Thermometer class="h-4 w-4 text-orange-500" /> Temperature
+                  <Thermometer class="h-4 w-4 text-warning" /> Temperature
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -591,18 +591,15 @@ const domTooltip = makeTooltip(domChartConfig);
                   class="font-mono text-3xl font-bold"
                   :class="
                     latest?.cpuTemp && latest.cpuTemp > 50
-                      ? 'text-red-500'
+                      ? 'text-error'
                       : latest?.cpuTemp && latest.cpuTemp > 40
-                        ? 'text-amber-500'
-                        : 'text-orange-500'
+                        ? 'text-warning'
+                        : 'text-warning'
                   "
                 >
                   {{ latest?.cpuTemp != null ? latest.cpuTemp.toFixed(1) : "--" }}°C
                 </div>
-                <p
-                  v-if="latest?.batteryTemp != null"
-                  class="text-[10px] text-muted-foreground mt-1"
-                >
+                <p v-if="latest?.batteryTemp != null" class="text-2xs text-muted-foreground mt-1">
                   Battery: {{ latest.batteryTemp.toFixed(1) }}°C
                 </p>
               </CardContent>
@@ -614,7 +611,7 @@ const domTooltip = makeTooltip(domChartConfig);
         <Card>
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle class="text-sm font-medium flex items-center gap-2">
-              <Layers class="h-4 w-4 text-sky-500" /> WebView · CDP Metrics
+              <Layers class="h-4 w-4 text-info" /> WebView · CDP Metrics
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -662,7 +659,7 @@ const domTooltip = makeTooltip(domChartConfig);
                     <ChartTooltip :template="heapUsedTooltip" />
                   </VisXYContainer>
                 </ChartContainer>
-                <p class="mt-2 text-[10px] text-muted-foreground">
+                <p class="mt-2 text-2xs text-muted-foreground">
                   Now {{ fmtMb(heapUsedStats.now) }} · Avg {{ fmtMb(heapUsedStats.avg) }} · Peak
                   {{ fmtMb(heapUsedStats.max) }}
                 </p>
@@ -707,7 +704,7 @@ const domTooltip = makeTooltip(domChartConfig);
                     <ChartTooltip :template="heapTotalTooltip" />
                   </VisXYContainer>
                 </ChartContainer>
-                <p class="mt-2 text-[10px] text-muted-foreground">
+                <p class="mt-2 text-2xs text-muted-foreground">
                   Now {{ fmtMb(heapTotalStats.now) }} · Avg {{ fmtMb(heapTotalStats.avg) }} · Peak
                   {{ fmtMb(heapTotalStats.max) }}
                 </p>
@@ -752,7 +749,7 @@ const domTooltip = makeTooltip(domChartConfig);
                     <ChartTooltip :template="domTooltip" />
                   </VisXYContainer>
                 </ChartContainer>
-                <p class="mt-2 text-[10px] text-muted-foreground">
+                <p class="mt-2 text-2xs text-muted-foreground">
                   Now {{ fmtCount(domNodesStats.now) }} · Avg {{ fmtCount(domNodesStats.avg) }} ·
                   Peak {{ fmtCount(domNodesStats.max) }}
                 </p>

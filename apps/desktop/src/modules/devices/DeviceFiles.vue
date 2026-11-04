@@ -853,7 +853,7 @@ watch(
             </div>
             <div class="flex h-8 items-center gap-2 border-b border-border/20 px-3">
               <HardDrive class="h-3 w-3 text-muted-foreground/30" /><span
-                class="text-[11px] uppercase text-muted-foreground/40"
+                class="text-2xs uppercase text-muted-foreground/40"
                 >Folders</span
               >
             </div>
@@ -882,7 +882,7 @@ watch(
                 </span>
                 <component
                   :is="expandedDirs.has(dir.path) ? FolderOpen : Folder"
-                  class="h-3.5 w-3.5 shrink-0 text-amber-400/70"
+                  class="h-3.5 w-3.5 shrink-0 text-warning/70"
                   fill="#e0a528"
                   strokeWidth="0"
                 />
@@ -954,10 +954,10 @@ watch(
                             <div class="flex min-w-0 items-center gap-2">
                               <div v-if="isFolderEntry(entry)" class="relative h-4 w-5 shrink-0">
                                 <div
-                                  class="absolute left-0.5 top-0 h-1.5 w-2.5 rounded-t bg-amber-300/95"
+                                  class="absolute left-0.5 top-0 h-1.5 w-2.5 rounded-t bg-warning/95"
                                 />
                                 <div
-                                  class="absolute top-0.5 h-3.5 w-5 rounded-sm bg-amber-400 shadow-[inset_0_-2px_0_rgba(217,119,6,0.85)]"
+                                  class="absolute top-0.5 h-3.5 w-5 rounded-sm bg-warning shadow-[inset_0_-2px_0_rgba(217,119,6,0.85)]"
                                 />
                               </div>
                               <component
@@ -1042,9 +1042,9 @@ watch(
                         @dblclick="void onDoubleClick(entry)"
                       >
                         <div v-if="isFolderEntry(entry)" class="relative h-10 w-12 shrink-0">
-                          <div class="absolute left top-0 h-3.5 w-5 rounded-t-md bg-amber-300/95" />
+                          <div class="absolute left top-0 h-3.5 w-5 rounded-t-md bg-warning/95" />
                           <div
-                            class="absolute top-1.5 h-8 w-12 rounded-md bg-amber-400 shadow-[inset_0_-3px_0_rgba(217,119,6,0.85)]"
+                            class="absolute top-1.5 h-8 w-12 rounded-md bg-warning shadow-[inset_0_-3px_0_rgba(217,119,6,0.85)]"
                           />
                         </div>
                         <component
@@ -1059,7 +1059,7 @@ watch(
                         >
                           {{ entry.name }}
                         </div>
-                        <div class="mt-0.5 text-[10px] text-muted-foreground/55">
+                        <div class="mt-0.5 text-2xs text-muted-foreground/55">
                           {{ formatSizeLabel(entry) }}
                         </div>
                       </button>
@@ -1101,9 +1101,9 @@ watch(
               <div class="text-xs text-muted-foreground/50">Preview</div>
               <div class="mt-2 flex items-center gap-2">
                 <div v-if="isFolderEntry(selectedEntry)" class="relative h-5 w-6 shrink-0">
-                  <div class="absolute left-0.5 top-0 h-2 w-2.5 rounded-t bg-amber-300/95" />
+                  <div class="absolute left-0.5 top-0 h-2 w-2.5 rounded-t bg-warning/95" />
                   <div
-                    class="absolute top-1 h-4 w-6 rounded-sm bg-amber-400 shadow-[inset_0_-2px_0_rgba(217,119,6,0.85)]"
+                    class="absolute top-1 h-4 w-6 rounded-sm bg-warning shadow-[inset_0_-2px_0_rgba(217,119,6,0.85)]"
                   />
                 </div>
                 <component
@@ -1116,7 +1116,7 @@ watch(
                   {{ selectedEntry.name }}
                 </div>
               </div>
-              <div class="mt-1 break-all text-[11px] text-muted-foreground/55">
+              <div class="mt-1 break-all text-2xs text-muted-foreground/55">
                 {{ selectedEntryPath }}
               </div>
               <div class="mt-3 space-y-1 text-xs">

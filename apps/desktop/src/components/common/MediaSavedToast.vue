@@ -37,7 +37,7 @@ async function openInFolder() {
     <div class="flex items-center justify-between gap-3">
       <div class="flex flex-col gap-1 overflow-hidden">
         <span class="text-sm font-medium text-zinc-100 truncate">{{ name }}</span>
-        <span class="text-[11px] text-zinc-500 truncate" :title="path">{{ path }}</span>
+        <span class="text-2xs text-zinc-500 truncate" :title="path">{{ path }}</span>
       </div>
 
       <button

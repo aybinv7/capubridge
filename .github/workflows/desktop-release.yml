@@ -56,6 +56,9 @@ jobs:
       - name: check async command boundary
         run: vp run check:async-commands
 
+      - name: check design tokens
+        run: vp run check:design-tokens
+
       - name: check source-size boundary
         run: vp run check:source-size
 

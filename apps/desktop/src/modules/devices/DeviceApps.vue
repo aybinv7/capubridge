@@ -382,19 +382,19 @@ async function executeAction() {
 
     <div v-else-if="isError" class="flex flex-1 items-center justify-center p-8">
       <div
-        class="flex w-full max-w-sm items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400"
+        class="flex w-full max-w-sm items-start gap-3 rounded-xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error"
       >
         <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
         <div class="min-w-0 flex-1">
           <div class="font-medium">Failed to load packages</div>
-          <div class="mt-0.5 truncate font-mono text-[10px] text-red-400/60">
+          <div class="mt-0.5 truncate font-mono text-2xs text-error/60">
             {{ error }}
           </div>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          class="h-7 shrink-0 px-2 text-red-400 hover:text-red-300"
+          class="h-7 shrink-0 px-2 text-error hover:text-error"
           @click="void handleRefresh()"
         >
           Retry

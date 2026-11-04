@@ -57,13 +57,13 @@ const infoCards = computed(() => {
       icon: Monitor,
       label: "Display",
       value: d.screenResolution || "—",
-      color: "text-sky-400",
+      color: "text-info",
     },
     {
       icon: Cpu,
       label: "CPU / ABI",
       value: d.model || "—",
-      color: "text-amber-400",
+      color: "text-warning",
     },
     {
       icon: HardDrive,
@@ -83,7 +83,7 @@ const infoCards = computed(() => {
       icon: Wifi,
       label: "IP Address",
       value: (d.ipAddresses ?? []).join(", ") || "—",
-      color: "text-emerald-400",
+      color: "text-success",
     },
     {
       icon: Zap,
@@ -123,16 +123,16 @@ const connectionLabel = computed(() =>
       <!-- Error -->
       <div
         v-else-if="isError"
-        class="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+        class="flex items-start gap-3 rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-error"
       >
         <AlertCircle class="w-4 h-4 mt-0.5 shrink-0" />
         <div class="flex-1">
           <div class="font-medium">Failed to load device info</div>
-          <div class="mt-0.5 font-mono text-[11px] text-red-400/70">
+          <div class="mt-0.5 font-mono text-2xs text-error/70">
             {{ error }}
           </div>
         </div>
-        <Button variant="ghost" size="sm" class="text-red-400 h-7 px-2" @click="refetch">
+        <Button variant="ghost" size="sm" class="text-error h-7 px-2" @click="refetch">
           <RefreshCw class="w-3.5 h-3.5 mr-1" /> Retry
         </Button>
       </div>

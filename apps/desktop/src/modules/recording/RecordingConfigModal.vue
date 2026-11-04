@@ -114,7 +114,7 @@ async function handleStart() {
               <Globe class="w-3.5 h-3.5 text-muted-foreground" />
               <div>
                 <p class="text-sm">DOM replay</p>
-                <p class="text-[11px] text-muted-foreground">
+                <p class="text-2xs text-muted-foreground">
                   {{ hasTarget ? "rrweb injected via CDP" : "No target connected" }}
                 </p>
               </div>
@@ -131,7 +131,7 @@ async function handleStart() {
               <Wifi class="w-3.5 h-3.5 text-muted-foreground" />
               <div>
                 <p class="text-sm">Network</p>
-                <p class="text-[11px] text-muted-foreground">HTTP requests & responses</p>
+                <p class="text-2xs text-muted-foreground">HTTP requests & responses</p>
               </div>
             </div>
             <Switch :checked="trackNetwork" @update:checked="trackNetwork = $event" />
@@ -142,7 +142,7 @@ async function handleStart() {
               <Terminal class="w-3.5 h-3.5 text-muted-foreground" />
               <div>
                 <p class="text-sm">Console</p>
-                <p class="text-[11px] text-muted-foreground">Logs, warnings, errors</p>
+                <p class="text-2xs text-muted-foreground">Logs, warnings, errors</p>
               </div>
             </div>
             <Switch :checked="trackConsole" @update:checked="trackConsole = $event" />
@@ -153,7 +153,7 @@ async function handleStart() {
               <Activity class="w-3.5 h-3.5 text-muted-foreground" />
               <div>
                 <p class="text-sm">Performance</p>
-                <p class="text-[11px] text-muted-foreground">CPU, memory, heap, DOM</p>
+                <p class="text-2xs text-muted-foreground">CPU, memory, heap, DOM</p>
               </div>
             </div>
             <Switch :checked="trackPerf" @update:checked="trackPerf = $event" />
@@ -166,7 +166,7 @@ async function handleStart() {
                   <Database class="w-3.5 h-3.5 text-muted-foreground" />
                   <div class="min-w-0">
                     <p class="text-sm">Databases</p>
-                    <p class="text-[11px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                       Web storage and package SQLite snapshots
                     </p>
                   </div>
@@ -192,7 +192,7 @@ async function handleStart() {
                 <div class="flex items-center justify-between px-2 py-1.5">
                   <div>
                     <p class="text-xs">LocalStorage</p>
-                    <p class="text-[10px] text-muted-foreground/50">Snapshot + change states</p>
+                    <p class="text-2xs text-muted-foreground/50">Snapshot + change states</p>
                   </div>
                   <Switch
                     :checked="trackLocalStorage"
@@ -208,7 +208,7 @@ async function handleStart() {
                 >
                   <div>
                     <p class="text-xs">IndexedDB</p>
-                    <p class="text-[10px] text-muted-foreground/50">
+                    <p class="text-2xs text-muted-foreground/50">
                       SQLite artifact + timeline changes
                     </p>
                   </div>
@@ -226,9 +226,7 @@ async function handleStart() {
                 >
                   <div>
                     <p class="text-xs">Native SQLite</p>
-                    <p class="text-[10px] text-muted-foreground/50">
-                      Package databases, 5s polling
-                    </p>
+                    <p class="text-2xs text-muted-foreground/50">Package databases, 5s polling</p>
                   </div>
                   <Switch
                     :checked="trackSqlite"
@@ -243,7 +241,7 @@ async function handleStart() {
                   class="flex items-center justify-between border-t border-border/20 px-2 py-1.5 opacity-45"
                 >
                   <span class="text-xs">localForage</span>
-                  <span class="text-[10px] text-muted-foreground/50">Next</span>
+                  <span class="text-2xs text-muted-foreground/50">Next</span>
                 </div>
               </div>
             </CollapsibleContent>
@@ -254,7 +252,7 @@ async function handleStart() {
       <div v-if="trackRrweb && hasTarget" class="flex items-center justify-between">
         <div>
           <p class="text-sm">Reload page on start</p>
-          <p class="text-[11px] text-muted-foreground">
+          <p class="text-2xs text-muted-foreground">
             Recommended — gives rrweb a clean full-page snapshot
           </p>
         </div>

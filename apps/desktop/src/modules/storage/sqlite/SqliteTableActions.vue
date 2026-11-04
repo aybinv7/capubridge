@@ -148,7 +148,7 @@ function resetColumnLayout() {
 
     <!-- Filter indicators -->
     <div v-if="hasActiveFilters || hasAdvancedFilters" class="flex items-center gap-1">
-      <span class="text-[10px] text-muted-foreground/50"> {{ filteredRowCount }} filtered </span>
+      <span class="text-2xs text-muted-foreground/50"> {{ filteredRowCount }} filtered </span>
       <Button variant="ghost" size="icon-sm" class="h-5 w-5" @click="clearAllFilters">
         <X class="h-3 w-3" />
       </Button>
@@ -161,7 +161,7 @@ function resetColumnLayout() {
       v-if="selectedRowCount > 0"
       class="flex items-center gap-1 shrink-0 px-2 rounded-md bg-warning/10 border border-warning/30"
     >
-      <span class="text-[10px] font-medium text-warning/80 tabular-nums shrink-0 px-1">
+      <span class="text-2xs font-medium text-warning/80 tabular-nums shrink-0 px-1">
         {{ selectedRowCount }} selected
       </span>
 

@@ -25,7 +25,7 @@ const emit = defineEmits<{
         class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
         :class="
           alwaysOnTop
-            ? 'bg-blue-400/12 text-blue-400 hover:bg-blue-400/18'
+            ? 'bg-info/12 text-info hover:bg-info/18'
             : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
         "
         :title="alwaysOnTop ? 'Unpin window' : 'Pin window on top'"
@@ -37,7 +37,7 @@ const emit = defineEmits<{
     </div>
 
     <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-22">
-      <div class="max-w-[50%] truncate text-[13px] font-semibold text-foreground/90">
+      <div class="max-w-[50%] truncate text-sm font-semibold text-foreground/90">
         {{ deviceLabel }}
       </div>
     </div>

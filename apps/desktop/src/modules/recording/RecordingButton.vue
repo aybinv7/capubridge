@@ -56,7 +56,7 @@ async function handleClick() {
 
 <template>
   <button
-    class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] transition-all border ml-1"
+    class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-2xs transition-all border ml-1"
     :class="{
       'bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20':
         recordingStore.phase === 'recording',

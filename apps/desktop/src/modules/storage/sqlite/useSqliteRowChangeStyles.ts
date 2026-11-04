@@ -33,9 +33,9 @@ export function useSqliteRowChangeStyles(options: UseSqliteRowChangeStylesOption
    *  can't land on the same element and race on rule order. */
   function rowChangeClass(record: Record<string, unknown>): string {
     const operation = rowChangeOperation(record);
-    if (operation === "add") return "bg-emerald-500/4";
-    if (operation === "update") return "bg-amber-500/4";
-    if (operation === "delete") return "bg-red-500/4 opacity-75";
+    if (operation === "add") return "bg-success/4";
+    if (operation === "update") return "bg-warning/4";
+    if (operation === "delete") return "bg-error/4 opacity-75";
     return "";
   }
 
@@ -44,17 +44,17 @@ export function useSqliteRowChangeStyles(options: UseSqliteRowChangeStylesOption
   function stickyRowBg(record: Record<string, unknown>, isSelected: boolean): string {
     if (isSelected) return "bg-surface-3";
     const operation = rowChangeOperation(record);
-    if (operation === "add") return "bg-emerald-500/[0.04]";
-    if (operation === "update") return "bg-amber-500/[0.04]";
-    if (operation === "delete") return "bg-red-500/[0.04]";
+    if (operation === "add") return "bg-success/[0.04]";
+    if (operation === "update") return "bg-warning/[0.04]";
+    if (operation === "delete") return "bg-error/[0.04]";
     return "bg-background";
   }
 
   function changeIndicatorClass(record: Record<string, unknown>): string {
     const operation = rowChangeOperation(record);
-    if (operation === "add") return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
-    if (operation === "update") return "bg-amber-500/15 text-amber-400 ring-amber-500/30";
-    if (operation === "delete") return "bg-red-500/15 text-red-400 ring-red-500/30";
+    if (operation === "add") return "bg-success/15 text-success ring-success/30";
+    if (operation === "update") return "bg-warning/15 text-warning ring-warning/30";
+    if (operation === "delete") return "bg-error/15 text-error ring-error/30";
     return "";
   }
 

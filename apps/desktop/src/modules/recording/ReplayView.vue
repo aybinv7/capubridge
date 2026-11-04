@@ -177,7 +177,7 @@ function formatDuration(ms: number) {
     >
       <AlertCircle class="w-8 h-8 text-destructive" />
       <p class="text-sm">Failed to load session</p>
-      <p class="text-[11px] text-muted-foreground/60 max-w-sm text-center">{{ error }}</p>
+      <p class="text-2xs text-muted-foreground/60 max-w-sm text-center">{{ error }}</p>
       <Button variant="outline" size="sm" class="mt-2" @click="openPicker">
         <FolderOpen class="w-3.5 h-3.5 mr-1.5" /> Open another file
       </Button>
@@ -195,7 +195,7 @@ function formatDuration(ms: number) {
       </div>
       <div class="text-center">
         <p class="text-sm font-medium text-foreground/70">No session loaded</p>
-        <p class="text-[11px] text-muted-foreground/50 mt-1">Open a .capu file to replay it</p>
+        <p class="text-2xs text-muted-foreground/50 mt-1">Open a .capu file to replay it</p>
       </div>
       <Button size="sm" @click="openPicker">
         <FolderOpen class="w-3.5 h-3.5 mr-1.5" /> Open .capu file
@@ -205,7 +205,7 @@ function formatDuration(ms: number) {
     <template v-else>
       <!-- Session info bar -->
       <div
-        class="flex-none flex items-center gap-4 px-4 py-2 border-b border-border/20 text-[11px] text-muted-foreground bg-surface-1"
+        class="flex-none flex items-center gap-4 px-4 py-2 border-b border-border/20 text-2xs text-muted-foreground bg-surface-1"
       >
         <span class="font-medium text-foreground/80">{{ session.manifest.label }}</span>
         <span class="text-border/60">·</span>
@@ -223,7 +223,7 @@ function formatDuration(ms: number) {
         <template v-if="origin.producer">
           <span class="text-border/60">·</span>
           <span
-            class="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted-foreground/70"
+            class="rounded bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground/70"
             :title="`Recorded on ${session.manifest.producer?.platform ?? 'unknown platform'}`"
           >
             {{ origin.producer }}
@@ -233,10 +233,10 @@ function formatDuration(ms: number) {
 
         <!-- Inspect toggle -->
         <button
-          class="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] transition-colors"
+          class="flex items-center gap-1.5 rounded px-2 py-1 text-2xs transition-colors"
           :class="
             inspectActive
-              ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+              ? 'bg-info/15 text-info border border-info/30'
               : 'text-muted-foreground/50 hover:text-foreground/70 hover:bg-surface-2 border border-transparent'
           "
           :title="inspectActive ? 'Disable inspect' : 'Inspect DOM elements (hover to highlight)'"
@@ -246,7 +246,7 @@ function formatDuration(ms: number) {
           Inspect
         </button>
 
-        <Button variant="outline" size="sm" class="h-6 text-[11px] px-2" @click="openPicker">
+        <Button variant="outline" size="sm" class="h-6 text-2xs px-2" @click="openPicker">
           <FolderOpen class="w-3 h-3 mr-1" /> Open
         </Button>
       </div>
@@ -275,7 +275,7 @@ function formatDuration(ms: number) {
         <div class="flex-1 min-w-0 border-l border-border/20 flex flex-col min-h-0">
           <div class="flex-none flex border-b border-border/20">
             <button
-              class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
+              class="flex-1 py-1.5 text-2xs font-medium transition-colors"
               :class="
                 activePane === 'network'
                   ? 'text-foreground border-b-2 border-brand'
@@ -284,12 +284,12 @@ function formatDuration(ms: number) {
               @click="activePane = 'network'"
             >
               Network
-              <span class="ml-1 text-muted-foreground/40 text-[10px]">{{
+              <span class="ml-1 text-muted-foreground/40 text-2xs">{{
                 session.networkEvents.length
               }}</span>
             </button>
             <button
-              class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
+              class="flex-1 py-1.5 text-2xs font-medium transition-colors"
               :class="
                 activePane === 'databases'
                   ? 'text-foreground border-b-2 border-brand'
@@ -300,12 +300,12 @@ function formatDuration(ms: number) {
               Databases
               <span
                 v-if="session.databaseEvents.length || session.databasePath"
-                class="ml-1 text-muted-foreground/40 text-[10px]"
+                class="ml-1 text-muted-foreground/40 text-2xs"
                 >{{ session.databaseEvents.length || "db" }}</span
               >
             </button>
             <button
-              class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
+              class="flex-1 py-1.5 text-2xs font-medium transition-colors"
               :class="
                 activePane === 'console'
                   ? 'text-foreground border-b-2 border-brand'
@@ -314,12 +314,12 @@ function formatDuration(ms: number) {
               @click="activePane = 'console'"
             >
               Console
-              <span class="ml-1 text-muted-foreground/40 text-[10px]">{{
+              <span class="ml-1 text-muted-foreground/40 text-2xs">{{
                 session.consoleEvents.length
               }}</span>
             </button>
             <button
-              class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
+              class="flex-1 py-1.5 text-2xs font-medium transition-colors"
               :class="
                 activePane === 'performance'
                   ? 'text-foreground border-b-2 border-brand'
@@ -330,12 +330,12 @@ function formatDuration(ms: number) {
               Performance
               <span
                 v-if="session.perfEvents.length"
-                class="ml-1 text-muted-foreground/40 text-[10px]"
+                class="ml-1 text-muted-foreground/40 text-2xs"
                 >{{ session.perfEvents.length }}</span
               >
             </button>
             <button
-              class="flex-1 py-1.5 text-[11px] font-medium transition-colors"
+              class="flex-1 py-1.5 text-2xs font-medium transition-colors"
               :class="
                 activePane === 'elements'
                   ? 'text-foreground border-b-2 border-brand'
@@ -346,7 +346,7 @@ function formatDuration(ms: number) {
               Elements
               <span
                 v-if="selectedIframeEl"
-                class="ml-1 text-[10px]"
+                class="ml-1 text-2xs"
                 :class="activePane === 'elements' ? 'text-brand' : 'text-muted-foreground/40'"
                 >●</span
               >

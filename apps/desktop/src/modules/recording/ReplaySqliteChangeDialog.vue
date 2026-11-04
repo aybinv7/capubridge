@@ -18,11 +18,11 @@ defineEmits<{
 const operationTone = computed(() => {
   switch (props.change?.operation) {
     case "add":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+      return "border-success/30 bg-success/10 text-success";
     case "update":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+      return "border-warning/30 bg-warning/10 text-warning";
     case "delete":
-      return "border-red-500/30 bg-red-500/10 text-red-300";
+      return "border-error/30 bg-error/10 text-error";
     default:
       return "border-border/30 bg-surface-3 text-muted-foreground/60";
   }
@@ -34,19 +34,19 @@ const operationTone = computed(() => {
     <DialogContent class="flex h-[80vh] w-[90vw] max-w-[90vw] flex-col gap-0 p-0">
       <DialogHeader class="shrink-0 border-b border-border/30 px-6 py-3">
         <div class="flex items-center gap-3">
-          <GitCompare :size="16" class="text-amber-300" />
+          <GitCompare :size="16" class="text-warning" />
           <DialogTitle class="truncate text-base font-medium">
             {{ change?.tableName ?? "Captured change" }}
           </DialogTitle>
           <Badge
             v-if="change"
             variant="outline"
-            class="h-5 border px-1.5 font-mono text-[10px] uppercase tracking-wider"
+            class="h-5 border px-1.5 font-mono text-2xs uppercase tracking-wider"
             :class="operationTone"
           >
             {{ change.operation }}
           </Badge>
-          <span class="truncate font-mono text-[10px] text-muted-foreground/40">
+          <span class="truncate font-mono text-2xs text-muted-foreground/40">
             {{ change?.rowKey }}
           </span>
         </div>

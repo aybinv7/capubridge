@@ -128,7 +128,7 @@ function onBlur() {
   <!-- Boolean: a switch, committed immediately on toggle -->
   <div v-if="kind === 'boolean'" class="flex items-center gap-2" @click.stop>
     <Switch :model-value="boolValue" @update:model-value="onBoolChange" />
-    <span class="font-mono text-[10px] text-muted-foreground/60">
+    <span class="font-mono text-2xs text-muted-foreground/60">
       {{ boolValue ? "true" : "false" }}
     </span>
     <button
@@ -143,7 +143,7 @@ function onBlur() {
   <!-- JSON / long text: popover with the full editor -->
   <Popover v-else-if="kind === 'json'" :open="true" @update:open="(o) => !o && cancel()">
     <PopoverTrigger as-child>
-      <span class="truncate font-mono text-[11px] text-primary" @click.stop>
+      <span class="truncate font-mono text-2xs text-primary" @click.stop>
         {{ text || "NULL" }}
       </span>
     </PopoverTrigger>
@@ -153,13 +153,13 @@ function onBlur() {
       </div>
       <div class="flex justify-end gap-1 border-border/30 border-t px-2 py-1.5">
         <button
-          class="rounded px-2 py-0.5 text-[11px] text-muted-foreground/60 hover:text-foreground"
+          class="rounded px-2 py-0.5 text-2xs text-muted-foreground/60 hover:text-foreground"
           @click="cancel"
         >
           Cancel
         </button>
         <button
-          class="flex items-center gap-1 rounded bg-primary/15 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/25"
+          class="flex items-center gap-1 rounded bg-primary/15 px-2 py-0.5 text-2xs text-primary hover:bg-primary/25"
           @click="commit"
         >
           <Check :size="10" />

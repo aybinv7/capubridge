@@ -108,17 +108,16 @@ const visibleRows = computed(() => {
 });
 
 function rowClass(level: string): string {
-  if (level === "error")
-    return "bg-red-500/[0.07] border-l-2 border-red-500/60 hover:bg-red-500/[0.12]";
+  if (level === "error") return "bg-error/[0.07] border-l-2 border-error/60 hover:bg-error/[0.12]";
   if (level === "warn" || level === "warning")
-    return "bg-yellow-500/[0.07] border-l-2 border-yellow-500/60 hover:bg-yellow-500/[0.12]";
+    return "bg-warning/[0.07] border-l-2 border-warning/60 hover:bg-warning/[0.12]";
   return "border-l-2 border-transparent hover:bg-surface-2/40";
 }
 
 function textClass(level: string): string {
-  if (level === "error") return "text-red-300";
-  if (level === "warn" || level === "warning") return "text-yellow-200";
-  if (level === "info") return "text-sky-300";
+  if (level === "error") return "text-error";
+  if (level === "warn" || level === "warning") return "text-warning";
+  if (level === "info") return "text-info";
   if (level === "debug") return "text-violet-300";
   return "text-foreground/85";
 }
@@ -133,17 +132,17 @@ function sourceLabel(ev: ConsoleCapuEvent): string {
 <template>
   <div class="flex flex-col h-full min-h-0">
     <div class="flex-none px-3 py-1.5 border-b border-border/20 flex items-center gap-2">
-      <span class="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+      <span class="text-2xs font-medium text-muted-foreground uppercase tracking-wide">
         Console
       </span>
-      <span class="text-[11px] text-muted-foreground/40">
+      <span class="text-2xs text-muted-foreground/40">
         {{ enriched.length }} / {{ events.length }}
       </span>
     </div>
 
-    <div class="flex-1 overflow-y-auto min-h-0 font-mono text-[11px]">
+    <div class="flex-1 overflow-y-auto min-h-0 font-mono text-2xs">
       <div v-if="visibleRows.length === 0" class="flex items-center justify-center h-16">
-        <p class="text-[11px] text-muted-foreground/40">No console entries yet</p>
+        <p class="text-2xs text-muted-foreground/40">No console entries yet</p>
       </div>
 
       <div
@@ -171,7 +170,7 @@ function sourceLabel(ev: ConsoleCapuEvent): string {
 
           <span
             v-if="sourceLabel(row.ev)"
-            class="ml-2 shrink-0 truncate text-[10px] text-muted-foreground/45 max-w-[35%]"
+            class="ml-2 shrink-0 truncate text-2xs text-muted-foreground/45 max-w-[35%]"
             :title="sourceLabel(row.ev)"
           >
             {{ sourceLabel(row.ev) }}

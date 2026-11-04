@@ -201,7 +201,7 @@ function methodBadgeClass(method: string): string {
     PATCH: "text-violet-400 bg-violet-400/[0.09]",
     HEAD: "text-muted-foreground/70 bg-surface-3",
     OPTIONS: "text-muted-foreground/70 bg-surface-3",
-    WS: "text-sky-400 bg-sky-400/[0.09]",
+    WS: "text-info bg-info/[0.09]",
   };
   return map[method] ?? "text-muted-foreground/70 bg-surface-3";
 }
@@ -224,16 +224,16 @@ function typeIconComponent(entry: NetworkEntry): Component {
 }
 
 function typeIconClass(entry: NetworkEntry): string {
-  if (entry.isWebSocket) return "text-sky-400/60";
+  if (entry.isWebSocket) return "text-info/60";
   const map: Record<string, string> = {
-    Document: "text-blue-400/60",
-    Script: "text-yellow-400/60",
+    Document: "text-info/60",
+    Script: "text-warning/60",
     Stylesheet: "text-purple-400/60",
-    Image: "text-emerald-400/60",
+    Image: "text-success/60",
     Media: "text-pink-400/60",
-    Font: "text-orange-400/60",
-    Fetch: "text-sky-400/60",
-    XHR: "text-sky-400/60",
+    Font: "text-warning/60",
+    Fetch: "text-info/60",
+    XHR: "text-info/60",
     Preflight: "text-muted-foreground/40",
   };
   return map[entry.resourceType] ?? "text-muted-foreground/30";
@@ -438,11 +438,11 @@ const timingBreakdown = computed(() => {
       color: "bg-muted-foreground/30",
     },
     { label: "DNS lookup", value: dns, color: "bg-teal-500/80" },
-    { label: "Initial connection", value: connect - ssl, color: "bg-orange-400/80" },
+    { label: "Initial connection", value: connect - ssl, color: "bg-warning/80" },
     { label: "SSL", value: ssl, color: "bg-violet-400/80" },
     { label: "Request sent", value: send, color: "bg-success/80" },
     { label: "Waiting (TTFB)", value: ttfb, color: "bg-info/80" },
-    { label: "Content download", value: download ?? 0, color: "bg-sky-400/80" },
+    { label: "Content download", value: download ?? 0, color: "bg-info/80" },
   ].filter((p) => p.value > 0);
 
   const phaseTotal = phases.reduce((s, p) => s + p.value, 0);
@@ -520,7 +520,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
         <div class="flex h-full flex-col overflow-hidden">
           <!-- Column header -->
           <div
-            class="flex h-8 shrink-0 items-center border-b border-border/30 bg-surface-2 pl-2 pr-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/45 select-none"
+            class="flex h-8 shrink-0 items-center border-b border-border/30 bg-surface-2 pl-2 pr-3 text-2xs font-medium uppercase tracking-wide text-muted-foreground/45 select-none"
           >
             <div class="w-5 shrink-0 mr-1" />
             <div class="w-[60px] shrink-0">Method</div>
@@ -569,7 +569,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                 <!-- Method badge -->
                 <div class="w-[60px] shrink-0 select-none">
                   <span
-                    class="inline-block rounded px-1.5 py-[2px] font-mono text-[10px] font-semibold leading-none"
+                    class="inline-block rounded px-1.5 py-[2px] font-mono text-2xs font-semibold leading-none"
                     :class="methodBadgeClass(entry.method)"
                   >
                     {{ entry.method }}
@@ -591,21 +591,21 @@ const responseCookies = computed<ParsedCookie[]>(() => {
 
                 <!-- Type label -->
                 <div
-                  class="w-[48px] shrink-0 text-right text-muted-foreground/60 text-[11px] select-none"
+                  class="w-[48px] shrink-0 text-right text-muted-foreground/60 text-2xs select-none"
                 >
                   {{ shortType(entry) }}
                 </div>
 
                 <!-- Size -->
                 <div
-                  class="w-[64px] shrink-0 text-right font-mono text-[11px] text-muted-foreground/65 select-none"
+                  class="w-[64px] shrink-0 text-right font-mono text-2xs text-muted-foreground/65 select-none"
                 >
                   {{ formatSize(entry) }}
                 </div>
 
                 <!-- Time -->
                 <div
-                  class="w-[68px] shrink-0 text-right font-mono text-[11px] select-none"
+                  class="w-[68px] shrink-0 text-right font-mono text-2xs select-none"
                   :class="durationClass(entry)"
                 >
                   {{ formatDuration(entry) }}
@@ -613,7 +613,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
 
                 <!-- Initiator -->
                 <div
-                  class="w-[88px] shrink-0 truncate pl-3 font-mono text-[11px] text-muted-foreground/45 select-none"
+                  class="w-[88px] shrink-0 truncate pl-3 font-mono text-2xs text-muted-foreground/45 select-none"
                 >
                   {{ initiatorShort(entry) }}
                 </div>
@@ -634,7 +634,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
             <!-- Detail header -->
             <div class="flex h-9 shrink-0 items-center gap-2 border-b border-border/25 px-3">
               <span
-                class="shrink-0 rounded px-1.5 py-[2px] font-mono text-[10px] font-semibold leading-none"
+                class="shrink-0 rounded px-1.5 py-[2px] font-mono text-2xs font-semibold leading-none"
                 :class="methodBadgeClass(store.selectedEntry.method)"
               >
                 {{ store.selectedEntry.method }}
@@ -657,7 +657,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
               <button
                 v-for="tab in TABS"
                 :key="tab"
-                class="h-6 rounded px-2.5 text-[11px] capitalize transition-colors"
+                class="h-6 rounded px-2.5 text-2xs capitalize transition-colors"
                 :class="
                   detailTab === tab
                     ? 'bg-surface-3 font-medium text-foreground'
@@ -709,11 +709,11 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                 <div
                   class="flex h-8 shrink-0 items-center gap-2 border-b border-border/15 bg-surface-1 px-3"
                 >
-                  <span class="text-[11px] text-muted-foreground/50">
+                  <span class="text-2xs text-muted-foreground/50">
                     {{ store.selectedEntry.mimeType }}
                   </span>
                   <div class="flex-1" />
-                  <span class="text-[11px] text-muted-foreground/50">Raw</span>
+                  <span class="text-2xs text-muted-foreground/50">Raw</span>
                   <Switch v-model:checked="showRawResponse" class="scale-75" />
                 </div>
                 <ScrollArea v-if="showRawResponse" class="min-h-0 flex-1">
@@ -739,9 +739,9 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                 <div
                   class="flex h-8 shrink-0 items-center gap-2 border-b border-border/15 bg-surface-1 px-3"
                 >
-                  <span class="text-[11px] text-muted-foreground/50">JSON</span>
+                  <span class="text-2xs text-muted-foreground/50">JSON</span>
                   <div class="flex-1" />
-                  <span class="text-[11px] text-muted-foreground/50">Raw</span>
+                  <span class="text-2xs text-muted-foreground/50">Raw</span>
                   <Switch v-model:checked="showRawResponse" class="scale-75" />
                 </div>
                 <div class="min-h-0 flex-1 overflow-hidden">
@@ -754,11 +754,11 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                 <div
                   class="flex h-8 shrink-0 items-center gap-2 border-b border-border/15 bg-surface-1 px-3"
                 >
-                  <span class="text-[11px] text-muted-foreground/50">
+                  <span class="text-2xs text-muted-foreground/50">
                     {{ parsedJsonBody !== null ? "JSON" : store.selectedEntry.mimeType || "text" }}
                   </span>
                   <div class="flex-1" />
-                  <span class="text-[11px] text-muted-foreground/50">Raw</span>
+                  <span class="text-2xs text-muted-foreground/50">Raw</span>
                   <Switch v-model:checked="showRawResponse" class="scale-75" />
                 </div>
                 <ScrollArea class="min-h-0 flex-1">
@@ -804,9 +804,9 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                 <div
                   class="flex h-8 shrink-0 items-center gap-2 border-b border-border/15 bg-surface-1 px-3"
                 >
-                  <span class="text-[11px] text-muted-foreground/50">JSON</span>
+                  <span class="text-2xs text-muted-foreground/50">JSON</span>
                   <div class="flex-1" />
-                  <span class="text-[11px] text-muted-foreground/50">Raw</span>
+                  <span class="text-2xs text-muted-foreground/50">Raw</span>
                   <Switch v-model:checked="showRawPayload" class="scale-75" />
                 </div>
                 <div class="min-h-0 flex-1 overflow-hidden">
@@ -819,11 +819,11 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                 <div
                   class="flex h-8 shrink-0 items-center gap-2 border-b border-border/15 bg-surface-1 px-3"
                 >
-                  <span class="text-[11px] text-muted-foreground/50">
+                  <span class="text-2xs text-muted-foreground/50">
                     {{ parsedJsonPayload !== null ? "JSON" : "text" }}
                   </span>
                   <div class="flex-1" />
-                  <span class="text-[11px] text-muted-foreground/50">Raw</span>
+                  <span class="text-2xs text-muted-foreground/50">Raw</span>
                   <Switch v-model:checked="showRawPayload" class="scale-75" />
                 </div>
                 <ScrollArea class="min-h-0 flex-1">
@@ -850,7 +850,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                   <!-- General -->
                   <div class="mb-4">
                     <button
-                      class="mb-2 flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 transition-colors hover:text-muted-foreground/70"
+                      class="mb-2 flex w-full items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50 transition-colors hover:text-muted-foreground/70"
                       @click="toggleSection('general')"
                     >
                       <component
@@ -900,7 +900,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                   <!-- Response headers -->
                   <div class="mb-4">
                     <button
-                      class="mb-2 flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 transition-colors hover:text-muted-foreground/70"
+                      class="mb-2 flex w-full items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50 transition-colors hover:text-muted-foreground/70"
                       @click="toggleSection('response')"
                     >
                       <component
@@ -908,7 +908,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                         class="h-3 w-3"
                       />
                       Response Headers
-                      <span class="ml-auto font-mono text-[9px] text-muted-foreground/35">
+                      <span class="ml-auto font-mono text-2xs text-muted-foreground/35">
                         {{ Object.keys(store.selectedEntry.responseHeaders).length }}
                       </span>
                     </button>
@@ -946,7 +946,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                   <!-- Request headers -->
                   <div>
                     <button
-                      class="mb-2 flex w-full items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 transition-colors hover:text-muted-foreground/70"
+                      class="mb-2 flex w-full items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50 transition-colors hover:text-muted-foreground/70"
                       @click="toggleSection('request')"
                     >
                       <component
@@ -954,7 +954,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                         class="h-3 w-3"
                       />
                       Request Headers
-                      <span class="ml-auto font-mono text-[9px] text-muted-foreground/35">
+                      <span class="ml-auto font-mono text-2xs text-muted-foreground/35">
                         {{ Object.keys(store.selectedEntry.requestHeaders).length }}
                       </span>
                     </button>
@@ -1018,9 +1018,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                         :key="phase.label"
                         class="flex items-center gap-2"
                       >
-                        <div
-                          class="w-[128px] shrink-0 text-[11px] text-muted-foreground/55 truncate"
-                        >
+                        <div class="w-[128px] shrink-0 text-2xs text-muted-foreground/55 truncate">
                           {{ phase.label }}
                         </div>
                         <div class="flex-1 h-2.5 rounded-full bg-surface-3 overflow-hidden">
@@ -1033,7 +1031,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                           />
                         </div>
                         <div
-                          class="w-[54px] shrink-0 text-right font-mono text-[11px] text-muted-foreground/55"
+                          class="w-[54px] shrink-0 text-right font-mono text-2xs text-muted-foreground/55"
                         >
                           {{ phase.value.toFixed(1) }} ms
                         </div>
@@ -1063,12 +1061,10 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                   <!-- Request cookies -->
                   <div class="mb-4">
                     <div
-                      class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50"
+                      class="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50"
                     >
                       Request Cookies
-                      <span
-                        class="ml-1.5 font-mono text-[9px] normal-case text-muted-foreground/35"
-                      >
+                      <span class="ml-1.5 font-mono text-2xs normal-case text-muted-foreground/35">
                         {{ requestCookies.length }}
                       </span>
                     </div>
@@ -1101,12 +1097,10 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                   <!-- Response cookies -->
                   <div>
                     <div
-                      class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50"
+                      class="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground/50"
                     >
                       Response Cookies (Set-Cookie)
-                      <span
-                        class="ml-1.5 font-mono text-[9px] normal-case text-muted-foreground/35"
-                      >
+                      <span class="ml-1.5 font-mono text-2xs normal-case text-muted-foreground/35">
                         {{ responseCookies.length }}
                       </span>
                     </div>
@@ -1130,7 +1124,7 @@ const responseCookies = computed<ParsedCookie[]>(() => {
                         </div>
                         <div
                           v-if="Object.keys(c.attributes).length"
-                          class="grid text-[11px] font-mono"
+                          class="grid text-2xs font-mono"
                           style="grid-template-columns: auto 1fr; column-gap: 8px; row-gap: 2px"
                         >
                           <template v-for="[ak, av] in Object.entries(c.attributes)" :key="ak">

@@ -20,9 +20,9 @@ const emit = defineEmits<{
 }>();
 
 const operationTone = computed(() => {
-  if (props.operation === "add") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
-  if (props.operation === "delete") return "border-red-500/30 bg-red-500/10 text-red-300";
-  return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+  if (props.operation === "add") return "border-success/30 bg-success/10 text-success";
+  if (props.operation === "delete") return "border-error/30 bg-error/10 text-error";
+  return "border-warning/30 bg-warning/10 text-warning";
 });
 
 const observedLabel = computed(() => {
@@ -40,19 +40,19 @@ const observedLabel = computed(() => {
     <DialogContent class="max-w-[90vw] min-w-[70vw] w-[90vw] h-[80vh] p-0 gap-0 flex flex-col">
       <DialogHeader class="px-6 py-2 border-b border-border/30 shrink-0">
         <div class="flex items-center gap-3">
-          <GitCompare :size="16" class="text-amber-300" />
+          <GitCompare :size="16" class="text-warning" />
           <DialogTitle class="text-base font-medium truncate">{{ storeName }}</DialogTitle>
           <Badge
             variant="outline"
-            class="h-5 border px-1.5 text-[10px] font-mono uppercase tracking-wider"
+            class="h-5 border px-1.5 text-2xs font-mono uppercase tracking-wider"
             :class="operationTone"
           >
             {{ operation }}
           </Badge>
-          <span class="truncate font-mono text-[10px] text-muted-foreground/40" :title="recordKey">
+          <span class="truncate font-mono text-2xs text-muted-foreground/40" :title="recordKey">
             {{ recordKey }}
           </span>
-          <span v-if="observedLabel" class="ml-auto font-mono text-[10px] text-muted-foreground/40">
+          <span v-if="observedLabel" class="ml-auto font-mono text-2xs text-muted-foreground/40">
             {{ observedLabel }}
           </span>
         </div>

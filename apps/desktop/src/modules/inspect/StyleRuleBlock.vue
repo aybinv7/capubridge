@@ -58,10 +58,10 @@ function cancelAdd() {
 </script>
 
 <template>
-  <div class="text-[11px] font-mono">
+  <div class="text-2xs font-mono">
     <div
       v-if="inheritedFrom"
-      class="text-[10px] uppercase tracking-wide text-muted-foreground/40 px-2 pt-2 pb-0.5"
+      class="text-2xs uppercase tracking-wide text-muted-foreground/40 px-2 pt-2 pb-0.5"
     >
       Inherited from {{ inheritedFrom }}
     </div>
@@ -79,16 +79,16 @@ function cancelAdd() {
         class="truncate"
         :class="
           selector === null
-            ? 'text-orange-300/90'
+            ? 'text-warning/90'
             : isUserAgent
               ? 'text-muted-foreground/40'
-              : 'text-yellow-300/90'
+              : 'text-warning/90'
         "
       >
         {{ selector === null ? "element.style" : selector }}
       </span>
       <span class="text-muted-foreground/50">&nbsp;{</span>
-      <span class="ml-auto text-[10px] text-muted-foreground/30 truncate max-w-[40%]">
+      <span class="ml-auto text-2xs text-muted-foreground/30 truncate max-w-[40%]">
         {{ source ?? (isUserAgent ? "user agent stylesheet" : "") }}
       </span>
     </div>
@@ -110,7 +110,7 @@ function cancelAdd() {
           ref="newInput"
           v-model="newDraft"
           placeholder="property: value"
-          class="w-full text-[11px] font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 py-[1px] rounded-sm border border-blue-400/40"
+          class="w-full text-2xs font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 py-[1px] rounded-sm border border-info/40"
           @blur="commitAdd"
           @keydown.enter.prevent="commitAdd"
           @keydown.escape.prevent="cancelAdd"

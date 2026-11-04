@@ -146,12 +146,12 @@ async function onAdd(view: RuleView, next: { name: string; value: string; import
         placeholder="Filter styles..."
         class="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/30"
       />
-      <span v-if="mutations.isMutating.value" class="text-[10px] text-blue-400/70">saving…</span>
+      <span v-if="mutations.isMutating.value" class="text-2xs text-info/70">saving…</span>
     </div>
 
     <div
       v-if="mutations.lastError.value"
-      class="px-2 py-1 text-[10px] text-red-300 bg-red-500/10 border-b border-red-500/20 shrink-0"
+      class="px-2 py-1 text-2xs text-error bg-error/10 border-b border-error/20 shrink-0"
     >
       {{ mutations.lastError.value }}
       <button class="ml-2 underline" @click="mutations.clearLastError()">dismiss</button>

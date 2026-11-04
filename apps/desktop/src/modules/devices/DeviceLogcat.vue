@@ -120,7 +120,7 @@ function levelBadgeClass(level: LogcatEntry["level"]) {
   }
 
   if (level === "D") {
-    return "border-sky-500/30 bg-sky-500/10 text-sky-400";
+    return "border-info/30 bg-info/10 text-info";
   }
 
   return "border-border/40 bg-surface-3 text-muted-foreground";
@@ -165,7 +165,7 @@ function exportTxt() {
                 : "No device selected"
             }}
           </div>
-          <div class="text-[11px] text-muted-foreground/60">
+          <div class="text-2xs text-muted-foreground/60">
             Android stream · {{ filteredEntries.length }} visible · {{ logcatStore.entries.length }}
             total
             <span v-if="logcatStore.pausedCount" class="text-warning">
@@ -175,7 +175,7 @@ function exportTxt() {
         </div>
         <Badge
           variant="outline"
-          class="h-6 rounded-full border px-2 font-mono text-[10px]"
+          class="h-6 rounded-full border px-2 font-mono text-2xs"
           :class="
             logcatStore.error
               ? 'border-error/30 bg-error/10 text-error'
@@ -268,7 +268,7 @@ function exportTxt() {
         <button
           v-for="level in ['V', 'D', 'I', 'W', 'E', 'F'] as LogcatEntry['level'][]"
           :key="level"
-          class="inline-flex h-6 items-center gap-1 rounded-full border px-2 font-mono text-[10px] transition-colors"
+          class="inline-flex h-6 items-center gap-1 rounded-full border px-2 font-mono text-2xs transition-colors"
           :class="
             activeLevels.includes(level)
               ? levelBadgeClass(level)
@@ -304,7 +304,7 @@ function exportTxt() {
     </div>
 
     <ScrollArea v-else class="min-h-0 flex-1">
-      <div class="font-mono text-[11px] leading-5">
+      <div class="font-mono text-2xs leading-5">
         <div
           v-for="entry in filteredEntries"
           :key="entry.id"
@@ -314,7 +314,7 @@ function exportTxt() {
           <div class="text-muted-foreground/55">{{ entry.time }}</div>
           <div class="text-muted-foreground/55">{{ entry.pid ?? "—" }}</div>
           <div class="truncate text-cyan-300/85">{{ packageLabel(entry) }}</div>
-          <div class="truncate text-sky-300/90">{{ entry.tag }}</div>
+          <div class="truncate text-info/90">{{ entry.tag }}</div>
           <pre
             class="whitespace-pre-wrap break-words"
             :class="

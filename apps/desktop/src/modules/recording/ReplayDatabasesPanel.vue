@@ -420,9 +420,9 @@ function sourceChangeSegments(source: ReplayStorageSource) {
   const summary = sourceChangeSummary(source);
   if (!summary) return [];
   return [
-    { key: "add", count: summary.add, class: "bg-emerald-500" },
-    { key: "update", count: summary.update, class: "bg-amber-500" },
-    { key: "delete", count: summary.delete, class: "bg-red-500" },
+    { key: "add", count: summary.add, class: "bg-success" },
+    { key: "update", count: summary.update, class: "bg-warning" },
+    { key: "delete", count: summary.delete, class: "bg-error" },
   ].filter((entry) => entry.count > 0);
 }
 
@@ -819,7 +819,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
                   <Check v-if="selectedKind === 'indexedDB'" class="h-3 w-3 shrink-0" />
                   <span v-else class="h-3 w-3 shrink-0" />
                   <span class="truncate">IndexedDB</span>
-                  <span class="ml-auto text-[10px] text-muted-foreground/50">
+                  <span class="ml-auto text-2xs text-muted-foreground/50">
                     {{ indexedDBTypeCount.toLocaleString() }}
                   </span>
                 </span>
@@ -837,7 +837,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
                   />
                   <span v-else class="mr-2 h-3 w-3 shrink-0" />
                   <span class="truncate">{{ option.label }}</span>
-                  <span class="ml-auto text-[10px] text-muted-foreground/50">
+                  <span class="ml-auto text-2xs text-muted-foreground/50">
                     {{ option.count.toLocaleString() }}
                   </span>
                 </DropdownMenuItem>
@@ -852,7 +852,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
               <Check v-if="selectedKind === option.value" class="mr-2 h-3 w-3 shrink-0" />
               <span v-else class="mr-2 h-3 w-3 shrink-0" />
               <span class="truncate">{{ option.label }}</span>
-              <span class="ml-auto text-[10px] text-muted-foreground/50">
+              <span class="ml-auto text-2xs text-muted-foreground/50">
                 {{ option.count.toLocaleString() }}
               </span>
             </DropdownMenuItem>
@@ -875,14 +875,14 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
           class="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center text-muted-foreground/40"
         >
           <Database class="h-5 w-5 opacity-40" />
-          <p class="text-[11px]">No database track captured</p>
+          <p class="text-2xs">No database track captured</p>
         </div>
         <div
           v-else-if="visibleSources.length === 0 && !isLoadingSources"
           class="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center text-muted-foreground/40"
         >
           <Database class="h-5 w-5 opacity-40" />
-          <p class="text-[11px]">
+          <p class="text-2xs">
             {{ sourceSearch.trim() ? "No matching tables" : `No ${selectedKind} data captured` }}
           </p>
         </div>
@@ -904,11 +904,11 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
                 <span class="truncate text-xs font-medium">{{ sourceLabel(source) }}</span>
                 <span
                   v-if="source.kind === 'tableChange'"
-                  class="shrink-0 rounded border border-border/30 px-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50"
+                  class="shrink-0 rounded border border-border/30 px-1 font-mono text-2xs uppercase tracking-wider text-muted-foreground/50"
                 >
                   changes
                 </span>
-                <span class="ml-auto text-[10px] text-muted-foreground/40">
+                <span class="ml-auto text-2xs text-muted-foreground/40">
                   {{
                     source.kind === "localStorage"
                       ? source.records.length.toLocaleString()
@@ -918,7 +918,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
               </div>
               <div class="mt-0.5 flex items-center gap-1.5">
                 <!-- <p
-                  class="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground/40"
+                  class="min-w-0 flex-1 truncate font-mono text-2xs text-muted-foreground/40"
                 >
                   {{ sourceSubLabel(source) }}
                 </p> -->
@@ -970,7 +970,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
             @toggle-changes-only="toggleChangesOnly"
           />
           <div
-            class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1/40 px-3 text-[10px] text-muted-foreground/50"
+            class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1/40 px-3 text-2xs text-muted-foreground/50"
           >
             <RefreshCw class="h-3 w-3" />
             <span>{{ statusText }}</span>
@@ -1006,7 +1006,7 @@ watch([selectedSource, queryPositionMs, page, pageSize, showChangesOnly], () => 
             @toggle-changes-only="toggleChangesOnly"
           />
           <div
-            class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1/40 px-3 text-[10px] text-muted-foreground/50"
+            class="flex h-7 shrink-0 items-center gap-2 border-b border-border/20 bg-surface-1/40 px-3 text-2xs text-muted-foreground/50"
           >
             <RefreshCw class="h-3 w-3" />
             <span>{{ statusText }}</span>

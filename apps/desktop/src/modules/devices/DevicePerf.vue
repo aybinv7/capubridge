@@ -227,15 +227,15 @@ function fmtSource(value: string | null | undefined): string {
 }
 
 function levelColor(pct: number): string {
-  if (pct >= 80) return "text-red-500";
-  if (pct >= 60) return "text-amber-500";
-  return "text-emerald-500";
+  if (pct >= 80) return "text-error";
+  if (pct >= 60) return "text-warning";
+  return "text-success";
 }
 
 function battColor(lvl: number): string {
-  if (lvl < 20) return "text-red-500";
-  if (lvl < 40) return "text-amber-500";
-  return "text-emerald-500";
+  if (lvl < 20) return "text-error";
+  if (lvl < 40) return "text-warning";
+  return "text-success";
 }
 
 // ── Computed display values ───────────────────────────────────────────────────
@@ -249,9 +249,9 @@ const cpuTemp = computed(() => latest.value?.cpuTemp ?? null);
 const cpuTempSource = computed(() => fmtSource(latest.value?.cpuTempSource));
 
 const cdpStatusClass = computed(() => {
-  if (cdpMetricsStatus.value === "active") return "text-emerald-500";
-  if (cdpMetricsStatus.value === "degraded") return "text-amber-500";
-  if (cdpMetricsStatus.value === "error") return "text-red-500";
+  if (cdpMetricsStatus.value === "active") return "text-success";
+  if (cdpMetricsStatus.value === "degraded") return "text-warning";
+  if (cdpMetricsStatus.value === "error") return "text-error";
   return "text-muted-foreground";
 });
 
@@ -308,12 +308,12 @@ const svgDefs = `
     <!-- Error banner -->
     <div
       v-if="error"
-      class="shrink-0 mx-4 mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-400"
+      class="shrink-0 mx-4 mt-4 flex items-start gap-2 rounded-lg border border-error/30 bg-error/10 px-3 py-2.5 text-xs text-error"
     >
       <AlertCircle class="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div>
         <div class="font-medium">Failed to start performance monitoring</div>
-        <div class="mt-0.5 font-mono text-[10px] text-red-400/70">
+        <div class="mt-0.5 font-mono text-2xs text-error/70">
           {{ error }}
         </div>
       </div>
@@ -403,14 +403,14 @@ const svgDefs = `
         <Card>
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle class="text-sm font-medium flex items-center gap-2">
-              <MemoryStick class="h-4 w-4 text-sky-500" />
+              <MemoryStick class="h-4 w-4 text-info" />
               Memory
             </CardTitle>
             <div class="text-right">
               <span class="font-mono text-2xl font-bold" :class="levelColor(memPct)">
                 {{ memPct }}%
               </span>
-              <p v-if="latest?.memory" class="text-[10px] text-muted-foreground">
+              <p v-if="latest?.memory" class="text-2xs text-muted-foreground">
                 {{ fmtBytes(latest.memory.usedKb) }} /
                 {{ fmtBytes(latest.memory.totalKb) }}
               </p>
@@ -481,7 +481,7 @@ const svgDefs = `
               class="flex flex-col gap-1 rounded-lg bg-muted/50 p-2"
             >
               <div class="flex items-center justify-between">
-                <span class="text-[10px] text-muted-foreground">CPU{{ core.core }}</span>
+                <span class="text-2xs text-muted-foreground">CPU{{ core.core }}</span>
                 <span
                   class="font-mono text-xs font-semibold"
                   :style="{ color: coreColors[i % coreColors.length] }"
@@ -530,12 +530,12 @@ const svgDefs = `
             </CardTitle>
             <div class="flex items-center gap-4 text-xs">
               <div class="flex items-center gap-1">
-                <ArrowDown class="h-3 w-3 text-emerald-500" />
-                <span class="font-mono font-semibold text-emerald-500">{{ fmtBps(rx) }}</span>
+                <ArrowDown class="h-3 w-3 text-success" />
+                <span class="font-mono font-semibold text-success">{{ fmtBps(rx) }}</span>
               </div>
               <div class="flex items-center gap-1">
-                <ArrowUp class="h-3 w-3 text-amber-500" />
-                <span class="font-mono font-semibold text-amber-500">{{ fmtBps(tx) }}</span>
+                <ArrowUp class="h-3 w-3 text-warning" />
+                <span class="font-mono font-semibold text-warning">{{ fmtBps(tx) }}</span>
               </div>
             </div>
           </CardHeader>
@@ -543,7 +543,7 @@ const svgDefs = `
             <div class="grid h-full min-h-0 grid-cols-2 gap-3">
               <div class="flex h-full min-h-0 flex-col">
                 <p class="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                  <ArrowDown class="h-3 w-3 text-emerald-500" /> Download
+                  <ArrowDown class="h-3 w-3 text-success" /> Download
                 </p>
                 <ChartContainer
                   :config="netChartConfig"
@@ -591,7 +591,7 @@ const svgDefs = `
               </div>
               <div class="flex h-full min-h-0 flex-col">
                 <p class="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                  <ArrowUp class="h-3 w-3 text-amber-500" /> Upload
+                  <ArrowUp class="h-3 w-3 text-warning" /> Upload
                 </p>
                 <ChartContainer
                   :config="netChartConfig"
@@ -647,7 +647,7 @@ const svgDefs = `
           <Card>
             <CardHeader class="pb-1">
               <CardTitle class="text-sm font-medium flex items-center gap-2">
-                <Battery class="h-4 w-4 text-emerald-500" />
+                <Battery class="h-4 w-4 text-success" />
                 Battery
               </CardTitle>
             </CardHeader>
@@ -666,10 +666,10 @@ const svgDefs = `
                   class="h-full rounded-full transition-all duration-700"
                   :class="
                     battery && battery.level < 20
-                      ? 'bg-red-500'
+                      ? 'bg-error'
                       : battery && battery.level < 40
-                        ? 'bg-amber-500'
-                        : 'bg-emerald-500'
+                        ? 'bg-warning'
+                        : 'bg-success'
                   "
                   :style="{ width: `${battery?.level ?? 0}%` }"
                 />
@@ -681,7 +681,7 @@ const svgDefs = `
           <Card>
             <CardHeader class="pb-1">
               <CardTitle class="text-sm font-medium flex items-center gap-2">
-                <Thermometer class="h-4 w-4 text-orange-500" />
+                <Thermometer class="h-4 w-4 text-warning" />
                 Temperature
               </CardTitle>
             </CardHeader>
@@ -690,19 +690,19 @@ const svgDefs = `
                 class="font-mono text-3xl font-bold"
                 :class="
                   cpuTemp && cpuTemp > 50
-                    ? 'text-red-500'
+                    ? 'text-error'
                     : cpuTemp && cpuTemp > 40
-                      ? 'text-amber-500'
-                      : 'text-orange-500'
+                      ? 'text-warning'
+                      : 'text-warning'
                 "
               >
                 {{ cpuTemp != null ? cpuTemp.toFixed(1) : "--" }}°C
               </div>
               <p class="text-xs text-muted-foreground mt-1">Source: {{ cpuTempSource }}</p>
-              <p v-if="cpuTemp == null" class="text-[10px] text-muted-foreground mt-0.5">
+              <p v-if="cpuTemp == null" class="text-2xs text-muted-foreground mt-0.5">
                 CPU thermal sensor not exposed on this device build.
               </p>
-              <p v-if="battery?.temperature" class="text-[10px] text-muted-foreground mt-0.5">
+              <p v-if="battery?.temperature" class="text-2xs text-muted-foreground mt-0.5">
                 Battery: {{ battery.temperature.toFixed(1) }}°C
               </p>
             </CardContent>
@@ -714,19 +714,19 @@ const svgDefs = `
       <Card>
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-1">
           <CardTitle class="text-sm font-medium flex items-center gap-2">
-            <Layers class="h-4 w-4 text-sky-500" />
+            <Layers class="h-4 w-4 text-info" />
             WebView · CDP Metrics
           </CardTitle>
           <div class="text-right">
             <p class="text-xs font-semibold" :class="cdpStatusClass">
               {{ cdpStatusLabel }}
             </p>
-            <p class="text-[10px] text-muted-foreground">Source: {{ cdpSourceLabel }}</p>
-            <p class="text-[10px] text-muted-foreground">Last update: {{ cdpLastUpdatedLabel }}</p>
+            <p class="text-2xs text-muted-foreground">Source: {{ cdpSourceLabel }}</p>
+            <p class="text-2xs text-muted-foreground">Last update: {{ cdpLastUpdatedLabel }}</p>
           </div>
         </CardHeader>
         <CardContent>
-          <p class="mb-2 text-[10px] text-muted-foreground">
+          <p class="mb-2 text-2xs text-muted-foreground">
             {{ cdpMetricsMessage }}
           </p>
           <div class="grid grid-cols-3 gap-3">
@@ -771,7 +771,7 @@ const svgDefs = `
                   <ChartCrosshair :template="heapUsedTooltipContent" />
                 </VisXYContainer>
               </ChartContainer>
-              <p class="mt-2 text-[10px] text-muted-foreground">
+              <p class="mt-2 text-2xs text-muted-foreground">
                 Now {{ fmtMb(heapUsedStats.now) }} · Avg {{ fmtMb(heapUsedStats.avg) }} · Peak
                 {{ fmtMb(heapUsedStats.max) }}
               </p>
@@ -817,7 +817,7 @@ const svgDefs = `
                   <ChartCrosshair :template="heapTotalTooltipContent" />
                 </VisXYContainer>
               </ChartContainer>
-              <p class="mt-2 text-[10px] text-muted-foreground">
+              <p class="mt-2 text-2xs text-muted-foreground">
                 Now {{ fmtMb(heapTotalStats.now) }} · Avg {{ fmtMb(heapTotalStats.avg) }} · Peak
                 {{ fmtMb(heapTotalStats.max) }}
               </p>
@@ -863,7 +863,7 @@ const svgDefs = `
                   <ChartCrosshair :template="domTooltipContent" />
                 </VisXYContainer>
               </ChartContainer>
-              <p class="mt-2 text-[10px] text-muted-foreground">
+              <p class="mt-2 text-2xs text-muted-foreground">
                 Now {{ fmtCount(domNodesStats.now) }} · Avg {{ fmtCount(domNodesStats.avg) }} · Peak
                 {{ fmtCount(domNodesStats.max) }}
               </p>

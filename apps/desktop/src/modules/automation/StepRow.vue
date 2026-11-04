@@ -45,9 +45,9 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 const strengthVariant: Record<string, string> = {
-  strong: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  fair: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  weak: "bg-red-500/15 text-red-700 dark:text-red-400",
+  strong: "bg-success/15 text-success dark:text-success",
+  fair: "bg-warning/15 text-warning dark:text-warning",
+  weak: "bg-error/15 text-error dark:text-error",
 };
 
 /** A produced row belongs to a goal's run output, so it never edits the flow. */
@@ -55,10 +55,10 @@ const canEditRow = computed(() => props.canEdit && props.depth === 0);
 
 function outcomeClass(outcome: string | null): string {
   if (outcome === "ok") {
-    return "text-emerald-600 dark:text-emerald-400";
+    return "text-success dark:text-success";
   }
   if (outcome === "failed") {
-    return "text-red-600 dark:text-red-400";
+    return "text-error dark:text-error";
   }
   return "text-muted-foreground";
 }
@@ -113,7 +113,7 @@ function outcomeClass(outcome: string | null): string {
 
     <span
       v-if="row.verificationStatus === 'unverified'"
-      class="shrink-0 rounded bg-amber-500/15 px-1 py-0 text-xs text-amber-700 dark:text-amber-400"
+      class="shrink-0 rounded bg-warning/15 px-1 py-0 text-xs text-warning dark:text-warning"
       title="The command was dispatched, but the next observation did not prove a screen transition"
     >
       unverified

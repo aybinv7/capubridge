@@ -64,22 +64,22 @@ async function refreshUsage() {
           class="flex h-10 items-center gap-3 rounded-lg border border-border/25 bg-surface-1 px-3 text-xs"
         >
           <div class="flex min-w-0 items-center gap-2">
-            <Wifi class="h-3.5 w-3.5 text-sky-400" />
+            <Wifi class="h-3.5 w-3.5 text-info" />
             <span class="text-muted-foreground/55">Network</span>
             <span
               class="font-medium"
-              :class="usageState.hasNetwork ? 'text-emerald-400' : 'text-muted-foreground/45'"
+              :class="usageState.hasNetwork ? 'text-success' : 'text-muted-foreground/45'"
             >
               {{ usageState.hasNetwork ? "Ready" : "Unavailable" }}
             </span>
           </div>
           <div class="h-4 w-px bg-border/35" />
           <div class="flex min-w-0 items-center gap-2">
-            <BatteryCharging class="h-3.5 w-3.5 text-emerald-400" />
+            <BatteryCharging class="h-3.5 w-3.5 text-success" />
             <span class="text-muted-foreground/55">Battery</span>
             <span
               class="font-medium"
-              :class="usageState.hasBattery ? 'text-emerald-400' : 'text-muted-foreground/45'"
+              :class="usageState.hasBattery ? 'text-success' : 'text-muted-foreground/45'"
             >
               {{ usageState.hasBattery ? "Ready" : "Unavailable" }}
             </span>
@@ -87,7 +87,7 @@ async function refreshUsage() {
           <Button
             variant="ghost"
             size="sm"
-            class="ml-auto h-7 gap-1.5 px-2 text-[11px]"
+            class="ml-auto h-7 gap-1.5 px-2 text-2xs"
             :disabled="
               panel.inspector.isLoadingNetwork.value || panel.inspector.isLoadingBattery.value
             "

@@ -76,7 +76,7 @@ const model = computed(() =>
       <div>
         <p class="mb-2 text-xs font-medium">Inspectable envelope</p>
         <pre
-          class="overflow-x-auto rounded-lg bg-muted p-3 text-[11px] leading-4 text-muted-foreground"
+          class="overflow-x-auto rounded-lg bg-muted p-3 text-2xs leading-4 text-muted-foreground"
           >{{ envelope }}</pre
         >
       </div>

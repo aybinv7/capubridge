@@ -68,7 +68,7 @@ async function saveEditAsHtml(html: string) {
         class="w-6 h-6 flex items-center justify-center rounded transition-colors"
         :class="
           store.inspectMode
-            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+            ? 'bg-info/20 text-info border border-info/30'
             : 'text-muted-foreground/50 hover:bg-surface-2 hover:text-foreground'
         "
         title="Toggle inspect mode"

@@ -211,7 +211,7 @@ defineExpose({ seekTo, play, pause, getIframeDoc });
       <!-- Element highlight box -->
       <div
         v-if="hit"
-        class="absolute pointer-events-none border-2 border-sky-400 bg-sky-400/10"
+        class="absolute pointer-events-none border-2 border-info bg-info/10"
         :style="{
           left: hit.x + 'px',
           top: hit.y + 'px',
@@ -223,25 +223,25 @@ defineExpose({ seekTo, play, pause, getIframeDoc });
       <!-- Info badge — follows mouse -->
       <div
         v-if="hit"
-        class="absolute pointer-events-none z-20 max-w-[280px] rounded-md bg-background/95 border border-border/40 shadow-lg px-2 py-1.5 text-[11px] leading-snug"
+        class="absolute pointer-events-none z-20 max-w-[280px] rounded-md bg-background/95 border border-border/40 shadow-lg px-2 py-1.5 text-2xs leading-snug"
         :style="{
           left: Math.min(mouseContainerPos.x + 12, 9999) + 'px',
           top: Math.min(mouseContainerPos.y + 12, 9999) + 'px',
         }"
       >
-        <span class="font-mono font-semibold text-sky-400">{{ hit.tag }}</span>
+        <span class="font-mono font-semibold text-info">{{ hit.tag }}</span>
         <span v-if="hit.id" class="font-mono text-violet-400">#{{ hit.id }}</span>
         <span v-if="hit.cls" class="font-mono text-muted-foreground/70 ml-0.5"
           >.{{ hit.cls.replace(/\s+/g, ".") }}</span
         >
-        <div class="text-[10px] text-muted-foreground/50 mt-0.5">
+        <div class="text-2xs text-muted-foreground/50 mt-0.5">
           {{ Math.round(hit.w / scaleState.scale) }} × {{ Math.round(hit.h / scaleState.scale) }} px
         </div>
       </div>
 
       <!-- Inspect mode badge -->
       <div
-        class="absolute top-2 left-2 rounded px-1.5 py-0.5 bg-sky-500/90 text-white text-[10px] font-semibold tracking-wide pointer-events-none"
+        class="absolute top-2 left-2 rounded px-1.5 py-0.5 bg-info/90 text-white text-2xs font-semibold tracking-wide pointer-events-none"
       >
         INSPECT
       </div>
@@ -252,7 +252,7 @@ defineExpose({ seekTo, play, pause, getIframeDoc });
       class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground/40"
     >
       <p class="text-sm">No DOM events recorded</p>
-      <p class="text-[11px]">Enable the DOM replay track when recording</p>
+      <p class="text-2xs">Enable the DOM replay track when recording</p>
     </div>
   </div>
 </template>

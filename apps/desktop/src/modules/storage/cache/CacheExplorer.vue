@@ -101,7 +101,7 @@ function refetch() {
               class="flex flex-col items-center justify-center py-8 px-3 text-center"
             >
               <AlertCircle :size="16" class="text-muted-foreground/30 mb-2" />
-              <p class="text-[11px] text-muted-foreground/40">No Cache API caches found</p>
+              <p class="text-2xs text-muted-foreground/40">No Cache API caches found</p>
             </div>
 
             <div v-else class="py-1">

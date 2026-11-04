@@ -441,10 +441,10 @@ function toggleRecord() {
       >
         <div
           v-if="mirrorStore.isRecording"
-          class="h-5 bg-red-500/10 border-t border-red-500/20 flex items-center justify-center gap-1.5 shrink-0"
+          class="h-5 bg-signal-rec/10 border-t border-signal-rec/20 flex items-center justify-center gap-1.5 shrink-0"
         >
-          <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-          <span class="text-[10px] text-red-400 font-medium tracking-wide">RECORDING</span>
+          <div class="w-1.5 h-1.5 rounded-full bg-signal-rec animate-pulse" />
+          <span class="text-2xs text-signal-rec font-medium tracking-wide">RECORDING</span>
         </div>
       </Transition>
     </div>

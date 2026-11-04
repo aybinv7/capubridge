@@ -25,7 +25,7 @@ const shortcuts = [
     <SettingsSection title="Keyboard shortcuts" description="Read-only for now.">
       <SettingsRow v-for="sc in shortcuts" :key="sc.keys" :label="sc.action">
         <kbd
-          class="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 font-mono text-[11px] text-[var(--fg-muted)]"
+          class="rounded border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1 font-mono text-2xs text-[var(--fg-muted)]"
         >
           {{ sc.keys }}
         </kbd>

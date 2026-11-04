@@ -42,11 +42,11 @@ const iconClass = computed(() => {
   const classes: Record<ToolPart["state"], string> = {
     "input-streaming": "size-4",
     "input-available": "size-4 animate-pulse",
-    "approval-requested": "size-4 text-yellow-600",
-    "approval-responded": "size-4 text-blue-600",
-    "output-available": "size-4 text-green-600",
-    "output-error": "size-4 text-red-600",
-    "output-denied": "size-4 text-orange-600",
+    "approval-requested": "size-4 text-warning",
+    "approval-responded": "size-4 text-info",
+    "output-available": "size-4 text-success",
+    "output-error": "size-4 text-error",
+    "output-denied": "size-4 text-warning",
   };
   return classes[props.state];
 });

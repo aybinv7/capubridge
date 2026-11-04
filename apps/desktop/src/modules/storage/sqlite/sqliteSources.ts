@@ -6,7 +6,7 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     title: "Native Android SQLite",
     description:
       "A database file inside the app's private data directory on the device, read over ADB. This is what the Android SDK and Room write to.",
-    badgeClass: "border-emerald-500/20 text-emerald-300 bg-emerald-500/10",
+    badgeClass: "border-success/20 text-success bg-success/10",
   },
   "sqlite-wasm-opfsdb": {
     label: "opfs",
@@ -22,7 +22,7 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     description:
       "The database lives inside an opaque pool slot: a 4096-byte header holding the logical path and flags, then the SQLite payload. CapuBridge strips that header for you.",
     packageName: "@sqlite.org/sqlite-wasm",
-    badgeClass: "border-sky-500/25 text-sky-300 bg-sky-500/10",
+    badgeClass: "border-info/25 text-info bg-info/10",
   },
   "wa-sqlite-opfs": {
     label: "wa-sqlite",
@@ -44,7 +44,7 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     label: "file",
     title: "Imported file",
     description: "Opened from a file on this machine. It has no live source on the device.",
-    badgeClass: "border-amber-500/25 text-amber-300 bg-amber-500/10",
+    badgeClass: "border-warning/25 text-warning bg-warning/10",
   },
 };
 

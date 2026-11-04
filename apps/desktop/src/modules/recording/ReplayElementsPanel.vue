@@ -222,7 +222,7 @@ watch(
     <!-- ── No session state ─────────────────────────────────── -->
     <div
       v-if="!getDoc"
-      class="flex-1 flex items-center justify-center text-muted-foreground/40 text-[11px]"
+      class="flex-1 flex items-center justify-center text-muted-foreground/40 text-2xs"
     >
       No session loaded
     </div>
@@ -230,7 +230,7 @@ watch(
     <template v-else>
       <!-- ── Tree header ──────────────────────────────────────── -->
       <div
-        class="flex-none flex items-center gap-2 px-3 py-1.5 border-b border-border/20 bg-surface-1 text-[11px]"
+        class="flex-none flex items-center gap-2 px-3 py-1.5 border-b border-border/20 bg-surface-1 text-2xs"
       >
         <span class="flex-1 text-muted-foreground/50 truncate">
           <span v-if="snapshotTime">Snapshot @ {{ snapshotTime }}</span>
@@ -249,21 +249,21 @@ watch(
       <!-- ── DOM tree ─────────────────────────────────────────── -->
       <div
         ref="treeRef"
-        class="flex-1 min-h-0 overflow-auto font-mono text-[11px] leading-relaxed select-none"
+        class="flex-1 min-h-0 overflow-auto font-mono text-2xs leading-relaxed select-none"
       >
         <!-- Tree rows -->
         <div
           v-for="(node, i) in flatTree"
           :key="i"
           class="flex items-center gap-0.5 py-px cursor-pointer hover:bg-surface-2 rounded-sm"
-          :class="selectedEl === node.el ? 'bg-sky-500/10 hover:bg-sky-500/15' : ''"
+          :class="selectedEl === node.el ? 'bg-info/10 hover:bg-info/15' : ''"
           :style="{ paddingLeft: `${node.depth * 12 + 4}px`, paddingRight: '8px' }"
           @click="selectNode(node)"
         >
           <!-- Expand/collapse arrow -->
           <button
             v-if="node.hasChildren"
-            class="w-3 h-3 shrink-0 flex items-center justify-center text-[9px] text-muted-foreground/40 hover:text-foreground/70"
+            class="w-3 h-3 shrink-0 flex items-center justify-center text-2xs text-muted-foreground/40 hover:text-foreground/70"
             @click.stop="toggleCollapse(node.el)"
           >
             {{ collapsedEls.has(node.el) ? "▶" : "▼" }}
@@ -272,10 +272,10 @@ watch(
 
           <!-- Tag -->
           <span :class="selectedEl === node.el ? 'text-foreground' : 'text-muted-foreground/70'">
-            <span class="text-sky-400">&lt;{{ node.tag }}</span>
+            <span class="text-info">&lt;{{ node.tag }}</span>
             <span v-if="node.idAttr" class="text-violet-400">#{{ node.idAttr }}</span>
-            <span v-if="dotCls(node.cls)" class="text-amber-400/80">.{{ dotCls(node.cls) }}</span>
-            <span class="text-sky-400">&gt;</span>
+            <span v-if="dotCls(node.cls)" class="text-warning/80">.{{ dotCls(node.cls) }}</span>
+            <span class="text-info">&gt;</span>
           </span>
 
           <!-- Leaf text content -->
@@ -288,7 +288,7 @@ watch(
           <!-- Collapsed children indicator -->
           <span
             v-if="node.hasChildren && collapsedEls.has(node.el)"
-            class="ml-1 text-muted-foreground/25 text-[10px]"
+            class="ml-1 text-muted-foreground/25 text-2xs"
             >…</span
           >
         </div>
@@ -299,7 +299,7 @@ watch(
           class="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground/40"
         >
           <MousePointer2 class="w-5 h-5" />
-          <p class="text-[11px] text-center leading-relaxed">
+          <p class="text-2xs text-center leading-relaxed">
             Click <span class="font-semibold">Refresh</span> to snapshot the DOM,<br />
             or click an element in Inspect mode.
           </p>
@@ -310,10 +310,10 @@ watch(
       <div class="flex-none border-t border-border/40 bg-surface-1">
         <!-- Selected element badge -->
         <div
-          class="px-3 py-1.5 border-b border-border/20 font-mono text-[11px] truncate min-h-[28px] flex items-center"
+          class="px-3 py-1.5 border-b border-border/20 font-mono text-2xs truncate min-h-[28px] flex items-center"
         >
           <template v-if="selectedEl">
-            <span class="text-sky-400 font-semibold">{{ selectedEl.tagName.toLowerCase() }}</span>
+            <span class="text-info font-semibold">{{ selectedEl.tagName.toLowerCase() }}</span>
             <span v-if="(selectedEl as HTMLElement).id" class="text-violet-400"
               >#{{ (selectedEl as HTMLElement).id }}</span
             >
@@ -323,7 +323,7 @@ watch(
                 typeof selectedEl.className === 'string' &&
                 selectedEl.className.trim()
               "
-              class="text-amber-400/80"
+              class="text-warning/80"
               >.{{ dotCls((selectedEl as HTMLElement).className) }}</span
             >
             <span class="ml-2 text-muted-foreground/40">{{ elWidth }}×{{ elHeight }}px</span>
@@ -332,7 +332,7 @@ watch(
         </div>
 
         <!-- Dock tab bar -->
-        <div class="flex border-b border-border/20 text-[11px]">
+        <div class="flex border-b border-border/20 text-2xs">
           <button
             class="flex-1 py-1 font-medium transition-colors"
             :class="
@@ -371,7 +371,7 @@ watch(
         <!-- Dock content — fixed height -->
         <div class="h-48 overflow-auto">
           <!-- Computed styles -->
-          <div v-if="dockTab === 'computed'" class="flex flex-col h-full font-mono text-[11px]">
+          <div v-if="dockTab === 'computed'" class="flex flex-col h-full font-mono text-2xs">
             <div
               class="flex items-center gap-1 px-2 py-1 border-b border-border/20 sticky top-0 bg-surface-1 z-10"
             >
@@ -379,10 +379,10 @@ watch(
               <input
                 v-model="filter"
                 placeholder="Filter properties…"
-                class="flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/30"
+                class="flex-1 bg-transparent text-2xs outline-none placeholder:text-muted-foreground/30"
               />
               <label
-                class="flex items-center gap-1 text-[10px] text-muted-foreground/50 cursor-pointer shrink-0"
+                class="flex items-center gap-1 text-2xs text-muted-foreground/50 cursor-pointer shrink-0"
               >
                 <input v-model="showAll" type="checkbox" class="w-3 h-3" />
                 All
@@ -394,7 +394,7 @@ watch(
                 :key="s.name"
                 class="flex gap-1 py-px hover:bg-surface-2 px-1 rounded"
               >
-                <span class="text-blue-400 shrink-0">{{ s.name }}</span>
+                <span class="text-info shrink-0">{{ s.name }}</span>
                 <span class="text-muted-foreground/50">:</span>
                 <span class="text-foreground/80 truncate">{{ s.value }}</span>
               </div>
@@ -416,15 +416,15 @@ watch(
           </div>
 
           <!-- Attributes -->
-          <div v-else class="p-1 font-mono text-[11px] space-y-px">
+          <div v-else class="p-1 font-mono text-2xs space-y-px">
             <div
               v-for="a in attrsData"
               :key="a.name"
               class="flex gap-1 py-px hover:bg-surface-2 px-1 rounded min-w-0"
             >
-              <span class="text-amber-400 shrink-0">{{ a.name }}</span>
+              <span class="text-warning shrink-0">{{ a.name }}</span>
               <span class="text-muted-foreground/50">=</span>
-              <span class="text-green-400/80 truncate">"{{ a.value }}"</span>
+              <span class="text-success/80 truncate">"{{ a.value }}"</span>
             </div>
             <div v-if="!selectedEl" class="text-muted-foreground/30 text-center py-4">
               Select an element

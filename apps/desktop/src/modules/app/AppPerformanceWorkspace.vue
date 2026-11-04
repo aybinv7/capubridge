@@ -207,9 +207,9 @@ const domDomain = computed(() => makeSeriesDomain(webMetrics.domNodesSeries.valu
 const threadDomain = computed(() => makeSeriesDomain(threadSeries.value, "threads"));
 
 const webStatusClass = computed(() => {
-  if (webMetrics.status.value === "active") return "text-emerald-400";
-  if (webMetrics.status.value === "degraded") return "text-amber-400";
-  if (webMetrics.status.value === "error") return "text-red-400";
+  if (webMetrics.status.value === "active") return "text-success";
+  if (webMetrics.status.value === "degraded") return "text-warning";
+  if (webMetrics.status.value === "error") return "text-error";
   return "text-muted-foreground/60";
 });
 
@@ -224,13 +224,13 @@ const memoryBreakdown = computed(() => {
       key: "native",
       label: "Native",
       value: memInfo.nativeHeapKb,
-      color: "bg-amber-500",
+      color: "bg-warning",
     },
     {
       key: "dalvik",
       label: "Dalvik",
       value: memInfo.dalvikHeapKb,
-      color: "bg-sky-500",
+      color: "bg-info",
     },
     {
       key: "code",
@@ -242,7 +242,7 @@ const memoryBreakdown = computed(() => {
       key: "graphics",
       label: "Graphics",
       value: memInfo.graphicsKb,
-      color: "bg-emerald-500",
+      color: "bg-success",
     },
     {
       key: "stack",
@@ -272,12 +272,12 @@ const memoryBreakdown = computed(() => {
   <div class="space-y-3">
     <div
       v-if="liveError"
-      class="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/6 px-3 py-2 text-xs text-red-300"
+      class="flex items-start gap-2 rounded-lg border border-error/20 bg-error/6 px-3 py-2 text-xs text-error"
     >
       <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
       <div class="min-w-0">
         <div class="font-medium">Native runtime stream failed</div>
-        <div class="mt-1 font-mono text-[11px] text-red-300/70">
+        <div class="mt-1 font-mono text-2xs text-error/70">
           {{ liveError }}
         </div>
       </div>
@@ -344,14 +344,14 @@ const memoryBreakdown = computed(() => {
                 <div class="text-xl font-semibold text-foreground">
                   {{ props.cpuInfo ? props.cpuInfo.totalPct.toFixed(1) : "0.0" }}%
                 </div>
-                <div class="text-[10px] text-muted-foreground/45">CPU now</div>
+                <div class="text-2xs text-muted-foreground/45">CPU now</div>
               </div>
               <div class="h-10 w-px bg-border/30" />
               <div>
                 <div class="text-xl font-semibold text-foreground">
                   {{ props.memInfo ? fmtMb(props.memInfo.totalPssKb / 1024) : "0 MB" }}
                 </div>
-                <div class="text-[10px] text-muted-foreground/45">Total PSS</div>
+                <div class="text-2xs text-muted-foreground/45">Total PSS</div>
               </div>
             </div>
           </div>
@@ -361,7 +361,7 @@ const memoryBreakdown = computed(() => {
           >
             <span
               class="h-2 w-2 rounded-full"
-              :class="props.isLive ? 'bg-emerald-400 animate-pulse' : 'bg-muted-foreground/40'"
+              :class="props.isLive ? 'bg-success animate-pulse' : 'bg-muted-foreground/40'"
             />
             <span class="text-muted-foreground/70">
               {{ props.isLive ? "Live 2.5s" : "Stopped" }}
@@ -376,7 +376,7 @@ const memoryBreakdown = computed(() => {
           <div class="rounded-lg border border-border/20 bg-surface-1 p-3">
             <div class="mb-3 flex items-center justify-between">
               <div class="flex items-center gap-2 text-sm font-medium text-foreground/85">
-                <Cpu class="h-4 w-4 text-sky-400" />
+                <Cpu class="h-4 w-4 text-info" />
                 CPU timeline
               </div>
               <div class="text-xs text-muted-foreground/45">
@@ -412,7 +412,7 @@ const memoryBreakdown = computed(() => {
           <div class="rounded-lg border border-border/20 bg-surface-1 p-3">
             <div class="mb-3 flex items-center justify-between">
               <div class="flex items-center gap-2 text-sm font-medium text-foreground/85">
-                <MemoryStick class="h-4 w-4 text-amber-400" />
+                <MemoryStick class="h-4 w-4 text-warning" />
                 Native memory
               </div>
               <div class="text-xs text-muted-foreground/45">
@@ -516,7 +516,7 @@ const memoryBreakdown = computed(() => {
             <div class="rounded-lg border border-border/20 bg-surface-1 p-3">
               <div class="mb-3 flex items-center justify-between">
                 <div class="flex items-center gap-2 text-sm font-medium text-foreground/85">
-                  <Boxes class="h-4 w-4 text-orange-400" />
+                  <Boxes class="h-4 w-4 text-warning" />
                   DOM nodes
                 </div>
                 <div class="text-xs text-muted-foreground/45">

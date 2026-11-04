@@ -59,7 +59,7 @@ watch(
     class="h-full w-full flex items-center justify-center bg-surface-0 text-sm text-muted-foreground/70"
   >
     <div v-if="!plugin" class="text-center">Unknown inspect plugin.</div>
-    <div v-else-if="loadError" class="text-center text-red-400">
+    <div v-else-if="loadError" class="text-center text-error">
       Failed to load {{ plugin.name }} plugin: {{ loadError }}
     </div>
     <div v-else-if="!isDetected" class="text-center">

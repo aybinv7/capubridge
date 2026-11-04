@@ -24,7 +24,7 @@ const { getCachedPackage } = useAppPackages(serial);
 
 const statusClass = computed(() => {
   if (target.value?.source === "local") return "bg-success";
-  if (target.value?.source === "chrome") return "bg-blue-400";
+  if (target.value?.source === "chrome") return "bg-success";
   if (device.value?.status === "online") return "bg-success";
   return "bg-muted-foreground/20";
 });
@@ -62,7 +62,7 @@ function onDeviceSelected(serial: string) {
   >
     <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="statusClass" />
 
-    <span class="text-[11px] font-medium text-foreground/80 leading-none shrink-0">
+    <span class="text-2xs font-medium text-foreground/80 leading-none shrink-0">
       {{ sourceLabel }}
     </span>
 
@@ -81,13 +81,11 @@ function onDeviceSelected(serial: string) {
         />
       </template>
       <img v-else-if="target?.faviconUrl" :src="target.faviconUrl" alt="" class="w-4 h-4" />
-      <span class="text-[11px] text-muted-foreground/55 truncate leading-none">
+      <span class="text-2xs text-muted-foreground/55 truncate leading-none">
         {{ targetLabel }}
       </span>
     </template>
-    <span v-else class="text-[11px] text-muted-foreground/25 leading-none shrink-0">
-      no target
-    </span>
+    <span v-else class="text-2xs text-muted-foreground/25 leading-none shrink-0"> no target </span>
 
     <ChevronDown :size="9" class="text-muted-foreground/25 shrink-0 ml-0.5" />
   </button>

@@ -142,7 +142,7 @@ const hasFilters = computed(() => localFilters.value.length > 0);
             <span class="text-sm font-medium">Filters</span>
             <span
               v-if="hasFilters"
-              class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
+              class="text-2xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
             >
               {{ localFilters.length }}
             </span>
@@ -162,7 +162,7 @@ const hasFilters = computed(() => localFilters.value.length > 0);
             <div v-if="idx > 0" class="flex items-center justify-center py-0.5">
               <div class="h-px flex-1 bg-border/30" />
               <button
-                class="h-6 px-2 text-[10px] font-medium rounded-full border border-border/30 bg-background hover:bg-muted transition-colors mx-2"
+                class="h-6 px-2 text-2xs font-medium rounded-full border border-border/30 bg-background hover:bg-muted transition-colors mx-2"
                 :class="filter.logic === 'and' ? 'text-foreground' : 'text-muted-foreground'"
                 @click="filter.logic = filter.logic === 'and' ? 'or' : 'and'"
               >

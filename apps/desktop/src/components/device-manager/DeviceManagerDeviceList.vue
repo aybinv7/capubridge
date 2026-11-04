@@ -48,7 +48,7 @@ const EMPTY_HINT: Partial<Record<DeviceGroupId, string>> = {
 const sectionClass =
   "flex items-center justify-between gap-2 mt-1.5 mb-1 px-2.5 py-1 rounded-md bg-surface-2/60 border border-border/15";
 const sectionLabelClass =
-  "text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/50";
+  "text-2xs font-semibold uppercase tracking-widest text-muted-foreground/50";
 const rowClass = "w-full text-left px-2.5 py-2 rounded-lg transition-colors";
 
 function rowStateClass(active: boolean): string {
@@ -67,14 +67,14 @@ function rowStateClass(active: boolean): string {
       <div class="flex items-center gap-1.5">
         <span class="w-1.5 h-1.5 rounded-full shrink-0 bg-success" />
         <Monitor :size="11" class="text-muted-foreground/40 shrink-0" />
-        <span class="text-[12px] font-medium text-foreground truncate">
+        <span class="text-xs font-medium text-foreground truncate">
           {{ localDeviceName }}
         </span>
       </div>
       <div class="flex items-center gap-1 mt-0.5 pl-3">
-        <span class="font-mono text-[9px] text-muted-foreground/35 truncate">local-host</span>
-        <span class="text-muted-foreground/20 text-[9px]">·</span>
-        <span class="text-[9px] text-muted-foreground/35">Native WebView</span>
+        <span class="font-mono text-2xs text-muted-foreground/35 truncate">local-host</span>
+        <span class="text-muted-foreground/20 text-2xs">·</span>
+        <span class="text-2xs text-muted-foreground/35">Native WebView</span>
       </div>
     </button>
 
@@ -93,7 +93,7 @@ function rowStateClass(active: boolean): string {
 
       <div
         v-if="group.devices.length === 0"
-        class="px-2.5 py-2 text-[10px] text-muted-foreground/30 italic"
+        class="px-2.5 py-2 text-2xs text-muted-foreground/30 italic"
       >
         {{ EMPTY_HINT[group.id] }}
       </div>
@@ -110,27 +110,27 @@ function rowStateClass(active: boolean): string {
                 class="w-1.5 h-1.5 rounded-full shrink-0"
                 :class="d.status === 'online' ? 'bg-success' : 'bg-muted-foreground/25'"
               />
-              <span class="text-[12px] font-medium text-foreground truncate">
+              <span class="text-xs font-medium text-foreground truncate">
                 {{ d.model || d.serial }}
               </span>
               <span
                 v-if="d.isStale"
-                class="ml-auto text-[9px] px-1.5 py-0.5 rounded-full border border-border/20 bg-surface-2 text-muted-foreground/45"
+                class="ml-auto text-2xs px-1.5 py-0.5 rounded-full border border-border/20 bg-surface-2 text-muted-foreground/45"
               >
                 stale
               </span>
             </div>
             <div class="flex items-center gap-1 mt-0.5 pl-3">
-              <span class="font-mono text-[9px] text-muted-foreground/35 truncate">
+              <span class="font-mono text-2xs text-muted-foreground/35 truncate">
                 {{ d.serial.slice(0, 16) }}
               </span>
-              <span class="text-muted-foreground/20 text-[9px]">·</span>
+              <span class="text-muted-foreground/20 text-2xs">·</span>
               <component
                 :is="d.connectionType === 'usb' ? Usb : Wifi"
                 :size="9"
                 class="text-muted-foreground/30 shrink-0"
               />
-              <span class="text-[9px] text-muted-foreground/35">
+              <span class="text-2xs text-muted-foreground/35">
                 {{ d.connectionType === "usb" ? "USB" : "WiFi" }}
               </span>
             </div>

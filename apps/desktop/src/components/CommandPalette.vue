@@ -166,7 +166,7 @@ watch(
               placeholder="Type a command or search…"
             />
             <kbd
-              class="text-[10px] text-muted-foreground/60 bg-surface-2 px-2 py-0.5 border border-border/30 rounded-md font-mono"
+              class="text-2xs text-muted-foreground/60 bg-surface-2 px-2 py-0.5 border border-border/30 rounded-md font-mono"
               >esc</kbd
             >
           </div>
@@ -175,7 +175,7 @@ watch(
           <div ref="listRef" class="max-h-[360px] overflow-y-auto py-1">
             <template v-for="[group, cmds] in grouped" :key="group">
               <div
-                class="px-5 py-2 text-[10px] text-muted-foreground/60 uppercase tracking-wider font-semibold"
+                class="px-5 py-2 text-2xs text-muted-foreground/60 uppercase tracking-wider font-semibold"
               >
                 {{ group }}
               </div>
@@ -196,13 +196,13 @@ watch(
                 <span class="flex-1 text-left text-sm">{{ cmd.label }}</span>
                 <span
                   v-if="cmd.maturity && cmd.maturity !== 'stable'"
-                  class="rounded-full border border-border/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/65"
+                  class="rounded-full border border-border/40 px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground/65"
                 >
                   {{ cmd.maturity }}
                 </span>
                 <span
                   v-if="cmd.keys"
-                  class="text-[10px] font-mono text-muted-foreground/60 bg-surface-2 px-2 py-0.5 border border-border/30 rounded-md"
+                  class="text-2xs font-mono text-muted-foreground/60 bg-surface-2 px-2 py-0.5 border border-border/30 rounded-md"
                   >{{ cmd.keys }}</span
                 >
               </button>

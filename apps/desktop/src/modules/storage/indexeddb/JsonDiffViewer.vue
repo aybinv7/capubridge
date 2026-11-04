@@ -201,9 +201,9 @@ function buildLcsDiff(bl: string[], al: string[]): DiffRow[] {
 }
 
 function diffClass(kind: DiffKind) {
-  if (kind === "add") return "border-l-2 border-emerald-500/70 bg-emerald-500/10";
-  if (kind === "remove") return "border-l-2 border-red-500/70 bg-red-500/10";
-  if (kind === "change") return "border-l-2 border-amber-500/70 bg-amber-500/10";
+  if (kind === "add") return "border-l-2 border-success/70 bg-success/10";
+  if (kind === "remove") return "border-l-2 border-error/70 bg-error/10";
+  if (kind === "change") return "border-l-2 border-warning/70 bg-warning/10";
   return "";
 }
 

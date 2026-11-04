@@ -161,9 +161,9 @@ describe("replayPerfSeries formatters", () => {
   test("battery tones treat null as absent, not full", () => {
     expect(batteryTextColor(null)).toBe("text-muted-foreground");
     expect(batteryBarColor(null)).toBe("bg-muted-foreground/30");
-    expect(batteryBarColor(15)).toBe("bg-red-500");
-    expect(batteryBarColor(35)).toBe("bg-amber-500");
-    expect(batteryBarColor(80)).toBe("bg-emerald-500");
+    expect(batteryBarColor(15)).toBe("bg-error");
+    expect(batteryBarColor(35)).toBe("bg-warning");
+    expect(batteryBarColor(80)).toBe("bg-success");
     expect(batteryStateLabel(null)).toBe("State not recorded");
     expect(batteryStateLabel(true)).toBe("Charging");
   });
@@ -174,7 +174,7 @@ describe("replayPerfSeries formatters", () => {
     expect(fmtBps(null)).toBe("--");
     expect(fmtBps(2048)).toBe("2.0 MB/s");
     expect(levelColor(null)).toBe("text-muted-foreground");
-    expect(levelColor(85)).toBe("text-red-500");
+    expect(levelColor(85)).toBe("text-error");
   });
 
   test("upperBound locates the sample count at a position", () => {

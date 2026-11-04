@@ -90,7 +90,7 @@ function handleKeydown(e: KeyboardEvent) {
             {{ entry?.name ?? "File preview" }}
           </DialogTitle>
           <span
-            class="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-mono text-muted-foreground/60"
+            class="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-2xs font-mono text-muted-foreground/60"
           >
             {{ viewerLabel }}
           </span>
@@ -99,7 +99,7 @@ function handleKeydown(e: KeyboardEvent) {
           </span>
           <span
             v-if="canNavigate"
-            class="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-mono text-white/60"
+            class="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-mono text-white/60"
           >
             {{ galleryIndex + 1 }} / {{ galleryTotal }}
           </span>
@@ -124,7 +124,7 @@ function handleKeydown(e: KeyboardEvent) {
         </div>
         <div
           v-if="entry"
-          class="pointer-events-auto mt-1 truncate pr-10 text-[11px] text-white/40"
+          class="pointer-events-auto mt-1 truncate pr-10 text-2xs text-white/40"
           :title="entry.path"
         >
           {{ entry.path }}

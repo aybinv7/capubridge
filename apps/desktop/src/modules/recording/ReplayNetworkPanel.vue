@@ -187,7 +187,7 @@ function methodBadgeClass(method: string): string {
     PATCH: "text-violet-400 bg-violet-400/[0.09]",
     HEAD: "text-muted-foreground/70 bg-surface-3",
     OPTIONS: "text-muted-foreground/70 bg-surface-3",
-    WS: "text-sky-400 bg-sky-400/[0.09]",
+    WS: "text-info bg-info/[0.09]",
   };
   return map[method] ?? "text-muted-foreground/70 bg-surface-3";
 }
@@ -209,16 +209,16 @@ function typeIconComponent(entry: ReplayEntry): Component {
 }
 
 function typeIconClass(entry: ReplayEntry): string {
-  if (entry.resourceType === "WebSocket" || entry.method === "WS") return "text-sky-400/60";
+  if (entry.resourceType === "WebSocket" || entry.method === "WS") return "text-info/60";
   const map: Record<string, string> = {
-    Document: "text-blue-400/60",
-    Script: "text-yellow-400/60",
+    Document: "text-info/60",
+    Script: "text-warning/60",
     Stylesheet: "text-purple-400/60",
-    Image: "text-emerald-400/60",
+    Image: "text-success/60",
     Media: "text-pink-400/60",
-    Font: "text-orange-400/60",
-    Fetch: "text-sky-400/60",
-    XHR: "text-sky-400/60",
+    Font: "text-warning/60",
+    Fetch: "text-info/60",
+    XHR: "text-info/60",
     Preflight: "text-muted-foreground/40",
   };
   return map[entry.resourceType] ?? "text-muted-foreground/30";
@@ -351,12 +351,12 @@ const timingBreakdown = computed(() => {
     {
       label: "Initial connection",
       value: connect - ssl,
-      color: "bg-orange-400/80",
+      color: "bg-warning/80",
     },
     { label: "SSL", value: ssl, color: "bg-violet-400/80" },
     { label: "Request sent", value: send, color: "bg-success/80" },
     { label: "Waiting (TTFB)", value: ttfb, color: "bg-info/80" },
-    { label: "Content download", value: download ?? 0, color: "bg-sky-400/80" },
+    { label: "Content download", value: download ?? 0, color: "bg-info/80" },
   ].filter((p) => p.value > 0);
 
   const phaseTotal = phases.reduce((s, p) => s + p.value, 0);
@@ -390,7 +390,7 @@ const timingBreakdown = computed(() => {
         <button
           v-for="f in TYPE_FILTERS"
           :key="f"
-          class="h-6 rounded px-2 text-[11px] transition-colors"
+          class="h-6 rounded px-2 text-2xs transition-colors"
           :class="
             typeFilter === f
               ? 'bg-surface-3 font-medium text-foreground'
@@ -403,7 +403,7 @@ const timingBreakdown = computed(() => {
       </div>
 
       <div class="flex-1" />
-      <span class="text-[11px] text-muted-foreground/40 pr-1">
+      <span class="text-2xs text-muted-foreground/40 pr-1">
         {{ filteredEntries.length }} / {{ events.length }}
       </span>
     </div>
@@ -414,7 +414,7 @@ const timingBreakdown = computed(() => {
         <div class="flex h-full flex-col overflow-hidden">
           <!-- Column header -->
           <div
-            class="flex h-8 shrink-0 items-center border-b border-border/30 bg-surface-2 pl-2 pr-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/45 select-none"
+            class="flex h-8 shrink-0 items-center border-b border-border/30 bg-surface-2 pl-2 pr-3 text-2xs font-medium uppercase tracking-wide text-muted-foreground/45 select-none"
           >
             <div class="w-5 shrink-0 mr-1" />
             <div class="w-[60px] shrink-0">Method</div>
@@ -452,7 +452,7 @@ const timingBreakdown = computed(() => {
 
                 <div class="w-[60px] shrink-0">
                   <span
-                    class="inline-block rounded px-1.5 py-[2px] font-mono text-[10px] font-semibold leading-none"
+                    class="inline-block rounded px-1.5 py-[2px] font-mono text-2xs font-semibold leading-none"
                     :class="methodBadgeClass(entry.method)"
                   >
                     {{ entry.method }}
@@ -467,25 +467,25 @@ const timingBreakdown = computed(() => {
                   {{ shortUrl(entry.url) }}
                 </div>
 
-                <div class="w-[48px] shrink-0 text-right text-muted-foreground/60 text-[11px]">
+                <div class="w-[48px] shrink-0 text-right text-muted-foreground/60 text-2xs">
                   {{ shortType(entry) }}
                 </div>
 
                 <div
-                  class="w-[64px] shrink-0 text-right font-mono text-[11px] text-muted-foreground/65"
+                  class="w-[64px] shrink-0 text-right font-mono text-2xs text-muted-foreground/65"
                 >
                   {{ formatSize(entry) }}
                 </div>
 
                 <div
-                  class="w-[68px] shrink-0 text-right font-mono text-[11px]"
+                  class="w-[68px] shrink-0 text-right font-mono text-2xs"
                   :class="durationClass(entry)"
                 >
                   {{ formatMs(entry.duration) }}
                 </div>
 
                 <div
-                  class="w-[72px] shrink-0 text-right font-mono text-[10px] text-muted-foreground/35 pr-1"
+                  class="w-[72px] shrink-0 text-right font-mono text-2xs text-muted-foreground/35 pr-1"
                 >
                   {{ formatOffset(entry.t) }}
                 </div>
@@ -503,7 +503,7 @@ const timingBreakdown = computed(() => {
             <!-- Detail header -->
             <div class="flex h-9 shrink-0 items-center gap-2 border-b border-border/25 px-3">
               <span
-                class="shrink-0 rounded px-1.5 py-[2px] font-mono text-[10px] font-semibold leading-none"
+                class="shrink-0 rounded px-1.5 py-[2px] font-mono text-2xs font-semibold leading-none"
                 :class="methodBadgeClass(selectedEntry.method)"
               >
                 {{ selectedEntry.method }}
@@ -526,7 +526,7 @@ const timingBreakdown = computed(() => {
               <button
                 v-for="tab in TABS"
                 :key="tab"
-                class="h-6 rounded px-2.5 text-[11px] capitalize transition-colors"
+                class="h-6 rounded px-2.5 text-2xs capitalize transition-colors"
                 :class="
                   detailTab === tab
                     ? 'bg-surface-3 font-medium text-foreground'
@@ -578,7 +578,7 @@ const timingBreakdown = computed(() => {
               <template v-else>
                 <ScrollArea class="min-h-0 flex-1">
                   <pre
-                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed select-text"
+                    class="p-3 font-mono text-2xs text-foreground/80 whitespace-pre-wrap break-all leading-relaxed select-text"
                     >{{ selectedEntry.responseBody }}</pre
                   >
                 </ScrollArea>
@@ -601,7 +601,7 @@ const timingBreakdown = computed(() => {
               <template v-else>
                 <ScrollArea class="min-h-0 flex-1">
                   <pre
-                    class="p-3 font-mono text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed select-text"
+                    class="p-3 font-mono text-2xs text-foreground/80 whitespace-pre-wrap break-all leading-relaxed select-text"
                     >{{ selectedEntry.requestBody }}</pre
                   >
                 </ScrollArea>
@@ -615,11 +615,11 @@ const timingBreakdown = computed(() => {
                 <!-- General -->
                 <div class="border-b border-border/15">
                   <button
-                    class="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-muted-foreground/70 hover:bg-surface-1/50"
+                    class="flex w-full items-center gap-1.5 px-3 py-1.5 text-2xs font-medium text-muted-foreground/70 hover:bg-surface-1/50"
                     @click="toggleSection('general')"
                   >
                     <span
-                      class="text-[9px] transition-transform"
+                      class="text-2xs transition-transform"
                       :class="expandedSections.has('general') ? 'rotate-90' : ''"
                       >▶</span
                     >
@@ -627,17 +627,17 @@ const timingBreakdown = computed(() => {
                   </button>
                   <div v-if="expandedSections.has('general')" class="pb-1.5 px-3">
                     <div class="space-y-0.5">
-                      <div class="flex gap-2 text-[11px]">
+                      <div class="flex gap-2 text-2xs">
                         <span class="text-muted-foreground/50 shrink-0 w-28">Request URL</span>
                         <span class="font-mono text-foreground/80 break-all select-text">{{
                           selectedEntry.url
                         }}</span>
                       </div>
-                      <div class="flex gap-2 text-[11px]">
+                      <div class="flex gap-2 text-2xs">
                         <span class="text-muted-foreground/50 shrink-0 w-28">Method</span>
                         <span class="font-mono text-foreground/80">{{ selectedEntry.method }}</span>
                       </div>
-                      <div class="flex gap-2 text-[11px]">
+                      <div class="flex gap-2 text-2xs">
                         <span class="text-muted-foreground/50 shrink-0 w-28">Status</span>
                         <span class="font-mono" :class="statusClass(selectedEntry)">
                           {{
@@ -646,13 +646,13 @@ const timingBreakdown = computed(() => {
                           }}
                         </span>
                       </div>
-                      <div class="flex gap-2 text-[11px]">
+                      <div class="flex gap-2 text-2xs">
                         <span class="text-muted-foreground/50 shrink-0 w-28">Remote host</span>
                         <span class="font-mono text-foreground/80">{{
                           urlHost(selectedEntry.url)
                         }}</span>
                       </div>
-                      <div v-if="selectedEntry.initiator" class="flex gap-2 text-[11px]">
+                      <div v-if="selectedEntry.initiator" class="flex gap-2 text-2xs">
                         <span class="text-muted-foreground/50 shrink-0 w-28">Initiator</span>
                         <span class="font-mono text-foreground/80 break-all select-text">{{
                           selectedEntry.initiator
@@ -665,11 +665,11 @@ const timingBreakdown = computed(() => {
                 <!-- Response headers -->
                 <div class="border-b border-border/15">
                   <button
-                    class="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-muted-foreground/70 hover:bg-surface-1/50"
+                    class="flex w-full items-center gap-1.5 px-3 py-1.5 text-2xs font-medium text-muted-foreground/70 hover:bg-surface-1/50"
                     @click="toggleSection('response')"
                   >
                     <span
-                      class="text-[9px] transition-transform"
+                      class="text-2xs transition-transform"
                       :class="expandedSections.has('response') ? 'rotate-90' : ''"
                       >▶</span
                     >
@@ -679,7 +679,7 @@ const timingBreakdown = computed(() => {
                     <div
                       v-for="[k, v] in headerEntries(selectedEntry.responseHeaders)"
                       :key="k"
-                      class="flex gap-2 text-[11px]"
+                      class="flex gap-2 text-2xs"
                     >
                       <span class="text-muted-foreground/50 shrink-0 w-28 truncate" :title="k">{{
                         k
@@ -700,11 +700,11 @@ const timingBreakdown = computed(() => {
                 <!-- Request headers -->
                 <div>
                   <button
-                    class="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-muted-foreground/70 hover:bg-surface-1/50"
+                    class="flex w-full items-center gap-1.5 px-3 py-1.5 text-2xs font-medium text-muted-foreground/70 hover:bg-surface-1/50"
                     @click="toggleSection('request')"
                   >
                     <span
-                      class="text-[9px] transition-transform"
+                      class="text-2xs transition-transform"
                       :class="expandedSections.has('request') ? 'rotate-90' : ''"
                       >▶</span
                     >
@@ -714,7 +714,7 @@ const timingBreakdown = computed(() => {
                     <div
                       v-for="[k, v] in headerEntries(selectedEntry.requestHeaders)"
                       :key="k"
-                      class="flex gap-2 text-[11px]"
+                      class="flex gap-2 text-2xs"
                     >
                       <span class="text-muted-foreground/50 shrink-0 w-28 truncate" :title="k">{{
                         k
@@ -743,7 +743,7 @@ const timingBreakdown = computed(() => {
                 </div>
                 <div v-else class="p-3 space-y-3">
                   <div v-for="phase in timingBreakdown.phases" :key="phase.label" class="space-y-1">
-                    <div class="flex items-center justify-between text-[11px]">
+                    <div class="flex items-center justify-between text-2xs">
                       <span class="text-muted-foreground/70">{{ phase.label }}</span>
                       <span class="font-mono text-muted-foreground/90">{{
                         formatMs(phase.value)
@@ -759,7 +759,7 @@ const timingBreakdown = computed(() => {
                       />
                     </div>
                   </div>
-                  <div class="border-t border-border/15 pt-2 flex justify-between text-[11px]">
+                  <div class="border-t border-border/15 pt-2 flex justify-between text-2xs">
                     <span class="text-muted-foreground/50">Total</span>
                     <span class="font-mono font-medium">{{ formatMs(timingBreakdown.total) }}</span>
                   </div>

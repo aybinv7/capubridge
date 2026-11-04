@@ -478,9 +478,9 @@ function toggleRecord() {
         >
           <div
             v-if="mirrorStore.isRecording && !immersiveMode && detachedLayoutMode === 'large'"
-            class="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-red-400/25 bg-background/86 px-3 py-1.5 text-[10px] font-medium tracking-[0.24em] text-red-400 backdrop-blur-md"
+            class="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-signal-rec/25 bg-background/86 px-3 py-1.5 text-2xs font-medium tracking-[0.24em] text-signal-rec backdrop-blur-md"
           >
-            <div class="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
+            <div class="h-1.5 w-1.5 rounded-full bg-signal-rec animate-pulse" />
             REC
           </div>
         </Transition>
@@ -493,7 +493,7 @@ function toggleRecord() {
         >
           <div
             v-if="immersiveMode"
-            class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border/25 bg-background/74 px-3 py-1.5 text-[10px] uppercase tracking-[0.24em] text-muted-foreground/72 backdrop-blur-md"
+            class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border/25 bg-background/74 px-3 py-1.5 text-2xs uppercase tracking-[0.24em] text-muted-foreground/72 backdrop-blur-md"
           >
             Esc to exit
           </div>

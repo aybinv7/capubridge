@@ -22,11 +22,11 @@ const afterText = computed(() =>
 const operationTone = computed(() => {
   switch (props.change?.operation) {
     case "add":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+      return "border-success/30 bg-success/10 text-success";
     case "update":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+      return "border-warning/30 bg-warning/10 text-warning";
     case "delete":
-      return "border-red-500/30 bg-red-500/10 text-red-300";
+      return "border-error/30 bg-error/10 text-error";
     default:
       return "border-border/30 bg-surface-3 text-muted-foreground/60";
   }
@@ -51,25 +51,25 @@ const observedLabel = computed(() => {
     >
       <DialogHeader class="px-6 py-2 border-b border-border/30 shrink-0">
         <div class="flex items-center gap-3">
-          <GitCompare :size="16" class="text-amber-300" />
+          <GitCompare :size="16" class="text-warning" />
           <DialogTitle class="text-base font-medium truncate">
             {{ change?.tableName ?? "" }}
           </DialogTitle>
           <Badge
             v-if="change"
             variant="outline"
-            class="h-5 border px-1.5 text-[10px] font-mono uppercase tracking-wider"
+            class="h-5 border px-1.5 text-2xs font-mono uppercase tracking-wider"
             :class="operationTone"
           >
             {{ change.operation }}
           </Badge>
           <span
-            class="text-[10px] font-mono text-muted-foreground/40 truncate"
+            class="text-2xs font-mono text-muted-foreground/40 truncate"
             :title="change?.rowKey"
           >
             {{ change?.rowKey }}
           </span>
-          <span class="ml-auto text-[10px] font-mono text-muted-foreground/40">
+          <span class="ml-auto text-2xs font-mono text-muted-foreground/40">
             {{ observedLabel }}
           </span>
         </div>
@@ -84,7 +84,7 @@ const observedLabel = computed(() => {
         />
         <div
           v-else
-          class="flex h-full items-center justify-center text-[12px] text-muted-foreground/40"
+          class="flex h-full items-center justify-center text-xs text-muted-foreground/40"
         >
           No change selected.
         </div>

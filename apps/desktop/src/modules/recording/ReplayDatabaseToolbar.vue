@@ -35,7 +35,7 @@ const pageSizes = [25, 50];
   >
     <div class="min-w-0">
       <div class="truncate text-xs font-medium text-foreground/80">{{ tableName }}</div>
-      <div class="truncate font-mono text-[10px] text-muted-foreground/40">
+      <div class="truncate font-mono text-2xs text-muted-foreground/40">
         {{ databaseName }} · {{ recordCount.toLocaleString() }} rows
       </div>
     </div>
@@ -44,10 +44,10 @@ const pageSizes = [25, 50];
       <button
         v-if="changeSummary?.total"
         type="button"
-        class="flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] transition-colors"
+        class="flex h-7 items-center gap-1.5 rounded-md border px-2 text-2xs transition-colors"
         :class="
           showChangesOnly
-            ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+            ? 'border-warning/50 bg-warning/15 text-warning'
             : 'border-border/30 text-muted-foreground/60 hover:bg-surface-2 hover:text-foreground'
         "
         @click="emit('toggleChangesOnly')"
@@ -65,7 +65,7 @@ const pageSizes = [25, 50];
       >
         <ChevronLeft :size="14" />
       </button>
-      <span class="min-w-12 text-center font-mono text-[11px] text-muted-foreground/50">
+      <span class="min-w-12 text-center font-mono text-2xs text-muted-foreground/50">
         {{ page + 1 }}
       </span>
       <button
@@ -80,7 +80,7 @@ const pageSizes = [25, 50];
 
       <select
         :value="pageSize"
-        class="h-7 rounded-md border border-border/30 bg-surface-2 px-2 font-mono text-[10px] text-muted-foreground outline-none"
+        class="h-7 rounded-md border border-border/30 bg-surface-2 px-2 font-mono text-2xs text-muted-foreground outline-none"
         aria-label="Rows per page"
         @change="emit('pageSizeChange', Number(($event.target as HTMLSelectElement).value))"
       >

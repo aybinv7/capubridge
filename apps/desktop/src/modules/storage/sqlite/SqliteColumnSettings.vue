@@ -96,7 +96,7 @@ const sortedColumns = computed(() => {
             {{ col.columnDef.header ?? col.id }}
           </span>
 
-          <span class="w-12 text-center text-[10px] text-muted-foreground font-mono">
+          <span class="w-12 text-center text-2xs text-muted-foreground font-mono">
             {{ getColumnType(col.id) }}
           </span>
 

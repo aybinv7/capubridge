@@ -36,7 +36,7 @@ const selectedNode = computed(() => {
       <button
         v-for="tab in tabs"
         :key="tab.id"
-        class="px-2.5 py-1 text-[11px] rounded transition-colors"
+        class="px-2.5 py-1 text-2xs rounded transition-colors"
         :class="
           activeDetailTab === tab.id
             ? 'text-foreground bg-surface-3'

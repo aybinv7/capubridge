@@ -32,16 +32,16 @@ function fmtBytes(bytes: number): string {
   <div class="min-h-0">
     <div class="flex h-9 items-center justify-between border-b border-border/20 bg-surface-1 px-3">
       <div class="flex min-w-0 items-center gap-2">
-        <Wifi class="h-3.5 w-3.5 text-sky-400" />
+        <Wifi class="h-3.5 w-3.5 text-info" />
         <span class="text-xs font-medium">Network counters</span>
-        <span v-if="stats?.uid" class="truncate font-mono text-[10px] text-muted-foreground/40">
+        <span v-if="stats?.uid" class="truncate font-mono text-2xs text-muted-foreground/40">
           uid={{ stats.uid }}
         </span>
       </div>
       <Button
         variant="ghost"
         size="sm"
-        class="h-7 gap-1.5 px-2 text-[11px]"
+        class="h-7 gap-1.5 px-2 text-2xs"
         :disabled="isLoading"
         @click="emit('refresh')"
       >
@@ -52,10 +52,10 @@ function fmtBytes(bytes: number): string {
 
     <div
       v-if="error"
-      class="flex items-start gap-2 border-b border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400"
+      class="flex items-start gap-2 border-b border-error/20 bg-error/5 px-3 py-2 text-xs text-error"
     >
       <AlertCircle class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <span class="font-mono text-[10px]">{{ error }}</span>
+      <span class="font-mono text-2xs">{{ error }}</span>
     </div>
 
     <div v-if="isLoading && !stats" class="space-y-2 p-3">
@@ -81,21 +81,21 @@ function fmtBytes(bytes: number): string {
     <template v-else-if="stats">
       <div>
         <div class="flex items-center gap-2 border-b border-border/15 bg-surface-0 px-3 py-2">
-          <Wifi class="h-3.5 w-3.5 text-sky-400" />
+          <Wifi class="h-3.5 w-3.5 text-info" />
           <span class="text-xs font-medium text-foreground/70">Wi-Fi</span>
         </div>
         <div class="grid grid-cols-2 divide-x divide-border/15">
           <div class="px-3 py-2">
-            <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground/40">
-              <ArrowDown class="h-3 w-3 text-emerald-400" /> Received
+            <div class="flex items-center gap-1.5 text-2xs text-muted-foreground/40">
+              <ArrowDown class="h-3 w-3 text-success" /> Received
             </div>
             <div class="mt-1 font-mono text-sm font-semibold text-foreground/85">
               {{ fmtBytes(stats.wifiRxBytes) }}
             </div>
           </div>
           <div class="px-3 py-2">
-            <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground/40">
-              <ArrowUp class="h-3 w-3 text-amber-400" /> Sent
+            <div class="flex items-center gap-1.5 text-2xs text-muted-foreground/40">
+              <ArrowUp class="h-3 w-3 text-warning" /> Sent
             </div>
             <div class="mt-1 font-mono text-sm font-semibold text-foreground/85">
               {{ fmtBytes(stats.wifiTxBytes) }}
@@ -111,16 +111,16 @@ function fmtBytes(bytes: number): string {
         </div>
         <div class="grid grid-cols-2 divide-x divide-border/15">
           <div class="px-3 py-2">
-            <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground/40">
-              <ArrowDown class="h-3 w-3 text-emerald-400" /> Received
+            <div class="flex items-center gap-1.5 text-2xs text-muted-foreground/40">
+              <ArrowDown class="h-3 w-3 text-success" /> Received
             </div>
             <div class="mt-1 font-mono text-sm font-semibold text-foreground/85">
               {{ fmtBytes(stats.mobileRxBytes) }}
             </div>
           </div>
           <div class="px-3 py-2">
-            <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground/40">
-              <ArrowUp class="h-3 w-3 text-amber-400" /> Sent
+            <div class="flex items-center gap-1.5 text-2xs text-muted-foreground/40">
+              <ArrowUp class="h-3 w-3 text-warning" /> Sent
             </div>
             <div class="mt-1 font-mono text-sm font-semibold text-foreground/85">
               {{ fmtBytes(stats.mobileTxBytes) }}

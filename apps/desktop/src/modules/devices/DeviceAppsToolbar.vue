@@ -88,7 +88,7 @@ const gridColumnsModel = computed({
       </SelectContent>
     </Select>
 
-    <span v-if="showCounts" class="shrink-0 text-[11px] text-muted-foreground/40 tabular-nums">
+    <span v-if="showCounts" class="shrink-0 text-2xs text-muted-foreground/40 tabular-nums">
       {{ filteredCount }}
       <span v-if="searchModel" class="text-muted-foreground/25">/{{ totalCount }}</span>
       apps
@@ -96,7 +96,7 @@ const gridColumnsModel = computed({
 
     <span
       v-if="showCounts"
-      class="hidden shrink-0 text-[11px] text-muted-foreground/35 lg:inline tabular-nums"
+      class="hidden shrink-0 text-2xs text-muted-foreground/35 lg:inline tabular-nums"
     >
       {{ thirdPartyCount }} user · {{ systemCount }} system
     </span>

@@ -76,30 +76,30 @@ function handleKeydown(e: KeyboardEvent) {
             </button>
             <DialogTitle class="text-base font-medium truncate">{{ editKey }}</DialogTitle>
             <span class="text-xs text-muted-foreground/40 shrink-0">{{ dialogEntrySize }}</span>
-            <span class="text-[10px] text-muted-foreground/40 tabular-nums shrink-0">
+            <span class="text-2xs text-muted-foreground/40 tabular-nums shrink-0">
               {{ currentRowIndex >= 0 ? currentRowIndex + 1 : "-" }} / {{ totalCount }}
             </span>
             <span
               v-if="badge === 'unsaved'"
-              class="flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-mono text-amber-400"
+              class="flex items-center gap-1 rounded-full bg-warning/15 px-1.5 py-0.5 text-2xs font-mono text-warning"
             >
               <Pencil :size="9" /> unsaved
             </span>
             <span
               v-else-if="badge === 'invalid'"
-              class="flex items-center gap-1 rounded-full bg-error/15 px-1.5 py-0.5 text-[10px] font-mono text-error"
+              class="flex items-center gap-1 rounded-full bg-error/15 px-1.5 py-0.5 text-2xs font-mono text-error"
             >
               <AlertCircle :size="9" /> invalid JSON
             </span>
             <span
               v-else
-              class="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/50"
+              class="rounded-full bg-surface-3 px-1.5 py-0.5 text-2xs font-mono text-muted-foreground/50"
             >
               record
             </span>
             <span
               v-if="readOnly"
-              class="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-mono text-amber-400/80"
+              class="rounded border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-2xs font-mono text-warning/80"
             >
               read-only
             </span>
@@ -110,7 +110,7 @@ function handleKeydown(e: KeyboardEvent) {
               v-if="hasChange"
               variant="ghost"
               size="sm"
-              class="h-7 gap-1.5 px-2 text-[11px] text-amber-300 hover:text-amber-200"
+              class="h-7 gap-1.5 px-2 text-2xs text-warning hover:text-warning"
               title="View change diff"
               @click="emit('viewDiff')"
             >
@@ -119,7 +119,7 @@ function handleKeydown(e: KeyboardEvent) {
             <Button
               variant="ghost"
               size="sm"
-              class="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-foreground"
+              class="h-7 gap-1.5 px-2 text-2xs text-muted-foreground/60 hover:text-foreground"
               :disabled="readOnly || badge !== 'unsaved'"
               @click="emit('save')"
             >
@@ -128,7 +128,7 @@ function handleKeydown(e: KeyboardEvent) {
             <Button
               variant="ghost"
               size="sm"
-              class="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground/60 hover:text-error"
+              class="h-7 gap-1.5 px-2 text-2xs text-muted-foreground/60 hover:text-error"
               :disabled="readOnly"
               @click="emit('delete')"
             >
@@ -139,7 +139,7 @@ function handleKeydown(e: KeyboardEvent) {
               class="text-muted-foreground/40 hover:text-foreground transition-colors p-1"
               @click="emit('copy')"
             >
-              <Check v-if="copiedRaw" :size="13" class="text-green-500" />
+              <Check v-if="copiedRaw" :size="13" class="text-success" />
               <Copy v-else :size="13" />
             </Button>
             <div class="relative group">
@@ -150,7 +150,7 @@ function handleKeydown(e: KeyboardEvent) {
                 <Info :size="13" />
               </Button>
               <div
-                class="absolute right-0 top-8 z-50 w-48 rounded-lg border border-border/30 bg-surface-1 px-3 py-2 text-[11px] text-muted-foreground/60 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none group-hover:pointer-events-auto"
+                class="absolute right-0 top-8 z-50 w-48 rounded-lg border border-border/30 bg-surface-1 px-3 py-2 text-2xs text-muted-foreground/60 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none group-hover:pointer-events-auto"
               >
                 <div class="space-y-1">
                   <div class="flex justify-between">

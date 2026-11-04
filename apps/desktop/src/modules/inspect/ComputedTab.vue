@@ -42,7 +42,7 @@ const filteredStyles = computed(() => {
         placeholder="Filter..."
         class="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/30"
       />
-      <label class="flex items-center gap-1 text-[10px] text-muted-foreground/50 cursor-pointer">
+      <label class="flex items-center gap-1 text-2xs text-muted-foreground/50 cursor-pointer">
         <input v-model="showAll" type="checkbox" class="w-3 h-3" />
         All
       </label>
@@ -55,7 +55,7 @@ const filteredStyles = computed(() => {
         :key="style.name"
         class="flex gap-1 py-0.5 hover:bg-surface-2 px-1 rounded"
       >
-        <span class="text-blue-400 shrink-0">{{ style.name }}</span>
+        <span class="text-info shrink-0">{{ style.name }}</span>
         <span class="text-muted-foreground">:</span>
         <span class="text-foreground/80 truncate">{{ style.value }}</span>
       </div>

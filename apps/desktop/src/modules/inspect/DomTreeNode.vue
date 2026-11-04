@@ -261,8 +261,8 @@ watch(isSelected, async (sel) => {
           ref="rowRef"
           class="flex items-center gap-0 pr-2 h-6 cursor-pointer group transition-colors duration-300"
           :class="{
-            'bg-blue-500/40 text-blue-200 ring-1 ring-blue-400/60': flash,
-            'bg-blue-500/15 text-blue-300': isSelected && !flash,
+            'bg-info/40 text-info ring-1 ring-info/60': flash,
+            'bg-info/15 text-info': isSelected && !flash,
             'hover:bg-surface-2': !isSelected,
           }"
           :style="{ paddingLeft: `${depth * 16 + 4}px` }"
@@ -289,7 +289,7 @@ watch(isSelected, async (sel) => {
                 v-if="isEditingTag"
                 ref="editInput"
                 v-model="draft"
-                class="text-xs font-mono bg-surface-3 text-purple-300 outline-none px-0.5 rounded-sm border border-blue-400/40"
+                class="text-xs font-mono bg-surface-3 text-purple-300 outline-none px-0.5 rounded-sm border border-info/40"
                 :style="{ width: `${Math.max(draft.length, 2) + 1}ch` }"
                 @click.stop
                 @blur="commitEdit"
@@ -307,7 +307,7 @@ watch(isSelected, async (sel) => {
                   v-if="isEditingAttrName(attr.name)"
                   ref="editInput"
                   v-model="draft"
-                  class="text-xs font-mono bg-surface-3 text-yellow-300 outline-none px-0.5 rounded-sm border border-blue-400/40"
+                  class="text-xs font-mono bg-surface-3 text-warning outline-none px-0.5 rounded-sm border border-info/40"
                   :style="{ width: `${Math.max(draft.length, 2) + 1}ch` }"
                   @click.stop
                   @blur="commitEdit"
@@ -315,18 +315,18 @@ watch(isSelected, async (sel) => {
                 />
                 <span
                   v-else
-                  class="text-yellow-400/70 hover:bg-surface-3 rounded-sm"
+                  class="text-warning/70 hover:bg-surface-3 rounded-sm"
                   @dblclick.stop="startEdit({ kind: 'attr-name', original: attr.name }, attr.name)"
                   >{{ attr.name }}</span
                 >
                 <template v-if="attr.value">
                   <span class="text-muted-foreground">=</span>
-                  <span class="text-green-400/70">"</span>
+                  <span class="text-success/70">"</span>
                   <input
                     v-if="isEditingAttrValue(attr.name)"
                     ref="editInput"
                     v-model="draft"
-                    class="text-xs font-mono bg-surface-3 text-green-300 outline-none px-0.5 rounded-sm border border-blue-400/40"
+                    class="text-xs font-mono bg-surface-3 text-success outline-none px-0.5 rounded-sm border border-info/40"
                     :style="{ width: `${Math.max(draft.length, 4) + 1}ch` }"
                     @click.stop
                     @blur="commitEdit"
@@ -334,11 +334,11 @@ watch(isSelected, async (sel) => {
                   />
                   <span
                     v-else
-                    class="text-green-400/70 hover:bg-surface-3 rounded-sm"
+                    class="text-success/70 hover:bg-surface-3 rounded-sm"
                     @dblclick.stop="startEdit({ kind: 'attr-value', name: attr.name }, attr.value)"
                     >{{ attr.value }}</span
                   >
-                  <span class="text-green-400/70">"</span>
+                  <span class="text-success/70">"</span>
                 </template>
               </template>
               <template v-if="isEditingNewAttr">
@@ -347,7 +347,7 @@ watch(isSelected, async (sel) => {
                   ref="editInput"
                   v-model="draft"
                   placeholder='attr="value"'
-                  class="text-xs font-mono bg-surface-3 text-yellow-300 outline-none px-0.5 rounded-sm border border-blue-400/40"
+                  class="text-xs font-mono bg-surface-3 text-warning outline-none px-0.5 rounded-sm border border-info/40"
                   :style="{ width: `${Math.max(draft.length, 10) + 1}ch` }"
                   @click.stop
                   @blur="commitEdit"
@@ -359,7 +359,7 @@ watch(isSelected, async (sel) => {
                 v-if="isEditingText && inlineTextNodeId !== null"
                 ref="editInput"
                 v-model="draft"
-                class="text-xs font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 mx-0.5 rounded-sm border border-blue-400/40"
+                class="text-xs font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 mx-0.5 rounded-sm border border-info/40"
                 @click.stop
                 @blur="commitEdit"
                 @keydown="handleEditKey"
@@ -384,7 +384,7 @@ watch(isSelected, async (sel) => {
               v-if="isEditingText"
               ref="editInput"
               v-model="draft"
-              class="text-xs font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 flex-1 rounded-sm border border-blue-400/40"
+              class="text-xs font-mono bg-surface-3 text-foreground/90 outline-none px-0.5 flex-1 rounded-sm border border-info/40"
               @click.stop
               @blur="commitEdit"
               @keydown="handleEditKey"
@@ -436,7 +436,7 @@ watch(isSelected, async (sel) => {
           Collapse children
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem class="text-red-400 focus:text-red-300" @select="deleteNode">
+        <ContextMenuItem class="text-error focus:text-error" @select="deleteNode">
           Delete element
         </ContextMenuItem>
       </ContextMenuContent>

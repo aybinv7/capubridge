@@ -41,13 +41,13 @@ function fmtBar(ms: number, maxMs: number): number {
   <div class="min-h-0">
     <div class="flex h-9 items-center justify-between border-b border-border/20 bg-surface-1 px-3">
       <div class="flex items-center gap-2 text-xs font-medium">
-        <BatteryMedium class="h-3.5 w-3.5 text-emerald-400" />
+        <BatteryMedium class="h-3.5 w-3.5 text-success" />
         Battery consumption
       </div>
       <Button
         variant="ghost"
         size="sm"
-        class="h-7 gap-1.5 px-2 text-[11px]"
+        class="h-7 gap-1.5 px-2 text-2xs"
         :disabled="isLoading"
         @click="emit('refresh')"
       >
@@ -58,10 +58,10 @@ function fmtBar(ms: number, maxMs: number): number {
 
     <div
       v-if="error"
-      class="flex items-start gap-2 border-b border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400"
+      class="flex items-start gap-2 border-b border-error/20 bg-error/5 px-3 py-2 text-xs text-error"
     >
       <AlertCircle class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <span class="font-mono text-[10px]">{{ error }}</span>
+      <span class="font-mono text-2xs">{{ error }}</span>
     </div>
 
     <div v-if="isLoading && !stats" class="space-y-2 p-3">
@@ -78,7 +78,7 @@ function fmtBar(ms: number, maxMs: number): number {
 
     <div v-else-if="stats && !stats.hasData" class="px-3 py-4 text-center">
       <div class="text-xs text-muted-foreground/45">No battery stats available for this app</div>
-      <div class="mt-1 text-[10px] text-muted-foreground/25">
+      <div class="mt-1 text-2xs text-muted-foreground/25">
         Battery stats reset on full charge and some OS builds restrict access
       </div>
     </div>
@@ -88,7 +88,7 @@ function fmtBar(ms: number, maxMs: number): number {
         <div class="border-b border-border/15 px-3 py-2">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 text-xs text-muted-foreground/50">
-              <Zap class="h-3.5 w-3.5 text-amber-400" />
+              <Zap class="h-3.5 w-3.5 text-warning" />
               Foreground CPU
             </div>
             <span class="font-mono text-sm font-bold text-foreground/80">
@@ -97,7 +97,7 @@ function fmtBar(ms: number, maxMs: number): number {
           </div>
           <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/20">
             <div
-              class="h-full rounded-full bg-amber-500 transition-all"
+              class="h-full rounded-full bg-warning transition-all"
               :style="{
                 width: `${fmtBar(stats.fgCpuTimeMs, Math.max(stats.fgCpuTimeMs, stats.bgCpuTimeMs, 1))}%`,
               }"
@@ -128,7 +128,7 @@ function fmtBar(ms: number, maxMs: number): number {
         <div v-if="stats.wakelocksMs > 0" class="border-b border-border/15 px-3 py-2">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 text-xs text-muted-foreground/50">
-              <Clock class="h-3.5 w-3.5 text-sky-400" />
+              <Clock class="h-3.5 w-3.5 text-info" />
               Wake Locks
             </div>
             <span class="font-mono text-sm font-bold text-foreground/80">
@@ -140,7 +140,7 @@ function fmtBar(ms: number, maxMs: number): number {
 
       <div v-if="stats.raw" class="border-t border-border/15">
         <button
-          class="flex w-full items-center justify-between px-3 py-2 text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
+          class="flex w-full items-center justify-between px-3 py-2 text-2xs text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
           @click="showRaw = !showRaw"
         >
           <span class="font-medium uppercase tracking-wider">Raw output</span>
@@ -149,7 +149,7 @@ function fmtBar(ms: number, maxMs: number): number {
         </button>
         <div v-if="showRaw" class="border-t border-border/15 bg-surface-1 p-3">
           <pre
-            class="whitespace-pre-wrap font-mono text-[9px] leading-relaxed text-muted-foreground/45"
+            class="whitespace-pre-wrap font-mono text-2xs leading-relaxed text-muted-foreground/45"
             >{{ stats.raw }}</pre
           >
         </div>

@@ -123,14 +123,13 @@ export function fileIcon(entry: FileEntry) {
 
 export function fileIconClass(entry: FileEntry) {
   const ext = entryExtension(entry);
-  if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic"].includes(ext))
-    return "text-sky-400";
+  if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic"].includes(ext)) return "text-info";
   if (["mp4", "mkv", "mov", "avi", "webm", "flv", "3gp"].includes(ext)) return "text-violet-400";
-  if (["mp3", "flac", "wav", "ogg", "m4a", "aac"].includes(ext)) return "text-emerald-400";
-  if (ext === "apk") return "text-orange-400";
-  if (["zip", "tar", "gz", "bz2", "xz", "7z", "rar"].includes(ext)) return "text-yellow-400";
+  if (["mp3", "flac", "wav", "ogg", "m4a", "aac"].includes(ext)) return "text-success";
+  if (ext === "apk") return "text-warning";
+  if (["zip", "tar", "gz", "bz2", "xz", "7z", "rar"].includes(ext)) return "text-warning";
   if (["txt", "md", "pdf", "doc", "docx", "csv", "log", "json", "xml", "yaml", "yml"].includes(ext))
-    return "text-blue-400";
+    return "text-info";
   return "text-muted-foreground/45";
 }
 

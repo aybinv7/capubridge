@@ -452,7 +452,7 @@ function isBlob(val: unknown): boolean {
                     />
                     <span>
                       {{ row.groupingColumnId }}:
-                      <code class="text-[10px] bg-surface-3 px-1 rounded">
+                      <code class="text-2xs bg-surface-3 px-1 rounded">
                         {{ row.getValue(row.groupingColumnId ?? "") }}
                       </code>
                       <span class="text-muted-foreground/40 ml-1">
@@ -510,14 +510,14 @@ function isBlob(val: unknown): boolean {
                     <!-- Null values -->
                     <span
                       v-else-if="isNull(cell.getValue())"
-                      class="text-muted-foreground/30 italic text-[10px]"
+                      class="text-muted-foreground/30 italic text-2xs"
                     >
                       NULL
                     </span>
                     <!-- Blob preview -->
                     <span
                       v-else-if="isBlob(cell.getValue())"
-                      class="font-mono text-[11px] text-amber-500/70"
+                      class="font-mono text-2xs text-warning/70"
                     >
                       {{ cell.getValue() }}
                     </span>
@@ -578,7 +578,7 @@ function isBlob(val: unknown): boolean {
     <div
       class="flex shrink-0 items-center justify-between border-t border-border/30 bg-surface-2 px-3 py-1.5"
     >
-      <span class="text-[10px] text-muted-foreground/40 tabular-nums">
+      <span class="text-2xs text-muted-foreground/40 tabular-nums">
         {{ filteredRowCount.toLocaleString() }} / {{ rows.length.toLocaleString() }} rows
       </span>
 
@@ -595,7 +595,7 @@ function isBlob(val: unknown): boolean {
           </Button>
         </template>
 
-        <span class="text-[10px] text-muted-foreground/30">
+        <span class="text-2xs text-muted-foreground/30">
           Drag column edges to resize · Double-click row to view details
         </span>
       </div>

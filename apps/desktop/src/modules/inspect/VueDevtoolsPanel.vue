@@ -68,7 +68,7 @@ onMounted(() => {
       class="absolute inset-0 flex items-center justify-center overflow-auto p-6"
     >
       <div class="max-w-2xl rounded-2xl border border-border/40 bg-surface-2 px-6 py-5">
-        <div class="flex items-center gap-2 text-sm font-medium text-amber-400">
+        <div class="flex items-center gap-2 text-sm font-medium text-warning">
           <AlertTriangle :size="15" />
           {{ capability?.title ?? statusLabel }}
         </div>
@@ -135,7 +135,7 @@ onMounted(() => {
         <div class="mt-2 text-sm text-muted-foreground/80">
           Target page reloads once so official Vue DevTools can hook before app boot.
         </div>
-        <div v-if="errorMessage" class="mt-3 text-sm text-red-400">
+        <div v-if="errorMessage" class="mt-3 text-sm text-error">
           {{ errorMessage }}
         </div>
       </div>
@@ -145,7 +145,7 @@ onMounted(() => {
       v-else-if="!isReady"
       class="absolute inset-x-0 bottom-0 border-t border-border/40 bg-surface-2/95 px-4 py-3 text-xs text-muted-foreground/85"
     >
-      <span class="font-medium text-amber-400">{{ statusLabel }}.</span>
+      <span class="font-medium text-warning">{{ statusLabel }}.</span>
       The injected runtime answers, but the app never emitted
       <code>app:init</code>, so the panel stays empty.
     </div>

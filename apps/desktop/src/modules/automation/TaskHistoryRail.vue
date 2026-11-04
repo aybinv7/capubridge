@@ -125,11 +125,11 @@ function taskLabel(snapshot: PersistedAutomationTaskSnapshot): string {
                 <component :is="eventIcon(rows[item.index].event)" class="size-3.5 shrink-0" />
                 <span class="truncate">{{ eventLabel(rows[item.index].event) }}</span>
               </span>
-              <span class="truncate text-[11px] text-muted-foreground">{{
+              <span class="truncate text-2xs text-muted-foreground">{{
                 taskLabel(rows[item.index].snapshot)
               }}</span>
-              <span class="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Badge variant="outline" class="h-5 px-1.5 text-[10px]">{{
+              <span class="flex items-center gap-1 text-2xs text-muted-foreground">
+                <Badge variant="outline" class="h-5 px-1.5 text-2xs">{{
                   rows[item.index].snapshot.task.origin
                 }}</Badge>
                 <span class="truncate">{{ rows[item.index].snapshot.task.principal.label }}</span>

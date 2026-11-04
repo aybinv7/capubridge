@@ -107,17 +107,16 @@ const visibleRows = computed(() => {
 });
 
 function rowClass(level: ConsoleEntryLevel): string {
-  if (level === "error")
-    return "bg-red-500/[0.07] border-l-2 border-red-500/60 hover:bg-red-500/[0.12]";
+  if (level === "error") return "bg-error/[0.07] border-l-2 border-error/60 hover:bg-error/[0.12]";
   if (level === "warn")
-    return "bg-yellow-500/[0.07] border-l-2 border-yellow-500/60 hover:bg-yellow-500/[0.12]";
+    return "bg-warning/[0.07] border-l-2 border-warning/60 hover:bg-warning/[0.12]";
   return "border-l-2 border-transparent hover:bg-surface-2/40";
 }
 
 function textClass(level: ConsoleEntryLevel): string {
-  if (level === "error") return "text-red-300";
-  if (level === "warn") return "text-yellow-200";
-  if (level === "info") return "text-sky-300";
+  if (level === "error") return "text-error";
+  if (level === "warn") return "text-warning";
+  if (level === "info") return "text-info";
   if (level === "debug") return "text-violet-300";
   return "text-foreground/85";
 }
@@ -156,7 +155,7 @@ const FILTER_LEVELS = [
         <Search class="h-3 w-3 shrink-0 text-muted-foreground/45" />
         <Input
           v-model="searchQuery"
-          class="h-6 border-0 bg-transparent px-0 font-mono text-[11px] focus-visible:ring-0"
+          class="h-6 border-0 bg-transparent px-0 font-mono text-2xs focus-visible:ring-0"
           placeholder="Filter"
         />
       </div>
@@ -166,7 +165,7 @@ const FILTER_LEVELS = [
         :key="lvl"
         variant="ghost"
         size="sm"
-        class="h-7 gap-1 rounded-md px-2 font-mono text-[10px]"
+        class="h-7 gap-1 rounded-md px-2 font-mono text-2xs"
         :class="
           activeLevel === lvl
             ? 'bg-surface-1 text-foreground'
@@ -180,7 +179,7 @@ const FILTER_LEVELS = [
 
       <Badge
         variant="outline"
-        class="ml-1 h-6 rounded-full border px-2 font-mono text-[10px]"
+        class="ml-1 h-6 rounded-full border px-2 font-mono text-2xs"
         :class="
           consoleStore.captureStatus === 'live'
             ? 'border-success/30 bg-success/10 text-success'
@@ -195,27 +194,27 @@ const FILTER_LEVELS = [
 
     <div
       v-if="consoleStore.error"
-      class="flex shrink-0 items-center gap-2 border-b border-warning/20 bg-warning/8 px-3 py-1.5 text-[11px] text-warning"
+      class="flex shrink-0 items-center gap-2 border-b border-warning/20 bg-warning/8 px-3 py-1.5 text-2xs text-warning"
     >
       <span class="font-mono">{{ consoleStore.error }}</span>
     </div>
 
     <div
       v-if="!consoleStore.boundTargetId"
-      class="flex flex-1 items-center justify-center text-[12px] text-muted-foreground/45"
+      class="flex flex-1 items-center justify-center text-xs text-muted-foreground/45"
     >
       Connect target first.
     </div>
 
     <div
       v-else-if="visibleRows.length === 0"
-      class="flex flex-1 items-center justify-center text-[12px] text-muted-foreground/45"
+      class="flex flex-1 items-center justify-center text-xs text-muted-foreground/45"
     >
       No console entries.
     </div>
 
     <ScrollArea v-else class="min-h-0 flex-1">
-      <div class="font-mono text-[12px]">
+      <div class="font-mono text-xs">
         <div
           v-for="{ entry, depth } in visibleRows"
           :key="entry.id"
@@ -242,7 +241,7 @@ const FILTER_LEVELS = [
 
             <span
               v-if="entry.source && entry.source !== 'runtime'"
-              class="ml-2 shrink-0 truncate pt-px text-[11px] text-muted-foreground/45 hover:text-muted-foreground/80 max-w-[35%]"
+              class="ml-2 shrink-0 truncate pt-px text-2xs text-muted-foreground/45 hover:text-muted-foreground/80 max-w-[35%]"
               :title="entry.url ?? entry.source"
             >
               {{ entry.source }}

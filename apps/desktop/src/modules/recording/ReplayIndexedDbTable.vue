@@ -34,11 +34,11 @@ function operation(record: IDBRecord) {
 function rowClass(record: IDBRecord) {
   switch (operation(record)) {
     case "add":
-      return "bg-emerald-500/10";
+      return "bg-success/10";
     case "update":
-      return "bg-amber-500/10";
+      return "bg-warning/10";
     case "delete":
-      return "bg-red-500/10 opacity-70";
+      return "bg-error/10 opacity-70";
     default:
       return "hover:bg-surface-2/70";
   }
@@ -60,7 +60,7 @@ function rowClass(record: IDBRecord) {
       No rows captured
     </div>
     <table v-else class="w-full table-fixed border-collapse text-left text-xs">
-      <thead class="sticky top-0 z-10 bg-surface-1 text-[10px] uppercase text-muted-foreground/50">
+      <thead class="sticky top-0 z-10 bg-surface-1 text-2xs uppercase text-muted-foreground/50">
         <tr>
           <th class="w-1/3 border-b border-border/30 px-3 py-2 font-medium">Key</th>
           <th class="border-b border-border/30 px-3 py-2 font-medium">Value</th>
@@ -84,7 +84,7 @@ function rowClass(record: IDBRecord) {
           >
             {{ displayValue(record.value) }}
           </td>
-          <td class="px-3 py-2 font-mono text-[10px] uppercase text-muted-foreground/60">
+          <td class="px-3 py-2 font-mono text-2xs uppercase text-muted-foreground/60">
             {{ operation(record) ?? "snapshot" }}
           </td>
           <td class="px-2 py-1.5">

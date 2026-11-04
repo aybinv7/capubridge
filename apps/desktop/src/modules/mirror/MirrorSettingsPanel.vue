@@ -14,7 +14,7 @@ const props = defineProps<{
 <template>
   <div class="p-3 space-y-4">
     <div v-if="!props.androidMode">
-      <p class="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">Viewport</p>
+      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">Viewport</p>
       <div class="flex gap-1">
         <button
           class="flex-1 h-6 text-xs rounded transition-colors border"
@@ -43,7 +43,7 @@ const props = defineProps<{
 
     <!-- FPS (polling rate) -->
     <div>
-      <p class="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">Stream FPS</p>
+      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">Stream FPS</p>
       <div class="flex gap-1">
         <button
           v-for="fps in fpsOptions"
@@ -63,7 +63,7 @@ const props = defineProps<{
 
     <!-- Recording quality -->
     <div v-if="props.androidMode">
-      <p class="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">
+      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">
         Record Quality
       </p>
       <div class="flex gap-1">
@@ -85,7 +85,7 @@ const props = defineProps<{
 
     <!-- Bitrate -->
     <div v-if="props.androidMode">
-      <p class="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">
+      <p class="text-2xs text-muted-foreground/60 uppercase tracking-wider mb-1.5">
         Record Bitrate (Mbps)
       </p>
       <div class="flex gap-1">
