@@ -1,3 +1,4 @@
+import type { ViewportMetrics } from "@/lib/web-viewport";
 import type { Channel } from "@tauri-apps/api/core";
 import type { ComputedRef } from "vue";
 import { invokeCommand } from "@/runtime/ipc";
@@ -29,7 +30,7 @@ interface ChromeTransportOptions {
   connectToTarget: (target: CDPTarget) => Promise<CDPClient>;
   resolveTarget: () => CDPTarget | null;
   getChromePort: () => number | null;
-  getViewportMode: () => "phone" | "desktop";
+  getViewport: () => ViewportMetrics;
   getFps: () => number;
   getMaxSize: () => number;
   isSessionCurrent: (sessionId: number) => boolean;
@@ -185,44 +186,27 @@ export function createChromeMirrorTransport(options: ChromeTransportOptions) {
   }
 
   async function applyEmulation(activeClient: CDPClient) {
-    if (options.getViewportMode() === "phone") {
-      await runBestEffort("set device metrics", () =>
-        activeClient.send("Emulation.setDeviceMetricsOverride", {
-          width: 390,
-          height: 844,
-          deviceScaleFactor: 2.75,
-          mobile: true,
-        }),
-      );
-      await runBestEffort("enable touch emulation", () =>
-        activeClient.send("Emulation.setTouchEmulationEnabled", {
-          enabled: true,
-          maxTouchPoints: 1,
-        }),
-      );
-      await runBestEffort("enable touch events", () =>
-        activeClient.send("Emulation.setEmitTouchEventsForMouse", {
-          enabled: true,
-          configuration: "mobile",
-        }),
-      );
-    } else {
-      await runBestEffort("clear device metrics", () =>
-        activeClient.send("Emulation.clearDeviceMetricsOverride"),
-      );
-      await runBestEffort("disable touch emulation", () =>
-        activeClient.send("Emulation.setTouchEmulationEnabled", {
-          enabled: false,
-          maxTouchPoints: 0,
-        }),
-      );
-      await runBestEffort("disable touch events", () =>
-        activeClient.send("Emulation.setEmitTouchEventsForMouse", {
-          enabled: false,
-          configuration: "desktop",
-        }),
-      );
-    }
+    const viewport = options.getViewport();
+    await runBestEffort("set device metrics", () =>
+      activeClient.send("Emulation.setDeviceMetricsOverride", {
+        width: viewport.width,
+        height: viewport.height,
+        deviceScaleFactor: viewport.dpr,
+        mobile: viewport.mobile,
+      }),
+    );
+    await runBestEffort("set touch emulation", () =>
+      activeClient.send("Emulation.setTouchEmulationEnabled", {
+        enabled: viewport.mobile,
+        maxTouchPoints: viewport.mobile ? 1 : 0,
+      }),
+    );
+    await runBestEffort("set touch events", () =>
+      activeClient.send("Emulation.setEmitTouchEventsForMouse", {
+        enabled: viewport.mobile,
+        configuration: viewport.mobile ? "mobile" : "desktop",
+      }),
+    );
     await readViewport(activeClient);
   }
 

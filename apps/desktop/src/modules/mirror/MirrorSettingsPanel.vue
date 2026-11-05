@@ -2,7 +2,9 @@
 import { Segmented, SegmentedButton } from "@capubridge/cladd";
 import { useMirrorStore } from "@/stores/mirror.store";
 
-const props = defineProps<{ androidMode: boolean }>();
+const props = withDefaults(defineProps<{ androidMode: boolean; isLocal?: boolean }>(), {
+  isLocal: false,
+});
 
 const mirrorStore = useMirrorStore();
 
@@ -15,28 +17,8 @@ const hintClass = "text-2xs text-[var(--fg-subtle)]";
 </script>
 
 <template>
-  <div class="flex flex-col gap-3.5 p-3">
-    <div v-if="!props.androidMode" class="flex flex-col gap-1.5">
-      <span :class="labelClass">Viewport</span>
-      <Segmented size="xs" aria-label="Viewport" class="w-full">
-        <SegmentedButton
-          class="flex-1"
-          :active="mirrorStore.settings.chromeViewportMode === 'phone'"
-          @click="mirrorStore.settings.chromeViewportMode = 'phone'"
-        >
-          Phone
-        </SegmentedButton>
-        <SegmentedButton
-          class="flex-1"
-          :active="mirrorStore.settings.chromeViewportMode === 'desktop'"
-          @click="mirrorStore.settings.chromeViewportMode = 'desktop'"
-        >
-          Desktop
-        </SegmentedButton>
-      </Segmented>
-    </div>
-
-    <div v-if="!props.androidMode" class="flex flex-col gap-1.5">
+  <div v-if="props.androidMode || !props.isLocal" class="flex flex-col gap-3.5 p-3">
+    <div v-if="!props.androidMode && !props.isLocal" class="flex flex-col gap-1.5">
       <span :class="labelClass">Frame rate</span>
       <Segmented size="xs" aria-label="Frame rate" class="w-full">
         <SegmentedButton

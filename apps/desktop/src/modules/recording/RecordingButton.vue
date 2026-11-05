@@ -58,40 +58,51 @@ async function handleClick() {
   <Button
     variant="transparent"
     :outline="false"
-    class="h-7.5 border text-sm font-normal"
+    class="group h-7.5 border text-xs font-normal"
     :class="{
-      'border-signal-rec/40 bg-signal-rec/12 font-mono text-signal-rec':
+      'border-signal-rec/40 bg-signal-rec/10 text-signal-rec hover:bg-signal-rec/16':
         recordingStore.phase === 'recording',
-      'border-border text-[var(--fg-subtle)]': recordingStore.phase === 'stopping',
-      'border-border text-muted-foreground hover:text-foreground': recordingStore.phase === 'idle',
+      'border-border-subtle text-[var(--fg-subtle)]': recordingStore.phase === 'stopping',
+      'border-border-subtle text-muted-foreground hover:text-foreground':
+        recordingStore.phase === 'idle',
     }"
-    content-class-name="gap-2 px-3"
+    content-class-name="gap-2 pl-2.5 pr-3"
     :disabled="recordingStore.phase === 'stopping'"
     :aria-pressed="recordingStore.phase === 'recording'"
     :title="
       recordingStore.phase === 'recording'
-        ? 'Stop recording'
+        ? 'Stop and save the session'
         : recordingStore.phase === 'stopping'
-          ? 'Finalizing…'
-          : 'Record a session'
+          ? 'Saving the session'
+          : 'Record what the app does: screen, network, console, storage'
     "
     @click="handleClick"
   >
     <template v-if="recordingStore.phase === 'idle'">
       <span
-        class="size-1.75 shrink-0 rounded-full border-[1.5px] border-current"
+        class="grid size-3.5 shrink-0 place-items-center rounded-full ring-1 ring-current/40"
         aria-hidden="true"
-      />
-      <span>Record</span>
+      >
+        <span
+          class="size-1.5 rounded-full bg-signal-rec/80 transition-colors group-hover:bg-signal-rec"
+        />
+      </span>
+      <span>Record session</span>
     </template>
 
     <template v-else-if="recordingStore.phase === 'recording'">
-      <span class="size-2 shrink-0 rounded-sm bg-signal-rec" aria-hidden="true" />
-      <span>{{ formatElapsed(elapsedMs) }}</span>
+      <span class="relative grid size-3.5 shrink-0 place-items-center" aria-hidden="true">
+        <span
+          class="absolute size-1.5 rounded-full bg-signal-rec motion-safe:animate-ping group-hover:hidden"
+        />
+        <span class="size-1.5 rounded-full bg-signal-rec group-hover:hidden" />
+        <span class="hidden size-2 rounded-[2px] bg-signal-rec group-hover:block" />
+      </span>
+      <span class="font-mono tabular-nums">{{ formatElapsed(elapsedMs) }}</span>
     </template>
 
     <template v-else>
-      <span class="size-2 shrink-0 rounded-full bg-[var(--fg-subtle)]" aria-hidden="true" />
+      <span class="size-1.5 shrink-0 rounded-full bg-[var(--fg-subtle)]" aria-hidden="true" />
       <span>Saving…</span>
     </template>
   </Button>

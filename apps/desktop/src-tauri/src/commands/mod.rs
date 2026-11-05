@@ -7,6 +7,8 @@ pub mod chrome;
 pub mod emulator;
 pub mod files;
 pub mod local_webview;
+#[cfg_attr(not(all(target_os = "windows", debug_assertions)), allow(dead_code))]
+pub(crate) mod local_webview_probe;
 pub mod mirror;
 pub mod mock_server;
 pub mod opfs_pull;

@@ -1,9 +1,11 @@
 import { ref, computed, watch } from "vue";
 import { defineStore } from "pinia";
 import { readPersisted, writePersisted } from "@/lib/persisted";
+import { DEFAULT_WEB_VIEWPORT, isWebViewport, type WebViewport } from "@/lib/web-viewport";
 
 const LS_MIRROR_LAYOUT = "capubridge:mirror-layout";
 const LS_MIRROR_SETTINGS = "capubridge:mirror-settings";
+const LS_WEB_VIEWPORT = "capubridge:web-viewport";
 
 type MirrorLayout = { side: MirrorSide; width: number };
 
@@ -24,8 +26,7 @@ function isMirrorSettings(value: unknown): value is MirrorSettings {
   return (
     [5, 10, 15, 30].includes(candidate.fps as number) &&
     ["720p", "1080p", "1440p"].includes(candidate.recordQuality as string) &&
-    [4, 8, 16, 20].includes(candidate.recordBitrate as number) &&
-    ["phone", "desktop"].includes(candidate.chromeViewportMode as string)
+    [4, 8, 16, 20].includes(candidate.recordBitrate as number)
   );
 }
 
@@ -35,7 +36,6 @@ export interface MirrorSettings {
   fps: 5 | 10 | 15 | 30;
   recordQuality: "720p" | "1080p" | "1440p";
   recordBitrate: 4 | 8 | 16 | 20;
-  chromeViewportMode: "phone" | "desktop";
 }
 
 export const useMirrorStore = defineStore("mirror", () => {
@@ -59,9 +59,12 @@ export const useMirrorStore = defineStore("mirror", () => {
   const settings = ref<MirrorSettings>(
     readPersisted<MirrorSettings>(
       LS_MIRROR_SETTINGS,
-      { fps: 10, recordQuality: "1080p", recordBitrate: 8, chromeViewportMode: "phone" },
+      { fps: 10, recordQuality: "1080p", recordBitrate: 8 },
       isMirrorSettings,
     ),
+  );
+  const webViewport = ref<WebViewport>(
+    readPersisted<WebViewport>(LS_WEB_VIEWPORT, DEFAULT_WEB_VIEWPORT, isWebViewport),
   );
 
   watch([side, preferredWidth], ([nextSide, nextWidth]) => {
@@ -69,6 +72,7 @@ export const useMirrorStore = defineStore("mirror", () => {
   });
 
   watch(settings, (next) => writePersisted(LS_MIRROR_SETTINGS, next), { deep: true });
+  watch(webViewport, (next) => writePersisted(LS_WEB_VIEWPORT, next));
 
   const aspectRatio = computed(() =>
     deviceWidth.value && deviceHeight.value ? deviceWidth.value / deviceHeight.value : 9 / 19.5,
@@ -117,6 +121,7 @@ export const useMirrorStore = defineStore("mirror", () => {
     deviceWidth,
     deviceHeight,
     settings,
+    webViewport,
     aspectRatio,
     open,
     close,

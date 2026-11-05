@@ -62,9 +62,12 @@ const rowContentClass = "w-full justify-start gap-2.5 px-2 [&>svg]:size-3.5";
     content-class-name="w-full p-0"
     aria-label="Screen settings"
   >
-    <MirrorSettingsPanel :android-mode="props.androidMode" />
+    <MirrorSettingsPanel :android-mode="props.androidMode" :is-local="props.isLocal" />
 
-    <div class="flex flex-col gap-px border-t border-border-subtle p-1.5">
+    <div
+      class="flex flex-col gap-px p-1.5"
+      :class="!props.isLocal || props.androidMode ? 'border-t border-border-subtle' : ''"
+    >
       <label
         v-if="!props.isLocal"
         class="flex h-7 cursor-pointer items-center gap-2.5 rounded-cladd-md px-2 text-xs text-foreground hover:bg-cladd-surface-hover"

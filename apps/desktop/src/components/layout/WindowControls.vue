@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
-import { Maximize2, Minimize2, Minus, X } from "lucide-vue-next";
+import WindowCaptionGlyph from "./WindowCaptionGlyph.vue";
+
+/**
+ * The minimize, maximize and close buttons of a frameless window, drawn the way Windows draws
+ * them: 46 px wide, flush with the top-right corner, a red close. `close` replaces the plain
+ * window close when the window has to clean up first.
+ */
+const props = withDefaults(
+  defineProps<{ size?: "md" | "sm"; close?: () => Promise<void> | void }>(),
+  { size: "md", close: undefined },
+);
 
 type AppWindowHandle = {
   isMaximized(): Promise<boolean>;
@@ -22,7 +32,7 @@ onMounted(async () => {
     appWindow = handle;
     isMaximized.value = await handle.isMaximized();
     stopResizeListener = await handle.onResized(async () => {
-      isMaximized.value = await handle.isMaximized();
+      isMaximized.value = await handle.isMaximized().catch(() => isMaximized.value);
     });
   } catch (error) {
     console.warn("Window controls unavailable", error);
@@ -35,7 +45,7 @@ onUnmounted(() => {
   stopResizeListener = null;
 });
 
-async function run(action: () => Promise<void>, label: string) {
+async function run(action: () => Promise<void> | void, label: string) {
   try {
     await action();
   } catch (error) {
@@ -44,7 +54,8 @@ async function run(action: () => Promise<void>, label: string) {
 }
 
 function minimize() {
-  if (appWindow) void run(() => appWindow?.minimize() ?? Promise.resolve(), "minimize");
+  const handle = appWindow;
+  if (handle) void run(() => handle.minimize(), "minimize");
 }
 
 function toggleMaximize() {
@@ -53,36 +64,43 @@ function toggleMaximize() {
   void run(async () => {
     if (isMaximized.value) await handle.unmaximize();
     else await handle.maximize();
-    isMaximized.value = !isMaximized.value;
+    isMaximized.value = await handle.isMaximized();
   }, "resize");
 }
 
 function close() {
-  if (appWindow) void run(() => appWindow?.close() ?? Promise.resolve(), "close");
+  const action = props.close;
+  if (action) {
+    void run(action, "close");
+    return;
+  }
+  const handle = appWindow;
+  if (handle) void run(() => handle.close(), "close");
 }
 
 const base =
-  "flex h-11.5 w-11 items-center justify-center text-[var(--fg-subtle)] transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--ring)]";
-const control = `${base} hover:bg-[var(--bg-surface-raised)] hover:text-foreground`;
-const closeControl = `${base} hover:bg-error hover:text-[var(--bg-app)]`;
+  "flex w-11.5 items-center justify-center text-muted-foreground transition-colors duration-[120ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--ring)]";
+const heightClass = props.size === "sm" ? "h-9" : "h-11.5";
+const control = `${base} ${heightClass} hover:bg-[var(--bg-surface-raised)] hover:text-foreground active:bg-[var(--bg-surface)]`;
+const closeControl = `${base} ${heightClass} hover:bg-window-close hover:text-white active:bg-window-close/90 active:text-white`;
 </script>
 
 <template>
-  <div class="flex items-center" style="-webkit-app-region: no-drag">
-    <button type="button" :class="control" aria-label="Minimize" @click="minimize">
-      <Minus :size="13" />
+  <div class="flex shrink-0 items-start self-start" style="-webkit-app-region: no-drag">
+    <button type="button" :class="control" aria-label="Minimize" title="Minimize" @click="minimize">
+      <WindowCaptionGlyph name="minimize" />
     </button>
     <button
       type="button"
       :class="control"
       :aria-label="isMaximized ? 'Restore' : 'Maximize'"
+      :title="isMaximized ? 'Restore' : 'Maximize'"
       @click="toggleMaximize"
     >
-      <Maximize2 v-if="!isMaximized" :size="11" />
-      <Minimize2 v-else :size="11" />
+      <WindowCaptionGlyph :name="isMaximized ? 'restore' : 'maximize'" />
     </button>
-    <button type="button" :class="closeControl" aria-label="Close" @click="close">
-      <X :size="13" />
+    <button type="button" :class="closeControl" aria-label="Close" title="Close" @click="close">
+      <WindowCaptionGlyph name="close" />
     </button>
   </div>
 </template>

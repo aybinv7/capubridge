@@ -318,9 +318,8 @@ watch(
 );
 
 watch(
-  () => mirrorStore.settings.chromeViewportMode,
-  (next, prev) => {
-    if (next === prev) return;
+  () => mirrorStore.webViewport,
+  () => {
     if (mirrorStore.isDetached && mirrorStore.isStreaming && !isAndroidStream.value) {
       void applyChromeViewportMode().catch((error) => {
         console.warn("Failed to update detached Chrome viewport; restarting stream", error);
@@ -433,10 +432,7 @@ function toggleRecord() {
       v-else-if="!immersiveMode"
       :device-label="deviceLabel"
       :always-on-top="mirrorStore.alwaysOnTop"
-      :is-window-maximized="isWindowMaximized"
       @toggle-always-on-top="handleToggleAlwaysOnTop"
-      @minimize-window="handleMinimize"
-      @toggle-window-maximize="handleMaximize"
       @close-window="handleClose"
     />
 

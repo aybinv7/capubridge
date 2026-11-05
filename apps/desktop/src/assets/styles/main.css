@@ -200,6 +200,7 @@
   --color-signal-rec: var(--signal-rec);
   --color-signal-select: var(--signal-select);
   --color-signal-mark: var(--signal-mark);
+  --color-window-close: #c42b1c;
   --color-cat-network: var(--cat-network);
   --color-cat-storage: var(--cat-storage);
   --color-cat-device: var(--cat-device);

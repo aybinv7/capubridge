@@ -47,9 +47,6 @@
   "apps/desktop/src/modules/inspect/StylesTab.vue": {
     "errors": 2
   },
-  "apps/desktop/src/modules/recording/RecordingConfigModal.vue": {
-    "errors": 4
-  },
   "apps/desktop/src/modules/recording/ReplayDatabasesPanel.vue": {
     "errors": 14
   },

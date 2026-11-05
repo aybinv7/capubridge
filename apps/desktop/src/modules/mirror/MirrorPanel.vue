@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { toast } from "vue-sonner";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -9,6 +9,7 @@ import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useCDP } from "@/composables/useCDP";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
+import { useLocalWebviewViewport } from "./useLocalWebviewViewport";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
 import { getDetachedMirrorLayoutMetrics } from "./detachedMirrorLayout";
 import MirrorStream from "./MirrorStream.vue";
@@ -17,7 +18,8 @@ import MirrorDeviceBar from "./MirrorDeviceBar.vue";
 import MirrorDeviceFrame from "./MirrorDeviceFrame.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
 import MirrorStateOverlay from "./MirrorStateOverlay.vue";
-import MirrorPresenceNotice from "./MirrorPresenceNotice.vue";
+import MirrorBringToFront from "./MirrorBringToFront.vue";
+import WebViewportBar from "./WebViewportBar.vue";
 import { describeMirrorStatus } from "./mirrorStatus";
 import { orientationOfSize } from "./deviceRotation";
 import { useMirrorFrameStats } from "./useMirrorFrameStats";
@@ -53,7 +55,9 @@ const isResizing = ref(false);
 const deviceFrameRef = ref<InstanceType<typeof MirrorDeviceFrame> | null>(null);
 const streamAreaRef = computed(() => deviceFrameRef.value?.well ?? null);
 const { panelWidth } = useMirrorViewportWidth(streamAreaRef);
+const screenRef = computed(() => deviceFrameRef.value?.screen ?? null);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
+const localViewport = useLocalWebviewViewport(selectedTarget, screenRef);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
 const androidMode = computed(() => !isLocalTarget.value && isAndroidStream.value);
 const canUseStreamActions = computed(() => !isLocalTarget.value && mirrorStore.isStreaming);
@@ -82,82 +86,17 @@ const status = computed(() =>
     frames: frames.value,
   }),
 );
-const dismissedNoticeKey = ref<string | null>(null);
-const presenceNotice = computed(() => {
+const backgroundApp = computed(() => {
   const target = selectedTarget.value;
-  if (!androidMode.value || target?.source !== "adb") return null;
-  const presence = presenceStore.presence;
-  if (presence !== "background" && presence !== "view-hidden") return null;
-  const key = `${target.id}:${presence}`;
-  if (dismissedNoticeKey.value === key) return null;
-  return { key, presence, appName: target.title?.trim() || target.packageName || "The app" };
+  const serial = streamSerial.value;
+  if (!androidMode.value || target?.source !== "adb" || !serial || !target.packageName) return null;
+  if (presenceStore.presence !== "background") return null;
+  return {
+    serial,
+    packageName: target.packageName,
+    appName: target.title?.trim() || target.packageName,
+  };
 });
-
-watch(
-  () => [presenceStore.presence, selectedTarget.value?.id ?? null] as const,
-  ([presence, targetId], [, previousTargetId]) => {
-    if (presence === "foreground" || targetId !== previousTargetId) dismissedNoticeKey.value = null;
-  },
-);
-
-function syncLocalViewportSize() {
-  if (!isLocalTarget.value) return;
-  if (mirrorStore.settings.chromeViewportMode === "phone") {
-    mirrorStore.setDeviceSize(390, 844);
-    return;
-  }
-  mirrorStore.setDeviceSize(1280, 800);
-}
-
-async function applyLocalWebviewViewportMode() {
-  const target = selectedTarget.value;
-  if (!target || target.source !== "local") return;
-
-  const readyTarget = await localWebviewStore.ensureCdpTarget(target).catch((error) => {
-    console.warn("Local webview viewport sync skipped: CDP unavailable", error);
-    return null;
-  });
-  if (!readyTarget?.webSocketDebuggerUrl) return;
-  const client = await connectToTarget(readyTarget);
-
-  await nextTick();
-  const frame = deviceFrameRef.value?.screen ?? null;
-
-  if (mirrorStore.settings.chromeViewportMode === "phone" && frame) {
-    const rect = frame.getBoundingClientRect();
-    const width = Math.max(1, Math.round(rect.width));
-    const height = Math.max(1, Math.round(rect.height));
-    await Promise.allSettled([
-      client.send("Emulation.setDeviceMetricsOverride", {
-        width,
-        height,
-        deviceScaleFactor: 1,
-        mobile: true,
-      }),
-      client.send("Emulation.setTouchEmulationEnabled", {
-        enabled: true,
-        maxTouchPoints: 1,
-      }),
-      client.send("Emulation.setEmitTouchEventsForMouse", {
-        enabled: true,
-        configuration: "mobile",
-      }),
-    ]);
-    return;
-  }
-
-  await Promise.allSettled([
-    client.send("Emulation.clearDeviceMetricsOverride"),
-    client.send("Emulation.setTouchEmulationEnabled", {
-      enabled: false,
-      maxTouchPoints: 0,
-    }),
-    client.send("Emulation.setEmitTouchEventsForMouse", {
-      enabled: false,
-      configuration: "desktop",
-    }),
-  ]);
-}
 
 function startResize(e: MouseEvent) {
   isResizing.value = true;
@@ -200,7 +139,7 @@ async function handleRefresh() {
       if (readyTarget?.webSocketDebuggerUrl) {
         const client = await connectToTarget(readyTarget);
         await client.send("Page.reload", { ignoreCache: true });
-        await applyLocalWebviewViewportMode();
+        await localViewport.apply();
         return;
       }
       if (target.localWebviewLabel) {
@@ -223,10 +162,7 @@ watch(
   (open) => {
     if (open && !mirrorStore.isDetached) {
       if (isLocalTarget.value) {
-        void stopStream().then(async () => {
-          syncLocalViewportSize();
-          await applyLocalWebviewViewportMode();
-        });
+        void stopStream().then(() => localViewport.syncAndApply());
         return;
       }
       void startStream();
@@ -254,10 +190,7 @@ watch(
   () => {
     if (mirrorStore.isOpen && !mirrorStore.isDetached) {
       if (isLocalTarget.value) {
-        void stopStream().then(async () => {
-          syncLocalViewportSize();
-          await applyLocalWebviewViewportMode();
-        });
+        void stopStream().then(() => localViewport.syncAndApply());
         return;
       }
       void stopStream().then(() => startStream());
@@ -269,7 +202,7 @@ watch(
   () => [panelWidth.value, mirrorStore.deviceWidth, mirrorStore.deviceHeight] as const,
   () => {
     if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
-      void applyLocalWebviewViewportMode();
+      void localViewport.apply();
     }
   },
 );
@@ -285,23 +218,18 @@ watch(
 );
 
 watch(
-  () => mirrorStore.settings.chromeViewportMode,
-  (next, prev) => {
-    if (next === prev) return;
-    if (
-      mirrorStore.isOpen &&
-      !mirrorStore.isDetached &&
-      mirrorStore.isStreaming &&
-      !androidMode.value
-    ) {
+  () => mirrorStore.webViewport,
+  () => {
+    if (!mirrorStore.isOpen || mirrorStore.isDetached) return;
+    if (isLocalTarget.value) {
+      void localViewport.syncAndApply();
+      return;
+    }
+    if (mirrorStore.isStreaming && !androidMode.value) {
       void applyChromeViewportMode().catch((error) => {
         console.warn("Failed to update Chrome mirror viewport; restarting stream", error);
         void stopStream().then(() => startStream());
       });
-    }
-    if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
-      syncLocalViewportSize();
-      void applyLocalWebviewViewportMode();
     }
   },
 );
@@ -436,11 +364,9 @@ function toggleRecord() {
         @refresh="handleRefresh"
       />
 
-      <MirrorPresenceNotice
-        v-if="presenceNotice"
-        :presence="presenceNotice.presence"
-        :app-name="presenceNotice.appName"
-        @dismiss="dismissedNoticeKey = presenceNotice.key"
+      <WebViewportBar
+        v-if="!androidMode"
+        :rendered-width="deviceFrameRef?.frame.screenWidth ?? 0"
       />
 
       <MirrorDeviceFrame
@@ -449,6 +375,14 @@ function toggleRecord() {
         :device-height="mirrorStore.deviceHeight"
         :class="androidMode ? '' : 'mb-2'"
       >
+        <template #overlay>
+          <MirrorBringToFront
+            v-if="backgroundApp"
+            :serial="backgroundApp.serial"
+            :package-name="backgroundApp.packageName"
+            :app-name="backgroundApp.appName"
+          />
+        </template>
         <LocalWebviewHost v-if="isLocalTarget" :target="selectedTarget" />
         <MirrorStream
           v-else

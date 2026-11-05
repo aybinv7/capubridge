@@ -1,70 +1,43 @@
 <script setup lang="ts">
-import { Minus, Maximize2, Minimize2, X, Pin, PinOff } from "lucide-vue-next";
+import { Pin, PinOff } from "lucide-vue-next";
+import WindowControls from "@/components/layout/WindowControls.vue";
+import IconAction from "@/shared/components/presentation/IconAction.vue";
 
 defineProps<{
   deviceLabel: string;
   alwaysOnTop: boolean;
-  isWindowMaximized: boolean;
 }>();
 
 const emit = defineEmits<{
   toggleAlwaysOnTop: [];
-  minimizeWindow: [];
-  toggleWindowMaximize: [];
   closeWindow: [];
 }>();
 </script>
 
 <template>
   <div
-    class="relative flex h-9 shrink-0 items-center border-b border-border/30 bg-background/92 px-2 backdrop-blur-md"
+    class="relative flex h-9 shrink-0 items-center bg-background pl-1.5"
     style="-webkit-app-region: drag"
   >
-    <div class="z-10 flex items-center gap-1" style="-webkit-app-region: no-drag">
-      <button
-        class="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/55 transition-colors hover:bg-accent hover:text-foreground"
-        :class="
-          alwaysOnTop
-            ? 'bg-info/12 text-info hover:bg-info/18'
-            : 'text-muted-foreground/55 hover:bg-accent hover:text-foreground'
-        "
-        :title="alwaysOnTop ? 'Unpin window' : 'Pin window on top'"
+    <div class="z-10 flex items-center" style="-webkit-app-region: no-drag">
+      <IconAction
+        :label="alwaysOnTop ? 'Unpin from the top' : 'Keep on top of other windows'"
+        size="md"
+        toggle
+        :pressed="alwaysOnTop"
         @click="emit('toggleAlwaysOnTop')"
       >
-        <Pin v-if="alwaysOnTop" class="h-3.5 w-3.5" />
-        <PinOff v-else class="h-3.5 w-3.5" />
-      </button>
+        <Pin v-if="alwaysOnTop" :stroke-width="1.8" />
+        <PinOff v-else :stroke-width="1.8" />
+      </IconAction>
     </div>
 
-    <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-22">
-      <div class="max-w-[50%] truncate text-sm font-semibold text-foreground/90">
-        {{ deviceLabel }}
-      </div>
+    <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-36">
+      <span class="truncate text-xs font-medium text-foreground">{{ deviceLabel }}</span>
     </div>
 
-    <div class="z-10 ml-auto flex items-center" style="-webkit-app-region: no-drag">
-      <button
-        class="flex h-8 w-9 items-center justify-center text-muted-foreground/45 transition-colors hover:bg-accent hover:text-foreground"
-        title="Minimize"
-        @click="emit('minimizeWindow')"
-      >
-        <Minus class="h-3 w-3" />
-      </button>
-      <button
-        class="flex h-8 w-9 items-center justify-center text-muted-foreground/45 transition-colors hover:bg-accent hover:text-foreground"
-        :title="isWindowMaximized ? 'Restore window' : 'Maximize window'"
-        @click="emit('toggleWindowMaximize')"
-      >
-        <Minimize2 v-if="isWindowMaximized" class="h-3 w-3" />
-        <Maximize2 v-else class="h-3 w-3" />
-      </button>
-      <button
-        class="flex h-8 w-9 items-center justify-center text-muted-foreground/45 transition-colors hover:bg-destructive/80 hover:text-destructive-foreground"
-        title="Close"
-        @click="emit('closeWindow')"
-      >
-        <X class="h-3 w-3" />
-      </button>
+    <div class="z-10 ml-auto self-start">
+      <WindowControls size="sm" :close="() => emit('closeWindow')" />
     </div>
   </div>
 </template>

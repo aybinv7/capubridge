@@ -14,7 +14,7 @@ import {
   ListboxItem,
   ListboxRoot,
 } from "reka-ui";
-import { Search } from "lucide-vue-next";
+import { CornerDownLeft, Search } from "lucide-vue-next";
 import { useCommandsStore } from "@/stores/commands.store";
 import { rankByScore } from "@/lib/commands/fuzzy";
 import { bindingTokens } from "@/lib/commands/keymap";
@@ -159,7 +159,7 @@ const placeholder = computed(() => {
         class="fixed inset-0 z-50 bg-[var(--bg-overlay)] data-[state=open]:animate-in data-[state=open]:fade-in-0"
       />
       <DialogContent
-        class="fixed left-1/2 top-[16vh] z-50 flex w-[640px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col overflow-hidden rounded-lg bg-[var(--bg-surface-raised)] shadow-[var(--bevel-strong),var(--shadow-float)] focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]"
+        class="fixed top-[14vh] left-1/2 z-50 flex w-[640px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col overflow-hidden rounded-surface bg-popover shadow-float ring-1 ring-border-subtle focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]"
         :aria-describedby="undefined"
       >
         <DialogTitle class="sr-only">Command palette</DialogTitle>
@@ -173,8 +173,8 @@ const placeholder = computed(() => {
           class="flex min-h-0 flex-col"
           @update:model-value="select"
         >
-          <div class="flex h-11 items-center gap-2.5 border-b border-[var(--border-subtle)] px-3.5">
-            <Search :size="15" class="shrink-0 text-muted-foreground" />
+          <div class="flex h-13 items-center gap-3 px-4">
+            <Search :size="16" :stroke-width="1.8" class="shrink-0 text-muted-foreground" />
             <ListboxFilter
               v-model="query"
               data-palette-input
@@ -184,67 +184,84 @@ const placeholder = computed(() => {
             />
             <span
               v-if="scope !== 'all'"
-              class="rounded-sm bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-2xs text-signal-select"
+              class="rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-foreground shadow-bevel"
             >
               {{ scopeLabel }}
             </span>
+            <KeyCaps keys="esc" />
           </div>
 
-          <ListboxContent class="max-h-[420px] overflow-y-auto p-1.5">
-            <ListboxGroup v-for="entry in groups" :key="entry.group" class="mb-1 last:mb-0">
-              <ListboxGroupLabel
-                class="px-2.5 pb-1 pt-2 text-2xs font-medium uppercase tracking-wide text-[var(--fg-subtle)]"
-              >
+          <div class="h-px bg-border-subtle" />
+
+          <ListboxContent class="max-h-[440px] overflow-y-auto overscroll-contain p-2">
+            <ListboxGroup v-for="entry in groups" :key="entry.group" class="mb-1.5 last:mb-0">
+              <ListboxGroupLabel class="px-2.5 pt-1.5 pb-1 text-2xs text-[var(--fg-subtle)]">
                 {{ entry.group }}
               </ListboxGroupLabel>
               <ListboxItem
                 v-for="command in entry.items"
                 :key="command.id"
                 :value="command.id"
-                class="flex h-9 cursor-default items-center gap-2.5 rounded-md px-2.5 text-sm text-foreground outline-none data-[highlighted]:bg-[var(--bg-surface)] data-[highlighted]:shadow-bevel"
+                class="group flex h-10 cursor-default items-center gap-3 rounded-control px-2 text-sm text-muted-foreground outline-none data-[highlighted]:bg-cladd-surface-hover data-[highlighted]:text-foreground"
               >
-                <component
-                  :is="command.icon"
-                  v-if="command.icon"
-                  :size="15"
-                  class="shrink-0 text-muted-foreground"
-                />
-                <span class="truncate">{{ command.title }}</span>
+                <span
+                  class="grid size-6 shrink-0 place-items-center rounded-[7px] bg-surface-2 shadow-bevel group-data-[highlighted]:bg-surface-3"
+                >
+                  <component
+                    :is="command.icon"
+                    v-if="command.icon"
+                    :size="13"
+                    :stroke-width="1.8"
+                    class="text-muted-foreground group-data-[highlighted]:text-foreground"
+                  />
+                </span>
+                <span class="truncate text-foreground">{{ command.title }}</span>
                 <span
                   v-if="command.detail"
-                  class="min-w-0 flex-1 truncate font-mono text-2xs text-[var(--fg-subtle)]"
+                  class="min-w-0 flex-1 truncate text-xs text-[var(--fg-subtle)]"
                 >
                   {{ command.detail }}
                 </span>
                 <span v-else class="flex-1" />
                 <KeyCaps v-if="command.binding" :keys="bindingTokens(command.binding)" />
+                <CornerDownLeft
+                  v-else
+                  :size="13"
+                  :stroke-width="1.8"
+                  class="shrink-0 text-[var(--fg-subtle)] opacity-0 group-data-[highlighted]:opacity-100"
+                />
               </ListboxItem>
             </ListboxGroup>
 
             <div
               v-if="groups.length === 0"
-              class="flex flex-col items-center gap-1 px-4 py-10 text-center"
+              class="flex flex-col items-center gap-1 px-4 py-12 text-center"
             >
               <p v-if="scope === 'screen' && !searchText" class="text-sm text-foreground">
                 This screen has no actions yet
               </p>
-              <p v-else class="text-sm text-foreground">No matches for “{{ searchText }}”</p>
+              <p v-else class="text-sm text-foreground">Nothing matches “{{ searchText }}”</p>
               <p class="text-xs text-muted-foreground">
-                Try a device serial, a page title, or start with &gt; for commands.
+                Try a device name, a page title, or start with &gt; for commands.
               </p>
             </div>
           </ListboxContent>
 
           <div
-            class="flex h-8 items-center gap-4 border-t border-[var(--border-subtle)] px-3.5 text-2xs text-muted-foreground"
+            class="flex h-9 items-center gap-4 border-t border-border-subtle bg-surface-1 px-4 text-2xs text-muted-foreground"
           >
-            <span class="flex items-center gap-1.5"><KeyCaps keys="up down" /> navigate</span>
-            <span class="flex items-center gap-1.5"><KeyCaps keys="enter" /> run</span>
-            <span class="flex items-center gap-1.5"><KeyCaps keys="esc" /> close</span>
+            <span class="flex items-center gap-1.5"><KeyCaps keys="up down" /> move</span>
+            <span class="flex items-center gap-1.5"><KeyCaps keys="enter" /> open</span>
             <span class="flex-1" />
-            <span><span class="font-mono text-foreground">&gt;</span> commands</span>
-            <span><span class="font-mono text-foreground">@</span> devices &amp; targets</span>
-            <span><span class="font-mono text-foreground">:</span> this screen</span>
+            <span class="flex items-center gap-1.5">
+              <span class="font-mono text-foreground">&gt;</span> commands
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="font-mono text-foreground">@</span> devices
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="font-mono text-foreground">:</span> this screen
+            </span>
           </div>
         </ListboxRoot>
       </DialogContent>

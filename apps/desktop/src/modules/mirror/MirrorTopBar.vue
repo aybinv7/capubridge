@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Camera, CircleDot, Square, SquareArrowOutUpRight } from "lucide-vue-next";
+import { Camera, Video, Square, SquareArrowOutUpRight } from "lucide-vue-next";
 import { StatusDot } from "@capubridge/cladd";
 import type { MirrorSide } from "@/stores/mirror.store";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -72,7 +72,7 @@ const emit = defineEmits<{
 
       <IconAction
         v-if="props.androidMode"
-        :label="props.isRecording ? 'Stop and save the recording' : 'Record the screen'"
+        :label="props.isRecording ? 'Stop and save the recording' : 'Record the screen as a video'"
         hint="Saved as MP4 to Downloads"
         toggle
         :pressed="props.isRecording"
@@ -80,7 +80,7 @@ const emit = defineEmits<{
         @click="emit('toggleRecord')"
       >
         <Square v-if="props.isRecording" :stroke-width="0" class="fill-signal-rec" />
-        <CircleDot v-else :stroke-width="1.8" />
+        <Video v-else :stroke-width="1.8" />
       </IconAction>
 
       <IconAction

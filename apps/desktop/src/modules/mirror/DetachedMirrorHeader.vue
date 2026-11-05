@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   Camera,
-  CircleDot,
+  Video,
   Maximize2,
   Minimize2,
   Minus,
@@ -56,7 +56,7 @@ const windowButton =
       </IconAction>
       <IconAction
         v-if="androidMode"
-        :label="isRecording ? 'Stop and save the recording' : 'Record the screen'"
+        :label="isRecording ? 'Stop and save the recording' : 'Record the screen as a video'"
         hint="Saved as MP4 to Downloads"
         toggle
         :pressed="isRecording"
@@ -64,7 +64,7 @@ const windowButton =
         @click="emit('toggleRecord')"
       >
         <Square v-if="isRecording" :stroke-width="0" class="fill-signal-rec" />
-        <CircleDot v-else :stroke-width="1.8" />
+        <Video v-else :stroke-width="1.8" />
       </IconAction>
       <IconAction label="Laser pointer" toggle :pressed="laserMode" @click="emit('toggleLaser')">
         <MousePointer2 :stroke-width="1.8" />

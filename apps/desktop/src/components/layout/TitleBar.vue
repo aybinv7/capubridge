@@ -16,10 +16,10 @@ const { keysOf } = useBindingHint();
 
 <template>
   <header
-    class="relative flex h-11.5 shrink-0 select-none items-center gap-3 bg-background pl-3"
+    class="relative grid h-11.5 shrink-0 select-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-background pl-3"
     style="-webkit-app-region: drag"
   >
-    <div class="flex items-center gap-0.5" style="-webkit-app-region: no-drag">
+    <div class="flex items-center gap-0.5 justify-self-start" style="-webkit-app-region: no-drag">
       <IconAction label="Back" @click="router.back()">
         <component :is="shellIcons.back" />
       </IconAction>
@@ -37,15 +37,16 @@ const { keysOf } = useBindingHint();
       </IconAction>
     </div>
 
-    <div class="mx-auto flex min-w-0 items-center" style="-webkit-app-region: no-drag">
+    <div class="flex min-w-0 items-center justify-center" style="-webkit-app-region: no-drag">
       <ContextBar />
     </div>
 
-    <div class="flex items-center gap-2" style="-webkit-app-region: no-drag">
-      <RecordingButton />
-      <TitleBarPanelToggles />
+    <div class="flex min-w-0 items-center justify-self-end">
+      <div class="flex items-center gap-2 pr-2" style="-webkit-app-region: no-drag">
+        <RecordingButton />
+        <TitleBarPanelToggles />
+      </div>
+      <WindowControls />
     </div>
-
-    <WindowControls />
   </header>
 </template>

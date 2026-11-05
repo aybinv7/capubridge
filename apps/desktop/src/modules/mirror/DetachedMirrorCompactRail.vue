@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toRef } from "vue";
-import { Camera, CircleDot, MousePointer2, SlidersHorizontal, Square } from "lucide-vue-next";
+import { Camera, Video, MousePointer2, SlidersHorizontal, Square } from "lucide-vue-next";
 import { Toolbar, ToolbarSeparator } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { AndroidKeyCode } from "./useMirrorStream";
@@ -70,7 +70,7 @@ const rotation = useDeviceRotation({
           </IconAction>
           <IconAction
             v-if="androidMode"
-            :label="isRecording ? 'Stop and save the recording' : 'Record the screen'"
+            :label="isRecording ? 'Stop and save the recording' : 'Record the screen as a video'"
             hint="Saved as MP4 to Downloads"
             size="md"
             position="top"
@@ -80,7 +80,7 @@ const rotation = useDeviceRotation({
             @click="emit('toggleRecord')"
           >
             <Square v-if="isRecording" :stroke-width="0" class="fill-signal-rec" />
-            <CircleDot v-else :stroke-width="1.8" />
+            <Video v-else :stroke-width="1.8" />
           </IconAction>
           <IconAction
             label="Laser pointer"

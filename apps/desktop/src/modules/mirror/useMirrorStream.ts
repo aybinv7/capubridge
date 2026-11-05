@@ -6,6 +6,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useSourceStore } from "@/stores/source.store";
 import type { CDPTarget } from "@/types/cdp.types";
+import { resolveViewport } from "@/lib/web-viewport";
 import MirrorCaptureToast from "./MirrorCaptureToast.vue";
 import {
   copyPngToClipboard,
@@ -100,7 +101,7 @@ export function useMirrorStream() {
     connectToTarget,
     resolveTarget: resolvePreferredChromeTarget,
     getChromePort: () => sourceStore.getChromeSource()?.port ?? null,
-    getViewportMode: () => mirrorStore.settings.chromeViewportMode,
+    getViewport: () => resolveViewport(mirrorStore.webViewport),
     getFps: () => mirrorStore.settings.fps,
     getMaxSize: () => (mirrorStore.settings.recordQuality === "720p" ? 1280 : 1920),
     isSessionCurrent: lifecycle.isSessionCurrent,
@@ -120,7 +121,7 @@ export function useMirrorStream() {
     resolveSerial: resolveAdbSerial,
     getChromeClient: chrome.getPreferredClient,
     activateChromeTarget: chrome.activatePreferredTarget,
-    isChromePhoneMode: () => mirrorStore.settings.chromeViewportMode === "phone",
+    isChromePhoneMode: () => resolveViewport(mirrorStore.webViewport).mobile,
     setError: (message) => {
       state.error.value = message;
     },

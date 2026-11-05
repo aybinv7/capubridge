@@ -70,7 +70,7 @@ fn comparable_page_url(url: &str) -> Option<String> {
 #[derive(Debug)]
 enum DebugTargetMatch {
     Found(serde_json::Value),
-    Ambiguous(usize),
+    Ambiguous(Vec<serde_json::Value>),
     Missing,
 }
 
@@ -107,7 +107,7 @@ fn select_debug_target(
     match candidates.len() {
         0 => DebugTargetMatch::Missing,
         1 => DebugTargetMatch::Found(candidates.remove(0)),
-        count => DebugTargetMatch::Ambiguous(count),
+        _ => DebugTargetMatch::Ambiguous(candidates),
     }
 }
 
@@ -219,10 +219,14 @@ pub async fn local_webview_fetch_cdp_target(
         let mut last_issue =
             format!("WebView2 debug endpoint 127.0.0.1:{LOCAL_WEBVIEW_DEBUG_PORT} did not respond");
 
+        let marker = super::local_webview_probe::preview_marker_script(&label)?;
+
         loop {
-            let current_url = local_preview_webview(&app, &label)?
-                .url()
-                .map_err(|e| e.to_string())?;
+            let preview = local_preview_webview(&app, &label)?;
+            let current_url = preview.url().map_err(|e| e.to_string())?;
+            if let Err(error) = preview.eval(&marker) {
+                log::warn!("Failed to mark local preview {label}: {error}");
+            }
 
             match client.get(&endpoint).send().await {
                 Ok(response) => match response.json::<Vec<serde_json::Value>>().await {
@@ -233,7 +237,14 @@ pub async fn local_webview_fetch_cdp_target(
                             &claimed_target_ids,
                         ) {
                             DebugTargetMatch::Found(target) => return Ok(target),
-                            DebugTargetMatch::Ambiguous(count) => {
+                            DebugTargetMatch::Ambiguous(candidates) => {
+                                let count = candidates.len();
+                                if let Some(target) =
+                                    super::local_webview_probe::pick_marked_page(candidates, &label)
+                                        .await
+                                {
+                                    return Ok(target);
+                                }
                                 let own_url = app
                                     .get_webview_window("main")
                                     .and_then(|window| window.url().ok());
@@ -323,7 +334,7 @@ mod tests {
         ];
         assert!(matches!(
             select_debug_target(targets.clone(), "https://app.test/", &[]),
-            DebugTargetMatch::Ambiguous(2)
+            DebugTargetMatch::Ambiguous(found) if found.len() == 2
         ));
         assert!(matches!(
             select_debug_target(targets, "about:blank", &[]),
