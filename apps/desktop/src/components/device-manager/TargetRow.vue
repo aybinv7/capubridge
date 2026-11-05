@@ -11,12 +11,14 @@ import {
   targetKindHint,
   unansweredSocketHint,
 } from "./targetGroups";
+import PageIcon from "./PageIcon.vue";
 
 const props = defineProps<{
   target: CDPTarget;
   active: boolean;
   link: LinkPresentation | null;
   removable?: boolean;
+  icon?: string | null;
 }>();
 
 const emit = defineEmits<{ select: []; inspect: []; detach: []; remove: [] }>();
@@ -49,6 +51,7 @@ const kind = computed(() => targetKindHint(props.target));
         :class="props.active && props.link ? LINK_TONE_MARK[props.link.tone] : 'rounded-full'"
         aria-hidden="true"
       />
+      <PageIcon v-if="props.icon !== undefined" :icon="props.icon" />
       <span class="flex min-w-0 flex-1 flex-col">
         <span class="truncate text-sm text-foreground">{{ title }}</span>
         <span

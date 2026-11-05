@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
+import { useNow } from "@vueuse/core";
+import { useLocalPageHistoryStore } from "@/stores/localPageHistory.store";
+import LocalPageHistoryRow from "./LocalPageHistoryRow.vue";
 import { Button, Input } from "@capubridge/cladd";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
@@ -21,7 +24,12 @@ const emit = defineEmits<{
   remove: [target: CDPTarget];
 }>();
 
-const url = ref("http://localhost:5173");
+const pageHistory = useLocalPageHistoryStore();
+const { iconOf: pageIconOf, forget: forgetPage } = pageHistory;
+const now = useNow({ interval: 30_000 });
+const url = ref(pageHistory.visits[0]?.url ?? "");
+const openUrls = computed(() => new Set(props.targets.map((target) => target.url)));
+const recent = computed(() => pageHistory.visits.filter((visit) => !openUrls.value.has(visit.url)));
 </script>
 
 <template>
@@ -44,7 +52,7 @@ const url = ref("http://localhost:5173");
       <Input
         v-model="url"
         class="min-w-0 flex-1"
-        placeholder="http://localhost:5173"
+        placeholder="http://localhost:3000"
         aria-label="Page URL"
         input-class-name="font-mono"
       />
@@ -59,7 +67,7 @@ const url = ref("http://localhost:5173");
     </form>
 
     <div class="flex h-8 shrink-0 items-center px-5">
-      <span class="text-xs text-muted-foreground">Pages</span>
+      <span class="text-xs text-muted-foreground">Open pages</span>
     </div>
 
     <div
@@ -73,14 +81,31 @@ const url = ref("http://localhost:5173");
         :target="target"
         :active="target.id === props.selectedTargetId"
         :link="target.id === props.selectedTargetId ? props.link : null"
+        :icon="pageIconOf(target.url)"
         removable
         @select="emit('select', target)"
         @inspect="emit('inspect', target)"
         @remove="emit('remove', target)"
       />
     </div>
-    <p v-else class="px-5 text-xs text-[var(--fg-subtle)]">
-      No local pages yet. Enter a URL above to open one.
+    <p v-else class="px-5 pb-2 text-xs text-[var(--fg-subtle)]">
+      No page is open. Enter a URL above, or reopen one from your history.
     </p>
+
+    <template v-if="recent.length">
+      <div class="flex h-8 shrink-0 items-center px-5 pt-2">
+        <span class="text-xs text-muted-foreground">Recent</span>
+      </div>
+      <div class="flex min-h-0 flex-col gap-0.5 overflow-y-auto px-3 pb-4">
+        <LocalPageHistoryRow
+          v-for="visit in recent"
+          :key="visit.url"
+          :visit="visit"
+          :now="now.getTime()"
+          @open="emit('create', visit.url)"
+          @forget="forgetPage(visit.url)"
+        />
+      </div>
+    </template>
   </div>
 </template>
