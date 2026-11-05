@@ -2,7 +2,7 @@ import { onScopeDispose, shallowRef, triggerRef, watch, type Ref } from "vue";
 import type { GrammarState } from "shiki/core";
 import { highlighterFor, tokenizeChunk } from "./highlighter";
 import type { CodeToken } from "./textSegments";
-import type { CodeLanguage, TextLanguage } from "./viewerKinds";
+import type { CodeLanguage, TextLanguage } from "./codeLanguage";
 
 const LINE_BUDGET = 20_000;
 const CHAR_BUDGET = 1_000_000;

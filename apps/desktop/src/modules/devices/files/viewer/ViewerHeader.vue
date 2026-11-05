@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { AppWindow, ChevronLeft, ChevronRight, Download, ExternalLink, X } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
-import CopyAction from "../../shared/CopyAction.vue";
+import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import FileGlyph from "../FileGlyph.vue";
 import { formatSize } from "../fileKinds";
 import { parentPath, type DeviceFileListEntry } from "../filePaths";

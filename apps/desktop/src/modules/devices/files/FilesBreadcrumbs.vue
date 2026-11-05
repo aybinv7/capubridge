@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ChevronRight } from "lucide-vue-next";
-import CopyAction from "../shared/CopyAction.vue";
+import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import { breadcrumbs } from "./filePaths";
 
 const props = defineProps<{ dir: string }>();

@@ -4,7 +4,7 @@ import { useVirtualizer } from "@tanstack/vue-virtual";
 import { logLevel, type LogLevel } from "./logLevels";
 import { longestLine } from "./textLines";
 import { lineSegments, type CodeToken, type MarkRange } from "./textSegments";
-import type { TextLanguage } from "./viewerKinds";
+import type { TextLanguage } from "./codeLanguage";
 
 const ROW_HEIGHT = 20;
 

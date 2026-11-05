@@ -7,16 +7,15 @@ import TextFindBar from "./TextFindBar.vue";
 import TextLinesPane from "./TextLinesPane.vue";
 import ViewerNote from "./ViewerNote.vue";
 import ViewerToolbar from "./ViewerToolbar.vue";
-import { truncationNote, type Truncation } from "./readPlan";
 import { splitLines } from "./textLines";
 import { useHighlightedLines } from "./useHighlightedLines";
 import { useTextFind } from "./useTextFind";
-import type { TextLanguage } from "./viewerKinds";
+import type { TextLanguage } from "./codeLanguage";
 
 const props = defineProps<{
   text: string;
   language: TextLanguage;
-  truncation: Truncation | null;
+  truncationNote?: string | null;
   findSignal: number;
   notice?: string;
 }>();
@@ -31,7 +30,10 @@ const lines = computed(() => splitLines(props.text));
 const { tokens, total } = useHighlightedLines(lines, toRef(props, "language"));
 const find = useTextFind(lines);
 
-const lineCount = computed(() => lines.value.length.toLocaleString("en-US"));
+const lineCount = computed(() => {
+  const count = lines.value.length;
+  return `${count.toLocaleString("en-US")} ${count === 1 ? "line" : "lines"}`;
+});
 const partlyColoured = computed(() => total.value > 0 && total.value < lines.value.length);
 
 async function openFind() {
@@ -60,7 +62,7 @@ watch(find.currentMatch, (match) => {
     <ViewerToolbar>
       <template #start>
         <slot name="lead" />
-        <span class="font-mono text-2xs tabular-nums">{{ lineCount }} lines</span>
+        <span class="font-mono text-2xs tabular-nums">{{ lineCount }}</span>
         <span v-if="partlyColoured" class="truncate text-2xs text-[var(--fg-subtle)]">
           Colours shown for the first {{ total.toLocaleString("en-US") }} lines
         </span>
@@ -85,8 +87,8 @@ watch(find.currentMatch, (match) => {
       </template>
     </ViewerToolbar>
     <ViewerNote
-      v-if="props.truncation"
-      :text="`${truncationNote(props.truncation)}. Download the file to see all of it.`"
+      v-if="props.truncationNote"
+      :text="`${props.truncationNote}. Download the file to see all of it.`"
       action-label="Download"
       @action="emit('download')"
     />

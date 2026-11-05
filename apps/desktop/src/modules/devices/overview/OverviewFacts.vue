@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CopyAction from "../shared/CopyAction.vue";
+import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import type { DeviceFact } from "./deviceFacts";
 
 const props = defineProps<{ facts: readonly DeviceFact[] }>();

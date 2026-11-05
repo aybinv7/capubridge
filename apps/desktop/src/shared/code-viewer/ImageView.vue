@@ -5,16 +5,15 @@ import { Button, Toolbar, ToolbarSeparator } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { useImageZoom } from "./useImageZoom";
 import { useObjectUrl } from "./useObjectUrl";
-import type { MediaContent } from "./viewerContent";
 import { zoomLabel, type Size } from "./zoomMath";
 
-const props = defineProps<{ content: MediaContent; name: string }>();
+const props = defineProps<{ blob: Blob; name: string }>();
 
 const emit = defineEmits<{ unreadable: [] }>();
 
 const viewport = ref<HTMLElement | null>(null);
 const natural = shallowRef<Size | null>(null);
-const url = useObjectUrl(computed(() => props.content.blob));
+const url = useObjectUrl(computed(() => props.blob));
 const zoom = useImageZoom(viewport, natural);
 
 const imageStyle = computed(() => {
@@ -32,7 +31,7 @@ const dimensions = computed(() =>
 const pixelated = computed(() => zoom.view.value.scale >= 3);
 
 watch(
-  () => props.content.blob,
+  () => props.blob,
   () => {
     natural.value = null;
   },

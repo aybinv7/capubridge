@@ -1,4 +1,4 @@
-import { ownsKeys } from "../shared/keyTargets";
+import { ownsKeys } from "@/shared/list/keyTargets";
 import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";
 import type { useFileBrowser } from "./useFileBrowser";
 

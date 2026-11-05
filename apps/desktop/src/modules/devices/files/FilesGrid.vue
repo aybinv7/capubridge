@@ -2,8 +2,8 @@
 import { computed, ref } from "vue";
 import { useElementSize } from "@vueuse/core";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
-import { chunkRows, columnsFor, scrollTopToReveal } from "../shared/grid";
-import { optionId, rowStateClass } from "../shared/rowState";
+import { chunkRows, columnsFor, scrollTopToReveal } from "@/shared/list/grid";
+import { optionId, rowStateClass } from "@/shared/list/rowState";
 import FileGlyph from "./FileGlyph.vue";
 import { formatSizeLabel } from "./fileKinds";
 import type { DeviceFileListEntry } from "./filePaths";

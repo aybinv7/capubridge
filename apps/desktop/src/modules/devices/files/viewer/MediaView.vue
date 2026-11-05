@@ -1,7 +1,7 @@
 ﻿<script setup lang="ts">
 import { computed } from "vue";
 import { Music } from "lucide-vue-next";
-import { useObjectUrl } from "./useObjectUrl";
+import { useObjectUrl } from "@/shared/code-viewer/useObjectUrl";
 import type { MediaContent } from "./viewerContent";
 
 const props = defineProps<{ content: MediaContent; name: string }>();

@@ -1,33 +1,12 @@
+import type { CodeLanguage, TextLanguage } from "@/shared/code-viewer/codeLanguage";
+
 /** What the viewer shows a file as, once its bytes are known. */
 export type ViewerKind = "image" | "video" | "audio" | "json" | "text" | "sqlite" | "binary";
 
 /** A guess from the name alone; `unknown` files are sniffed from their first bytes. */
 export type NameKind = ViewerKind | "unknown";
 
-export type CodeLanguage =
-  | "json"
-  | "javascript"
-  | "typescript"
-  | "tsx"
-  | "jsx"
-  | "xml"
-  | "html"
-  | "css"
-  | "sql"
-  | "yaml"
-  | "ini"
-  | "properties"
-  | "kotlin"
-  | "java"
-  | "groovy"
-  | "shellscript"
-  | "vue"
-  | "rust"
-  | "markdown"
-  | "toml";
-
-/** How a text file is coloured: a grammar, hand-made log levels, or not at all. */
-export type TextLanguage = CodeLanguage | "log" | "plain";
+export type { CodeLanguage, TextLanguage };
 
 const KIND_BY_EXTENSION: Record<string, NameKind> = {};
 

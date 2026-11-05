@@ -208,19 +208,6 @@
     "button": 1,
     "dialog": 1
   },
-  "apps/desktop/src/modules/network/NetworkMock.vue": {
-    "dialog": 1,
-    "input": 1,
-    "select": 1,
-    "switch": 1
-  },
-  "apps/desktop/src/modules/network/NetworkPanel.vue": {
-    "input": 1,
-    "select": 1
-  },
-  "apps/desktop/src/modules/network/NetworkRequests.vue": {
-    "switch": 1
-  },
   "apps/desktop/src/modules/recording/ReplayDatabasesPanel.vue": {
     "input": 1
   },

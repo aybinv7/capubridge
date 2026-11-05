@@ -9,7 +9,7 @@ import {
 } from "./readPlan";
 import { looksLikeText, sniffBytes, sniffedImageMime } from "./sniff";
 import { parseSqliteHeader } from "./sqliteHeader";
-import { decodeText, parseJson } from "./textLines";
+import { decodeText, parseJson } from "@/shared/code-viewer/textLines";
 import type { FileBytes, LoadOutcome, ReadBytes, ViewerContent } from "./viewerContent";
 import { kindFromName, languageFromName, mimeFromName, type NameKind } from "./viewerKinds";
 

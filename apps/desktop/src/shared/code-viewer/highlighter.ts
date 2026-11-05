@@ -1,6 +1,6 @@
 import type { GrammarState, HighlighterCore, LanguageRegistration, ThemedToken } from "shiki/core";
 import type { CodeToken } from "./textSegments";
-import type { CodeLanguage } from "./viewerKinds";
+import type { CodeLanguage } from "./codeLanguage";
 
 type GrammarModule = { default: LanguageRegistration[] };
 

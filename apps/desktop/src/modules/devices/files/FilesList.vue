@@ -4,8 +4,8 @@ import { getCoreRowModel, useVueTable, type ColumnDef } from "@tanstack/vue-tabl
 import { Download, Trash2 } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
-import { scrollTopToReveal } from "../shared/grid";
-import { optionId, rowStateClass } from "../shared/rowState";
+import { scrollTopToReveal } from "@/shared/list/grid";
+import { optionId, rowStateClass } from "@/shared/list/rowState";
 import FileGlyph from "./FileGlyph.vue";
 import { modifiedCell, sizeCell } from "./fileCells";
 import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";

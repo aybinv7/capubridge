@@ -1,6 +1,6 @@
 import type { Truncation } from "./readPlan";
 import type { SqliteHeaderFacts } from "./sqliteHeader";
-import type { JsonParse } from "./textLines";
+import type { JsonParse } from "@/shared/code-viewer/textLines";
 import type { TextLanguage, ViewerKind } from "./viewerKinds";
 
 /** Bytes as the IPC layer hands them over: a view on a plain `ArrayBuffer`. */

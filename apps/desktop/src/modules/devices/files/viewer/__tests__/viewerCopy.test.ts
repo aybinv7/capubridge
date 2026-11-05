@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { decodeText, splitLines } from "../textLines";
+import { decodeText, splitLines } from "@/shared/code-viewer/textLines";
 import { noPreviewTitle, readErrorSentence, tooLargeDetail, viewerKeyAction } from "../viewerCopy";
 
 const MB = 1024 * 1024;

@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { Download, ExternalLink, FolderOpen, Trash2, View } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
-import CopyAction from "../shared/CopyAction.vue";
+import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import FileGlyph from "./FileGlyph.vue";
 import { modifiedCell } from "./fileCells";
 import { entryKindLabel, formatFileEntrySize } from "./fileKinds";

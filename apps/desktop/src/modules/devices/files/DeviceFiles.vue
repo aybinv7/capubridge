@@ -4,7 +4,7 @@ import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import DetailsPane from "../shared/DetailsPane.vue";
 import DeviceConfirmDialog from "../shared/DeviceConfirmDialog.vue";
-import { optionId } from "../shared/rowState";
+import { optionId } from "@/shared/list/rowState";
 import FileDetails from "./FileDetails.vue";
 import FileMenu from "./FileMenu.vue";
 import FilesGrid from "./FilesGrid.vue";

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { chunkRows } from "../../shared/grid";
+import { chunkRows } from "@/shared/list/grid";
 import { gridColumns } from "../appsView";
 
 describe("appsView", () => {

@@ -20,12 +20,6 @@
       "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; v2.4.0 adds bundled scrcpy binary resolution across release platforms, while MIR-01 owns the staged runtime split. Bumped from 1284 to 1379 for scrcpy 4.x protocol support (v2.4.3) — the server shifted its video-header layout (a new session packet, renumbered CONFIG/KEY_FRAME flag bits) and this fix adds version-aware parsing for both the handshake and per-frame path; splitting the added branches out would fragment one wire-format concern across files, not draw a real module boundary. Bumped from 1379 to 1401 for async IPC (UI rewrite R0.1) — screenshot, screen-size, keyevent and scrcpy launch/stop now run off the main thread through run_blocking; MIR-01 still owns the runtime split."
     },
     {
-      "path": "apps/desktop/src/modules/network/NetworkRequests.vue",
-      "maxLines": 1154,
-      "owner": "Network module",
-      "rationale": "Network surface combines capture lifecycle, filtering, virtual table, body loading, and request detail presentation; approved pending extraction of data and detail surfaces."
-    },
-    {
       "path": "apps/desktop/src/modules/storage/indexeddb/IDBTable.vue",
       "maxLines": 1105,
       "owner": "Storage module",
@@ -60,12 +54,6 @@
       "maxLines": 1371,
       "owner": "Documentation application",
       "rationale": "Interactive documentation preview combines device, inspector, storage, console, and settings demonstrations; approved pending extraction into capability preview components."
-    },
-    {
-      "path": "apps/desktop/src/modules/network/NetworkMock.vue",
-      "maxLines": 989,
-      "owner": "Network module",
-      "rationale": "Network mock surface combines rule editing, persistence, interception mode, reverse setup, and request log presentation; v2.6.0 adds per-target workspaces, rule import/export, the JSON body dialog and the mode guide on top of the existing debt. Bumped mechanically to unblock release - the owed split (the rule editor panel and body dialog into MockRuleEditor.vue) is tracked, not resolved, by this entry."
     },
     {
       "path": "apps/desktop/src/modules/automation/runRegistry.ts",

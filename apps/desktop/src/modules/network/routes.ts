@@ -9,13 +9,13 @@ export const networkRoutes = [
       {
         path: "requests",
         name: "network-requests",
-        component: () => import("./NetworkRequests.vue"),
+        component: () => import("./requests/NetworkRequests.vue"),
         meta: { label: "Requests", requires: "target" },
       },
       {
         path: "mock",
         name: "network-mock",
-        component: () => import("./NetworkMock.vue"),
+        component: () => import("./mock/NetworkMock.vue"),
         meta: { label: "Mocking", maturity: "experimental" },
       },
     ],

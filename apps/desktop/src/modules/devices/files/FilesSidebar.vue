@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { ChevronRight, Folder, FolderOpen } from "lucide-vue-next";
 import { Spinner } from "@capubridge/cladd";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
-import { rowStateClass } from "../shared/rowState";
+import { rowStateClass } from "@/shared/list/rowState";
 import { FILE_PLACES, TREE_ROW_HEIGHT } from "./filesView";
 import type { TreeRow } from "./useFileTree";
 

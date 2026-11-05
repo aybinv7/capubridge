@@ -1,4 +1,4 @@
-import { columnsFor } from "../shared/grid";
+import { columnsFor } from "@/shared/list/grid";
 
 export type AppsView = "list" | "grid";
 export type AppsDensity = "small" | "medium" | "large";

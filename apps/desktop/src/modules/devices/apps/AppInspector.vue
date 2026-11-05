@@ -4,7 +4,7 @@ import { CircleStop, Eraser, Play, Trash2 } from "lucide-vue-next";
 import { Button, Chip, Spinner } from "@capubridge/cladd";
 import type { AdbPackage, AdbPackageDetails } from "@/types/adb.types";
 import AppIcon from "../AppIcon.vue";
-import CopyAction from "../shared/CopyAction.vue";
+import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import { installDateWords, updateDateWords } from "../shared/dates";
 import AppFolderList from "./AppFolderList.vue";
 import AppSizeBreakdown from "./AppSizeBreakdown.vue";

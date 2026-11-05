@@ -18,6 +18,19 @@ interface CachedBody {
   bytes: number;
 }
 
+const headerTextCache = new WeakMap<NetworkEntry, string>();
+
+/** Request and response headers as one lower-case string, cached per entry object. */
+function headerText(entry: NetworkEntry): string {
+  let text = headerTextCache.get(entry);
+  if (text === undefined) {
+    text =
+      `${JSON.stringify(entry.requestHeaders)}${JSON.stringify(entry.responseHeaders)}`.toLowerCase();
+    headerTextCache.set(entry, text);
+  }
+  return text;
+}
+
 export type NetworkCaptureStatus = "idle" | "connecting" | "live" | "error";
 
 export const useNetworkStore = defineStore("network", () => {
@@ -73,7 +86,7 @@ export const useNetworkStore = defineStore("network", () => {
 
       // type filter
       if (type !== "All") {
-        if (type === "WS") return e.isWebSocket;
+        if (type === "WS" && !e.isWebSocket) return false;
         if (type === "XHR/Fetch") {
           const isXhrFetch =
             e.resourceType === "Fetch" ||
@@ -116,9 +129,7 @@ export const useNetworkStore = defineStore("network", () => {
           const payloadBody = _bodyCache.get(`${e.requestId}:payload`)?.text ?? "";
           const inBody =
             responseBody.toLowerCase().includes(q) || payloadBody.toLowerCase().includes(q);
-          const inReqHeaders = JSON.stringify(e.requestHeaders).toLowerCase().includes(q);
-          const inResHeaders = JSON.stringify(e.responseHeaders).toLowerCase().includes(q);
-          if (!inBody && !inReqHeaders && !inResHeaders) return false;
+          if (!inBody && !headerText(e).includes(q)) return false;
         } else {
           return false;
         }
@@ -128,8 +139,14 @@ export const useNetworkStore = defineStore("network", () => {
     });
   });
 
-  const selectedEntry = computed<NetworkEntry | null>(() =>
-    selectedId.value ? (_entries.get(selectedId.value) ?? null) : null,
+  const selectedEntry = computed<NetworkEntry | null>(() => {
+    void _version.value;
+    return selectedId.value ? (_entries.get(selectedId.value) ?? null) : null;
+  });
+
+  const hasActiveFilters = computed(
+    () =>
+      filterText.value.trim() !== "" || typeFilter.value !== "All" || methodFilter.value !== "All",
   );
 
   const requestCount = computed(() => {
@@ -271,6 +288,12 @@ export const useNetworkStore = defineStore("network", () => {
     _version.value++;
   }
 
+  function clearFilters() {
+    filterText.value = "";
+    typeFilter.value = "All";
+    methodFilter.value = "All";
+  }
+
   function select(id: string | null) {
     selectedId.value = id;
   }
@@ -304,6 +327,7 @@ export const useNetworkStore = defineStore("network", () => {
     allEntries,
     filteredEntries,
     selectedEntry,
+    hasActiveFilters,
     requestCount,
     retainedHistoryBytes,
     retainedBodyBytes,
@@ -314,6 +338,7 @@ export const useNetworkStore = defineStore("network", () => {
     getEntry,
     cacheBody,
     clear,
+    clearFilters,
     select,
     triggerFocusSearch,
     setCaptureState,

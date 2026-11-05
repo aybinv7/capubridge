@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import SortHeader from "../shared/SortHeader.vue";
+import SortHeader from "@/shared/components/presentation/SortHeader.vue";
 import type { FileSort, FileSortKey } from "./filePaths";
 import { FILE_LIST_COLUMNS } from "./filesView";
 

@@ -1,17 +1,18 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, shallowRef, watch } from "vue";
 import type { RouteLocationRaw } from "vue-router";
 import { Download, ExternalLink, FileWarning, RotateCw, Scale } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import type { DeviceFileListEntry } from "../filePaths";
 import HexView from "./HexView.vue";
-import ImageView from "./ImageView.vue";
-import JsonView from "./JsonView.vue";
+import ImageView from "@/shared/code-viewer/ImageView.vue";
+import JsonView from "@/shared/code-viewer/JsonView.vue";
 import MediaView from "./MediaView.vue";
 import SqliteView from "./SqliteView.vue";
-import TextView from "./TextView.vue";
+import TextView from "@/shared/code-viewer/TextView.vue";
 import ViewerStatus from "./ViewerStatus.vue";
 import type { ViewerContent, ViewerState } from "./viewerContent";
+import { truncationNote } from "./readPlan";
 import { readErrorSentence, tooLargeDetail } from "./viewerCopy";
 
 const props = defineProps<{
@@ -132,7 +133,7 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         />
         <ImageView
           v-else-if="content.kind === 'image'"
-          :content="content"
+          :blob="content.blob"
           :name="props.entry.name"
           @unreadable="markUnreadable"
         />
@@ -144,7 +145,10 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         />
         <JsonView
           v-else-if="content.kind === 'json'"
-          :content="content"
+          :text="content.text"
+          :pretty="content.pretty"
+          :parse="content.parse"
+          :truncation-note="content.truncation && truncationNote(content.truncation)"
           :find-signal="props.findSignal"
           @download="emit('download')"
         />
@@ -152,7 +156,7 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
           v-else-if="content.kind === 'text'"
           :text="content.text"
           :language="content.language"
-          :truncation="content.truncation"
+          :truncation-note="content.truncation && truncationNote(content.truncation)"
           :find-signal="props.findSignal"
           @download="emit('download')"
         />

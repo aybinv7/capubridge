@@ -8,9 +8,9 @@ import {
 } from "@tanstack/vue-table";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import type { AdbPackage } from "@/types/adb.types";
-import SortHeader from "../shared/SortHeader.vue";
-import { scrollTopToReveal } from "../shared/grid";
-import { optionId, rowStateClass } from "../shared/rowState";
+import SortHeader from "@/shared/components/presentation/SortHeader.vue";
+import { scrollTopToReveal } from "@/shared/list/grid";
+import { optionId, rowStateClass } from "@/shared/list/rowState";
 import AppIcon from "../AppIcon.vue";
 import AppRowActions from "./AppRowActions.vue";
 import { appDisplayName, type AppAction, type AppSort, type AppSortKey } from "./appsModel";
