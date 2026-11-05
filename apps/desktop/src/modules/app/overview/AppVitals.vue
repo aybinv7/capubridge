@@ -2,11 +2,10 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { StatusDot } from "@capubridge/cladd";
-import { formatBytes, formatPercent } from "@/shared/format/numbers";
+import { formatBytes } from "@/shared/format/numbers";
 import VitalTile from "@/shared/perf/VitalTile.vue";
 import { useAppSession } from "../appSession";
-
-const PERCENT_DOMAIN = [0, 100] as const;
+import { coresWords, cpuDomain, formatCpu } from "../process/cpuFormat";
 
 const router = useRouter();
 const { process, phase: processState } = useAppSession();
@@ -18,25 +17,16 @@ const running = computed(() => sample.value?.running === true);
 const live = computed(() => phase.value === "live");
 
 const memory = computed(() =>
-  running.value && sample.value ? formatBytes(sample.value.memory.totalPssKb * 1024) : "—",
-);
-const memoryDetail = computed(() =>
-  running.value && sample.value?.pid !== null && sample.value?.pid !== undefined
-    ? `PID ${sample.value.pid}`
-    : undefined,
+  running.value && sample.value?.memory ? formatBytes(sample.value.memory.totalPssKb * 1024) : "—",
 );
 const cpu = computed(() => (running.value ? (sample.value?.cpu?.totalPct ?? null) : null));
-const cpuDetail = computed(() => {
-  const reading = running.value ? sample.value?.cpu : null;
-  return reading
-    ? `${formatPercent(reading.userPct)} app · ${formatPercent(reading.kernelPct)} system`
-    : undefined;
-});
 const threads = computed(() => (running.value ? (sample.value?.threads ?? null) : null));
 
 const memoryValues = computed(() => process.values("pss"));
 const cpuValues = computed(() => process.values("cpu"));
 const threadValues = computed(() => process.values("threads"));
+const cpuScale = computed(() => cpuDomain(cpuValues.value));
+const hasThreads = computed(() => threadValues.value.some((value) => value !== null));
 
 function openPerformance() {
   void router.push({ name: "app-performance" });
@@ -53,31 +43,31 @@ function openPerformance() {
         v-if="paused || phase === 'error'"
         type="button"
         class="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        :title="phase === 'error' ? (error ?? undefined) : undefined"
+        :aria-description="phase === 'error' ? (error ?? undefined) : undefined"
         @click="paused ? process.resume() : process.retry()"
       >
         {{ paused ? "Resume" : "Try again" }}
       </button>
     </header>
-    <div class="grid grid-cols-1 gap-3 @lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-3" :class="hasThreads ? '@lg:grid-cols-3' : '@lg:grid-cols-2'">
       <VitalTile
         label="Memory"
         :value="memory"
-        :detail="memoryDetail"
         :values="memoryValues"
         :live="live"
         @open="openPerformance"
       />
       <VitalTile
         label="Processor"
-        :value="formatPercent(cpu)"
-        :detail="cpuDetail"
+        :value="formatCpu(cpu)"
+        :detail="coresWords(process.cores.value)"
         :values="cpuValues"
-        :domain="PERCENT_DOMAIN"
+        :domain="cpuScale"
         :live="live"
         @open="openPerformance"
       />
       <VitalTile
+        v-if="hasThreads"
         label="Threads"
         :value="threads === null ? '—' : threads.toLocaleString()"
         :values="threadValues"

@@ -55,11 +55,11 @@ verbatim into the module (`process/`, `package/`, `usage/`), with tests, and its
 ## Subject and data
 
 - [x] Subject = selected ADB target with a package; serial from the target, else the selected device → `subject/useInspectedApp.ts`; the package name must now pass `isPackageName` before any shell use (`subject/packageName.ts`, tested)
-- [x] Installed-package entry from the "all" listing, else the persisted cache → the "third-party" listing (an app under inspection is a user app, and listing every system package is slow), else the cached entry from either listing (`useInspectedApp.ts`)
+- [x] Installed-package entry from the "all" listing, else the persisted cache → the cached entry from either listing; only when the app is in neither is the phone asked, "third-party" first and then "all", once per app (round 1: system apps had no label or icon, and the listing was refetched on every mount). The cache lookup is reactive, so the title bar, gates, target list and Device's card pick the label up when it lands (`useInspectedApp.ts`, `src/composables/useAppPackages.ts`)
 - [x] Package details query, 15 s stale → same IPC, shared key `["package-details", serial, package]` with Device, 60 s stale (`PACKAGE_CACHE_STALE_MS`), one query for both tabs
-- [x] Package dump read once, shared by permissions, uid and Capacitor detection; Refresh re-reads it → TanStack query `["app-package-dump", …]`, 30 s stale, derived permissions / Capacitor / uid (`package/usePackageDump.ts`)
-- [x] Live process readings every 2.5 s → `process/useAppProcess.ts`: one shell per reading (`processRead.ts`), a self-scheduling timeout that waits for the previous read, only on Overview and Performance, paused while the window is hidden or by the person, late answers for another app dropped, history (5 min) cleared when the phone or package changes; tested in `__tests__/useAppProcess.test.ts`
-- [x] Parsers: meminfo, cpuinfo, permissions, xt_qtaguid, batterystats, Capacitor → `process/meminfo.ts`, `process/cpuinfo.ts`, `package/permissions.ts`, `package/capacitor.ts`, `usage/netstats.ts`, `usage/batterystats.ts` (tests in `__tests__/processRead.test.ts`, `packageDump.test.ts`, `usage.test.ts`)
+- [x] Package dump read once, shared by permissions, uid and Capacitor detection; Refresh re-reads it → the package details now carry the dump (`packageDump`, plus `userId` and `appId`, `src-tauri/src/commands/package_dump.rs`), which seeds the `["app-package-dump", …]` query; the dump is read on its own only to confirm a permission change (`package/usePackageDump.ts`)
+- [x] Live process readings every 2.5 s → `process/useAppProcess.ts` (round 1): `/proc/<pid>/stat` and `status` every 2.5 s on their own ADB connection beside the command queue (`useAdb().readShell`), `dumpsys meminfo --local` every fourth reading, `timeout 5` on the phone and a 6 s give-up on the desktop, only while the phone is online, every 10 s while the app has no process, 5 → 10 → 20 s after failures; the process of the inspected Android user is picked by uid; history kept per phone and app in `process/appProcessHistory.store.ts`, so leaving the route keeps it; "read now" never restarts the loop; tested in `__tests__/useAppProcess.test.ts`
+- [x] Parsers: meminfo, cpuinfo, permissions, xt_qtaguid, batterystats, Capacitor → `process/meminfo.ts` (App Summary), `process/procStat.ts` and `process/cpuMeter.ts` (replace `dumpsys cpuinfo`, whose window is minutes long), `package/permissions.ts` (per user), `package/capacitor.ts`, `usage/netstats.ts`, `usage/batterystats.ts` (uid block); tested against Android 16 output in `__tests__/android16.fixtures.ts`
 - [x] Everything resets when the phone or package changes → process history by subject key; queries keyed by serial + package; the WebView probe by target id
 
 ## Overview (`overview/`)
@@ -68,18 +68,18 @@ Header (`overview/AppHeader.vue`, `overview/AppActions.vue`, `lifecycle/useAppLi
 
 - [x] App icon → shared `AppIcon` (`src/shared/apps/AppIcon.vue`), greyed when the app is disabled
 - [x] Name: label, else the package → `targetAppName` (label, page title, address), the order the title bar uses; the package is the h1's tooltip and the first fact with copy
-- [x] Chips system / user, enabled / disabled, capacitor → only the notable ones: "System app", "Disabled" (yellow); the defaults are no longer chips; Capacitor moved to the "Bridge" fact with what the page itself reports
+- [x] Chips system / user, enabled / disabled, capacitor → only the notable ones: "System app", "Disabled" (yellow), from the app lists or, until they land, the package's own flags; the defaults are no longer chips; Capacitor moved to the "Bridge" fact with what the page itself reports
 - [x] Package name line (mono) → "Package" fact (mono, quiet, copy) in About this app, plus the palette command
-- [x] Open → toast "App launched" / "Failed to launch app" → solid "Open" ("Bring to front" with its icon while the app is in the background): "X opened on the phone" / "Could not open X"; bringing forward re-probes presence instead of a toast
+- [x] Open → toast "App launched" / "Failed to launch app" → "Open" ("Bring to front" with its icon while the app is in the background), solid only when it does something (not running, or in the background), quiet with a tooltip while the app is on screen: "X opened on the phone" / "Could not open X"; bringing forward re-probes presence instead of a toast; the phone starts it through the launcher intent, so a running task comes forward instead of stacking a second activity; DevTools is attached again when the link had dropped
 - [x] Stop → confirm → `am force-stop` → "App force stopped" → "Force stop" → shared confirm ("Force stop X?", neutral) → "X was stopped" (copy shared with Device › Apps)
 - [x] Clear → destructive confirm → `pm clear` → "App data cleared" + refetch, or "Clear data failed", any throw "Action failed" → "Clear data" → red confirm "Clear the data of X?" → "Data of X cleared" and details, dump, traffic and battery queries invalidated, or "Could not clear the data" with the output; a throw reads "Could not finish the action on X" (tested)
-- [x] New: "Restart" (force stop, then open, "X restarted"), buttons disabled while an action runs, the process read again after every action, "Show in the phone's app list" and "Refresh the app's details" icon actions
+- [x] New: "Restart" (force stop, then open, "X restarted", then DevTools attached to the new process's page), buttons disabled while an action runs and a palette action asked for meanwhile refused with a toast, the process read again after every action, "Show in the phone's app list" and "Refresh the app's details" icon actions
 
 App info strip
 
 - [x] Origin of the WebView page → "Page" fact: origin, the page title beside it, the full address on hover and copy (`overview/appFacts.ts`)
-- [x] Runtime: PSS · threads → "Right now" tiles Memory (PID in the detail) and Threads (`overview/AppVitals.vue`, shared `VitalTile`)
-- [x] Package: version name · target SDK → state line "Version 2.3.1 (45)" and the "Version" and "Android" facts
+- [x] Runtime: PSS · threads → "Right now" tiles Memory, Processor ("of 8 cores") and Threads, the Threads tile only once a value was read (`overview/AppVitals.vue`, shared `VitalTile`); the PID is said once, in the Process fact
+- [x] Package: version name · target SDK → the "Version" and "Android" facts (round 1: no longer repeated in the header's state line)
 - [x] Signals: network total · foreground CPU time → Performance › Totals so far (data used, processor time); shown where they are read rather than empty until another tab loaded them
 
 Storage details
@@ -96,39 +96,39 @@ Shortcuts
 Permissions (`overview/permissions/`)
 
 - [x] Loaded on open → the package dump query (read when the route opens, shared)
-- [x] Counts runtime / granted / denied / sensitive → one quiet line "N asked while running · N allowed · N denied · N sensitive"
+- [x] Counts runtime / granted / denied / sensitive → one quiet line "N asked while running · N allowed · N denied · N sensitive"; when every permission is sensitive, the count, the Sensitive filter and the "· sensitive" suffix are left out
 - [x] Filters All / Sensitive / Granted / Denied (local) → Cladd `Segmented` All / Sensitive / Allowed / Denied, still local
-- [x] Refresh (spinner) → `IconAction` "Read the permissions again" (loading while reading)
+- [x] Refresh (spinner) → the header's "Refresh the app's details" (round 1: the section's own refresh was a second button for the same read)
 - [x] Error banner with the raw error → "The phone did not send the app's permissions." + raw error + Try again
 - [x] Loading / "Refresh to load permissions" / "No permissions match filter" → "Reading the app's permissions" (spinner) / "The app asks for no permissions while it runs." / "No permission matches this filter." + Show all
-- [x] Rows: shield, short name, full name, group, Granted / Denied, flags → TanStack Table rows (`PermissionsTable.vue`): plain name ("Access fine location") over the full Android name (quiet mono; flags in its tooltip), group with "· sensitive", `StatusDot` + Allowed / Denied
+- [x] Rows: shield, short name, full name, group, Granted / Denied, flags → TanStack Table rows (`PermissionsTable.vue`): plain name ("Access fine location") over the full Android name (quiet mono; name and flags in a Cladd tooltip), group with "· sensitive", a Cladd `Switch` beside Allowed / Denied
 - [x] Order: denied, sensitive, group → default order "attention" (`permissionsView.ts`, tested); new sortable Permission / Group / State headers (third click returns to the default)
-- [x] Install-time permissions as chips → "Granted when installed" Cladd chips, prefix dropped
-- [x] New: Allow / Deny per row (`pm grant` / `pm revoke`, names checked before the shell; denying asks first because Android stops the app; disabled with the reason for system- or policy-fixed permissions; the dump is read again, and the process after a deny) (`usePermissionChange.ts`)
+- [x] Install-time permissions as chips → "Granted when installed": plain muted names ("Internet"), the Android name on hover, from the install grants the phone lists
+- [x] New: Allow / Deny per row with the switch (`pm grant` / `pm revoke --user <user>`, names checked before the shell; denying asks first because Android stops the app; disabled with the reason for system-fixed, policy-fixed and restricted (`APPLY_RESTRICTION`) permissions; the row shows the asked-for state and stays busy until the dump was read again; success only when Android reports the new state, else "Android kept X allowed"; the process read again after a deny) (`usePermissionChange.ts`, tested)
 
 ## Performance (`perf/`)
 
 - [x] Error banner "Native runtime stream failed" → `PerfStatusBar` "Stopped" (red mark) + "The phone did not answer about the app's process." with the raw error and Try again (`perf/AppPerformance.vue`)
-- [x] Memory composition bar and tiles Native / Dalvik / Code / Graphics / Stack / Other with MB and % → inside the Memory card: one bar and a legend with size and share per part, "Dalvik" now reads "Java" with the hint "The Android (Dalvik / ART) heap"; a neutral ramp instead of signal colours (`perf/MemoryComposition.vue`, `process/meminfo.ts` `memoryComposition`, tested)
+- [x] Memory composition bar and tiles Native / Dalvik / Code / Graphics / Stack / Other with MB and % → inside the Memory card: one bar and a compact legend grid from the App Summary, which adds up to the total: Java, Native, Graphics, Code, Stack, Other (hatched), Shared, Swapped (round 1: "Other" was 59–71 % because swap sat in the total but in no part); a neutral ramp instead of signal colours (`perf/MemoryComposition.vue`, `process/meminfo.ts`, tested)
 - [x] Empty "Native memory breakdown appears once …" → "The parts of the app's memory appear once its process is running."
-- [x] Header CPU now, total PSS, "Live 2.5s" / "Stopped" pill, PID → status bar (Live / Starting / Paused / Not running / Stale / Stopped, newest reading time, Pause / Resume) and card values; PID in Overview's Memory tile and Process fact
-- [x] CPU timeline (0–100 %) with average and peak → Processor card, same domain, "Average · peak", and the app / system split below the chart
+- [x] Header CPU now, total PSS, "Live 2.5s" / "Stopped" pill, PID → a top bar with only the newest reading time and "Pause readings" / "Resume readings" (`perf/ReadingBar.vue`); the state (Live / Starting / Paused / Not running / Stale / Stopped, "in the background, Android may freeze it") in the process section's header with its one Open / Bring to front; card values; PID in the Process fact
+- [x] CPU timeline (0–100 %) with average and peak → Processor card: the app's share of all cores, like Device reads the phone (round 1: it was one core's percent, 113 % against Device's 35 %), a scale of at least 0–10 % that grows to 100 %, plain ink (never error red for a busy app), "Average · peak", and the app / system split below the chart
 - [x] Native memory chart with average and peak → Memory card (MB axis)
-- [x] Thread count chart with now → Threads card, "Average · peak"
-- [x] 36-sample histories cleared on target change → 120 timed samples (`SampleRing`), cleared when the phone or package changes, gaps when the app was not running or reading paused
+- [x] Thread count chart with now → Threads card, "Average · peak", whole-number axis without repeated labels, shown once a value was read (from `/proc/<pid>/status`; Android 16's meminfo prints none)
+- [x] 36-sample histories cleared on target change → five minutes per phone and app in a store (readings every 2.5 s, memory every 10 s), gaps when the app was not running or reading paused; every chart on the page shares one five-minute window and now-edge
 - [x] WebView metrics: JS heap now, status word → shared `PerfWebView` (Live / Partial / Waiting / Stopped / In the background, with the source on hover)
 - [x] JS heap chart (used, total) with peak; DOM nodes with peak → shared `PerfWebView`: heap used and allocated (dashed), average and peak for both, DOM nodes with average and peak
-- [x] WebView reads with fallbacks, restart on target change, stop on leave → shared `useWebViewMetrics` (self-scheduling, 2 s timeout per call, `Performance.disable` on leave, paused with the window or the Pause button)
+- [x] WebView reads with fallbacks, restart on target change, stop on leave → shared `useWebViewMetrics` (self-scheduling, the selected target's own link, a 2 s limit passed to every DevTools call, a fallback that failed once not asked again, paused with the window, the Pause button and while the app is in the background, the Performance domain shared with Device and session recordings and turned off by its last holder: `src/shared/perf/webview/performanceDomain.ts`)
 
 ## Data Usage (merged into Performance › Totals so far, `perf/AppTotals.vue`)
 
 - [x] Loads network and battery counters when opened → TanStack queries when Performance opens, 30 s stale (`usage/useAppUsage.ts`)
-- [x] Status strip Network / Battery Ready / Unavailable + Refresh → each card says its own state; one `IconAction` "Read the totals again" re-reads the dump and both counters
-- [x] Network: uid, refresh, error, skeleton, "xt_qtaguid is restricted", "Refresh to load" → "Data used" card: spinner "Reading the app's traffic counters", error with the raw text, "This phone keeps per-app traffic counters private." + why (Android 10 and later) + "Open Network"; the uid is no longer shown (an internal number)
+- [x] Status strip Network / Battery Ready / Unavailable + Refresh → each card says its own state; one `IconAction` "Read the totals again" re-reads both counters (no longer the package dump)
+- [x] Network: uid, refresh, error, skeleton, "xt_qtaguid is restricted", "Refresh to load" → "Data used" card: the error first, then a spinner only while reading (round 1: it spun forever when the dump failed), one line "Android 10 and later keep per-app traffic private; Network lists what the WebView loads." + "Open Network"; the uid quietly in the card's corner, for the inspected user (user 10 reads 1010406)
 - [x] Wi-Fi received / sent, Mobile received / sent, Total transferred → rows Wi-Fi and Mobile data with ↓ / ↑ (screen-reader words Received / Sent), the total as the card value "Since the phone started"
-- [x] Battery: refresh, error, skeleton, "Refresh to load", no-data copy → "Battery use" card: spinner, error with raw text, "The phone has no battery figures for this app." + "They reset at every full charge, and some phones keep them private."
-- [x] Foreground / Background CPU with bars, Wake locks when above zero → "Processor, on screen" / "Processor, in the background" with bars, "Kept the phone awake" (wake locks) when above zero; their sum is the card value
-- [x] Raw `batterystats` output, folded → "Show what the phone printed" (folded, scrolls)
+- [x] Battery: refresh, error, skeleton, "Refresh to load", no-data copy → "Battery use" card: error, spinner, "No battery figures for this app since the last full charge." only when the phone printed no block for the app's uid
+- [x] Foreground / Background CPU with bars, Wake locks when above zero → round 1, from the app's uid block only (numbers were read from other lines before): "Processor, in the app's own code" / "in the system for it" with bars (Android 16 prints `Total cpu time: u=… s=…`; older phones a line per process), "On screen", "Kept the phone awake" (partial wake locks) and "Kept the screen on" (full) when above zero; days and hours are counted; the processor sum is the card value
+- [x] Raw `batterystats` output, folded → "Show what the phone printed": the app's block only, cut on the phone (folded, scrolls)
 
 ## Bugs fixed on the way (each with a test)
 
@@ -142,20 +142,54 @@ Permissions (`overview/permissions/`)
 - The external folder label and its target differed → one path from `appFolders`.
 - WebView metrics were a second implementation of Device's → the shared one (`Performance.disable` on leave, no pile-up).
 
+## Round 1 (review fixes)
+
+Reshaped by `app-review.md` round 1; the lines above are updated in place. New on top of them:
+
+- A target whose WebView does not name a valid app (`unknown`, or a `:process` suffix, which the
+  Rust side now strips) shows "This WebView does not name its app" with "Choose another WebView",
+  under the gate (`UnknownAppNotice.vue`), instead of spinners that never end.
+- One "Bring to front" per view (`src/composables/useBringToFrontOwner.ts`): the App routes own it
+  (route meta `ownsBringToFront`: the Overview header, the Performance process header); elsewhere
+  the phone column's pill while the stream shows, else the gate strip. The others only say the app
+  is in the background.
+- About this app › Bridge lists the plugins as quiet chips behind "N plugins"
+  (`src/shared/facts/FactList.vue`, `chips`); every hover text there is a Cladd tooltip.
+- The private data folder and `Android/data`, `media`, `obb` follow the Android user the app runs
+  as (`/data/user/10/…`, `/storage/emulated/10/…`), and an updated system app's factory copy no
+  longer overrides its version (`src-tauri/src/commands/package_dump.rs`, tested).
+
 ## Visual checks pending
 
-The dev app was not running (only the installed release build), so nothing here was looked at.
-Check in the dev app with the Redmi and Presalio Retail selected:
+Round 1 could not drive the app (the owner's window did not take the navigation keys, and it was
+left alone), so nothing from round 1 was looked at. The checks of the first pass above still
+stand where they are not replaced here. Check in the dev app with the Redmi and Presalio Retail:
 
-1. App › Overview, app on screen: header (icon 44 px, name, `Running` with a solid neutral dot, version in mono, no chips for a user app), the actions row (Open solid; Restart, Force stop, Clear data transparent), the two icon actions top right with their tooltips.
-2. "Right now" tiles: three across at full width and one column when the panel is narrow (container query `@lg`), sparklines filling and the live dot on the newest point, PID in the Memory tile.
-3. About this app: Package quiet mono with copy on hover, Page origin with the title beside it, WebView "Chrome …", Bridge "Capacitor · N plugins" with the plugin list on hover (or "from the package" when DevTools is not linked).
-4. Storage: size bar, folder rows open Device › Files at the right path, the four "Open in Data" buttons.
-5. Permissions: the summary line, the Segmented filter (selected segment foreground medium), rows at 30 px, Allow / Deny on the right, a policy-fixed one disabled with its tooltip, the deny confirmation, "Granted when installed" chips wrapping.
-6. Press Home on the phone: the gate strip and the header both say "In the background", Open becomes "Bring to front", the WebView section says "In the background", process readings keep coming (Live).
-7. Force stop from the header: the confirmation copy, then the header "Not running", the Process fact "Not running", the Memory tile "—"; App › Performance shows the "Open" notice above the charts and a gap in the charts.
-8. App › Performance: status bar (dot, word, sentence, time, Pause), Memory card spanning two columns with the composition bar and legend (neutral ramp legible in Bench Dark and Light), Processor and Threads side by side from `@3xl`, the WebView section, then Totals so far.
-9. Totals so far on the Redmi (Android 14): "Data used" should read "keeps per-app traffic counters private" with Open Network; "Battery use" with processor times, and "Show what the phone printed".
-10. `/app/data-usage` (type it, or an old history entry) lands on Performance scrolled to Totals so far.
-11. Palette (Ctrl+K) on the App route: the "App" group with the eight commands, titles naming the app.
-12. Device › Apps, Device › Overview and Device › Performance after the move to `src/shared`: icons, size breakdown, folders, confirm dialogs, vitals tiles, charts, WebView section unchanged.
+1. App › Overview, app on screen: header without the version; "Open" quiet with its tooltip;
+   Restart, Force stop, Clear data transparent.
+2. Home on the phone: the header says "In the background" and "Bring to front" turns solid; the
+   gate strip keeps its words but has no button; the phone column (open, streaming) shows no pill
+   on App routes and keeps it on Network.
+3. "Right now": Memory, Processor ("of 8 cores", one decimal below 10 %) and Threads (a number,
+   not "—") tiles.
+4. App › Performance: top bar with only the time and "Pause readings"; the process header with
+   dot, "Live", the background sentence when away, and its own Bring to front; the Memory legend in
+   a compact grid with Other hatched and Swapped as its own part, no part near 60 %; Processor close
+   to Device's figure for the same moment; Threads with a whole-number axis; the WebView charts end
+   at the same now-edge as the process charts.
+5. Leave App for Network and come back: the process charts keep their history.
+6. Totals so far: "Data used" with the one-line note, Open Network and "uid 10406" in the corner;
+   "Battery use" with app code, system, on screen and kept the screen on; the folded block holds
+   only the `u0a406` lines.
+7. Permissions: switches in 30 px rows; denying asks first, the row shows Denied with a spinner until
+   the re-read; a restricted permission is disabled with its tooltip; no Sensitive filter when every
+   row is sensitive; "Granted when installed" as plain names.
+8. Restart from the header: after the toast, the title-bar pill goes back to the app's page
+   (DevTools attached again) within a few seconds.
+9. The window narrowed to about 1000 px: the context pill truncates and "Record session" shows its
+   dot only.
+10. Network › Requests: an id-ending request reads "snapshot/…0001"; a request taking 1–3 s is in
+    ink, over 3 s in the warning colour; an open long-poll says Pending only in Status, its Time
+    counts up, Size "—". Network › Mocking names the app by its installed label.
+11. Device › Overview and Device › Performance after the shared WebView monitor change: the WebView
+    section says "In the background · Paused until the app is back on screen" while away.

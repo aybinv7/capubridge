@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
+
 const props = withDefaults(
   defineProps<{
     label: string;
@@ -12,9 +14,11 @@ const props = withDefaults(
 </script>
 
 <template>
-  <div class="flex flex-col gap-1.5 py-1.5" :title="props.hint">
+  <div class="flex flex-col gap-1.5 py-1.5">
     <div class="flex items-baseline justify-between gap-3">
-      <span class="text-xs text-muted-foreground">{{ props.label }}</span>
+      <HintTooltip :text="props.hint ?? null" position="top">
+        <span class="text-xs text-muted-foreground">{{ props.label }}</span>
+      </HintTooltip>
       <span class="font-mono text-sm text-foreground tabular-nums">{{ props.value }}</span>
     </div>
     <span

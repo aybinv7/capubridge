@@ -21,7 +21,7 @@ use crate::adb_runtime;
 use crate::blocking::run_blocking;
 use crate::commands::icon_gate::acquire_icon_permit;
 use crate::commands::package_sizes::package_sizes;
-use crate::commands::package_times::earliest_real_time;
+use crate::commands::package_dump::{external_dir_for_user, parse_package_dump};
 
 pub(crate) fn map_adb_server_err(err: impl std::fmt::Display) -> String {
     let msg = err.to_string();
@@ -243,17 +243,6 @@ fn list_package_names(device: &mut ADBServerDevice, cmd: &str) -> Vec<String> {
     }
 
     names
-}
-
-fn extract_token_value(line: &str, key: &str) -> Option<String> {
-    let start = line.find(key)? + key.len();
-    let rest = &line[start..];
-    let end = rest.find(char::is_whitespace).unwrap_or(rest.len());
-    let value = rest[..end].trim_matches(',').trim();
-    if value.is_empty() {
-        return None;
-    }
-    Some(value.to_string())
 }
 
 fn resolve_launchable_activity(
@@ -1214,6 +1203,12 @@ pub struct AdbPackageDetails {
     pub data_size: Option<u64>,
     pub cache_size: Option<u64>,
     pub launchable_activity: Option<String>,
+    /// The Android user the app was read for (`am get-current-user`).
+    pub user_id: u32,
+    /// The app's id without the user (`appId=` / `userId=`); its uid is `user_id * 100000 + app_id`.
+    pub app_id: Option<u32>,
+    /// The raw `dumpsys package` output, so the App route reads permissions without a second read.
+    pub package_dump: Option<String>,
 }
 
 pub(crate) fn adb_list_packages_inner(
@@ -1376,61 +1371,30 @@ fn adb_get_package_details_inner(
         ),
     );
     let sizes = package_sizes(&serial, &mut device, &package_name);
+    let facts = parse_package_dump(&package_dump, &package_name, current_user);
 
     let mut details = AdbPackageDetails {
         package_name: package_name.clone(),
         apk_path: get_package_apk_path(&mut device, &package_name, current_user),
-        version_name: None,
-        version_code: None,
-        first_install_time: None,
-        last_update_time: None,
-        min_sdk_version: None,
-        target_sdk_version: None,
-        installer_package_name: None,
-        data_dir: None,
-        external_data_dir: Some(format!("/sdcard/Android/data/{package_name}")),
-        media_dir: Some(format!("/sdcard/Android/media/{package_name}")),
-        obb_dir: Some(format!("/sdcard/Android/obb/{package_name}")),
+        version_name: facts.version_name,
+        version_code: facts.version_code,
+        first_install_time: facts.first_install_time,
+        last_update_time: facts.last_update_time,
+        min_sdk_version: facts.min_sdk_version,
+        target_sdk_version: facts.target_sdk_version,
+        installer_package_name: facts.installer_package_name,
+        data_dir: facts.data_dir,
+        external_data_dir: Some(external_dir_for_user("data", &package_name, current_user)),
+        media_dir: Some(external_dir_for_user("media", &package_name, current_user)),
+        obb_dir: Some(external_dir_for_user("obb", &package_name, current_user)),
         app_size: (sizes.app_size > 0).then_some(sizes.app_size),
         data_size: (sizes.data_size > 0).then_some(sizes.data_size),
         cache_size: (sizes.cache_size > 0).then_some(sizes.cache_size),
         launchable_activity: None,
+        user_id: current_user,
+        app_id: facts.app_id,
+        package_dump: (!package_dump.trim().is_empty()).then_some(package_dump),
     };
-
-    for line in package_dump.lines() {
-        let trimmed = line.trim();
-
-        if let Some(version_name) = trimmed.strip_prefix("versionName=") {
-            details.version_name = Some(version_name.to_string());
-        } else if let Some(first_install_time) = trimmed.strip_prefix("firstInstallTime=") {
-            details.first_install_time =
-                earliest_real_time(details.first_install_time.take(), first_install_time);
-        } else if let Some(last_update_time) = trimmed.strip_prefix("lastUpdateTime=") {
-            details.last_update_time = Some(last_update_time.to_string());
-        } else if let Some(installer_package_name) = trimmed.strip_prefix("installerPackageName=") {
-            details.installer_package_name = Some(installer_package_name.to_string());
-        } else if let Some(data_dir) = extract_token_value(trimmed, "dataDir=") {
-            details.data_dir = Some(data_dir);
-        } else if details.version_code.is_none() {
-            details.version_code = extract_token_value(trimmed, "versionCode=");
-        }
-
-        if details.min_sdk_version.is_none() {
-            details.min_sdk_version = extract_token_value(trimmed, "minSdk=")
-                .or_else(|| extract_token_value(trimmed, "minSdkVersion="))
-                .and_then(|value| value.parse::<u32>().ok());
-        }
-
-        if details.target_sdk_version.is_none() {
-            details.target_sdk_version = extract_token_value(trimmed, "targetSdk=")
-                .or_else(|| extract_token_value(trimmed, "targetSdkVersion="))
-                .and_then(|value| value.parse::<u32>().ok());
-        }
-    }
-
-    if details.data_dir.is_none() {
-        details.data_dir = Some(format!("/data/data/{package_name}"));
-    }
 
     details.launchable_activity =
         resolve_launchable_activity(&mut device, &package_name, current_user);
@@ -1467,19 +1431,32 @@ fn classify_am_start_output(trimmed: &str) -> Result<String, String> {
     Ok(trimmed.to_string())
 }
 
+/// Starts the app the way its launcher icon does: the MAIN / LAUNCHER intent brings a running
+/// task to the front instead of stacking a second copy of a standard-launch activity on it.
+fn launcher_start_command(user: u32, activity: &str) -> String {
+    format!(
+        "am start --user {user} -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n '{}' 2>&1",
+        shell_escape(activity)
+    )
+}
+
+/// The package that owns a process, from its `/proc/<pid>/cmdline`: the first argument without
+/// a `:process` suffix, so a WebView in `com.app:remote` belongs to `com.app`.
+fn package_from_cmdline(cmdline: &str) -> Option<String> {
+    let first = cmdline
+        .split(|c: char| c == '\0' || c.is_whitespace())
+        .next()?
+        .trim();
+    let package = first.split(':').next()?.trim();
+    (!package.is_empty()).then(|| package.to_string())
+}
+
 pub(crate) fn adb_open_package_inner(serial: &str, package_name: &str) -> Result<String, String> {
     let mut device = get_adb_device(serial)?;
 
     let current_user = get_current_user(&mut device);
     if let Some(activity) = resolve_launchable_activity(&mut device, &package_name, current_user) {
-        let output = shell_output(
-            &mut device,
-            &format!(
-                "am start --user {} -n '{}' 2>&1",
-                current_user,
-                shell_escape(&activity)
-            ),
-        );
+        let output = shell_output(&mut device, &launcher_start_command(current_user, &activity));
         return classify_am_start_output(output.trim());
     }
 
@@ -1707,13 +1684,7 @@ pub(crate) fn adb_list_webview_sockets_inner(serial: &str) -> Result<Vec<WebView
     for s in &mut sockets {
         if let Some(pid) = s.pid {
             let cmdline = shell_output(&mut device, &format!("cat /proc/{pid}/cmdline"));
-            let pkg = cmdline
-                .split(|c: char| c == '\0' || c == ' ')
-                .next()
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            if !pkg.is_empty() {
+            if let Some(pkg) = package_from_cmdline(&cmdline) {
                 s.package_name = Some(pkg);
             }
         }
@@ -1956,6 +1927,22 @@ mod tests {
 
         let output = "java.lang.SecurityException: Permission Denial";
         assert!(classify_am_start_output(output).is_err());
+    }
+
+    #[test]
+    fn launcher_start_uses_the_launcher_intent_for_the_user() {
+        assert_eq!(
+            launcher_start_command(10, "com.app/.MainActivity"),
+            "am start --user 10 -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n 'com.app/.MainActivity' 2>&1"
+        );
+    }
+
+    #[test]
+    fn package_from_cmdline_drops_the_process_suffix() {
+        assert_eq!(package_from_cmdline("com.app:remote\0\0").as_deref(), Some("com.app"));
+        assert_eq!(package_from_cmdline("com.app\0").as_deref(), Some("com.app"));
+        assert_eq!(package_from_cmdline("\0"), None);
+        assert_eq!(package_from_cmdline(""), None);
     }
 
     #[test]

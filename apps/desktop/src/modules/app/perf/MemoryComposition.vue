@@ -1,29 +1,34 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { AppMemInfo } from "@/types/app-inspector.types";
 import { formatBytes } from "@/shared/format/numbers";
-import { memoryComposition } from "../process/meminfo";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
+import { memoryComposition, type AppMemory, type MemoryPartKey } from "../process/meminfo";
 
-const TONES: Record<string, string> = {
-  native: "bg-foreground/85",
-  dalvik: "bg-foreground/62",
-  code: "bg-foreground/44",
-  graphics: "bg-foreground/30",
-  stack: "bg-foreground/18",
-  other: "bg-muted-foreground/25",
+const TONES: Record<MemoryPartKey, string> = {
+  java: "bg-foreground/85",
+  native: "bg-foreground/65",
+  graphics: "bg-foreground/48",
+  code: "bg-foreground/34",
+  stack: "bg-foreground/22",
+  other: "fill-hatch bg-muted-foreground/10",
+  shared: "bg-muted-foreground/35",
+  swapped: "bg-muted-foreground/20",
 };
 
-const props = defineProps<{ memory: AppMemInfo | null }>();
+const props = defineProps<{ memory: AppMemory | null }>();
 
 const segments = computed(() => memoryComposition(props.memory));
+const label = computed(() =>
+  segments.value.map((segment) => `${segment.label} ${Math.round(segment.share)}%`).join(", "),
+);
 </script>
 
 <template>
-  <div v-if="segments.length" class="flex flex-col gap-2">
+  <div v-if="segments.length" class="flex flex-col gap-2.5">
     <div
       class="flex h-2 gap-px overflow-hidden rounded-full bg-surface-cut shadow-cut"
       role="img"
-      :aria-label="segments.map((s) => `${s.label} ${Math.round(s.share)}%`).join(', ')"
+      :aria-label="label"
     >
       <span
         v-for="segment in segments"
@@ -33,29 +38,30 @@ const segments = computed(() => memoryComposition(props.memory));
         :style="{ width: `${segment.share}%` }"
       />
     </div>
-    <ul class="grid grid-cols-2 gap-x-4 gap-y-1 text-2xs text-muted-foreground @lg:grid-cols-3">
-      <li
-        v-for="segment in segments"
-        :key="segment.key"
-        class="flex min-w-0 items-center gap-1.5"
-        :title="segment.hint"
-      >
-        <span
-          class="size-1.5 shrink-0 rounded-full"
-          :class="TONES[segment.key]"
-          aria-hidden="true"
-        />
-        <span class="truncate">{{ segment.label }}</span>
-        <span class="ml-auto font-mono whitespace-nowrap text-foreground tabular-nums">
-          {{ formatBytes(segment.kb * 1024) }}
-        </span>
-        <span class="w-8 text-right font-mono text-[var(--fg-subtle)] tabular-nums">
-          {{ Math.round(segment.share) }}%
-        </span>
+    <ul
+      class="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-5 gap-y-1 text-2xs text-muted-foreground"
+    >
+      <li v-for="segment in segments" :key="segment.key">
+        <HintTooltip :text="segment.hint">
+          <span class="flex min-w-0 items-center gap-1.5">
+            <span
+              class="size-2 shrink-0 rounded-[2px]"
+              :class="TONES[segment.key]"
+              aria-hidden="true"
+            />
+            <span class="truncate">{{ segment.label }}</span>
+            <span class="ml-auto font-mono whitespace-nowrap text-foreground tabular-nums">
+              {{ formatBytes(segment.kb * 1024) }}
+            </span>
+            <span class="w-7 text-right font-mono text-[var(--fg-subtle)] tabular-nums">
+              {{ Math.round(segment.share) }}%
+            </span>
+          </span>
+        </HintTooltip>
       </li>
     </ul>
   </div>
   <p v-else class="text-xs text-muted-foreground">
-    The parts of the app's memory appear once its process is running.
+    The parts of the app's memory appear with its first memory report.
   </p>
 </template>

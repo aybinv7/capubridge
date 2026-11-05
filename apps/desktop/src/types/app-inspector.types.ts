@@ -1,22 +1,3 @@
-export interface AppMemInfo {
-  pid: number | null;
-  totalPssKb: number;
-  nativeHeapKb: number;
-  dalvikHeapKb: number;
-  codeKb: number;
-  stackKb: number;
-  graphicsKb: number;
-  otherKb: number;
-  threadCount: number | null;
-  isRunning: boolean;
-}
-
-export interface AppCpuInfo {
-  totalPct: number;
-  userPct: number;
-  kernelPct: number;
-}
-
 export interface AppPermission {
   name: string;
   shortName: string;
@@ -27,6 +8,8 @@ export interface AppPermission {
 
 export interface AppPermissionsData {
   requested: string[];
+  /** Permissions Android granted when the app was installed. */
+  installGranted: string[];
   runtime: AppPermission[];
 }
 
@@ -39,11 +22,21 @@ export interface AppNetworkStats {
   available: boolean;
 }
 
+/** What Android counted for the app since the last full charge, from its uid's block. */
 export interface AppBatteryStats {
-  fgCpuTimeMs: number;
-  bgCpuTimeMs: number;
-  wakelocksMs: number;
+  /** Processor time in the app's own code. */
+  cpuUserMs: number;
+  /** Processor time the kernel spent for it. */
+  cpuSystemMs: number;
+  /** Time the app was the one on screen. */
+  onScreenMs: number;
+  /** Time it held a partial wake lock, keeping the phone awake with the screen off. */
+  wakePartialMs: number;
+  /** Time it held a full wake lock, keeping the screen on. */
+  wakeFullMs: number;
+  /** Whether the phone printed a block for the app's uid at all. */
   hasData: boolean;
+  /** The app's block as the phone printed it. */
   raw: string;
 }
 

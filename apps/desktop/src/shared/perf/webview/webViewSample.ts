@@ -1,7 +1,5 @@
 import type { CDPClient } from "@capubridge/cdp-protocol";
-
-/** A CDP call that has not answered after this long is given up for this tick. */
-export const WEBVIEW_CALL_TIMEOUT_MS = 2000;
+import { PERFORMANCE_CALL_TIMEOUT_MS } from "./performanceDomain";
 
 export type WebViewSource = "none" | "performance" | "runtime-fallback";
 
@@ -12,18 +10,21 @@ export interface WebViewSample {
   source: WebViewSource;
 }
 
-const MB = 1024 * 1024;
-
-/** Resolves with the call's answer, or rejects once `timeoutMs` passes without one. */
-export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`No answer in ${timeoutMs} ms`)), timeoutMs);
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
+/**
+ * Which ways of reading the page work. A fallback that failed once is not asked again for this
+ * page, so a WebView without it costs nothing on later readings.
+ */
+export interface WebViewReadPlan {
+  performance: boolean;
+  heapFallback: boolean;
+  domFallback: boolean;
 }
+
+export function initialReadPlan(performance: boolean): WebViewReadPlan {
+  return { performance, heapFallback: true, domFallback: true };
+}
+
+const MB = 1024 * 1024;
 
 function finite(value: number | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -31,7 +32,7 @@ function finite(value: number | undefined): number | null {
 
 async function call<T>(client: CDPClient, method: string): Promise<T | null> {
   try {
-    return await withTimeout(client.send<T>(method, {}), WEBVIEW_CALL_TIMEOUT_MS);
+    return await client.send<T>(method, {}, undefined, { timeoutMs: PERFORMANCE_CALL_TIMEOUT_MS });
   } catch {
     return null;
   }
@@ -40,17 +41,18 @@ async function call<T>(client: CDPClient, method: string): Promise<T | null> {
 /**
  * Reads the page's JavaScript heap and DOM node count once. The Performance domain answers both;
  * when it is missing or silent, `Runtime.getHeapUsage` and `Memory.getDOMCounters` fill the gaps.
+ * Every call carries its own time limit, so a frozen page leaves nothing waiting behind it.
  */
 export async function readWebViewSample(
   client: CDPClient,
-  performanceEnabled: boolean,
+  plan: WebViewReadPlan,
 ): Promise<WebViewSample> {
   let heapUsedMb: number | null = null;
   let heapTotalMb: number | null = null;
   let nodes: number | null = null;
-  let fallback = !performanceEnabled;
+  let fallback = !plan.performance;
 
-  if (performanceEnabled) {
+  if (plan.performance) {
     const result = await call<{ metrics: Array<{ name: string; value: number }> }>(
       client,
       "Performance.getMetrics",
@@ -63,22 +65,24 @@ export async function readWebViewSample(
     nodes = finite(metrics.get("Nodes"));
   }
 
-  if (heapUsedMb === null || heapTotalMb === null) {
+  if ((heapUsedMb === null || heapTotalMb === null) && plan.heapFallback) {
     const heap = await call<{ usedSize: number; totalSize: number }>(
       client,
       "Runtime.getHeapUsage",
     );
     const used = finite(heap?.usedSize);
     const total = finite(heap?.totalSize);
-    if (used !== null || total !== null) fallback = true;
+    if (used === null && total === null) plan.heapFallback = false;
+    else fallback = true;
     heapUsedMb ??= used === null ? null : used / MB;
     heapTotalMb ??= total === null ? null : total / MB;
   }
 
-  if (nodes === null) {
+  if (nodes === null && plan.domFallback) {
     const counters = await call<{ nodes: number }>(client, "Memory.getDOMCounters");
     nodes = finite(counters?.nodes);
-    if (nodes !== null) fallback = true;
+    if (nodes === null) plan.domFallback = false;
+    else fallback = true;
   }
 
   const any = heapUsedMb !== null || heapTotalMb !== null || nodes !== null;

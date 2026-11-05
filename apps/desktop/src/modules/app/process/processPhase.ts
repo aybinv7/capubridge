@@ -1,5 +1,6 @@
 import type { AppPresence } from "@/lib/gates/presence";
 import type { StatusCopy, StatusMark } from "@/shared/perf/statusMark";
+import { PROCESS_PERIOD_MS } from "./processSample";
 
 /** Where the reading of the app's process stands, as the screen tells it. */
 export type ProcessPhase = "error" | "paused" | "starting" | "not-running" | "stale" | "live";
@@ -14,9 +15,6 @@ export interface ProcessPhaseInput {
   /** Milliseconds since the newest reading, `null` before the first one. */
   sinceLastSampleMs: number | null;
 }
-
-/** The process is read every this many milliseconds. */
-export const PROCESS_PERIOD_MS = 2500;
 
 /** A reading older than this is called stale: the phone stopped answering. */
 export const PROCESS_STALE_AFTER_MS = PROCESS_PERIOD_MS * 4;
@@ -40,6 +38,7 @@ export function processPhase(input: ProcessPhaseInput): ProcessPhase {
 export function processPhaseCopy(
   phase: ProcessPhase,
   sinceLastSampleMs: number | null,
+  inBackground = false,
 ): StatusCopy {
   switch (phase) {
     case "error":
@@ -61,7 +60,12 @@ export function processPhaseCopy(
       };
     }
     case "live":
-      return { label: "Live", detail: "Read from the phone every 2.5 seconds." };
+      return {
+        label: "Live",
+        detail: inBackground
+          ? "In the background, Android may freeze it."
+          : "Read from the phone every 2.5 seconds.",
+      };
   }
 }
 

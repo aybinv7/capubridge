@@ -2,6 +2,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { parsePermissions } from "../package/permissions";
 import {
   installTimePermissions,
+  fixedReason,
   isFixedPermission,
   matchesPermissionFilter,
   permissionChangeCommand,
@@ -46,8 +47,10 @@ describe("permissions view", () => {
     expect(permissionGroup({ shortName: "INTERNET" })).toBe("Other");
   });
 
-  test("install-time permissions are the requested ones that are not runtime", () => {
-    expect(installTimePermissions(data)).toEqual(["INTERNET"]);
+  test("install-time permissions are the granted install ones, in plain words", () => {
+    expect(installTimePermissions(data)).toEqual([
+      { name: "android.permission.INTERNET", label: "Internet" },
+    ]);
     expect(installTimePermissions(null)).toEqual([]);
   });
 
@@ -55,17 +58,20 @@ describe("permissions view", () => {
     expect(isFixedPermission({ flags: "POLICY_FIXED" })).toBe(true);
     expect(isFixedPermission({ flags: "USER_SET|SYSTEM_FIXED" })).toBe(true);
     expect(isFixedPermission({ flags: "USER_SET" })).toBe(false);
+    expect(isFixedPermission({ flags: "APPLY_RESTRICTION" })).toBe(true);
+    expect(fixedReason({ flags: "APPLY_RESTRICTION" })).toContain("restricts");
   });
 
   test("grant and revoke commands refuse names that could reach the shell", () => {
-    expect(permissionChangeCommand(PACKAGE, "android.permission.CAMERA", true)).toBe(
-      `pm grant ${PACKAGE} android.permission.CAMERA`,
+    expect(permissionChangeCommand(PACKAGE, "android.permission.CAMERA", true, 0)).toBe(
+      `pm grant --user 0 ${PACKAGE} android.permission.CAMERA`,
     );
-    expect(permissionChangeCommand(PACKAGE, "android.permission.CAMERA", false)).toBe(
-      `pm revoke ${PACKAGE} android.permission.CAMERA`,
+    expect(permissionChangeCommand(PACKAGE, "android.permission.CAMERA", false, 10)).toBe(
+      `pm revoke --user 10 ${PACKAGE} android.permission.CAMERA`,
     );
-    expect(permissionChangeCommand(PACKAGE, "x; reboot", true)).toBeNull();
-    expect(permissionChangeCommand("a b", "android.permission.CAMERA", true)).toBeNull();
+    expect(permissionChangeCommand(PACKAGE, "x; reboot", true, 0)).toBeNull();
+    expect(permissionChangeCommand("a b", "android.permission.CAMERA", true, 0)).toBeNull();
+    expect(permissionChangeCommand(PACKAGE, "android.permission.CAMERA", true, -1)).toBeNull();
   });
 
   test("pm prints nothing when it worked, and the reason when it did not", () => {

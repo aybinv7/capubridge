@@ -339,6 +339,14 @@
   outline-offset: -1px;
 }
 
+@utility fill-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--muted-foreground) 55%, transparent) 0 1px,
+    transparent 1px 4px
+  );
+}
+
 @utility prov-stale {
   background-image: repeating-linear-gradient(
     135deg,

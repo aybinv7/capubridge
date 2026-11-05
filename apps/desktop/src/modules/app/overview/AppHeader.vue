@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { LayoutList, RefreshCw } from "lucide-vue-next";
 import { Chip, StatusDot } from "@capubridge/cladd";
-import type { AdbPackage } from "@/types/adb.types";
 import AppIcon from "@/shared/apps/AppIcon.vue";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { StatusMark } from "@/shared/perf/statusMark";
 
@@ -10,11 +10,12 @@ const props = defineProps<{
   serial: string;
   packageName: string;
   name: string;
-  entry: AdbPackage | null;
+  iconPath: string | null;
   apkPath: string;
+  system: boolean;
+  enabled: boolean;
   runLabel: string;
   runMark: StatusMark;
-  version: string | null;
   refreshing: boolean;
 }>();
 
@@ -27,27 +28,21 @@ const emit = defineEmits<{ refresh: []; showInApps: [] }>();
       :serial="props.serial"
       :apk-path="props.apkPath"
       :package-name="props.packageName"
-      :icon-path="props.entry?.iconPath ?? null"
+      :icon-path="props.iconPath"
       :label="props.name"
       size="md"
       class="!size-11 shrink-0 !rounded-well"
-      :class="{ 'opacity-50 grayscale': props.entry?.enabled === false }"
+      :class="{ 'opacity-50 grayscale': !props.enabled }"
     />
     <div class="flex min-w-0 flex-1 flex-col gap-1">
-      <h1 class="truncate text-xl font-medium text-foreground" :title="props.packageName">
-        {{ props.name }}
-      </h1>
+      <HintTooltip :text="props.packageName" position="bottom">
+        <h1 class="truncate text-xl font-medium text-foreground">{{ props.name }}</h1>
+      </HintTooltip>
       <div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
         <StatusDot :color="props.runMark.color" :variant="props.runMark.variant" />
         <span class="shrink-0">{{ props.runLabel }}</span>
-        <template v-if="props.version">
-          <span aria-hidden="true" class="text-[var(--fg-subtle)]">·</span>
-          <span class="truncate font-mono text-2xs">Version {{ props.version }}</span>
-        </template>
-        <Chip v-if="props.entry?.system" size="xs" class="ml-1">System app</Chip>
-        <Chip v-if="props.entry?.enabled === false" size="xs" color="yellow" class="ml-1">
-          Disabled
-        </Chip>
+        <Chip v-if="props.system" size="xs" class="ml-1">System app</Chip>
+        <Chip v-if="!props.enabled" size="xs" color="yellow" class="ml-1">Disabled</Chip>
       </div>
     </div>
     <IconAction
@@ -60,6 +55,7 @@ const emit = defineEmits<{ refresh: []; showInApps: [] }>();
     </IconAction>
     <IconAction
       label="Refresh the app's details"
+      hint="Version, storage and permissions"
       :loading="props.refreshing"
       class="shrink-0"
       @click="emit('refresh')"

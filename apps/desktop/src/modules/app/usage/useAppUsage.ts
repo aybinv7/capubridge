@@ -2,7 +2,8 @@ import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { useAdb } from "@/composables/useAdb";
 import type { AppSubject } from "../subject/subject.types";
-import { parseBatteryStats } from "./batterystats";
+import { appUid, type AppIdentity } from "./appIdentity";
+import { batteryStatsCommand, batteryUidTag, parseBatteryStats } from "./batterystats";
 import { parseNetworkStats } from "./netstats";
 
 const USAGE_STALE_MS = 30_000;
@@ -18,48 +19,50 @@ export function usageKeys(subject: AppSubject | null) {
 
 /**
  * The app's traffic since the phone started and its battery use since the last full charge.
- * Both are read when a screen that shows them opens, never on a timer.
+ * Both are read when a screen that shows them opens, never on a timer. Readings run beside the
+ * phone's command queue; neither waits for anything but the app's identity.
  */
 export function useAppUsage(
   subject: Readonly<Ref<AppSubject | null>>,
-  /** The app's uid from its package dump; `undefined` until the dump is read. */
-  uid: Readonly<Ref<number | null | undefined>>,
+  /** `undefined` while the app's details are being read, `null` when they name no app id. */
+  identity: Readonly<Ref<AppIdentity | null | undefined>>,
 ) {
-  const { shellCommand } = useAdb();
+  const { readShell } = useAdb();
   const keys = computed(() => usageKeys(subject.value));
+  const uid = computed(() => (identity.value ? appUid(identity.value) : null));
+  const tag = computed(() =>
+    identity.value ? batteryUidTag(identity.value.user, identity.value.appId) : null,
+  );
+  const ready = computed(() => subject.value !== null && identity.value !== undefined);
 
   const network = useQuery({
     queryKey: computed(() => [...keys.value.network, uid.value ?? -1]),
-    queryFn: async ({ signal }) => {
+    queryFn: async () => {
       const current = subject.value;
-      const appUid = uid.value ?? null;
-      if (!current || appUid === null) return parseNetworkStats("", null);
-      const output = await shellCommand(
-        current.serial,
-        "cat /proc/net/xt_qtaguid/stats 2>/dev/null",
-        { signal },
-      );
-      return parseNetworkStats(output, appUid);
+      const appUidValue = uid.value;
+      if (!current || appUidValue === null) return parseNetworkStats("", null);
+      const output = await readShell(current.serial, "cat /proc/net/xt_qtaguid/stats 2>/dev/null");
+      return parseNetworkStats(output, appUidValue);
     },
-    enabled: computed(() => subject.value !== null && uid.value !== undefined),
+    enabled: ready,
     staleTime: USAGE_STALE_MS,
   });
 
   const battery = useQuery({
-    queryKey: computed(() => keys.value.battery),
-    queryFn: async ({ signal }) => {
+    queryKey: computed(() => [...keys.value.battery, tag.value ?? ""]),
+    queryFn: async () => {
       const current = subject.value;
-      if (!current) return parseBatteryStats("");
-      const output = await shellCommand(
+      const uidTag = tag.value;
+      if (!current || !uidTag) return parseBatteryStats("", null);
+      const output = await readShell(
         current.serial,
-        `dumpsys batterystats --charged ${current.packageName} 2>/dev/null | head -60`,
-        { signal },
+        batteryStatsCommand(current.packageName, uidTag),
       );
-      return parseBatteryStats(output);
+      return parseBatteryStats(output, uidTag);
     },
-    enabled: computed(() => subject.value !== null),
+    enabled: ready,
     staleTime: USAGE_STALE_MS,
   });
 
-  return { network, battery };
+  return { network, battery, uid };
 }

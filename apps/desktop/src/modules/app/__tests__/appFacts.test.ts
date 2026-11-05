@@ -75,7 +75,7 @@ describe("about this app", () => {
     expect(byKey.runtime).toMatchObject({
       value: "Capacitor",
       detail: "2 plugins",
-      hint: "App, Camera",
+      chips: ["App", "Camera"],
     });
     expect(byKey.process?.value).toBe("PID 4321");
   });

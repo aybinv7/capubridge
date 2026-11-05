@@ -97,7 +97,7 @@ function showInApps() {
       </span>
       <Button
         size="sm"
-        variant="transparent"
+        :variant="inBackground ? 'solid-fill' : 'transparent'"
         :loading="launching"
         content-class-name="gap-1.5 px-2.5 [&>svg]:size-3.5"
         @click="launch"

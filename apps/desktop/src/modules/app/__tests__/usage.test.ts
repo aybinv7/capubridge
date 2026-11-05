@@ -1,5 +1,13 @@
 import { describe, expect, test } from "vite-plus/test";
-import { formatDuration, parseBatteryStats } from "../usage/batterystats";
+import {
+  batteryStatsCommand,
+  batteryUidTag,
+  durationMs,
+  formatDuration,
+  parseBatteryStats,
+} from "../usage/batterystats";
+import { appUid } from "../usage/appIdentity";
+import { BATTERY_BLOCK, BATTERY_FULL } from "./android16.fixtures";
 import { networkTotal, parseNetworkStats } from "../usage/netstats";
 
 const QTAGUID = [
@@ -24,6 +32,11 @@ describe("traffic counters", () => {
     expect(networkTotal(stats)).toBe(4600);
   });
 
+  test("the uid joins the user and the app id", () => {
+    expect(appUid({ user: 0, appId: 10_406 })).toBe(10_406);
+    expect(appUid({ user: 10, appId: 10_406 })).toBe(1_010_406);
+  });
+
   test("no file (Android 10 and later) or no uid means the phone does not share them", () => {
     expect(parseNetworkStats("", 10234).available).toBe(false);
     expect(parseNetworkStats(QTAGUID, null).available).toBe(false);
@@ -31,27 +44,58 @@ describe("traffic counters", () => {
 });
 
 describe("battery counters", () => {
-  test("reads processor time and wake locks", () => {
+  test("reads only the app's uid block of Android 16's report", () => {
+    const stats = parseBatteryStats(BATTERY_BLOCK, "u0a406");
+    expect(stats).toMatchObject({
+      cpuUserMs: 21 * 60_000 + 3000 + 834,
+      cpuSystemMs: 10 * 60_000 + 10_000 + 711,
+      onScreenMs: 31 * 60_000 + 13_000 + 552,
+      wakeFullMs: 3 * 60_000 + 31_000 + 826,
+      wakePartialMs: 0,
+      hasData: true,
+    });
+    expect(stats.raw.startsWith("  u0a406:")).toBe(true);
+    expect(stats.raw).not.toContain("Per process state");
+  });
+
+  test("another uid's block earlier in the report is never read as the app's", () => {
+    const stats = parseBatteryStats(BATTERY_FULL, "u0a406");
+    expect(stats.cpuUserMs).toBe(21 * 60_000 + 3000 + 834);
+    expect(stats.wakePartialMs).toBe(0);
+    expect(stats.raw).not.toContain("1000:");
+  });
+
+  test("no block for the app means no figures, whatever else the phone printed", () => {
+    expect(parseBatteryStats(BATTERY_FULL, "u0a999").hasData).toBe(false);
+    expect(parseBatteryStats("", "u0a406").hasData).toBe(false);
+    expect(parseBatteryStats(BATTERY_BLOCK, null).hasData).toBe(false);
+  });
+
+  test("older phones print processor time per process", () => {
     const stats = parseBatteryStats(
-      [
-        "  Uid u0a234:",
-        "    Wake lock *alarm* realtime: 1m 2s 300ms",
-        "    Cpu total: 3m 12s 500ms usr + 1s sys",
-        "    Background Cpu total: 4s 20ms usr + 0ms sys",
-      ].join("\n"),
+      ["  u0a234:", "    Proc com.app:", "      CPU: 1m 2s 0ms usr + 850ms krn ; 0ms fg"].join(
+        "\n",
+      ),
+      "u0a234",
     );
-    expect(stats.fgCpuTimeMs).toBe(192_500);
-    expect(stats.bgCpuTimeMs).toBe(4020);
-    expect(stats.wakelocksMs).toBe(62_300);
-    expect(stats.hasData).toBe(true);
+    expect(stats.cpuUserMs).toBe(62_000);
+    expect(stats.cpuSystemMs).toBe(850);
   });
 
-  test("milliseconds alone are not read as minutes", () => {
-    expect(parseBatteryStats("Cpu total: 850ms usr + 0ms sys").fgCpuTimeMs).toBe(850);
+  test("durations keep days and hours, and milliseconds are not minutes", () => {
+    expect(durationMs("1d 2h 3m 4s 5ms")).toBe(86_400_000 + 7_200_000 + 180_000 + 4000 + 5);
+    expect(durationMs("10h 58m 24s 102ms")).toBe(36_000_000 + 3_480_000 + 24_000 + 102);
+    expect(durationMs("+6m2s504ms")).toBe(362_504);
+    expect(durationMs("850ms")).toBe(850);
   });
 
-  test("an empty answer has no data", () => {
-    expect(parseBatteryStats("").hasData).toBe(false);
+  test("the uid tag names the user and the app", () => {
+    expect(batteryUidTag(0, 10_406)).toBe("u0a406");
+    expect(batteryUidTag(10, 10_406)).toBe("u10a406");
+    expect(batteryUidTag(0, 1000)).toBe("1000");
+    expect(batteryStatsCommand("com.example.retail", "u0a406")).toBe(
+      "dumpsys batterystats --charged com.example.retail | sed -n -E '/^  u0a406:$/,/^ ?[^ ]/p'",
+    );
   });
 
   test("durations read in words", () => {
@@ -60,5 +104,7 @@ describe("battery counters", () => {
     expect(formatDuration(4200)).toBe("4.2 s");
     expect(formatDuration(192_500)).toBe("3 min 12 s");
     expect(formatDuration(120_000)).toBe("2 min");
+    expect(formatDuration(2 * 3_600_000 + 5 * 60_000)).toBe("2 h 5 min");
+    expect(formatDuration(86_400_000 + 3 * 3_600_000)).toBe("1 d 3 h");
   });
 });

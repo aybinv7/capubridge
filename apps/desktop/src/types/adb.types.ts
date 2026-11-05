@@ -49,6 +49,12 @@ export interface AdbPackageDetails {
   dataSize?: number | null;
   cacheSize?: number | null;
   launchableActivity?: string | null;
+  /** The Android user the app was read for. */
+  userId?: number;
+  /** The app's id without the user; its uid is `userId * 100000 + appId`. */
+  appId?: number | null;
+  /** The raw `dumpsys package` output the details were read from. */
+  packageDump?: string | null;
 }
 
 export interface ReverseRule {

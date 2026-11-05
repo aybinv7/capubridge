@@ -15,16 +15,13 @@ const props = defineProps<{
 
 const showRaw = ref(false);
 
-const scale = computed(() =>
-  Math.max(props.stats?.fgCpuTimeMs ?? 0, props.stats?.bgCpuTimeMs ?? 0, 1),
-);
-
 const processorTime = computed(() =>
-  props.stats?.hasData ? props.stats.fgCpuTimeMs + props.stats.bgCpuTimeMs : null,
+  props.stats?.hasData ? props.stats.cpuUserMs + props.stats.cpuSystemMs : null,
 );
 
 function meter(ms: number): number {
-  return Math.min(100, Math.max(0, (ms / scale.value) * 100));
+  const total = processorTime.value ?? 0;
+  return total > 0 ? Math.min(100, Math.max(0, (ms / total) * 100)) : 0;
 }
 </script>
 
@@ -35,43 +32,51 @@ function meter(ms: number): number {
     :detail="processorTime === null ? undefined : 'Processor time since the last full charge'"
   >
     <template #icon><BatteryMedium :size="13" :stroke-width="1.8" aria-hidden="true" /></template>
+    <div v-if="props.error" class="flex flex-col gap-0.5" role="alert">
+      <p class="text-xs text-foreground">The phone did not send the battery counters.</p>
+      <p class="font-mono text-2xs break-all text-error">{{ props.error }}</p>
+    </div>
     <div
-      v-if="props.loading && !props.stats"
+      v-else-if="props.loading && !props.stats"
       class="flex items-center gap-2 text-xs text-muted-foreground"
     >
       <Spinner size="xs" />
       Reading the battery counters
     </div>
-    <div v-else-if="props.error" class="flex flex-col gap-0.5" role="alert">
-      <p class="text-xs text-foreground">The phone did not send the battery counters.</p>
-      <p class="font-mono text-2xs break-all text-error">{{ props.error }}</p>
-    </div>
-    <div v-else-if="!props.stats?.hasData" class="flex flex-col gap-1">
-      <p class="text-xs text-muted-foreground">The phone has no battery figures for this app.</p>
-      <p class="text-2xs text-[var(--fg-subtle)]">
-        They reset at every full charge, and some phones keep them private.
-      </p>
-    </div>
+    <p v-else-if="!props.stats?.hasData" class="text-xs text-muted-foreground">
+      No battery figures for this app since the last full charge.
+    </p>
     <template v-else>
       <div class="flex flex-col">
         <UsageRow
-          label="Processor, on screen"
-          :value="formatDuration(props.stats.fgCpuTimeMs)"
-          :meter="meter(props.stats.fgCpuTimeMs)"
+          label="Processor, in the app's own code"
+          :value="formatDuration(props.stats.cpuUserMs)"
+          :meter="meter(props.stats.cpuUserMs)"
         />
         <UsageRow
-          label="Processor, in the background"
-          :value="formatDuration(props.stats.bgCpuTimeMs)"
-          :meter="meter(props.stats.bgCpuTimeMs)"
+          label="Processor, in the system for it"
+          :value="formatDuration(props.stats.cpuSystemMs)"
+          :meter="meter(props.stats.cpuSystemMs)"
         />
         <UsageRow
-          v-if="props.stats.wakelocksMs > 0"
+          v-if="props.stats.onScreenMs > 0"
+          label="On screen"
+          :value="formatDuration(props.stats.onScreenMs)"
+        />
+        <UsageRow
+          v-if="props.stats.wakePartialMs > 0"
           label="Kept the phone awake"
-          :value="formatDuration(props.stats.wakelocksMs)"
-          hint="Time the app held wake locks"
+          :value="formatDuration(props.stats.wakePartialMs)"
+          hint="Time the app held partial wake locks, with the screen off"
+        />
+        <UsageRow
+          v-if="props.stats.wakeFullMs > 0"
+          label="Kept the screen on"
+          :value="formatDuration(props.stats.wakeFullMs)"
+          hint="Time the app held full wake locks"
         />
       </div>
-      <div v-if="props.stats.raw.trim()" class="flex flex-col gap-1.5">
+      <div class="flex flex-col gap-1.5">
         <button
           type="button"
           class="flex items-center gap-1 self-start text-2xs text-muted-foreground hover:text-foreground"

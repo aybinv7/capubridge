@@ -1,4 +1,4 @@
-import { computed } from "vue";
+import { computed, shallowRef } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import {
   cancelListPackagesEffect,
@@ -13,6 +13,9 @@ export type PackageFetchScope = "third-party" | "all";
 
 export const PACKAGE_CACHE_STALE_MS = 60_000;
 const PACKAGE_STORAGE_PREFIX = "capubridge:device-apps:v1";
+
+/** Bumped whenever a listing lands, so `getCachedPackage` re-runs wherever it is rendered. */
+const cacheVersion = shallowRef(0);
 
 interface StoredPackagesCache {
   packages: AdbPackage[];
@@ -110,6 +113,7 @@ export function useAppPackages(serial: { value: string } | string) {
       queryClient.setQueryData(packageQueryKeyFor(serialValue, "third-party"), thirdPartyPackages);
       writeStoredPackages(serialValue, "third-party", thirdPartyPackages, updatedAt);
     }
+    cacheVersion.value += 1;
   }
 
   async function loadPackages(
@@ -234,6 +238,7 @@ export function useAppPackages(serial: { value: string } | string) {
   }
 
   function getCachedPackage(packageName: string): AdbPackage | null {
+    void cacheVersion.value;
     const currentSerial = activeSerial.value;
     if (!currentSerial) {
       return null;

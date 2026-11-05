@@ -20,7 +20,7 @@ const SOURCE_HINTS: Record<WebViewSource, string | null> = {
 
 /**
  * The WebView section's state word. An app in the background is said first: Android may freeze
- * it, so readings that keep arriving are not called live.
+ * it, so the readings pause until it is back on screen.
  */
 export function webViewStatusCopy(
   status: WebViewMetricsStatus,
@@ -28,10 +28,10 @@ export function webViewStatusCopy(
   presence: AppPresence,
 ): WebViewStatusCopy {
   const sourceHint = SOURCE_HINTS[source];
-  if (status !== "idle" && status !== "waiting" && presence === "background") {
+  if (presence === "background") {
     return {
       label: "In the background",
-      detail: "Readings may be frozen until the app is back on screen.",
+      detail: "Paused until the app is back on screen.",
       color: undefined,
       variant: "hollow",
       sourceHint,

@@ -1,11 +1,22 @@
 <script setup lang="ts">
-import { useId } from "vue";
+import { ref, useId } from "vue";
+import { ChevronDown } from "lucide-vue-next";
+import { Chip } from "@capubridge/cladd";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import type { Fact } from "./fact";
 
 const props = defineProps<{ title: string; facts: readonly Fact[] }>();
 
 const titleId = useId();
+const opened = ref<ReadonlySet<string>>(new Set());
+
+function toggle(key: string) {
+  const next = new Set(opened.value);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  opened.value = next;
+}
 </script>
 
 <template>
@@ -20,20 +31,50 @@ const titleId = useId();
         <dt class="text-xs text-muted-foreground">{{ fact.label }}</dt>
         <dd class="flex min-w-0 flex-col gap-1">
           <span class="flex min-w-0 items-baseline gap-2">
+            <HintTooltip :text="fact.hint ?? null">
+              <span
+                class="truncate"
+                :class="[
+                  fact.mono ? 'font-mono text-xs' : 'text-sm',
+                  fact.quiet ? 'text-muted-foreground' : 'text-foreground',
+                ]"
+              >
+                {{ fact.value }}
+              </span>
+            </HintTooltip>
             <span
-              class="truncate"
-              :class="[
-                fact.mono ? 'font-mono text-xs' : 'text-sm',
-                fact.quiet ? 'text-muted-foreground' : 'text-foreground',
-              ]"
-              :title="fact.hint ?? fact.value"
+              v-if="fact.detail && !fact.chips?.length"
+              class="shrink-0 text-xs text-[var(--fg-subtle)]"
             >
-              {{ fact.value }}
-            </span>
-            <span v-if="fact.detail" class="shrink-0 text-xs text-[var(--fg-subtle)]">
               {{ fact.detail }}
             </span>
+            <button
+              v-if="fact.chips?.length"
+              type="button"
+              class="flex shrink-0 items-center gap-1 text-xs text-[var(--fg-subtle)] hover:text-foreground"
+              :aria-expanded="opened.has(fact.key)"
+              @click="toggle(fact.key)"
+            >
+              {{ fact.detail ?? `${fact.chips.length}` }}
+              <ChevronDown
+                :size="12"
+                class="transition-transform duration-120"
+                :class="opened.has(fact.key) && 'rotate-180'"
+                aria-hidden="true"
+              />
+            </button>
           </span>
+          <ul
+            v-if="fact.chips?.length && opened.has(fact.key)"
+            class="flex flex-wrap gap-1 pt-0.5"
+            :aria-label="`${fact.label}: ${fact.detail ?? ''}`"
+          >
+            <li v-for="chip in fact.chips" :key="chip">
+              <Chip size="xs" variant="transparent" class="font-mono text-muted-foreground">
+                {{ chip }}
+              </Chip>
+            </li>
+          </ul>
           <span
             v-if="fact.meter !== undefined"
             class="h-1 max-w-80 overflow-hidden rounded-full bg-surface-cut shadow-cut"

@@ -1,4 +1,4 @@
-import { inject, provide, type InjectionKey, type Ref } from "vue";
+import { computed, inject, provide, type InjectionKey, type Ref } from "vue";
 import { useAppLifecycle, type AppLifecycle } from "./lifecycle/useAppLifecycle";
 import { usePackageDump } from "./package/usePackageDump";
 import { createAppProcess, type AppProcess } from "./process/useAppProcess";
@@ -11,21 +11,33 @@ export interface AppSession {
   phase: ReturnType<typeof useProcessPhase>;
   dump: ReturnType<typeof usePackageDump>;
   lifecycle: AppLifecycle;
+  /** System app and enabled, from the app lists, else from the package itself. */
+  flags: Readonly<Ref<{ system: boolean; enabled: boolean }>>;
 }
 
 const APP_SESSION: InjectionKey<AppSession> = Symbol("app-session");
 
 /**
  * Creates the App route's state once, above the gate, so moving between its tabs keeps the
- * readings; everything in it follows the selected app and starts over when it changes.
+ * readings; everything in it follows the selected app and starts over when it changes. The
+ * process is only read while a tab that shows it is open and the phone is online.
  */
 export function provideAppSession(processWanted: Readonly<Ref<boolean>>): AppSession {
   const app = createInspectedApp();
-  const process = createAppProcess(app.subject, processWanted);
+  const dump = usePackageDump(app.subject, app.details);
+  const user = computed(() => app.details.data.value?.userId ?? null);
+  const process = createAppProcess(
+    app.subject,
+    computed(() => processWanted.value && app.deviceOnline.value),
+    user,
+  );
   const phase = useProcessPhase(process, app.presence);
-  const dump = usePackageDump(app.subject);
-  const lifecycle = useAppLifecycle(app, process);
-  const session = { app, process, phase, dump, lifecycle };
+  const flags = computed(() => ({
+    system: app.entry.value?.system ?? dump.flags.value?.system ?? false,
+    enabled: app.entry.value?.enabled ?? dump.flags.value?.enabled ?? true,
+  }));
+  const lifecycle = useAppLifecycle(app, process, flags);
+  const session = { app, process, phase, dump, lifecycle, flags };
   provide(APP_SESSION, session);
   return session;
 }

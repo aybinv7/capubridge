@@ -41,9 +41,14 @@ describe("process phase", () => {
     expect(processPhaseCopy("not-running", null).label).toBe("Not running");
   });
 
-  test("an app in the background is still read live: Android reports its memory", () => {
+  test("an app in the background is still read live, and the status says it may freeze", () => {
     expect(processPhase(live)).toBe("live");
     expect(appRunCopy(appRunState(true, "background")).label).toBe("In the background");
+    expect(processPhaseCopy("live", null, true)).toEqual({
+      label: "Live",
+      detail: "In the background, Android may freeze it.",
+    });
+    expect(processPhaseCopy("live", null).detail).toBe("Read from the phone every 2.5 seconds.");
   });
 
   test("a phone that stopped answering is stale, with the age in words", () => {

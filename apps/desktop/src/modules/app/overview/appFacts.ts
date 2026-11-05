@@ -42,14 +42,14 @@ export function versionWords(details: AdbPackageDetails | undefined): string | n
 export function runtimeWords(
   runtime: WebViewRuntime | undefined,
   capacitor: AppCapacitorInfo | null,
-): { value: string; detail?: string; hint?: string; quiet?: boolean } | null {
+): { value: string; detail?: string; hint?: string; quiet?: boolean; chips?: string[] } | null {
   const bridge = runtime?.capacitor;
   if (bridge) {
     const count = bridge.plugins.length;
     return {
       value: bridge.native ? "Capacitor" : "Capacitor, running as a web page",
       detail: count ? `${count} plugin${count === 1 ? "" : "s"}` : undefined,
-      hint: count ? bridge.plugins.join(", ") : undefined,
+      chips: count ? bridge.plugins : undefined,
     };
   }
   if (runtime?.cordova) return { value: "Cordova" };

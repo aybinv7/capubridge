@@ -21,11 +21,6 @@ Uptime: 5123 Realtime: 5123
  Threads: 42
 `;
 
-export const MEMINFO_STOPPED = "No process found for: com.sig.presalio\n";
-
-export const CPUINFO_LINE =
-  "  12% 4321/com.sig.presalio: 8.5% user + 3.5% kernel / faults: 100 minor\n";
-
 export const PACKAGE_DUMP = `Packages:
   Package [com.sig.presalio] (abc123):
     userId=10234

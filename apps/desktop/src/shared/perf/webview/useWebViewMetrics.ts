@@ -1,37 +1,36 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 import { useConnectionStore } from "@/stores/connection.store";
+import { useTargetPresenceStore } from "@/stores/targetPresence.store";
+import { useTargetsStore } from "@/stores/targets.store";
 import type { SeriesPoint } from "../perfSeries";
 import { SampleRing } from "../sampleRing";
 import {
-  readWebViewSample,
-  WEBVIEW_CALL_TIMEOUT_MS,
-  withTimeout,
-  type WebViewSource,
-} from "./webViewSample";
+  holdPerformance,
+  PERFORMANCE_CALL_TIMEOUT_MS,
+  releasePerformance,
+} from "./performanceDomain";
+import { initialReadPlan, readWebViewSample, type WebViewSource } from "./webViewSample";
 
 export type WebViewMetricsStatus = "idle" | "waiting" | "active" | "degraded" | "error";
 
 const PERIOD_MS = 1000;
-const HISTORY_SAMPLES = 60;
-
-async function enable(client: CDPClient, method: string): Promise<boolean> {
-  try {
-    await withTimeout(client.send(method, {}), WEBVIEW_CALL_TIMEOUT_MS);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const DEFAULT_HISTORY_MS = 60_000;
 
 /**
- * JavaScript heap and DOM nodes of the connected WebView, read once a second while `active`.
- * Each read waits for the previous one, so a slow page never piles calls up; leaving turns the
- * Performance domain off again.
+ * JavaScript heap and DOM nodes of the selected target's WebView, read once a second while
+ * `active` and the app is on screen: Android may freeze an app in the background, and every
+ * call to it would wait out its time limit. Each read waits for the previous one; the
+ * Performance domain is shared with every other reader of the page and let go on leave.
  */
-export function useWebViewMetrics(active: Readonly<Ref<boolean>>) {
+export function useWebViewMetrics(
+  active: Readonly<Ref<boolean>>,
+  options: { historyMs?: number } = {},
+) {
   const connections = useConnectionStore();
-  const history = new SampleRing(HISTORY_SAMPLES, PERIOD_MS);
+  const targets = useTargetsStore();
+  const presence = useTargetPresenceStore();
+  const history = new SampleRing((options.historyMs ?? DEFAULT_HISTORY_MS) / PERIOD_MS, PERIOD_MS);
   const version = shallowRef(0);
 
   const status = ref<WebViewMetricsStatus>("idle");
@@ -41,31 +40,29 @@ export function useWebViewMetrics(active: Readonly<Ref<boolean>>) {
 
   let generation = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let enabledClient: CDPClient | null = null;
+  let heldClient: CDPClient | null = null;
 
   const targetId = computed(() => {
-    const connection = connections.activeConnection;
-    return connection?.status === "connected" ? connection.targetId : null;
+    const id = targets.selectedTarget?.id;
+    if (!id) return null;
+    return connections.connections.get(id)?.status === "connected" ? id : null;
   });
+  const inBackground = computed(() => presence.presence === "background");
+  const running = computed(() => active.value && !inBackground.value);
 
   function clearTimer() {
     if (timer) clearTimeout(timer);
     timer = null;
   }
 
-  async function disablePerformance() {
-    const client = enabledClient;
-    enabledClient = null;
-    if (!client) return;
-    try {
-      await withTimeout(client.send("Performance.disable", {}), WEBVIEW_CALL_TIMEOUT_MS);
-    } catch {
-      return;
-    }
+  function letGo() {
+    const client = heldClient;
+    heldClient = null;
+    if (client) void releasePerformance(client);
   }
 
-  async function tick(ticket: number, client: CDPClient, performanceEnabled: boolean) {
-    const sample = await readWebViewSample(client, performanceEnabled);
+  async function tick(ticket: number, client: CDPClient, plan: ReturnType<typeof initialReadPlan>) {
+    const sample = await readWebViewSample(client, plan);
     if (ticket !== generation) return;
     const now = Date.now();
     history.push(now, {
@@ -77,25 +74,28 @@ export function useWebViewMetrics(active: Readonly<Ref<boolean>>) {
     updatedAt.value = now;
     source.value = sample.source;
     status.value = sample.source === "performance" ? "active" : "degraded";
-    timer = setTimeout(() => void tick(ticket, client, performanceEnabled), PERIOD_MS);
+    timer = setTimeout(() => void tick(ticket, client, plan), PERIOD_MS);
   }
 
   async function begin(id: string) {
     const ticket = ++generation;
     const client = connections.getClient(id);
-    if (!client) {
-      status.value = "waiting";
-      return;
-    }
     status.value = "waiting";
+    if (!client) return;
     failure.value = null;
-    const performanceEnabled = await enable(client, "Performance.enable");
-    if (ticket !== generation) return;
-    if (performanceEnabled) enabledClient = client;
-    await enable(client, "Runtime.enable");
+    heldClient = client;
+    const performanceEnabled = await holdPerformance(client);
     if (ticket !== generation) return;
     try {
-      await tick(ticket, client, performanceEnabled);
+      await client.send("Runtime.enable", {}, undefined, {
+        timeoutMs: PERFORMANCE_CALL_TIMEOUT_MS,
+      });
+    } catch (err) {
+      console.warn("Runtime.enable did not answer for the WebView metrics", err);
+    }
+    if (ticket !== generation) return;
+    try {
+      await tick(ticket, client, initialReadPlan(performanceEnabled));
     } catch (err) {
       if (ticket !== generation) return;
       status.value = "error";
@@ -106,13 +106,13 @@ export function useWebViewMetrics(active: Readonly<Ref<boolean>>) {
   function end() {
     generation += 1;
     clearTimer();
-    void disablePerformance();
+    letGo();
     status.value = "idle";
     source.value = "none";
   }
 
   watch(
-    [active, targetId],
+    [running, targetId],
     ([run, id], previous) => {
       const previousId = previous?.[1];
       end();

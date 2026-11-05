@@ -3,20 +3,27 @@ import { computed } from "vue";
 import { RefreshCw } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { useAppSession } from "../appSession";
+import type { AppIdentity } from "../usage/appIdentity";
 import { useAppUsage } from "../usage/useAppUsage";
 import TotalsBattery from "./TotalsBattery.vue";
 import TotalsData from "./TotalsData.vue";
 
 const { app, dump } = useAppSession();
-const { network, battery } = useAppUsage(app.subject, dump.uid);
+const details = app.details;
 
-const networkError = computed(() => network.error.value ?? dump.query.error.value);
-const refreshing = computed(
-  () => network.isFetching.value || battery.isFetching.value || dump.query.isFetching.value,
+const identity = computed<AppIdentity | null | undefined>(() => {
+  const appId = dump.appId.value;
+  if (appId === null && (details.isLoading.value || dump.query.isLoading.value)) return undefined;
+  return appId === null ? null : { user: details.data.value?.userId ?? 0, appId };
+});
+const { network, battery, uid } = useAppUsage(app.subject, identity);
+
+const identityError = computed(() =>
+  identity.value === null ? (details.error.value ?? dump.query.error.value ?? null) : null,
 );
+const refreshing = computed(() => network.isFetching.value || battery.isFetching.value);
 
 async function refresh() {
-  await dump.query.refetch();
   await Promise.all([network.refetch(), battery.refetch()]);
 }
 </script>
@@ -35,13 +42,14 @@ async function refresh() {
     <div class="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
       <TotalsData
         :stats="network.data.value"
-        :loading="network.isPending.value"
-        :error="networkError"
+        :uid="uid"
+        :loading="network.isLoading.value || identity === undefined"
+        :error="network.error.value ?? identityError"
       />
       <TotalsBattery
         :stats="battery.data.value"
-        :loading="battery.isPending.value"
-        :error="battery.error.value"
+        :loading="battery.isLoading.value || identity === undefined"
+        :error="battery.error.value ?? identityError"
       />
     </div>
   </section>

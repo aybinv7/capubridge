@@ -44,10 +44,15 @@ export function useProcessPhase(process: AppProcess, presence: Readonly<Ref<AppP
     }),
   );
   const copy = computed(() =>
-    processPhaseCopy(phase.value, phase.value === "stale" ? sinceLastSampleMs.value : null),
+    processPhaseCopy(
+      phase.value,
+      phase.value === "stale" ? sinceLastSampleMs.value : null,
+      presence.value === "background",
+    ),
   );
   const mark = computed(() => processPhaseMark(phase.value));
-  const run = computed(() => appRunCopy(appRunState(running.value, presence.value)));
+  const runState = computed(() => appRunState(running.value, presence.value));
+  const run = computed(() => appRunCopy(runState.value));
 
-  return { phase, copy, mark, run, running };
+  return { phase, copy, mark, run, runState, running };
 }

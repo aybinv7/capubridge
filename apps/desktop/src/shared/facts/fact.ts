@@ -11,4 +11,6 @@ export interface Fact {
   hint?: string;
   /** 0–100 fill of a meter drawn under the value. */
   meter?: number;
+  /** Names listed under the value on request, as quiet chips (a bridge's plugins). */
+  chips?: readonly string[];
 }

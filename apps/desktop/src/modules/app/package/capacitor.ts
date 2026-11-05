@@ -20,9 +20,26 @@ export function detectCapacitor(packageDump: string): AppCapacitorInfo {
   };
 }
 
-/** The app's Linux user id (`userId=10234`), which keys its traffic counters, or `null`. */
-export function uidFromDump(packageDump: string): number | null {
-  const match = packageDump.match(/userId=(\d+)/);
-  const uid = match ? parseInt(match[1] ?? "", 10) : NaN;
-  return Number.isFinite(uid) && uid > 0 ? uid : null;
+/**
+ * The app's id without the user (`appId=10406` on Android 16, `userId=10234` before), or `null`.
+ * Its uid for a user is `user * 100000 + appId`.
+ */
+export function appIdFromDump(packageDump: string): number | null {
+  const match = packageDump.match(/^\s+(?:appId|userId)=(\d+)/m);
+  const id = match ? parseInt(match[1] ?? "", 10) : NaN;
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+/**
+ * Whether the package is a system app and whether it is enabled for `user`, from its flags and
+ * the user's `enabled=` state (0 default, 1 enabled, 2 and above disabled in some way).
+ */
+export function packageFlags(
+  packageDump: string,
+  user: number,
+): { system: boolean; enabled: boolean } {
+  const flags = packageDump.match(/^\s+(?:pkgFlags|flags)=\[([^\]]*)\]/m)?.[1] ?? "";
+  const section = packageDump.match(new RegExp(`^\\s+User ${user}:.*$`, "m"))?.[0] ?? "";
+  const state = parseInt(section.match(/\benabled=(\d+)/)?.[1] ?? "0", 10);
+  return { system: /\bSYSTEM\b/.test(flags), enabled: !(state >= 2) };
 }

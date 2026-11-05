@@ -18,7 +18,7 @@ import { openLabel } from "./lifecycle/lifecycle";
 /** The App route's palette commands, offered while an app is selected. */
 export function useAppCommands(session: AppSession) {
   const router = useRouter();
-  const { app, process, lifecycle, dump } = session;
+  const { app, process, lifecycle } = session;
   const hasApp = () => app.subject.value !== null;
 
   async function copyPackage() {
@@ -31,7 +31,7 @@ export function useAppCommands(session: AppSession) {
   }
 
   async function refresh() {
-    await Promise.all([app.details.refetch(), dump.query.refetch()]);
+    await app.details.refetch();
   }
 
   useCommandProvider("screen.app", () => {

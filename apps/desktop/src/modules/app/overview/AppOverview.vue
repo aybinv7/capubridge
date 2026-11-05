@@ -9,17 +9,16 @@ import AppActions from "./AppActions.vue";
 import AppHeader from "./AppHeader.vue";
 import AppStorage from "./AppStorage.vue";
 import AppVitals from "./AppVitals.vue";
-import { appFacts, versionWords } from "./appFacts";
+import { appFacts } from "./appFacts";
 import AppPermissions from "./permissions/AppPermissions.vue";
 
 const router = useRouter();
-const { app, process, phase, dump, lifecycle } = useAppSession();
+const { app, process, phase, dump, lifecycle, flags } = useAppSession();
 const { details, entry, name, packageName, serial, target } = app;
-const { busy, inBackground } = lifecycle;
 const runtime = useWebViewRuntime(app.presence);
 
 const apkPath = computed(() => entry.value?.apkPath ?? details.data.value?.apkPath ?? "");
-const version = computed(() => versionWords(details.data.value));
+const pid = computed(() => process.latest.value?.pid ?? null);
 const facts = computed(() =>
   appFacts({
     packageName: packageName.value,
@@ -28,13 +27,13 @@ const facts = computed(() =>
     pageTitle: target.value?.title ?? null,
     runtime: runtime.data.value,
     capacitor: dump.capacitor.value,
-    pid: process.latest.value?.pid ?? null,
+    pid: pid.value,
     running: phase.running.value,
   }),
 );
 
 function refresh() {
-  void Promise.all([details.refetch(), dump.query.refetch(), runtime.refetch()]);
+  void Promise.all([details.refetch(), runtime.refetch()]);
 }
 
 function showInApps() {
@@ -50,18 +49,19 @@ function showInApps() {
           :serial="serial"
           :package-name="packageName"
           :name="name"
-          :entry="entry"
+          :icon-path="entry?.iconPath ?? null"
           :apk-path="apkPath"
+          :system="flags.system"
+          :enabled="flags.enabled"
           :run-label="phase.run.value.label"
           :run-mark="phase.run.value.mark"
-          :version="version"
-          :refreshing="details.isFetching.value || dump.query.isFetching.value"
+          :refreshing="details.isFetching.value"
           @refresh="refresh"
           @show-in-apps="showInApps"
         />
         <AppActions
-          :busy="busy"
-          :in-background="inBackground"
+          :busy="lifecycle.busy.value"
+          :run-state="phase.runState.value"
           @open="lifecycle.open()"
           @restart="lifecycle.restart()"
           @force-stop="lifecycle.request('forceStop')"
@@ -72,7 +72,7 @@ function showInApps() {
       <AppVitals />
 
       <div
-        v-if="details.isPending.value"
+        v-if="details.isLoading.value"
         class="flex items-center gap-2 text-xs text-muted-foreground"
       >
         <Spinner size="xs" />

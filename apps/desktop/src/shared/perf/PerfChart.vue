@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/chart";
 import { formatClock } from "@/shared/format/numbers";
 import type { PerfChartLine } from "./perfChart.types";
-import { sampleAccessor, seriesYDomain, type SeriesPoint } from "./perfSeries";
+import { integerTicks, sampleAccessor, seriesYDomain, type SeriesPoint } from "./perfSeries";
 
 const MARGIN = { left: 4, right: 4, top: 6, bottom: 0 };
 const DASH = [4, 3];
@@ -30,8 +30,12 @@ const props = withDefaults(
     yDomain?: [number, number];
     yFormat?: (value: number) => string;
     yTicks?: number;
+    /** Whole numbers only: the y axis gets integer ticks and never repeats a label. */
+    integer?: boolean;
+    /** A time window shared with other charts on the page, so their time axes line up. */
+    xDomain?: [number, number];
   }>(),
-  { yDomain: undefined, yFormat: undefined, yTicks: 3 },
+  { yDomain: undefined, yFormat: undefined, yTicks: 3, integer: false, xDomain: undefined },
 );
 
 const root = ref<HTMLElement | null>(null);
@@ -55,6 +59,10 @@ const domain = computed<[number, number]>(() => {
     [0, 1],
   );
 });
+
+const yTickValues = computed(() =>
+  props.integer ? integerTicks(domain.value, props.yTicks) : undefined,
+);
 
 function timeLabel(point: number | Date): string {
   const time = point instanceof Date ? point.getTime() : point;
@@ -84,7 +92,13 @@ const xAccessor = (point: SeriesPoint) => point.x;
       :style="CONTAINER_STYLE"
       cursor
     >
-      <VisXYContainer :data="series" :y-domain="domain" :margin="MARGIN" :duration="0">
+      <VisXYContainer
+        :data="series"
+        :x-domain="props.xDomain"
+        :y-domain="domain"
+        :margin="MARGIN"
+        :duration="0"
+      >
         <template v-for="(line, index) in props.lines" :key="line.key">
           <VisArea
             v-if="!line.dashed"
@@ -108,6 +122,7 @@ const xAccessor = (point: SeriesPoint) => point.x;
         <VisAxis
           type="y"
           :num-ticks="props.yTicks"
+          :tick-values="yTickValues"
           :tick-format="yLabel"
           :tick-line="false"
           :domain-line="false"

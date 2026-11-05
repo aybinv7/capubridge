@@ -15,6 +15,7 @@ pub(crate) mod local_webview_probe;
 pub mod mirror;
 pub mod mock_server;
 pub mod opfs_pull;
+pub(crate) mod package_dump;
 pub(crate) mod package_sizes;
 pub(crate) mod package_times;
 pub mod perf;

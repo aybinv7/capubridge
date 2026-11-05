@@ -2,14 +2,17 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { ArrowDown, ArrowUp, Wifi } from "lucide-vue-next";
-import { Button, Spinner, StatusDot } from "@capubridge/cladd";
+import { Button, Spinner } from "@capubridge/cladd";
 import type { AppNetworkStats } from "@/types/app-inspector.types";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { formatBytes } from "@/shared/format/numbers";
 import PerfCard from "@/shared/perf/PerfCard.vue";
 import { networkTotal } from "../usage/netstats";
 
 const props = defineProps<{
   stats: AppNetworkStats | undefined;
+  /** The app's Linux uid, which keys its traffic counters. */
+  uid: number | null;
   loading: boolean;
   error: unknown;
 }>();
@@ -38,27 +41,34 @@ function openRequests() {
     :detail="total === null ? undefined : 'Since the phone started'"
   >
     <template #icon><Wifi :size="13" :stroke-width="1.8" aria-hidden="true" /></template>
+    <template #aside>
+      <HintTooltip
+        v-if="props.uid !== null"
+        text="The app's Linux user id, which keys its counters"
+      >
+        <span class="font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">
+          uid {{ props.uid }}
+        </span>
+      </HintTooltip>
+    </template>
+    <div v-if="props.error" class="flex flex-col gap-0.5" role="alert">
+      <p class="text-xs text-foreground">The phone did not send the traffic counters.</p>
+      <p class="font-mono text-2xs break-all text-error">{{ props.error }}</p>
+    </div>
     <div
-      v-if="props.loading && !props.stats"
+      v-else-if="props.loading && !props.stats"
       class="flex items-center gap-2 text-xs text-muted-foreground"
     >
       <Spinner size="xs" />
       Reading the app's traffic counters
     </div>
-    <div v-else-if="props.error" class="flex flex-col gap-0.5" role="alert">
-      <p class="text-xs text-foreground">The phone did not send the traffic counters.</p>
-      <p class="font-mono text-2xs break-all text-error">{{ props.error }}</p>
-    </div>
-    <div v-else-if="!props.stats?.available" class="flex flex-col items-start gap-2">
-      <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <StatusDot variant="hollow" />
-        This phone keeps per-app traffic counters private.
+    <div v-else-if="!props.stats?.available" class="flex items-center justify-between gap-3">
+      <p class="min-w-0 text-xs text-muted-foreground">
+        Android 10 and later keep per-app traffic private; Network lists what the WebView loads.
       </p>
-      <p class="text-2xs text-[var(--fg-subtle)]">
-        Android 10 and later do not share them over ADB. What the WebView itself loads is listed in
-        Network.
-      </p>
-      <Button size="sm" variant="transparent" @click="openRequests">Open Network</Button>
+      <Button size="sm" variant="transparent" class="shrink-0" @click="openRequests">
+        Open Network
+      </Button>
     </div>
     <dl v-else class="flex flex-col divide-y divide-border-subtle">
       <div

@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, ref, type Ref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { toast } from "vue-sonner";
 import { useAdb } from "@/composables/useAdb";
@@ -9,17 +9,32 @@ import type { InspectedApp } from "../subject/useInspectedApp";
 import { packageDetailsKey } from "../subject/useInspectedApp";
 import { usageKeys } from "../usage/useAppUsage";
 import { restartCommand, type LifecycleAction } from "./lifecycle";
+import { useReattach, type PreviousPage } from "./useReattach";
+
+const ACTION_WORDS: Record<string, string> = {
+  open: "opening",
+  restart: "restarting",
+  forceStop: "stopping",
+  clearData: "clearing",
+};
 
 /**
  * Open, restart, force stop and clear data for the inspected app. Force stop and clear data ask
- * first (`request`, then `confirm`); every outcome is said in a toast, and the readings that the
- * action changed are taken again.
+ * first (`request`, then `confirm`); every outcome is said in a toast, the readings the action
+ * changed are taken again, and DevTools is attached again when the app started anew. One action
+ * runs at a time; another one asked for meanwhile is refused with a word, never dropped silently.
  */
-export function useAppLifecycle(app: InspectedApp, process: AppProcess) {
+export function useAppLifecycle(
+  app: InspectedApp,
+  process: AppProcess,
+  flags: Readonly<Ref<{ system: boolean }>>,
+) {
   const { openPackage, shellCommand } = useAdb();
   const queryClient = useQueryClient();
+  const { reattach, linked } = useReattach();
   const pending = ref<LifecycleAction | null>(null);
-  const busy = ref(false);
+  const running = ref<string | null>(null);
+  const busy = computed(() => running.value !== null);
 
   const inBackground = computed(() => app.presence.value === "background");
   const subject = computed(() => {
@@ -30,7 +45,7 @@ export function useAppLifecycle(app: InspectedApp, process: AppProcess) {
           action: {
             name: app.name.value,
             packageName: current.packageName,
-            system: app.entry.value?.system ?? false,
+            system: flags.value.system,
           },
         }
       : null;
@@ -46,32 +61,68 @@ export function useAppLifecycle(app: InspectedApp, process: AppProcess) {
     pending.value && subject.value ? appActionRequest(pending.value, subject.value.action) : null,
   );
 
-  async function run(task: () => Promise<void>) {
-    if (busy.value) return;
-    busy.value = true;
+  async function run(action: string, task: () => Promise<void>) {
+    if (running.value) {
+      toast.info(`Still ${ACTION_WORDS[running.value] ?? "busy"}`, {
+        description: "Try again when the current action on the app has finished.",
+      });
+      return;
+    }
+    running.value = action;
     try {
       await task();
     } finally {
-      busy.value = false;
+      running.value = null;
       process.readNow();
     }
   }
 
-  async function launch(serial: string, packageName: string) {
-    await openPackage(serial, packageName);
-    app.probePresence();
+  function previousPage(): PreviousPage | null {
+    const target = app.target.value;
+    return target ? { id: target.id, url: target.url ?? null } : null;
+  }
+
+  let attaching: Promise<void> | null = null;
+
+  function attachAgain(
+    name: string,
+    serial: string,
+    packageName: string,
+    previous: PreviousPage | null,
+  ): Promise<void> {
+    attaching ??= reattach(serial, packageName, previous)
+      .then((back) => {
+        if (back) return;
+        toast.info(`${name} has no page to attach to yet`, {
+          description: "Use Reconnect in the strip above the screen once its page is back.",
+        });
+      })
+      .catch((err) => {
+        toast.error(`Could not attach DevTools to ${name} again`, { description: String(err) });
+      })
+      .finally(() => {
+        attaching = null;
+      });
+    return attaching;
   }
 
   function open() {
     const current = subject.value;
     if (!current) return Promise.resolve();
     const bringing = inBackground.value;
-    return run(async () => {
+    const previous = previousPage();
+    const wasLinked = linked();
+    return run("open", async () => {
       try {
-        await launch(current.serial, current.action.packageName);
+        await openPackage(current.serial, current.action.packageName);
+        app.probePresence();
         if (!bringing) toast.success(`${current.action.name} opened on the phone`);
       } catch (err) {
         toast.error(`Could not open ${current.action.name}`, { description: String(err) });
+        return;
+      }
+      if (!wasLinked) {
+        void attachAgain(current.action.name, current.serial, current.action.packageName, previous);
       }
     });
   }
@@ -79,19 +130,30 @@ export function useAppLifecycle(app: InspectedApp, process: AppProcess) {
   function restart() {
     const current = subject.value;
     if (!current) return Promise.resolve();
-    return run(async () => {
+    const previous = previousPage();
+    return run("restart", async () => {
       try {
         await shellCommand(current.serial, restartCommand(current.action.packageName));
-        await launch(current.serial, current.action.packageName);
+        await openPackage(current.serial, current.action.packageName);
+        app.probePresence();
         toast.success(`${current.action.name} restarted`);
       } catch (err) {
         toast.error(`Could not restart ${current.action.name}`, { description: String(err) });
+        return;
       }
+      void attachAgain(current.action.name, current.serial, current.action.packageName, previous);
     });
   }
 
   function request(action: LifecycleAction) {
-    if (subject.value) pending.value = action;
+    if (!subject.value) return;
+    if (running.value) {
+      toast.info(`Still ${ACTION_WORDS[running.value] ?? "busy"}`, {
+        description: "Try again when the current action on the app has finished.",
+      });
+      return;
+    }
+    pending.value = action;
   }
 
   function confirm() {
@@ -99,7 +161,7 @@ export function useAppLifecycle(app: InspectedApp, process: AppProcess) {
     const current = subject.value;
     pending.value = null;
     if (!action || !current) return Promise.resolve();
-    return run(async () => {
+    return run(action, async () => {
       try {
         const output = await shellCommand(current.serial, appActionCommand(action, current.action));
         const outcome = appActionOutcome(action, current.action, output);
@@ -130,6 +192,7 @@ export function useAppLifecycle(app: InspectedApp, process: AppProcess) {
 
   return {
     busy,
+    running,
     inBackground,
     open,
     restart,

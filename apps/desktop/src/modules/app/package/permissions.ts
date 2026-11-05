@@ -49,44 +49,70 @@ export function shortPermissionName(name: string): string {
     .replace(/^[^.]+\.permission\./, "");
 }
 
+type Section = "requested" | "install" | "runtime";
+
+const SECTIONS: Record<string, Section> = {
+  "requested permissions:": "requested",
+  "install permissions:": "install",
+  "runtime permissions:": "runtime",
+};
+
+const GRANT = /^([\w.]+):\s+granted=(true|false)(?:,\s*flags=\[([^\]]*)\])?/;
+
+function indentOf(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
 /**
- * Reads the permission sections of `dumpsys package <package>`: what the app asks for, and its
- * runtime permissions with their grant state and flags.
+ * Reads the permission sections of `dumpsys package <package>` for one Android user: what the
+ * app asks for, what Android granted at install, and the user's runtime permissions with their
+ * state and flags. Other users' sections and a hidden factory copy of the package are skipped,
+ * so a phone with a second user never shows a permission twice.
  */
-export function parsePermissions(output: string): AppPermissionsData {
-  let inRequested = false;
-  let inRuntime = false;
+export function parsePermissions(output: string, user = 0): AppPermissionsData {
   const requested: string[] = [];
+  const installGranted: string[] = [];
   const runtime: AppPermission[] = [];
+  let packages = 0;
+  let section: { kind: Section; indent: number } | null = null;
+  let userSection: { id: number; indent: number } | null = null;
 
   for (const line of output.split("\n")) {
     const trimmed = line.trim();
-    if (trimmed === "requested permissions:") {
-      inRequested = true;
-      inRuntime = false;
+    if (!trimmed) continue;
+    const indent = indentOf(line);
+    if (trimmed.startsWith("Package [")) {
+      packages += 1;
+      section = null;
+      userSection = null;
       continue;
     }
-    if (trimmed === "runtime permissions:") {
-      inRuntime = true;
-      inRequested = false;
+    if (packages > 1) break;
+    if (section && indent <= section.indent) section = null;
+    if (userSection && indent <= userSection.indent) userSection = null;
+
+    const header = trimmed.match(/^User (\d+):/);
+    if (header) {
+      userSection = { id: parseInt(header[1] ?? "", 10), indent };
+      section = null;
       continue;
     }
-    if (
-      trimmed === "install permissions:" ||
-      trimmed === "declared permissions:" ||
-      trimmed === "User Restrictions" ||
-      (trimmed.endsWith(":") && !trimmed.startsWith("android.") && !trimmed.includes("granted="))
-    ) {
-      inRequested = false;
-      inRuntime = false;
+    const kind = SECTIONS[trimmed];
+    if (kind) {
+      section = { kind, indent };
       continue;
     }
-    if (inRequested && trimmed.startsWith("android.")) {
-      const clean = trimmed.split(/\s+/)[0];
-      if (clean) requested.push(clean);
-    }
-    if (inRuntime) {
-      const match = trimmed.match(/^([\w.]+):\s+granted=(true|false),\s*flags=\[([^\]]*)\]/);
+    if (!section) continue;
+    const mine = userSection === null || userSection.id === user;
+
+    if (section.kind === "requested" && userSection === null) {
+      const name = trimmed.split(/[\s:]/)[0];
+      if (name) requested.push(name);
+    } else if (section.kind === "install" && mine) {
+      const match = trimmed.match(GRANT);
+      if (match?.[1] && match[2] === "true") installGranted.push(match[1]);
+    } else if (section.kind === "runtime" && userSection?.id === user) {
+      const match = trimmed.match(GRANT);
       if (match?.[1]) {
         const shortName = shortPermissionName(match[1]);
         runtime.push({
@@ -100,5 +126,5 @@ export function parsePermissions(output: string): AppPermissionsData {
     }
   }
 
-  return { requested, runtime };
+  return { requested, installGranted, runtime };
 }

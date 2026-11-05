@@ -5,6 +5,7 @@ import {
   subscribeSessionEventsEffect,
 } from "@/runtime/session";
 import type { CDPClient } from "@capubridge/cdp-protocol";
+import { holdPerformance, releasePerformance } from "@/shared/perf/webview/performanceDomain";
 import type { useSessionWriter } from "./useSessionWriter";
 import type { PerfCapuSample } from "@/types/replay.types";
 import type { SessionEvent } from "@/types/session.types";
@@ -27,6 +28,7 @@ export function usePerfRecorder(
   let cdpTimer: ReturnType<typeof setInterval> | null = null;
   let stopEvents: (() => void) | null = null;
   let performanceEnabled = false;
+  let performanceHeld = false;
   let sampleCount = 0;
 
   function handleSessionEvent(event: SessionEvent) {
@@ -67,12 +69,8 @@ export function usePerfRecorder(
 
   async function startCdpPolling() {
     if (!client) return;
-    try {
-      await client.send("Performance.enable", {});
-      performanceEnabled = true;
-    } catch {
-      void 0;
-    }
+    performanceHeld = true;
+    performanceEnabled = await holdPerformance(client);
     try {
       await client.send("Runtime.enable", {});
     } catch {
@@ -160,12 +158,9 @@ export function usePerfRecorder(
       void 0;
     }
 
-    if (client && performanceEnabled) {
-      try {
-        await client.send("Performance.disable", {});
-      } catch {
-        void 0;
-      }
+    if (client && performanceHeld) {
+      performanceHeld = false;
+      await releasePerformance(client);
     }
   }
 

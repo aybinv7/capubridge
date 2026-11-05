@@ -68,3 +68,12 @@ export function seriesValues(series: readonly SeriesPoint[], key: string): Array
     return typeof value === "number" && Number.isFinite(value) ? value : null;
   });
 }
+
+/** Up to `count` whole-number ticks from 0 to the top of `domain`, none repeated. */
+export function integerTicks(domain: readonly [number, number], count: number): number[] {
+  const top = Math.max(1, Math.round(domain[1]));
+  const steps = Math.max(1, count - 1);
+  const ticks = new Set<number>();
+  for (let index = 0; index <= steps; index += 1) ticks.add(Math.round((top * index) / steps));
+  return [...ticks];
+}

@@ -94,6 +94,14 @@ export function useAdb() {
     });
   }
 
+  /**
+   * Runs a read-only shell command on its own ADB connection instead of the device's command
+   * queue, so frequent readings never wait behind, or hold up, actions the person started.
+   */
+  async function readShell(serial: string, command: string): Promise<string> {
+    return invokeCommand("adb_shell_command", { serial, command });
+  }
+
   async function connectDevice(host: string, port: number) {
     await invokeCommand("adb_connect_device", { host, port });
   }
@@ -199,6 +207,7 @@ export function useAdb() {
     refreshDevices,
     getDeviceOverview,
     shellCommand,
+    readShell,
     connectDevice,
     disconnectDevice,
     pairDevice,

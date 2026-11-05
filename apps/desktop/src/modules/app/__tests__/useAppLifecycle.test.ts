@@ -9,14 +9,32 @@ import { PACKAGE } from "./fixtures";
 const calls = vi.hoisted(() => ({
   log: [] as string[],
   shellOutput: "",
-  toasts: [] as Array<{ kind: "success" | "error"; title: string }>,
+  toasts: [] as Array<{ kind: "success" | "error" | "info"; title: string }>,
   invalidated: [] as unknown[][],
+  linked: true,
+  reattached: [] as Array<{ id: string; url: string | null } | null>,
+  release: null as null | (() => void),
+}));
+
+vi.mock("../lifecycle/useReattach", () => ({
+  useReattach: () => ({
+    linked: () => calls.linked,
+    reattach: async (
+      _serial: string,
+      _packageName: string,
+      previous: { id: string; url: string | null } | null,
+    ) => {
+      calls.reattached.push(previous);
+      return true;
+    },
+  }),
 }));
 
 vi.mock("@/composables/useAdb", () => ({
   useAdb: () => ({
     openPackage: async (serial: string, packageName: string) => {
       calls.log.push(`open ${serial} ${packageName}`);
+      if (calls.release) await new Promise<void>((resolve) => (calls.release = resolve));
       return "";
     },
     shellCommand: async (serial: string, command: string) => {
@@ -30,6 +48,7 @@ vi.mock("vue-sonner", () => ({
   toast: {
     success: (title: string) => calls.toasts.push({ kind: "success", title }),
     error: (title: string) => calls.toasts.push({ kind: "error", title }),
+    info: (title: string) => calls.toasts.push({ kind: "info", title }),
   },
 }));
 
@@ -54,13 +73,20 @@ function mount(subjectValue: AppSubject | null, presenceValue: AppPresence = "fo
     subject,
     name: computed(() => "Presalio Retail"),
     entry: computed(() => null),
+    target: computed(() => ({ id: "page-1", url: "https://localhost/" })),
     presence: computed(() => presence.value),
     probePresence,
   } as unknown as InspectedApp;
   const process = { readNow } as unknown as AppProcess;
   const scope = effectScope();
   scopes.push(scope);
-  const lifecycle = scope.run(() => useAppLifecycle(app, process));
+  const lifecycle = scope.run(() =>
+    useAppLifecycle(
+      app,
+      process,
+      computed(() => ({ system: false })),
+    ),
+  );
   if (!lifecycle) throw new Error("scope did not run");
   return { lifecycle, probePresence, readNow, presence };
 }
@@ -71,6 +97,9 @@ afterEach(() => {
   calls.toasts.length = 0;
   calls.invalidated.length = 0;
   calls.shellOutput = "";
+  calls.linked = true;
+  calls.reattached.length = 0;
+  calls.release = null;
 });
 
 const SUBJECT = { serial: "phone-a", packageName: PACKAGE };
@@ -85,6 +114,38 @@ describe("useAppLifecycle", () => {
     ]);
     expect(calls.toasts).toEqual([{ kind: "success", title: "Presalio Retail restarted" }]);
     expect(readNow).toHaveBeenCalled();
+  });
+
+  it("restart attaches DevTools to the new process's page, never the dead one", async () => {
+    const { lifecycle } = mount(SUBJECT);
+    await lifecycle.restart();
+    await Promise.resolve();
+    expect(calls.reattached).toEqual([{ id: "page-1", url: "https://localhost/" }]);
+  });
+
+  it("opening an app whose link dropped attaches again; a live link is left alone", async () => {
+    const { lifecycle } = mount(SUBJECT);
+    await lifecycle.open();
+    expect(calls.reattached).toEqual([]);
+    calls.linked = false;
+    await lifecycle.open();
+    await Promise.resolve();
+    expect(calls.reattached).toHaveLength(1);
+  });
+
+  it("an action asked for while another runs is refused with a word, not dropped", async () => {
+    const { lifecycle } = mount(SUBJECT);
+    calls.release = () => undefined;
+    const first = lifecycle.open();
+    expect(lifecycle.busy.value).toBe(true);
+    await lifecycle.restart();
+    lifecycle.request("forceStop");
+    expect(lifecycle.confirmOpen.value).toBe(false);
+    expect(calls.toasts.filter((toast) => toast.kind === "info")).toHaveLength(2);
+    calls.release?.();
+    await first;
+    expect(lifecycle.busy.value).toBe(false);
+    expect(calls.log).toEqual([`open phone-a ${PACKAGE}`]);
   });
 
   it("an app in the background is brought to the front without a toast", async () => {
