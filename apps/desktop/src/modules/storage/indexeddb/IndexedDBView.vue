@@ -16,6 +16,7 @@ import type { DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
 import { useIndexedDBChangeIndex } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 import { useIndexedDBChangesLease } from "@/modules/storage/changes/useIndexedDBChangesTracking";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
+import { buildStoreKey } from "@/modules/storage/changes/indexeddbChanges.service";
 import IdbDatabaseView from "./IdbDatabaseView.vue";
 import IdbStoreView from "./IdbStoreView.vue";
 import {
@@ -88,6 +89,8 @@ const sections = computed(() =>
     settings: (sourceId) => settings.source(scope.value, sourceId),
     databaseChanges: (origin, db) => getDatabaseSummary(origin, db),
     storeChanges: (origin, db, store) => getStoreSummary(origin, db, store),
+    storeWatched: (origin, db, store) =>
+      changes.getSnapshot(buildStoreKey(origin, db, store))?.tracked,
     counts: countsByStore(catalog.storeInfo.value),
     openSourceId: openSourceId.value,
   }),

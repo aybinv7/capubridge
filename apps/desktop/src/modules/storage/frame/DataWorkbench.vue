@@ -2,7 +2,7 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import type { DataKind } from "./dataFrame.types";
 
-/** Sources on the left, the open collection on the right; sizes persist per tab. */
+/** Sources on the left (200–360 px), the open collection on the right; sizes persist per tab. */
 const props = defineProps<{ kind: DataKind }>();
 
 defineSlots<{ sidebar: () => unknown; default: () => unknown }>();
@@ -11,15 +11,16 @@ defineSlots<{ sidebar: () => unknown; default: () => unknown }>();
 <template>
   <ResizablePanelGroup
     direction="horizontal"
-    :auto-save-id="`capubridge:data-layout:${props.kind}`"
+    :auto-save-id="`capubridge:data-layout:v2:${props.kind}`"
     class="h-full min-h-0"
   >
     <ResizablePanel
       :id="`data-${props.kind}-sources`"
       :order="1"
-      :default-size="22"
-      :min-size="14"
-      :max-size="40"
+      size-unit="px"
+      :default-size="260"
+      :min-size="200"
+      :max-size="360"
       class="min-h-0"
     >
       <slot name="sidebar" />

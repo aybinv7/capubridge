@@ -220,6 +220,15 @@ export const useIndexedDBChangesStore = defineStore("indexeddb-changes", () => {
     }
   }
 
+  /** Whether Capubridge wrote to this store within the own-write window (any record). */
+  function wroteRecently(storeKey: string): boolean {
+    const now = Date.now();
+    for (const [entry, at] of ownWrites) {
+      if (entry.startsWith(`${storeKey}::`) && now - at <= OWN_WRITE_WINDOW_MS) return true;
+    }
+    return false;
+  }
+
   function isOwnWrite(storeKey: string, serializedKey: string): boolean {
     const at = ownWrites.get(`${storeKey}::${serializedKey}`);
     return at !== undefined && Date.now() - at <= OWN_WRITE_WINDOW_MS;
@@ -265,5 +274,6 @@ export const useIndexedDBChangesStore = defineStore("indexeddb-changes", () => {
     markEventObserved,
     noteOwnWrite,
     isOwnWrite,
+    wroteRecently,
   };
 });

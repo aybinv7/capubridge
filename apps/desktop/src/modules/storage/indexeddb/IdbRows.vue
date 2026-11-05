@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { refDebounced, useDocumentVisibility, useNow } from "@vueuse/core";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button, Chip } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
@@ -64,6 +65,7 @@ const toolbar = ref<InstanceType<typeof IdbRowsToolbar> | null>(null);
 const grid = ref<InstanceType<typeof DataGrid> | null>(null);
 const paneView = ref<InstanceType<typeof RecordPane> | null>(null);
 const search = ref("");
+const findText = refDebounced(search, 150);
 const predicates = ref<DataPredicate[]>([]);
 const join = ref<PredicateJoin>("and");
 const sort = ref<GridSort | null>(null);
@@ -106,7 +108,7 @@ const shown = computed(() =>
   pipeRows({
     rows: model.value.rows,
     columns: model.value.columns,
-    search: search.value,
+    search: findText.value,
     predicates: predicates.value,
     join: join.value,
     sort: sort.value,
@@ -391,6 +393,12 @@ function onFilter(next: DataPredicate[], nextJoin: PredicateJoin) {
   join.value = nextJoin;
 }
 
+const documentVisibility = useDocumentVisibility();
+const { now, pause: pauseNow, resume: resumeNow } = useNow({ interval: 5000, controls: true });
+watch(documentVisibility, (state) => (state === "hidden" ? pauseNow() : resumeNow()), {
+  immediate: true,
+});
+
 const paneState = computed(() => {
   const record = paneRecord.value;
   const change = record?.__recordChange;
@@ -398,7 +406,7 @@ const paneState = computed(() => {
   const who = change.source === "capubridge" ? "by Capubridge" : "on the device";
   const what =
     change.operation === "add" ? "Added" : change.operation === "delete" ? "Deleted" : "Changed";
-  return `${what} ${who} ${formatAge(Date.now() - Date.parse(change.observedAt))}`;
+  return `${what} ${who} ${formatAge(now.value.getTime() - Date.parse(change.observedAt))}`;
 });
 const paneBefore = computed(() => {
   const change = paneRecord.value?.__recordChange;
@@ -516,7 +524,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
     />
     <ResizablePanelGroup
       direction="horizontal"
-      auto-save-id="capubridge:data-record-pane-size"
+      auto-save-id="capubridge:data-record-pane-size:v2"
       class="min-h-0 flex-1"
     >
       <ResizablePanel id="idb-rows-grid" :order="1" :min-size="35" class="min-h-0">
@@ -591,9 +599,10 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
         <ResizablePanel
           id="idb-rows-pane"
           :order="2"
-          :default-size="34"
-          :min-size="22"
-          :max-size="60"
+          size-unit="px"
+          :default-size="360"
+          :min-size="280"
+          :max-size="560"
           class="min-h-0"
         >
           <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">

@@ -28,6 +28,8 @@ export function useIdbStoreWrites(options: {
   /** Why the phone cannot answer now (the app is in the background), or `null`. */
   away?: Ref<string | null>;
   confirm?: (request: ConfirmRequest) => Promise<boolean>;
+  /** The store's key path; `null` when keys are kept apart from the values. */
+  keyPath?: Ref<string | string[] | null | undefined>;
   afterWrite: () => void;
 }) {
   const changes = useIndexedDBChangesStore();
@@ -68,8 +70,11 @@ export function useIdbStoreWrites(options: {
     if (record.editable === false && record.readOnlyReason?.startsWith("Changed on the device")) {
       return record.readOnlyReason;
     }
-    if (columnId === KEY_COLUMN)
-      return "The key identifies the record; change it in the record pane.";
+    if (columnId === KEY_COLUMN) {
+      return options.keyPath?.value === null
+        ? "This store keeps its keys apart from the values, so a key cannot be changed here."
+        : "The key identifies the record; change it in the record pane.";
+    }
     const value =
       columnId === VALUE_COLUMN
         ? record.value

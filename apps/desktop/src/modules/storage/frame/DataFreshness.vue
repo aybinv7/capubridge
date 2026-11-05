@@ -5,8 +5,19 @@ import ProvenanceTag from "@/components/gate/ProvenanceTag.vue";
 import { formatAge } from "./changeWords";
 import type { DataProvenance } from "./dataFrame.types";
 
-/** Where the rows came from and how old they are: `live · read 12 s ago`. */
-const props = defineProps<{ provenance: DataProvenance; readAt: number | null; verb?: string }>();
+/**
+ * Where the rows came from and how old they are. Rows the change watcher keeps current read
+ * `live · read 12 s ago` with the live dot; a one-time read of the phone reads
+ * `on the phone · read 12 s ago`, without it.
+ */
+const props = defineProps<{
+  provenance: DataProvenance;
+  readAt: number | null;
+  verb?: string;
+  watched?: boolean;
+}>();
+
+const oneTime = computed(() => props.provenance === "live" && !props.watched);
 
 const visibility = useDocumentVisibility();
 const { now, pause, resume } = useNow({ interval: 5000, controls: true });
@@ -20,5 +31,9 @@ const detail = computed(() => {
 </script>
 
 <template>
-  <ProvenanceTag :kind="props.provenance" :detail="detail" />
+  <ProvenanceTag
+    :kind="oneTime ? 'cached' : props.provenance"
+    :label="oneTime ? 'on the phone' : undefined"
+    :detail="detail"
+  />
 </template>

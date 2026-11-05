@@ -10,6 +10,8 @@ export interface FormattedCell {
   badge?: string;
   /** Numbers and dates right-align. */
   align: "start" | "end";
+  /** The exact stored form when `text` reads it differently (a date's ISO text in UTC). */
+  detail?: string;
 }
 
 const BLOB_PREFIX = "[BLOB ";
@@ -23,6 +25,74 @@ function byteSize(bytes: number): string {
 
 function clip(text: string): string {
   return text.length > MAX_PREVIEW ? `${text.slice(0, MAX_PREVIEW)}…` : text;
+}
+
+const formattedObjects = new WeakMap<object, FormattedCell>();
+
+const LOCAL_DATE = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const ZONED_DATE_TIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
+
+/** A date in the person's own time zone, readable (`5 Nov 2026, 14:32`), or `null`. */
+export function localDateText(iso: string): string | null {
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? null : LOCAL_DATE.format(time);
+}
+
+function dateCell(iso: string): FormattedCell {
+  const text = localDateText(iso);
+  return text
+    ? { kind: "date", text, detail: iso, align: "end" }
+    : { kind: "date", text: iso, align: "end" };
+}
+
+/**
+ * JSON text of a value, stopped once it is longer than `limit` characters, so a preview of a
+ * large object never serialises the whole object.
+ */
+export function boundedJson(
+  value: unknown,
+  limit: number,
+  options: { markers?: boolean } = {},
+): string {
+  let out = "";
+  const seen = new Set<object>();
+  function write(node: unknown): boolean {
+    if (out.length > limit) return false;
+    if (node === null || typeof node !== "object") {
+      out += JSON.stringify(node) ?? "null";
+      return out.length <= limit;
+    }
+    if (options.markers && !Array.isArray(node) && isTypedBlob(node) && node.__type !== "Escaped") {
+      out += markerText(node);
+      return out.length <= limit;
+    }
+    if (seen.has(node)) {
+      out += '"[circular]"';
+      return out.length <= limit;
+    }
+    seen.add(node);
+    const list = Array.isArray(node);
+    out += list ? "[" : "{";
+    let first = true;
+    for (const [key, entry] of Object.entries(node)) {
+      if (!first) out += ",";
+      first = false;
+      if (!list) out += `${JSON.stringify(key)}:`;
+      if (!write(entry)) return false;
+    }
+    out += list ? "]" : "}";
+    seen.delete(node);
+    return out.length <= limit;
+  }
+  write(value);
+  return out;
 }
 
 function isTypedBlob(value: object): value is { __type: string } & Record<string, unknown> {
@@ -77,13 +147,27 @@ export function describeMarker(marker: Marker): string {
       return "Nested too deep to show";
     case "Escaped":
       return "Object with a __type field";
+    case "Blob": {
+      const size = typeof bytes === "number" ? ` ${byteSize(bytes)}` : "";
+      const mime = plain(field(marker, "type"));
+      return `Blob${size}${mime ? ` · ${mime}` : ""}`;
+    }
     default:
       return typeof bytes === "number" ? `${type} ${byteSize(bytes)}` : type;
   }
 }
 
+/** A marker inside a preview: a readable word, with a date in local time. */
+function markerText(marker: Marker): string {
+  if (marker.__type === "Date") {
+    const iso = plain(field(marker, "value"));
+    return `Date ${localDateText(iso) ?? iso}`;
+  }
+  return describeMarker(marker);
+}
+
 function formatMarker(marker: Marker): FormattedCell {
-  if (marker.__type === "Date") return { kind: "date", text: describeMarker(marker), align: "end" };
+  if (marker.__type === "Date") return dateCell(describeMarker(marker));
   if (marker.__type === "Number" || marker.__type === "BigInt") {
     return { kind: "number", text: describeMarker(marker), align: "end" };
   }
@@ -110,8 +194,9 @@ function applyDisplayType(value: unknown, type?: GridColumnType): FormattedCell 
       typeof value === "string" && /^-?\d+(\.\d+)?$/.test(value) ? Number(value) : value;
     if (typeof numeric === "number") {
       const iso = epochToIso(numeric);
-      if (iso) return { kind: "date", text: iso, align: "end" };
+      if (iso) return dateCell(iso);
     }
+    if (typeof value === "string" && ZONED_DATE_TIME.test(value)) return dateCell(value);
     return null;
   }
   if (type === "json" && typeof value === "string") {
@@ -142,9 +227,7 @@ export function formatCell(value: unknown, type?: GridColumnType): FormattedCell
     }
     return { kind: "number", text: String(value), align: "end" };
   }
-  if (value instanceof Date) {
-    return { kind: "date", text: value.toISOString(), align: "end" };
-  }
+  if (value instanceof Date) return dateCell(value.toISOString());
   if (value instanceof Uint8Array || value instanceof ArrayBuffer) {
     return { kind: "blob", text: `blob ${byteSize(value.byteLength)}`, align: "start" };
   }
@@ -162,14 +245,18 @@ export function formatCell(value: unknown, type?: GridColumnType): FormattedCell
   }
   if (typeof value === "object") {
     if (isTypedBlob(value)) return formatMarker(value);
+    const cached = formattedObjects.get(value);
+    if (cached) return cached;
     const badge = Array.isArray(value) ? `[${value.length}]` : `{${Object.keys(value).length}}`;
     let text: string;
     try {
-      text = clip(JSON.stringify(value));
+      text = clip(boundedJson(value, MAX_PREVIEW, { markers: true }));
     } catch {
       text = "[unserialisable]";
     }
-    return { kind: "json", text, badge, align: "start" };
+    const formatted: FormattedCell = { kind: "json", text, badge, align: "start" };
+    formattedObjects.set(value, formatted);
+    return formatted;
   }
   const text = typeof value === "symbol" ? value.toString() : "[function]";
   return { kind: "string", text, align: "start" };

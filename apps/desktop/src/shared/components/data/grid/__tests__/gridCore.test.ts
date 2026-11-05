@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { cellToText, formatCell } from "../valueFormat";
+import { boundedJson, cellToText, formatCell, localDateText } from "../valueFormat";
 import {
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
@@ -248,10 +248,25 @@ describe("export formats", () => {
 });
 
 describe("show values as", () => {
-  test("epoch seconds and milliseconds read as ISO dates", () => {
-    expect(formatCell(1700000000, "date").text).toBe("2023-11-14T22:13:20.000Z");
-    expect(formatCell(1700000000000, "date").text).toBe("2023-11-14T22:13:20.000Z");
+  test("epoch seconds and milliseconds read as local dates, the UTC ISO text kept beside (U3)", () => {
+    const iso = "2023-11-14T22:13:20.000Z";
+    expect(formatCell(1700000000, "date")).toMatchObject({ text: localDateText(iso), detail: iso });
+    expect(formatCell(1700000000000, "date")).toMatchObject({
+      text: localDateText(iso),
+      detail: iso,
+    });
     expect(formatCell("1700000000", "date").kind).toBe("date");
+    expect(formatCell(iso, "date")).toMatchObject({ kind: "date", detail: iso });
+    expect(formatCell("2023-11-14", "date").kind).toBe("string");
+  });
+
+  test("markers inside an object preview read as what they are (U2)", () => {
+    const preview = formatCell({
+      photo: { __type: "Blob", size: 1229, type: "image/png" },
+      tags: { __type: "Map", size: 3, entries: [] },
+    }).text;
+    expect(preview).toBe('{"photo":Blob 1.2 KB · image/png,"tags":Map of 3}');
+    expect(boundedJson({ a: "x".repeat(500) }, 40).length).toBeLessThan(520);
   });
 
   test("JSON stored as text is shown as structure", () => {

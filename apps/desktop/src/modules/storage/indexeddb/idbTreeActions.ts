@@ -4,6 +4,7 @@ import {
   Eye,
   EyeOff,
   FolderInput,
+  ListX,
   Pin,
   PinOff,
   Trash2,
@@ -121,7 +122,7 @@ export function idbTreeActions(row: DataTreeRow, context: IdbTreeContext): DataA
     {
       id: "store.clear",
       label: "Clear all records…",
-      icon: Eraser,
+      icon: ListX,
       danger: true,
       separatorBefore: true,
     },

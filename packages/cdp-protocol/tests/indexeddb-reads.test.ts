@@ -107,13 +107,27 @@ describe("IDBDomain.getData", () => {
     );
   });
 
+  test("reports the page's own read error without the DevTools fallback (F12)", async () => {
+    const sent: string[] = [];
+    const client = {
+      send: async (method: string) => {
+        sent.push(method);
+        return { result: { value: JSON.stringify({ error: "NotFoundError: no store" }) } };
+      },
+    } as unknown as Client;
+    await expect(new IDBDomain(client).getData(page())).rejects.toThrow("NotFoundError");
+    expect(sent).not.toContain("IndexedDB.requestData");
+  });
+
   test("falls back to IndexedDB.requestData with one batched encode", async () => {
     const sent: string[] = [];
     const client = {
       send: async (method: string, params?: Record<string, unknown>) => {
         sent.push(method);
         if (method === "Runtime.evaluate") {
-          return { result: { value: JSON.stringify({ error: "wrong origin" }) } };
+          return {
+            result: { value: JSON.stringify({ error: "wrong origin", wrongOrigin: true }) },
+          };
         }
         if (method === "IndexedDB.requestData") {
           return {

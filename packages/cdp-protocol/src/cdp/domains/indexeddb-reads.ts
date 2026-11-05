@@ -32,12 +32,14 @@ export interface SearchStoreParams {
   limit?: number;
   maxScan?: number;
   maxMs?: number;
+  /** Lets `cancelStoreSearch` stop this search between two short transactions. */
+  token?: string;
 }
 
 export interface SearchStoreResult {
   records: IDBRecord[];
   scanned: number;
-  capped: "count" | "time" | "limit" | null;
+  capped: "count" | "time" | "limit" | "cancelled" | null;
 }
 
 interface CdpRemoteObject {
@@ -258,7 +260,11 @@ export async function readRecord(
   return parsed.record ? toRecord(parsed.record) : null;
 }
 
-/** Bounded device-side scan for records whose key or value text contains `needle`. */
+/**
+ * Bounded device-side scan for records whose key or value text contains `needle`. It reads in
+ * short transactions (200 records or 50 ms each) resumed after the last key, so the app's own
+ * writes are never held up long, and it stops between two of them once cancelled.
+ */
 export async function searchStoreOnDevice(
   client: CDPClient,
   params: SearchStoreParams,
@@ -270,7 +276,9 @@ export async function searchStoreOnDevice(
         ${originGuard(params.securityOrigin)}
         const db = await __cbOpenExisting(${jsLiteral(params.databaseName)});
         try {
-          const store = db.transaction(${jsLiteral(params.objectStoreName)}, 'readonly').objectStore(${jsLiteral(params.objectStoreName)});
+          const storeName = ${jsLiteral(params.objectStoreName)};
+          const token = ${jsLiteral(params.token ?? "")};
+          const cancels = globalThis.__cbSearchCancel || (globalThis.__cbSearchCancel = {});
           const needle = ${jsLiteral(params.needle.toLowerCase())};
           const limit = ${Math.max(1, Math.floor(params.limit ?? 500))};
           const maxScan = ${Math.max(1, Math.floor(params.maxScan ?? 50_000))};
@@ -281,21 +289,39 @@ export async function searchStoreOnDevice(
           const records = [];
           let scanned = 0;
           let capped = null;
-          await new Promise((resolve, reject) => {
-            const cursorReq = store.openCursor();
-            cursorReq.onsuccess = () => {
-              const cursor = cursorReq.result;
-              if (!cursor) return resolve();
-              if (records.length >= limit) { capped = 'limit'; return resolve(); }
-              if (scanned >= maxScan) { capped = 'count'; return resolve(); }
-              if (Date.now() - started > maxMs) { capped = 'time'; return resolve(); }
-              scanned += 1;
-              const text = (JSON.stringify(probe.encode(cursor.primaryKey).value) + ' ' + JSON.stringify(probe.encode(cursor.value).value)).toLowerCase();
-              if (text.indexOf(needle) !== -1) records.push(encodeRecord(cursor.primaryKey, cursor.primaryKey, cursor.value));
-              cursor.continue();
-            };
-            cursorReq.onerror = () => reject(cursorReq.error);
-          });
+          let done = false;
+          let after;
+          let resumed = false;
+          try {
+            while (!done) {
+              if (token && cancels[token]) { capped = 'cancelled'; break; }
+              const store = db.transaction(storeName, 'readonly').objectStore(storeName);
+              const range = resumed ? IDBKeyRange.lowerBound(after, true) : undefined;
+              const batchStarted = Date.now();
+              let inBatch = 0;
+              await new Promise((resolve, reject) => {
+                const cursorReq = store.openCursor(range);
+                cursorReq.onsuccess = () => {
+                  const cursor = cursorReq.result;
+                  if (!cursor) { done = true; return resolve(); }
+                  if (records.length >= limit) { capped = 'limit'; done = true; return resolve(); }
+                  if (scanned >= maxScan) { capped = 'count'; done = true; return resolve(); }
+                  if (Date.now() - started > maxMs) { capped = 'time'; done = true; return resolve(); }
+                  scanned += 1;
+                  inBatch += 1;
+                  const text = (JSON.stringify(probe.encode(cursor.primaryKey).value) + ' ' + JSON.stringify(probe.encode(cursor.value).value)).toLowerCase();
+                  if (text.indexOf(needle) !== -1) records.push(encodeRecord(cursor.primaryKey, cursor.primaryKey, cursor.value));
+                  after = cursor.primaryKey;
+                  resumed = true;
+                  if (inBatch >= 200 || Date.now() - batchStarted > 50) return resolve();
+                  cursor.continue();
+                };
+                cursorReq.onerror = () => reject(cursorReq.error);
+              });
+            }
+          } finally {
+            if (token) delete cancels[token];
+          }
           return JSON.stringify({ records, scanned, capped });
         } finally {
           db.close();
@@ -313,6 +339,14 @@ export async function searchStoreOnDevice(
     capped: SearchStoreResult["capped"];
   }>(result);
   return { records: parsed.records.map(toRecord), scanned: parsed.scanned, capped: parsed.capped };
+}
+
+/** Stops the search started with `token` before its next short transaction. */
+export async function cancelStoreSearch(client: CDPClient, token: string): Promise<void> {
+  await evaluateChecked(client, {
+    expression: `((globalThis.__cbSearchCancel || (globalThis.__cbSearchCancel = {}))[${jsLiteral(token)}] = true, true)`,
+    returnByValue: true,
+  });
 }
 
 /**

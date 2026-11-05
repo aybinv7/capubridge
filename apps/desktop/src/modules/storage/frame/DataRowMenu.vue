@@ -11,7 +11,10 @@ import {
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { DataAction } from "./dataFrame.types";
 
-/** The ⋯ menu of a sidebar row or a header. Out of the tab order inside lists (`tabindex -1`). */
+/**
+ * The ⋯ menu of a sidebar row or a header. Out of the tab order inside lists (`tabindex -1`);
+ * `open` lets the list open it from the keyboard (Shift+F10, the Menu key) or a right-click.
+ */
 const props = withDefaults(
   defineProps<{
     actions: readonly DataAction[];
@@ -23,10 +26,12 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ select: [actionId: string] }>();
+
+const open = defineModel<boolean>("open", { default: false });
 </script>
 
 <template>
-  <DropdownMenu>
+  <DropdownMenu v-model:open="open">
     <DropdownMenuTrigger as-child>
       <span class="inline-flex" @click.stop @pointerdown.stop>
         <IconAction

@@ -114,6 +114,13 @@ function onKeydown(event: KeyboardEvent) {
   const list = focusable();
   const index = list.findIndex((row) => row.key === activeKey.value);
   const current = list[index];
+  if ((event.key === "F10" && event.shiftKey) || event.key === "ContextMenu") {
+    if (current && (current.kind === "source" || current.kind === "collection")) {
+      event.preventDefault();
+      menuFor.value = current.key;
+    }
+    return;
+  }
   switch (event.key) {
     case "ArrowDown":
       moveTo(list[Math.min(list.length - 1, index + 1)]);
@@ -148,6 +155,16 @@ function onKeydown(event: KeyboardEvent) {
       return;
   }
   event.preventDefault();
+}
+
+const menuFor = ref<string | null>(null);
+
+function setMenu(key: string, open: boolean) {
+  if (open) menuFor.value = key;
+  else if (menuFor.value === key) {
+    menuFor.value = null;
+    void nextTick(() => scroller.value?.focus());
+  }
 }
 
 function onFocus() {
@@ -212,6 +229,8 @@ function onFocus() {
           "
           :source-icon="sourceIcon"
           :collection-icon="collectionIcon"
+          :menu-open="menuFor === item.data.key"
+          @update:menu-open="setMenu(item.data.key, $event)"
           @select="open(item.data)"
           @toggle="
             item.data.kind === 'source' &&

@@ -32,7 +32,7 @@ describe("useDataSidebarSettings", () => {
     expect(settings.source(phoneB, "https://app::shop").pinned).toBe(false);
   });
 
-  test("the old IndexedDB settings seed a database without being rewritten on read", () => {
+  test("the old IndexedDB settings move under the new key once and still seed every phone", () => {
     localStorage.setItem(
       "idb-sidebar-settings",
       JSON.stringify({
@@ -53,7 +53,9 @@ describe("useDataSidebarSettings", () => {
       pinnedItems: ["orders"],
       hiddenItems: ["logs"],
     });
-    expect(localStorage.getItem("capubridge:data-sidebar:v1")).toBeNull();
+    expect(localStorage.getItem("idb-sidebar-settings")).toBeNull();
+    setActivePinia(createPinia());
+    expect(useDataSidebarSettings().source(phoneB, "https://app::shop").pinned).toBe(true);
   });
 
   test("hiding a store persists under the versioned key", () => {

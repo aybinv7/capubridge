@@ -52,6 +52,18 @@ export function compareCells(left: unknown, right: unknown): number {
  * (objects included), the filter conditions, then the sort. All of it covers this page only;
  * the screen says so.
  */
+const searchText = new WeakMap<GridRow, string>();
+
+/** The lowercase text find looks through, computed once per row object. */
+function textOf(row: GridRow, columnIds: readonly string[]): string {
+  let text = searchText.get(row);
+  if (text === undefined) {
+    text = columnIds.map((id) => cellToText(row.cells[id]).toLowerCase()).join("\u0000");
+    searchText.set(row, text);
+  }
+  return text;
+}
+
 export function pipeRows(input: RowPipelineInput): GridRow[] {
   const needle = input.search.trim().toLowerCase();
   const types: Record<string, GridColumnType | undefined> = {};
@@ -60,12 +72,7 @@ export function pipeRows(input: RowPipelineInput): GridRow[] {
 
   const kept = input.rows.filter((row) => {
     if (input.changesOnly && !input.states.has(row.id)) return false;
-    if (
-      needle &&
-      !columnIds.some((id) => cellToText(row.cells[id]).toLowerCase().includes(needle))
-    ) {
-      return false;
-    }
+    if (needle && !textOf(row, columnIds).includes(needle)) return false;
     return matchesAll(row.cells, input.predicates, input.join, types);
   });
 

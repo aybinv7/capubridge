@@ -24,6 +24,11 @@ export class IdbBlockedError extends Error {
   override name = "IdbBlockedError";
 }
 
+/** The database belongs to another frame's origin than the page the script ran in. */
+export class IdbWrongOriginError extends Error {
+  override name = "IdbWrongOriginError";
+}
+
 /** A key edit would land on a key another record already uses; nothing was changed. */
 export class IdbKeyConflictError extends Error {
   override name = "IdbKeyConflictError";
@@ -109,11 +114,17 @@ export function toRecord(encoded: EncodedRecord): IDBRecord {
 export function parseDeviceReply<T>(result: { result: Record<string, unknown> }): T {
   const raw = result.result.value;
   if (typeof raw !== "string") throw new DeviceEvaluationError("The device sent no answer");
-  const parsed = JSON.parse(raw) as T & { error?: unknown; blocked?: boolean; conflict?: boolean };
+  const parsed = JSON.parse(raw) as T & {
+    error?: unknown;
+    blocked?: boolean;
+    conflict?: boolean;
+    wrongOrigin?: boolean;
+  };
   if (parsed && typeof parsed === "object" && "error" in parsed && parsed.error != null) {
     const message = typeof parsed.error === "string" ? parsed.error : JSON.stringify(parsed.error);
     if (parsed.blocked) throw new IdbBlockedError(message);
     if (parsed.conflict) throw new IdbKeyConflictError(message);
+    if (parsed.wrongOrigin) throw new IdbWrongOriginError(message);
     throw new DeviceEvaluationError(message);
   }
   return parsed;

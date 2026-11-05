@@ -40,6 +40,8 @@ export interface ChangeTracker {
   readonly stopped: boolean;
   prime(): Promise<void>;
   flush(): Promise<void>;
+  /** Starts watching a store left out by the store cap (the person asked for it). */
+  watchStore(storeKey: string): Promise<void>;
   stop(): void;
 }
 
@@ -192,12 +194,21 @@ export function createChangeTracker(options: ChangeTrackerOptions): ChangeTracke
     return flushing;
   }
 
+  async function watchStore(storeKey: string) {
+    const descriptor = store.getCatalogEntry(storeKey);
+    if (!descriptor || stopped) return;
+    unwatchedKeys.delete(storeKey);
+    const snapshot = await captureStoreSnapshot(domain, descriptor);
+    if (!stopped) store.upsertSnapshot(snapshot);
+  }
+
   return {
     get stopped() {
       return stopped;
     },
     prime,
     flush,
+    watchStore,
     stop() {
       stopped = true;
     },

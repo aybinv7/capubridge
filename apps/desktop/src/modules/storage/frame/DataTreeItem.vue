@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, type Component } from "vue";
 import { ArrowUpRight, ChevronRight } from "lucide-vue-next";
+import { StatusDot } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { rowStateClass } from "@/shared/list/rowState";
 import ChangeStripe from "./ChangeStripe.vue";
 import DataRowMenu from "./DataRowMenu.vue";
@@ -16,6 +18,8 @@ const props = defineProps<{
   sourceIcon: Component;
   collectionIcon: Component;
 }>();
+
+const menuOpen = defineModel<boolean>("menuOpen", { default: false });
 
 const emit = defineEmits<{
   select: [];
@@ -81,6 +85,7 @@ const menuLabel = computed(() => {
       row.kind === 'source' ? 'pl-1' : 'pl-7',
     ]"
     @click="emit('select')"
+    @contextmenu.prevent="actions.length > 0 && (menuOpen = true)"
   >
     <ChangeStripe v-if="changes && changes.total > 0" :changes="changes" />
     <button
@@ -116,6 +121,12 @@ const menuLabel = computed(() => {
     >
       {{ row.kind === "source" ? row.source.label : row.collection.label }}
     </span>
+    <HintTooltip
+      v-if="row.kind === 'collection' && row.collection.watched === false"
+      text="Not watched for changes. Watch it from the store's header."
+    >
+      <StatusDot variant="hollow" size="xs" aria-label="Not watched" />
+    </HintTooltip>
     <span
       v-if="row.kind === 'collection' && row.collection.pinned"
       class="size-1.5 shrink-0 rounded-full bg-[var(--fg-subtle)]"
@@ -137,9 +148,15 @@ const menuLabel = computed(() => {
     <span
       v-if="actions.length > 0"
       class="flex shrink-0 opacity-0 transition-opacity duration-120 group-hover/row:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100"
-      :class="selected && 'opacity-100'"
+      :class="(selected || menuOpen) && 'opacity-100'"
     >
-      <DataRowMenu :actions="actions" :label="menuLabel" in-list @select="emit('action', $event)" />
+      <DataRowMenu
+        v-model:open="menuOpen"
+        :actions="actions"
+        :label="menuLabel"
+        in-list
+        @select="emit('action', $event)"
+      />
     </span>
   </div>
 </template>

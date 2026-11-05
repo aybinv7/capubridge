@@ -9,6 +9,7 @@ import DataOverview from "@/modules/storage/frame/DataOverview.vue";
 import DataRowMenu from "@/modules/storage/frame/DataRowMenu.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
 import type { DataAction } from "@/modules/storage/frame/dataFrame.types";
+import IdbStoresList from "./IdbStoresList.vue";
 import type { IdbOpenDatabase } from "./useIdbCatalog";
 
 /** A database at a glance: size, stores, records, the largest stores and every store's shape. */
@@ -42,45 +43,6 @@ const stats = computed(() => [
         : undefined,
   },
 ]);
-
-const bars = computed(() => {
-  const top = (measure: (store: StoreInfo) => number, show: (store: StoreInfo) => string) =>
-    [...list.value]
-      .filter((store) => measure(store) > 0)
-      .sort((left, right) => measure(right) - measure(left))
-      .slice(0, 10)
-      .map((store) => ({
-        id: store.name,
-        label: store.name,
-        value: measure(store),
-        display: show(store),
-      }));
-  return [
-    {
-      id: "records",
-      title: "Most records",
-      items: top(
-        (store) => store.recordCount,
-        (store) => store.recordCount.toLocaleString("en-US"),
-      ),
-      empty: "Every store is empty.",
-    },
-    {
-      id: "size",
-      title: "Largest, estimated",
-      items: top(
-        (store) => store.estimatedSize,
-        (store) => formatBytes(store.estimatedSize),
-      ),
-      empty: "No size measured yet.",
-    },
-  ];
-});
-
-function keyPathText(keyPath: StoreInfo["keyPath"]): string {
-  if (keyPath === null) return "out-of-line";
-  return Array.isArray(keyPath) ? `[${keyPath.join(", ")}]` : keyPath;
-}
 </script>
 
 <template>
@@ -89,7 +51,7 @@ function keyPathText(keyPath: StoreInfo["keyPath"]): string {
     :identity="
       database.mode === 'live'
         ? `${database.origin} · version ${database.version}`
-        : `version ${database.version} · from a file`
+        : `version ${database.version}`
     "
     :provenance="database.mode === 'live' ? 'live' : 'imported'"
     :read-at="readAt"
@@ -116,44 +78,18 @@ function keyPathText(keyPath: StoreInfo["keyPath"]): string {
     :detail="error"
     @retry="emit('refresh')"
   />
-  <DataOverview v-else :stats="stats" :bars="bars" @open="emit('open', $event)">
-    <section class="flex flex-col gap-2">
-      <h3 class="text-xs font-medium text-foreground">Stores</h3>
-      <p v-if="list.length === 0" class="text-xs text-muted-foreground">
-        This database has no stores.
-      </p>
-      <ul v-else class="flex flex-col divide-y divide-border-subtle">
-        <li v-for="store in list" :key="store.name">
-          <button
-            type="button"
-            class="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 rounded-control px-2 py-2 text-left hover:bg-cladd-surface-hover @2xl:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_7rem_6rem]"
-            @click="emit('open', store.name)"
-          >
-            <span class="truncate text-xs text-foreground">{{ store.name }}</span>
-            <span class="hidden truncate font-mono text-2xs text-[var(--fg-subtle)] @2xl:block">
-              key {{ keyPathText(store.keyPath)
-              }}{{ store.autoIncrement ? " · auto-increment" : "" }}
-              {{
-                store.indexCount
-                  ? ` · ${store.indexCount} index${store.indexCount > 1 ? "es" : ""}`
-                  : ""
-              }}
-            </span>
-            <span class="text-right font-mono text-2xs text-muted-foreground tabular-nums">
-              {{ store.recordCount.toLocaleString("en-US") }} records
-            </span>
-            <span
-              class="hidden text-right font-mono text-2xs text-[var(--fg-subtle)] tabular-nums @2xl:block"
-            >
-              {{
-                store.keyGeneratorValue !== undefined && store.autoIncrement
-                  ? `next ${store.keyGeneratorValue}`
-                  : ""
-              }}
-            </span>
-          </button>
-        </li>
-      </ul>
-    </section>
-  </DataOverview>
+  <template v-else>
+    <DataState
+      v-if="error"
+      compact
+      kind="error"
+      title="Could not read the stores again; this is the last read"
+      :detail="error"
+      class="shrink-0 border-b border-border-subtle"
+      @retry="emit('refresh')"
+    />
+    <DataOverview :stats="stats" :bars="[]" @open="emit('open', $event)">
+      <IdbStoresList :stores="list" @open="emit('open', $event)" />
+    </DataOverview>
+  </template>
 </template>

@@ -67,6 +67,14 @@ export function buildDataTree(
       const expanded = needle ? true : source.expanded;
       sectionRows.push({ kind: "source", key: `s:${source.id}`, source, sectionId: section.id });
       if (!expanded) continue;
+      if (source.note) {
+        sectionRows.push({
+          kind: "note",
+          key: `sn:${source.id}`,
+          text: source.note,
+          sectionId: section.id,
+        });
+      }
       if (source.link) {
         sectionRows.push({
           kind: "link",

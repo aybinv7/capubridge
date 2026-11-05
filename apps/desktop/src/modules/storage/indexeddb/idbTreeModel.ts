@@ -26,6 +26,8 @@ export interface IdbTreeInput {
   settings: (sourceId: string) => SourceSettings;
   databaseChanges: (origin: string, database: string) => DataChangeCounts;
   storeChanges: (origin: string, database: string, store: string) => DataChangeCounts;
+  /** Whether the change watcher watches a store; `undefined` while it has not looked yet. */
+  storeWatched?: (origin: string, database: string, store: string) => boolean | undefined;
   /** Record counts of the open database's stores, when read. */
   counts: ReadonlyMap<string, number>;
   /** The open database, whose stores show their record counts. */
@@ -58,7 +60,8 @@ function liveSource(db: IDBDatabaseInfo, input: IdbTreeInput): DataSourceNode {
   return {
     id,
     label: db.name,
-    detail: `v${db.version}`,
+    detail: db.error ? "not readable" : undefined,
+    note: db.error ? `Could not be opened: ${db.error}` : undefined,
     provenance: "live",
     pinned: settings.pinned,
     hidden: settings.hidden,
@@ -72,6 +75,7 @@ function liveSource(db: IDBDatabaseInfo, input: IdbTreeInput): DataSourceNode {
       pinned: settings.pinnedItems.includes(store),
       hidden: settings.hiddenItems.includes(store),
       changes: input.storeChanges(db.origin, db.name, store),
+      watched: input.storeWatched?.(db.origin, db.name, store),
     })),
   };
 }
@@ -82,7 +86,6 @@ function fileSource(entry: IdbSnapshotEntry, input: IdbTreeInput): DataSourceNod
   return {
     id,
     label: entry.data.database.name,
-    detail: `v${entry.data.database.version}`,
     provenance: "imported",
     pinned: settings.pinned,
     hidden: settings.hidden,

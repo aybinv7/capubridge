@@ -161,6 +161,12 @@ defineExpose({
         >
           {{ field.full }}
         </dd>
+        <dd
+          v-if="field.formatted.detail"
+          class="mt-0.5 font-mono text-2xs text-[var(--fg-subtle)] select-text"
+        >
+          {{ field.formatted.detail }}
+        </dd>
       </div>
       <p v-if="fields.length === 0" class="px-2 py-3 text-xs text-muted-foreground">
         No field or value matches “{{ query }}”.

@@ -149,7 +149,7 @@ defineExpose({ discard });
       >
         <ChevronDown :stroke-width="1.8" />
       </IconAction>
-      <CopyAction :value="original" label="Copy the record as JSON" />
+      <CopyAction :value="original" label="Copy as stored (JSON)" />
       <IconAction label="Close the record" keys="Escape" size="sm" @click="emit('close')">
         <X :stroke-width="1.8" />
       </IconAction>

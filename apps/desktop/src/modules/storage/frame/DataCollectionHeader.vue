@@ -13,6 +13,8 @@ const props = defineProps<{
   provenance: DataProvenance;
   readAt: number | null;
   busy?: boolean;
+  /** The change watcher keeps these rows current (live dot). */
+  watched?: boolean;
 }>();
 
 defineSlots<{ default?: () => unknown; actions?: () => unknown }>();
@@ -28,7 +30,11 @@ defineSlots<{ default?: () => unknown; actions?: () => unknown }>();
         {{ props.identity }}
       </span>
     </div>
-    <DataFreshness :provenance="props.provenance" :read-at="props.readAt" />
+    <DataFreshness
+      :provenance="props.provenance"
+      :read-at="props.readAt"
+      :watched="props.watched"
+    />
     <Spinner v-if="props.busy" size="xs" aria-label="Reading again" />
     <slot />
     <span class="flex-1" />

@@ -1,9 +1,10 @@
 import { evaluateChecked } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
-import type { IDBRecord } from "./indexeddb-records.js";
+import { IdbWrongOriginError, type IDBRecord } from "./indexeddb-records.js";
 import {
   readPageByEval,
   readPageByProtocol,
+  cancelStoreSearch,
   readRecord,
   sampleStoreSizes,
   searchStoreOnDevice,
@@ -36,6 +37,8 @@ export interface IDBDatabaseInfo {
   version: number;
   objectStoreNames: string[];
   origin: string;
+  /** Why this database could not be opened; the others are still listed. */
+  error?: string;
 }
 
 export interface IDBObjectStoreInfo {
@@ -103,7 +106,10 @@ export class IDBDomain {
     return this.client.send("IndexedDB.enable");
   }
 
-  /** Databases of the page's own origin. A device failure throws instead of reading as "none". */
+  /**
+   * Databases of the page's own origin. A failure to list them throws instead of reading as
+   * "none"; one database that cannot be opened is listed with its `error`, not dropped.
+   */
   async discoverDatabases(): Promise<IDBDatabaseInfo[]> {
     const result = await evaluateChecked(this.client, {
       expression: `
@@ -123,7 +129,14 @@ export class IDBDomain {
               resolve(info);
             };
             req.onerror = () => reject(req.error);
-          })));
+            req.onblocked = () => reject(new Error("the app holds it open for an upgrade"));
+          }).catch((e) => ({
+            name: dbInfo.name,
+            version: dbInfo.version || 0,
+            origin: location.origin,
+            objectStoreNames: [],
+            error: String(e && e.message ? e.message : e),
+          }))));
           return JSON.stringify(details);
         })()
       `,
@@ -308,14 +321,17 @@ export class IDBDomain {
   }
 
   /**
-   * One page of records: one evaluate on the page; when that fails (another frame's origin),
-   * `IndexedDB.requestData` with a single batched encode.
+   * One page of records: one evaluate on the page. Only when the database belongs to another
+   * frame's origin does it fall back to `IndexedDB.requestData` with a single batched encode;
+   * any other failure is the page's own answer and is reported as it is.
    */
   async getData(params: GetDataParams): Promise<GetDataResult> {
-    if (params.databaseName === "localforage") return readPageByEval(this.client, params);
     try {
       return await readPageByEval(this.client, params);
     } catch (evalError) {
+      if (!(evalError instanceof IdbWrongOriginError) || params.databaseName === "localforage") {
+        throw evalError;
+      }
       try {
         return await readPageByProtocol(this.client, params);
       } catch (protocolError) {
@@ -339,6 +355,11 @@ export class IDBDomain {
   /** Bounded scan of the whole store on the device for `needle` in keys and values. */
   searchStore(params: SearchStoreParams): Promise<SearchStoreResult> {
     return searchStoreOnDevice(this.client, params);
+  }
+
+  /** Stops a `searchStore` started with this `token` between two of its short reads. */
+  cancelSearch(token: string): Promise<void> {
+    return cancelStoreSearch(this.client, token);
   }
 
   async getDatabaseSize(databaseName: string, securityOrigin: string): Promise<number> {

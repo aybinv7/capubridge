@@ -31,6 +31,7 @@ export type {
 export {
   IdbBlockedError,
   IdbKeyConflictError,
+  IdbWrongOriginError,
   idbReadOnlyReason,
 } from "./cdp/domains/indexeddb-records.js";
 export {

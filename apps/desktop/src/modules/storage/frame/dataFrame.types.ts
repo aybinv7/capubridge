@@ -39,6 +39,8 @@ export interface DataCollectionNode {
   changes?: DataChangeCounts;
   pinned?: boolean;
   hidden?: boolean;
+  /** `false` when the change watcher does not watch it (only so many stores are). */
+  watched?: boolean;
 }
 
 export interface DataSourceNode {
@@ -53,6 +55,8 @@ export interface DataSourceNode {
   hidden?: boolean;
   expanded: boolean;
   link?: DataSourceLink;
+  /** A line under the source when it is expanded (for example why it could not be read). */
+  note?: string;
 }
 
 export interface DataSection {

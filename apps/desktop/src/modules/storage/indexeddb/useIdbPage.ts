@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch, type Ref } from "vue";
+import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { IDBDomain, type IDBRecord } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
@@ -17,7 +17,7 @@ export interface StoreSearchState {
   running: boolean;
   records: IDBRecord[];
   scanned: number;
-  capped: "count" | "time" | "limit" | null;
+  capped: "count" | "time" | "limit" | "cancelled" | null;
   error: string | null;
 }
 
@@ -52,6 +52,7 @@ export function useIdbPage(options: {
   const pageSize = ref(50);
   const storeSearch = shallowRef<StoreSearchState | null>(null);
   let searchTicket = 0;
+  let runningToken: string | null = null;
 
   const isLive = computed(() => options.open.value?.mode === "live");
   const database = computed(() => options.open.value?.name ?? "");
@@ -170,8 +171,11 @@ export function useIdbPage(options: {
       storeSearch.value = searchFile(trimmed);
       return;
     }
+    cancelRunningSearch();
     searchTicket += 1;
     const ticket = searchTicket;
+    const token = `search-${Date.now().toString(36)}-${ticket}`;
+    runningToken = token;
     storeSearch.value = {
       needle: trimmed,
       running: true,
@@ -187,10 +191,13 @@ export function useIdbPage(options: {
         objectStoreName: options.store.value,
         needle: trimmed,
         limit: STORE_SEARCH_LIMIT,
+        token,
       });
+      if (runningToken === token) runningToken = null;
       if (ticket !== searchTicket) return;
       storeSearch.value = { needle: trimmed, running: false, error: null, ...result };
     } catch (error) {
+      if (runningToken === token) runningToken = null;
       if (ticket !== searchTicket) return;
       storeSearch.value = {
         needle: trimmed,
@@ -203,10 +210,24 @@ export function useIdbPage(options: {
     }
   }
 
+  function cancelRunningSearch() {
+    const token = runningToken;
+    runningToken = null;
+    if (!token) return;
+    const client = getClient(options.targetId.value);
+    if (!client) return;
+    new IDBDomain(client).cancelSearch(token).catch((error: unknown) => {
+      console.warn("Could not stop the store search on the phone", error);
+    });
+  }
+
   function clearStoreSearch() {
+    cancelRunningSearch();
     searchTicket += 1;
     storeSearch.value = null;
   }
+
+  onScopeDispose(cancelRunningSearch);
 
   return {
     page,

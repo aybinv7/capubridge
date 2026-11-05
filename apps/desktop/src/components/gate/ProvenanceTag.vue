@@ -7,12 +7,16 @@ import { PROVENANCE, type Provenance } from "@/lib/provenance";
 const props = defineProps<{
   kind: Provenance;
   detail?: string;
+  /** A plainer word for the kind ("on the phone" for a one-time read). */
+  label?: string;
   class?: HTMLAttributes["class"];
 }>();
 
 const meta = computed(() => PROVENANCE[props.kind]);
 const text = computed(() =>
-  props.detail ? `${meta.value.label} · ${props.detail}` : meta.value.label,
+  props.detail
+    ? `${props.label ?? meta.value.label} · ${props.detail}`
+    : (props.label ?? meta.value.label),
 );
 </script>
 

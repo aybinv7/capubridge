@@ -1,4 +1,4 @@
-import { computed, effectScope, onScopeDispose, watch, type EffectScope } from "vue";
+import { computed, effectScope, onScopeDispose, ref, watch, type EffectScope } from "vue";
 import { useDocumentVisibility } from "@vueuse/core";
 import { IDBDomain } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
@@ -24,6 +24,13 @@ const CATALOG_DELAY_MS = 180;
 
 let holders = 0;
 let scope: EffectScope | null = null;
+const leased = ref(false);
+let activeTracker: ChangeTracker | null = null;
+
+/** Watches a store the change watcher left out because of its store cap. */
+export async function watchIndexedDBStore(storeKey: string): Promise<void> {
+  await activeTracker?.watchStore(storeKey);
+}
 
 function runTracking() {
   const targetsStore = useTargetsStore();
@@ -37,12 +44,32 @@ function runTracking() {
   const origin = computed(() => storageContextStore.getSelectedOrigin(targetId.value));
   const paused = computed(
     () =>
+      !leased.value ||
       visibility.value === "hidden" ||
       presenceStore.presence === "background" ||
       presenceStore.presence === "view-hidden",
   );
 
   let tracker: ChangeTracker | null = null;
+  let unprimed: ChangeTracker | null = null;
+
+  async function primeTracker(current: ChangeTracker) {
+    try {
+      await current.prime();
+      if (current.stopped) return;
+      changesStore.setStatus(paused.value ? "paused" : "tracking");
+      changesStore.setErrorMessage(null);
+    } catch (error) {
+      if (!current.stopped) changesStore.setErrorMessage(String(error));
+    }
+  }
+
+  watch(leased, (isLeased) => {
+    const pending = unprimed;
+    if (!isLeased || !pending || pending.stopped) return;
+    unprimed = null;
+    void primeTracker(pending);
+  });
   let flushTimer: number | null = null;
   let catalogTimer: number | null = null;
 
@@ -81,6 +108,8 @@ function runTracking() {
       clearTimers();
       tracker?.stop();
       tracker = null;
+      activeTracker = null;
+      unprimed = null;
       changesStore.finishSession();
       if (!nextTargetId || !nextOrigin) return;
 
@@ -98,14 +127,17 @@ function runTracking() {
         isOwnWrite: (storeKey, key) => changesStore.isOwnWrite(storeKey, serializeKey(key)),
       });
       tracker = current;
+      activeTracker = current;
 
       const unsubscribers = [
         client.on("Storage.indexedDBContentUpdated", (payload: unknown) => {
           const event = payload as IndexedDBContentUpdatedEvent;
           if (event.origin !== nextOrigin) return;
-          changesStore.queueStore(
-            buildStoreKey(event.origin, event.databaseName, event.objectStoreName),
-          );
+          const storeKey = buildStoreKey(event.origin, event.databaseName, event.objectStoreName);
+          changesStore.queueStore(storeKey);
+          if (!leased.value && !changesStore.wroteRecently(storeKey)) {
+            changesStore.markEventObserved(new Date().toISOString());
+          }
           scheduleFlush();
         }),
         client.on("Storage.indexedDBListUpdated", (payload: unknown) => {
@@ -128,10 +160,8 @@ function runTracking() {
       try {
         await client.send("Storage.trackIndexedDBForOrigin", { origin: nextOrigin });
         if (current.stopped) return;
-        await current.prime();
-        if (current.stopped) return;
-        changesStore.setStatus(paused.value ? "paused" : "tracking");
-        changesStore.setErrorMessage(null);
+        if (leased.value) await primeTracker(current);
+        else unprimed = current;
       } catch (error) {
         if (!current.stopped) changesStore.setErrorMessage(String(error));
       }
@@ -150,19 +180,20 @@ function runTracking() {
 /**
  * Watches the selected origin's IndexedDB for device changes while a screen that shows them
  * is mounted (IndexedDB, Graph). One tracker however many screens hold it; it pauses while the
- * window is hidden or the app is in the background, and stops when the last holder leaves.
+ * window is hidden or the app is in the background. When the last holder leaves, the change
+ * feed and the baselines stay (they reset only when the target or origin changes) and the
+ * tracker only listens: device events still mark `lastEventAt` for automation and queue their
+ * stores, which are compared once a screen holds the lease again.
  */
 export function useIndexedDBChangesLease() {
   holders += 1;
-  if (holders === 1) {
+  leased.value = true;
+  if (!scope) {
     scope = effectScope(true);
     scope.run(runTracking);
   }
   onScopeDispose(() => {
     holders -= 1;
-    if (holders === 0) {
-      scope?.stop();
-      scope = null;
-    }
+    if (holders === 0) leased.value = false;
   });
 }

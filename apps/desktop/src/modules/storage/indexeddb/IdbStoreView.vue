@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
+import { toast } from "vue-sonner";
 import { RefreshCw } from "lucide-vue-next";
-import { Segmented, SegmentedButton } from "@capubridge/cladd";
+import { Button, Segmented, SegmentedButton, StatusDot } from "@capubridge/cladd";
 import type { StoreInfo } from "@capubridge/cdp-protocol";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
@@ -13,6 +14,9 @@ import type { DataAction } from "@/modules/storage/frame/dataFrame.types";
 import { useDataPresence } from "@/modules/storage/frame/useDataPresence";
 import { useIndexedDBTableChangeOverlay } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
+import { buildStoreKey } from "@/modules/storage/changes/indexeddbChanges.service";
+import { watchIndexedDBStore } from "@/modules/storage/changes/useIndexedDBChangesTracking";
+import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
 import IdbRows from "./IdbRows.vue";
 import IdbStructure from "./IdbStructure.vue";
 import { keyLabelOf } from "./idbGridModel";
@@ -56,11 +60,37 @@ const writes = useIdbStoreWrites({
   pending: pager.placeholder,
   away,
   confirm: props.confirm,
+  keyPath: computed(() => props.info?.keyPath),
   afterWrite: () => {
     void pager.refetch();
     emit("afterWrite");
   },
 });
+
+const changesStore = useIndexedDBChangesStore();
+const watchingStore = ref(false);
+const watchState = computed<boolean | undefined>(() => {
+  if (props.database.mode !== "live") return undefined;
+  return changesStore.getSnapshot(
+    buildStoreKey(props.database.origin, props.database.name, props.store),
+  )?.tracked;
+});
+const watched = computed(() => watchState.value === true && changesStore.status === "tracking");
+
+async function watchStore() {
+  watchingStore.value = true;
+  try {
+    await watchIndexedDBStore(
+      buildStoreKey(props.database.origin, props.database.name, props.store),
+    );
+  } catch (error) {
+    toast.error("Could not watch this store", {
+      description: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    watchingStore.value = false;
+  }
+}
 
 const overlayOrigin = computed(() => (props.database.mode === "live" ? props.database.origin : ""));
 const { recordsWithChanges, storeSummary } = useIndexedDBTableChangeOverlay(
@@ -141,8 +171,19 @@ defineExpose({
     :provenance="database.mode === 'live' ? 'live' : 'imported'"
     :read-at="pager.readAt.value"
     :busy="pager.fetching.value && !pager.loading.value"
+    :watched="watched"
   >
     <ChangeSummary v-model:changes-only="changesOnly" :changes="storeSummary" />
+    <span
+      v-if="watchState === false"
+      class="flex items-center gap-1.5 text-2xs text-muted-foreground"
+    >
+      <StatusDot variant="hollow" size="xs" />
+      Not watched
+      <Button size="2xs" variant="transparent" :loading="watchingStore" @click="watchStore">
+        Watch this store
+      </Button>
+    </span>
     <template #actions>
       <Segmented size="xs" active-variant="solid" aria-label="What to show of the store">
         <SegmentedButton :active="view === 'rows'" @click="setView('rows')">Rows</SegmentedButton>

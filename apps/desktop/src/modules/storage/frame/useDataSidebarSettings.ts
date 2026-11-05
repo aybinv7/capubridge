@@ -20,6 +20,8 @@ interface PersistedSettings {
   version: 1;
   sources: Record<string, SourceSettings>;
   showHidden: Record<string, boolean>;
+  /** The old IndexedDB settings, moved here once so the old key can go. */
+  legacy?: LegacyIdbSettings;
 }
 
 interface LegacyIdbSettings {
@@ -100,7 +102,19 @@ export const useDataSidebarSettings = defineStore("data-sidebar-settings", () =>
       isPersisted,
     ),
   );
-  const legacy = readLegacy();
+  const oldKey = readLegacy();
+  if (oldKey) {
+    if (!stored.value.legacy) {
+      stored.value = { ...stored.value, legacy: oldKey };
+      writePersisted(STORAGE_KEY, stored.value);
+    }
+    try {
+      localStorage.removeItem(LEGACY_IDB_KEY);
+    } catch (error) {
+      console.warn("Could not remove the old IndexedDB sidebar settings", error);
+    }
+  }
+  const legacy = stored.value.legacy ?? null;
 
   function keyOf(scope: string, sourceId: string): string {
     return `${scope}::${sourceId}`;
