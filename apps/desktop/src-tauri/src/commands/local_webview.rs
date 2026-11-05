@@ -161,6 +161,28 @@ pub async fn local_webview_navigate(
     webview.eval(&script).map_err(|e| e.to_string())
 }
 
+/// Moves and sizes a preview in one step, so it never shows at the new spot with the old size.
+#[tauri::command]
+pub async fn local_webview_set_bounds(
+    app: tauri::AppHandle,
+    label: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    if ![x, y, width, height].iter().all(|value| value.is_finite()) {
+        return Err("Preview bounds must be finite numbers".to_string());
+    }
+    let webview = local_preview_webview(&app, &label)?;
+    webview
+        .set_bounds(tauri::Rect {
+            position: tauri::LogicalPosition::new(x, y).into(),
+            size: tauri::LogicalSize::new(width.max(1.0), height.max(1.0)).into(),
+        })
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn local_webview_open_devtools(app: tauri::AppHandle, label: String) -> Result<(), String> {
     let webview = local_preview_webview(&app, &label)?;

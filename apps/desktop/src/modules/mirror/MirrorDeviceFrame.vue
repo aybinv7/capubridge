@@ -3,7 +3,10 @@ import { computed, ref } from "vue";
 import { useElementSize } from "@vueuse/core";
 import { fitDeviceFrame } from "./deviceFrame";
 
-const props = defineProps<{ deviceWidth: number; deviceHeight: number }>();
+const props = withDefaults(
+  defineProps<{ deviceWidth: number; deviceHeight: number; bare?: boolean }>(),
+  { bare: false },
+);
 
 const well = ref<HTMLElement | null>(null);
 const screen = ref<HTMLElement | null>(null);
@@ -15,6 +18,7 @@ const frame = computed(() =>
     areaHeight: areaHeight.value,
     deviceWidth: props.deviceWidth,
     deviceHeight: props.deviceHeight,
+    bare: props.bare,
   }),
 );
 
@@ -43,7 +47,10 @@ defineExpose({ well, screen, frame });
     </div>
     <div
       v-show="frame.width > 0"
-      class="shrink-0 bg-black ring-1 ring-white/10"
+      class="shrink-0"
+      :class="
+        props.bare ? 'bg-surface-0 ring-1 ring-border-subtle' : 'bg-black ring-1 ring-white/10'
+      "
       :style="bezelStyle"
       :data-orientation="frame.orientation"
     >

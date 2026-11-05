@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Loader2, Monitor } from "lucide-vue-next";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import type { CDPTarget } from "@/types/cdp.types";
+import { useBoundsFollower } from "./useBoundsFollower";
 
 const props = defineProps<{
   target: CDPTarget | null;
@@ -11,7 +12,6 @@ const props = defineProps<{
 const localWebviewStore = useLocalWebviewStore();
 const hostRef = ref<HTMLElement | null>(null);
 const error = ref<string | null>(null);
-let resizeObserver: ResizeObserver | null = null;
 
 const status = computed(() =>
   props.target ? (localWebviewStore.entries[props.target.id]?.status ?? "creating") : "creating",
@@ -28,6 +28,7 @@ async function attach() {
   error.value = null;
   try {
     await localWebviewStore.attachToElement(target, host);
+    follower.invalidate();
   } catch (err) {
     error.value = String(err);
   }
@@ -37,28 +38,16 @@ async function resize() {
   const target = props.target;
   const host = hostRef.value;
   if (!target || target.source !== "local" || !host) return;
-  await localWebviewStore.resizeToElement(target, host).catch((error) => {
-    console.warn("Failed to resize local preview webview", error);
-  });
+  await localWebviewStore.resizeToElement(target, host);
 }
 
+const follower = useBoundsFollower(hostRef, resize);
+
 onMounted(() => {
-  if (typeof ResizeObserver !== "undefined") {
-    resizeObserver = new ResizeObserver(() => {
-      void resize();
-    });
-    if (hostRef.value) {
-      resizeObserver.observe(hostRef.value);
-    }
-  }
-  window.addEventListener("resize", resize);
   void nextTick(attach);
 });
 
 onUnmounted(() => {
-  resizeObserver?.disconnect();
-  resizeObserver = null;
-  window.removeEventListener("resize", resize);
   void localWebviewStore.hideAll();
 });
 

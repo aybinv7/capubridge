@@ -81,3 +81,20 @@ describe("idealColumnWidth", () => {
     expect(streamAspect(0, 0)).toBeCloseTo(9 / 19.5);
   });
 });
+
+describe("fitDeviceFrame for web previews", () => {
+  it("draws a bare frame edge to edge with square corners", () => {
+    const frame = fitDeviceFrame({
+      areaWidth: 800,
+      areaHeight: 600,
+      deviceWidth: 1440,
+      deviceHeight: 900,
+      bare: true,
+    });
+    expect(frame.bezel).toBe(0);
+    expect(frame.innerRadius).toBe(0);
+    expect(frame.outerRadius).toBe(0);
+    expect(frame.width).toBe(800);
+    expect(frame.height).toBe(500);
+  });
+});

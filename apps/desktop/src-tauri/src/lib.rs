@@ -36,7 +36,7 @@ use commands::files::{
 use commands::local_webview::enable_webview2_remote_debugging;
 use commands::local_webview::{
     local_device_name, local_webview_fetch_cdp_target, local_webview_inject_scrollbar_hide,
-    local_webview_navigate, local_webview_open_devtools,
+    local_webview_navigate, local_webview_open_devtools, local_webview_set_bounds,
 };
 use commands::mirror::{
     adb_mirror_get_clipboard, adb_mirror_get_screen_size, adb_mirror_inject_keycode,
@@ -392,6 +392,7 @@ pub fn run() {
             local_webview_fetch_cdp_target,
             local_webview_inject_scrollbar_hide,
             local_webview_navigate,
+            local_webview_set_bounds,
             updater_check,
             updater_install,
             mcp_get_status,

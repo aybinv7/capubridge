@@ -39,6 +39,16 @@ function readElementBounds(element: HTMLElement): LocalWebviewBounds {
   };
 }
 
+async function placeWebview(webview: Webview, bounds: LocalWebviewBounds) {
+  try {
+    await invokeCommand("local_webview_set_bounds", { label: webview.label, ...bounds });
+  } catch (error) {
+    console.warn("Atomic preview placement failed; moving in two steps", webview.label, error);
+    await webview.setPosition(new LogicalPosition(bounds.x, bounds.y));
+    await webview.setSize(new LogicalSize(bounds.width, bounds.height));
+  }
+}
+
 async function parkWebview(webview: Webview) {
   await webview.setSize(new LogicalSize(1, 1)).catch((error) => {
     console.warn("Failed to minimize local preview webview", webview.label, error);
@@ -261,9 +271,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
       await parkWebview(webview);
       return;
     }
-    const bounds = readElementBounds(element);
-    await webview.setPosition(new LogicalPosition(bounds.x, bounds.y));
-    await webview.setSize(new LogicalSize(bounds.width, bounds.height));
+    await placeWebview(webview, readElementBounds(element));
     if (modalGuardCount.value > 0) {
       await parkWebview(webview);
       return;
@@ -281,9 +289,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
       return;
     }
 
-    const bounds = readElementBounds(element);
-    await webview.setPosition(new LogicalPosition(bounds.x, bounds.y));
-    await webview.setSize(new LogicalSize(bounds.width, bounds.height));
+    await placeWebview(webview, readElementBounds(element));
   }
 
   async function hideTarget(target: CDPTarget | null | undefined) {

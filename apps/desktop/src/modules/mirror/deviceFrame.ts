@@ -44,24 +44,27 @@ export function fitDeviceFrame(input: {
   areaHeight: number;
   deviceWidth: number;
   deviceHeight: number;
+  /** A bare frame draws the page edge to edge, as a web preview has no hardware around it. */
+  bare?: boolean;
 }): DeviceFrame {
   const aspect = streamAspect(input.deviceWidth, input.deviceHeight);
-  const availableWidth = Math.max(0, input.areaWidth - 2 * BEZEL_PX);
-  const availableHeight = Math.max(0, input.areaHeight - 2 * BEZEL_PX);
+  const bezel = input.bare ? 0 : BEZEL_PX;
+  const availableWidth = Math.max(0, input.areaWidth - 2 * bezel);
+  const availableHeight = Math.max(0, input.areaHeight - 2 * bezel);
   const screenWidth = Math.floor(Math.min(availableWidth, availableHeight * aspect));
   const screenHeight = Math.floor(screenWidth / aspect);
   const shortSide = Math.min(screenWidth, screenHeight);
   const innerRadius =
-    shortSide > 0
+    !input.bare && shortSide > 0
       ? Math.round(Math.min(MAX_CORNER_PX, Math.max(MIN_CORNER_PX, shortSide * CORNER_SHARE)))
       : 0;
   return {
-    width: screenWidth > 0 ? screenWidth + 2 * BEZEL_PX : 0,
-    height: screenHeight > 0 ? screenHeight + 2 * BEZEL_PX : 0,
+    width: screenWidth > 0 ? screenWidth + 2 * bezel : 0,
+    height: screenHeight > 0 ? screenHeight + 2 * bezel : 0,
     screenWidth,
     screenHeight,
-    bezel: BEZEL_PX,
-    outerRadius: innerRadius + BEZEL_PX,
+    bezel,
+    outerRadius: innerRadius + bezel,
     innerRadius,
     orientation: aspect > 1 ? "landscape" : "portrait",
   };

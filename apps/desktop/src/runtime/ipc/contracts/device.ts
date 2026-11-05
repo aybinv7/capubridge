@@ -67,4 +67,8 @@ export interface DeviceCommandMap {
   >;
   local_webview_inject_scrollbar_hide: IpcCommand<{ label: string }, void>;
   local_webview_navigate: IpcCommand<{ label: string; url: string }, void>;
+  local_webview_set_bounds: IpcCommand<
+    { label: string; x: number; y: number; width: number; height: number },
+    void
+  >;
 }

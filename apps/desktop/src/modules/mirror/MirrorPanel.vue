@@ -387,6 +387,7 @@ function toggleRecord() {
         ref="deviceFrameRef"
         :device-width="mirrorStore.deviceWidth"
         :device-height="mirrorStore.deviceHeight"
+        :bare="isWebPreview"
         :class="androidMode ? '' : 'mb-2'"
       >
         <template #overlay>
