@@ -61,6 +61,7 @@ export const useCommandsStore = defineStore("commands", () => {
     next.set(id, provider);
     providers.value = next;
     return () => {
+      if (providers.value.get(id) !== provider) return;
       const remaining = new Map(providers.value);
       remaining.delete(id);
       providers.value = remaining;

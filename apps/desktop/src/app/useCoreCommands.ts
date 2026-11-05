@@ -111,9 +111,8 @@ export function useCoreCommands(): void {
         title: "Reload Capubridge",
         group: "View",
         icon: RotateCw,
-        binding: "mod+r",
-        global: true,
-        keywords: ["refresh", "restart", "f5"],
+        detail: "F5",
+        keywords: ["refresh", "restart", "f5", "ctrl r"],
         run: () => window.location.reload(),
       },
       {
