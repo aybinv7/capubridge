@@ -1,5 +1,6 @@
 use tokio::runtime::Builder;
 
+use crate::commands::cdp_forward_cache::{forget_port, remember_port, remembered_port};
 use crate::commands::{
     adb::{adb_list_webview_sockets_inner, catch_adb_panic, get_adb_device},
     chrome::CDPJsonTarget,
@@ -220,20 +221,37 @@ pub(crate) fn adb_discover_targets_inner(serial: &str) -> Result<Vec<AdbDiscover
             .find(|socket| socket.socket_name == socket_name)
             .and_then(|socket| socket.package_name.clone());
 
-        let port = match adb_forward_cdp_inner(serial, Some(&socket_name)) {
-            Ok(port) => port,
-            Err(error) => {
-                log::warn!(
-                    "[adb_discover_targets] forward failed serial={} socket={}: {}",
-                    serial,
-                    socket_name,
-                    error
-                );
-                continue;
+        let reused = remembered_port(serial, &socket_name).and_then(|port| {
+            match adb_fetch_json_targets_blocking(port) {
+                Ok(listed) => Some((port, Ok(listed))),
+                Err(_) => {
+                    forget_port(serial, &socket_name);
+                    None
+                }
+            }
+        });
+
+        let (port, listed) = match reused {
+            Some(found) => found,
+            None => {
+                let port = match adb_forward_cdp_inner(serial, Some(&socket_name)) {
+                    Ok(port) => port,
+                    Err(error) => {
+                        log::warn!(
+                            "[adb_discover_targets] forward failed serial={} socket={}: {}",
+                            serial,
+                            socket_name,
+                            error
+                        );
+                        continue;
+                    }
+                };
+                remember_port(serial, &socket_name, port);
+                (port, adb_fetch_json_targets_blocking(port))
             }
         };
 
-        match adb_fetch_json_targets_blocking(port) {
+        match listed {
             Ok(socket_targets) => {
                 targets.extend(socket_targets.into_iter().map(|target| {
                     map_discovered_target(&socket_name, package_name.clone(), target)

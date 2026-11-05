@@ -2,6 +2,7 @@ pub mod adb;
 pub mod automation;
 pub mod artemis;
 pub mod reasoning;
+pub(crate) mod cdp_forward_cache;
 pub mod cdp_proxy;
 pub mod chrome;
 pub mod emulator;
