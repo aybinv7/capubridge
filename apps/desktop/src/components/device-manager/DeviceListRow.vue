@@ -2,15 +2,15 @@
 import { computed } from "vue";
 import { ListButton, StatusDot } from "@capubridge/cladd";
 import type { ADBDevice } from "@/types/adb.types";
-import { deviceIdentity } from "@/lib/device-name";
 import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import DeviceKindIcon from "./DeviceKindIcon.vue";
 import { describeDeviceState } from "./deviceState";
 
 const props = defineProps<{
   device: ADBDevice;
+  connections: string;
+  serials: string[];
   viewed: boolean;
-  inUse: boolean;
   busy?: boolean;
 }>();
 
@@ -19,7 +19,7 @@ const emit = defineEmits<{ select: [] }>();
 const names = useDeviceNamesStore();
 const name = computed(() => names.nameOf(props.device));
 const state = computed(() => describeDeviceState(props.device, Date.now(), name.value));
-const identity = computed(() => deviceIdentity(props.device));
+const offline = computed(() => props.device.isStale === true);
 </script>
 
 <template>
@@ -29,10 +29,10 @@ const identity = computed(() => deviceIdentity(props.device));
     :disabled="props.busy"
     data-roving-item
     :data-current="props.viewed || undefined"
-    :aria-current="props.inUse ? 'true' : undefined"
-    :title="props.device.serial"
+    :title="props.serials.join(' · ')"
     tight-focus-ring
     class="w-full"
+    :class="offline && !props.viewed ? 'opacity-70 hover:opacity-100' : ''"
     content-class-name="gap-2.5 px-2.5 py-1.5"
     icon-class-name="text-muted-foreground"
     @click="emit('select')"
@@ -40,17 +40,12 @@ const identity = computed(() => deviceIdentity(props.device));
     <template #icon>
       <DeviceKindIcon :device="props.device" />
     </template>
-    <span class="flex min-w-0 items-center gap-1.5">
-      <span class="truncate text-sm font-medium text-foreground">{{ name }}</span>
-      <span v-if="props.inUse" class="shrink-0 text-2xs font-normal text-signal-select">
-        In use
-      </span>
-    </span>
+    <span class="truncate text-sm font-medium text-foreground">{{ name }}</span>
     <template #footer>
       <span class="flex min-w-0 items-center gap-1.5 text-2xs font-normal">
         <StatusDot :color="state.dotColor" :variant="state.dotVariant" size="xs" class="shrink-0" />
         <span class="shrink-0 text-muted-foreground">{{ state.label }}</span>
-        <span class="truncate text-[var(--fg-subtle)]">{{ identity }}</span>
+        <span class="truncate text-[var(--fg-subtle)]">{{ props.connections }}</span>
       </span>
     </template>
   </ListButton>

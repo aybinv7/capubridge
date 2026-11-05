@@ -60,6 +60,49 @@ export function targetDisplayTitle(target: Pick<CDPTarget, "id" | "title" | "url
   return "Untitled";
 }
 
+const APP_ORIGIN = /^(?:https?|capacitor|ionic):\/\/localhost(?::\d+)?$/i;
+
+/**
+ * The route of a page an installed app serves itself (`https://localhost/…`, `capacitor://…`), or
+ * null for a page on the open web. Every such app reports the same origin, so only the route says
+ * anything.
+ */
+export function appRouteOf(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (
+      !APP_ORIGIN.test(
+        parsed.origin === "null" ? `${parsed.protocol}//${parsed.host}` : parsed.origin,
+      )
+    ) {
+      return null;
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The two lines of a target row. A page an app serves itself drops the shared origin and shows
+ * its route; a title that only repeats the app's name gives way to the route.
+ */
+export function describeTargetLines(
+  target: Pick<CDPTarget, "id" | "title" | "url">,
+  appLabel: string | null,
+): { title: string; detail: string | null } {
+  const title = targetDisplayTitle(target);
+  const route = appRouteOf(target.url);
+  if (route === null) {
+    return { title, detail: target.title?.trim() && target.url ? target.url : null };
+  }
+  const repeatsApp =
+    appLabel !== null && title.trim().toLowerCase() === appLabel.trim().toLowerCase();
+  if (repeatsApp) return { title: route === "/" ? "Main screen" : route, detail: null };
+  return { title, detail: route === "/" ? null : route };
+}
+
 /** The app a target belongs to, or null when discovery could not tell ("unknown" or blank). */
 export function appPackageOf(target: Pick<CDPTarget, "packageName">): string | null {
   const name = target.packageName?.trim();

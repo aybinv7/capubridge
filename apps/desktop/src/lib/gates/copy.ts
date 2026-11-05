@@ -15,7 +15,7 @@ const FIRST_RUN_STEPS = [
 ] as const;
 
 function deviceName(input: GateInput): string {
-  return input.device?.model || input.device?.serial || "The device";
+  return input.device?.name || input.device?.model || input.device?.serial || "The device";
 }
 
 function targetName(input: GateInput): string {

@@ -72,7 +72,7 @@ describe("TargetAppGroup", () => {
     const current = container.querySelector('[aria-current="true"]');
     expect(current?.textContent).toContain("w1 title");
     expect(current?.textContent).toContain("live");
-    expect(container.textContent).toContain("In use");
+    expect(container.textContent).not.toContain("In use");
   });
 
   it("emits select for the clicked row", async () => {

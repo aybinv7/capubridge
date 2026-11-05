@@ -43,7 +43,6 @@ const onlineCount = computed(
   () =>
     devicesStore.devices.filter((device) => device.status === "online" && !device.isStale).length,
 );
-const inUseSerial = computed(() => devicesStore.selectedDevice?.serial ?? null);
 
 const root = ref<HTMLElement | null>(null);
 
@@ -137,7 +136,6 @@ function showEmulators() {
             :local-device-name="manager.localDeviceName.value"
             :local-viewed="activePanel === 'local'"
             :viewed-serial="activePanel === 'device' ? viewedSerial : null"
-            :in-use-serial="inUseSerial"
             :forgetting-serial="manager.forgettingSerial.value"
             @select-local="manager.showPanel('local')"
             @select-device="manager.selectDevice($event)"

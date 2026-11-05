@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ListTitle } from "@capubridge/cladd";
+import { ChevronRight } from "lucide-vue-next";
 import type { ADBDevice } from "@/types/adb.types";
-import DeviceGroupSection from "./DeviceGroupSection.vue";
+import { useDeviceHardwareStore } from "@/stores/deviceHardware.store";
+import DeviceEntryRow from "./DeviceEntryRow.vue";
 import LocalDeviceRow from "./LocalDeviceRow.vue";
-import { groupDevices } from "./deviceGroups";
+import { arrangeDeviceList, mergeDeviceConnections, type DeviceEntry } from "./deviceEntries";
 
 const props = defineProps<{
   devices: ADBDevice[];
   localDeviceName: string;
   localViewed: boolean;
   viewedSerial: string | null;
-  inUseSerial: string | null;
   forgettingSerial?: string | null;
 }>();
 
@@ -21,68 +21,86 @@ const emit = defineEmits<{
   forgetDevice: [serial: string];
 }>();
 
-const groups = computed(() => groupDevices(props.devices));
-const liveGroups = computed(() => groups.value.filter((group) => !group.history));
-const historyGroups = computed(() => groups.value.filter((group) => group.history));
-const expanded = ref(new Set<string>());
+const hardware = useDeviceHardwareStore();
+const list = computed(() =>
+  arrangeDeviceList(mergeDeviceConnections(props.devices, hardware.hardwareOf)),
+);
+const earlierOpen = ref(false);
 
-function isExpanded(groupId: string, holdsViewed: boolean) {
-  return holdsViewed || expanded.value.has(groupId);
+function holds(entry: DeviceEntry, serial: string | null | undefined) {
+  return serial != null && entry.connections.some((device) => device.serial === serial);
 }
 
-function toggle(groupId: string) {
-  const next = new Set(expanded.value);
-  if (next.has(groupId)) next.delete(groupId);
-  else next.add(groupId);
-  expanded.value = next;
-}
+const showEarlier = computed(
+  () => earlierOpen.value || list.value.earlier.some((entry) => holds(entry, props.viewedSerial)),
+);
 
-function holdsViewed(devices: ADBDevice[]) {
-  return devices.some((device) => device.serial === props.viewedSerial);
+function forget(entry: DeviceEntry) {
+  for (const connection of entry.connections) emit("forgetDevice", connection.serial);
 }
 </script>
 
 <template>
-  <div class="flex flex-col gap-3" role="group" aria-label="Devices">
-    <p v-if="liveGroups.length === 0" class="px-2.5 py-2 text-xs text-muted-foreground">
-      No Android device is connected. Plug one in over USB, connect one over Wi-Fi, or start an
+  <div class="flex flex-col gap-0.5" role="group" aria-label="Devices">
+    <p v-if="list.live.length === 0" class="px-2.5 pt-1 pb-2 text-xs text-muted-foreground">
+      No Android device is connected. Plug one in over USB, connect over Wi-Fi, or start an
       emulator.
     </p>
 
-    <DeviceGroupSection
-      v-for="group in liveGroups"
-      :key="group.id"
-      :group="group"
-      :expanded="true"
-      :viewed-serial="props.viewedSerial"
-      :in-use-serial="props.inUseSerial"
-      :forgetting-serial="props.forgettingSerial"
-      @select-device="emit('selectDevice', $event)"
-      @forget-device="emit('forgetDevice', $event)"
+    <DeviceEntryRow
+      v-for="entry in list.live"
+      :key="entry.device.serial"
+      :entry="entry"
+      :viewed="holds(entry, props.viewedSerial)"
+      :busy="holds(entry, props.forgettingSerial)"
+      @select="emit('selectDevice', entry.device.serial)"
+      @forget="forget(entry)"
     />
 
-    <section class="flex flex-col gap-0.5">
-      <ListTitle class="px-2.5 pb-1 text-2xs font-normal normal-case text-[var(--fg-subtle)]">
-        This computer
-      </ListTitle>
-      <LocalDeviceRow
-        :name="props.localDeviceName"
-        :viewed="props.localViewed"
-        @select="emit('selectLocal')"
-      />
-    </section>
-
-    <DeviceGroupSection
-      v-for="group in historyGroups"
-      :key="group.id"
-      :group="group"
-      :expanded="!group.collapsible || isExpanded(group.id, holdsViewed(group.devices))"
-      :viewed-serial="props.viewedSerial"
-      :in-use-serial="props.inUseSerial"
-      :forgetting-serial="props.forgettingSerial"
-      @toggle="toggle(group.id)"
-      @select-device="emit('selectDevice', $event)"
-      @forget-device="emit('forgetDevice', $event)"
+    <LocalDeviceRow
+      :name="props.localDeviceName"
+      :viewed="props.localViewed"
+      @select="emit('selectLocal')"
     />
+
+    <DeviceEntryRow
+      v-for="entry in list.recent"
+      :key="entry.device.serial"
+      :entry="entry"
+      :viewed="holds(entry, props.viewedSerial)"
+      :busy="holds(entry, props.forgettingSerial)"
+      @select="emit('selectDevice', entry.device.serial)"
+      @forget="forget(entry)"
+    />
+
+    <template v-if="list.earlier.length">
+      <button
+        type="button"
+        data-roving-item
+        class="mt-1.5 flex items-center gap-1.5 rounded-control px-2.5 py-1 text-left text-2xs text-[var(--fg-subtle)] outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+        :aria-expanded="showEarlier"
+        @click="earlierOpen = !earlierOpen"
+      >
+        <ChevronRight
+          :size="12"
+          class="shrink-0 transition-transform duration-120"
+          :class="showEarlier && 'rotate-90'"
+          aria-hidden="true"
+        />
+        <span class="flex-1">Earlier connections</span>
+        <span class="font-mono tabular-nums">{{ list.earlier.length }}</span>
+      </button>
+      <template v-if="showEarlier">
+        <DeviceEntryRow
+          v-for="entry in list.earlier"
+          :key="entry.device.serial"
+          :entry="entry"
+          :viewed="holds(entry, props.viewedSerial)"
+          :busy="holds(entry, props.forgettingSerial)"
+          @select="emit('selectDevice', entry.device.serial)"
+          @forget="forget(entry)"
+        />
+      </template>
+    </template>
   </div>
 </template>

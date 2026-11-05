@@ -19,7 +19,7 @@ function hostLink(input: GateInput): ChainLink {
   if (source === "chrome") return { key: "host", label: "Host", value: "Chrome", state: "ok" };
   const device = input.device;
   if (!device) return { key: "host", label: "Device", value: "none", state: "broken" };
-  const name = device.model || device.serial;
+  const name = device.name || device.model || device.serial;
   if (device.status === "unauthorized" || device.status === "no-permissions") {
     return { key: "host", label: "Device", value: `${name} · ${device.status}`, state: "broken" };
   }

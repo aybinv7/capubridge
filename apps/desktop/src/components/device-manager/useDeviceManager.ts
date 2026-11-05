@@ -3,6 +3,7 @@ import { toast } from "vue-sonner";
 import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
+import { useTargetsStore } from "@/stores/targets.store";
 import type { DeviceManagerPanel } from "@/stores/ui.store";
 import { useAdb } from "@/composables/useAdb";
 
@@ -26,6 +27,7 @@ export function useDeviceManager(options: DeviceManagerOptions) {
   const devicesStore = useDevicesStore();
   const deviceNames = useDeviceNamesStore();
   const localWebviewStore = useLocalWebviewStore();
+  const targetsStore = useTargetsStore();
   const { getDeviceOverview } = useAdb();
 
   const activePanel = ref<DeviceManagerPanel>("device");
@@ -122,10 +124,20 @@ export function useDeviceManager(options: DeviceManagerOptions) {
     }
   }
 
+  /** Opens where the work is: the page on This PC, or the device the selected target runs on. */
   function onOpen() {
     void localWebviewStore.hideAll();
+    const target = targetsStore.selectedTarget;
     const current = devicesStore.selectedDevice;
-    if (current) {
+    const targetSerial = target?.source === "adb" ? (target.deviceSerial ?? null) : null;
+    if (target?.source === "local") {
+      showPanel("local");
+    } else if (
+      targetSerial &&
+      devicesStore.devices.some((device) => device.serial === targetSerial)
+    ) {
+      viewDevice(targetSerial);
+    } else if (current) {
       viewDevice(current.serial);
     } else {
       const firstOnline = devicesStore.onlineDevices[0] ?? null;

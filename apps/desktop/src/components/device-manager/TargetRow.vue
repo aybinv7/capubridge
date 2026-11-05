@@ -6,6 +6,7 @@ import type { LinkPresentation } from "@/lib/gates/link";
 import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import {
+  describeTargetLines,
   isUnansweredSocket,
   targetDisplayTitle,
   targetKindHint,
@@ -19,16 +20,19 @@ const props = defineProps<{
   link: LinkPresentation | null;
   removable?: boolean;
   icon?: string | null;
+  appLabel?: string | null;
 }>();
 
 const emit = defineEmits<{ select: []; inspect: []; detach: []; remove: [] }>();
 
-const title = computed(() => targetDisplayTitle(props.target));
 const unanswered = computed(() => isUnansweredSocket(props.target));
-const detail = computed(() => {
-  if (unanswered.value) return unansweredSocketHint(props.target.title.trim());
-  return props.target.title?.trim() && props.target.url ? props.target.url : null;
-});
+const lines = computed(() => describeTargetLines(props.target, props.appLabel ?? null));
+const title = computed(() =>
+  unanswered.value ? targetDisplayTitle(props.target) : lines.value.title,
+);
+const detail = computed(() =>
+  unanswered.value ? unansweredSocketHint(props.target.title.trim()) : lines.value.detail,
+);
 const kind = computed(() => targetKindHint(props.target));
 </script>
 

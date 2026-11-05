@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { ChevronRight, Globe } from "lucide-vue-next";
-import { Chip, Surface } from "@capubridge/cladd";
+import { Surface } from "@capubridge/cladd";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
 import AppIcon from "@/modules/devices/AppIcon.vue";
@@ -92,9 +92,6 @@ const subtitle = computed(() => {
           {{ subtitle }}
         </span>
       </span>
-      <Chip v-if="props.group.hasActive" size="sm" rounded color="brand" class="shrink-0">
-        In use
-      </Chip>
     </header>
 
     <TargetRow
@@ -103,6 +100,7 @@ const subtitle = computed(() => {
       :target="target"
       :active="target.id === props.selectedTargetId"
       :link="target.id === props.selectedTargetId ? props.link : null"
+      :app-label="props.appLabel"
       @select="emit('select', target)"
       @inspect="emit('inspect', target)"
       @detach="emit('detach', target)"

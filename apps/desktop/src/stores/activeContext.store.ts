@@ -4,6 +4,7 @@ import { useSessionStore } from "@/stores/session.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useConnectionStore } from "@/stores/connection.store";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { deriveLinkHealth, presentLink } from "@/lib/gates/link";
 import type { GateInput, GateLinkStatus } from "@/lib/gates/types";
@@ -22,6 +23,7 @@ export const useActiveContextStore = defineStore("active-context", () => {
   const targetsStore = useTargetsStore();
   const connectionStore = useConnectionStore();
   const devicesStore = useDevicesStore();
+  const deviceNames = useDeviceNamesStore();
   const presenceStore = useTargetPresenceStore();
 
   const device = computed(() => sessionStore.selectedDevice);
@@ -73,6 +75,7 @@ export const useActiveContextStore = defineStore("active-context", () => {
         ? {
             serial: selectedDevice.serial,
             model: selectedDevice.model,
+            name: deviceNames.nameOf(selectedDevice),
             status: selectedDevice.status,
             isStale: selectedDevice.isStale,
           }

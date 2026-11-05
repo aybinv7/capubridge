@@ -10,7 +10,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import GateChain from "@/components/gate/GateChain.vue";
+import GateDiagram from "@/components/gate/GateDiagram.vue";
 import GateActions from "@/components/gate/GateActions.vue";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useGateActions } from "@/composables/useGateActions";
@@ -92,25 +92,31 @@ async function copyDetail() {
 
   <div v-else class="h-full min-h-0 overflow-auto" :data-gate="kind">
     <Empty
-      class="mx-auto w-full max-w-3xl flex-none items-stretch justify-start gap-5 rounded-none border-0 px-8 pt-[12vh] pb-8 text-left md:px-8 md:pt-[12vh]"
+      class="mx-auto w-full max-w-2xl flex-none items-center justify-start gap-6 rounded-none border-0 px-8 pt-[11vh] pb-8 text-center md:px-8 md:pt-[11vh]"
       role="status"
       aria-live="polite"
     >
-      <GateChain :links="chain" class="self-start" />
+      <GateDiagram v-if="chain.length" :links="chain" class="max-w-full" />
 
-      <EmptyHeader class="max-w-none items-start gap-1.5 text-left">
-        <EmptyTitle class="flex items-center gap-2 text-lg font-medium text-foreground">
+      <EmptyHeader class="max-w-none items-center gap-1.5 text-center">
+        <EmptyTitle
+          class="flex items-center justify-center gap-2 text-lg font-medium text-foreground"
+        >
           <Spinner v-if="content.tone === 'waiting'" size="sm" color="yellow" />
           <TriangleAlert v-else-if="content.tone === 'warning'" :size="16" class="text-warning" />
           <CircleX v-else-if="content.tone === 'error'" :size="16" class="text-error" />
           {{ content.title }}
         </EmptyTitle>
-        <EmptyDescription class="max-w-prose text-sm text-muted-foreground">
+        <EmptyDescription class="max-w-md text-sm text-balance text-muted-foreground">
           {{ content.detail }}
         </EmptyDescription>
       </EmptyHeader>
 
-      <ol v-if="content.steps" class="flex flex-col gap-2" aria-label="Steps">
+      <ol
+        v-if="content.steps"
+        class="flex w-full max-w-md flex-col gap-2.5 rounded-surface bg-surface-cut p-4 text-left shadow-cut"
+        aria-label="Steps"
+      >
         <li
           v-for="(step, index) in content.steps"
           :key="step"
@@ -154,7 +160,7 @@ async function copyDetail() {
         </Button>
       </div>
 
-      <EmptyContent v-if="content.actions.length" class="max-w-none items-start">
+      <EmptyContent v-if="content.actions.length" class="max-w-none items-center">
         <GateActions :actions="content.actions" :running="running" @run="run" />
       </EmptyContent>
       <p

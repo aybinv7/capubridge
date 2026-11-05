@@ -20,7 +20,12 @@ export type GateAdbStatus = "unknown" | "running" | "starting" | "error";
 export interface GateInput {
   adb: GateAdbStatus;
   onlineDevices: number;
-  device: Pick<ADBDevice, "serial" | "model" | "status" | "isStale"> | null;
+  device:
+    | (Pick<ADBDevice, "serial" | "model" | "status" | "isStale"> & {
+        /** The name a person knows the device by ("Redmi Note 14"), when one is known. */
+        name?: string;
+      })
+    | null;
   target: {
     id: string;
     source: GateTargetSource;

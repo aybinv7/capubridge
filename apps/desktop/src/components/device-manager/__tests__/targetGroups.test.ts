@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { CDPTarget } from "@/types/cdp.types";
 import {
+  describeTargetLines,
   appPackageOf,
   groupTargetsByApp,
   isUnansweredSocket,
@@ -140,5 +141,33 @@ describe("targetTypeLabel", () => {
   it("names each DevTools type in sentence case", () => {
     expect(targetTypeLabel({ type: "page" })).toBe("Page");
     expect(targetTypeLabel({ type: "background_page" })).toBe("Background page");
+  });
+});
+
+describe("describeTargetLines", () => {
+  const page = (title: string, url: string) => ({ id: "t", title, url });
+
+  it("shows the route of a page an app serves itself, not its shared origin", () => {
+    expect(describeTargetLines(page("efficy", "https://localhost/u"), "Efficy [Dev]")).toEqual({
+      title: "efficy",
+      detail: "/u",
+    });
+    expect(describeTargetLines(page("Shop", "capacitor://localhost/#/cart"), "Store")).toEqual({
+      title: "Shop",
+      detail: "/#/cart",
+    });
+  });
+
+  it("names the main screen when the title only repeats the app", () => {
+    expect(
+      describeTargetLines(page("Presalio Retail", "https://localhost/"), "Presalio Retail"),
+    ).toEqual({ title: "Main screen", detail: null });
+  });
+
+  it("keeps the full URL for a page on the web", () => {
+    expect(describeTargetLines(page("Docs", "https://example.com/a"), "Chrome")).toEqual({
+      title: "Docs",
+      detail: "https://example.com/a",
+    });
   });
 });
