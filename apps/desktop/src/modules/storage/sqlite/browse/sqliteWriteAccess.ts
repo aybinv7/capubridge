@@ -21,6 +21,14 @@ export function sqliteReadOnlyReason(
   return "Read-only for now: this is a copy pulled from the device, and edits are not written back to it yet.";
 }
 
+/**
+ * Whether this one database, not the one that happens to be open, may be changed or deleted here.
+ * Only an imported file is its own source; a device database is a pulled copy.
+ */
+export function canWriteDatabase(db: Pick<SqliteDbFile, "sourceKind">): boolean {
+  return db.sourceKind === "imported";
+}
+
 export function useSqliteWriteAccess(
   session: Ref<LocalSqlSession | null>,
   db: Ref<SqliteDbFile | null>,

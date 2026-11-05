@@ -73,7 +73,11 @@ import type {
 } from "@/types/sqlite.types";
 import SqliteBrowse from "./browse/SqliteBrowse.vue";
 import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
-import { useSqliteWriteAccess } from "./browse/sqliteWriteAccess";
+import {
+  canWriteDatabase,
+  sqliteReadOnlyReason,
+  useSqliteWriteAccess,
+} from "./browse/sqliteWriteAccess";
 import { quoteIdent, sqlLiteral } from "./browse/sqliteQuery";
 import SqliteTableToolbar from "./SqliteTableToolbar.vue";
 import SqliteDatabaseOverview from "./SqliteDatabaseOverview.vue";
@@ -1099,24 +1103,23 @@ async function forceReleaseAndDelete(opfsPath: string, db: SqliteDbFile): Promis
 }
 
 async function deleteDatabaseAtSource(db: SqliteDbFile): Promise<void> {
-  const s = localSession.value;
   if (db.sourceKind === "imported") {
     // Imported files have no live source — just drop the in-memory session.
     return;
   }
   if (db.sourceKind === "jeep-sqlite") {
-    const key = db.sourceKey ?? s?.sourceKey ?? db.name;
+    const key = db.sourceKey ?? db.name;
     await getJeepSqliteDomain().deleteDatabase({
       key,
-      idbName: db.sourceIdbName ?? s?.sourceIdbName,
-      storeName: db.sourceStoreName ?? s?.sourceStoreName,
+      idbName: db.sourceIdbName,
+      storeName: db.sourceStoreName,
     });
     return;
   }
   if (db.sourceKind === "opfs") {
-    const opfsPath = db.sourceOpfsPath ?? s?.sourceOpfsPath;
+    const opfsPath = db.sourceOpfsPath;
     if (!opfsPath) throw new Error("OPFS path not available for this database");
-    const isSahPoolSlot = db.stripSahPoolHeader ?? s?.stripSahPoolHeader ?? false;
+    const isSahPoolSlot = db.stripSahPoolHeader ?? false;
     const opfs = getOpfsDomain();
     try {
       await opfs.deleteEntry(opfsPath);
@@ -1260,6 +1263,12 @@ async function handleImportSqlDumpInto(db: SqliteDbFile) {
 }
 
 function handleDeleteDatabase(db: SqliteDbFile) {
+  if (!canWriteDatabase(db)) {
+    toast.info("This database is read-only here", {
+      description: sqliteReadOnlyReason(null, db) ?? undefined,
+    });
+    return;
+  }
   openConfirm(
     "Delete database",
     `Permanently delete ${describeDbSource(db)}? This removes it at the source and cannot be undone.`,
@@ -1677,13 +1686,13 @@ watch(
                         Export SQL dump
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        v-if="readOnlyReason === null"
+                        v-if="canWriteDatabase(db)"
                         @click="handleImportSqlDumpInto(db)"
                       >
                         <Upload class="h-3.5 w-3.5 mr-2" />
                         Import SQL dump (replace)
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator v-if="readOnlyReason === null" />
+                      <DropdownMenuSeparator v-if="canWriteDatabase(db)" />
                       <DropdownMenuItem
                         :disabled="!hasSummaryChanges(dbSummary(db))"
                         @click="
@@ -1693,9 +1702,9 @@ watch(
                         <Eraser class="h-3.5 w-3.5 mr-2" />
                         Clear DB changes
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator v-if="readOnlyReason === null" />
+                      <DropdownMenuSeparator v-if="canWriteDatabase(db)" />
                       <DropdownMenuItem
-                        v-if="readOnlyReason === null"
+                        v-if="canWriteDatabase(db)"
                         class="text-error focus:text-error"
                         @click="handleDeleteDatabase(db)"
                       >
