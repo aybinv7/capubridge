@@ -32,7 +32,7 @@ opens Mocking; a log row in Mocking opens the rule that answered it.
 - [x] `network.toggle-capture` "Pause capture" / "Resume capture" → `useNetworkCommands.ts` (icon follows the state)
 - [x] `network.clear` "Clear requests", only with requests → `useNetworkCommands.ts`
 - [x] `network.preserve` → "Keep requests across reloads" / "Stop keeping requests across reloads", keywords preserve, log (`useNetworkCommands.ts`)
-- [x] `network.filter` "Filter requests" focuses and selects the filter → `useNetworkCommands.ts`; from Mocking it opens Requests with `?focus=filter` and focuses there (`requests/NetworkRequests.vue`)
+- [x] `network.filter` "Filter requests" focuses and selects the filter → `useNetworkCommands.ts`; from Mocking it opens Requests and asks the store to focus the filter (`takeFilterFocus`, honoured for 5 s), so no `?focus=filter` stays in the URL when a gate shows (round 1, P3)
 
 New commands: `screen.network-requests` (Reload the page, Copy request address, Copy request as cURL,
 Copy request as fetch, Copy response, Mock this response — `requests/useRequestsCommands.ts`) and
@@ -42,15 +42,15 @@ WebView / Run the local mock server — `mock/useMockCommands.ts`).
 ## Requests toolbar (`requests/RequestsToolbar.vue`, `requests/RequestsFilterBar.vue`)
 
 - [x] Capture toggle → `IconAction` Pause / Play, "Pause capture" / "Resume capture"
-- [x] Capture status chip idle / connecting / live / error with the error as tooltip → `StatusDot` + one word (Live, Connecting, Waiting, Paused, Not capturing) with the detail as tooltip (`requests/CaptureStatus.vue`, `requests/captureState.ts`); an app in the background reads "Waiting", not "Live"
+- [x] Capture status chip idle / connecting / live / error with the error as tooltip → `StatusDot` + one word (Live, Connecting, In the background, Paused, Not capturing) with the detail as tooltip (`requests/CaptureStatus.vue`, `requests/captureState.ts`); an app in the background reads "In the background", the same words as the pill and the strip, which names the app by its label (round 1, U4)
 - [x] Clear → `IconAction` "Clear requests", disabled when empty
 - [x] Search scope URL / All → Cladd `Select` "In addresses" / "Also in headers and bodies", shown while a filter is typed (the old "URL / Headers" label was wrong: headers were only searched in the wide scope)
-- [x] Filter field with clear (×) → Cladd `SearchField` "Filter requests" (built-in clear); same matching
-- [x] Ctrl+F outside the details focuses and selects the filter → `requests/useRequestsKeyboard.ts`, `RequestsToolbar.focusFilter`
-- [x] Type filters (same ten, same matching) → Cladd `Segmented` with plain labels and hints (`requests/requestFilters.ts`)
+- [x] Filter field with clear (×) → Cladd `SearchField` "Filter requests" (built-in clear); same matching, applied 150 ms after the last key (round 1, F5)
+- [x] Ctrl+F outside the details focuses and selects the filter → `requests/useRequestsKeyboard.ts`, `RequestsToolbar.focusFilter`; only for key presses inside Requests or with nothing focused, so the console and dialogs keep their own Ctrl+F (round 1, U9)
+- [x] Type filters (same ten, same matching) → Cladd `Segmented` with plain labels and hints in Cladd tooltips (`requests/requestFilters.ts`, matching in `stores/requestMatch.ts`); the selected segment reads foreground medium (`SEGMENT_TEXT`, round 1, U7)
 - [x] Method filter → Cladd `Select` "Any method" · GET … OPTIONS
 - [x] Preserve toggle (default on) → `IconAction` pin "Keep requests when the page reloads", pressed while on
-- [x] Stats N requests / X transferred / N shown while filtering → one quiet line at the end of the filter row (`requests/requestFilters.ts` `requestsSummary`)
+- [x] Stats N requests / X transferred / N shown while filtering → one quiet line at the end of the filter row (`requests/requestFilters.ts` `requestsSummary`), with a separate "Y resources" total like DevTools (round 1, P9)
 
 New: "Reload the page" (`requests/usePageReload.ts`, `Page.reload` over CDP) in the toolbar and the
 empty state; "Mocking N rules" notice when interception is on (`requests/MockingNotice.vue`).
@@ -58,21 +58,24 @@ empty state; "Mocking N rules" notice when interception is on (`requests/Mocking
 ## Request list (`requests/RequestsTable.vue`)
 
 - [x] Virtualised list → TanStack Table columns + `useFixedVirtualList`, 26 px rows, overscan 12
-- [x] Column header → Method · Name · Status · Type · Initiator · Size · Time · Waterfall, every column sortable (`SortHeader`, ascending → descending → capture order, `requests/requestSort.ts`); Type, Initiator, Size and Waterfall step aside by container width (`requests/requestColumns.ts`)
+- [x] Column header → Name · Status · Type · Initiator · Size · Time · Waterfall, every column sortable (`SortHeader`, ascending → descending → capture order, `requests/requestSort.ts`, string keys cached per entry); the Method column became a quiet prefix in Name, shown only when not GET (round 1, U1); Type, Initiator, Size and Waterfall step aside by container width (`requests/requestColumns.ts`)
 - [x] Type icon per resource type → dropped as a duplicate signal; the Type column names it in words (`typeWord`)
-- [x] Method badge tinted per method → quiet mono method (colour is reserved for meaning)
-- [x] Status tinted, `ERR`, `—` → code tinted only for 3xx (quiet) / 4xx (warning) / 5xx (error); words Failed, Cancelled, Blocked, Pending (`requests/requestCells.ts` `statusCell`)
-- [x] URL as path + query, selectable → Name (path + query, `data:` media type), full URL as tooltip and in the details
+- [x] Method badge tinted per method → quiet mono prefix in Name when not GET (`requests/RequestNameCell.vue`)
+- [x] Status tinted, `ERR`, `—` → 2xx and 3xx quiet, 4xx warning, 5xx error; words Failed, Cancelled, Blocked, Pending, and Unknown for a request still open when capture restarted (`requests/requestCells.ts` `statusCell`, round 1, U14/P8)
+- [x] URL as path + query, selectable → Name: last segment + query as the main text, host and folder quiet after it, a CapacitorHttp call named by the address it carries (`requests/requestNames.ts`); full URL as tooltip and in the details (round 1, U1)
 - [x] Type short label → words (Fetch, XHR, Script, Image, …)
-- [x] Size `…` / `—` / `(cache)` / bytes → `…`, `—`, Disk cache, Service worker, Prefetch, bytes; WebSockets show frames (`sizeCell`)
+- [x] Size `…` / `—` / `(cache)` / bytes → `…`, `—`, Disk cache, Service worker, Prefetch, "transferred / size" like DevTools, "App · size" for files the app serves itself (sizes summed from `Network.dataReceived`, Content-Length as fallback); WebSockets show frames (`sizeCell`, `src/composables/networkSizes.ts`, round 1, P9/U3)
 - [x] Time `…` / aborted / failed / ms / s, tinted over 1 s and 3 s → Pending / Open / Cancelled / Failed, same thresholds (`timeCell`)
-- [x] Initiator `file:line` or type → same, line shown 1-based, types in words (`initiatorWord`)
+- [x] Initiator `file:line` or type → same, line shown 1-based, a site root as `index.html`, mono only for `file:line` (`initiatorCell`, round 1, U10/U14)
 - [x] Row signals (left edge, tints) → status and time words carry the outcome; selection uses the shared selection treatment (`src/shared/list/rowState.ts`)
 - [x] Click selects; clicking the selected row closed the details → click always selects (device lesson P5); close with Esc or the close button
 - [x] Ctrl/⌘+↑/↓ moves the selection → kept (`requests/useRequestsKeyboard.ts`); plain ↑/↓, PgUp/PgDn, Home/End, Enter (to the details), Esc in the focused list
 - [x] Empty: waiting vs no match → `requests/RequestsEmpty.vue` + `emptyCopy`: no match (Clear filters), paused (Resume capture), could not capture, connecting, app in the background, waiting (Reload the page)
 
-New: waterfall bars (waiting vs receiving, open requests run to the end, `requests/waterfall.ts`),
+New: waterfall bars (waiting vs receiving, open requests run to the end, at least 3 px wide, axis from the last page
+load with tick labels in the header, hidden while the details are open; `requests/waterfall.ts`, `WaterfallAxis.vue`),
+the selected row brought into view on mount and filter change, the context menu also from the Menu key / Shift+F10
+and acting on the live request, following also at the 5,000 cap (round 1),
 right-click menu (`requests/RequestContextMenu.vue`), follows new requests while at the end with
 nothing selected and no sort, `aria-activedescendant` listbox.
 
@@ -86,19 +89,20 @@ nothing selected and no sort, `aria-activedescendant` listbox.
 - [x] Headers › Response headers with count, sorted, empty text → `HeadersTab.vue`
 - [x] Headers › Request headers with count, sorted → `HeadersTab.vue`
 - [x] Sections collapsible, open by default → `DetailsSection.vue`; the collapsed set is remembered (`capubridge:network:collapsed-header-sections`)
-- [x] Payload states and views → `PayloadTab.vue` + `BodyView.vue`: no body, reading, error with Try again, JSON (Text · Tree · Raw), form fields as `name: value`, text, empty
+- [x] Payload states and views → `PayloadTab.vue` + `BodyView.vue`: query parameters (round 1, U8), no body, reading, error with Try again, JSON (Text · Tree · Raw), form fields as `name: value`, text, empty
 - [x] Payload fetched only on its tab, TanStack Query `["net-post-data", target, id]`, stale 60 s, no retry, cached for search → `useRequestBodies.ts` (no longer waits for the request to finish)
 - [x] Response states → `ResponseTab.vue`: WebSocket, failed with the error, waiting, reading, error with Try again, empty
-- [x] Response image with Raw → `ImageBody.vue`: Picture (shared zoomable `ImageView`) · Base64
-- [x] Response JSON with Raw, text with MIME → shared code viewer (`src/shared/code-viewer/JsonView.vue` Text · Tree · Raw, `TextView.vue` with line numbers, wrap, find, highlighting by MIME, `bodyContent.ts`); other bytes say their size and type
+- [x] Response image with Raw → `ImageBody.vue`: Picture (shared zoomable `ImageView`) · Base64 in 76-character lines; SVG as Picture · Text (`SvgBody.vue`, round 1)
+- [x] Response JSON with Raw, text with MIME → shared code viewer (`src/shared/code-viewer/JsonView.vue` Text · Tree · Raw, `TextView.vue` with line numbers, wrap, find, highlighting by MIME, `bodyContent.ts`; wrap remembered apart from Files, find labelled per body (P5); lines cut at 4,000 characters with a marker (F9)); bodies over 512 KB format after the pane paints, the last 8 kept (`useBodyContent.ts`, F8); other bytes say their size and type and offer Copy as Base64 / Show as Base64 (`BinaryBody.vue`, P1)
 - [x] Response fetched only on its tab, `["net-response-body", target, id]`, stale 60 s, no retry, cached for search → `useRequestBodies.ts`
-- [x] Timing without CDP timing → `TimingTab.vue` facts: Started at, Total, Transferred, Served from, Media type, Protocol, with a sentence saying the app reported no phases
+- [x] Timing without CDP timing → `TimingTab.vue` facts: Started at, Total, Size (Served from, Media type and Protocol live in Headers › General, which also gained Size; round 1, U14), with a sentence saying the app reported no phases
 - [x] Timing phases with totals → `TimingTab.vue` + `timing.ts`: Queued, Stalled, DNS lookup, Initial connection, SSL, Request sent, Waiting for the server, Content download, laid out on one time axis like DevTools
 - [x] Cookies › request cookies → `CookiesTab.vue` "Sent with the request" (`cookies.ts`)
 - [x] Cookies › Set-Cookie with attributes → "Set by the response", flags read "Yes"
 
-New: Copy address / as cURL / as fetch / response (`copyAs.ts`, `useRequestActions.ts`), Mock this
-response (`mock/mockFromRequest.ts`).
+New: Copy address / as cURL / as fetch / response / response as Base64 (`copyAs.ts`, `useRequestActions.ts`, also in
+the palette), Mock this response (`mock/mockFromRequest.ts`), offered only for finished Fetch/XHR/Document/Other
+requests with the reason in its tooltip otherwise (round 1, P6/U6).
 
 ## Capture lifecycle (`src/composables/useNetwork.ts`, `src/components/ObservabilityBootstrap.vue`)
 
@@ -120,26 +124,26 @@ response (`mock/mockFromRequest.ts`).
 
 ## Mocking toolbar (`mock/MockToolbar.vue`, `mock/MockModeGuide.vue`)
 
-- [x] Mode Off · CDP · HTTP with tooltips and active dot → Cladd `Segmented` "Off · In the WebView · Local server" with hints and a still `StatusDot` (no pulse: only recording may pulse)
-- [x] HTTP port (1024–65535, persisted, default 3001) → Cladd `NumberField`, clamped (`mockView.ts`)
+- [x] Mode Off · CDP · HTTP with tooltips and active dot → Cladd `Segmented` "Off · In the WebView · Local server" with hints in Cladd tooltips and a still `StatusDot` (no pulse: only recording may pulse)
+- [x] HTTP port (1024–65535, persisted, default 3001) → Cladd `NumberField`, clamped (`mockView.ts`), on a second row with the server state and its address (`mock/MockServerControls.vue`, round 1, U15)
 - [x] ADB Reverse → "Connect the phone" (`mock/useMockReverse.ts`), now with a success toast and an error toast
 - [x] Server running :port / stopped → `StatusDot` + "Server running" / "Server stopped"
 - [x] CDP without target warning → "Waiting for an app: choose one, or use the local server."
 - [x] Mode guide toggle → `IconAction` "How interception works" opening two cards with a small flow diagram each (`MockModeGuide.vue`); open state remembered
-- [x] Scope label → "Rules for <app name>" or "Shared rules", serial and URL in the tooltip (`scopeWords`)
-- [x] Active rule count → "N of M rules on" (`rulesSummary`)
+- [x] Scope label → "Rules for <app name>" or "Shared rules"; rules are kept per phone + package so they survive app restarts, and the tooltip says so (`scopeWords`, `stores/mockScope.ts`, round 1, P4)
+- [x] Active rule count → "N of M rules on", or "N rules ready, interception off" with a note and "Intercept in the WebView" above list and editor (`rulesSummary`, `mock/MockInterceptionNote.vue`, round 1, U5)
 - [x] Import (disabled while a transfer runs) → `IconAction` "Import a rule" with loading (`mock/useMockTransfer.ts`)
 - [x] Create rule + nine templates → "New rule" split button with a Reka menu "Start from" (fixes the menu that never closed on outside click)
 - [x] Transfer notice strip → toasts ("Rule imported", "Rule exported" with the path, or the error)
 
 ## Mocking rules and log (`mock/MockSidebar.vue`, `mock/MockRulesList.vue`, `mock/MockLogList.vue`)
 
-- [x] Rules (n) · Log (n), Clear log, Reset hits → Cladd `Segmented` with counts; "Clear log"; "Reset counts" (only when a rule has answered)
+- [x] Rules (n) · Log (n), Clear log, Reset hits → Cladd `Segmented` with counts; "Clear log"; "Reset counts" (only when a rule has matched; counts are kept in memory for this run, round 1, F1)
 - [x] Rule search with clear → Cladd `SearchField` "Search by name or address"
-- [x] No rules: text + Create first rule → "No rules yet." in the list; the editor side explains rules and offers New rule and Go to requests (one empty state, not two)
-- [x] Rule rows → virtualised listbox, 44 px: Cladd `Switch`, method, name (dimmed when off), pattern or "Every address", status tinted by outcome, `n×` answered with a tooltip, delete on hover (`tabindex="-1"`); ↑/↓, Home/End, Space toggles, Esc clears
+- [x] No rules: text + Create first rule → one onboarding panel across the tab (no split) with the nine templates as starters, New empty rule and Mock a real response from Requests (`mock/MockOnboarding.vue`, round 1, U13)
+- [x] Rule rows → virtualised listbox, 44 px: Cladd `Switch`, method, name (dimmed when off), pattern or "Every address", status tinted by outcome, `n×` matched with a Cladd tooltip, delete on hover (`tabindex="-1"`); ↑/↓, Home/End (also with nothing selected, P7), Space toggles, Esc clears
 - [x] Log empty → "Nothing intercepted yet. Requests appear here while interception is on."
-- [x] Log rows → virtualised, 40 px: outcome dot, method, URL, rule name or Passed through / No rule, delay, status, clock time (relative times went stale without a tick); a matched row opens its rule
+- [x] Log rows → virtualised, 40 px `div role="listitem"` rows (a button inside when the row opens a rule, U15): outcome dot, method, URL, rule name or Passed through / No rule, delay, status, clock time (relative times went stale without a tick); a matched row opens its rule
 - [x] Log keeps 500 entries in memory → unchanged store
 
 ## Mocking rule editor (`mock/MockRuleEditor.vue`, `mock/MockHeadersEditor.vue`, `mock/MockBodyEditor.vue`, `mock/MockBodyDialog.vue`)
@@ -148,21 +152,21 @@ response (`mock/mockFromRequest.ts`).
 - [x] Name; Duplicate, Export (disabled while a transfer runs), Delete → Cladd `Input`; `IconAction`s; delete now offers Undo in a toast
 - [x] Match: method, pattern with per-type placeholder, match type → "Which requests": Cladd `Select`, `Input`, `Segmented` Contains · Wildcard · Regex · Exact with a hint sentence
 - [x] Response: status 100–599, content type (five), delay 0–60 000 → "Answer with": `NumberField`s (clamped), content type `Select` that also keeps a custom type (from Mock this response)
-- [x] Body editor and Expand dialog (JSON pretty-printed on open) → JSON editor or text area in a well; "Open larger" opens a Cladd `Dialog`
+- [x] Body editor and Expand dialog (JSON pretty-printed on open) → JSON editor or text area in a well (plain text above 2,000 lines or 200 KB; validation debounced; scroll kept out of render, F2); "Open larger" opens a Cladd `Dialog`; the body is never re-formatted on open, "Format JSON" does it on request (P6E); a Base64 body shows its size and type with "Write a text body instead" (`MockBinaryBody.vue`, P6F)
 - [x] Response headers add / edit / remove, empty text → `MockHeadersEditor.vue`
 - [x] Pass through switch → Cladd `Switch` with "Count matching requests but let them reach the real server."
 - [x] HTTP mode note → info note with `http://127.0.0.1:<port>` and Connect the phone
-- [x] Draft auto-saves after 300 ms, keeps the stored enabled state, JSON pretty-printed on open → `mock/useMockRuleDraft.ts` (`mockDraft.ts`), lifecycle tests in `__tests__/useMockRuleDraft.test.ts`
+- [x] Draft auto-saves after 300 ms, keeps the stored enabled state, JSON pretty-printed on open → `mock/useMockRuleDraft.ts` (`mockDraft.ts`; a new draft object marks a change, nothing is serialised), saved at once before export, duplicate, delete and an app change (round 1, P2/P7), lifecycle tests in `__tests__/useMockRuleDraft.test.ts`
 
 ## Mock state and engine
 
-- [x] Rules and mode per target scope, global scope, legacy migration → unchanged (`stores/useMockStore.ts`); selection clears when the scope changes
-- [x] Rule actions → unchanged store; Undo re-inserts a deleted rule where it was
+- [x] Rules and mode per target scope, global scope, legacy migration → rules live in IndexedDB (`stores/mockRulesDb.ts`; debounced writes of changed scopes only; failures in a toast and `saveError`), scoped by phone + package (`stores/mockScope.ts`); the first run moves localStorage rules over and removes them only after the write succeeded (`stores/mockMigration.ts`), rules saved under old page-id scopes wait per phone until that phone's app opens (`stores/useMockPersistence.ts`); tests in `__tests__/mockMigration.test.ts`; selection clears when the scope changes (round 1, F1/P4)
+- [x] Rule actions → store; Undo re-inserts a deleted rule where it was, in the app it was deleted from (round 1, P7)
 - [x] Matching → unchanged (`matchUrl` covered in `__tests__/mockModel.test.ts`)
-- [x] CDP engine → unchanged (`src/composables/useMockServer.ts`)
-- [x] HTTP engine, server outlives the screen → unchanged
+- [x] CDP engine → `src/composables/useMockCdpEngine.ts` (bodies Base64-encoded once per rule version in `mockCdpAnswer.ts`; pass-through matches now counted, as the switch promises), orchestrated by `useMockServer.ts` (round 1, F3)
+- [x] HTTP engine, server outlives the screen → `src/composables/useMockHttpEngine.ts`; the Rust server (`src-tauri/src/commands/mock_server.rs`, `mock_server/rules.rs`) matches absolute patterns against the received path, uses a real regex, sends the content type, decodes Base64 bodies, logs unmatched requests, swaps rules behind an `Arc` and holds no lock during a delay (round 1, P6B/F10)
 - [x] MCP `upsert_mock_rule`, `set_mock_mode` → unchanged; an MCP edit to the open rule now refreshes the editor
-- [x] Export/import format `capubridge-mock-rule` v1 → unchanged (`mockRuleTransfer.ts`)
+- [x] Export/import format `capubridge-mock-rule` v1 → unchanged plus an optional `bodyEncoding`; older files read as text (`mockRuleTransfer.ts`, round trip tested in `__tests__/mockMigration.test.ts`)
 
 ## Bugs fixed (with tests)
 
@@ -174,6 +178,16 @@ response (`mock/mockFromRequest.ts`).
 - The rule draft saved itself every 300 ms forever (each save replaced the draft, which saved again), overwrote hit counts with stale ones, re-formatted JSON while typing, and lost edits made just before switching rules → `mock/useMockRuleDraft.ts`, tested.
 - The code viewer said "1 lines" → "1 line" (`src/shared/code-viewer/TextView.vue`).
 
+## Round 1 fixes (with tests)
+
+- Requests still open when capture restarted stayed Pending forever → marked Unknown (`markInterrupted`), tested in `src/composables/__tests__/useNetwork.test.ts`.
+- Files the app serves itself showed 0 B → sizes from `Network.dataReceived` (`packages/cdp-protocol` `onDataReceived`), tested.
+- The local mock server never matched a rule made from a request, ignored the content type, treated regex as a wildcard and answered pass-through rules → fixed in Rust, `cargo test mock_server`.
+- Mock rules were tied to the page's DevTools id and looked lost after an app restart → per phone + package, with a migration.
+- Undo after switching apps restored into the wrong app; edits made just before an app switch, export or duplicate were lost → fixed, tested.
+- "Mock this response" re-serialised JSON (big integers, `1.0`), dropped binary bodies and the real address of CapacitorHttp calls, copied 304s → fixed, tested in `__tests__/mockModel.test.ts`.
+- Capture threw an unhandled rejection when no DevTools client came back → it reports the failure and retries.
+
 ## Shared code promoted (module boundaries)
 
 So Network can use what Device built without importing another module: `src/shared/list/`
@@ -181,3 +195,8 @@ So Network can use what Device built without importing another module: `src/shar
 `CopyAction.vue`) and `src/shared/code-viewer/` (text, JSON and image views with their helpers and
 tests). Device imports were updated; `TextView`/`JsonView` take a truncation sentence and `ImageView`
 a `Blob` instead of file-viewer types. `JsonView` gained an optional Raw mode.
+
+Round 1 shared additions: `src/shared/components/presentation/HintTooltip.vue` (a Cladd tooltip for one element, in
+place of `title`), `segmentText.ts` (selected-segment text), `src/lib/base64.ts` (chunked Base64 helpers, now used by
+mock transfer, bodies and the CDP engine). `TextView` takes `wrapStorageKey` and `findLabel`; `JsonEditor` debounces
+validation and keeps its scroll offset out of render (also used by Storage).
