@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useStorage } from "@vueuse/core";
+import { Link } from "@capubridge/cladd";
 import type { NetworkEntry } from "@/types/network.types";
-import { TONE_CLASS, initiatorWord, sizeCell, statusCell, typeWord } from "../requestCells";
 import DetailsSection from "./DetailsSection.vue";
 import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
-import { sortedHeaders } from "./cookies";
-import { cacheSource } from "./timing";
+import { parseRequestCookies, parseSetCookies } from "./cookies";
+import { REQUEST_FIRST, RESPONSE_FIRST, groupHeaders, type HeaderGroups } from "./headerGroups";
+import { generalFacts } from "./requestFacts";
 
 type SectionId = "general" | "response" | "request";
+type HeaderSectionId = Exclude<SectionId, "general">;
 
 const props = defineProps<{ entry: NetworkEntry }>();
 
+const emit = defineEmits<{ openCookies: [] }>();
+
 const collapsed = useStorage<SectionId[]>("capubridge:network:collapsed-header-sections", []);
+const unfolded = ref<HeaderSectionId[]>([]);
 
 function isOpen(id: SectionId): boolean {
   return !collapsed.value.includes(id);
@@ -24,42 +29,43 @@ function toggle(id: SectionId) {
     : collapsed.value.filter((section) => section !== id);
 }
 
-const general = computed<KeyValueRow[]>(() => {
-  const entry = props.entry;
-  const status = statusCell(entry);
-  const rows: KeyValueRow[] = [
-    { key: "Address", value: entry.url, clamp: true },
-    { key: "Method", value: entry.method },
-    {
-      key: "Status",
-      value: entry.httpStatus ? `${entry.httpStatus} ${entry.statusText}`.trim() : status.text,
-      tone: TONE_CLASS[status.tone],
-    },
-    { key: "Type", value: [typeWord(entry), entry.mimeType].filter(Boolean).join(" · ") },
-    {
-      key: "Started by",
-      value: entry.initiatorUrl
-        ? `${initiatorWord(entry)} · ${entry.initiatorUrl}`
-        : initiatorWord(entry),
-    },
-    { key: "Served from", value: cacheSource(entry) },
-  ];
-  if (entry.state === "finished" && !entry.isWebSocket) {
-    const size = sizeCell(entry);
-    rows.push({ key: "Size", value: size.title ?? size.text });
+function unfold(id: HeaderSectionId) {
+  unfolded.value = [...unfolded.value, id];
+}
+
+const general = computed<KeyValueRow[]>(() => generalFacts(props.entry));
+
+function headerRows(groups: HeaderGroups, id: HeaderSectionId, cookies: number): KeyValueRow[] {
+  const pairs = unfolded.value.includes(id)
+    ? [...groups.surfaced, ...groups.folded]
+    : groups.surfaced;
+  const rows: KeyValueRow[] = pairs.map(([key, value]) => ({ key, value }));
+  if (groups.cookie) {
+    rows.push({
+      key: id === "response" ? "set-cookie" : "cookie",
+      value: `${cookies} ${cookies === 1 ? "cookie" : "cookies"}`,
+      action: () => emit("openCookies"),
+    });
   }
-  if (entry.remoteAddress) rows.push({ key: "Remote address", value: entry.remoteAddress });
-  if (entry.protocol) rows.push({ key: "Protocol", value: entry.protocol });
-  if (entry.isWebSocket) rows.push({ key: "Frames", value: String(entry.wsFrameCount) });
-  if (entry.errorText) rows.push({ key: "Error", value: entry.errorText, tone: "text-error" });
   return rows;
+}
+
+const response = computed(() => {
+  const groups = groupHeaders(props.entry.responseHeaders, RESPONSE_FIRST, "set-cookie");
+  const cookies = groups.cookie ? parseSetCookies(groups.cookie).length : 0;
+  return { groups, rows: headerRows(groups, "response", cookies) };
+});
+const request = computed(() => {
+  const groups = groupHeaders(props.entry.requestHeaders, REQUEST_FIRST, "cookie");
+  const cookies = groups.cookie ? parseRequestCookies(groups.cookie).length : 0;
+  return { groups, rows: headerRows(groups, "request", cookies) };
 });
 
-const responseHeaders = computed<KeyValueRow[]>(() =>
-  sortedHeaders(props.entry.responseHeaders).map(([key, value]) => ({ key, value })),
-);
-const requestHeaders = computed<KeyValueRow[]>(() =>
-  sortedHeaders(props.entry.requestHeaders).map(([key, value]) => ({ key, value })),
+const sections = computed(() =>
+  [
+    { id: "response" as const, title: "Response headers", ...response.value },
+    { id: "request" as const, title: "Request headers", ...request.value },
+  ].filter((section) => section.groups.total > 0),
 );
 </script>
 
@@ -70,22 +76,25 @@ const requestHeaders = computed<KeyValueRow[]>(() =>
         <KeyValueList :rows="general" />
       </DetailsSection>
       <DetailsSection
-        title="Response headers"
-        :count="responseHeaders.length"
-        :open="isOpen('response')"
-        @toggle="toggle('response')"
+        v-for="section in sections"
+        :key="section.id"
+        :title="section.title"
+        :count="section.groups.total"
+        :open="isOpen(section.id)"
+        @toggle="toggle(section.id)"
       >
-        <KeyValueList v-if="responseHeaders.length" :rows="responseHeaders" mono />
-        <p v-else class="text-xs text-muted-foreground">No response headers yet.</p>
-      </DetailsSection>
-      <DetailsSection
-        title="Request headers"
-        :count="requestHeaders.length"
-        :open="isOpen('request')"
-        @toggle="toggle('request')"
-      >
-        <KeyValueList v-if="requestHeaders.length" :rows="requestHeaders" mono />
-        <p v-else class="text-xs text-muted-foreground">No request headers were reported.</p>
+        <KeyValueList v-if="section.rows.length" :rows="section.rows" mono />
+        <Link
+          v-if="section.groups.folded.length && !unfolded.includes(section.id)"
+          class="mt-1.5 text-xs text-muted-foreground hover:text-foreground"
+          @click="unfold(section.id)"
+        >
+          {{
+            section.rows.length
+              ? `${section.groups.folded.length} more`
+              : `Show all ${section.groups.folded.length}`
+          }}
+        </Link>
       </DetailsSection>
     </div>
   </div>

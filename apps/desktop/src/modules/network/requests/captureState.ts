@@ -15,6 +15,11 @@ export interface CaptureWord {
   tone: CaptureTone;
   solid: boolean;
   detail: string | null;
+  /**
+   * The title-bar pill already says it ("live", "In the background", with the app strip), so the
+   * toolbar stays quiet instead of saying it a second time.
+   */
+  echoed: boolean;
 }
 
 /**
@@ -28,6 +33,7 @@ export function captureWord(input: CaptureInput): CaptureWord {
       tone: "neutral",
       solid: false,
       detail: "New requests are not recorded",
+      echoed: false,
     };
   }
   if (input.status === "error") {
@@ -36,13 +42,14 @@ export function captureWord(input: CaptureInput): CaptureWord {
       tone: "error",
       solid: false,
       detail: input.error ? `Trying again. ${input.error}` : "Trying again",
+      echoed: false,
     };
   }
   if (input.status === "connecting") {
-    return { label: "Connecting", tone: "neutral", solid: false, detail: null };
+    return { label: "Connecting", tone: "neutral", solid: false, detail: null, echoed: false };
   }
   if (input.status === "idle") {
-    return { label: "Not capturing", tone: "neutral", solid: false, detail: null };
+    return { label: "Not capturing", tone: "neutral", solid: false, detail: null, echoed: false };
   }
   if (input.presence === "background") {
     return {
@@ -50,9 +57,10 @@ export function captureWord(input: CaptureInput): CaptureWord {
       tone: "warning",
       solid: false,
       detail: "Android may freeze the app while it is away, so requests can stop arriving",
+      echoed: true,
     };
   }
-  return { label: "Live", tone: "live", solid: true, detail: null };
+  return { label: "Live", tone: "live", solid: true, detail: null, echoed: true };
 }
 
 export type EmptyAction = "clear-filters" | "resume" | "reload" | null;

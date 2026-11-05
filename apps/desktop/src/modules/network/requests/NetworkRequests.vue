@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
 import { useStorage } from "@vueuse/core";
+import { Surface } from "@capubridge/cladd";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
@@ -16,6 +17,7 @@ import RequestDetails from "./details/RequestDetails.vue";
 import { asDetailTab, cycleTab, type DetailTab } from "./details/detailTabs";
 import { useRequestActions } from "./details/useRequestActions";
 import { useRequestBodies } from "./details/useRequestBodies";
+import { columnVisibility } from "./requestColumns";
 import { requestsSummary } from "./requestFilters";
 import { sortRequests, type RequestSort } from "./requestSort";
 import { usePageReload } from "./usePageReload";
@@ -46,6 +48,9 @@ const menuEntry = computed(() => store.entryById(menuId.value));
 const shown = computed(() => sortRequests(store.filteredEntries, sort.value));
 const selected = computed(() => store.selectedEntry);
 const range = computed(() => (selected.value ? null : waterfallRange(store.filteredEntries)));
+const visibility = computed(() =>
+  columnVisibility({ waterfall: !selected.value, typeFilter: store.typeFilter }),
+);
 const revealKey = computed(
   () => `${store.filterText}|${store.typeFilter}|${store.methodFilter}|${store.searchScope}`,
 );
@@ -160,7 +165,7 @@ onMounted(() => {
                 :entries="shown"
                 :selected-id="store.selectedId"
                 :range="range"
-                :show-waterfall="!selected"
+                :visibility="visibility"
                 :reveal-key="revealKey"
                 @select="select"
                 @clear="closeDetails"
@@ -179,7 +184,9 @@ onMounted(() => {
         </ContextMenu>
       </ResizablePanel>
       <template v-if="selected">
-        <ResizableHandle />
+        <ResizableHandle
+          class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
+        />
         <ResizablePanel
           id="network-requests-details"
           :order="2"
@@ -187,19 +194,23 @@ onMounted(() => {
           :min-size="26"
           :max-size="70"
         >
-          <div
-            ref="detailsPane"
-            class="h-full border-l border-border-subtle"
-            @keydown.esc.stop="closeDetails"
-          >
-            <RequestDetails
-              v-model:tab="tab"
-              :entry="selected"
-              :find-signal="findSignal"
-              :bodies="bodies"
-              :actions="actions"
-              @close="closeDetails"
-            />
+          <div ref="detailsPane" class="h-full py-2 pr-2" @keydown.esc.stop="closeDetails">
+            <Surface
+              variant="solid"
+              level="+1"
+              outline
+              class="h-full overflow-hidden rounded-well border border-border-subtle"
+              content-class-name="flex min-h-0 flex-col"
+            >
+              <RequestDetails
+                v-model:tab="tab"
+                :entry="selected"
+                :find-signal="findSignal"
+                :bodies="bodies"
+                :actions="actions"
+                @close="closeDetails"
+              />
+            </Surface>
           </div>
         </ResizablePanel>
       </template>

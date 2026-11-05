@@ -11,6 +11,7 @@ import {
 } from "../requests/requestCells";
 import { requestName, requestNameParts } from "../requests/requestNames";
 import { rowCells } from "../requests/requestRowCells";
+import { REQUEST_ROW_HEIGHT, columnVisibility } from "../requests/requestColumns";
 import { requestsSummary } from "../requests/requestFilters";
 import { nextSort, sortRequests } from "../requests/requestSort";
 import { waterfallBar, waterfallRange, waterfallTicks } from "../requests/waterfall";
@@ -103,45 +104,91 @@ describe("request cells", () => {
     ).toBe("index.html:10");
   });
 
-  test("a row is named by what tells it apart, the host and folder quiet", () => {
+  test("a row is named by what tells it apart, the host quiet, the folder left to the tooltip", () => {
     expect(requestNameParts("https://api.test/v1/orders?page=2")).toEqual({
       main: "orders?page=2",
-      detail: "api.test/v1/",
+      detail: "api.test",
     });
     expect(requestNameParts("https://api.test/")).toEqual({ main: "api.test", detail: "" });
     expect(
       requestNameParts(
         "https://localhost/_capacitor_http_interceptor_?u=https%3A%2F%2Fodoo.test%2Fweb%2Fdataset%2Fcall_kw",
       ),
-    ).toEqual({ main: "call_kw", detail: "odoo.test/web/dataset/" });
+    ).toEqual({ main: "call_kw", detail: "odoo.test" });
+  });
+
+  test("the app's own files carry no host, since their size already says App", () => {
+    expect(requestNameParts("https://localhost/assets/index-abc.js")).toEqual({
+      main: "index-abc.js",
+      detail: "",
+    });
+    expect(requestNameParts("https://appassets.androidplatform.net/assets/app.css")).toEqual({
+      main: "app.css",
+      detail: "",
+    });
+    expect(requestNameParts("file:///android_asset/public/index.html").detail).toBe("");
   });
 
   test("a path ending in an id is named by what it fetches and a short id", () => {
     expect(
       requestNameParts("https://api.test/v1/snapshot/3f2a9c4e-1b7d-4e8a-9f00-5c6d7e8f0001"),
-    ).toEqual({ main: "snapshot/…0001", detail: "api.test/v1/" });
+    ).toEqual({ main: "snapshot/…0001", detail: "api.test" });
     expect(requestNameParts("https://api.test/orders/42?full=1")).toEqual({
       main: "orders/42?full=1",
-      detail: "api.test/",
+      detail: "api.test",
     });
     expect(requestNameParts("https://api.test/v1/orders/1234567890")).toEqual({
       main: "orders/…7890",
-      detail: "api.test/v1/",
+      detail: "api.test",
     });
     expect(requestNameParts("https://cdn.test/assets/0123456789abcdef0123")).toEqual({
       main: "assets/…0123",
-      detail: "cdn.test/",
+      detail: "cdn.test",
     });
-    expect(requestNameParts("https://api.test/42")).toEqual({ main: "42", detail: "api.test/" });
+    expect(requestNameParts("https://api.test/42")).toEqual({ main: "42", detail: "api.test" });
   });
 
-  test("the summary mentions how many are shown only while filtering", () => {
+  test("the summary says the count once, as shown of total while filtering", () => {
     expect(
       requestsSummary({ total: 3, shown: 3, transferred: 2048, resources: 0, filtering: false }),
     ).toBe("3 requests · 2.0 KB transferred");
     expect(
       requestsSummary({ total: 1, shown: 0, transferred: 0, resources: 4096, filtering: true }),
-    ).toBe("1 request · 0 B transferred · 4.0 KB resources · 0 shown");
+    ).toBe("0 of 1 request · 0 B transferred · 4.0 KB resources");
+  });
+
+  test("a failed request's time keeps its duration; Status alone says how it ended", () => {
+    const failed = networkEntry({ state: "failed", startTimestamp: 0, finishedTimestamp: 0.3 });
+    expect(timeCell(failed)).toEqual({ text: "300 ms", tone: "subtle" });
+    expect(timeCell(networkEntry({ state: "failed", finishedTimestamp: null })).text).toBe("—");
+    expect(timeCell(networkEntry({ state: "failed", canceled: true })).text).not.toBe("Cancelled");
+  });
+
+  test("every text cell shares the row's one text size", () => {
+    const cells = rowCells(networkEntry({ initiatorUrl: "https://app.test/main.js" }));
+    for (const cell of [cells.status, cells.type, cells.initiator, cells.size, cells.time]) {
+      expect(cell.className).not.toMatch(/text-(2xs|xs|sm|base)/);
+    }
+  });
+});
+
+describe("columns", () => {
+  test("rows are one roomy line", () => {
+    expect(REQUEST_ROW_HEIGHT).toBe(30);
+  });
+
+  test("Type steps aside while the filter keeps a single type, and the waterfall with the details", () => {
+    expect(columnVisibility({ waterfall: true, typeFilter: "All" })).toEqual({
+      waterfall: true,
+      type: true,
+    });
+    expect(columnVisibility({ waterfall: false, typeFilter: "Img" })).toEqual({
+      waterfall: false,
+      type: false,
+    });
+    expect(columnVisibility({ waterfall: true, typeFilter: "XHR/Fetch" }).type).toBe(true);
+    expect(columnVisibility({ waterfall: true, typeFilter: "Other" }).type).toBe(true);
+    expect(columnVisibility({ waterfall: true, typeFilter: "WS" }).type).toBe(false);
   });
 });
 
@@ -275,6 +322,14 @@ describe("capture state", () => {
       solid: false,
     });
     expect(captureWord(base)).toMatchObject({ label: "Live", solid: true });
+  });
+
+  test("the toolbar stays quiet about what the title-bar pill already says", () => {
+    expect(captureWord(base).echoed).toBe(true);
+    expect(captureWord({ ...base, presence: "background" }).echoed).toBe(true);
+    expect(captureWord({ ...base, recording: false }).echoed).toBe(false);
+    expect(captureWord({ ...base, status: "connecting" }).echoed).toBe(false);
+    expect(captureWord({ ...base, status: "error", error: "boom" }).echoed).toBe(false);
   });
 
   test("an empty list says why it is empty", () => {

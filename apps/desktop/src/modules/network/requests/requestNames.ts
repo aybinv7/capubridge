@@ -4,6 +4,17 @@ export interface RequestNameParts {
   detail: string;
 }
 
+/** Hosts a WebView serves the app's own bundle from, never a server on the network. */
+export const APP_HOSTS: ReadonlySet<string> = new Set([
+  "localhost",
+  "appassets.androidplatform.net",
+]);
+
+/** Whether a parsed address points into the app's own bundle on the phone. */
+export function isAppAddress(parsed: URL): boolean {
+  return parsed.protocol === "file:" || APP_HOSTS.has(parsed.hostname);
+}
+
 /** What a request is called: the path and query, the media type for `data:` URLs. */
 export function requestName(url: string): string {
   if (url.startsWith("data:")) {
@@ -44,10 +55,11 @@ export function shortId(segment: string): string {
 }
 
 /**
- * The last path segment and query as the main text ("orders?page=2"), and the host and the path
- * before it as the quiet detail ("api.shop.test/v1/"). A site root reads as its host; a
- * CapacitorHttp call is named by the address it carries. A path that ends in an identifier is
- * named by the segment before it and a short id ("snapshot/…0001"), so rows say what they fetch.
+ * The last path segment and query as the main text ("orders?page=2"), and the host as the quiet
+ * detail ("api.shop.test"). The folder lives in the tooltip and the details, so a row stays one
+ * short line. The app's own files carry no host (their size already says "App"); a site root
+ * reads as its host; a CapacitorHttp call is named by the address it carries. A path that ends in
+ * an identifier is named by the segment before it and a short id ("snapshot/…0001").
  */
 export function requestNameParts(url: string): RequestNameParts {
   if (url.startsWith("data:") || url.startsWith("blob:")) {
@@ -62,21 +74,17 @@ export function requestNameParts(url: string): RequestNameParts {
     const segments = parsed.pathname.split("/").filter(Boolean);
     const trailing = parsed.pathname.endsWith("/") && segments.length > 0 ? "/" : "";
     const last = segments.pop();
-    const folder = segments.length ? `/${segments.join("/")}/` : "/";
+    const host = isAppAddress(parsed) ? "" : parsed.host;
     if (last === undefined) {
       return parsed.search
-        ? { main: `/${parsed.search}`, detail: parsed.host }
+        ? { main: `/${parsed.search}`, detail: host }
         : { main: parsed.host || url, detail: "" };
     }
     const parent = segments.at(-1);
     if (parent !== undefined && isIdSegment(last)) {
-      const before = segments.slice(0, -1);
-      return {
-        main: `${parent}/${shortId(last)}${trailing}${parsed.search}`,
-        detail: `${parsed.host}${before.length ? `/${before.join("/")}/` : "/"}`,
-      };
+      return { main: `${parent}/${shortId(last)}${trailing}${parsed.search}`, detail: host };
     }
-    return { main: `${last}${trailing}${parsed.search}`, detail: `${parsed.host}${folder}` };
+    return { main: `${last}${trailing}${parsed.search}`, detail: host };
   } catch {
     return { main: url, detail: "" };
   }

@@ -42,7 +42,7 @@ WebView / Run the local mock server — `mock/useMockCommands.ts`).
 ## Requests toolbar (`requests/RequestsToolbar.vue`, `requests/RequestsFilterBar.vue`)
 
 - [x] Capture toggle → `IconAction` Pause / Play, "Pause capture" / "Resume capture"
-- [x] Capture status chip idle / connecting / live / error with the error as tooltip → `StatusDot` + one word (Live, Connecting, In the background, Paused, Not capturing) with the detail as tooltip (`requests/CaptureStatus.vue`, `requests/captureState.ts`); an app in the background reads "In the background", the same words as the pill and the strip, which names the app by its label (round 1, U4)
+- [x] Capture status chip idle / connecting / live / error with the error as tooltip → `StatusDot` + one word (Live, Connecting, In the background, Paused, Not capturing) with the detail as tooltip (`requests/CaptureStatus.vue`, `requests/captureState.ts`); an app in the background reads "In the background", the same words as the pill and the strip, which names the app by its label (round 1, U4); since the polish pass the toolbar says only what the pill does not (Paused, Connecting, Not capturing): "Live" and "In the background" live in the title-bar pill and the app strip (`CaptureWord.echoed`)
 - [x] Clear → `IconAction` "Clear requests", disabled when empty
 - [x] Search scope URL / All → Cladd `Select` "In addresses" / "Also in headers and bodies", shown while a filter is typed (the old "URL / Headers" label was wrong: headers were only searched in the wide scope)
 - [x] Filter field with clear (×) → Cladd `SearchField` "Filter requests" (built-in clear); same matching, applied 150 ms after the last key (round 1, F5)
@@ -50,22 +50,22 @@ WebView / Run the local mock server — `mock/useMockCommands.ts`).
 - [x] Type filters (same ten, same matching) → Cladd `Segmented` with plain labels and hints in Cladd tooltips (`requests/requestFilters.ts`, matching in `stores/requestMatch.ts`); the selected segment reads foreground medium (`SEGMENT_TEXT`, round 1, U7)
 - [x] Method filter → Cladd `Select` "Any method" · GET … OPTIONS
 - [x] Preserve toggle (default on) → `IconAction` pin "Keep requests when the page reloads", pressed while on
-- [x] Stats N requests / X transferred / N shown while filtering → one quiet line at the end of the filter row (`requests/requestFilters.ts` `requestsSummary`), with a separate "Y resources" total like DevTools (round 1, P9)
+- [x] Stats N requests / X transferred / N shown while filtering → one quiet line at the end of the filter row (`requests/requestFilters.ts` `requestsSummary`), with a separate "Y resources" total like DevTools (round 1, P9); while filtering the count reads "3 of 12 requests" instead of a second "3 shown" (polish pass)
 
 New: "Reload the page" (`requests/usePageReload.ts`, `Page.reload` over CDP) in the toolbar and the
 empty state; "Mocking N rules" notice when interception is on (`requests/MockingNotice.vue`).
 
 ## Request list (`requests/RequestsTable.vue`)
 
-- [x] Virtualised list → TanStack Table columns + `useFixedVirtualList`, 26 px rows, overscan 12
-- [x] Column header → Name · Status · Type · Initiator · Size · Time · Waterfall, every column sortable (`SortHeader`, ascending → descending → capture order, `requests/requestSort.ts`, string keys cached per entry); the Method column became a quiet prefix in Name, shown only when not GET (round 1, U1); Type, Initiator, Size and Waterfall step aside by container width (`requests/requestColumns.ts`)
+- [x] Virtualised list → TanStack Table columns + `useFixedVirtualList`, 30 px single-line rows (polish pass, was 26), overscan 12
+- [x] Column header → Name · Status · Type · Initiator · Size · Time · Waterfall, every column sortable (`SortHeader`, ascending → descending → capture order, `requests/requestSort.ts`, string keys cached per entry); the Method column became a quiet prefix in Name, shown only when not GET (round 1, U1); Type, Initiator, Size and Waterfall step aside by container width (`requests/requestColumns.ts`); Type also steps aside while the type filter keeps a single type (`columnVisibility`, polish pass); every cell shares one text size (`text-xs`, quiet parts by colour only) so all columns sit on one baseline, header and rows share one left edge per column, and a stable scrollbar gutter keeps right-aligned Size and Time under their labels
 - [x] Type icon per resource type → dropped as a duplicate signal; the Type column names it in words (`typeWord`)
 - [x] Method badge tinted per method → quiet mono prefix in Name when not GET (`requests/RequestNameCell.vue`)
 - [x] Status tinted, `ERR`, `—` → 2xx and 3xx quiet, 4xx warning, 5xx error; words Failed, Cancelled, Blocked, Pending, and Unknown for a request still open when capture restarted (`requests/requestCells.ts` `statusCell`, round 1, U14/P8)
-- [x] URL as path + query, selectable → Name: last segment + query as the main text, host and folder quiet after it, a CapacitorHttp call named by the address it carries (`requests/requestNames.ts`); full URL as tooltip and in the details (round 1, U1)
+- [x] URL as path + query, selectable → Name: last segment + query as the main text, the host quiet after it on the same line (the app's own files carry none: their size already says "App"), a CapacitorHttp call named by the address it carries (`requests/requestNames.ts`); the folder moved to the tooltip (full URL) and the details header's address line (round 1, U1; polish pass)
 - [x] Type short label → words (Fetch, XHR, Script, Image, …)
 - [x] Size `…` / `—` / `(cache)` / bytes → `…`, `—`, Disk cache, Service worker, Prefetch, "transferred / size" like DevTools, "App · size" for files the app serves itself (sizes summed from `Network.dataReceived`, Content-Length as fallback); WebSockets show frames (`sizeCell`, `src/composables/networkSizes.ts`, round 1, P9/U3)
-- [x] Time `…` / aborted / failed / ms / s, tinted over 1 s and 3 s → Pending / Open / Cancelled / Failed, same thresholds (`timeCell`)
+- [x] Time `…` / aborted / failed / ms / s, tinted over 1 s and 3 s → a live count while open, Open for a WebSocket, same thresholds (`timeCell`); a failed request shows how long it ran, quietly, or "—", since Status already says Failed / Cancelled / Blocked (polish pass)
 - [x] Initiator `file:line` or type → same, line shown 1-based, a site root as `index.html`, mono only for `file:line` (`initiatorCell`, round 1, U10/U14)
 - [x] Row signals (left edge, tints) → status and time words carry the outcome; selection uses the shared selection treatment (`src/shared/list/rowState.ts`)
 - [x] Click selects; clicking the selected row closed the details → click always selects (device lesson P5); close with Esc or the close button
@@ -81,24 +81,24 @@ nothing selected and no sort, `aria-activedescendant` listbox.
 
 ## Request details (`requests/details/`)
 
-- [x] Resizable side pane opened by selection → Reka splitter, 42 % default (26–70 %), width remembered (`auto-save-id`), `NetworkRequests.vue`
-- [x] Header: method, short URL, close → `RequestDetailsHeader.vue` (method, name, status, host line, Mock this response, Copy menu, close with Esc hint)
+- [x] Resizable side pane opened by selection → Reka splitter, 42 % default (26–70 %), width remembered (`auto-save-id`), `NetworkRequests.vue`; since the polish pass the pane is its own raised Cladd `Surface` (level +1, outline bevel, 1 px line, `rounded-well`) inset 8 px from the panel edges, with an 8 px gap holding the resize handle (a hairline on hover, selection blue while dragging)
+- [x] Header: method, short URL, close → `RequestDetailsHeader.vue`, the one home of the request's identity (`details/requestFacts.ts` `headerFacts`): method (always, GET included), name, status with its reason ("404 Not Found"), the full address as a quiet selectable line, then Mock this response, Copy menu, close with Esc hint
 - [x] Tabs and Ctrl/⌘+←/→ → Cladd `Tabs` (`RequestDetails.vue`, `detailTabs.ts`); the open tab is remembered (`capubridge:network:details-tab`)
 - [x] Ctrl+F inside the pane → opens find in the code viewer of Response or Payload (`useRequestsKeyboard.ts` → `findSignal`)
-- [x] Headers › General → `HeadersTab.vue`: Address (clamped, full on hover), Method, Status, Type (+ MIME), Started by, Served from, Remote address, Protocol, Frames (WebSocket), Error
-- [x] Headers › Response headers with count, sorted, empty text → `HeadersTab.vue`
-- [x] Headers › Request headers with count, sorted → `HeadersTab.vue`
+- [x] Headers › General → `HeadersTab.vue` + `details/requestFacts.ts` `generalFacts`: only what the header does not say: Type (+ MIME only when no `content-type` header says it), Started by (script address and line, or a word), Size (with its source in the same value), Frames (WebSocket), Remote address, Protocol, Error. Address, Method and Status moved to the header; Served from merged into Size (polish pass)
+- [x] Headers › Response headers with count, sorted, empty text → `HeadersTab.vue` + `details/headerGroups.ts`: up to 6 headers show at once, the important ones first (content-type, length, encoding, cache, etag, location, retry-after, …); longer lists show the important ones and fold the rest behind "N more"; `set-cookie` reads "N cookies" and opens the Cookies tab; an empty section is hidden instead of described (polish pass)
+- [x] Headers › Request headers with count, sorted → same, important first (content-type, accept, authorization, cache, conditional, origin); `cookie` links to the Cookies tab
 - [x] Sections collapsible, open by default → `DetailsSection.vue`; the collapsed set is remembered (`capubridge:network:collapsed-header-sections`)
-- [x] Payload states and views → `PayloadTab.vue` + `BodyView.vue`: query parameters (round 1, U8), no body, reading, error with Try again, JSON (Text · Tree · Raw), form fields as `name: value`, text, empty
+- [x] Payload states and views → `PayloadTab.vue` + `BodyView.vue`: query parameters (round 1, U8), no body ("No payload", the explanation sentence dropped), reading, error with Try again, JSON (Text · Tree · Raw), form fields as `name: value`, text, empty
 - [x] Payload fetched only on its tab, TanStack Query `["net-post-data", target, id]`, stale 60 s, no retry, cached for search → `useRequestBodies.ts` (no longer waits for the request to finish)
-- [x] Response states → `ResponseTab.vue`: WebSocket, failed with the error, waiting, reading, error with Try again, empty
+- [x] Response states → `ResponseTab.vue`: WebSocket, failed ("No response: the request failed"; the error text lives once, in Headers › General › Error), waiting, reading, error with Try again, empty
 - [x] Response image with Raw → `ImageBody.vue`: Picture (shared zoomable `ImageView`) · Base64 in 76-character lines; SVG as Picture · Text (`SvgBody.vue`, round 1)
 - [x] Response JSON with Raw, text with MIME → shared code viewer (`src/shared/code-viewer/JsonView.vue` Text · Tree · Raw, `TextView.vue` with line numbers, wrap, find, highlighting by MIME, `bodyContent.ts`; wrap remembered apart from Files, find labelled per body (P5); lines cut at 4,000 characters with a marker (F9)); bodies over 512 KB format after the pane paints, the last 8 kept (`useBodyContent.ts`, F8); other bytes say their size and type and offer Copy as Base64 / Show as Base64 (`BinaryBody.vue`, P1)
 - [x] Response fetched only on its tab, `["net-response-body", target, id]`, stale 60 s, no retry, cached for search → `useRequestBodies.ts`
-- [x] Timing without CDP timing → `TimingTab.vue` facts: Started at, Total, Size (Served from, Media type and Protocol live in Headers › General, which also gained Size; round 1, U14), with a sentence saying the app reported no phases
+- [x] Timing without CDP timing → `TimingTab.vue` facts: Started at, Total (omitted while open: the header says Pending); Size lives only in Headers › General (polish pass); "No phases reported" / "Phases appear with the response" in place of sentences
 - [x] Timing phases with totals → `TimingTab.vue` + `timing.ts`: Queued, Stalled, DNS lookup, Initial connection, SSL, Request sent, Waiting for the server, Content download, laid out on one time axis like DevTools
-- [x] Cookies › request cookies → `CookiesTab.vue` "Sent with the request" (`cookies.ts`)
-- [x] Cookies › Set-Cookie with attributes → "Set by the response", flags read "Yes"
+- [x] Cookies › request cookies → `CookiesTab.vue` "Sent with the request" with its count (`cookies.ts`); hidden when empty, "No cookies" when both are
+- [x] Cookies › Set-Cookie with attributes → "Set by the response", flags read "Yes"; hidden when empty
 
 New: Copy address / as cURL / as fetch / response / response as Base64 (`copyAs.ts`, `useRequestActions.ts`, also in
 the palette), Mock this response (`mock/mockFromRequest.ts`), offered only for finished Fetch/XHR/Document/Other
@@ -200,3 +200,35 @@ Round 1 shared additions: `src/shared/components/presentation/HintTooltip.vue` (
 place of `title`), `segmentText.ts` (selected-segment text), `src/lib/base64.ts` (chunked Base64 helpers, now used by
 mock transfer, bodies and the CDP engine). `TextView` takes `wrapStorageKey` and `findLabel`; `JsonEditor` debounces
 validation and keeps its scroll offset out of render (also used by Storage).
+
+## Owner polish pass: one fact, one place
+
+Driven by the owner's review (text heavy, duplicates, details not set apart, rows not on one line).
+Each duplicate removed, and where its fact lives now:
+
+| Said twice                                                              | Lives now                                                                                       |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Address in the header's host line and in General › Address              | Details header, second line (full, selectable, tooltip); the Copy menu still copies it          |
+| Method in the header (non-GET only) and in General › Method             | Details header, always named                                                                    |
+| Status in the header and in General › Status                            | Details header, with its reason ("404 Not Found")                                               |
+| General › Served from and General › Size ("… from the app's own files") | General › Size, one value ("4.0 KB from the disk cache", "1.0 KB transferred · 4.0 KB decoded") |
+| Size in Headers › General and in Timing                                 | Headers › General › Size                                                                        |
+| Media type in General › Type and in the `content-type` response header  | The header list (surfaced first); Type keeps it only when no header carries it                  |
+| Started by "main.js:42 · https://…/main.js" (the file named twice)      | General › Started by: the script's address and line, once                                       |
+| Error text in General › Error and on the Response tab                   | Headers › General › Error; Response says "No response: the request failed"                      |
+| `cookie` / `set-cookie` raw in the header lists and parsed in Cookies   | Cookies tab; the header lists link to it ("3 cookies")                                          |
+| Failed / Cancelled in both Status and Time of a row                     | Status; Time shows how long it ran                                                              |
+| The type word in every row while the type filter keeps one type         | The selected filter segment; the Type column steps aside                                        |
+| Host and folder in every row, plus "App · size" for the app's files     | Host after the name for network requests only; the folder in the tooltip and the details header |
+| "N requests … N shown" while filtering                                  | "3 of 12 requests"                                                                              |
+| Toolbar "Live" / "In the background" beside the pill saying the same    | Title-bar pill (and the app strip); the toolbar names only Paused, Connecting, Not capturing    |
+
+Less text: empty header and cookie sections hide instead of describing themselves; Payload, Response
+and Timing states are short labels; long header lists fold behind "N more" with content-type, cache
+and status-related headers surfaced first. Tests: `__tests__/requestsModel.test.ts` (columns, names,
+time, summary, capture echo, one text size) and `__tests__/requestDetails.test.ts` (header vs General
+facts, size with its source, header groups and cookies).
+
+Not checked in the running app: the owner was using it (the selected app changed between
+screenshots), so the live look of the raised details surface, row baselines and folded header lists
+is pending.

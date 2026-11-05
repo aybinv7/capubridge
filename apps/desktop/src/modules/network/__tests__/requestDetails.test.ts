@@ -10,6 +10,13 @@ import {
 import { findHeader, parseRequestCookies, parseSetCookies } from "../requests/details/cookies";
 import { shellQuote, toCurl, toFetch } from "../requests/details/copyAs";
 import { asDetailTab, cycleTab } from "../requests/details/detailTabs";
+import {
+  REQUEST_FIRST,
+  RESPONSE_FIRST,
+  UNFOLDED_LIMIT,
+  groupHeaders,
+} from "../requests/details/headerGroups";
+import { generalFacts, headerFacts, sizeFact } from "../requests/details/requestFacts";
 import { timingBreakdown } from "../requests/details/timing";
 import { networkEntry } from "./fixtures";
 
@@ -208,5 +215,109 @@ describe("detail tabs", () => {
   test("an unknown stored tab falls back to headers", () => {
     expect(asDetailTab("timing")).toBe("timing");
     expect(asDetailTab("nonsense")).toBe("headers");
+  });
+});
+
+describe("facts said once", () => {
+  test("the header owns method, name, status and address", () => {
+    const entry = networkEntry({
+      url: "https://api.test/v1/orders?page=2",
+      httpStatus: 404,
+      statusText: "Not Found",
+    });
+    expect(headerFacts(entry)).toEqual({
+      method: "GET",
+      name: "orders?page=2",
+      status: { text: "404 Not Found", tone: "warning" },
+      address: "https://api.test/v1/orders?page=2",
+    });
+    expect(headerFacts(networkEntry({ httpStatus: 200, statusText: "" })).status.text).toBe("200");
+    expect(headerFacts(networkEntry({ isWebSocket: true })).method).toBeNull();
+  });
+
+  test("General never repeats the header, and says size and source in one row", () => {
+    const keys = generalFacts(networkEntry({ remoteAddress: "203.0.113.5:443" })).map(
+      (fact) => fact.key,
+    );
+    expect(keys).toEqual(["Type", "Started by", "Size", "Remote address", "Protocol"]);
+    expect(keys).not.toContain("Address");
+    expect(keys).not.toContain("Method");
+    expect(keys).not.toContain("Status");
+    expect(keys).not.toContain("Served from");
+  });
+
+  test("the media type joins Type only when no content-type header says it", () => {
+    expect(generalFacts(networkEntry())[0]?.value).toBe("Fetch · application/json");
+    expect(
+      generalFacts(networkEntry({ responseHeaders: { "Content-Type": "application/json" } }))[0]
+        ?.value,
+    ).toBe("Fetch");
+  });
+
+  test("Started by names the script once, with its line", () => {
+    const facts = generalFacts(
+      networkEntry({ initiatorUrl: "https://app.test/assets/main.js", initiatorLine: 41 }),
+    );
+    expect(facts.find((fact) => fact.key === "Started by")?.value).toBe(
+      "https://app.test/assets/main.js:42",
+    );
+  });
+
+  test("size says where the bytes came from in the same value", () => {
+    expect(sizeFact(networkEntry({ transferSize: 1024, resourceSize: 4096 }))).toBe(
+      "1.0 KB transferred · 4.0 KB decoded",
+    );
+    expect(sizeFact(networkEntry({ transferSize: 2048, resourceSize: 2048 }))).toBe("2.0 KB");
+    expect(sizeFact(networkEntry({ fromDiskCache: true, resourceSize: 4096 }))).toBe(
+      "4.0 KB from the disk cache",
+    );
+    expect(
+      sizeFact(
+        networkEntry({ url: "https://localhost/app.js", transferSize: 0, resourceSize: 12288 }),
+      ),
+    ).toBe("12 KB from the app's files");
+    expect(sizeFact(networkEntry({ state: "pending" }))).toBeNull();
+    expect(sizeFact(networkEntry({ state: "failed" }))).toBeNull();
+    expect(sizeFact(networkEntry({ isWebSocket: true }))).toBeNull();
+  });
+
+  test("a failure's error lives in General, toned as an error", () => {
+    const facts = generalFacts(networkEntry({ state: "failed", errorText: "net::ERR_FAILED" }));
+    expect(facts.find((fact) => fact.key === "Error")).toEqual({
+      key: "Error",
+      value: "net::ERR_FAILED",
+      tone: "error",
+    });
+    expect(facts.some((fact) => fact.key === "Size")).toBe(false);
+  });
+});
+
+describe("header groups", () => {
+  test("a short list shows every header, the important ones first", () => {
+    const groups = groupHeaders(
+      { date: "today", "Content-Type": "text/html", etag: '"1"' },
+      RESPONSE_FIRST,
+      "set-cookie",
+    );
+    expect(groups.surfaced.map(([name]) => name)).toEqual(["Content-Type", "etag", "date"]);
+    expect(groups.folded).toEqual([]);
+    expect(groups.total).toBe(3);
+  });
+
+  test("a long list surfaces the important headers and folds the rest by name", () => {
+    const headers: Record<string, string> = { "cache-control": "no-store", "content-type": "a/b" };
+    for (let index = 0; index < UNFOLDED_LIMIT; index += 1) headers[`x-extra-${index}`] = "1";
+    const groups = groupHeaders(headers, RESPONSE_FIRST, "set-cookie");
+    expect(groups.surfaced.map(([name]) => name)).toEqual(["content-type", "cache-control"]);
+    expect(groups.folded).toHaveLength(UNFOLDED_LIMIT);
+    expect(groups.folded[0]?.[0]).toBe("x-extra-0");
+    expect(groups.total).toBe(UNFOLDED_LIMIT + 2);
+  });
+
+  test("the cookie header is left to the Cookies tab but still counted", () => {
+    const groups = groupHeaders({ Cookie: "a=1; b=2", accept: "*/*" }, REQUEST_FIRST, "cookie");
+    expect(groups.cookie).toBe("a=1; b=2");
+    expect(groups.surfaced).toEqual([["accept", "*/*"]]);
+    expect(groups.total).toBe(2);
   });
 });

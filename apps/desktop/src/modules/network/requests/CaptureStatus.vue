@@ -17,6 +17,7 @@ const color = computed(() => DOT_COLOR[props.word.tone]);
 
 <template>
   <Tooltip
+    v-if="!props.word.echoed"
     :disabled="!props.word.detail"
     position="bottom"
     :offset="6"

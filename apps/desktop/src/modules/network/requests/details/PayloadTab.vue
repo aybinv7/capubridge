@@ -52,11 +52,7 @@ const errorText = computed(() => (props.error ? String(props.error) : null));
       </DetailsSection>
     </div>
     <div v-if="props.entry.hasPostData || !query.length" class="min-h-0 flex-1">
-      <DetailsState
-        v-if="!props.entry.hasPostData"
-        title="This request sent no body"
-        :text="`${props.entry.method} requests usually carry their data in the address.`"
-      />
+      <DetailsState v-if="!props.entry.hasPostData" title="No payload" />
       <DetailsState
         v-else-if="props.loading && props.body === undefined"
         loading

@@ -11,6 +11,7 @@ import { requestNameParts } from "./requestNames";
 
 export interface RowCell {
   text: string;
+  /** Font and tone only: every cell shares the row's one text size, so all sit on one baseline. */
   className: string;
   title: string | undefined;
 }
@@ -45,29 +46,27 @@ function build(entry: NetworkEntry): RowCells {
     url: entry.url,
     status: {
       text: status.text,
-      className: `font-mono text-xs tabular-nums ${TONE_CLASS[status.tone]}`,
+      className: `font-mono tabular-nums ${TONE_CLASS[status.tone]}`,
       title: status.title ?? (entry.errorText || entry.statusText || undefined),
     },
     type: {
       text: typeWord(entry),
-      className: "text-xs text-muted-foreground",
+      className: "text-muted-foreground",
       title: entry.mimeType || undefined,
     },
     initiator: {
       text: initiator.text,
-      className: initiator.isFile
-        ? "font-mono text-2xs text-[var(--fg-subtle)]"
-        : "text-xs text-[var(--fg-subtle)]",
+      className: initiator.isFile ? "font-mono text-[var(--fg-subtle)]" : "text-[var(--fg-subtle)]",
       title: entry.initiatorUrl,
     },
     size: {
       text: size.text,
-      className: `font-mono text-2xs tabular-nums ${TONE_CLASS[size.tone]}`,
+      className: `font-mono tabular-nums ${TONE_CLASS[size.tone]}`,
       title: size.title,
     },
     time: {
       text: time.text,
-      className: `font-mono text-2xs tabular-nums ${TONE_CLASS[time.tone]}`,
+      className: `font-mono tabular-nums ${TONE_CLASS[time.tone]}`,
       title: undefined,
     },
     pendingSince:

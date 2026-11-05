@@ -1,3 +1,4 @@
+import type { NetworkTypeFilter } from "@/types/network.types";
 import type { RequestSortKey } from "./requestSort";
 
 export type RequestColumnId =
@@ -13,19 +14,19 @@ export interface RequestColumn {
   id: RequestColumnId;
   label: string;
   sortKey: RequestSortKey;
-  /** Width and alignment of the cell. */
+  /** Width and alignment of the cell, shared by the header and every row. */
   className: string;
   /** Classes that show the cell from a container width up; the column hides below it. */
   showAt?: string;
   align: "start" | "end";
 }
 
-/** Row height in pixels: the default row of the density scale. */
-export const REQUEST_ROW_HEIGHT = 26;
+/** Row height in pixels: the roomy row of the density scale, one line per request. */
+export const REQUEST_ROW_HEIGHT = 30;
 
 export const REQUEST_COLUMNS: readonly RequestColumn[] = [
   { id: "name", label: "Name", sortKey: "name", className: "min-w-0 flex-1", align: "start" },
-  { id: "status", label: "Status", sortKey: "status", className: "w-18 shrink-0", align: "start" },
+  { id: "status", label: "Status", sortKey: "status", className: "w-20 shrink-0", align: "start" },
   {
     id: "type",
     label: "Type",
@@ -38,7 +39,7 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
     id: "initiator",
     label: "Initiator",
     sortKey: "initiator",
-    className: "w-32 shrink-0",
+    className: "w-36 shrink-0",
     showAt: "@5xl:flex",
     align: "start",
   },
@@ -46,7 +47,7 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
     id: "size",
     label: "Size",
     sortKey: "size",
-    className: "w-28 shrink-0 justify-end",
+    className: "w-32 shrink-0 justify-end",
     showAt: "@lg:flex",
     align: "end",
   },
@@ -67,11 +68,33 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
   },
 ];
 
-/** The columns shown: the waterfall steps aside while the details pane takes the width. */
-export function visibleColumns(showWaterfall: boolean): readonly RequestColumn[] {
-  return showWaterfall
-    ? REQUEST_COLUMNS
-    : REQUEST_COLUMNS.filter((column) => column.id !== "waterfall");
+const SINGLE_TYPE_FILTERS: ReadonlySet<NetworkTypeFilter> = new Set([
+  "WS",
+  "Doc",
+  "Img",
+  "Media",
+  "Font",
+  "Script",
+  "Preflight",
+]);
+
+export interface ColumnContext {
+  /** The waterfall steps aside while the details pane takes the width. */
+  waterfall: boolean;
+  typeFilter: NetworkTypeFilter;
+}
+
+/**
+ * Which optional columns are on. Type is off while the type filter keeps a single type, since
+ * every row would repeat the selected segment; filters that mix types (Fetch/XHR, Other) keep it.
+ */
+export function columnVisibility(
+  context: ColumnContext,
+): Partial<Record<RequestColumnId, boolean>> {
+  return {
+    waterfall: context.waterfall,
+    type: !SINGLE_TYPE_FILTERS.has(context.typeFilter),
+  };
 }
 
 /** The display classes of a column: always shown, or shown from its container width up. */

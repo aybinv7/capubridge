@@ -55,7 +55,7 @@ const actions = props.actions;
       </TabsList>
     </Tabs>
     <div class="min-h-0 flex-1">
-      <HeadersTab v-if="tab === 'headers'" :entry="props.entry" />
+      <HeadersTab v-if="tab === 'headers'" :entry="props.entry" @open-cookies="tab = 'cookies'" />
       <PayloadTab
         v-else-if="tab === 'payload'"
         :entry="props.entry"

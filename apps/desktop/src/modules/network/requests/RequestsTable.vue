@@ -15,6 +15,7 @@ import {
   REQUEST_ROW_HEIGHT,
   columnDisplay,
   type RequestColumn,
+  type RequestColumnId,
 } from "./requestColumns";
 import { rowCells } from "./requestRowCells";
 import { nextSort, type RequestSort } from "./requestSort";
@@ -24,7 +25,8 @@ const props = defineProps<{
   entries: readonly NetworkEntry[];
   selectedId: string | null;
   range: WaterfallRange | null;
-  showWaterfall: boolean;
+  /** Optional columns switched on or off (`columnVisibility`); width rules apply on top. */
+  visibility: Partial<Record<RequestColumnId, boolean>>;
   /** Changes when the filters change, so the selected row is brought back into view. */
   revealKey: string;
 }>();
@@ -52,13 +54,14 @@ const table = useVueTable({
   manualSorting: true,
   state: {
     get columnVisibility() {
-      return { waterfall: props.showWaterfall };
+      return props.visibility;
     },
   },
   getCoreRowModel: getCoreRowModel(),
 });
+const showWaterfall = computed(() => props.visibility.waterfall !== false);
 const columns = computed(() => {
-  void props.showWaterfall;
+  void props.visibility;
   return table.getVisibleLeafColumns().map((column) => column.columnDef.meta as RequestColumn);
 });
 
@@ -70,7 +73,7 @@ const { items, topSpacerHeight, bottomSpacerHeight } = useFixedVirtualList(sourc
 });
 
 const rows = computed(() => {
-  const range = props.showWaterfall ? props.range : null;
+  const range = showWaterfall.value ? props.range : null;
   return items.value.map(({ data: entry }) => ({
     entry,
     id: optionId(listId, entry.requestId),
@@ -186,7 +189,9 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
 
 <template>
   <div class="@container flex h-full min-h-0 flex-col">
-    <div class="flex h-7 shrink-0 items-center gap-3 border-b border-border-subtle px-4">
+    <div
+      class="flex h-8 shrink-0 items-center gap-4 overflow-hidden border-b border-border-subtle px-4 [scrollbar-gutter:stable]"
+    >
       <span
         v-for="column in columns"
         :key="column.id"
@@ -205,7 +210,7 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
     </div>
     <div
       ref="scroller"
-      class="min-h-0 flex-1 overflow-y-auto py-1 outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+      class="min-h-0 flex-1 overflow-y-auto py-1 outline-none [scrollbar-gutter:stable] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
       tabindex="0"
       role="listbox"
       aria-label="Requests"
@@ -221,7 +226,7 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
         :key="row.entry.requestId"
         role="option"
         :aria-selected="row.selected"
-        class="mx-1.5 flex cursor-default items-center gap-3 rounded-control px-2.5"
+        class="mx-1.5 flex cursor-default items-center gap-4 rounded-control px-2.5 text-xs leading-4 whitespace-nowrap"
         :class="rowStateClass(row.selected)"
         :style="{ height: `${REQUEST_ROW_HEIGHT}px` }"
         @click="onClick($event, row.entry)"

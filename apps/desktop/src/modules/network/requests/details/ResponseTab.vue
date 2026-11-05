@@ -28,20 +28,14 @@ const errorText = computed(() => (props.error ? String(props.error) : null));
 </script>
 
 <template>
-  <DetailsState
-    v-if="props.entry.isWebSocket"
-    title="A WebSocket has no response body"
-    text="Messages go both ways over the open connection; this request only opened it."
-  />
+  <DetailsState v-if="props.entry.isWebSocket" title="No response body for a WebSocket" />
   <DetailsState
     v-else-if="props.entry.state === 'failed'"
-    :tone="props.entry.interrupted ? 'default' : 'error'"
     :title="
       props.entry.interrupted
-        ? 'Capture restarted before this response arrived'
-        : 'The request failed before a response arrived'
+        ? 'No response: capture restarted first'
+        : 'No response: the request failed'
     "
-    :detail="props.entry.interrupted ? null : (props.entry.errorText ?? null)"
   />
   <DetailsState
     v-else-if="props.entry.state !== 'finished'"
@@ -53,7 +47,7 @@ const errorText = computed(() => (props.error ? String(props.error) : null));
     v-else-if="errorText"
     tone="error"
     title="The app did not hand over this response"
-    text="It may have dropped it from memory. Reload the page to capture it again."
+    text="Reload the page to capture it again."
     :detail="errorText"
     action-label="Try again"
     @action="emit('retry')"

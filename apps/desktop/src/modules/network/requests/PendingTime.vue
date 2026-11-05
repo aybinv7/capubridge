@@ -10,7 +10,7 @@ const elapsed = computed(() => formatMs(Math.max(0, now.value - props.since)));
 </script>
 
 <template>
-  <span class="truncate font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">
+  <span class="truncate font-mono text-[var(--fg-subtle)] tabular-nums">
     <span class="sr-only">Open for</span>
     {{ elapsed }}
   </span>

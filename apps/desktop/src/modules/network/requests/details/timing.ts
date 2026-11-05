@@ -1,4 +1,3 @@
-import { isAppFile } from "../requestCells";
 import type { NetworkEntry, NetworkTiming } from "@/types/network.types";
 
 export type TimingPhaseId =
@@ -85,13 +84,4 @@ export function timingBreakdown(entry: NetworkEntry): TimingBreakdown | null {
     : 0;
   const reach = phases.reduce((max, phase) => Math.max(max, phase.start + phase.duration), 0);
   return { phases, total: Math.max(finished, reach) };
-}
-
-/** Where a request's response came from when it was not the network. */
-export function cacheSource(entry: NetworkEntry): string {
-  if (entry.fromDiskCache) return "Disk cache";
-  if (entry.fromServiceWorker) return "Service worker";
-  if (entry.fromPrefetchCache) return "Prefetch cache";
-  if (isAppFile(entry)) return "The app's own files";
-  return "Network";
 }

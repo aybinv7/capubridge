@@ -52,13 +52,16 @@ export interface SummaryInput {
 }
 
 /**
- * The line beside the filters, like DevTools: how many requests, what crossed the network, how
- * large the bodies are (app files count only there), and how many the filters show.
+ * The line beside the filters, like DevTools: how many requests ("3 of 12 requests" while
+ * filtering, so the count is said once), what crossed the network, and how large the bodies are
+ * (app files count only there).
  */
 export function requestsSummary(input: SummaryInput): string {
-  const parts = [`${input.total} ${input.total === 1 ? "request" : "requests"}`];
+  const noun = input.total === 1 ? "request" : "requests";
+  const parts = [
+    input.filtering ? `${input.shown} of ${input.total} ${noun}` : `${input.total} ${noun}`,
+  ];
   parts.push(`${formatBytes(input.transferred)} transferred`);
   if (input.resources > 0) parts.push(`${formatBytes(input.resources)} resources`);
-  if (input.filtering) parts.push(`${input.shown} shown`);
   return parts.join(" · ");
 }

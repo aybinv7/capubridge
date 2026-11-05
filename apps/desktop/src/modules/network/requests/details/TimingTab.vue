@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { NetworkEntry } from "@/types/network.types";
-import { durationMs, formatMs, sizeCell } from "../requestCells";
+import { durationMs, formatMs } from "../requestCells";
 import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
 import { timingBreakdown, type TimingPhaseId } from "./timing";
 
@@ -32,21 +32,11 @@ const phases = computed(() => {
 
 const facts = computed<KeyValueRow[]>(() => {
   const entry = props.entry;
-  const ms = durationMs(entry);
+  const ms = breakdown.value?.total ?? durationMs(entry);
   const rows: KeyValueRow[] = [
     { key: "Started at", value: new Date(entry.startedAt).toLocaleTimeString() },
-    {
-      key: "Total",
-      value: breakdown.value
-        ? formatMs(breakdown.value.total)
-        : ms === null
-          ? entry.state === "failed"
-            ? "Failed"
-            : "Not finished"
-          : formatMs(ms),
-    },
-    { key: "Size", value: sizeCell(entry).title ?? sizeCell(entry).text },
   ];
+  if (ms !== null) rows.push({ key: "Total", value: formatMs(ms) });
   return rows;
 });
 </script>
@@ -76,11 +66,9 @@ const facts = computed<KeyValueRow[]>(() => {
           </span>
         </div>
       </section>
-      <p v-else class="text-xs text-muted-foreground">
+      <p v-else class="text-xs text-[var(--fg-subtle)]">
         {{
-          props.entry.state === "pending"
-            ? "The phases appear once the response starts arriving."
-            : "The app did not report how this request's time was spent."
+          props.entry.state === "pending" ? "Phases appear with the response" : "No phases reported"
         }}
       </p>
       <KeyValueList :rows="facts" />

@@ -1,4 +1,5 @@
 import type { NetworkEntry } from "@/types/network.types";
+import { isAppAddress } from "./requestNames";
 
 const BYTE_UNITS = ["B", "KB", "MB", "GB"] as const;
 
@@ -55,15 +56,12 @@ export function statusTone(code: number): CellTone {
   return "muted";
 }
 
-const APP_HOSTS = new Set(["localhost", "appassets.androidplatform.net"]);
-
 /** Whether the app served this file from its own bundle on the phone, not over the network. */
 export function isAppFile(entry: NetworkEntry): boolean {
   if (entry.transferSize > 0 || entry.remoteAddress || entry.state !== "finished") return false;
   if (entry.fromDiskCache || entry.fromServiceWorker || entry.fromPrefetchCache) return false;
   try {
-    const parsed = new URL(entry.url);
-    return parsed.protocol === "file:" || APP_HOSTS.has(parsed.hostname);
+    return isAppAddress(new URL(entry.url));
   } catch {
     return false;
   }
@@ -104,12 +102,16 @@ export function sizeCell(entry: NetworkEntry): Cell {
 export const SLOW_MS = 1000;
 export const VERY_SLOW_MS = 3000;
 
-/** The time column: the duration, or what stopped the request. */
+/**
+ * The time column: the duration. A failed request keeps how long it ran, quietly, since Status
+ * already says how it ended; "—" when that is unknown.
+ */
 export function timeCell(entry: NetworkEntry): Cell {
   if (entry.interrupted) return { text: "—", tone: "subtle" };
-  if (entry.state === "failed")
-    return { text: entry.canceled ? "Cancelled" : "Failed", tone: "error" };
   const ms = durationMs(entry);
+  if (entry.state === "failed") {
+    return { text: ms === null ? "—" : formatMs(ms), tone: "subtle" };
+  }
   if (ms === null) return { text: entry.isWebSocket ? "Open" : "", tone: "subtle" };
   if (ms > VERY_SLOW_MS) return { text: formatMs(ms), tone: "warning" };
   if (ms > SLOW_MS) return { text: formatMs(ms), tone: "default" };
