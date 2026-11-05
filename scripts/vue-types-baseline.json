@@ -11,9 +11,6 @@
   "apps/desktop/src/components/ui/chart/ChartLegendContent.vue": {
     "errors": 1
   },
-  "apps/desktop/src/modules/app/AppIcon.vue": {
-    "errors": 1
-  },
   "apps/desktop/src/modules/automation/AgentWorkspace.vue": {
     "errors": 1
   },

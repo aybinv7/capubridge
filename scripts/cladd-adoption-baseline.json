@@ -97,26 +97,6 @@
     "button": 1,
     "tabs": 1
   },
-  "apps/desktop/src/modules/app/AppBatteryTab.vue": {
-    "button": 1
-  },
-  "apps/desktop/src/modules/app/AppDataUsagePage.vue": {
-    "button": 1
-  },
-  "apps/desktop/src/modules/app/AppInspectorPanel.vue": {
-    "confirm-dialog": 1
-  },
-  "apps/desktop/src/modules/app/AppNetworkTab.vue": {
-    "button": 1
-  },
-  "apps/desktop/src/modules/app/AppOverviewSurface.vue": {
-    "badge": 1,
-    "button": 1
-  },
-  "apps/desktop/src/modules/app/AppPermissionsTab.vue": {
-    "badge": 1,
-    "button": 1
-  },
   "apps/desktop/src/modules/automation/AgentAppSelector.vue": {
     "button": 1,
     "popover": 1

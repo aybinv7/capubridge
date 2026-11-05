@@ -4,6 +4,7 @@ export type CommandGroup =
   | "Recent"
   | "Navigate"
   | "Devices"
+  | "App"
   | "Targets"
   | "View"
   | "Session"

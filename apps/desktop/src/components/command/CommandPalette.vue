@@ -27,6 +27,7 @@ const GROUP_ORDER: CommandGroup[] = [
   "Recent",
   "Targets",
   "Devices",
+  "App",
   "Navigate",
   "Data",
   "Network",
