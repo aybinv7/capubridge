@@ -4,10 +4,10 @@ import { Toolbar, ToolbarSeparator } from "@capubridge/cladd";
 import MirrorKeyGroup from "./MirrorKeyGroup.vue";
 import type { AndroidKeyCode } from "./mirrorTypes";
 
-const props = withDefaults(defineProps<{ vertical?: boolean; disabled?: boolean }>(), {
-  vertical: false,
-  disabled: false,
-});
+const props = withDefaults(
+  defineProps<{ vertical?: boolean; disabled?: boolean; size?: "sm" | "md" }>(),
+  { vertical: false, disabled: false, size: "md" },
+);
 
 const emit = defineEmits<{ keyevent: [keycode: AndroidKeyCode] }>();
 
@@ -16,7 +16,7 @@ const separatorClass = computed(() => (props.vertical ? "mx-0 my-1 h-px w-1/2" :
 
 <template>
   <Toolbar
-    size="sm"
+    :size="props.size"
     role="toolbar"
     aria-label="Device buttons"
     :aria-orientation="props.vertical ? 'vertical' : 'horizontal'"
@@ -24,16 +24,23 @@ const separatorClass = computed(() => (props.vertical ? "mx-0 my-1 h-px w-1/2" :
   >
     <MirrorKeyGroup
       group="volume"
+      :size="props.size"
       :disabled="props.disabled"
       @keyevent="emit('keyevent', $event)"
     />
     <ToolbarSeparator :class="separatorClass" />
     <MirrorKeyGroup
       group="navigation"
+      :size="props.size"
       :disabled="props.disabled"
       @keyevent="emit('keyevent', $event)"
     />
     <ToolbarSeparator :class="separatorClass" />
-    <MirrorKeyGroup group="power" :disabled="props.disabled" @keyevent="emit('keyevent', $event)" />
+    <MirrorKeyGroup
+      group="power"
+      :size="props.size"
+      :disabled="props.disabled"
+      @keyevent="emit('keyevent', $event)"
+    />
   </Toolbar>
 </template>

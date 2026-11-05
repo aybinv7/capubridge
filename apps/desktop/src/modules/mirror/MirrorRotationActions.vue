@@ -4,12 +4,16 @@ import { Lock, RotateCcwSquare, RotateCwSquare } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { DeviceOrientation } from "./deviceRotation";
 
-const props = defineProps<{
-  target: DeviceOrientation;
-  locked: boolean;
-  available: boolean;
-  busy: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    target: DeviceOrientation;
+    locked: boolean;
+    available: boolean;
+    busy: boolean;
+    size?: "sm" | "md";
+  }>(),
+  { size: "md" },
+);
 
 const emit = defineEmits<{ rotate: []; restoreAuto: [] }>();
 
@@ -27,7 +31,7 @@ const rotateHint = computed(() =>
   <IconAction
     :label="rotateLabel"
     :hint="rotateHint"
-    size="sm"
+    :size="props.size"
     position="top"
     :disabled="!props.available"
     :loading="props.busy"
@@ -40,7 +44,7 @@ const rotateHint = computed(() =>
     v-if="props.locked"
     label="Orientation held: turn auto-rotate back on"
     hint="The device follows how it is held again"
-    size="sm"
+    :size="props.size"
     position="top"
     pressed
     :disabled="props.busy"

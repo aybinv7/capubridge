@@ -62,8 +62,8 @@ const emit = defineEmits<{
     <div class="flex shrink-0 items-center gap-0.5">
       <IconAction
         v-if="!props.isLocal"
-        label="Take a screenshot"
-        hint="Saved as PNG to Downloads"
+        label="Screenshot"
+        hint="Copied to the clipboard and saved to Downloads"
         :disabled="!props.canCapture"
         @click="emit('screenshot')"
       >

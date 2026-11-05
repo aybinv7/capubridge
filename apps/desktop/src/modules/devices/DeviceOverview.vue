@@ -19,10 +19,12 @@ import {
 import { useQuery } from "@tanstack/vue-query";
 import { Button } from "@/components/ui/button";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useAdb } from "@/composables/useAdb";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 
 const devicesStore = useDevicesStore();
+const deviceNames = useDeviceNamesStore();
 const { getDeviceOverview } = useAdb();
 
 const serial = computed(() => devicesStore.selectedDevice?.serial ?? "");
@@ -109,8 +111,10 @@ useCommandProvider("screen.device-overview", () => [
 ]);
 
 const deviceName = computed(() => {
+  const device = devicesStore.selectedDevice;
+  if (device) return deviceNames.nameOf(device);
   const d = info.value;
-  if (!d) return devicesStore.selectedDevice?.model ?? "Device";
+  if (!d) return "Device";
   return d.manufacturer ? `${d.manufacturer} ${d.model}` : d.model;
 });
 

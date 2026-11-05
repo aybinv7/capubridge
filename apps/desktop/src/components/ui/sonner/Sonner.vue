@@ -56,6 +56,10 @@ useToastCopy();
   position: relative;
 }
 
+.mirror-toaster[data-sonner-toaster] {
+  --width: min(356px, calc(100vw - 24px)) !important;
+}
+
 [data-sonner-toast] .cui-toast-copy {
   position: absolute;
   top: 6px;

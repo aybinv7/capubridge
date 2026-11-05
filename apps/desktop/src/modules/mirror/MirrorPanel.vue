@@ -36,7 +36,7 @@ const {
   error: streamError,
   startStream,
   stopStream,
-  downloadScreenshot,
+  captureScreenshot,
   sendKey,
   sendTouch,
   sendWheel,
@@ -82,13 +82,23 @@ const status = computed(() =>
     frames: frames.value,
   }),
 );
+const dismissedNoticeKey = ref<string | null>(null);
 const presenceNotice = computed(() => {
   const target = selectedTarget.value;
   if (!androidMode.value || target?.source !== "adb") return null;
   const presence = presenceStore.presence;
   if (presence !== "background" && presence !== "view-hidden") return null;
-  return { presence, appName: target.title?.trim() || target.packageName || "The app" };
+  const key = `${target.id}:${presence}`;
+  if (dismissedNoticeKey.value === key) return null;
+  return { key, presence, appName: target.title?.trim() || target.packageName || "The app" };
 });
+
+watch(
+  () => [presenceStore.presence, selectedTarget.value?.id ?? null] as const,
+  ([presence, targetId], [, previousTargetId]) => {
+    if (presence === "foreground" || targetId !== previousTargetId) dismissedNoticeKey.value = null;
+  },
+);
 
 function syncLocalViewportSize() {
   if (!isLocalTarget.value) return;
@@ -296,15 +306,42 @@ watch(
   },
 );
 
+const DETACHED_MIRROR_LABEL = "mirror-detached";
+let detaching = false;
+
+function reattach(message?: string, description?: string) {
+  mirrorStore.isDetached = false;
+  if (message) toast.error(message, description ? { description } : undefined);
+  if (mirrorStore.isOpen) void startStream();
+}
+
+async function focusExistingDetachedMirror() {
+  const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+  const existing = await WebviewWindow.getByLabel(DETACHED_MIRROR_LABEL);
+  if (!existing) return null;
+  await existing.unminimize().catch(() => undefined);
+  await existing.show();
+  await existing.setFocus();
+  return existing;
+}
+
 async function handleDetach() {
   if (isLocalTarget.value) {
     toast.info("Local webview stays in the main window");
     return;
   }
-  await stopStream();
-  mirrorStore.isDetached = true;
-
+  if (detaching) return;
+  detaching = true;
   try {
+    if (await focusExistingDetachedMirror()) {
+      await stopStream();
+      mirrorStore.isDetached = true;
+      return;
+    }
+
+    await stopStream();
+    mirrorStore.isDetached = true;
+
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const metrics = getDetachedMirrorLayoutMetrics({
       preferredWidth: mirrorStore.preferredWidth,
@@ -315,42 +352,28 @@ async function handleDetach() {
       settingsOpen: false,
       isRecording: mirrorStore.isRecording,
     });
-    const win = new WebviewWindow("mirror-detached", {
+    const win = new WebviewWindow(DETACHED_MIRROR_LABEL, {
       url: "/?mirror=1",
       title: "Device Mirror",
       width: metrics.windowWidth,
       height: metrics.windowHeight,
       minWidth: 212,
       minHeight: 420,
-      resizable: false,
+      resizable: true,
       decorations: false,
       alwaysOnTop: mirrorStore.alwaysOnTop,
     });
 
-    void win
-      .once("tauri://destroyed", () => {
-        mirrorStore.isDetached = false;
-        if (mirrorStore.isOpen) void startStream();
-      })
-      .catch((error) => {
-        console.warn("Failed to subscribe to detached mirror close event", error);
-      });
-
-    void win
-      .once("tauri://error", () => {
-        mirrorStore.isDetached = false;
-        toast.error("Failed to open mirror window");
-        void startStream();
-      })
-      .catch((error) => {
-        mirrorStore.isDetached = false;
-        toast.error("Failed to monitor mirror window startup", { description: String(error) });
-        void startStream();
-      });
-  } catch (e) {
-    mirrorStore.isDetached = false;
-    toast.error("Failed to detach mirror", { description: String(e) });
-    void startStream();
+    await Promise.all([
+      win.once("tauri://destroyed", () => reattach()),
+      win.once<string>("tauri://error", (event) => {
+        reattach("Could not open the screen in its own window", String(event.payload));
+      }),
+    ]);
+  } catch (error) {
+    reattach("Could not open the screen in its own window", String(error));
+  } finally {
+    detaching = false;
   }
 }
 
@@ -404,7 +427,7 @@ function toggleRecord() {
         :is-local="isLocalTarget"
         :laser-mode="mirrorStore.laserMode"
         :side="mirrorStore.side"
-        @screenshot="downloadScreenshot"
+        @screenshot="captureScreenshot"
         @toggle-record="toggleRecord"
         @detach="handleDetach"
         @toggle-laser="mirrorStore.laserMode = !mirrorStore.laserMode"
@@ -417,6 +440,7 @@ function toggleRecord() {
         v-if="presenceNotice"
         :presence="presenceNotice.presence"
         :app-name="presenceNotice.appName"
+        @dismiss="dismissedNoticeKey = presenceNotice.key"
       />
 
       <MirrorDeviceFrame

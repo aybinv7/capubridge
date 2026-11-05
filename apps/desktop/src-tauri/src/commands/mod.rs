@@ -16,5 +16,6 @@ pub mod sqlite;
 pub mod recording;
 pub mod recording_export;
 pub mod recording_db;
+pub(crate) mod scrcpy_sessions;
 pub mod target_probe;
 pub mod updater;

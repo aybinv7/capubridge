@@ -51,6 +51,7 @@ export interface MirrorCommandMap {
     { serial: string; action: string; x: number; y: number },
     void
   >;
+  adb_mirror_set_stream_size: IpcCommand<{ serial: string; width: number; height: number }, void>;
   adb_mirror_tap: IpcCommand<{ serial: string; x: number; y: number }, void>;
   adb_mirror_swipe: IpcCommand<
     {

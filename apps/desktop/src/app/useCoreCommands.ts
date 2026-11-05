@@ -25,6 +25,7 @@ import { useDockStore } from "@/stores/dock.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useThemeStore } from "@/stores/theme.store";
 import { useDevicesStore } from "@/stores/devices.store";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
@@ -48,6 +49,7 @@ export function useCoreCommands(): void {
   const mirror = useMirrorStore();
   const theme = useThemeStore();
   const devices = useDevicesStore();
+  const deviceNames = useDeviceNamesStore();
   const targets = useTargetsStore();
   const context = useActiveContextStore();
   const { activateTarget } = useTargetActivation();
@@ -169,12 +171,12 @@ export function useCoreCommands(): void {
       },
       ...devices.devices.map<Command>((device) => ({
         id: `device.${device.serial}`,
-        title: device.model || device.serial,
+        title: deviceNames.nameOf(device),
         group: "Devices",
         icon: Smartphone,
         detail: `${device.serial} · ${device.isStale ? "stale" : device.status}`,
         dormant: device.isStale || device.status !== "online",
-        keywords: [device.serial, device.connectionType, "device", "switch"],
+        keywords: [device.serial, device.model, device.connectionType, "device", "switch"],
         when: () => context.device?.serial !== device.serial,
         run: () => devices.selectDevice(device),
       })),

@@ -12,6 +12,8 @@ interface MirrorDecoderOptions {
   onScrcpyFailure: (serial: string, reason: string, sessionId: number) => Promise<void>;
   onChromeFailure: (reason: string, sessionId: number) => Promise<void>;
   onDeviceSize: (width: number, height: number) => void;
+  /** The decoded picture changed size mid-stream, which is how a rotation shows up. */
+  onScrcpyResize: (width: number, height: number) => void;
   onFrameRendered: () => void;
   onFrameDrawn: () => void;
   getFallbackSize: () => ScreencastFrameMetadata;
@@ -89,6 +91,7 @@ export function createMirrorDecoder(options: MirrorDecoderOptions) {
     if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
       canvas.width = frame.displayWidth;
       canvas.height = frame.displayHeight;
+      options.onScrcpyResize(frame.displayWidth, frame.displayHeight);
     }
     const context = canvas.getContext("2d");
     if (!context) {

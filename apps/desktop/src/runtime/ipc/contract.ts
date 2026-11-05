@@ -116,6 +116,7 @@ export const IPC_COMMAND_NAMES = [
   "adb_mirror_set_clipboard",
   "adb_mirror_get_clipboard",
   "adb_mirror_touch_event",
+  "adb_mirror_set_stream_size",
   "adb_mirror_tap",
   "adb_mirror_swipe",
   "adb_mirror_start_recording",

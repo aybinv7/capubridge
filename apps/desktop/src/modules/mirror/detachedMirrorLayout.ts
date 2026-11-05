@@ -65,6 +65,11 @@ function getWindowMinWidth(mode: DetachedMirrorLayoutMode) {
   return mode === "large" ? LARGE_WINDOW_MIN_WIDTH : PANEL_WINDOW_MIN_WIDTH;
 }
 
+/**
+ * Sizes the detached window around the phone. A portrait phone fills the screen height; a
+ * landscape one turns in place, so its long edge stays as long as the portrait height was and the
+ * window does not grow across the whole screen.
+ */
 export function getDetachedMirrorLayoutMetrics(
   input: DetachedMirrorLayoutMetricsInput,
 ): DetachedMirrorLayoutMetrics {
@@ -74,10 +79,12 @@ export function getDetachedMirrorLayoutMetrics(
   const sideRailWidth = getSideRailWidth(input.mode);
   const maxPhoneHeight = Math.max(1, input.availHeight - SCREEN_MARGIN_TOTAL - chromeHeight);
   const heightBoundPhoneWidth = Math.max(1, Math.round(maxPhoneHeight * aspectRatio));
-  const maxPhoneWidth = Math.max(
+  const screenBoundWidth = Math.max(
     1,
     input.availWidth - SCREEN_MARGIN_TOTAL - windowHorizontal - sideRailWidth,
   );
+  const maxPhoneWidth =
+    aspectRatio > 1 ? Math.min(screenBoundWidth, maxPhoneHeight) : screenBoundWidth;
   const phoneMinWidth = Math.min(PHONE_MIN_WIDTH, heightBoundPhoneWidth, maxPhoneWidth);
   const preferredWidth = Math.max(
     input.preferredWidth,

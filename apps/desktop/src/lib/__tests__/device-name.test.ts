@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { deviceIdentity, friendlyDeviceName } from "../device-name";
+import { deviceIdentity, friendlyDeviceName, parseDeviceNaming } from "../device-name";
 
 describe("friendlyDeviceName", () => {
   it("puts the maker before a handset model", () => {
@@ -17,6 +17,15 @@ describe("friendlyDeviceName", () => {
   it("does not repeat a maker the model already starts with", () => {
     expect(friendlyDeviceName({ model: "Pixel_8", serial: "1A" }, "Google")).toBe("Google Pixel 8");
     expect(friendlyDeviceName({ model: "Xiaomi_13", serial: "1A" }, "Xiaomi")).toBe("Xiaomi 13");
+  });
+
+  it("prefers the name the device is sold under", () => {
+    expect(
+      friendlyDeviceName({ model: "24117RN76G", serial: "r4g" }, "Xiaomi", "Redmi Note 14"),
+    ).toBe("Redmi Note 14");
+    expect(friendlyDeviceName({ model: "24117RN76G", serial: "r4g" }, "Xiaomi", "  ")).toBe(
+      "Xiaomi 24117RN76G",
+    );
   });
 
   it("keeps an emulator's system image name as it is", () => {
@@ -51,5 +60,26 @@ describe("deviceIdentity", () => {
     expect(
       deviceIdentity({ serial: "adb-XYZ._adb-tls-connect._tcp", connectionType: "wifi" }),
     ).toBe("adb-XYZ._adb-tls-connect._tcp");
+  });
+});
+
+describe("parseDeviceNaming", () => {
+  it("reads the maker and the first marketing name a device reports", () => {
+    const output = ["Xiaomi", "Redmi Note 14", "", "Redmi Note 14"].join("\r\n::\r\n");
+    expect(parseDeviceNaming(output)).toEqual({
+      manufacturer: "Xiaomi",
+      marketName: "Redmi Note 14",
+    });
+  });
+
+  it("falls back to the Settings name and ignores a missing one", () => {
+    expect(parseDeviceNaming(["samsung", "", "", "Galaxy S23"].join("\n::\n"))).toEqual({
+      manufacturer: "samsung",
+      marketName: "Galaxy S23",
+    });
+    expect(parseDeviceNaming(["Google", "", "null"].join("\n::\n"))).toEqual({
+      manufacturer: "Google",
+      marketName: "",
+    });
   });
 });

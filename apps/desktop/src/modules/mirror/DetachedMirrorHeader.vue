@@ -47,8 +47,8 @@ const windowButton =
   >
     <div class="z-10 flex items-center gap-0.5" style="-webkit-app-region: no-drag">
       <IconAction
-        label="Take a screenshot"
-        hint="Saved as PNG to Downloads"
+        label="Screenshot"
+        hint="Copied to the clipboard and saved to Downloads"
         :disabled="!isStreaming"
         @click="emit('screenshot')"
       >

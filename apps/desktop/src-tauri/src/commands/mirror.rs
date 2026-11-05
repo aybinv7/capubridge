@@ -16,21 +16,14 @@ use tokio::sync::{Mutex as TokioMutex, Notify};
 
 use crate::blocking::run_blocking;
 use crate::commands::adb::get_adb_device;
+use crate::commands::scrcpy_sessions::{
+    get_scrcpy_control_session, insert_scrcpy_control_session, register_scrcpy_stream,
+    release_scrcpy_stream_generation, remove_scrcpy_control_session, stop_scrcpy_stream_session,
+    update_scrcpy_control_size,
+};
 
 fn get_device(serial: &str) -> Result<ADBServerDevice, String> {
     get_adb_device(serial)
-}
-
-static SCRCPY_STREAM_SHUTDOWNS: LazyLock<Mutex<HashMap<String, Arc<Notify>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-static SCRCPY_CONTROL_SESSIONS: LazyLock<Mutex<HashMap<String, ScrcpyControlSession>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
-#[derive(Clone)]
-struct ScrcpyControlSession {
-    socket: Arc<TokioMutex<OwnedWriteHalf>>,
-    width: u16,
-    height: u16,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -107,41 +100,6 @@ const SCRCPY_COPY_KEY_CUT: u8 = 2;
 const SCRCPY_DEVICE_MSG_CLIPBOARD: u8 = 0;
 const SCRCPY_DEVICE_MSG_ACK_CLIPBOARD: u8 = 1;
 const SCRCPY_DEVICE_MSG_UHID_OUTPUT: u8 = 2;
-
-fn stop_scrcpy_stream_session(serial: &str) {
-    if let Ok(mut sessions) = SCRCPY_STREAM_SHUTDOWNS.lock() {
-        if let Some(notify) = sessions.remove(serial) {
-            notify.notify_waiters();
-        }
-    }
-}
-
-fn clamp_u16_size(size: u32) -> u16 {
-    size.min(u16::MAX as u32) as u16
-}
-
-fn remove_scrcpy_control_session(serial: &str) {
-    if let Ok(mut sessions) = SCRCPY_CONTROL_SESSIONS.lock() {
-        sessions.remove(serial);
-    }
-}
-
-/// Keep touch coordinate mapping in sync after a mid-stream resize/rotation.
-fn update_scrcpy_control_size(serial: &str, width: u32, height: u32) {
-    if let Ok(mut sessions) = SCRCPY_CONTROL_SESSIONS.lock() {
-        if let Some(session) = sessions.get_mut(serial) {
-            session.width = clamp_u16_size(width);
-            session.height = clamp_u16_size(height);
-        }
-    }
-}
-
-fn get_scrcpy_control_session(serial: &str) -> Option<ScrcpyControlSession> {
-    SCRCPY_CONTROL_SESSIONS
-        .lock()
-        .ok()
-        .and_then(|sessions| sessions.get(serial).cloned())
-}
 
 fn touch_action_code(action: &str) -> Option<u8> {
     match action {
@@ -912,25 +870,8 @@ pub async fn adb_mirror_scrcpy_start(
         start_scrcpy_stream(&serial, &app, &settings).await?;
 
     let shutdown = Arc::new(Notify::new());
-    {
-        let mut sessions = SCRCPY_STREAM_SHUTDOWNS
-            .lock()
-            .map_err(|_| "scrcpy shutdown map lock poisoned".to_string())?;
-        sessions.insert(serial.clone(), shutdown.clone());
-    }
-    {
-        let mut control_sessions = SCRCPY_CONTROL_SESSIONS
-            .lock()
-            .map_err(|_| "scrcpy control map lock poisoned".to_string())?;
-        control_sessions.insert(
-            serial.clone(),
-            ScrcpyControlSession {
-                socket: control_socket,
-                width: clamp_u16_size(width),
-                height: clamp_u16_size(height),
-            },
-        );
-    }
+    let generation = register_scrcpy_stream(&serial, shutdown.clone())?;
+    insert_scrcpy_control_session(&serial, control_socket, width, height)?;
 
     let serial_for_stream = serial.clone();
     tokio::spawn(async move {
@@ -943,11 +884,10 @@ pub async fn adb_mirror_scrcpy_start(
             server_major,
         )
         .await;
-        if let Ok(mut sessions) = SCRCPY_STREAM_SHUTDOWNS.lock() {
-            sessions.remove(&serial_for_stream);
+        if release_scrcpy_stream_generation(&serial_for_stream, generation) {
+            remove_scrcpy_control_session(&serial_for_stream);
+            cleanup_scrcpy_device(&serial_for_stream).await;
         }
-        remove_scrcpy_control_session(&serial_for_stream);
-        cleanup_scrcpy_device(&serial_for_stream).await;
         if let Err(err) = result {
             let _ = on_frame.send(ScrcpyFrameEvent::Disconnected { reason: err });
         } else {
@@ -1083,6 +1023,22 @@ pub async fn adb_mirror_touch_event(
     y: u32,
 ) -> Result<(), String> {
     send_scrcpy_touch_event(&serial, &action, x, y).await
+}
+
+/// Tells the control channel the size of the picture after it changed mid-stream, so touches
+/// land where they are drawn once the device rotates. scrcpy 4 reports this itself; older
+/// servers only change the decoded frame size.
+#[tauri::command]
+pub async fn adb_mirror_set_stream_size(
+    serial: String,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    if width == 0 || height == 0 {
+        return Err("Stream size must be positive".to_string());
+    }
+    update_scrcpy_control_size(&serial, width, height);
+    Ok(())
 }
 
 #[tauri::command]

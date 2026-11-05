@@ -1,13 +1,20 @@
 import { markRaw, onUnmounted } from "vue";
 import { toast } from "vue-sonner";
 import { useCDP } from "@/composables/useCDP";
-import { invokeCommand } from "@/runtime/ipc";
 import { runSessionEffect, startMirrorLeaseEffect, stopMirrorLeaseEffect } from "@/runtime/session";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useSourceStore } from "@/stores/source.store";
 import type { CDPTarget } from "@/types/cdp.types";
-import MediaSavedToast from "@/components/common/MediaSavedToast.vue";
+import MirrorCaptureToast from "./MirrorCaptureToast.vue";
+import {
+  copyPngToClipboard,
+  pngBlobFromBase64,
+  recordingDestination,
+  savePngToDownloads,
+  streamThumbnail,
+  type CaptureToastContent,
+} from "./mirrorCapture";
 import { createMirrorDecoder } from "./mirrorDecoder";
 import { createFrameClock } from "./mirrorFrameClock";
 import { createMirrorInput } from "./mirrorInput";
@@ -78,6 +85,7 @@ export function useMirrorStream() {
     onScrcpyFailure: failScrcpy,
     onChromeFailure: failChrome,
     onDeviceSize: mirrorStore.setDeviceSize,
+    onScrcpyResize: syncScrcpySize,
     onFrameRendered: lifecycle.clearStartupTimeout,
     onFrameDrawn: () => frameClock.record(performance.now()),
     getFallbackSize: () => ({
@@ -120,6 +128,16 @@ export function useMirrorStream() {
       toast.error("Key event failed", { description: String(cause) });
     },
   });
+
+  function syncScrcpySize(width: number, height: number) {
+    if (width === mirrorStore.deviceWidth && height === mirrorStore.deviceHeight) return;
+    mirrorStore.setDeviceSize(width, height);
+    const serial = lifecycle.leaseSerial;
+    if (!serial) return;
+    adb.setStreamSize(serial, width, height).catch((cause) => {
+      console.warn("Failed to sync the stream size after a rotation", cause);
+    });
+  }
 
   function cleanupControllers() {
     lifecycle.clearStartupTimeout();
@@ -274,65 +292,112 @@ export function useMirrorStream() {
     return adb.screenshot(serial);
   }
 
-  async function downloadScreenshot() {
-    try {
-      const data = await takeScreenshot();
-      const { downloadDir, join } = await import("@tauri-apps/api/path");
-      const directory = await downloadDir();
-      const filename = `screenshot_${Date.now()}.png`;
-      const savePath = await join(directory, filename);
-      await invokeCommand("save_base64_file", { path: savePath, data });
-      toast.custom(markRaw(MediaSavedToast), {
-        componentProps: {
-          type: "screenshot",
-          name: filename,
-          path: savePath,
-          thumbnailBase64: data,
-        },
-        duration: 5000,
-      });
-    } catch (cause) {
+  const RECORDING_TOAST_ID = "mirror-recording";
+  let recordingStartedAt = 0;
+  let savingRecording = false;
+
+  function showCaptureToast(props: CaptureToastContent, id?: string) {
+    toast.custom(markRaw(MirrorCaptureToast), { id, componentProps: props, duration: 5000 });
+  }
+
+  function formatDuration(milliseconds: number) {
+    const seconds = Math.max(0, Math.round(milliseconds / 1000));
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }
+
+  async function captureScreenshot() {
+    const shot = takeScreenshot();
+    const [copied, saved] = await Promise.allSettled([
+      copyPngToClipboard(shot.then(pngBlobFromBase64)),
+      shot.then(savePngToDownloads),
+    ]);
+    const data = await shot.catch((cause: unknown) => {
       toast.error("Screenshot failed", { description: String(cause) });
+      return null;
+    });
+    if (!data) return;
+    if (copied.status === "rejected" && saved.status === "rejected") {
+      toast.error("Screenshot failed", {
+        description: `${String(copied.reason)} · ${String(saved.reason)}`,
+      });
+      return;
+    }
+    const thumbnail = `data:image/png;base64,${data}`;
+    if (copied.status === "fulfilled") {
+      showCaptureToast({
+        kind: "screenshot",
+        title: "Screenshot copied",
+        detail:
+          saved.status === "fulfilled"
+            ? `Also saved to Downloads as ${saved.value.name}`
+            : `Not saved to Downloads: ${String(saved.reason)}`,
+        path: saved.status === "fulfilled" ? saved.value.path : null,
+        thumbnail,
+        partial: saved.status === "rejected",
+      });
+      return;
+    }
+    if (saved.status === "fulfilled") {
+      showCaptureToast({
+        kind: "screenshot",
+        title: "Screenshot saved, not copied",
+        detail: `${saved.value.name} in Downloads · ${String(copied.reason)}`,
+        path: saved.value.path,
+        thumbnail,
+        partial: true,
+      });
     }
   }
 
   async function startRecording() {
     if (state.streamSource.value !== "adb") {
-      toast.info("Recording available only for Android mirror stream");
+      toast.info("Recording works on the Android screen stream only");
       return;
     }
     const serial = resolveAdbSerial();
     if (!serial) return;
     try {
       await adb.startRecording(serial);
+      recordingStartedAt = performance.now();
       mirrorStore.isRecording = true;
-      toast.info("Recording started");
     } catch (cause) {
-      toast.error("Recording failed", { description: String(cause) });
+      toast.error("Recording failed to start", { description: String(cause) });
     }
   }
 
   async function stopRecording() {
-    if (state.streamSource.value !== "adb") return;
+    if (state.streamSource.value !== "adb" || savingRecording) return;
     const serial = resolveAdbSerial();
     if (!serial) return;
+    savingRecording = true;
+    const thumbnail = streamThumbnail(state.canvasElement.value);
+    const duration = recordingStartedAt
+      ? formatDuration(performance.now() - recordingStartedAt)
+      : null;
     try {
-      const { downloadDir, join } = await import("@tauri-apps/api/path");
-      const directory = await downloadDir();
-      const filename = `capubridge_rec_${Date.now()}.mp4`;
-      const savePath = await join(directory, filename);
-      toast.info("Saving recording…", { id: "saving-recording" });
-      await adb.stopRecording(serial, savePath);
-      mirrorStore.isRecording = false;
-      toast.dismiss("saving-recording");
-      toast.custom(markRaw(MediaSavedToast), {
-        componentProps: { type: "video", name: filename, path: savePath },
-        duration: 5000,
-      });
+      const destination = await recordingDestination();
+      toast.loading("Saving the recording", { id: RECORDING_TOAST_ID, duration: Infinity });
+      await adb.stopRecording(serial, destination.path);
+      showCaptureToast(
+        {
+          kind: "recording",
+          title: "Recording saved",
+          detail: `${destination.name} in Downloads`,
+          path: destination.path,
+          thumbnail,
+          duration,
+        },
+        RECORDING_TOAST_ID,
+      );
     } catch (cause) {
+      toast.error("The recording could not be saved", {
+        id: RECORDING_TOAST_ID,
+        description: String(cause),
+      });
+    } finally {
       mirrorStore.isRecording = false;
-      toast.dismiss("saving-recording");
-      toast.error("Save failed", { description: String(cause) });
+      recordingStartedAt = 0;
+      savingRecording = false;
     }
   }
 
@@ -376,7 +441,7 @@ export function useMirrorStream() {
     error: state.error,
     startStream,
     stopStream,
-    downloadScreenshot,
+    captureScreenshot,
     sendKey: input.sendKey,
     sendTouch: input.sendTouch,
     sendWheel: input.sendWheel,

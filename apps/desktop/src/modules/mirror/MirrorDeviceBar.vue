@@ -26,7 +26,7 @@ const rotation = useDeviceRotation({
 
 <template>
   <Toolbar
-    size="sm"
+    size="md"
     role="toolbar"
     aria-label="Device buttons"
     aria-orientation="horizontal"
@@ -36,6 +36,7 @@ const rotation = useDeviceRotation({
     <div class="flex items-center gap-0.5 justify-self-start">
       <MirrorKeyGroup
         group="volume"
+        size="md"
         :disabled="props.disabled"
         @keyevent="emit('keyevent', $event)"
       />
@@ -43,6 +44,7 @@ const rotation = useDeviceRotation({
     <div class="flex items-center gap-0.5">
       <MirrorKeyGroup
         group="navigation"
+        size="md"
         :disabled="props.disabled"
         @keyevent="emit('keyevent', $event)"
       />
@@ -58,6 +60,7 @@ const rotation = useDeviceRotation({
       />
       <MirrorKeyGroup
         group="power"
+        size="md"
         :disabled="props.disabled"
         @keyevent="emit('keyevent', $event)"
       />

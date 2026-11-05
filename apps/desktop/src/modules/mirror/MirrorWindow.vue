@@ -5,6 +5,7 @@ import { useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
+import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import type { ADBDevice } from "@/types/adb.types";
 import { listenEvent } from "@/runtime/ipc/client";
@@ -21,11 +22,13 @@ import DetachedMirrorCompactRail from "./DetachedMirrorCompactRail.vue";
 import MirrorStateOverlay from "./MirrorStateOverlay.vue";
 import { deriveMirrorPhase } from "./mirrorStatus";
 import { useMirrorFrameStats } from "./useMirrorFrameStats";
+import { orientationOfSize } from "./deviceRotation";
 
 const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
 const inspectStore = useInspectStore();
 const targetsStore = useTargetsStore();
+const deviceNames = useDeviceNamesStore();
 const {
   useScrcpyCanvas,
   isAndroidStream,
@@ -34,7 +37,7 @@ const {
   readFrames,
   startStream,
   stopStream,
-  downloadScreenshot,
+  captureScreenshot,
   sendKey,
   sendTouch,
   sendWheel,
@@ -56,6 +59,13 @@ const streamPhase = computed(() =>
   }),
 );
 const immersiveMode = ref(false);
+const streamSerial = computed(() => {
+  const device = devicesStore.selectedDevice;
+  return device?.status === "online" ? device.serial : null;
+});
+const streamOrientation = computed(() =>
+  orientationOfSize(mirrorStore.deviceWidth, mirrorStore.deviceHeight),
+);
 const detachedLayoutMode = ref<DetachedMirrorLayoutMode>("panel");
 const isWindowMaximized = ref(false);
 const streamAreaRef = ref<HTMLElement | null>(null);
@@ -66,11 +76,8 @@ let unlistenWindowResize: (() => void) | null = null;
 let streamAreaObserver: ResizeObserver | null = null;
 
 const deviceLabel = computed(() => {
-  const model = devicesStore.selectedDevice?.model?.trim();
-  if (model) return model;
-
-  const serial = devicesStore.selectedDevice?.serial?.trim();
-  if (serial) return serial;
+  const device = devicesStore.selectedDevice;
+  if (device) return deviceNames.nameOf(device);
 
   const title = targetsStore.selectedTarget?.title?.trim();
   if (title) return title;
@@ -412,7 +419,7 @@ function toggleRecord() {
       :settings-open="settingsOpen"
       :android-mode="isAndroidStream"
       :is-window-maximized="isWindowMaximized"
-      @screenshot="downloadScreenshot"
+      @screenshot="captureScreenshot"
       @toggle-record="toggleRecord"
       @toggle-laser="mirrorStore.laserMode = !mirrorStore.laserMode"
       @toggle-always-on-top="handleToggleAlwaysOnTop"
@@ -528,7 +535,9 @@ function toggleRecord() {
           :is-streaming="mirrorStore.isStreaming"
           :settings-open="settingsOpen"
           :android-mode="isAndroidStream"
-          @screenshot="downloadScreenshot"
+          :serial="streamSerial"
+          :stream-orientation="streamOrientation"
+          @screenshot="captureScreenshot"
           @toggle-record="toggleRecord"
           @toggle-laser="mirrorStore.laserMode = !mirrorStore.laserMode"
           @update:settings-open="settingsOpen = $event"

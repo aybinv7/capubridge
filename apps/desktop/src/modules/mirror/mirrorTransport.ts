@@ -68,6 +68,9 @@ export function createAdbMirrorTransport() {
     touch(serial: string, action: TouchAction, x: number, y: number) {
       return invokeCommand("adb_mirror_touch_event", { serial, action, x, y });
     },
+    setStreamSize(serial: string, width: number, height: number) {
+      return invokeCommand("adb_mirror_set_stream_size", { serial, width, height });
+    },
     scroll(serial: string, x: number, y: number, hScroll: number, vScroll: number) {
       return invokeCommand("adb_mirror_scroll_event", { serial, x, y, hScroll, vScroll });
     },
