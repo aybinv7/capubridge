@@ -7,8 +7,12 @@ export default defineComponent({
       type: null as unknown as PropType<VNodeChild | undefined>,
       default: undefined,
     },
+    render: {
+      type: Function as PropType<() => VNodeChild>,
+      default: undefined,
+    },
   },
   setup(props) {
-    return () => props.node ?? null;
+    return () => (props.render ? props.render() : props.node) ?? null;
   },
 });

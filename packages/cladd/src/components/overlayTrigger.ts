@@ -21,6 +21,12 @@ function findElementNode(nodes: readonly VNode[]): VNode | undefined {
   return undefined;
 }
 
+export function hasTriggerElement(
+  nodes: readonly VNode[] | undefined,
+): boolean {
+  return Boolean(nodes && findElementNode(nodes));
+}
+
 export function cloneTriggerNode(
   nodes: readonly VNode[] | undefined,
   extraProps: Record<string, unknown>,

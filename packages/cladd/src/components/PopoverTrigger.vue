@@ -6,7 +6,7 @@ import {
   popoverRootContextKey,
   useOverlayRootContext,
 } from './overlayRootContext.ts';
-import { cloneTriggerNode } from './overlayTrigger.ts';
+import { cloneTriggerNode, hasTriggerElement } from './overlayTrigger.ts';
 import VNodeRenderer from './VNodeRenderer.ts';
 
 defineSlots<{
@@ -27,14 +27,14 @@ function toggle(): void {
 }
 
 // No-ops (renders the child as-is) when used outside a PopoverRoot, like upstream.
-const triggerNode = computed(() =>
-  root
-    ? cloneTriggerNode(slots.default?.(), { onClick: toggle, ref: setAnchor })
-    : undefined,
+const hasTriggerNode = computed(
+  () => Boolean(root) && hasTriggerElement(slots.default?.()),
 );
+const renderTrigger = () =>
+  cloneTriggerNode(slots.default?.(), { onClick: toggle, ref: setAnchor });
 </script>
 
 <template>
-  <VNodeRenderer v-if="triggerNode" :node="triggerNode" />
+  <VNodeRenderer v-if="hasTriggerNode" :render="renderTrigger" />
   <slot v-else />
 </template>

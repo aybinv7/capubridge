@@ -38,7 +38,7 @@ import {
   popoverRootContextKey,
   useOverlayRootContext,
 } from './overlayRootContext.ts';
-import { cloneTriggerNode } from './overlayTrigger.ts';
+import { cloneTriggerNode, hasTriggerElement } from './overlayTrigger.ts';
 import { usePopoverChain } from './popoverChain.ts';
 import Surface from './Surface.vue';
 import SurfaceContextProvider from './SurfaceContextProvider.vue';
@@ -269,12 +269,12 @@ const backdropClass = computed(() =>
   ),
 );
 
-const triggerNode = computed(() =>
+const hasTriggerNode = computed(() => hasTriggerElement(slots.trigger?.()));
+const renderTrigger = () =>
   cloneTriggerNode(slots.trigger?.(), {
     onClick: toggle,
     ref: setAnchorElement,
-  }),
-);
+  });
 
 // An explicit `anchorElement`/`anchorRef` wins, then our own `trigger` slot, then the element a sibling
 // `PopoverTrigger` registered on the surrounding `PopoverRoot` — upstream's
@@ -293,7 +293,7 @@ provideSurfaceColorReset();
 </script>
 
 <template>
-  <VNodeRenderer v-if="triggerNode" :node="triggerNode" />
+  <VNodeRenderer v-if="hasTriggerNode" :render="renderTrigger" />
   <span
     v-else-if="slots.trigger"
     :class="overlayTriggerClasses"

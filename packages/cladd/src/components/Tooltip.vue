@@ -15,7 +15,7 @@ import {
   resolveOverlayElement,
   type TooltipProps,
 } from './overlay.contracts.ts';
-import { cloneTriggerNode } from './overlayTrigger.ts';
+import { cloneTriggerNode, hasTriggerElement } from './overlayTrigger.ts';
 import TooltipPrimitive from './TooltipPrimitive.vue';
 import {
   clearTooltipGlobalTimeout,
@@ -184,9 +184,9 @@ onUnmounted(() => {
   anchorElement.value?.removeAttribute('aria-describedby');
 });
 
-const triggerNode = computed(() =>
-  cloneTriggerNode(slots.trigger?.(), { ref: setAnchor }),
-);
+const hasTriggerNode = computed(() => hasTriggerElement(slots.trigger?.()));
+const renderTrigger = () =>
+  cloneTriggerNode(slots.trigger?.(), { ref: setAnchor });
 const primitiveAttrs = computed(() => {
   const { class: consumerClass, ...rest } = attrs;
   return { attrs: rest, class: consumerClass };
@@ -194,7 +194,7 @@ const primitiveAttrs = computed(() => {
 </script>
 
 <template>
-  <VNodeRenderer v-if="triggerNode" :node="triggerNode" />
+  <VNodeRenderer v-if="hasTriggerNode" :render="renderTrigger" />
   <span
     v-else-if="slots.trigger"
     :class="overlayTriggerClasses"
