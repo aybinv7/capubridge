@@ -251,10 +251,14 @@ watch(
 const DETACHED_MIRROR_LABEL = "mirror-detached";
 let detaching = false;
 
+/**
+ * Brings the screen back into the main window. This panel instance was unmounted when the screen
+ * left, so it must not restart anything itself: the panel that mounts again starts its own stream,
+ * and a second start from here would fight it for the device.
+ */
 function reattach(message?: string, description?: string) {
   mirrorStore.isDetached = false;
   if (message) toast.error(message, description ? { description } : undefined);
-  if (mirrorStore.isOpen) void startStream();
 }
 
 async function focusExistingDetachedMirror() {
