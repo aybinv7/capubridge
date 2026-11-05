@@ -35,15 +35,27 @@ mod tests {
     fn remembers_one_port_per_device_socket() {
         remember_port("cache-test-a", "webview_devtools_remote_1", 50001);
         remember_port("cache-test-b", "webview_devtools_remote_1", 50002);
-        assert_eq!(remembered_port("cache-test-a", "webview_devtools_remote_1"), Some(50001));
-        assert_eq!(remembered_port("cache-test-b", "webview_devtools_remote_1"), Some(50002));
-        assert_eq!(remembered_port("cache-test-a", "chrome_devtools_remote"), None);
+        assert_eq!(
+            remembered_port("cache-test-a", "webview_devtools_remote_1"),
+            Some(50001)
+        );
+        assert_eq!(
+            remembered_port("cache-test-b", "webview_devtools_remote_1"),
+            Some(50002)
+        );
+        assert_eq!(
+            remembered_port("cache-test-a", "chrome_devtools_remote"),
+            None
+        );
     }
 
     #[test]
     fn forgets_a_port_that_stopped_answering() {
         remember_port("cache-test-c", "chrome_devtools_remote", 50003);
         forget_port("cache-test-c", "chrome_devtools_remote");
-        assert_eq!(remembered_port("cache-test-c", "chrome_devtools_remote"), None);
+        assert_eq!(
+            remembered_port("cache-test-c", "chrome_devtools_remote"),
+            None
+        );
     }
 }
