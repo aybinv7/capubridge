@@ -8,6 +8,7 @@ import {
   Moon,
   PanelLeft,
   RefreshCw,
+  RotateCw,
   ScreenShare,
   ScrollText,
   Search,
@@ -41,6 +42,15 @@ const DOCK_TABS: Array<{ tab: DockTab; title: string; icon: Command["icon"] }> =
 ];
 
 /** Registers the shell's own commands: navigation, view, appearance, devices and targets. */
+async function openDevtools() {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("plugin:webview|internal_toggle_devtools");
+  } catch (error) {
+    console.warn("Failed to open developer tools", error);
+  }
+}
+
 export function useCoreCommands(): void {
   const router = useRouter();
   const commands = useCommandsStore();
@@ -95,6 +105,27 @@ export function useCoreCommands(): void {
         binding: "mod+.",
         global: true,
         run: () => commands.openPalette(":"),
+      },
+      {
+        id: "view.reload",
+        title: "Reload Capubridge",
+        group: "View",
+        icon: RotateCw,
+        binding: "mod+r",
+        global: true,
+        keywords: ["refresh", "restart", "f5"],
+        run: () => window.location.reload(),
+      },
+      {
+        id: "view.devtools",
+        title: "Open developer tools",
+        group: "View",
+        icon: Bug,
+        binding: "mod+shift+i",
+        global: true,
+        keywords: ["inspect", "console", "debug"],
+        when: () => import.meta.env.DEV,
+        run: () => openDevtools(),
       },
       {
         id: "view.toggle-rail",

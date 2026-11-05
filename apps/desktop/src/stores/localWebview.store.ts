@@ -1,3 +1,4 @@
+import { isCapubridgeOrigin, ownPreviewError } from "@/lib/preview-origin";
 import { computed, ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
@@ -165,6 +166,11 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     const existing = webviews.value.get(target.localWebviewLabel);
     if (existing) {
       return existing;
+    }
+
+    if (isCapubridgeOrigin(target.url)) {
+      setEntry(target, { status: "error", error: ownPreviewError(target.url).message });
+      throw ownPreviewError(target.url);
     }
 
     setEntry(target, { status: "creating", error: null });
@@ -358,6 +364,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
   }
 
   async function navigateSource(label: string, url: string): Promise<void> {
+    if (isCapubridgeOrigin(url)) throw ownPreviewError(url);
     await invokeCommand("local_webview_navigate", { label, url });
   }
 

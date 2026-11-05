@@ -7,42 +7,52 @@ import App from "./App.vue";
 import router from "@/router";
 import { useSessionStore } from "@/stores/session.store";
 import { useThemeStore } from "@/stores/theme.store";
+import { runsInsidePreview } from "@/lib/preview-origin";
 
-const app = createApp(App);
-const pinia = createPinia();
+function start() {
+  const app = createApp(App);
+  const pinia = createPinia();
 
-app.use(pinia);
-app.use(router);
-app.use(VueQueryPlugin, {
-  queryClientConfig: {
-    defaultOptions: {
-      queries: {
-        retry: 1,
-        refetchOnWindowFocus: false,
+  app.use(pinia);
+  app.use(router);
+  app.use(VueQueryPlugin, {
+    queryClientConfig: {
+      defaultOptions: {
+        queries: {
+          retry: 1,
+          refetchOnWindowFocus: false,
+        },
       },
     },
-  },
-});
+  });
 
-// Apply the persisted theme + accent before mount to avoid a flash of the
-// default palette.
-const themeStore = useThemeStore(pinia);
-themeStore.initialize();
+  // Apply the persisted theme + accent before mount to avoid a flash of the
+  // default palette.
+  const themeStore = useThemeStore(pinia);
+  themeStore.initialize();
 
-const sessionStore = useSessionStore(pinia);
-void sessionStore.initialize();
+  const sessionStore = useSessionStore(pinia);
+  void sessionStore.initialize();
 
-app.config.errorHandler = (err, _instance, info) => {
-  console.error("[vue:error]", info, err);
-};
+  app.config.errorHandler = (err, _instance, info) => {
+    console.error("[vue:error]", info, err);
+  };
 
-window.addEventListener("unhandledrejection", (event) => {
-  console.error("[unhandled-rejection]", event.reason);
-  event.preventDefault();
-});
+  window.addEventListener("unhandledrejection", (event) => {
+    console.error("[unhandled-rejection]", event.reason);
+    event.preventDefault();
+  });
 
-window.addEventListener("beforeunload", () => {
-  void sessionStore.dispose();
-});
+  window.addEventListener("beforeunload", () => {
+    void sessionStore.dispose();
+  });
 
-app.mount("#app");
+  app.mount("#app");
+}
+
+if (runsInsidePreview()) {
+  document.body.textContent =
+    "This is Capubridge itself. It does not run inside its own preview; open the app you want to inspect on another port.";
+} else {
+  start();
+}
