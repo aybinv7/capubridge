@@ -1,5 +1,33 @@
-import { evaluateChecked, jsLiteral } from "../evaluate.js";
+import { evaluateChecked } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
+import type { IDBRecord } from "./indexeddb-records.js";
+import {
+  readPageByEval,
+  readPageByProtocol,
+  readRecord,
+  sampleStoreSizes,
+  searchStoreOnDevice,
+  type GetDataParams,
+  type GetDataResult,
+  type SearchStoreParams,
+  type SearchStoreResult,
+} from "./indexeddb-reads.js";
+import {
+  clearStoreOnDevice,
+  deleteDatabaseOnDevice,
+  deleteRecordOnDevice,
+  deleteStoreOnDevice,
+  patchRecordOnDevice,
+  putRecordOnDevice,
+} from "./indexeddb-writes.js";
+
+export type { IDBRecord } from "./indexeddb-records.js";
+export type {
+  GetDataParams,
+  GetDataResult,
+  SearchStoreParams,
+  SearchStoreResult,
+} from "./indexeddb-reads.js";
 
 export interface IDBDatabaseInfo {
   name: string;
@@ -22,29 +50,6 @@ export interface IDBIndexInfo {
   multiEntry: boolean;
 }
 
-export interface IDBRecord {
-  key: IDBValidKey;
-  primaryKey?: IDBValidKey;
-  value: unknown;
-  editable?: boolean;
-  readOnlyReason?: string;
-}
-
-export interface GetDataParams {
-  securityOrigin: string;
-  databaseName: string;
-  objectStoreName: string;
-  indexName?: string;
-  skipCount: number;
-  pageSize: number;
-  keyRange?: unknown;
-}
-
-export interface GetDataResult {
-  records: IDBRecord[];
-  hasMore: boolean;
-}
-
 export interface StoreInfo {
   name: string;
   keyPath: string | string[] | null;
@@ -56,7 +61,6 @@ export interface StoreInfo {
   estimatedSize: number;
 }
 
-// CDP types for the IndexedDB domain
 interface CdpKeyPath {
   type: "null" | "string" | "array";
   string?: string;
@@ -83,46 +87,11 @@ interface CdpDatabaseWithObjectStores {
   objectStores: CdpObjectStore[];
 }
 
-interface CdpRemoteObject {
-  type: string;
-  subtype?: string;
-  value?: unknown;
-  description?: string;
-  objectId?: string;
-  unserializableValue?: string;
-}
-
-interface CdpDataEntry {
-  key: CdpRemoteObject;
-  primaryKey: CdpRemoteObject;
-  value: CdpRemoteObject;
-}
-
 function cdpKeyPathToValue(keyPath: CdpKeyPath): string | string[] | null {
   if (keyPath.type === "null") return null;
   if (keyPath.type === "string") return keyPath.string ?? null;
   if (keyPath.type === "array") return keyPath.array ?? [];
   return null;
-}
-
-function extractRemoteValue(obj: CdpRemoteObject): unknown {
-  if (obj.value !== undefined) return obj.value;
-  if (obj.description !== undefined) return obj.description;
-  return null;
-}
-
-interface MaterializedValue {
-  value: unknown;
-  editable: boolean;
-  reason?: string;
-}
-
-function containsReadOnlyMarker(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  if (Array.isArray(value)) return value.some(containsReadOnlyMarker);
-  const object = value as Record<string, unknown>;
-  if (typeof object.__type === "string") return true;
-  return Object.values(object).some(containsReadOnlyMarker);
 }
 
 export class IDBDomain {
@@ -132,47 +101,35 @@ export class IDBDomain {
     return this.client.send("IndexedDB.enable");
   }
 
+  /** Databases of the page's own origin. A device failure throws instead of reading as "none". */
   async discoverDatabases(): Promise<IDBDatabaseInfo[]> {
     const result = await evaluateChecked(this.client, {
       expression: `
-          (async () => {
-            try {
-              const dbs = await indexedDB.databases();
-              const details = await Promise.all(dbs.map(async (dbInfo) => {
-                return new Promise((resolve, reject) => {
-                  const req = indexedDB.open(dbInfo.name);
-                  req.onsuccess = () => {
-                    const db = req.result;
-                    const info = {
-                      name: db.name,
-                      version: db.version,
-                      origin: location.origin,
-                      objectStoreNames: Array.from(db.objectStoreNames)
-                    };
-                    db.close();
-                    resolve(info);
-                  };
-                  req.onerror = () => reject(req.error);
-                });
-              }));
-              return JSON.stringify(details);
-            } catch (e) {
-              return JSON.stringify({ error: e.message });
-            }
-          })()
-        `,
+        (async () => {
+          const dbs = await indexedDB.databases();
+          const details = await Promise.all(dbs.map((dbInfo) => new Promise((resolve, reject) => {
+            const req = indexedDB.open(dbInfo.name);
+            req.onsuccess = () => {
+              const db = req.result;
+              const info = {
+                name: db.name,
+                version: db.version,
+                origin: location.origin,
+                objectStoreNames: Array.from(db.objectStoreNames)
+              };
+              db.close();
+              resolve(info);
+            };
+            req.onerror = () => reject(req.error);
+          })));
+          return JSON.stringify(details);
+        })()
+      `,
       awaitPromise: true,
       returnByValue: true,
     });
-
-    const value = (result.result as Record<string, unknown>).value as string;
-
-    const parsed = JSON.parse(value as string);
-    if (parsed.error) {
-      return [];
-    }
-
-    return parsed as IDBDatabaseInfo[];
+    const value = result.result.value;
+    return typeof value === "string" ? (JSON.parse(value) as IDBDatabaseInfo[]) : [];
   }
 
   async getStoreInfo(databaseName: string, securityOrigin: string): Promise<StoreInfo[]> {
@@ -182,132 +139,47 @@ export class IDBDomain {
       databaseWithObjectStores: CdpDatabaseWithObjectStores;
     }>("IndexedDB.requestDatabase", { securityOrigin, databaseName });
 
-    const stores = await Promise.all(
-      databaseWithObjectStores.objectStores.map(async (store) => {
-        const [{ entriesCount, keyGeneratorValue }, sample] = await Promise.all([
+    const storeNames = databaseWithObjectStores.objectStores.map((store) => store.name);
+    const [metadata, samples] = await Promise.all([
+      Promise.all(
+        storeNames.map((objectStoreName) =>
           this.client.send<{ entriesCount: number; keyGeneratorValue: number }>(
             "IndexedDB.getMetadata",
-            { securityOrigin, databaseName, objectStoreName: store.name },
+            { securityOrigin, databaseName, objectStoreName },
           ),
-          this.sampleStoreSize(securityOrigin, databaseName, store.name),
-        ]);
+        ),
+      ),
+      sampleStoreSizes(this.client, databaseName, storeNames).catch(
+        () => ({}) as Record<string, { bytes: number; count: number }>,
+      ),
+    ]);
 
-        // Extrapolate total size from sample
-        const estimatedSize =
-          sample.count > 0 && entriesCount > 0
-            ? Math.round((sample.bytes / sample.count) * entriesCount)
-            : 0;
-
-        return {
-          name: store.name,
-          keyPath: cdpKeyPathToValue(store.keyPath),
-          autoIncrement: store.autoIncrement,
-          recordCount: entriesCount,
-          keyGeneratorValue,
-          indexCount: store.indexes.length,
-          indexes: store.indexes.map((idx) => ({
-            name: idx.name,
-            keyPath: cdpKeyPathToValue(idx.keyPath) as string | string[],
-            unique: idx.unique,
-            multiEntry: idx.multiEntry,
-          })),
-          estimatedSize,
-        } satisfies StoreInfo;
-      }),
-    );
-
-    return stores;
-  }
-
-  /**
-   * Fetches a small sample of records to estimate per-record byte size.
-   * Runs in parallel with getMetadata — adds zero sequential latency.
-   */
-  private async sampleStoreSize(
-    securityOrigin: string,
-    databaseName: string,
-    objectStoreName: string,
-    sampleSize = 12,
-  ): Promise<{ bytes: number; count: number }> {
-    try {
-      const { objectStoreDataEntries } = await this.client.send<{
-        objectStoreDataEntries: CdpDataEntry[];
-        hasMore: boolean;
-      }>("IndexedDB.requestData", {
-        securityOrigin,
-        databaseName,
-        objectStoreName,
-        indexName: "",
-        skipCount: 0,
-        pageSize: sampleSize,
-      });
-
-      if (objectStoreDataEntries.length === 0) return { bytes: 0, count: 0 };
-
-      const bytes = objectStoreDataEntries.reduce((sum, entry) => {
-        const v = extractRemoteValue(entry.value);
-        const k = extractRemoteValue(entry.key);
-        return sum + JSON.stringify(v).length + JSON.stringify(k).length;
-      }, 0);
-
-      return { bytes, count: objectStoreDataEntries.length };
-    } catch {
-      return this.sampleStoreSizeViaEval(databaseName, objectStoreName, sampleSize);
-    }
-  }
-
-  private async sampleStoreSizeViaEval(
-    databaseName: string,
-    objectStoreName: string,
-    sampleSize: number,
-  ): Promise<{ bytes: number; count: number }> {
-    try {
-      const result = await evaluateChecked(this.client, {
-        expression: `
-          (async () => {
-            try {
-              const req = indexedDB.open(${JSON.stringify(databaseName)});
-              const db = await new Promise((resolve, reject) => {
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error);
-              });
-
-              const store = db.transaction(${JSON.stringify(objectStoreName)}, 'readonly').objectStore(${JSON.stringify(objectStoreName)});
-              const records = [];
-              const cursorReq = store.openCursor();
-              await new Promise((resolve, reject) => {
-                cursorReq.onsuccess = () => {
-                  const cursor = cursorReq.result;
-                  if (!cursor || records.length >= ${sampleSize}) return resolve();
-                  records.push({ key: cursor.primaryKey, value: cursor.value });
-                  cursor.continue();
-                };
-                cursorReq.onerror = () => reject(cursorReq.error);
-              });
-
-              db.close();
-
-              let totalBytes = 0;
-              for (const r of records) {
-                totalBytes += JSON.stringify(r.key).length + JSON.stringify(r.value).length;
-              }
-              return JSON.stringify({ bytes: totalBytes, count: records.length });
-            } catch (e) {
-              return JSON.stringify({ error: e.message });
-            }
-          })()
-        `,
-        awaitPromise: true,
-        returnByValue: true,
-      });
-
-      const value = (result.result as Record<string, unknown>).value as string;
-      const parsed = JSON.parse(value);
-      if (parsed.error) return { bytes: 0, count: 0 };
-      return { bytes: parsed.bytes, count: parsed.count };
-    } catch {
-      return { bytes: 0, count: 0 };
-    }
+    return databaseWithObjectStores.objectStores.map((store, index) => {
+      const { entriesCount, keyGeneratorValue } = metadata[index] ?? {
+        entriesCount: 0,
+        keyGeneratorValue: 0,
+      };
+      const sample = samples[store.name];
+      const estimatedSize =
+        sample && sample.count > 0 && entriesCount > 0
+          ? Math.round((sample.bytes / sample.count) * entriesCount)
+          : 0;
+      return {
+        name: store.name,
+        keyPath: cdpKeyPathToValue(store.keyPath),
+        autoIncrement: store.autoIncrement,
+        recordCount: entriesCount,
+        keyGeneratorValue,
+        indexCount: store.indexes.length,
+        indexes: store.indexes.map((idx) => ({
+          name: idx.name,
+          keyPath: cdpKeyPathToValue(idx.keyPath) as string | string[],
+          unique: idx.unique,
+          multiEntry: idx.multiEntry,
+        })),
+        estimatedSize,
+      } satisfies StoreInfo;
+    });
   }
 
   async getStorageEstimate(): Promise<{ usage: number; idbUsage: number; quota: number }> {
@@ -329,7 +201,7 @@ export class IDBDomain {
       awaitPromise: true,
       returnByValue: true,
     });
-    const value = (result.result as Record<string, unknown>).value as string;
+    const value = result.result.value as string;
     try {
       return JSON.parse(value) as { usage: number; idbUsage: number; quota: number };
     } catch {
@@ -358,431 +230,115 @@ export class IDBDomain {
     };
   }
 
-  async putRecord(
+  /** Writes a whole record; `primaryKey` may hold key markers (dates, binary). */
+  putRecord(
     securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
     value: unknown,
-    primaryKey?: IDBValidKey,
+    primaryKey?: unknown,
   ): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        (async () => {
-          try {
-            if (location.origin !== ${JSON.stringify(securityOrigin)}) throw new Error('IndexedDB origin mismatch');
-            const req = indexedDB.open(${JSON.stringify(databaseName)});
-            const db = await new Promise((resolve, reject) => {
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => reject(req.error?.message ?? 'open failed');
-            });
-            const tx = db.transaction(${JSON.stringify(objectStoreName)}, 'readwrite');
-            const store = tx.objectStore(${JSON.stringify(objectStoreName)});
-            const key = ${primaryKey === undefined ? "undefined" : jsLiteral(primaryKey)};
-            const value = ${jsLiteral(value)};
-            const readPath = (source, path) => path.split('.').reduce(
-              (node, part) => (node == null ? undefined : node[part]),
-              source,
-            );
-            const inlineKey = (path) => Array.isArray(path)
-              ? path.map((part) => readPath(value, part))
-              : readPath(value, path);
-            const done = new Promise((resolve, reject) => {
-              tx.oncomplete = () => resolve(true);
-              tx.onerror = () => reject(tx.error?.message ?? 'put failed');
-              tx.onabort = () => reject(tx.error?.message ?? 'transaction aborted');
-            });
-            try {
-              if (store.keyPath === null) {
-                if (key === undefined) throw new Error('Out-of-line key required');
-                store.put(value, key);
-              } else {
-                const nextKey = inlineKey(store.keyPath);
-                const missing = Array.isArray(nextKey) ? nextKey.some((part) => part === undefined) : nextKey === undefined;
-                if (missing && key !== undefined) {
-                  throw new Error('The record must keep its key field (' + JSON.stringify(store.keyPath) + ')');
-                }
-                store.put(value);
-                if (!missing && key !== undefined && indexedDB.cmp(nextKey, key) !== 0) store.delete(key);
-              }
-            } catch (error) {
-              tx.abort();
-              await done.catch(() => undefined);
-              db.close();
-              throw error;
-            }
-            try {
-              await done;
-            } finally {
-              db.close();
-            }
-            return JSON.stringify({ ok: true });
-          } catch (e) {
-            return JSON.stringify({ error: String(e) });
-          }
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const raw = (result.result as Record<string, unknown>).value as string;
-    const parsed = JSON.parse(raw) as { ok?: boolean; error?: string };
-    if (parsed.error) throw new Error(parsed.error);
+    return putRecordOnDevice(
+      this.client,
+      securityOrigin,
+      databaseName,
+      objectStoreName,
+      value,
+      primaryKey,
+    );
   }
 
-  async deleteRecord(
+  /** Changes one field in place on the device; every other field is kept exactly as stored. */
+  patchRecord(
     securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
-    key: IDBValidKey,
+    primaryKey: unknown,
+    path: readonly string[],
+    value: unknown,
   ): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        (async () => {
-          try {
-            if (location.origin !== ${JSON.stringify(securityOrigin)}) throw new Error('IndexedDB origin mismatch');
-            const req = indexedDB.open(${JSON.stringify(databaseName)});
-            const db = await new Promise((resolve, reject) => {
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => reject(req.error?.message ?? 'open failed');
-            });
-            const tx = db.transaction(${JSON.stringify(objectStoreName)}, 'readwrite');
-            tx.objectStore(${JSON.stringify(objectStoreName)}).delete(${JSON.stringify(key)});
-            await new Promise((resolve, reject) => {
-              tx.oncomplete = () => resolve(true);
-              tx.onerror = () => reject(tx.error?.message ?? 'delete failed');
-            });
-            db.close();
-            return JSON.stringify({ ok: true });
-          } catch (e) {
-            return JSON.stringify({ error: String(e) });
-          }
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const raw = (result.result as Record<string, unknown>).value as string;
-    const parsed = JSON.parse(raw) as { ok?: boolean; error?: string };
-    if (parsed.error) throw new Error(parsed.error);
+    return patchRecordOnDevice(
+      this.client,
+      securityOrigin,
+      databaseName,
+      objectStoreName,
+      primaryKey,
+      path,
+      value,
+    );
   }
 
-  async clearObjectStore(
+  deleteRecord(
+    securityOrigin: string,
+    databaseName: string,
+    objectStoreName: string,
+    key: unknown,
+  ): Promise<void> {
+    return deleteRecordOnDevice(this.client, securityOrigin, databaseName, objectStoreName, key);
+  }
+
+  clearObjectStore(
     _securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
   ): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        (async () => {
-          try {
-            const req = indexedDB.open(${JSON.stringify(databaseName)});
-            const db = await new Promise((resolve, reject) => {
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => reject(req.error?.message ?? 'open failed');
-            });
-            const tx = db.transaction(${JSON.stringify(objectStoreName)}, 'readwrite');
-            tx.objectStore(${JSON.stringify(objectStoreName)}).clear();
-            await new Promise((resolve, reject) => {
-              tx.oncomplete = () => resolve(true);
-              tx.onerror = () => reject(tx.error?.message ?? 'clear failed');
-            });
-            db.close();
-            return JSON.stringify({ ok: true });
-          } catch (e) {
-            return JSON.stringify({ error: String(e) });
-          }
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const raw = (result.result as Record<string, unknown>).value as string;
-    const parsed = JSON.parse(raw) as { ok?: boolean; error?: string };
-    if (parsed.error) throw new Error(parsed.error);
+    return clearStoreOnDevice(this.client, databaseName, objectStoreName);
   }
 
-  async deleteObjectStore(
+  /** Throws `IdbBlockedError` when the app holds the database open; nothing is changed then. */
+  deleteObjectStore(
     _securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
   ): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        (async () => {
-          try {
-            const openReq = indexedDB.open(${JSON.stringify(databaseName)});
-            const currentVersion = await new Promise((resolve, reject) => {
-              openReq.onsuccess = () => { const v = openReq.result.version; openReq.result.close(); resolve(v); };
-              openReq.onerror = () => reject(openReq.error?.message ?? 'open failed');
-            });
-            const upgradeReq = indexedDB.open(${JSON.stringify(databaseName)}, currentVersion + 1);
-            await new Promise((resolve, reject) => {
-              upgradeReq.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (db.objectStoreNames.contains(${JSON.stringify(objectStoreName)})) {
-                  db.deleteObjectStore(${JSON.stringify(objectStoreName)});
-                }
-              };
-              upgradeReq.onsuccess = () => { upgradeReq.result.close(); resolve(true); };
-              upgradeReq.onerror = () => reject(upgradeReq.error?.message ?? 'upgrade failed');
-            });
-            return JSON.stringify({ ok: true });
-          } catch (e) {
-            return JSON.stringify({ error: String(e) });
-          }
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const raw = (result.result as Record<string, unknown>).value as string;
-    const parsed = JSON.parse(raw) as { ok?: boolean; error?: string };
-    if (parsed.error) throw new Error(parsed.error);
+    return deleteStoreOnDevice(this.client, databaseName, objectStoreName);
   }
 
-  async deleteDatabase(_securityOrigin: string, databaseName: string): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        new Promise((resolve, reject) => {
-          const req = indexedDB.deleteDatabase(${JSON.stringify(databaseName)});
-          req.onsuccess = () => resolve(JSON.stringify({ ok: true }));
-          req.onerror = () => reject(JSON.stringify({ error: req.error?.message ?? 'delete failed' }));
-        })
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const raw = (result.result as Record<string, unknown>).value as string;
-    const parsed = JSON.parse(raw) as { ok?: boolean; error?: string };
-    if (parsed.error) throw new Error(parsed.error);
+  /** Throws `IdbBlockedError` when the app holds the database open; the delete stays queued. */
+  deleteDatabase(_securityOrigin: string, databaseName: string): Promise<void> {
+    return deleteDatabaseOnDevice(this.client, databaseName);
   }
 
+  /**
+   * One page of records: one evaluate on the page; when that fails (another frame's origin),
+   * `IndexedDB.requestData` with a single batched encode.
+   */
   async getData(params: GetDataParams): Promise<GetDataResult> {
-    const isLocalForage = params.databaseName === "localforage";
-
-    if (isLocalForage) {
-      return this.getDataViaEval(params);
-    }
-
-    await this.enable();
-
+    if (params.databaseName === "localforage") return readPageByEval(this.client, params);
     try {
-      const response = await this.client.send<{
-        objectStoreDataEntries: CdpDataEntry[];
-        hasMore: boolean;
-      }>("IndexedDB.requestData", {
-        securityOrigin: params.securityOrigin,
-        databaseName: params.databaseName,
-        objectStoreName: params.objectStoreName,
-        indexName: params.indexName ?? "",
-        skipCount: params.skipCount,
-        pageSize: params.pageSize,
-        ...(params.keyRange ? { keyRange: params.keyRange } : {}),
-      });
-
-      console.log(
-        "[IDB] requestData hasMore:",
-        response.hasMore,
-        "count:",
-        response.objectStoreDataEntries.length,
-      );
-
-      const records = await Promise.all(
-        response.objectStoreDataEntries.map(async (entry) => {
-          const [key, primaryKey, value] = await Promise.all([
-            this.materializeRemoteValue(entry.key),
-            this.materializeRemoteValue(entry.primaryKey),
-            this.materializeRemoteValue(entry.value),
-          ]);
-          const readOnlyReason = [key, primaryKey, value]
-            .map((item) => item.reason)
-            .find((reason): reason is string => Boolean(reason));
-          return {
-            key: key.value as IDBValidKey,
-            primaryKey: primaryKey.value as IDBValidKey,
-            value: value.value,
-            editable: !readOnlyReason,
-            ...(readOnlyReason ? { readOnlyReason } : {}),
-          } satisfies IDBRecord;
-        }),
-      );
-
-      return { records, hasMore: response.hasMore };
-    } catch (err) {
-      console.warn("[IDB] CDP requestData failed, falling back to Runtime.evaluate:", err);
+      return await readPageByEval(this.client, params);
+    } catch (evalError) {
       try {
-        return await this.getDataViaEval(params);
-      } catch (evalErr) {
-        throw new Error(`IndexedDB read failed — CDP: ${String(err)}; eval: ${String(evalErr)}`);
+        return await readPageByProtocol(this.client, params);
+      } catch (protocolError) {
+        throw new Error(
+          `IndexedDB read failed: ${errorText(evalError)}; DevTools: ${errorText(protocolError)}`,
+        );
       }
     }
   }
 
-  private async materializeRemoteValue(obj: CdpRemoteObject): Promise<MaterializedValue> {
-    if (obj.value !== undefined) return { value: obj.value, editable: true };
-    if (obj.unserializableValue !== undefined) {
-      return {
-        value: obj.unserializableValue,
-        editable: false,
-        reason: "Unsupported serialized value",
-      };
-    }
-    if (!obj.objectId) {
-      return { value: extractRemoteValue(obj), editable: true };
-    }
-    try {
-      const response = await this.client.send<{
-        result: { result: { value?: { value?: unknown; editable?: boolean; reason?: string } } };
-      }>("Runtime.callFunctionOn", {
-        objectId: obj.objectId,
-        functionDeclaration: `function() {
-          const maxDepth = 8;
-          const maxNodes = 10000;
-          const maxBytes = 1024 * 1024;
-          const seen = new WeakSet();
-          let nodes = 0;
-          let unsupported = false;
-          function clone(value, depth) {
-            if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
-            if (typeof value === 'bigint') { unsupported = true; return { __type: 'BigInt', value: value.toString() }; }
-            if (depth >= maxDepth) { unsupported = true; return { __type: 'MaxDepth' }; }
-            if (value instanceof Date) { unsupported = true; return { __type: 'Date', value: value.toISOString() }; }
-            if (value instanceof Blob) { unsupported = true; return { __type: 'Blob', size: value.size, type: value.type }; }
-            if (value instanceof ArrayBuffer) { unsupported = true; return { __type: 'ArrayBuffer', byteLength: value.byteLength }; }
-            if (value instanceof Uint8Array) { unsupported = true; return { __type: 'Uint8Array', data: Array.from(value).slice(0, maxBytes) }; }
-            if (typeof value !== 'object') { unsupported = true; return String(value); }
-            if (seen.has(value)) { unsupported = true; return { __type: 'Circular' }; }
-            seen.add(value);
-            nodes += 1;
-            if (nodes > maxNodes) { unsupported = true; return { __type: 'MaxNodes' }; }
-            if (Array.isArray(value)) return value.map(item => clone(item, depth + 1));
-            const result = {};
-            for (const key of Object.keys(value)) result[key] = clone(value[key], depth + 1);
-            return result;
-          }
-          const value = clone(this, 0);
-          const serialized = JSON.stringify(value);
-          if (serialized.length > maxBytes) return { value: { __type: 'MaxBytes' }, editable: false, reason: 'Value exceeds 1 MiB limit' };
-          return { value, editable: !unsupported, reason: unsupported ? 'Structured-clone value is read-only' : undefined };
-        }`,
-        returnByValue: true,
-        awaitPromise: true,
-      });
-      const value = response.result.result.value;
-      if (value)
-        return { value: value.value, editable: value.editable !== false, reason: value.reason };
-      return {
-        value: extractRemoteValue(obj),
-        editable: false,
-        reason: "Remote value could not be materialized",
-      };
-    } finally {
-      await this.client
-        .send("Runtime.releaseObject", { objectId: obj.objectId })
-        .catch(() => undefined);
-    }
+  /** One record by primary key, read again from the device, or `null` when it is gone. */
+  getRecord(
+    securityOrigin: string,
+    databaseName: string,
+    objectStoreName: string,
+    primaryKey: unknown,
+  ): Promise<IDBRecord | null> {
+    return readRecord(this.client, securityOrigin, databaseName, objectStoreName, primaryKey);
   }
 
-  private async getDataViaEval(params: GetDataParams): Promise<GetDataResult> {
-    const indexName = params.indexName ?? "";
-    const expression = `
-      (async () => {
-        try {
-          const dbName = ${JSON.stringify(params.databaseName)};
-          const existing = await indexedDB.databases();
-          if (!existing.some((entry) => entry.name === dbName)) {
-            return JSON.stringify({ error: 'Database "' + dbName + '" does not exist on this target' });
-          }
-          const req = indexedDB.open(dbName);
-          const db = await new Promise((resolve, reject) => {
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-          });
-
-          try {
-            const store = db.transaction(${JSON.stringify(params.objectStoreName)}, 'readonly').objectStore(${JSON.stringify(params.objectStoreName)});
-            const cursorSource = ${indexName ? `store.index(${JSON.stringify(indexName)})` : "store"};
-            const rangeSpec = ${params.keyRange ? JSON.stringify(params.keyRange) : "null"};
-            const range = rangeSpec ? (rangeSpec.lower !== undefined && rangeSpec.upper !== undefined ? IDBKeyRange.bound(rangeSpec.lower, rangeSpec.upper, Boolean(rangeSpec.lowerOpen), Boolean(rangeSpec.upperOpen)) : rangeSpec.lower !== undefined ? IDBKeyRange.lowerBound(rangeSpec.lower, Boolean(rangeSpec.lowerOpen)) : IDBKeyRange.upperBound(rangeSpec.upper, Boolean(rangeSpec.upperOpen))) : undefined;
-            const records = [];
-            const seen = new WeakSet();
-            let nodes = 0;
-            function safeSerialize(value, depth = 0) {
-            if (value === undefined || value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
-            if (depth >= 8 || nodes++ >= 10000) return { __type: 'MaxDepth' };
-            if (value instanceof Date) return { __type: 'Date', value: value.toISOString() };
-            if (value instanceof ArrayBuffer) return { __type: 'ArrayBuffer', byteLength: value.byteLength };
-            if (value instanceof Uint8Array) return { __type: 'Uint8Array', data: Array.from(value).slice(0, 1048576) };
-            if (seen.has(value)) return { __type: 'Circular' };
-            seen.add(value);
-            if (Array.isArray(value)) return value.map(item => safeSerialize(item, depth + 1));
-            const output = {};
-            for (const key of Object.keys(value)) output[key] = safeSerialize(value[key], depth + 1);
-            return output;
-            }
-            let skipped = false;
-            const skip = Math.max(0, ${params.skipCount});
-            const take = Math.max(1, Math.min(10000, ${params.pageSize}));
-            const cursorReq = cursorSource.openCursor(range);
-            await new Promise((resolve, reject) => {
-            cursorReq.onsuccess = () => {
-              const cursor = cursorReq.result;
-              if (!cursor) return resolve();
-              if (!skipped && skip > 0) {
-                skipped = true;
-                cursor.advance(skip);
-                return;
-              }
-              if (records.length >= take + 1) return resolve();
-              records.push({ key: safeSerialize(cursor.key), primaryKey: safeSerialize(cursor.primaryKey), value: safeSerialize(cursor.value) });
-              cursor.continue();
-            };
-            cursorReq.onerror = () => reject(cursorReq.error);
-            });
-            return JSON.stringify({ records: records.slice(0, take), hasMore: records.length > take });
-          } finally {
-            db.close();
-          }
-        } catch (e) {
-          return JSON.stringify({ error: e.message });
-        }
-      })()
-    `;
-
-    const result = await evaluateChecked(this.client, {
-      expression,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-
-    const value = (result.result as Record<string, unknown>).value as string;
-    console.log("[IDB] getDataViaEval result (first 500 chars):", value?.substring(0, 500));
-
-    const parsed = JSON.parse(value as string);
-    if (parsed.error) {
-      throw new Error(parsed.error);
-    }
-
-    const records = (parsed.records as IDBRecord[]).map((record) => ({
-      ...record,
-      editable:
-        !containsReadOnlyMarker(record.value) &&
-        !containsReadOnlyMarker(record.primaryKey) &&
-        !containsReadOnlyMarker(record.key),
-      ...(containsReadOnlyMarker(record.value) ||
-      containsReadOnlyMarker(record.primaryKey) ||
-      containsReadOnlyMarker(record.key)
-        ? { readOnlyReason: "Structured-clone value is read-only" }
-        : {}),
-    }));
-    return {
-      records,
-      hasMore: parsed.hasMore as boolean,
-    };
+  /** Bounded scan of the whole store on the device for `needle` in keys and values. */
+  searchStore(params: SearchStoreParams): Promise<SearchStoreResult> {
+    return searchStoreOnDevice(this.client, params);
   }
 
   async getDatabaseSize(databaseName: string, securityOrigin: string): Promise<number> {
     const stores = await this.getStoreInfo(databaseName, securityOrigin);
     return stores.reduce((sum, store) => sum + (store.estimatedSize ?? 0), 0);
   }
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

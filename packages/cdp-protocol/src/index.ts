@@ -23,8 +23,36 @@ export type {
   IDBRecord,
   GetDataParams,
   GetDataResult,
+  SearchStoreParams,
+  SearchStoreResult,
   StoreInfo,
 } from "./cdp/domains/indexeddb.js";
+export { IdbBlockedError, idbReadOnlyReason } from "./cdp/domains/indexeddb-records.js";
+export {
+  IDB_DEVICE_CODEC_SOURCE,
+  IDB_MARKER_KEY,
+  IDB_VIEW_LIMITS,
+} from "./cdp/domains/indexeddb-codec.js";
+export type {
+  IdbBinaryMarker,
+  IdbEncodeLimits,
+  IdbMarker,
+  IdbValueIssue,
+} from "./cdp/domains/indexeddb-codec.js";
+export {
+  exportStoreChunk,
+  importPutChunk,
+  importReplaceSchema,
+} from "./cdp/domains/indexeddb-transfer.js";
+export type {
+  ExportStoreChunk,
+  ExportStoreChunkParams,
+  IdbSchema,
+  IdbSchemaIndex,
+  IdbSchemaStore,
+  IdbTransferRecord,
+  ImportPutChunkParams,
+} from "./cdp/domains/indexeddb-transfer.js";
 export { LocalStorageDomain, CacheAPIDomain } from "./cdp/domains/storage.js";
 export type { LSOrigin, CacheName, CacheEntry } from "./cdp/domains/storage.js";
 export {
