@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from "vue-router";
+import { OPEN_IDB_EXPORT_COMMAND } from "./useDataAppCommands";
 
 export const storageRoutes = [
   {
@@ -10,7 +11,16 @@ export const storageRoutes = [
         path: "indexeddb/:db?/:store?",
         name: "storage-indexeddb",
         component: () => import("./indexeddb/IndexedDBView.vue"),
-        meta: { label: "IndexedDB", requires: "target" },
+        meta: {
+          label: "IndexedDB",
+          requires: "target",
+          ownsBringToFront: true,
+          gateCommand: {
+            commandId: OPEN_IDB_EXPORT_COMMAND,
+            label: "Open an IndexedDB export…",
+            hint: "Read a saved export with no phone",
+          },
+        },
       },
       {
         path: "indexeddb-snapshot/:db?/:store?",

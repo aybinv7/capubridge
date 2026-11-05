@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { Lock, PanelRight } from "lucide-vue-next";
-import { Button } from "@capubridge/cladd";
+import { Button, Chip } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
@@ -19,7 +19,9 @@ import {
 import CellEditor from "@/shared/components/data/grid/editors/CellEditor.vue";
 import { editorKindFor } from "@/shared/components/data/grid/editors/cellEdit";
 import type { DataPredicate, PredicateJoin } from "@/shared/components/data/filter/predicates";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import type { StoreInfo } from "@capubridge/cdp-protocol";
 import DataPager from "@/modules/storage/frame/DataPager.vue";
@@ -37,6 +39,7 @@ import type { useIdbPage } from "./useIdbPage";
 import type { useIdbStoreWrites } from "./useIdbStoreWrites";
 
 const SHOW_AS_KEY = "capubridge:data-show-as:v1";
+const NOTE_MS = 5000;
 
 const props = defineProps<{
   database: string;
@@ -47,14 +50,19 @@ const props = defineProps<{
   writes: ReturnType<typeof useIdbStoreWrites>;
   changesOnly: boolean;
   layoutKey: string;
+  confirm: (request: ConfirmRequest) => Promise<boolean>;
+  /** Why the phone cannot answer now, when the app is away from the screen. */
+  away: string | null;
 }>();
 
 const emit = defineEmits<{
   deleteRecords: [records: IndexedDBDecoratedRecord[], afterDelete: () => void];
+  bringToFront: [];
 }>();
 
 const toolbar = ref<InstanceType<typeof IdbRowsToolbar> | null>(null);
 const grid = ref<InstanceType<typeof DataGrid> | null>(null);
+const paneView = ref<InstanceType<typeof RecordPane> | null>(null);
 const search = ref("");
 const predicates = ref<DataPredicate[]>([]);
 const join = ref<PredicateJoin>("and");
@@ -64,6 +72,8 @@ const filterOpen = ref(false);
 const filterSeed = ref<string | null>(null);
 const groupBy = ref<string | null>(null);
 const editing = ref<GridEditingCell | null>(null);
+const editNote = ref<string | null>(null);
+let noteTimer: ReturnType<typeof setTimeout> | undefined;
 const summary = shallowRef<GridSummary>({
   rowCount: 0,
   selectedRows: 0,
@@ -153,7 +163,7 @@ watch(
     visibility.value = {};
     groupBy.value = null;
     editing.value = null;
-    pane.activeRowId.value = null;
+    pane.reset();
   },
 );
 
@@ -182,26 +192,25 @@ const pageLocal = computed(
     !inStoreSearch.value &&
     (search.value.trim() !== "" || predicates.value.length > 0 || sort.value !== null),
 );
-const scopeNote = computed(() => {
+const searchNote = computed(() => {
   const found = props.pager.storeSearch.value;
-  if (found) {
-    if (found.running) return `Searching the whole store for “${found.needle}”…`;
-    if (found.error) return `The search failed: ${found.error}`;
-    const capped =
-      found.capped === "time"
-        ? ", stopped after 4 s"
-        : found.capped === "count"
-          ? ", stopped after 50,000 records"
-          : found.capped === "limit"
-            ? ", first 500 matches"
-            : "";
-    return `${found.records.length.toLocaleString("en-US")} found in the whole store · ${found.scanned.toLocaleString("en-US")} records searched${capped}`;
-  }
-  if (pageLocal.value) {
-    return `Find, filters and sort cover the ${model.value.rows.length.toLocaleString("en-US")} rows on this page`;
-  }
-  return null;
+  if (!found) return null;
+  if (found.running) return `Searching the whole store for “${found.needle}”…`;
+  if (found.error) return `The search failed: ${found.error}`;
+  const capped =
+    found.capped === "time"
+      ? ", stopped after 4 s"
+      : found.capped === "count"
+        ? ", stopped after 50,000 records"
+        : found.capped === "limit"
+          ? ", first 500 matches"
+          : "";
+  return `${found.records.length.toLocaleString("en-US")} found in the whole store · ${found.scanned.toLocaleString("en-US")} records searched${capped}`;
 });
+const pageScope = computed(
+  () =>
+    `Find, filters and sort cover the ${model.value.rows.length.toLocaleString("en-US")} rows on this page. Search the whole store to look further.`,
+);
 
 function setShowAs(columnId: string, type: GridColumnType | null) {
   const current = { ...showAs.value };
@@ -215,6 +224,8 @@ function onColumnAction(columnId: string, action: GridColumnMenuAction) {
   if (action.kind === "filter") {
     filterSeed.value = columnId;
     filterOpen.value = true;
+  } else if (action.kind === "group") {
+    groupBy.value = groupBy.value === columnId ? null : columnId;
   } else if (action.kind === "showAs") setShowAs(columnId, action.type);
   else if (action.kind === "hide") visibility.value = { ...visibility.value, [columnId]: false };
 }
@@ -223,18 +234,46 @@ watch(filterOpen, (isOpen) => {
   if (!isOpen) filterSeed.value = null;
 });
 
+function columnSample(columnId: string): unknown {
+  for (const row of model.value.rows) {
+    const value = row.cells[columnId];
+    if (value !== null && value !== undefined) return value;
+  }
+  return undefined;
+}
+
 function readOnlyCell(rowId: string, columnId: string): string | null {
   const record = model.value.byId.get(rowId);
   if (!record) return "This row is gone.";
-  return props.writes.cellReadOnlyReason(record, columnId, showAs.value[columnId]);
+  return props.writes.cellReadOnlyReason(
+    record,
+    columnId,
+    showAs.value[columnId],
+    columnSample(columnId),
+  );
 }
 
+function note(text: string) {
+  editNote.value = text;
+  if (noteTimer) clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => (editNote.value = null), NOTE_MS);
+}
+
+onBeforeUnmount(() => {
+  if (noteTimer) clearTimeout(noteTimer);
+});
+
 function startEdit(rowId: string, columnId: string) {
-  if (readOnlyCell(rowId, columnId) !== null) {
-    pane.show(rowId);
+  const reason = readOnlyCell(rowId, columnId);
+  if (reason === null) {
+    editing.value = { rowId, columnId };
     return;
   }
-  editing.value = { rowId, columnId };
+  note(reason);
+  const record = model.value.byId.get(rowId);
+  if (record && record.editable !== false && props.writes.blockedReason.value === null) {
+    pane.show(rowId);
+  }
 }
 
 async function commitEdit(value: unknown) {
@@ -379,7 +418,55 @@ async function savePane(value: unknown) {
   if (record && (await props.writes.saveRecord(record, value))) pane.setDirty(false);
 }
 
-defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
+/** Asks before an unsaved edit in the pane is dropped; `true` when it may go. */
+async function guardDiscard(): Promise<boolean> {
+  if (!pane.dirty.value) return true;
+  const label = paneRecord.value ? keyLabelOf(paneRecord.value) : "this record";
+  const discard = await props.confirm({
+    title: `Discard changes to record ${label}?`,
+    text: "Your edits to this record were not saved to the phone. Discarding drops them.",
+    confirmLabel: "Discard changes",
+    danger: true,
+  });
+  if (discard) {
+    paneView.value?.discard();
+    pane.setDirty(false);
+  }
+  return discard;
+}
+
+async function closePane() {
+  if (await guardDiscard()) pane.close();
+}
+
+async function togglePane() {
+  if (!pane.open.value) pane.open.value = true;
+  else if (await guardDiscard()) pane.open.value = false;
+}
+
+async function goToPage(page: number) {
+  if (await guardDiscard()) props.pager.setPage(page);
+}
+
+async function setPageSize(size: number) {
+  if (await guardDiscard()) props.pager.setPageSize(size);
+}
+
+async function searchStore() {
+  if (await guardDiscard()) void props.pager.searchWholeStore(search.value);
+}
+
+async function backToPages() {
+  if (await guardDiscard()) props.pager.clearStoreSearch();
+}
+
+function onPaneKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  event.stopPropagation();
+  void closePane();
+}
+
+defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
 </script>
 
 <template>
@@ -396,166 +483,207 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
     :can-delete="writes.canWrite.value"
     :store-searching="pager.storeSearch.value?.running ?? false"
     :in-store-search="inStoreSearch"
-    @search-store="pager.searchWholeStore(search)"
+    @search-store="searchStore"
     @filter="onFilter"
     @export="onExport"
     @delete-selected="requestDelete(summary.selectedRowIds)"
   />
 
   <DataState
-    v-if="pager.error.value && records.length === 0"
+    v-if="away && (records.length === 0 || pager.error.value)"
+    kind="waiting"
+    title="Waiting for the app"
+    :text="away"
+  >
+    <Button size="sm" variant="solid-fill" @click="emit('bringToFront')">Bring to front</Button>
+  </DataState>
+  <DataState
+    v-else-if="pager.error.value && records.length === 0"
     kind="error"
     title="Could not read the records"
     :detail="pager.error.value"
     @retry="pager.refetch()"
   />
-  <ResizablePanelGroup
-    v-else
-    direction="horizontal"
-    auto-save-id="capubridge:data-record-pane-size"
-    class="min-h-0 flex-1"
-  >
-    <ResizablePanel id="idb-rows-grid" :order="1" :min-size="35" class="min-h-0">
-      <div class="h-full min-h-0 px-2 pb-2">
-        <DataGrid
-          ref="grid"
-          :label="store"
-          :columns="gridColumns"
-          :rows="gridRows"
-          :loading="pager.loading.value"
-          :read-only="!writes.canWrite.value || groupBy !== null"
-          :row-states="model.states"
-          :sort="sort"
-          :row-number-offset="inStoreSearch ? 0 : pager.page.value * pager.pageSize.value"
-          :column-visibility="visibility"
-          :show-as="showAs"
-          :column-features="{ filter: !groupBy, group: true, showAs: true }"
-          :grouped-column="groupBy"
-          :activate-rows="groupBy !== null"
-          @activate="openGroup"
-          :context-actions="contextActions"
-          :editing="editing"
-          :layout-key="layoutKey"
-          @update:sort="sort = $event"
-          @column-action="onColumnAction"
-          @active-row="$event && !groupBy && (pane.activeRowId.value = $event)"
-          @inspect="pane.show"
-          @edit="startEdit"
-          @delete="requestDelete"
-          @summary="summary = $event"
-          @context-action="runContextAction"
-        >
-          <template #editor="{ rowId, column, value }">
-            <CellEditor
-              :key="`${rowId}:${column.id}`"
-              :value="value"
-              :kind="editorKindFor(value, showAs[column.id]) ?? 'text'"
-              :label="`Edit ${column.title}`"
-              @commit="commitEdit"
-              @cancel="cancelEdit"
-            />
-          </template>
-          <template #empty>
-            <div
-              v-if="search || predicates.length || changesOnly"
-              class="flex flex-col items-start gap-2"
-            >
-              <span>No row on this page matches.</span>
-              <Button
-                size="sm"
-                variant="transparent"
-                @click="
-                  search = '';
-                  predicates = [];
-                "
-              >
-                Clear find and filters
-              </Button>
-            </div>
-            <span v-else-if="inStoreSearch">Nothing in “{{ store }}” matches.</span>
-            <span v-else-if="pager.page.value > 0">No records on this page.</span>
-            <span v-else>“{{ store }}” has no records.</span>
-          </template>
-        </DataGrid>
-      </div>
-    </ResizablePanel>
-    <template v-if="pane.visible.value && paneRecord && paneRow && !groupBy">
-      <ResizableHandle
-        class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
-      />
-      <ResizablePanel
-        id="idb-rows-pane"
-        :order="2"
-        :default-size="34"
-        :min-size="22"
-        :max-size="60"
-        class="min-h-0"
-      >
-        <div class="h-full min-h-0 pr-2 pb-2" @keydown.esc.stop="pane.close()">
-          <div
-            class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
+  <template v-else>
+    <DataState
+      v-if="pager.error.value && !away"
+      compact
+      kind="error"
+      title="Could not read this page again; the rows below are from the last read"
+      :detail="pager.error.value"
+      class="shrink-0 border-b border-border-subtle"
+      @retry="pager.refetch()"
+    />
+    <ResizablePanelGroup
+      direction="horizontal"
+      auto-save-id="capubridge:data-record-pane-size"
+      class="min-h-0 flex-1"
+    >
+      <ResizablePanel id="idb-rows-grid" :order="1" :min-size="35" class="min-h-0">
+        <div class="h-full min-h-0 px-2 pb-2">
+          <DataGrid
+            ref="grid"
+            :label="store"
+            :columns="gridColumns"
+            :rows="gridRows"
+            :loading="pager.loading.value"
+            :read-only="!writes.canWrite.value || groupBy !== null"
+            :row-states="model.states"
+            :sort="sort"
+            :row-number-offset="inStoreSearch ? 0 : pager.page.value * pager.pageSize.value"
+            :column-visibility="visibility"
+            :show-as="showAs"
+            :column-features="{ filter: !groupBy, group: true, showAs: true }"
+            :grouped-column="groupBy"
+            :activate-rows="groupBy !== null"
+            :context-actions="contextActions"
+            :editing="editing"
+            :layout-key="layoutKey"
+            @activate="openGroup"
+            @update:sort="sort = $event"
+            @column-action="onColumnAction"
+            @active-row="$event && !groupBy && (pane.activeRowId.value = $event)"
+            @inspect="pane.show"
+            @edit="startEdit"
+            @delete="requestDelete"
+            @summary="summary = $event"
+            @context-action="runContextAction"
           >
-            <RecordPane
-              :key="paneRow.id"
-              :title="keyLabelOf(paneRecord)"
-              :subtitle="paneSubtitle"
-              :state-text="paneState"
-              :columns="
-                model.columns.filter((column) => column.id !== KEY_COLUMN || !model.keyField)
-              "
-              :cells="paneRow.cells"
-              :value="paneRecord.value"
-              :read-only-reason="paneReadOnly"
-              :can-delete="writes.canWrite.value && !paneRecord.__changeDeleted"
-              :before="paneBefore"
-              :can-prev="pane.canPrev.value"
-              :can-next="pane.canNext.value"
-              :saving="writes.saving.value"
-              @save="savePane"
-              @delete="requestDelete([paneRow.id])"
-              @prev="pane.step(-1)"
-              @next="pane.step(1)"
-              @close="pane.close()"
-              @dirty="pane.setDirty"
-            />
-          </div>
+            <template #editor="{ rowId, column, value }">
+              <CellEditor
+                :key="`${rowId}:${column.id}`"
+                :value="value"
+                :like="columnSample(column.id)"
+                :kind="editorKindFor(value, showAs[column.id], columnSample(column.id)) ?? 'text'"
+                :label="`Edit ${column.title}`"
+                @commit="commitEdit"
+                @cancel="cancelEdit"
+              />
+            </template>
+            <template #empty>
+              <div
+                v-if="search || predicates.length || changesOnly"
+                class="flex flex-col items-start gap-2"
+              >
+                <span>No row on this page matches.</span>
+                <Button
+                  size="sm"
+                  variant="transparent"
+                  @click="
+                    search = '';
+                    predicates = [];
+                  "
+                >
+                  Clear find and filters
+                </Button>
+              </div>
+              <span v-else-if="inStoreSearch">Nothing in “{{ store }}” matches.</span>
+              <span v-else-if="pager.page.value > 0">No records on this page.</span>
+              <span v-else>“{{ store }}” has no records.</span>
+            </template>
+          </DataGrid>
         </div>
       </ResizablePanel>
-    </template>
-  </ResizablePanelGroup>
+      <template v-if="pane.visible.value && paneRecord && paneRow && !groupBy">
+        <ResizableHandle
+          class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
+        />
+        <ResizablePanel
+          id="idb-rows-pane"
+          :order="2"
+          :default-size="34"
+          :min-size="22"
+          :max-size="60"
+          class="min-h-0"
+        >
+          <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">
+            <div
+              class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
+            >
+              <RecordPane
+                ref="paneView"
+                :key="`${layoutKey}::${paneRow.id}`"
+                :title="keyLabelOf(paneRecord)"
+                :subtitle="paneSubtitle"
+                :state-text="paneState"
+                :columns="
+                  model.columns.filter((column) => column.id !== KEY_COLUMN || !model.keyField)
+                "
+                :cells="paneRow.cells"
+                :value="paneRecord.value"
+                :read-only-reason="paneReadOnly"
+                :can-delete="writes.canWrite.value && !paneRecord.__changeDeleted"
+                :before="paneBefore"
+                :can-prev="pane.canPrev.value"
+                :can-next="pane.canNext.value"
+                :saving="writes.saving.value"
+                @save="savePane"
+                @delete="requestDelete([paneRow.id])"
+                @prev="pane.step(-1)"
+                @next="pane.step(1)"
+                @close="closePane"
+                @dirty="pane.setDirty"
+              />
+            </div>
+          </div>
+        </ResizablePanel>
+      </template>
+    </ResizablePanelGroup>
+  </template>
 
-  <DataGridStatus :summary="summary" :total="null">
-    <span v-if="scopeNote" class="truncate text-[var(--fg-subtle)]">{{ scopeNote }}</span>
+  <DataGridStatus
+    :summary="summary"
+    :total="pageLocal ? model.rows.length : null"
+    :hide-count="!pageLocal && !inStoreSearch"
+  >
+    <span v-if="editNote" class="flex min-w-0 items-center gap-1 text-foreground" role="status">
+      <Lock :size="11" aria-hidden="true" class="shrink-0" />
+      <span class="truncate">{{ editNote }}</span>
+    </span>
+    <HintTooltip v-if="pageLocal" :text="pageScope">
+      <Chip size="xs" tabindex="0">This page only</Chip>
+    </HintTooltip>
+    <span
+      v-if="searchNote"
+      class="truncate text-[var(--fg-subtle)]"
+      role="status"
+      aria-live="polite"
+      >{{ searchNote }}</span
+    >
     <Button
       v-if="inStoreSearch"
       size="2xs"
       variant="transparent"
       :outline="false"
-      @click="pager.clearStoreSearch()"
+      @click="backToPages"
     >
       Back to pages
     </Button>
-    <span v-if="!writes.canWrite.value" class="flex items-center gap-1">
-      <Lock :size="11" aria-hidden="true" />
-      read-only
-    </span>
+    <HintTooltip
+      v-if="writes.blockedReason.value && !pager.placeholder.value"
+      :text="writes.blockedReason.value"
+    >
+      <span class="flex items-center gap-1" tabindex="0">
+        <Lock :size="11" aria-hidden="true" />
+        read-only
+      </span>
+    </HintTooltip>
     <DataPager
       v-if="!inStoreSearch"
       :page="pager.page.value"
       :page-size="pager.pageSize.value"
       :has-more="pager.hasMore.value"
-      :rows-on-page="pager.records.value.length"
+      :rows-on-page="pager.pageRecords.value.length"
       :total="storeInfo?.recordCount ?? null"
-      @update:page="pager.setPage"
-      @update:page-size="pager.setPageSize"
+      @update:page="goToPage"
+      @update:page-size="setPageSize"
     />
     <IconAction
       :label="pane.open.value ? 'Hide the record pane' : 'Show the record pane'"
-      keys="space"
       size="sm"
       toggle
       :pressed="pane.open.value"
-      @click="pane.open.value = !pane.open.value"
+      @click="togglePane"
     >
       <PanelRight :stroke-width="1.8" />
     </IconAction>

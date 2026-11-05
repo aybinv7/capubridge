@@ -1,9 +1,19 @@
 import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { IDBDomain, type StoreInfo } from "@capubridge/cdp-protocol";
+import { withTimeout } from "@/shared/async/withTimeout";
 import { useCDP } from "./useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 
+/** How long an IndexedDB catalog read waits for the phone. */
+const READ_TIMEOUT_MS = 10_000;
+const NO_ANSWER = "The phone did not answer";
+
+/**
+ * IndexedDB catalog queries for the selected target. Each takes an optional `active` flag:
+ * while it is false (the app is away from the screen) nothing is read, and the read runs
+ * again once it is true.
+ */
 export function useIDB() {
   const { getClient } = useCDP();
   const targetsStore = useTargetsStore();
@@ -16,59 +26,26 @@ export function useIDB() {
     return new IDBDomain(client);
   }
 
-  function useDatabases() {
+  function useDatabases(active?: Ref<boolean>) {
     return useQuery({
       queryKey: computed(() => ["idb-databases", targetId.value]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.discoverDatabases();
-      },
-      enabled: computed(() => !!targetId.value),
+      queryFn: () => withTimeout(getDomain().discoverDatabases(), READ_TIMEOUT_MS, NO_ANSWER),
+      enabled: computed(() => !!targetId.value && (active?.value ?? true)),
     });
   }
 
-  function useRecords(
-    origin: Ref<string>,
-    dbName: Ref<string>,
-    storeName: Ref<string>,
-    page: Ref<number>,
-    pageSize: Ref<number>,
-  ) {
-    return useQuery({
-      queryKey: computed(() => [
-        "idb-records",
-        targetId.value,
-        origin.value,
-        dbName.value,
-        storeName.value,
-        page.value,
-        pageSize.value,
-      ]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.getData({
-          securityOrigin: origin.value,
-          databaseName: dbName.value,
-          objectStoreName: storeName.value,
-          skipCount: page.value * pageSize.value,
-          pageSize: pageSize.value,
-        });
-      },
-      enabled: computed(
-        () => !!targetId.value && !!origin.value && !!dbName.value && !!storeName.value,
-      ),
-      retry: false,
-    });
-  }
-
-  function useStoreInfo(dbName: Ref<string>, origin: Ref<string>) {
+  function useStoreInfo(dbName: Ref<string>, origin: Ref<string>, active?: Ref<boolean>) {
     return useQuery<StoreInfo[]>({
       queryKey: computed(() => ["idb-store-info", targetId.value, origin.value, dbName.value]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.getStoreInfo(dbName.value, origin.value);
-      },
-      enabled: computed(() => !!targetId.value && !!dbName.value && !!origin.value),
+      queryFn: () =>
+        withTimeout(
+          getDomain().getStoreInfo(dbName.value, origin.value),
+          READ_TIMEOUT_MS,
+          NO_ANSWER,
+        ),
+      enabled: computed(
+        () => !!targetId.value && !!dbName.value && !!origin.value && (active?.value ?? true),
+      ),
       retry: (failureCount, error) => {
         const isConnectionError =
           error instanceof Error && error.message === "No active CDP connection";
@@ -77,17 +54,14 @@ export function useIDB() {
     });
   }
 
-  function useStorageEstimate(origin: Ref<string>) {
+  function useStorageEstimate(origin: Ref<string>, active?: Ref<boolean>) {
     return useQuery({
       queryKey: computed(() => ["idb-storage-estimate", targetId.value, origin.value]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.getStorageEstimate();
-      },
-      enabled: computed(() => !!targetId.value && !!origin.value),
+      queryFn: () => withTimeout(getDomain().getStorageEstimate(), READ_TIMEOUT_MS, NO_ANSWER),
+      enabled: computed(() => !!targetId.value && !!origin.value && (active?.value ?? true)),
       retry: false,
     });
   }
 
-  return { targetId, useDatabases, useRecords, useStoreInfo, useStorageEstimate };
+  return { targetId, useDatabases, useStoreInfo, useStorageEstimate };
 }

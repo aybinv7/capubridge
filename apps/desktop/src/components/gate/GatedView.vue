@@ -13,6 +13,7 @@ const props = withDefaults(
   defineProps<{
     requirement: GateRequirement;
     density?: "full" | "compact";
+    secondary?: { commandId: string; label: string; hint?: string };
   }>(),
   { density: "full" },
 );
@@ -49,6 +50,7 @@ const strip = computed(() => {
     :requirement="requirement"
     :kind="blockedKind"
     :density="density"
+    :secondary="secondary"
   />
   <div v-else class="flex h-full min-h-0 flex-col" :data-gate-mode="mode">
     <GateStrip v-if="strip" :content="strip" :stale="mode === 'degraded'" />

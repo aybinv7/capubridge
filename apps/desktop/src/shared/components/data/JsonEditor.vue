@@ -187,6 +187,18 @@ function clearFilter() {
   filterText.value = "";
 }
 
+function onFilterEscape(event: KeyboardEvent) {
+  if (!filterText.value) return;
+  event.preventDefault();
+  event.stopPropagation();
+  clearFilter();
+}
+
+function focusFilter() {
+  filterInputRef.value?.focus();
+  filterInputRef.value?.select();
+}
+
 // Line height matches `leading-5` (h-5 = 20px).
 const LINE_HEIGHT = 20;
 
@@ -350,6 +362,7 @@ function handleTab(e: KeyboardEvent) {
 }
 
 defineExpose({
+  focusFilter,
   expandAll,
   collapseAll,
   toggleAll,
@@ -374,7 +387,7 @@ defineExpose({
         @keydown.shift.enter.prevent="prevMatch()"
         @keydown.arrow-down.prevent="nextMatch()"
         @keydown.arrow-up.prevent="prevMatch()"
-        @keydown.escape="clearFilter()"
+        @keydown.escape="onFilterEscape"
       />
       <span v-if="filterActive" class="text-2xs text-muted-foreground/40 tabular-nums shrink-0">
         <template v-if="matchPositions.length > 0"

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useEventListener } from "@vueuse/core";
 import { Database, FolderOpen, Table2 } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
@@ -11,6 +10,7 @@ import DataSourceTree from "@/modules/storage/frame/DataSourceTree.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
 import DataWorkbench from "@/modules/storage/frame/DataWorkbench.vue";
 import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
+import { useDataPresence } from "@/modules/storage/frame/useDataPresence";
 import { dataScope, useDataSidebarSettings } from "@/modules/storage/frame/useDataSidebarSettings";
 import type { DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
 import { useIndexedDBChangeIndex } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
@@ -35,7 +35,11 @@ import { toggleRecordPane } from "./useIdbRecordPane";
 
 const router = useRouter();
 const location = useIdbLocation();
-const catalog = useIdbCatalog(location);
+const presence = useDataPresence();
+const catalog = useIdbCatalog(
+  location,
+  computed(() => presence.away.value === null),
+);
 const settings = useDataSidebarSettings();
 const changes = useIndexedDBChangesStore();
 const context = useActiveContextStore();
@@ -47,6 +51,8 @@ useIndexedDBChangesLease();
 const root = ref<HTMLElement | null>(null);
 const storeView = ref<InstanceType<typeof IdbStoreView> | null>(null);
 const search = ref("");
+
+const hasPhone = computed(() => Boolean(catalog.targetId.value));
 
 const scope = computed(() =>
   dataScope(
@@ -66,10 +72,18 @@ const openSourceId = computed(() => {
   return open.mode === "file" ? fileSourceId(open.id) : liveSourceId(open);
 });
 
+watch(
+  openSourceId,
+  (sourceId) => {
+    if (sourceId) settings.setExpanded(scope.value, sourceId, true);
+  },
+  { immediate: true },
+);
+
 const sections = computed(() =>
   buildIdbSections({
     live: catalog.liveDatabases.value,
-    hasPhone: Boolean(catalog.targetId.value),
+    hasPhone: hasPhone.value,
     files: catalog.files.value,
     settings: (sourceId) => settings.source(scope.value, sourceId),
     databaseChanges: (origin, db) => getDatabaseSummary(origin, db),
@@ -93,11 +107,14 @@ const missing = computed(
   () =>
     Boolean(location.database.value) &&
     !catalog.openDatabase.value &&
-    (location.mode.value === "file" || !catalog.liveLoading.value),
+    (location.mode.value === "file" ||
+      (!catalog.liveLoading.value && !catalog.liveError.value && presence.away.value === null)),
 );
 
 const actions = useIdbDatabaseActions({
   targetId: catalog.targetId,
+  origin: catalog.origin,
+  liveDatabases: catalog.liveDatabases,
   ask: confirm.ask,
   openLocation: location.open,
   replaceRoot: location.replaceRoot,
@@ -113,6 +130,7 @@ const actions = useIdbDatabaseActions({
 
 const treeContext = computed(() => ({
   scope: scope.value,
+  hasPhone: hasPhone.value,
   live: catalog.liveDatabases.value,
   files: catalog.files.value,
   settings,
@@ -142,11 +160,16 @@ const openRow = computed<DataTreeRow | null>(() => {
     : { kind: "source", key: "", source, sectionId: "" };
 });
 
+const visibleSources = computed(() =>
+  sections.value.flatMap((section) => section.sources).filter((source) => !source.hidden),
+);
+
 function onSelect(sourceId: string, collectionId: string | null) {
   const target = sourceRoute(sourceId, catalog.liveDatabases.value);
   if (!target) return;
   const db = catalog.liveDatabases.value.find((entry) => liveSourceId(entry) === sourceId);
   if (db) catalog.origin.value = db.origin;
+  settings.setExpanded(scope.value, sourceId, true);
   location.open(target.mode, target.id, collectionId ?? "");
 }
 
@@ -160,30 +183,24 @@ function refreshAll() {
   void storeView.value?.refresh();
 }
 
-function isOurs(target: EventTarget | null): boolean {
-  const element = root.value;
-  if (!element) return false;
-  if (!(target instanceof Node)) return true;
-  return (
-    element.contains(target) || target === document.body || target === document.documentElement
-  );
+function backToList() {
+  location.replaceRoot(hasPhone.value ? "live" : "file");
 }
 
-useEventListener(document, "keydown", (event: KeyboardEvent) => {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
-  if (event.key !== "f" && event.key !== "F") return;
-  if (!location.store.value || !isOurs(event.target)) return;
-  if (event.target instanceof Element && event.target.closest("[data-record-pane]")) return;
-  event.preventDefault();
-  storeView.value?.focusSearch();
-});
+function findHere(): boolean {
+  const element = root.value;
+  const active = document.activeElement;
+  if (!element) return false;
+  if (!active || active === document.body || active === document.documentElement) return true;
+  return element.contains(active) && !active.closest("[data-record-pane]");
+}
 
 useIdbCommands({
   hasStore: () => Boolean(location.store.value),
-  canRefresh: () => location.mode.value === "live" && Boolean(catalog.targetId.value),
+  canRefresh: () => location.mode.value === "live" && hasPhone.value,
   refresh: refreshAll,
   focusSearch: () => storeView.value?.focusSearch(),
-  openExport: () => void actions.openExport(),
+  findHere,
   toggleRecordPane,
 });
 </script>
@@ -197,8 +214,8 @@ useIdbCommands({
           v-model:show-hidden="showHidden"
           :sections="sections"
           :selection="selection"
-          :loading="catalog.liveLoading.value"
-          :error="catalog.liveError.value"
+          :loading="catalog.liveLoading.value && presence.away.value === null"
+          :error="presence.away.value === null ? catalog.liveError.value : null"
           search-label="Find a database or store"
           :source-icon="Database"
           :collection-icon="Table2"
@@ -220,11 +237,7 @@ useIdbCommands({
           </template>
           <template #empty>
             <p class="text-xs text-muted-foreground">
-              {{
-                catalog.targetId.value
-                  ? "This page has no IndexedDB databases."
-                  : "No export is open."
-              }}
+              {{ hasPhone ? "This page has no IndexedDB databases." : "No export is open." }}
             </p>
             <Button
               size="sm"
@@ -252,15 +265,63 @@ useIdbCommands({
             : 'It may have been deleted, or it belongs to another app.'
         "
       >
-        <Button size="sm" variant="transparent" @click="location.replaceRoot('live')"
-          >Back to IndexedDB</Button
+        <Button size="sm" variant="transparent" @click="backToList">Back to IndexedDB</Button>
+      </DataState>
+      <DataState
+        v-else-if="!catalog.openDatabase.value && presence.away.value && hasPhone"
+        kind="waiting"
+        title="Waiting for the app"
+        :text="presence.away.value"
+      >
+        <Button
+          size="sm"
+          variant="solid-fill"
+          :loading="presence.bringing.value"
+          @click="presence.bringToFront()"
         >
+          Bring to front
+        </Button>
+      </DataState>
+      <DataState
+        v-else-if="!catalog.openDatabase.value && catalog.liveLoading.value && hasPhone"
+        kind="loading"
+        title="Reading the page's databases"
+      />
+      <DataState
+        v-else-if="!catalog.openDatabase.value && visibleSources.length === 0"
+        kind="empty"
+        :title="hasPhone ? 'This page keeps nothing in IndexedDB' : 'No export is open'"
+        :text="
+          hasPhone
+            ? 'Its data may be in Local storage or in SQLite. An IndexedDB export can be opened here too.'
+            : 'Open an IndexedDB export to read it here, with no phone connected.'
+        "
+      >
+        <Button size="sm" variant="transparent" @click="actions.openExport()">
+          Open an export…
+        </Button>
+        <Button
+          v-if="hasPhone"
+          size="sm"
+          variant="transparent"
+          @click="router.push({ name: 'storage-localstorage' })"
+        >
+          Local storage
+        </Button>
+        <Button
+          v-if="hasPhone"
+          size="sm"
+          variant="transparent"
+          @click="router.push({ name: 'storage-sqlite' })"
+        >
+          SQLite
+        </Button>
       </DataState>
       <DataState
         v-else-if="!catalog.openDatabase.value"
         kind="empty"
-        title="Choose a database"
-        text="Its stores, sizes and records open here. Pick a store to read and edit its records."
+        :title="`${visibleSources.length} ${visibleSources.length === 1 ? 'database' : 'databases'} in the list`"
+        text="Pick one in the list to see its stores and sizes, or a store to read and edit its records."
       />
       <IdbDatabaseView
         v-else-if="!location.store.value"
@@ -269,7 +330,7 @@ useIdbCommands({
         :loading="catalog.storeInfoLoading.value"
         :error="catalog.storeInfoError.value"
         :idb-usage="catalog.idbUsage.value"
-        :read-at="null"
+        :read-at="catalog.storeInfoReadAt.value"
         :actions="openRow ? actionsFor(openRow) : []"
         @open="
           location.open(catalog.openDatabase.value.mode, catalog.openDatabase.value.id, $event)
@@ -280,12 +341,15 @@ useIdbCommands({
       <IdbStoreView
         v-else
         ref="storeView"
+        :key="`${catalog.openDatabase.value.mode}:${catalog.openDatabase.value.id}/${location.store.value}`"
         :target-id="catalog.targetId.value"
         :database="catalog.openDatabase.value"
         :store="location.store.value"
         :info="catalog.openStoreInfo.value"
+        :info-loading="catalog.storeInfoLoading.value"
         :actions="openRow ? actionsFor(openRow) : []"
         :ask="confirm.ask"
+        :confirm="confirm.askAsync"
         @action="openRow && onTreeAction($event, openRow)"
         @after-write="catalog.refetchStoreInfo()"
       />

@@ -1,21 +1,34 @@
 import type { Ref } from "vue";
+import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import { IDBDomain, IdbBlockedError, type IDBDatabaseInfo } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import {
-  exportDatabase,
-  importDatabaseReplace,
+  chooseExportPath,
+  exportDatabaseToFile,
   pickIdbExport,
-  saveIdbExportToFile,
+  writeExportCopy,
   type PickedIdbExport,
-} from "./idbImportExport";
+} from "./idbExportFile";
+import {
+  discardImport,
+  finishImport,
+  IdbPartialImportError,
+  importDatabaseReplace,
+  type IdbPendingImport,
+} from "./idbImport";
 import { transferToast } from "./idbTransferToasts";
+import { openIdbExport } from "./openIdbExport";
+import type { IdbExportedDatabase } from "./idbTransfer.types";
 import { useIdbSnapshotStore, type IdbSnapshotEntry } from "./useIdbSnapshotStore";
 import type { IdbMode } from "./useIdbLocation";
 
 interface Dependencies {
   targetId: Ref<string>;
+  /** The page origin live databases belong to (where a file is written). */
+  origin: Ref<string>;
+  liveDatabases: Ref<readonly IDBDatabaseInfo[]>;
   ask: (request: ConfirmRequest, run: () => Promise<void> | void) => void;
   openLocation: (mode: IdbMode, id: string, store?: string) => void;
   replaceRoot: (mode?: IdbMode) => void;
@@ -23,6 +36,13 @@ interface Dependencies {
   refetchDatabases: () => unknown;
   refetchStoreInfo: () => unknown;
   refetchRecords: () => unknown;
+}
+
+interface ImportSource {
+  path: string;
+  data: IdbExportedDatabase;
+  lossy: readonly string[];
+  bytes: number;
 }
 
 function message(error: unknown): string {
@@ -33,12 +53,17 @@ function fileName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
+function count(value: number, one: string, many: string): string {
+  return `${value.toLocaleString("en-US")} ${value === 1 ? one : many}`;
+}
+
 /**
- * Database and store actions of the IndexedDB tab: export, replace from a file, open a file,
- * clear, delete. Each destructive one asks first; each reports what the phone answered,
- * including when the app keeps the database open (blocked).
+ * Database and store actions of the IndexedDB tab: export, replace from a file, write an opened
+ * file to the phone, open a file, clear, delete. Each destructive one asks first; each reports
+ * what the phone answered, including when the app keeps the database open (blocked).
  */
 export function useIdbDatabaseActions(deps: Dependencies) {
+  const router = useRouter();
   const { getClient } = useCDP();
   const files = useIdbSnapshotStore();
 
@@ -53,24 +78,28 @@ export function useIdbDatabaseActions(deps: Dependencies) {
     toast.warning(title, { description: error.message, duration: 10000 });
   }
 
+  function refetchAll() {
+    void deps.refetchDatabases();
+    void deps.refetchStoreInfo();
+    void deps.refetchRecords();
+  }
+
   async function exportLive(db: IDBDatabaseInfo) {
     const cdp = client();
     if (!cdp) return;
+    const path = await chooseExportPath(`${db.name}.idb`);
+    if (!path) return;
     const progress = transferToast(`Exporting "${db.name}"`);
     try {
-      const data = await exportDatabase(cdp, db.origin, db.name, {
+      const result = await exportDatabaseToFile(cdp, db.origin, db.name, path, {
         onProgress: progress.progress,
         signal: progress.signal,
       });
-      const saved = await saveIdbExportToFile(data, `${db.name}.idb`);
-      if (!saved) {
-        progress.dismiss();
-        return;
-      }
-      const loss = data.lossy ?? [];
       progress.done(
         `Exported "${db.name}"`,
-        loss.length ? `${saved} · ${loss.length} value(s) could not be saved exactly` : saved,
+        result.lossy.length
+          ? `${path} · ${count(result.lossy.length, "value", "values")} could not be saved exactly`
+          : path,
       );
     } catch (error) {
       progress.failed(error, `Could not export "${db.name}"`);
@@ -78,10 +107,12 @@ export function useIdbDatabaseActions(deps: Dependencies) {
   }
 
   async function exportFile(entry: IdbSnapshotEntry) {
+    const name = entry.data.database.name;
+    const path = await chooseExportPath(`${name}.idb`);
+    if (!path) return;
     try {
-      const saved = await saveIdbExportToFile(entry.data, `${entry.data.database.name}.idb`);
-      if (saved)
-        toast.success(`Saved a copy of "${entry.data.database.name}"`, { description: saved });
+      await writeExportCopy(entry.data, path);
+      toast.success(`Saved a copy of "${name}"`, { description: path });
     } catch (error) {
       toast.error("Could not save the copy", { description: message(error) });
     }
@@ -96,65 +127,128 @@ export function useIdbDatabaseActions(deps: Dependencies) {
     }
   }
 
-  /** Opens an export read-only under "Opened files". */
-  async function openExport() {
-    const picked = await pick();
-    if (!picked) return;
-    const entry = files.addSnapshot(picked.path, picked.data, picked.lossy);
-    toast.success(`Opened "${picked.data.database.name}" from ${fileName(picked.path)}`, {
-      description: "Read-only. It stays open until Capubridge closes.",
-    });
-    deps.openLocation("file", entry.id);
+  /** Opens an export read-only under "Opened files" (works with no phone). */
+  function openExport() {
+    return openIdbExport(router);
   }
 
-  async function replace(db: IDBDatabaseInfo, picked: PickedIdbExport, acceptLoss: boolean) {
+  function offerToFinish(pending: IdbPendingImport, error: IdbPartialImportError) {
+    toast.error(`"${pending.target}" is incomplete on the phone`, {
+      description: error.message,
+      duration: Infinity,
+      action: { label: "Finish writing", onClick: () => void finish(pending) },
+      cancel: {
+        label: "Leave it",
+        onClick: () => void abandon(pending),
+      },
+    });
+  }
+
+  async function finish(pending: IdbPendingImport) {
     const cdp = client();
     if (!cdp) return;
-    const progress = transferToast(`Replacing "${db.name}"`);
+    const progress = transferToast(`Finishing "${pending.target}"`);
+    progress.lockCancel("Writing the rest of the file from the copy on the phone");
     try {
-      const result = await importDatabaseReplace(cdp, picked.data, db.name, {
+      const result = await finishImport(cdp, pending, { onProgress: progress.progress });
+      progress.done(
+        `Finished "${pending.target}"`,
+        `${count(result.inserted, "record", "records")} written`,
+      );
+    } catch (error) {
+      progress.dismiss();
+      if (error instanceof IdbPartialImportError) offerToFinish(error.state, error);
+      else toast.error(`Could not finish "${pending.target}"`, { description: message(error) });
+    } finally {
+      refetchAll();
+    }
+  }
+
+  async function abandon(pending: IdbPendingImport) {
+    const cdp = client();
+    if (!cdp) return;
+    try {
+      await discardImport(cdp, pending);
+      toast.info(`"${pending.target}" stays incomplete`, {
+        description: "The copy staged on the phone was removed.",
+      });
+    } catch (error) {
+      toast.error("Could not remove the staged copy", { description: message(error) });
+    }
+  }
+
+  async function writeToPhone(target: string, source: ImportSource, acceptLoss: boolean) {
+    const cdp = client();
+    if (!cdp) return;
+    const origin = deps.origin.value;
+    const progress = transferToast(`Writing "${target}" to the phone`);
+    try {
+      const result = await importDatabaseReplace(cdp, source.data, target, origin, {
         onProgress: progress.progress,
         signal: progress.signal,
         acceptLoss,
+        totalBytes: source.bytes || null,
+        onCommit: () =>
+          progress.lockCancel(
+            "The file fits. Replacing the database now; this can no longer be cancelled.",
+          ),
       });
-      progress.done(
-        `Replaced "${db.name}"`,
-        `${result.inserted.toLocaleString("en-US")} records written`,
-      );
+      progress.done(`Wrote "${target}"`, `${count(result.inserted, "record", "records")} written`);
     } catch (error) {
       if (error instanceof IdbBlockedError) {
         progress.dismiss();
-        reportBlocked(error, `"${db.name}" was not replaced`);
-      } else progress.failed(error, `Could not replace "${db.name}"`);
+        reportBlocked(error, `"${target}" was not replaced`);
+      } else if (error instanceof IdbPartialImportError) {
+        progress.dismiss();
+        offerToFinish(error.state, error);
+      } else progress.failed(error, `Nothing was written to "${target}"`);
     } finally {
-      void deps.refetchDatabases();
-      void deps.refetchStoreInfo();
-      void deps.refetchRecords();
+      refetchAll();
     }
+  }
+
+  function confirmWrite(target: string, source: ImportSource, replacing: boolean) {
+    const stores = source.data.database.stores;
+    const records = stores.reduce((sum, store) => sum + store.records.length, 0);
+    const from = fileName(source.path);
+    const named =
+      source.data.database.name === target
+        ? ""
+        : ` The file was exported from "${source.data.database.name}".`;
+    const what = `${count(stores.length, "store", "stores")} and ${count(records, "record", "records")} from ${from}`;
+    const lossy = source.lossy.length > 0;
+    const plan = replacing
+      ? `The file is first written to a scratch database on the phone; if any record does not fit, nothing is changed. Then everything in "${target}" is deleted and ${what} are written. This cannot be undone.${named}`
+      : `A new database "${target}" is created on the phone with ${what}.${named}`;
+    deps.ask(
+      {
+        title: replacing ? `Replace "${target}" on the phone?` : `Write "${target}" to the phone?`,
+        text: lossy
+          ? `${plan} ${count(source.lossy.length, "value", "values")} in this file cannot be restored exactly and ${source.lossy.length === 1 ? "is" : "are"} written as listed below. Type the database name to accept that.`
+          : plan,
+        details: lossy ? source.lossy : undefined,
+        requireConfirmText: lossy ? target : undefined,
+        confirmLabel: replacing ? "Replace" : "Write to the phone",
+        danger: replacing || lossy,
+      },
+      () => writeToPhone(target, source, lossy),
+    );
   }
 
   /** Replaces the database the person chose (not the one named in the file) with an export. */
   async function replaceFromFile(db: IDBDatabaseInfo) {
     const picked = await pick();
-    if (!picked) return;
-    const stores = picked.data.database.stores;
-    const records = stores.reduce((sum, store) => sum + store.records.length, 0);
-    const from = fileName(picked.path);
-    const named =
-      picked.data.database.name === db.name
-        ? ""
-        : ` The file was exported from "${picked.data.database.name}".`;
-    const lossy = picked.lossy.length > 0;
-    deps.ask(
-      {
-        title: `Replace "${db.name}" on the phone?`,
-        text: lossy
-          ? `${picked.lossy[0]} Replacing writes that loss back to the phone: everything in "${db.name}" is deleted, then ${stores.length} stores and ${records.toLocaleString("en-US")} records from ${from} are written.${named}`
-          : `Everything in "${db.name}" is deleted, then ${stores.length} stores and ${records.toLocaleString("en-US")} records from ${from} are written. This cannot be undone.${named}`,
-        confirmLabel: lossy ? "Replace anyway" : "Replace",
-        danger: true,
-      },
-      () => replace(db, picked, lossy),
+    if (picked) confirmWrite(db.name, picked, true);
+  }
+
+  /** Writes an opened file to the phone: a new database, or a replace when the name exists. */
+  function writeFile(entry: IdbSnapshotEntry) {
+    const name = entry.data.database.name;
+    const exists = deps.liveDatabases.value.some((db) => db.name === name);
+    confirmWrite(
+      name,
+      { path: entry.sourcePath, data: entry.data, lossy: entry.lossy, bytes: entry.bytes },
+      exists,
     );
   }
 
@@ -254,7 +348,9 @@ export function useIdbDatabaseActions(deps: Dependencies) {
       () => {
         files.removeSnapshot(entry.id);
         const here = deps.current();
-        if (here.mode === "file" && here.database === entry.id) deps.replaceRoot("live");
+        if (here.mode === "file" && here.database === entry.id) {
+          deps.replaceRoot(deps.targetId.value ? "live" : "file");
+        }
       },
     );
   }
@@ -264,6 +360,7 @@ export function useIdbDatabaseActions(deps: Dependencies) {
     exportFile,
     openExport,
     replaceFromFile,
+    writeFile,
     deleteDatabase,
     clearStore,
     deleteStore,

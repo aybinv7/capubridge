@@ -29,6 +29,23 @@ export function invokeCommand(command: IpcCommandName, args?: object): Promise<u
   return invokeCommandRaw(command, args);
 }
 
+type IpcBytesCommand = {
+  [Name in IpcCommandName]: IpcCommandArgs<Name> extends Uint8Array ? Name : never;
+}[IpcCommandName];
+
+/** Sends raw bytes as the request body (no JSON, no base64), with string headers beside them. */
+export async function invokeCommandBytes<Name extends IpcBytesCommand>(
+  command: Name,
+  bytes: Uint8Array,
+  headers: Record<string, string>,
+): Promise<IpcCommandResult<Name>> {
+  try {
+    return await invoke<IpcCommandResult<Name>>(command, bytes, { headers });
+  } catch (cause) {
+    throw normalizeIpcError(cause, { operation: "invoke", name: command });
+  }
+}
+
 export async function listenEvent<Name extends IpcEventName>(
   eventName: Name,
   onMessage: (payload: IpcEventPayload<Name>) => void,

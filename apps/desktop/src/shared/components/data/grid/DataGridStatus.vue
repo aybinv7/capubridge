@@ -7,6 +7,8 @@ const props = defineProps<{
   summary: GridSummary;
   /** Total rows in the source when the grid shows one page of it. */
   total?: number | null;
+  /** Leave the row count out (a pager in the slot already says it). */
+  hideCount?: boolean;
 }>();
 
 defineSlots<{ default?: () => unknown }>();
@@ -41,10 +43,8 @@ const numbers = computed(() => {
 <template>
   <div
     class="flex h-7 shrink-0 items-center gap-3 border-t border-[var(--border-subtle)] bg-[var(--bg-chrome)] px-3 font-mono text-2xs text-muted-foreground"
-    role="status"
-    aria-live="polite"
   >
-    <span class="tabular-nums">{{ count }}</span>
+    <span v-if="!hideCount" class="tabular-nums">{{ count }}</span>
     <span v-if="selection" class="tabular-nums text-foreground">{{ selection }}</span>
     <span v-if="summary.aggregate && summary.aggregate.nulls > 0" class="tabular-nums">
       {{ summary.aggregate.nulls }} null

@@ -109,6 +109,6 @@ describe("IDBDomain.putRecord on the device", () => {
     await seed(dbName, (db) => db.createObjectStore("items"), []);
     await expect(
       new IDBDomain(deviceClient()).putRecord("https://other.test", dbName, "items", 1, "k"),
-    ).rejects.toThrow("origin mismatch");
+    ).rejects.toThrow("another origin");
   });
 });

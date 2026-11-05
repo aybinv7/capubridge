@@ -60,6 +60,11 @@ export interface DeviceCommandMap {
   show_in_folder: IpcCommand<{ path: string }, void>;
   save_base64_file: IpcCommand<{ path: string; data: string }, void>;
   read_local_file_base64: IpcCommand<{ path: string }, string>;
+  read_local_file_bytes: IpcCommand<{ path: string }, ArrayBuffer>;
+  host_file_stream_begin: IpcCommand<{ path: string }, number>;
+  host_file_stream_append: IpcCommand<Uint8Array, number>;
+  host_file_stream_finish: IpcCommand<{ id: number }, number>;
+  host_file_stream_discard: IpcCommand<{ id: number }, void>;
   local_device_name: IpcCommand<undefined, string>;
   local_webview_open_devtools: IpcCommand<{ label: string }, void>;
   local_webview_fetch_cdp_target: IpcCommand<

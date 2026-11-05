@@ -39,6 +39,8 @@ export function useIdbRecordPane(options: {
   const rowId = computed(() => pinnedRowId.value ?? activeRowId.value);
   const index = computed(() => options.rows.value.findIndex((row) => row.id === rowId.value));
   const visible = computed(() => open.value && rowId.value !== null);
+  /** An edit in the pane is not saved yet. */
+  const dirty = computed(() => pinnedRowId.value !== null);
 
   watch(options.rows, (rows) => {
     if (pendingFocus.value && rows.length > 0) {
@@ -95,6 +97,13 @@ export function useIdbRecordPane(options: {
     open.value = true;
   }
 
+  /** Forgets the record and any pin (another store or layout is on screen). */
+  function reset() {
+    pinnedRowId.value = null;
+    activeRowId.value = null;
+    pendingFocus.value = null;
+  }
+
   function close() {
     pinnedRowId.value = null;
     open.value = false;
@@ -104,6 +113,8 @@ export function useIdbRecordPane(options: {
   return {
     open,
     visible,
+    dirty,
+    reset,
     rowId,
     activeRowId,
     index,

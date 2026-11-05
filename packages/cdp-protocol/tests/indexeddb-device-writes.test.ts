@@ -122,7 +122,7 @@ describe("IDBDomain.patchRecord", () => {
     await seed(dbName, { keyPath: "id" }, [[{ id: 1 }]]);
     await expect(
       new IDBDomain(deviceClient()).patchRecord("https://other.test", dbName, "items", 1, ["x"], 2),
-    ).rejects.toThrow("origin mismatch");
+    ).rejects.toThrow("another origin");
   });
 });
 

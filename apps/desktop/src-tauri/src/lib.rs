@@ -29,6 +29,10 @@ use commands::chrome::{
 };
 use commands::emulator::{emulator_launch_avd, emulator_list_avds, emulator_stop_avd};
 use commands::file_bytes::adb_read_file_bytes;
+use commands::host_file_stream::{
+    host_file_stream_append, host_file_stream_begin, host_file_stream_discard,
+    host_file_stream_finish, read_local_file_bytes,
+};
 use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
     adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
@@ -348,6 +352,11 @@ pub fn run() {
             show_in_folder,
             save_base64_file,
             read_local_file_base64,
+            read_local_file_bytes,
+            host_file_stream_begin,
+            host_file_stream_append,
+            host_file_stream_finish,
+            host_file_stream_discard,
             sqlite_list_databases,
             sqlite_scan_all_databases,
             sqlite_stat_database,

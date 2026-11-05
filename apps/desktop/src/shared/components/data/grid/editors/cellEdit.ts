@@ -36,15 +36,34 @@ export function isDateText(value: string): boolean {
   return DATE_ONLY.test(value) || DATE_TIME.test(value);
 }
 
+function isDateMarker(value: unknown): value is { __type: "Date"; value: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { __type?: unknown }).__type === "Date" &&
+    typeof (value as { value?: unknown }).value === "string"
+  );
+}
+
+function isEmpty(value: unknown): value is null | undefined {
+  return value === null || value === undefined;
+}
+
 /**
- * The editor for a stored value. Dates are recognised by the value itself (ISO text), or by
- * the column shown as a date for epoch numbers; never by the field's name.
+ * The editor for a stored value. Dates are recognised by the value itself (ISO text, a Date),
+ * or by the column shown as a date for epoch numbers; never by the field's name. An empty cell
+ * edits like `like`, another value of its column, so filling it keeps the column's type.
  */
 export function editorKindFor(
   value: unknown,
   showAs?: GridColumnType | null,
+  like?: unknown,
 ): CellEditorKind | null {
-  if (value === null || value === undefined) return "text";
+  if (isEmpty(value)) {
+    if (isEmpty(like)) return "text";
+    if (isDateMarker(like)) return "date";
+    return editorKindFor(like, showAs);
+  }
   if (typeof value === "boolean") return "boolean";
   if (typeof value === "number")
     return showAs === "date" && Number.isFinite(value) ? "date" : "number";
@@ -117,15 +136,41 @@ export function editorText(value: unknown, kind: CellEditorKind): string {
   return String(value as string | number | boolean | bigint);
 }
 
+/** A new date in the form `like` stores dates in: a Date, epoch seconds or ms, or ISO text. */
+function newDateLike(like: unknown, dateInput: string): unknown {
+  const picked = parseDateInput(dateInput);
+  if (!picked) return dateInput;
+  const [year, month, day] = picked;
+  const local = new Date(year, month - 1, day);
+  if (isDateMarker(like)) return { __type: "Date", value: local.toISOString() };
+  if (typeof like === "number" && Number.isFinite(like)) {
+    return Math.abs(like) < EPOCH_MS_FROM ? local.getTime() / 1000 : local.getTime();
+  }
+  if (typeof like === "string" && DATE_TIME.test(like)) {
+    const zone = ZONE.exec(like)?.[1];
+    return zone ? formatInZone(local, like, zone) : `${dateInput}${like.charAt(10)}00:00`;
+  }
+  return dateInput;
+}
+
 /**
  * Reads what was typed back into a value of the stored type. Text stays text ("123" is not
- * turned into a number), and `changed` is false when nothing would be written.
+ * turned into a number), and `changed` is false when nothing would be written. An empty cell
+ * left empty is unchanged; one filled in takes the form of `like` (another value of its column).
  */
 export function parseCellEdit(
   original: unknown,
   kind: CellEditorKind,
   text: string,
+  like?: unknown,
 ): ParsedCellEdit {
+  if (isEmpty(original)) {
+    if (text.trim() === "") return { ok: true, value: original, changed: false };
+    if (kind === "date") {
+      if (!parseDateInput(text)) return { ok: false, error: "Pick a date" };
+      return { ok: true, value: newDateLike(like, text), changed: true };
+    }
+  }
   switch (kind) {
     case "text":
       if ((original === null || original === undefined) && text === "") {

@@ -4,7 +4,12 @@ import { IDB_DEVICE_CODEC_SOURCE } from "./indexeddb-codec.js";
 import { parseDeviceReply } from "./indexeddb-records.js";
 
 function originGuard(origin: string): string {
-  return `if (location.origin !== ${jsLiteral(origin)}) throw new Error('IndexedDB origin mismatch');`;
+  return `__cbCheckOrigin(${jsLiteral(origin)});`;
+}
+
+export interface PutRecordOptions {
+  /** When the key moves onto a key another record uses, overwrite that record. */
+  replaceExisting?: boolean;
 }
 
 async function runWrite(client: CDPClient, body: string): Promise<void> {
@@ -15,7 +20,7 @@ async function runWrite(client: CDPClient, body: string): Promise<void> {
         ${body}
         return JSON.stringify({ ok: true });
       } catch (e) {
-        return JSON.stringify({ error: String(e && e.message ? e.message : e), blocked: Boolean(e && e.blocked) });
+        return JSON.stringify({ error: String(e && e.message ? e.message : e), blocked: Boolean(e && e.blocked), conflict: Boolean(e && e.conflict) });
       }
     })()`,
     awaitPromise: true,
@@ -24,7 +29,11 @@ async function runWrite(client: CDPClient, body: string): Promise<void> {
   parseDeviceReply<{ ok: boolean }>(result);
 }
 
-/** Writes a whole record. The key (markers revived) moves the record when an inline key changed. */
+/**
+ * Writes a whole record. The key (markers revived) moves the record when an inline key
+ * changed; a move onto a key another record uses is refused with `IdbKeyConflictError`
+ * unless `replaceExisting` is set.
+ */
 export function putRecordOnDevice(
   client: CDPClient,
   origin: string,
@@ -32,14 +41,16 @@ export function putRecordOnDevice(
   objectStoreName: string,
   value: unknown,
   primaryKey?: unknown,
+  options: PutRecordOptions = {},
 ): Promise<void> {
   return runWrite(
     client,
     `${originGuard(origin)}
-    const db = await __cbRequest(indexedDB.open(${jsLiteral(databaseName)}));
+    const db = await __cbOpenExisting(${jsLiteral(databaseName)});
     try {
       const tx = db.transaction(${jsLiteral(objectStoreName)}, 'readwrite');
       const store = tx.objectStore(${jsLiteral(objectStoreName)});
+      const replaceExisting = ${options.replaceExisting === true ? "true" : "false"};
       const key = ${primaryKey === undefined ? "undefined" : `__cbRevive(${jsLiteral(primaryKey)}, false)`};
       const value = ${jsLiteral(value)};
       const readPath = (source, path) => path.split('.').reduce((node, part) => (node == null ? undefined : node[part]), source);
@@ -55,11 +66,17 @@ export function putRecordOnDevice(
           if (missing && key !== undefined) {
             throw new Error('The record must keep its key field (' + JSON.stringify(store.keyPath) + ')');
           }
+          const moves = !missing && key !== undefined && indexedDB.cmp(nextKey, key) !== 0;
+          if (moves && !replaceExisting && (await __cbRequest(store.count(nextKey))) > 0) {
+            const conflict = new Error('Another record already has the key ' + __cbKeyText(nextKey) + '. Nothing was changed.');
+            conflict.conflict = true;
+            throw conflict;
+          }
           store.put(value);
-          if (!missing && key !== undefined && indexedDB.cmp(nextKey, key) !== 0) store.delete(key);
+          if (moves) store.delete(key);
         }
       } catch (error) {
-        tx.abort();
+        try { tx.abort(); } catch (ignored) { void ignored; }
         await done.catch(() => undefined);
         throw error;
       }
@@ -81,7 +98,7 @@ export function deleteRecordOnDevice(
   return runWrite(
     client,
     `${originGuard(origin)}
-    const db = await __cbRequest(indexedDB.open(${jsLiteral(databaseName)}));
+    const db = await __cbOpenExisting(${jsLiteral(databaseName)});
     try {
       const tx = db.transaction(${jsLiteral(objectStoreName)}, 'readwrite');
       const done = __cbTxDone(tx);
@@ -110,7 +127,7 @@ export function patchRecordOnDevice(
     client,
     `${originGuard(origin)}
     const path = ${jsLiteral(path)};
-    const next = ${jsLiteral(value)};
+    const next = __cbRevive(${jsLiteral(value)}, false);
     if (path.length === 0) throw new Error('No field to change');
     const kindOf = (node) => {
       if (node === null || node === undefined || typeof node === 'string' || typeof node === 'boolean') return null;
@@ -126,7 +143,7 @@ export function patchRecordOnDevice(
       }
       return (node.constructor && node.constructor.name) || 'Object';
     };
-    const db = await __cbRequest(indexedDB.open(${jsLiteral(databaseName)}));
+    const db = await __cbOpenExisting(${jsLiteral(databaseName)});
     try {
       const tx = db.transaction(${jsLiteral(objectStoreName)}, 'readwrite');
       const store = tx.objectStore(${jsLiteral(objectStoreName)});
@@ -177,15 +194,17 @@ export function patchRecordOnDevice(
   );
 }
 
-/** Removes every record of a store. */
+/** Removes every record of a store of the page's own origin. */
 export function clearStoreOnDevice(
   client: CDPClient,
+  origin: string,
   databaseName: string,
   objectStoreName: string,
 ): Promise<void> {
   return runWrite(
     client,
-    `const db = await __cbRequest(indexedDB.open(${jsLiteral(databaseName)}));
+    `${originGuard(origin)}
+    const db = await __cbOpenExisting(${jsLiteral(databaseName)});
     try {
       const tx = db.transaction(${jsLiteral(objectStoreName)}, 'readwrite');
       const done = __cbTxDone(tx);
@@ -209,12 +228,14 @@ const DATABASE_BLOCKED =
  */
 export function deleteStoreOnDevice(
   client: CDPClient,
+  origin: string,
   databaseName: string,
   objectStoreName: string,
 ): Promise<void> {
   return runWrite(
     client,
-    `const name = ${jsLiteral(databaseName)};
+    `${originGuard(origin)}
+    const name = ${jsLiteral(databaseName)};
     const storeName = ${jsLiteral(objectStoreName)};
     const probe = await __cbOpenExisting(name);
     const version = probe.version;
@@ -246,18 +267,27 @@ export function deleteStoreOnDevice(
   );
 }
 
-/** Deletes a database. When the app blocks it the delete stays queued on the phone. */
+/** Deletes a database of the page's own origin. When the app blocks it the delete stays queued. */
 export async function deleteDatabaseOnDevice(
   client: CDPClient,
+  origin: string,
   databaseName: string,
 ): Promise<void> {
   const result = await evaluateChecked(client, {
-    expression: `new Promise((resolve) => {
-      const req = indexedDB.deleteDatabase(${jsLiteral(databaseName)});
-      req.onsuccess = () => resolve(JSON.stringify({ ok: true }));
-      req.onerror = () => resolve(JSON.stringify({ error: req.error && req.error.message ? req.error.message : 'delete failed' }));
-      req.onblocked = () => resolve(JSON.stringify({ error: ${jsLiteral(DATABASE_BLOCKED)}, blocked: true }));
-    })`,
+    expression: `(() => {
+      ${IDB_DEVICE_CODEC_SOURCE}
+      try {
+        ${originGuard(origin)}
+      } catch (e) {
+        return JSON.stringify({ error: String(e && e.message ? e.message : e) });
+      }
+      return new Promise((resolve) => {
+        const req = indexedDB.deleteDatabase(${jsLiteral(databaseName)});
+        req.onsuccess = () => resolve(JSON.stringify({ ok: true }));
+        req.onerror = () => resolve(JSON.stringify({ error: req.error && req.error.message ? req.error.message : 'delete failed' }));
+        req.onblocked = () => resolve(JSON.stringify({ error: ${jsLiteral(DATABASE_BLOCKED)}, blocked: true }));
+      });
+    })()`,
     awaitPromise: true,
     returnByValue: true,
   });

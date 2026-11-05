@@ -5,7 +5,7 @@ import GatedView from "@/components/gate/GatedView.vue";
 
 <template>
   <RouterView v-slot="{ Component, route }">
-    <GatedView :requirement="route.meta.requires ?? 'none'">
+    <GatedView :requirement="route.meta.requires ?? 'none'" :secondary="route.meta.gateCommand">
       <component :is="Component" />
     </GatedView>
   </RouterView>

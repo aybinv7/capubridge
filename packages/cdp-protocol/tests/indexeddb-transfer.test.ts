@@ -86,25 +86,30 @@ describe("IndexedDB export and import", () => {
 
     const client = deviceClient();
     await importReplaceSchema(client, {
-      name: target,
-      version: 3,
-      stores: [
-        { name: "plain", keyPath: null, autoIncrement: false, indexes: [] },
-        {
-          name: "items",
-          keyPath: "id",
-          autoIncrement: false,
-          indexes: [{ name: "by_name", keyPath: "name", unique: false, multiEntry: false }],
-        },
-      ],
+      origin: ORIGIN,
+      schema: {
+        name: target,
+        version: 3,
+        stores: [
+          { name: "plain", keyPath: null, autoIncrement: false, indexes: [] },
+          {
+            name: "items",
+            keyPath: "id",
+            autoIncrement: false,
+            indexes: [{ name: "by_name", keyPath: "name", unique: false, multiEntry: false }],
+          },
+        ],
+      },
     });
     await importPutChunk(client, {
+      origin: ORIGIN,
       database: target,
       store: "plain",
       keyPath: null,
       records: plain.records,
     });
     await importPutChunk(client, {
+      origin: ORIGIN,
       database: target,
       store: "items",
       keyPath: "id",
@@ -155,11 +160,15 @@ describe("IndexedDB export and import", () => {
     });
     const client = deviceClient();
     await importReplaceSchema(client, {
-      name: target,
-      version: 1,
-      stores: [{ name: "plain", keyPath: null, autoIncrement: false, indexes: [] }],
+      origin: ORIGIN,
+      schema: {
+        name: target,
+        version: 1,
+        stores: [{ name: "plain", keyPath: null, autoIncrement: false, indexes: [] }],
+      },
     });
     await importPutChunk(client, {
+      origin: ORIGIN,
       database: target,
       store: "plain",
       keyPath: null,
@@ -179,7 +188,9 @@ describe("IndexedDB export and import", () => {
     await new Promise((resolve) => (tx.oncomplete = resolve));
     db.close();
     const exported = await exportAll(source, "plain");
-    expect(exported.lossy).toEqual(['"failure" is an Error (only its name and message are kept)']);
+    expect(exported.lossy).toEqual([
+      'Record 1: "failure" is an Error (only its name and message are kept)',
+    ]);
   });
 
   test("replacing a database the app holds open changes nothing", async () => {
@@ -187,7 +198,10 @@ describe("IndexedDB export and import", () => {
     const held = await request(indexedDB.open(source));
     held.onversionchange = null;
     await expect(
-      importReplaceSchema(deviceClient(), { name: source, version: 3, stores: [] }),
+      importReplaceSchema(deviceClient(), {
+        origin: ORIGIN,
+        schema: { name: source, version: 3, stores: [] },
+      }),
     ).rejects.toBeInstanceOf(IdbBlockedError);
     held.close();
     await wait(30);
@@ -197,11 +211,15 @@ describe("IndexedDB export and import", () => {
   test("writes plain JSON as is when markers must not be revived", async () => {
     const client = deviceClient();
     await importReplaceSchema(client, {
-      name: target,
-      version: 1,
-      stores: [{ name: "plain", keyPath: null, autoIncrement: false, indexes: [] }],
+      origin: ORIGIN,
+      schema: {
+        name: target,
+        version: 1,
+        stores: [{ name: "plain", keyPath: null, autoIncrement: false, indexes: [] }],
+      },
     });
     await importPutChunk(client, {
+      origin: ORIGIN,
       database: target,
       store: "plain",
       keyPath: null,

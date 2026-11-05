@@ -13,6 +13,7 @@ import {
 import GateDiagram from "@/components/gate/GateDiagram.vue";
 import GateActions from "@/components/gate/GateActions.vue";
 import { useActiveContextStore } from "@/stores/activeContext.store";
+import { useCommandsStore } from "@/stores/commands.store";
 import { useGateActions } from "@/composables/useGateActions";
 import { buildChain } from "@/lib/gates/chain";
 import { gateCopy } from "@/lib/gates/copy";
@@ -23,12 +24,24 @@ const props = withDefaults(
     requirement: GateRequirement;
     kind: Exclude<GateKind, "open">;
     density?: "full" | "compact";
+    secondary?: { commandId: string; label: string; hint?: string };
   }>(),
   { density: "full" },
 );
 
 const context = useActiveContextStore();
+const commands = useCommandsStore();
 const { run, running } = useGateActions();
+
+const secondaryCommand = computed(() =>
+  props.secondary
+    ? (commands.commands.find((command) => command.id === props.secondary?.commandId) ?? null)
+    : null,
+);
+
+function runSecondary() {
+  if (secondaryCommand.value) void commands.run(secondaryCommand.value);
+}
 
 const content = computed(() => gateCopy(props.kind, context.gateInput, props.requirement));
 const chain = computed(() => buildChain(props.requirement, context.gateInput));
@@ -169,6 +182,16 @@ async function copyDetail() {
       >
         <Check :size="12" class="text-[var(--fg-subtle)]" />
         Nothing to do. This screen opens by itself.
+      </p>
+      <p
+        v-if="secondary && secondaryCommand"
+        class="flex items-center gap-2 text-xs text-muted-foreground"
+        data-gate-secondary
+      >
+        <span>{{ secondary.hint ?? "Or" }}</span>
+        <Button size="sm" variant="transparent" @click="runSecondary">
+          {{ secondary.label }}
+        </Button>
       </p>
     </Empty>
   </div>

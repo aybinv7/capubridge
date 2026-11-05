@@ -60,11 +60,14 @@ function errorText(error: unknown): string | null {
  * Databases of the page (live) and opened files, the open database, its store details and
  * the origin's IndexedDB usage. Live queries only run for live databases, never for file ids.
  */
-export function useIdbCatalog(location: {
-  mode: Ref<IdbMode>;
-  database: Ref<string>;
-  store: Ref<string>;
-}) {
+export function useIdbCatalog(
+  location: {
+    mode: Ref<IdbMode>;
+    database: Ref<string>;
+    store: Ref<string>;
+  },
+  active?: Ref<boolean>,
+) {
   const targetsStore = useTargetsStore();
   const storageContext = useStorageContextStore();
   const snapshots = useIdbSnapshotStore();
@@ -76,7 +79,7 @@ export function useIdbCatalog(location: {
     set: (value: string) => storageContext.setSelectedOrigin(targetId.value, value),
   });
 
-  const live = useDatabases();
+  const live = useDatabases(active);
   const liveDatabases = computed<IDBDatabaseInfo[]>(() => live.data.value ?? []);
 
   const liveDatabase = computed(() => {
@@ -128,11 +131,11 @@ export function useIdbCatalog(location: {
   );
 
   const liveName = computed(() => liveDatabase.value?.name ?? "");
-  const storeInfoQuery = useStoreInfo(liveName, origin);
+  const storeInfoQuery = useStoreInfo(liveName, origin, active);
   const overviewOrigin = computed(() =>
     liveDatabase.value && !location.store.value ? origin.value : "",
   );
-  const estimate = useStorageEstimate(overviewOrigin);
+  const estimate = useStorageEstimate(overviewOrigin, active);
 
   const storeInfo = computed<StoreInfo[] | undefined>(() =>
     fileEntry.value ? fileStoreInfo(fileEntry.value) : storeInfoQuery.data.value,
@@ -164,6 +167,9 @@ export function useIdbCatalog(location: {
       fileEntry.value ? null : errorText(storeInfoQuery.error.value),
     ),
     refetchStoreInfo: () => storeInfoQuery.refetch(),
+    storeInfoReadAt: computed(() =>
+      fileEntry.value ? null : storeInfoQuery.dataUpdatedAt.value || null,
+    ),
     idbUsage,
   };
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
 import { RefreshCw } from "lucide-vue-next";
 import { Segmented, SegmentedButton } from "@capubridge/cladd";
 import type { StoreInfo } from "@capubridge/cdp-protocol";
@@ -9,6 +10,7 @@ import ChangeSummary from "@/modules/storage/frame/ChangeSummary.vue";
 import DataCollectionHeader from "@/modules/storage/frame/DataCollectionHeader.vue";
 import DataRowMenu from "@/modules/storage/frame/DataRowMenu.vue";
 import type { DataAction } from "@/modules/storage/frame/dataFrame.types";
+import { useDataPresence } from "@/modules/storage/frame/useDataPresence";
 import { useIndexedDBTableChangeOverlay } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
 import IdbRows from "./IdbRows.vue";
@@ -24,8 +26,10 @@ const props = defineProps<{
   database: IdbOpenDatabase;
   store: string;
   info: StoreInfo | undefined;
+  infoLoading?: boolean;
   actions: readonly DataAction[];
   ask: (request: ConfirmRequest, run: () => Promise<void> | void) => void;
+  confirm: (request: ConfirmRequest) => Promise<boolean>;
 }>();
 
 const emit = defineEmits<{ action: [id: string]; afterWrite: [] }>();
@@ -34,14 +38,24 @@ const view = ref<"rows" | "structure">("rows");
 const changesOnly = ref(false);
 const rows = ref<InstanceType<typeof IdbRows> | null>(null);
 
+const presence = useDataPresence();
+const away = computed(() => (props.database.mode === "live" ? presence.away.value : null));
 const open = computed(() => props.database);
 const storeName = computed(() => props.store);
-const pager = useIdbPage({ targetId: computed(() => props.targetId), open, store: storeName });
+const pager = useIdbPage({
+  targetId: computed(() => props.targetId),
+  open,
+  store: storeName,
+  paused: computed(() => away.value !== null),
+});
 
 const writes = useIdbStoreWrites({
   open,
   store: storeName,
   domain: pager.domain,
+  pending: pager.placeholder,
+  away,
+  confirm: props.confirm,
   afterWrite: () => {
     void pager.refetch();
     emit("afterWrite");
@@ -97,7 +111,21 @@ function deleteRecords(list: IndexedDBDecoratedRecord[], afterDelete: () => void
   );
 }
 
+async function guardUnsaved(): Promise<boolean> {
+  return rows.value ? rows.value.guardDiscard() : true;
+}
+
+async function setView(next: "rows" | "structure") {
+  if (next === view.value) return;
+  if (next === "structure" && !(await guardUnsaved())) return;
+  view.value = next;
+}
+
+onBeforeRouteUpdate(guardUnsaved);
+onBeforeRouteLeave(guardUnsaved);
+
 defineExpose({
+  guardUnsaved,
   focusSearch: () => {
     view.value = "rows";
     rows.value?.focusSearch();
@@ -117,8 +145,8 @@ defineExpose({
     <ChangeSummary v-model:changes-only="changesOnly" :changes="storeSummary" />
     <template #actions>
       <Segmented size="xs" active-variant="solid" aria-label="What to show of the store">
-        <SegmentedButton :active="view === 'rows'" @click="view = 'rows'">Rows</SegmentedButton>
-        <SegmentedButton :active="view === 'structure'" @click="view = 'structure'">
+        <SegmentedButton :active="view === 'rows'" @click="setView('rows')">Rows</SegmentedButton>
+        <SegmentedButton :active="view === 'structure'" @click="setView('structure')">
           Structure
         </SegmentedButton>
       </Segmented>
@@ -150,7 +178,10 @@ defineExpose({
     :writes="writes"
     :changes-only="changesOnly"
     :layout-key="`idb:${database.mode === 'live' ? database.origin : 'file'}:${database.name}/${store}`"
+    :confirm="confirm"
+    :away="away"
+    @bring-to-front="presence.bringToFront()"
     @delete-records="deleteRecords"
   />
-  <IdbStructure v-else :info="info" />
+  <IdbStructure v-else :info="info" :loading="infoLoading" />
 </template>

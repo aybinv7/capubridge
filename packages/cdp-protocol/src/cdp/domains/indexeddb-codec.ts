@@ -80,7 +80,8 @@ export const IDB_VIEW_LIMITS: IdbEncodeLimits = {
 /**
  * Device-side encoder and reviver, as JavaScript source to paste into a device script. It
  * defines `__cbCodec(options)`, `__cbRecordEncoder(limits)`, `__cbRevive(value, lenient)`,
- * `__cbOpenExisting(name)`, `__cbRequest(req)`, `__cbTxDone(tx)` and `__cbRange(spec)`.
+ * `__cbOpenExisting(name)` (never creates a database), `__cbCheckOrigin(origin)`,
+ * `__cbKeyText(key)`, `__cbRequest(req)`, `__cbTxDone(tx)` and `__cbRange(spec)`.
  */
 export const IDB_DEVICE_CODEC_SOURCE = String.raw`
 function __cbBytesToB64(bytes) {
@@ -263,8 +264,21 @@ function __cbRecordEncoder(limits) {
     return { k: k.value, p: p.value, v: v.value, ik: k.issue, ip: p.issue, iv: v.issue };
   };
 }
+function __cbStaged(id) {
+  const stage = globalThis.__cbImportBinary;
+  const parts = stage && stage[id];
+  if (!parts) throw new Error('Part of a large value did not arrive on the phone; nothing was written');
+  delete stage[id];
+  let length = 0;
+  for (const part of parts) length += part.length;
+  const out = new Uint8Array(length);
+  let offset = 0;
+  for (const part of parts) { out.set(part, offset); offset += part.length; }
+  return out;
+}
 function __cbNeedBytes(marker, lenient) {
   if (typeof marker.base64 === 'string') return __cbB64ToBytes(marker.base64);
+  if (typeof marker.staged === 'string') return __cbStaged(marker.staged);
   if (lenient) return new Uint8Array(0);
   throw new Error('The ' + marker.__type + ' data was not read, so it cannot be sent back');
 }
@@ -336,13 +350,35 @@ function __cbTxDone(tx) {
   });
 }
 async function __cbOpenExisting(name) {
+  const absent = 'Database "' + name + '" does not exist on this page';
   if (typeof indexedDB.databases === 'function') {
     const existing = await indexedDB.databases();
-    if (!existing.some(function (entry) { return entry.name === name; })) {
-      throw new Error('Database "' + name + '" does not exist on this page');
-    }
+    if (!existing.some(function (entry) { return entry.name === name; })) throw new Error(absent);
   }
-  return __cbRequest(indexedDB.open(name));
+  return new Promise(function (resolve, reject) {
+    let created = false;
+    const req = indexedDB.open(name);
+    req.onupgradeneeded = function (event) {
+      if (event.oldVersion !== 0) return;
+      created = true;
+      req.transaction.abort();
+    };
+    req.onsuccess = function () { resolve(req.result); };
+    req.onerror = function (event) {
+      if (event && event.preventDefault) event.preventDefault();
+      reject(created ? new Error(absent) : (req.error && req.error.message ? req.error.message : 'open failed'));
+    };
+  });
+}
+function __cbCheckOrigin(origin) {
+  if (!origin || location.origin !== origin) {
+    throw new Error('The database belongs to another origin (' + (origin || 'none given') + ') than this page (' + location.origin + '); nothing was changed');
+  }
+}
+function __cbKeyText(key) {
+  const encoded = __cbCodec({ binaryLimit: 0, maxDepth: 8, maxNodes: 200 }).encode(key).value;
+  if (encoded && typeof encoded === 'object' && encoded.__type === 'Date') return encoded.value;
+  return JSON.stringify(encoded);
 }
 function __cbRange(spec) {
   if (!spec) return undefined;

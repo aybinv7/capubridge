@@ -8,6 +8,7 @@ pub mod chrome;
 pub mod emulator;
 pub mod file_bytes;
 pub mod files;
+pub mod host_file_stream;
 pub(crate) mod files_parse;
 pub(crate) mod icon_gate;
 pub mod local_webview;

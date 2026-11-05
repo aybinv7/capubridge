@@ -19,9 +19,11 @@ import {
   deleteStoreOnDevice,
   patchRecordOnDevice,
   putRecordOnDevice,
+  type PutRecordOptions,
 } from "./indexeddb-writes.js";
 
 export type { IDBRecord } from "./indexeddb-records.js";
+export type { PutRecordOptions } from "./indexeddb-writes.js";
 export type {
   GetDataParams,
   GetDataResult,
@@ -230,13 +232,17 @@ export class IDBDomain {
     };
   }
 
-  /** Writes a whole record; `primaryKey` may hold key markers (dates, binary). */
+  /**
+   * Writes a whole record; `primaryKey` may hold key markers (dates, binary). A key moved onto
+   * another record's key throws `IdbKeyConflictError` unless `replaceExisting` is set.
+   */
   putRecord(
     securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
     value: unknown,
     primaryKey?: unknown,
+    options: PutRecordOptions = {},
   ): Promise<void> {
     return putRecordOnDevice(
       this.client,
@@ -245,6 +251,7 @@ export class IDBDomain {
       objectStoreName,
       value,
       primaryKey,
+      options,
     );
   }
 
@@ -277,26 +284,27 @@ export class IDBDomain {
     return deleteRecordOnDevice(this.client, securityOrigin, databaseName, objectStoreName, key);
   }
 
+  /** Refuses a database of another origin than the page's. */
   clearObjectStore(
-    _securityOrigin: string,
+    securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
   ): Promise<void> {
-    return clearStoreOnDevice(this.client, databaseName, objectStoreName);
+    return clearStoreOnDevice(this.client, securityOrigin, databaseName, objectStoreName);
   }
 
   /** Throws `IdbBlockedError` when the app holds the database open; nothing is changed then. */
   deleteObjectStore(
-    _securityOrigin: string,
+    securityOrigin: string,
     databaseName: string,
     objectStoreName: string,
   ): Promise<void> {
-    return deleteStoreOnDevice(this.client, databaseName, objectStoreName);
+    return deleteStoreOnDevice(this.client, securityOrigin, databaseName, objectStoreName);
   }
 
   /** Throws `IdbBlockedError` when the app holds the database open; the delete stays queued. */
-  deleteDatabase(_securityOrigin: string, databaseName: string): Promise<void> {
-    return deleteDatabaseOnDevice(this.client, databaseName);
+  deleteDatabase(securityOrigin: string, databaseName: string): Promise<void> {
+    return deleteDatabaseOnDevice(this.client, securityOrigin, databaseName);
   }
 
   /**

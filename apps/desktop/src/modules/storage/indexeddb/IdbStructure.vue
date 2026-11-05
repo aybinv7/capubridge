@@ -2,10 +2,11 @@
 import { computed } from "vue";
 import type { StoreInfo } from "@capubridge/cdp-protocol";
 import FactList from "@/shared/facts/FactList.vue";
+import DataState from "@/modules/storage/frame/DataState.vue";
 import type { Fact } from "@/shared/facts/fact";
 
 /** How a store is built: its key, whether keys are generated, and its indexes. */
-const props = defineProps<{ info: StoreInfo | undefined }>();
+const props = defineProps<{ info: StoreInfo | undefined; loading?: boolean }>();
 
 function pathText(path: string | string[] | null): string {
   if (path === null) return "None: keys are given separately from the values";
@@ -38,9 +39,15 @@ const facts = computed<Fact[]>(() => {
 </script>
 
 <template>
-  <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-    <p v-if="!info" class="text-xs text-muted-foreground">Reading the store…</p>
-    <div v-else class="flex max-w-3xl flex-col gap-6">
+  <DataState v-if="!info && loading" kind="loading" title="Reading how the store is built" />
+  <DataState
+    v-else-if="!info"
+    kind="empty"
+    title="The store's details were not read"
+    text="Read the database again from its header to see its key and indexes."
+  />
+  <div v-else class="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+    <div class="flex max-w-3xl flex-col gap-6">
       <FactList title="Store" :facts="facts" />
       <section class="flex flex-col gap-2">
         <h2 class="text-sm font-medium text-foreground">Indexes</h2>

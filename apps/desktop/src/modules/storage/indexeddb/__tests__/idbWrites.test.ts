@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import type { IDBDomain } from "@capubridge/cdp-protocol";
+import { IdbKeyConflictError, type IDBDomain } from "@capubridge/cdp-protocol";
 import { idbWrites } from "../idbWrites";
 
-const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 vi.mock("vue-sonner", () => ({ toast }));
 
 const at = { origin: "https://app", database: "db", store: "items" };
@@ -62,5 +62,32 @@ describe("idbWrites", () => {
     expect(toast.error).toHaveBeenCalledWith("1 of 3 deletes failed", {
       description: "Error: gone",
     });
+  });
+});
+
+describe("a key moved onto another record (S4)", () => {
+  const conflict = () => new IdbKeyConflictError("Another record already has the key 2.");
+
+  test("asks first and keeps the other record when the answer is no", async () => {
+    const putRecord = vi.fn().mockRejectedValueOnce(conflict());
+    const confirmReplace = vi.fn().mockResolvedValue(false);
+    const saved = await idbWrites(domain({ putRecord }), at).save(
+      { key: 1, value: { id: 2 } },
+      { confirmReplace },
+    );
+    expect(saved).toBe(false);
+    expect(confirmReplace).toHaveBeenCalledWith("Another record already has the key 2.");
+    expect(putRecord).toHaveBeenCalledTimes(1);
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  test("replaces the other record only when the person says so", async () => {
+    const putRecord = vi.fn().mockRejectedValueOnce(conflict()).mockResolvedValueOnce(undefined);
+    const saved = await idbWrites(domain({ putRecord }), at).save(
+      { key: 1, value: { id: 2 } },
+      { confirmReplace: async () => true },
+    );
+    expect(saved).toBe(true);
+    expect(putRecord.mock.calls[1]?.[5]).toEqual({ replaceExisting: true });
   });
 });

@@ -28,7 +28,7 @@ export interface IdbTreeInput {
   storeChanges: (origin: string, database: string, store: string) => DataChangeCounts;
   /** Record counts of the open database's stores, when read. */
   counts: ReadonlyMap<string, number>;
-  /** The open database; it is always shown expanded. */
+  /** The open database, whose stores show their record counts. */
   openSourceId: string | null;
 }
 
@@ -62,7 +62,7 @@ function liveSource(db: IDBDatabaseInfo, input: IdbTreeInput): DataSourceNode {
     provenance: "live",
     pinned: settings.pinned,
     hidden: settings.hidden,
-    expanded: settings.expanded || open,
+    expanded: settings.expanded,
     changes: input.databaseChanges(db.origin, db.name),
     link: OWNED_ELSEWHERE[db.name],
     collections: db.objectStoreNames.map((store) => ({
@@ -78,13 +78,15 @@ function liveSource(db: IDBDatabaseInfo, input: IdbTreeInput): DataSourceNode {
 
 function fileSource(entry: IdbSnapshotEntry, input: IdbTreeInput): DataSourceNode {
   const id = fileSourceId(entry.id);
-  const open = input.openSourceId === id;
+  const settings = input.settings(id);
   return {
     id,
     label: entry.data.database.name,
     detail: `v${entry.data.database.version}`,
     provenance: "imported",
-    expanded: open || input.settings(id).expanded,
+    pinned: settings.pinned,
+    hidden: settings.hidden,
+    expanded: settings.expanded,
     collections: entry.data.database.stores.map((store) => ({
       id: store.name,
       label: store.name,

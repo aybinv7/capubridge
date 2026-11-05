@@ -1,13 +1,16 @@
 import { computed, ref, shallowRef, watch, type Ref } from "vue";
-import { keepPreviousData, useQuery } from "@tanstack/vue-query";
+import { useQuery } from "@tanstack/vue-query";
 import { IDBDomain, type IDBRecord } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import { cellToText } from "@/shared/components/data/grid";
+import { withReadTimeout } from "@/modules/storage/frame/useDataPresence";
 import { indexedDbProtocolPageSize } from "./idbPaging";
 import type { IdbOpenDatabase } from "./useIdbCatalog";
 
 const FILE_READ_ONLY = "Opened from a file: it is read-only here.";
 const STORE_SEARCH_LIMIT = 500;
+/** Pages of other offsets are dropped soon after they leave the screen. */
+const PAGE_CACHE_MS = 15_000;
 
 export interface StoreSearchState {
   needle: string;
@@ -16,6 +19,14 @@ export interface StoreSearchState {
   scanned: number;
   capped: "count" | "time" | "limit" | null;
   error: string | null;
+}
+
+/**
+ * Whether a page read for `previous` may stay on screen while `next` is read: only for the same
+ * phone, origin, database and store (another page or page size of it), never across stores.
+ */
+export function keepsPreviousPage(previous: readonly unknown[], next: readonly unknown[]): boolean {
+  return [1, 2, 3, 4].every((index) => previous[index] === next[index]);
 }
 
 function errorText(error: unknown): string | null {
@@ -33,6 +44,8 @@ export function useIdbPage(options: {
   targetId: Ref<string>;
   open: Ref<IdbOpenDatabase | null>;
   store: Ref<string>;
+  /** No reads while true (the app is away from the screen); they run again after. */
+  paused?: Ref<boolean>;
 }) {
   const { getClient } = useCDP();
   const page = ref(0);
@@ -50,30 +63,39 @@ export function useIdbPage(options: {
     return new IDBDomain(client);
   }
 
+  const queryKey = computed(() => [
+    "idb-records",
+    options.targetId.value,
+    origin.value,
+    database.value,
+    options.store.value,
+    page.value,
+    pageSize.value,
+  ]);
+
   const query = useQuery({
-    queryKey: computed(() => [
-      "idb-records",
-      options.targetId.value,
-      origin.value,
-      database.value,
-      options.store.value,
-      page.value,
-      pageSize.value,
-    ]),
+    queryKey,
     queryFn: () =>
-      domain().getData({
-        securityOrigin: origin.value,
-        databaseName: database.value,
-        objectStoreName: options.store.value,
-        skipCount: page.value * pageSize.value,
-        pageSize: pageSize.value,
-      }),
+      withReadTimeout(
+        domain().getData({
+          securityOrigin: origin.value,
+          databaseName: database.value,
+          objectStoreName: options.store.value,
+          skipCount: page.value * pageSize.value,
+          pageSize: pageSize.value,
+        }),
+      ),
     enabled: computed(
       () =>
         isLive.value &&
+        !options.paused?.value &&
         Boolean(options.targetId.value && origin.value && database.value && options.store.value),
     ),
-    placeholderData: keepPreviousData,
+    gcTime: PAGE_CACHE_MS,
+    placeholderData: (previous, previousQuery) =>
+      previous && previousQuery && keepsPreviousPage(previousQuery.queryKey, queryKey.value)
+        ? previous
+        : undefined,
     retry: false,
   });
 
@@ -198,6 +220,8 @@ export function useIdbPage(options: {
     storeSearch,
     searchWholeStore,
     clearStoreSearch,
+    /** The page on screen is the previous one of this store, kept while the next is read. */
+    placeholder: computed(() => isLive.value && query.isPlaceholderData.value),
     loading: computed(() => isLive.value && query.isLoading.value),
     fetching: computed(() => isLive.value && query.isFetching.value),
     error: computed(() => (isLive.value ? errorText(query.error.value) : null)),

@@ -44,6 +44,9 @@ const emit = defineEmits<{
   dirty: [dirty: boolean];
 }>();
 
+const editor = ref<InstanceType<typeof JsonEditor> | null>(null);
+const fieldsView = ref<InstanceType<typeof RecordFields> | null>(null);
+
 const view = ref<PaneView>(
   readPersisted<PaneView>(VIEW_KEY, "fields", (v) => v === "fields" || v === "json"),
 );
@@ -95,6 +98,11 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === "s" || event.key === "S") {
     event.preventDefault();
     save();
+  } else if ((event.key === "f" || event.key === "F") && !event.shiftKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (view.value === "json") editor.value?.focusFilter();
+    else if (view.value === "fields") fieldsView.value?.focusFind();
   } else if (event.key === "ArrowUp" && props.canPrev && !dirty.value) {
     event.preventDefault();
     emit("prev");
@@ -119,7 +127,7 @@ defineExpose({ discard });
         <span class="truncate font-mono text-xs text-foreground select-text">{{ title }}</span>
         <span class="flex min-w-0 items-center gap-2 text-2xs text-[var(--fg-subtle)]">
           <span v-if="subtitle" class="shrink-0 tabular-nums">{{ subtitle }}</span>
-          <span v-if="stateText" class="truncate text-signal-mark">{{ stateText }}</span>
+          <span v-if="stateText" class="truncate text-muted-foreground">{{ stateText }}</span>
           <span v-if="dirty" class="shrink-0 text-warning">Not saved</span>
         </span>
       </div>
@@ -169,9 +177,14 @@ defineExpose({ discard });
       <span>{{ readOnlyReason }}</span>
     </p>
 
-    <RecordFields v-if="view === 'fields'" :columns="columns" :cells="cells" />
+    <RecordFields v-if="view === 'fields'" ref="fieldsView" :columns="columns" :cells="cells" />
     <div v-else-if="view === 'json'" class="min-h-0 flex-1 px-2 pb-2">
-      <JsonEditor v-model:value="draft" :readonly="!editable" @validity-change="valid = $event" />
+      <JsonEditor
+        ref="editor"
+        v-model:value="draft"
+        :readonly="!editable"
+        @validity-change="valid = $event"
+      />
     </div>
     <div v-else class="min-h-0 flex-1 px-2 pb-2">
       <JsonDiff :before-value="before?.value" :after-text="original" readonly />

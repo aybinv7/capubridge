@@ -1,5 +1,5 @@
 import { toast } from "vue-sonner";
-import type { IDBDomain } from "@capubridge/cdp-protocol";
+import { IdbKeyConflictError, type IDBDomain } from "@capubridge/cdp-protocol";
 import type { IDBRecord } from "@/types/storage.types";
 
 export interface IdbStoreAddress {
@@ -19,12 +19,41 @@ export interface IdbWriteHooks {
   onWritten?: (keys: readonly IDBValidKey[]) => void;
 }
 
+export interface IdbSaveOptions {
+  /** No success toast (inline cell edits: the row itself shows the change). */
+  quiet?: boolean;
+  /**
+   * Asked when the edited key already belongs to another record; `true` replaces that record.
+   * Without it such a save is refused.
+   */
+  confirmReplace?: (message: string) => Promise<boolean>;
+}
+
 /**
  * Device writes for one object store. Every outcome is reported only after the
  * device answered, so the UI never claims a write that did not happen.
  */
 export function idbWrites(domain: IDBDomain, at: IdbStoreAddress, hooks: IdbWriteHooks = {}) {
-  async function save(record: IDBRecord): Promise<boolean> {
+  async function put(record: EditableRecord, key: IDBValidKey, options: IdbSaveOptions) {
+    try {
+      await domain.putRecord(at.origin, at.database, at.store, record.value, key);
+      return true;
+    } catch (error) {
+      if (!(error instanceof IdbKeyConflictError)) throw error;
+      if (!options.confirmReplace || !(await options.confirmReplace(error.message))) {
+        toast.info("Record was not saved", {
+          description: "The other record with that key was kept. Nothing was changed.",
+        });
+        return false;
+      }
+      await domain.putRecord(at.origin, at.database, at.store, record.value, key, {
+        replaceExisting: true,
+      });
+      return true;
+    }
+  }
+
+  async function save(record: IDBRecord, options: IdbSaveOptions = {}): Promise<boolean> {
     const candidate = record as EditableRecord;
     if (candidate.editable === false) {
       toast.error("Record is read-only", {
@@ -34,9 +63,9 @@ export function idbWrites(domain: IDBDomain, at: IdbStoreAddress, hooks: IdbWrit
     }
     const key = candidate.primaryKey ?? record.key;
     try {
-      await domain.putRecord(at.origin, at.database, at.store, record.value, key);
+      if (!(await put(candidate, key, options))) return false;
       hooks.onWritten?.([key]);
-      toast.success("Record saved on the device");
+      if (!options.quiet) toast.success("Record saved on the device");
       return true;
     } catch (error) {
       toast.error("Record was not saved", { description: String(error) });
@@ -49,11 +78,12 @@ export function idbWrites(domain: IDBDomain, at: IdbStoreAddress, hooks: IdbWrit
     key: IDBValidKey,
     path: readonly string[],
     value: unknown,
+    options: IdbSaveOptions = {},
   ): Promise<boolean> {
     try {
       await domain.patchRecord(at.origin, at.database, at.store, key, path, value);
       hooks.onWritten?.([key]);
-      toast.success("Record saved on the device");
+      if (!options.quiet) toast.success("Record saved on the device");
       return true;
     } catch (error) {
       toast.error("Record was not saved", { description: String(error) });

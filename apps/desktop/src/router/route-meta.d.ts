@@ -9,5 +9,7 @@ declare module "vue-router" {
     ownsBringToFront?: boolean;
     /** A hidden route that belongs to another tab, which stays selected while it is open. */
     tabPath?: string;
+    /** A command the gate offers beside its own actions (for example, open a file instead). */
+    gateCommand?: { commandId: string; label: string; hint?: string };
   }
 }

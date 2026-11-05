@@ -7,6 +7,7 @@ import {
   Pin,
   PinOff,
   Trash2,
+  Upload,
   X,
 } from "lucide-vue-next";
 import type { IDBDatabaseInfo } from "@capubridge/cdp-protocol";
@@ -19,6 +20,7 @@ import type { IdbSnapshotEntry } from "./useIdbSnapshotStore";
 
 export interface IdbTreeContext {
   scope: string;
+  hasPhone: boolean;
   live: readonly IDBDatabaseInfo[];
   files: readonly IdbSnapshotEntry[];
   settings: ReturnType<typeof useDataSidebarSettings>;
@@ -41,7 +43,26 @@ export function idbTreeActions(row: DataTreeRow, context: IdbTreeContext): DataA
   if (row.kind === "source") {
     if (fileOf(row.source.id, context)) {
       return [
-        { id: "file.save", label: "Save a copy…", icon: Download },
+        {
+          id: "pin",
+          label: row.source.pinned ? "Unpin" : "Pin to the top",
+          icon: row.source.pinned ? PinOff : Pin,
+        },
+        {
+          id: "hide",
+          label: row.source.hidden ? "Show in the list" : "Hide from the list",
+          icon: row.source.hidden ? Eye : EyeOff,
+        },
+        { id: "file.save", label: "Save a copy…", icon: Download, separatorBefore: true },
+        {
+          id: "file.write",
+          label: context.live.some((db) => db.name === row.source.label)
+            ? `Replace "${row.source.label}" on the phone with it…`
+            : "Write it to the phone as a new database…",
+          icon: Upload,
+          disabled: !context.hasPhone,
+          reason: "Connect the app first",
+        },
         { id: "file.close", label: "Close the file", icon: X, separatorBefore: true },
       ];
     }
@@ -115,7 +136,10 @@ export function runIdbTreeAction(actionId: string, row: DataTreeRow, context: Id
   const { settings, scope, actions } = context;
   const file = fileOf(sourceId, context);
   if (file) {
-    if (actionId === "file.save") void actions.exportFile(file);
+    if (actionId === "pin") settings.togglePinned(scope, sourceId);
+    else if (actionId === "hide") settings.toggleHidden(scope, sourceId);
+    else if (actionId === "file.save") void actions.exportFile(file);
+    else if (actionId === "file.write") actions.writeFile(file);
     else if (actionId === "file.close") actions.closeFile(file);
     return;
   }

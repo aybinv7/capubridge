@@ -10,6 +10,8 @@ const props = defineProps<{
   value: unknown;
   kind: CellEditorKind;
   label: string;
+  /** Another value of the column, so an empty cell is filled in the column's form. */
+  like?: unknown;
 }>();
 
 const emit = defineEmits<{ commit: [value: unknown]; cancel: [] }>();
@@ -34,7 +36,7 @@ function finish(commitChange: boolean) {
     emit("cancel");
     return;
   }
-  const parsed = parseCellEdit(props.value, props.kind, text.value);
+  const parsed = parseCellEdit(props.value, props.kind, text.value, props.like);
   if (!parsed.ok) {
     error.value = parsed.error;
     return;

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from "vite-plus/test";
+import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import {
   applyLocalDate,
   editorKindFor,
@@ -6,8 +6,72 @@ import {
   toLocalDateInput,
 } from "../editors/cellEdit";
 
+const previousZone = process.env.TZ;
+
 beforeAll(() => {
   process.env.TZ = "Africa/Algiers";
+});
+
+afterAll(() => {
+  if (previousZone === undefined) delete process.env.TZ;
+  else process.env.TZ = previousZone;
+});
+
+describe("an empty cell edits as its column, not as text (S5)", () => {
+  test("the editor follows the other values of the column", () => {
+    expect(editorKindFor(null, undefined, 5)).toBe("number");
+    expect(editorKindFor(undefined, undefined, false)).toBe("boolean");
+    expect(editorKindFor(null, undefined, "2024-01-01")).toBe("date");
+    expect(
+      editorKindFor(null, undefined, { __type: "Date", value: "2024-01-01T00:00:00.000Z" }),
+    ).toBe("date");
+    expect(editorKindFor(null, "date", 1_700_000_000_000)).toBe("date");
+    expect(editorKindFor(null, undefined, { a: 1 })).toBeNull();
+    expect(editorKindFor(null)).toBe("text");
+  });
+
+  test("what is typed is stored with the column's type", () => {
+    expect(parseCellEdit(null, "number", "7", 5)).toEqual({ ok: true, value: 7, changed: true });
+    expect(parseCellEdit(null, "boolean", "true", false)).toEqual({
+      ok: true,
+      value: true,
+      changed: true,
+    });
+    expect(parseCellEdit(null, "number", "", 5)).toEqual({ ok: true, value: null, changed: false });
+    expect(parseCellEdit(undefined, "date", "", "2024-01-01")).toEqual({
+      ok: true,
+      value: undefined,
+      changed: false,
+    });
+  });
+
+  test("a picked date takes the form of the column's dates", () => {
+    expect(
+      parseCellEdit(null, "date", "2024-03-12", {
+        __type: "Date",
+        value: "2024-01-01T00:00:00.000Z",
+      }),
+    ).toEqual({
+      ok: true,
+      value: { __type: "Date", value: "2024-03-11T23:00:00.000Z" },
+      changed: true,
+    });
+    expect(parseCellEdit(null, "date", "2024-03-12", 1_700_000_000_000)).toEqual({
+      ok: true,
+      value: new Date(2024, 2, 12).getTime(),
+      changed: true,
+    });
+    expect(parseCellEdit(null, "date", "2024-03-12", 1_700_000_000)).toEqual({
+      ok: true,
+      value: new Date(2024, 2, 12).getTime() / 1000,
+      changed: true,
+    });
+    expect(parseCellEdit(null, "date", "2024-03-12", "2024-01-01")).toEqual({
+      ok: true,
+      value: "2024-03-12",
+      changed: true,
+    });
+  });
 });
 
 describe("dates in a UTC+1 time zone (Algeria)", () => {

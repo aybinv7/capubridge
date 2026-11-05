@@ -24,6 +24,11 @@ export class IdbBlockedError extends Error {
   override name = "IdbBlockedError";
 }
 
+/** A key edit would land on a key another record already uses; nothing was changed. */
+export class IdbKeyConflictError extends Error {
+  override name = "IdbKeyConflictError";
+}
+
 const INTO_TEXT = new Set(["Date", "BigInt", "RegExp"]);
 const REVIVABLE_KEYS = new Set(["Date", "Number"]);
 
@@ -104,10 +109,11 @@ export function toRecord(encoded: EncodedRecord): IDBRecord {
 export function parseDeviceReply<T>(result: { result: Record<string, unknown> }): T {
   const raw = result.result.value;
   if (typeof raw !== "string") throw new DeviceEvaluationError("The device sent no answer");
-  const parsed = JSON.parse(raw) as T & { error?: unknown; blocked?: boolean };
+  const parsed = JSON.parse(raw) as T & { error?: unknown; blocked?: boolean; conflict?: boolean };
   if (parsed && typeof parsed === "object" && "error" in parsed && parsed.error != null) {
     const message = typeof parsed.error === "string" ? parsed.error : JSON.stringify(parsed.error);
     if (parsed.blocked) throw new IdbBlockedError(message);
+    if (parsed.conflict) throw new IdbKeyConflictError(message);
     throw new DeviceEvaluationError(message);
   }
   return parsed;
