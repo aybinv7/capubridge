@@ -201,6 +201,8 @@
   --color-signal-select: var(--signal-select);
   --color-signal-mark: var(--signal-mark);
   --color-window-close: #c42b1c;
+  --ease-cladd-spring: cubic-bezier(0, 1, 0, 1.025);
+  --ease-cladd-settle: cubic-bezier(0, 1, 0.2, 1);
   --color-cat-network: var(--cat-network);
   --color-cat-storage: var(--cat-storage);
   --color-cat-device: var(--cat-device);

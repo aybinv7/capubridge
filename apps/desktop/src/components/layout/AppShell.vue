@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import BottomDock from "@/components/dock/BottomDock.vue";
 import TitleBar from "./TitleBar.vue";
 import Sidebar from "./Sidebar.vue";
+import { useRailPeek } from "./useRailPeek";
 import CommandPalette from "@/components/command/CommandPalette.vue";
 import { useCoreCommands } from "@/app/useCoreCommands";
 import { useCommandsStore } from "@/stores/commands.store";
@@ -29,6 +30,7 @@ const dockStore = useDockStore();
 const devicesStore = useDevicesStore();
 const uiStore = useUIStore();
 const router = useRouter();
+const railPeek = useRailPeek(computed(() => uiStore.railHidden));
 useOverlayGuard();
 useActiveContextStore();
 const commandsStore = useCommandsStore();
@@ -212,8 +214,31 @@ onUnmounted(() => {
   <div class="flex h-screen flex-col overflow-hidden bg-background">
     <TitleBar @open-command-palette="commandsStore.openPalette()" />
 
-    <div class="flex min-h-0 flex-1 gap-2 pr-2 pb-2" :class="uiStore.railHidden && 'pl-2'">
+    <div class="relative flex min-h-0 flex-1 gap-2 pr-2 pb-2" :class="uiStore.railHidden && 'pl-2'">
       <Sidebar v-if="!uiStore.railHidden" class="order-first" />
+
+      <div
+        v-if="uiStore.railHidden"
+        class="absolute inset-y-0 left-0 z-40 w-2"
+        aria-hidden="true"
+        @pointerenter="railPeek.reveal"
+        @pointerleave="railPeek.hold"
+      />
+      <Transition
+        enter-active-class="transition-[translate,opacity] duration-300 ease-cladd-spring"
+        leave-active-class="transition-[translate,opacity] duration-200 ease-in-out"
+        enter-from-class="-translate-x-[calc(100%+8px)] opacity-0"
+        leave-to-class="-translate-x-[calc(100%+8px)] opacity-0"
+      >
+        <div
+          v-if="uiStore.railHidden && railPeek.peeking.value"
+          class="absolute inset-y-0 left-0 z-50 flex pb-2 pl-0 shadow-float"
+          @pointerenter="railPeek.hold"
+          @pointerleave="railPeek.conceal"
+        >
+          <Sidebar class="bg-background" />
+        </div>
+      </Transition>
 
       <div
         class="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
@@ -227,8 +252,8 @@ onUnmounted(() => {
         </main>
 
         <Transition
-          enter-active-class="transition-opacity duration-100 ease-out"
-          leave-active-class="transition-opacity duration-75 ease-in"
+          enter-active-class="transition-opacity duration-200 ease-cladd-settle"
+          leave-active-class="transition-opacity duration-150 ease-in-out"
           enter-from-class="opacity-0"
           leave-to-class="opacity-0"
         >
@@ -241,8 +266,8 @@ onUnmounted(() => {
       </div>
 
       <Transition
-        enter-active-class="transition-all duration-200 ease-out"
-        leave-active-class="transition-all duration-150 ease-in"
+        enter-active-class="transition-[translate,opacity] duration-500 ease-cladd-settle"
+        leave-active-class="transition-[translate,opacity] duration-200 ease-in-out"
         enter-from-class="opacity-0 -translate-x-full"
         leave-to-class="opacity-0 -translate-x-full"
       >
@@ -250,8 +275,8 @@ onUnmounted(() => {
       </Transition>
 
       <Transition
-        enter-active-class="transition-all duration-200 ease-out"
-        leave-active-class="transition-all duration-150 ease-in"
+        enter-active-class="transition-[translate,opacity] duration-500 ease-cladd-settle"
+        leave-active-class="transition-[translate,opacity] duration-200 ease-in-out"
         enter-from-class="opacity-0 translate-x-full"
         leave-to-class="opacity-0 translate-x-full"
       >
