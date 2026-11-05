@@ -30,7 +30,10 @@ export type PackageListScope = "third-party" | "all";
 export interface DeviceOverview {
   name: string;
   manufacturer: string;
+  /** Model and ABI joined for display ("24117RN76G · arm64-v8a"). */
   model: string;
+  cpuArch: string;
+  screenDpi: number;
   apiLevel: number;
   serial: string;
   availableStorage: number;
@@ -60,6 +63,8 @@ export function useAdb() {
         name: info.model || "",
         manufacturer: info.manufacturer || "",
         model: info.cpuArch ? `${info.model} · ${info.cpuArch}` : info.model || "",
+        cpuArch: info.cpuArch || "",
+        screenDpi: info.screenDpi || 0,
         androidVersion: info.androidVersion || "",
         apiLevel: info.apiLevel,
         serial: info.serial,

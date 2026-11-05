@@ -31,7 +31,7 @@ const { data: iconUrl, isFetching } = useQuery({
       serial: props.serial,
       apkPath: props.apkPath,
       packageName: props.packageName,
-      iconPath: props.iconPath,
+      iconPath: props.iconPath ?? undefined,
     }),
   staleTime: Infinity,
   gcTime: 1000 * 60 * 60,

@@ -32,18 +32,6 @@
   "apps/desktop/src/modules/automation/TaskHistoryRail.vue": {
     "errors": 1
   },
-  "apps/desktop/src/modules/devices/AppIcon.vue": {
-    "errors": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceAppsList.vue": {
-    "errors": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceFiles.vue": {
-    "errors": 2
-  },
-  "apps/desktop/src/modules/devices/DeviceOverview.vue": {
-    "errors": 3
-  },
   "apps/desktop/src/modules/inspect/StylesTab.vue": {
     "errors": 2
   },

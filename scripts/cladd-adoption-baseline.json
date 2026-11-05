@@ -198,42 +198,11 @@
     "button": 1,
     "textarea": 1
   },
-  "apps/desktop/src/modules/devices/DeviceAppInspector.vue": {
-    "button": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceApps.vue": {
-    "button": 1,
-    "confirm-dialog": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceAppsToolbar.vue": {
-    "button": 1,
-    "input": 1,
-    "select": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceFileUnsupportedPopover.vue": {
-    "button": 1,
-    "popover": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceFileViewerDialog.vue": {
-    "button": 1,
-    "dialog": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceFiles.vue": {
-    "button": 1,
-    "input": 1,
-    "select": 1
-  },
   "apps/desktop/src/modules/devices/DeviceLogcat.vue": {
     "badge": 1,
     "button": 1,
     "input": 1,
     "select": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceOverview.vue": {
-    "button": 1
-  },
-  "apps/desktop/src/modules/devices/DevicePerf.vue": {
-    "card": 1
   },
   "apps/desktop/src/modules/inspect/EditAsHtmlDialog.vue": {
     "button": 1,
