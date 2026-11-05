@@ -5,6 +5,7 @@ pub mod events;
 pub mod guards;
 pub mod job_queue;
 pub mod live_features;
+pub(crate) mod perf_holders;
 pub mod registry;
 pub mod types;
 

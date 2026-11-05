@@ -5,13 +5,18 @@ pub mod reasoning;
 pub mod cdp_proxy;
 pub mod chrome;
 pub mod emulator;
+pub mod file_bytes;
 pub mod files;
+pub(crate) mod files_parse;
+pub(crate) mod icon_gate;
 pub mod local_webview;
 #[cfg_attr(not(all(target_os = "windows", debug_assertions)), allow(dead_code))]
 pub(crate) mod local_webview_probe;
 pub mod mirror;
 pub mod mock_server;
 pub mod opfs_pull;
+pub(crate) mod package_sizes;
+pub(crate) mod package_times;
 pub mod perf;
 pub mod port_forward;
 pub mod sqlite;

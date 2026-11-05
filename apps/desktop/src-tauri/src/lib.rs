@@ -28,6 +28,7 @@ use commands::chrome::{
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
 };
 use commands::emulator::{emulator_launch_avd, emulator_list_avds, emulator_stop_avd};
+use commands::file_bytes::adb_read_file_bytes;
 use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
     adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
@@ -340,6 +341,7 @@ pub fn run() {
             adb_list_dir,
             adb_pull_file,
             adb_read_file,
+            adb_read_file_bytes,
             adb_open_file,
             adb_open_file_picker,
             adb_delete_file,

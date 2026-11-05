@@ -19,6 +19,9 @@ use tauri::{AppHandle, Emitter};
 
 use crate::adb_runtime;
 use crate::blocking::run_blocking;
+use crate::commands::icon_gate::acquire_icon_permit;
+use crate::commands::package_sizes::package_sizes;
+use crate::commands::package_times::earliest_real_time;
 
 pub(crate) fn map_adb_server_err(err: impl std::fmt::Display) -> String {
     let msg = err.to_string();
@@ -341,65 +344,6 @@ fn get_package_apk_paths(
         .lines()
         .filter_map(|line| line.trim().strip_prefix("package:").map(str::to_string))
         .collect()
-}
-
-#[derive(Debug, Default, Clone)]
-struct PackageDiskStats {
-    app_size: u64,
-    data_size: u64,
-    cache_size: u64,
-}
-
-fn parse_json_string_array(raw: &str) -> Vec<String> {
-    serde_json::from_str::<Vec<String>>(raw.trim()).unwrap_or_default()
-}
-
-fn parse_json_u64_array(raw: &str) -> Vec<u64> {
-    serde_json::from_str::<Vec<Value>>(raw.trim())
-        .map(|values| {
-            values
-                .into_iter()
-                .map(|value| match value {
-                    Value::Number(number) => number.as_u64().unwrap_or(0),
-                    Value::String(string) => string.parse::<u64>().unwrap_or(0),
-                    _ => 0,
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn parse_diskstats(output: &str) -> HashMap<String, PackageDiskStats> {
-    let mut package_names = Vec::new();
-    let mut app_sizes = Vec::new();
-    let mut data_sizes = Vec::new();
-    let mut cache_sizes = Vec::new();
-
-    for line in output.lines().map(str::trim) {
-        if let Some(rest) = line.strip_prefix("Package Names:") {
-            package_names = parse_json_string_array(rest);
-        } else if let Some(rest) = line.strip_prefix("App Sizes:") {
-            app_sizes = parse_json_u64_array(rest);
-        } else if let Some(rest) = line.strip_prefix("App Data Sizes:") {
-            data_sizes = parse_json_u64_array(rest);
-        } else if let Some(rest) = line.strip_prefix("Cache Sizes:") {
-            cache_sizes = parse_json_u64_array(rest);
-        }
-    }
-
-    let mut stats = HashMap::new();
-    for (index, package_name) in package_names.into_iter().enumerate() {
-        stats.insert(
-            package_name,
-            PackageDiskStats {
-                app_size: *app_sizes.get(index).unwrap_or(&0),
-                data_size: *data_sizes.get(index).unwrap_or(&0),
-                cache_size: *cache_sizes.get(index).unwrap_or(&0),
-            },
-        );
-    }
-
-    stats
 }
 
 fn read_length_delimited_payload(stream: &mut TcpStream) -> Result<Vec<u8>, String> {
@@ -1431,8 +1375,7 @@ fn adb_get_package_details_inner(
             shell_escape(&package_name)
         ),
     );
-    let diskstats = parse_diskstats(&shell_output(&mut device, "dumpsys diskstats 2>/dev/null"));
-    let sizes = diskstats.get(&package_name).cloned().unwrap_or_default();
+    let sizes = package_sizes(&serial, &mut device, &package_name);
 
     let mut details = AdbPackageDetails {
         package_name: package_name.clone(),
@@ -1460,7 +1403,8 @@ fn adb_get_package_details_inner(
         if let Some(version_name) = trimmed.strip_prefix("versionName=") {
             details.version_name = Some(version_name.to_string());
         } else if let Some(first_install_time) = trimmed.strip_prefix("firstInstallTime=") {
-            details.first_install_time = Some(first_install_time.to_string());
+            details.first_install_time =
+                earliest_real_time(details.first_install_time.take(), first_install_time);
         } else if let Some(last_update_time) = trimmed.strip_prefix("lastUpdateTime=") {
             details.last_update_time = Some(last_update_time.to_string());
         } else if let Some(installer_package_name) = trimmed.strip_prefix("installerPackageName=") {
@@ -1570,6 +1514,7 @@ pub async fn adb_get_app_icon(
     package_name: Option<String>,
     icon_path: Option<String>,
 ) -> Result<String, String> {
+    let _permit = acquire_icon_permit().await?;
     tokio::task::spawn_blocking(move || {
         catch_adb_panic("adb_get_app_icon", move || {
             let mut device = get_adb_device(&serial)?;
@@ -2032,9 +1977,11 @@ mod tests {
     fn device_command_modules_do_not_acquire_server_guards_directly() {
         let forbidden_lookup = ["get_device", "_by_name"].concat();
         let sources = [
+            include_str!("file_bytes.rs"),
             include_str!("files.rs"),
             include_str!("mirror.rs"),
-            include_str!("perf.rs"),
+            include_str!("package_sizes.rs"),
+            include_str!("perf/mod.rs"),
             include_str!("port_forward.rs"),
             include_str!("sqlite.rs"),
         ];
