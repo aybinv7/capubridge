@@ -1,4 +1,5 @@
 import type { IDBDomain } from "@capubridge/cdp-protocol";
+import { withTimeout } from "@/shared/async/withTimeout";
 import type {
   IndexedDBChangeEntry,
   IndexedDBStoreCatalogEntry,
@@ -14,6 +15,12 @@ import {
 /** Stores watched at once; more would keep the phone busy re-reading on every change. */
 export const IDB_CHANGE_MAX_WATCHED_STORES = 40;
 
+/** How long one watcher read of a store may take before it is given up and retried later. */
+export const IDB_CHANGE_READ_TIMEOUT_MS = 8_000;
+
+/** A store whose read keeps failing is retried this many times, then left as it was. */
+const MAX_RETRIES = 2;
+
 type ChangesStore = Pick<
   ReturnType<typeof useIndexedDBChangesStore>,
   | "catalogEntries"
@@ -24,6 +31,7 @@ type ChangesStore = Pick<
   | "getSnapshot"
   | "upsertSnapshot"
   | "drainPendingStoreKeys"
+  | "queueStore"
   | "getCatalogEntry"
   | "addChanges"
   | "markEventObserved"
@@ -34,6 +42,8 @@ export interface ChangeTrackerOptions {
   origin: string;
   store: ChangesStore;
   isOwnWrite: (storeKey: string, key: IDBValidKey) => boolean;
+  /** Checked between two stores: while true the watcher stops and keeps the rest queued. */
+  paused?: () => boolean;
 }
 
 export interface ChangeTracker {
@@ -80,8 +90,29 @@ export function createChangeTracker(options: ChangeTrackerOptions): ChangeTracke
   let flushing: Promise<void> | null = null;
   let flushAgain = false;
   const unwatchedKeys = new Set<string>();
+  const failures = new Map<string, number>();
+  let primePending = false;
+  const isPaused = () => options.paused?.() ?? false;
+
+  function read(descriptor: IndexedDBStoreCatalogEntry): Promise<IndexedDBStoreSnapshot> {
+    return withTimeout(
+      captureStoreSnapshot(domain, descriptor),
+      IDB_CHANGE_READ_TIMEOUT_MS,
+      `The phone did not answer for ${descriptor.databaseName}.${descriptor.objectStoreName}`,
+    );
+  }
+
+  /** Queues a store again after a failed read, a few times at most. */
+  function retryLater(storeKey: string): boolean {
+    const count = (failures.get(storeKey) ?? 0) + 1;
+    failures.set(storeKey, count);
+    if (count > MAX_RETRIES) return false;
+    store.queueStore(storeKey);
+    return true;
+  }
 
   async function prime() {
+    primePending = false;
     const previousEntries = store.catalogEntries;
     const previousSnapshots = store.snapshots;
     const catalog = await fetchOriginCatalog(domain, origin);
@@ -107,12 +138,29 @@ export function createChangeTracker(options: ChangeTrackerOptions): ChangeTracke
     for (const [index, descriptor] of catalog.entries()) {
       if (previousSnapshots[descriptor.storeKey] ?? store.getSnapshot(descriptor.storeKey))
         continue;
+      if (isPaused()) {
+        primePending = true;
+        return;
+      }
       if (index >= IDB_CHANGE_MAX_WATCHED_STORES) {
         unwatchedKeys.add(descriptor.storeKey);
         store.upsertSnapshot(unwatched(descriptor));
         continue;
       }
-      const snapshot = await captureStoreSnapshot(domain, descriptor);
+      let snapshot: IndexedDBStoreSnapshot;
+      try {
+        snapshot = await read(descriptor);
+      } catch (error) {
+        if (stopped) return;
+        store.addSystemChange({
+          observedAt: new Date().toISOString(),
+          origin: descriptor.origin,
+          databaseName: descriptor.databaseName,
+          objectStoreName: descriptor.objectStoreName,
+          message: `Could not start watching: ${error instanceof Error ? error.message : String(error)}`,
+        });
+        continue;
+      }
       if (stopped) return;
       store.upsertSnapshot(snapshot);
       if (!snapshot.tracked && snapshot.reason) {
@@ -136,13 +184,18 @@ export function createChangeTracker(options: ChangeTrackerOptions): ChangeTracke
   }
 
   async function flushOnce() {
+    if (primePending && !isPaused()) await prime();
     const dirty = store.drainPendingStoreKeys();
     if (dirty.length === 0) return;
     const observedAt = new Date().toISOString();
     let external = false;
 
-    for (const storeKey of dirty) {
+    for (const [position, storeKey] of dirty.entries()) {
       if (stopped) return;
+      if (isPaused()) {
+        for (const rest of dirty.slice(position)) store.queueStore(rest);
+        break;
+      }
       let descriptor = store.getCatalogEntry(storeKey);
       if (!descriptor) {
         await prime();
@@ -152,7 +205,24 @@ export function createChangeTracker(options: ChangeTrackerOptions): ChangeTracke
       if (!descriptor) continue;
       if (unwatchedKeys.has(storeKey)) continue;
       const previous = store.getSnapshot(storeKey);
-      const next = await captureStoreSnapshot(domain, descriptor);
+      let next: IndexedDBStoreSnapshot;
+      try {
+        next = await read(descriptor);
+      } catch (error) {
+        if (stopped) return;
+        if (!retryLater(storeKey)) {
+          failures.delete(storeKey);
+          store.addSystemChange({
+            observedAt,
+            origin: descriptor.origin,
+            databaseName: descriptor.databaseName,
+            objectStoreName: descriptor.objectStoreName,
+            message: `Changes were not read: ${error instanceof Error ? error.message : String(error)}`,
+          });
+        }
+        continue;
+      }
+      failures.delete(storeKey);
       if (stopped) return;
       store.upsertSnapshot(next);
       if (!previous || !previous.tracked || !next.tracked) {
@@ -198,7 +268,7 @@ export function createChangeTracker(options: ChangeTrackerOptions): ChangeTracke
     const descriptor = store.getCatalogEntry(storeKey);
     if (!descriptor || stopped) return;
     unwatchedKeys.delete(storeKey);
-    const snapshot = await captureStoreSnapshot(domain, descriptor);
+    const snapshot = await read(descriptor);
     if (!stopped) store.upsertSnapshot(snapshot);
   }
 

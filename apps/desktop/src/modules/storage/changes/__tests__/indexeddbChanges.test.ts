@@ -124,6 +124,10 @@ function fakeStore() {
     queue(key: string) {
       pending.push(key);
     },
+    queueStore(key: string) {
+      pending.push(key);
+    },
+    pendingKeys: () => [...pending],
     setCatalog: vi.fn(),
     removeSnapshots: vi.fn(),
     addSystemChange: vi.fn(),
@@ -203,5 +207,46 @@ describe("createChangeTracker", () => {
     await first;
     expect(store.added).toHaveLength(2);
     expect(store.observed).toHaveLength(2);
+  });
+
+  test("a store read that keeps failing is retried twice, then reported (F1)", async () => {
+    const store = fakeStore();
+    captured.next = [snapshot({ 1: "a" })];
+    const tracker = createChangeTracker({
+      domain: {} as IDBDomain,
+      origin: "o",
+      store: store as never,
+      isOwnWrite: () => false,
+    });
+    await tracker.prime();
+    store.queue("o::db::items");
+    await tracker.flush();
+    expect(store.pendingKeys()).toEqual(["o::db::items"]);
+    await tracker.flush();
+    expect(store.pendingKeys()).toEqual(["o::db::items"]);
+    await tracker.flush();
+    expect(store.pendingKeys()).toEqual([]);
+    expect(store.addSystemChange).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("Changes were not read") }),
+    );
+  });
+
+  test("a paused watcher reads nothing and keeps the stores queued (F1)", async () => {
+    const store = fakeStore();
+    captured.next = [snapshot({ 1: "a" })];
+    let paused = false;
+    const tracker = createChangeTracker({
+      domain: {} as IDBDomain,
+      origin: "o",
+      store: store as never,
+      isOwnWrite: () => false,
+      paused: () => paused,
+    });
+    await tracker.prime();
+    paused = true;
+    store.queue("o::db::items");
+    await tracker.flush();
+    expect(store.pendingKeys()).toEqual(["o::db::items"]);
+    expect(store.added).toEqual([]);
   });
 });

@@ -183,6 +183,20 @@ export function useIndexedDBChangeIndex() {
   };
 }
 
+/** Same keys mapped to the same change entries: a change in another store left this one alone. */
+function sameChanges(
+  left: ReadonlyMap<string, IndexedDBRecordChangeEntry>,
+  right: ReadonlyMap<string, IndexedDBRecordChangeEntry>,
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const [key, entry] of right) if (left.get(key) !== entry) return false;
+  return true;
+}
+
+/**
+ * The records of one store with the device changes seen for it. The overlay only changes when
+ * this store's own changes do, so changes in other stores never rebuild its grid.
+ */
 export function useIndexedDBTableChangeOverlay(
   records: Ref<IDBRecord[]>,
   origin: Ref<string>,
@@ -195,7 +209,7 @@ export function useIndexedDBTableChangeOverlay(
     buildStoreKey(origin.value, databaseName.value, objectStoreName.value),
   );
 
-  const recordChangesByKey = computed(() => {
+  const recordChangesByKey = computed<Map<string, IndexedDBRecordChangeEntry>>((previous) => {
     const changesByKey = new Map<string, IndexedDBRecordChangeEntry>();
 
     for (const change of latestRecordChanges.value.values()) {
@@ -210,7 +224,7 @@ export function useIndexedDBTableChangeOverlay(
       changesByKey.set(serializeKey(change.key), change);
     }
 
-    return changesByKey;
+    return previous && sameChanges(previous, changesByKey) ? previous : changesByKey;
   });
 
   const recordsWithChanges = computed<IndexedDBDecoratedRecord[]>(() =>

@@ -20,6 +20,7 @@ interface IndexedDBListUpdatedEvent {
 }
 
 const FLUSH_DELAY_MS = 220;
+const MIN_FLUSH_SPACING_MS = 1000;
 const CATALOG_DELAY_MS = 180;
 
 let holders = 0;
@@ -80,12 +81,32 @@ function runTracking() {
     catalogTimer = null;
   }
 
+  let lastFlushEnd = 0;
+  let lastFlushMs = 0;
+
+  async function runFlush() {
+    const current = tracker;
+    if (!current) return;
+    const started = Date.now();
+    try {
+      await current.flush();
+    } catch (error) {
+      if (!current.stopped) changesStore.setErrorMessage(String(error));
+    } finally {
+      lastFlushMs = Date.now() - started;
+      lastFlushEnd = Date.now();
+    }
+  }
+
+  /** Flushes are spaced by at least 1 s, or twice the last flush when that took longer. */
   function scheduleFlush() {
     if (flushTimer !== null || paused.value) return;
+    const spacing = Math.max(MIN_FLUSH_SPACING_MS, 2 * lastFlushMs);
+    const delay = Math.max(FLUSH_DELAY_MS, spacing - (Date.now() - lastFlushEnd));
     flushTimer = window.setTimeout(() => {
       flushTimer = null;
-      void tracker?.flush();
-    }, FLUSH_DELAY_MS);
+      void runFlush();
+    }, delay);
   }
 
   function scheduleCatalog() {
@@ -125,6 +146,7 @@ function runTracking() {
         origin: nextOrigin,
         store: changesStore,
         isOwnWrite: (storeKey, key) => changesStore.isOwnWrite(storeKey, serializeKey(key)),
+        paused: () => paused.value,
       });
       tracker = current;
       activeTracker = current;
