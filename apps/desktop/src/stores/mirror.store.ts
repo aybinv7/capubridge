@@ -6,6 +6,15 @@ import { DEFAULT_WEB_VIEWPORT, isWebViewport, type WebViewport } from "@/lib/web
 const LS_MIRROR_LAYOUT = "capubridge:mirror-layout";
 const LS_MIRROR_SETTINGS = "capubridge:mirror-settings";
 const LS_WEB_VIEWPORT = "capubridge:web-viewport";
+const LS_WEB_PANEL_WIDTH = "capubridge:mirror-web-width";
+
+/** A web preview can take most of the window; the main area keeps at least this much. */
+export const WEB_PANEL_MIN_WIDTH = 280;
+export const MAIN_AREA_MIN_WIDTH = 420;
+
+function isPanelWidth(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= WEB_PANEL_MIN_WIDTH;
+}
 
 type MirrorLayout = { side: MirrorSide; width: number };
 
@@ -63,6 +72,7 @@ export const useMirrorStore = defineStore("mirror", () => {
       isMirrorSettings,
     ),
   );
+  const webPanelWidth = ref(readPersisted<number>(LS_WEB_PANEL_WIDTH, 640, isPanelWidth));
   const webViewport = ref<WebViewport>(
     readPersisted<WebViewport>(LS_WEB_VIEWPORT, DEFAULT_WEB_VIEWPORT, isWebViewport),
   );
@@ -73,6 +83,7 @@ export const useMirrorStore = defineStore("mirror", () => {
 
   watch(settings, (next) => writePersisted(LS_MIRROR_SETTINGS, next), { deep: true });
   watch(webViewport, (next) => writePersisted(LS_WEB_VIEWPORT, next));
+  watch(webPanelWidth, (next) => writePersisted(LS_WEB_PANEL_WIDTH, next));
 
   const aspectRatio = computed(() =>
     deviceWidth.value && deviceHeight.value ? deviceWidth.value / deviceHeight.value : 9 / 19.5,
@@ -97,10 +108,18 @@ export const useMirrorStore = defineStore("mirror", () => {
     width.value = nextWidth;
     preferredWidth.value = nextWidth;
   }
-  function setDeviceSize(w: number, h: number) {
+  function setWebPanelWidth(next: number, maxWidth: number) {
+    const ceiling = Math.max(WEB_PANEL_MIN_WIDTH, maxWidth);
+    webPanelWidth.value = Math.round(Math.min(ceiling, Math.max(WEB_PANEL_MIN_WIDTH, next)));
+  }
+  /**
+   * Records the size of what the screen shows. A phone stream also re-fits the column to it; a
+   * web preview leaves the column at the width the user dragged it to.
+   */
+  function setDeviceSize(w: number, h: number, fitColumn = true) {
     deviceWidth.value = w;
     deviceHeight.value = h;
-    if (h > 0) {
+    if (fitColumn && h > 0) {
       const idealWidth = Math.round((w / h) * 680);
       const nextPreferredWidth = Math.max(220, Math.min(460, idealWidth));
       preferredWidth.value = nextPreferredWidth;
@@ -122,6 +141,7 @@ export const useMirrorStore = defineStore("mirror", () => {
     deviceHeight,
     settings,
     webViewport,
+    webPanelWidth,
     aspectRatio,
     open,
     close,
@@ -129,5 +149,6 @@ export const useMirrorStore = defineStore("mirror", () => {
     setSide,
     setWidth,
     setDeviceSize,
+    setWebPanelWidth,
   };
 });

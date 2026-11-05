@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { toast } from "vue-sonner";
-import { useMirrorStore } from "@/stores/mirror.store";
+import { useWindowSize } from "@vueuse/core";
+import { MAIN_AREA_MIN_WIDTH, WEB_PANEL_MIN_WIDTH, useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
@@ -59,6 +60,16 @@ const screenRef = computed(() => deviceFrameRef.value?.screen ?? null);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
 const localViewport = useLocalWebviewViewport(selectedTarget, screenRef);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
+const isWebPreview = computed(
+  () => isLocalTarget.value || selectedTarget.value?.source === "chrome",
+);
+const { width: windowWidth } = useWindowSize();
+const webMaxWidth = computed(() => windowWidth.value - MAIN_AREA_MIN_WIDTH);
+const columnWidth = computed(() => {
+  if (!isWebPreview.value) return panelWidth.value;
+  const ceiling = Math.max(WEB_PANEL_MIN_WIDTH, webMaxWidth.value);
+  return Math.min(ceiling, Math.max(WEB_PANEL_MIN_WIDTH, mirrorStore.webPanelWidth));
+});
 const androidMode = computed(() => !isLocalTarget.value && isAndroidStream.value);
 const canUseStreamActions = computed(() => !isLocalTarget.value && mirrorStore.isStreaming);
 const presenceStore = useTargetPresenceStore();
@@ -101,12 +112,15 @@ const backgroundApp = computed(() => {
 function startResize(e: MouseEvent) {
   isResizing.value = true;
   const startX = e.clientX;
-  const startWidth = mirrorStore.width;
+  const web = isWebPreview.value;
+  const startWidth = web ? columnWidth.value : mirrorStore.width;
   const isLeft = mirrorStore.side === "left";
 
   function onMove(ev: MouseEvent) {
     const delta = ev.clientX - startX;
-    mirrorStore.setWidth(startWidth + (isLeft ? delta : -delta));
+    const next = startWidth + (isLeft ? delta : -delta);
+    if (web) mirrorStore.setWebPanelWidth(next, webMaxWidth.value);
+    else mirrorStore.setWidth(next);
   }
 
   function onWheel() {}
@@ -199,7 +213,7 @@ watch(
 );
 
 watch(
-  () => [panelWidth.value, mirrorStore.deviceWidth, mirrorStore.deviceHeight] as const,
+  () => [columnWidth.value, mirrorStore.deviceWidth, mirrorStore.deviceHeight] as const,
   () => {
     if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
       void localViewport.apply();
@@ -330,7 +344,7 @@ function toggleRecord() {
   <aside
     aria-label="Device screen"
     class="relative flex h-full shrink-0"
-    :style="{ width: `${panelWidth}px` }"
+    :style="{ width: `${columnWidth}px` }"
   >
     <div
       class="group absolute inset-y-0 z-10 flex w-2 cursor-col-resize items-center justify-center"

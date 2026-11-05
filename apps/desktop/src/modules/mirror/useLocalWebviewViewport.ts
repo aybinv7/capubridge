@@ -26,7 +26,7 @@ export function useLocalWebviewViewport(
   function syncSize() {
     if (!isLocal(target.value)) return;
     const metrics = resolveViewport(mirrorStore.webViewport);
-    mirrorStore.setDeviceSize(metrics.width, metrics.height);
+    mirrorStore.setDeviceSize(metrics.width, metrics.height, false);
   }
 
   async function apply() {
