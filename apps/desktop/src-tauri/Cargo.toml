@@ -41,6 +41,7 @@ tokio-tungstenite = "0.26"
 http = "1"
 futures-util = "0.3"
 base64 = "0.22"
+regex = "1"
 prost = "0.13"
 rusqlite = { version = "0.34", features = ["bundled"] }
 tempfile = "3"

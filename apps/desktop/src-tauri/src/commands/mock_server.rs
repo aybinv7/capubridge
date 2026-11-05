@@ -1,36 +1,30 @@
+mod rules;
+
 use axum::{
     body::Body,
     extract::State,
-    http::{HeaderName, HeaderValue, Method, Request, StatusCode},
+    http::{header, HeaderName, HeaderValue, Method, Request, StatusCode},
     response::Response,
     Router,
 };
 use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc, time};
 use tauri::{AppHandle, Emitter, Manager};
 use tower_http::cors::{Any, CorsLayer};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MockRuleRust {
-    pub id: String,
-    pub method: String,
-    pub url_pattern: String,
-    pub url_match_type: String,
-    pub status_code: u16,
-    pub response_headers: Vec<[String; 2]>,
-    pub response_body: String,
-    pub delay_ms: u64,
-}
+use rules::CompiledRule;
+pub use rules::MockRuleRust;
+
+type RuleSet = Arc<Vec<CompiledRule>>;
 
 #[derive(Clone)]
 struct AxumState {
-    rules: Arc<RwLock<Vec<MockRuleRust>>>,
+    rules: Arc<RwLock<RuleSet>>,
     app: AppHandle,
 }
 
 pub struct MockServerManager {
-    pub rules: Arc<RwLock<Vec<MockRuleRust>>>,
+    rules: Arc<RwLock<RuleSet>>,
     shutdown_tx: parking_lot::Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
     pub port: parking_lot::Mutex<u16>,
 }
@@ -38,7 +32,7 @@ pub struct MockServerManager {
 impl MockServerManager {
     pub fn new() -> Self {
         Self {
-            rules: Arc::new(RwLock::new(vec![])),
+            rules: Arc::new(RwLock::new(Arc::new(vec![]))),
             shutdown_tx: parking_lot::Mutex::new(None),
             port: parking_lot::Mutex::new(3001),
         }
@@ -49,107 +43,106 @@ impl MockServerManager {
     }
 }
 
+fn now_ms() -> u64 {
+    time::SystemTime::now()
+        .duration_since(time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn emit_request(
+    state: &AxumState,
+    rule_id: Option<&str>,
+    method: &str,
+    url: &str,
+    status: u16,
+    delay_ms: u64,
+) {
+    let _ = state.app.emit(
+        "mock-server-request",
+        serde_json::json!({
+            "ruleId": rule_id,
+            "method": method,
+            "url": url,
+            "statusCode": status,
+            "delayMs": delay_ms,
+            "timestamp": now_ms(),
+        }),
+    );
+}
+
+fn answer(rule: &CompiledRule) -> Response<Body> {
+    let status = StatusCode::from_u16(rule.def.status_code).unwrap_or(StatusCode::OK);
+    let mut builder = Response::builder().status(status);
+    let mut has_content_type = false;
+    for [name, value] in &rule.def.response_headers {
+        if let (Ok(name), Ok(value)) = (name.parse::<HeaderName>(), value.parse::<HeaderValue>()) {
+            has_content_type |= name == header::CONTENT_TYPE;
+            builder = builder.header(name, value);
+        }
+    }
+    if !has_content_type && !rule.def.content_type.is_empty() {
+        if let Ok(value) = rule.def.content_type.parse::<HeaderValue>() {
+            builder = builder.header(header::CONTENT_TYPE, value);
+        }
+    }
+    builder
+        .body(Body::from(rule.body.clone()))
+        .unwrap_or_else(|_| {
+            let mut fallback = Response::new(Body::empty());
+            *fallback.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            fallback
+        })
+}
+
 async fn handle_any(State(state): State<Arc<AxumState>>, req: Request<Body>) -> Response<Body> {
     let method = req.method().clone();
-    let uri = req.uri().to_string();
-
-    // Handle CORS preflight
     if method == Method::OPTIONS {
-        return Response::builder()
-            .status(StatusCode::NO_CONTENT)
-            .body(Body::empty())
-            .unwrap();
+        let mut preflight = Response::new(Body::empty());
+        *preflight.status_mut() = StatusCode::NO_CONTENT;
+        return preflight;
     }
 
-    let rules = state.rules.read().clone();
+    let path = req
+        .uri()
+        .path_and_query()
+        .map(|value| value.as_str().to_string())
+        .unwrap_or_else(|| "/".into());
+    let host = req
+        .headers()
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("127.0.0.1");
+    let absolute = format!("http://{host}{path}");
 
-    for rule in &rules {
-        if !matches_rule(rule, method.as_str(), &uri) {
-            continue;
-        }
-
-        if rule.delay_ms > 0 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(rule.delay_ms)).await;
-        }
-
-        let ts = time::SystemTime::now()
-            .duration_since(time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-
-        let _ = state.app.emit(
-            "mock-server-request",
-            serde_json::json!({
-                "ruleId": rule.id,
-                "method": method.as_str(),
-                "url": uri,
-                "statusCode": rule.status_code,
-                "timestamp": ts,
-            }),
+    let rules: RuleSet = state.rules.read().clone();
+    let Some(rule) = rules
+        .iter()
+        .find(|rule| rule.matches(method.as_str(), &path, &absolute))
+    else {
+        emit_request(&state, None, method.as_str(), &absolute, 404, 0);
+        let body = serde_json::json!({"error": "No mock rule matched", "method": method.as_str(), "url": path});
+        let mut missing = Response::new(Body::from(body.to_string()));
+        *missing.status_mut() = StatusCode::NOT_FOUND;
+        missing.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
         );
+        return missing;
+    };
 
-        let status = StatusCode::from_u16(rule.status_code).unwrap_or(StatusCode::OK);
-        let mut builder = Response::builder().status(status);
-
-        for [k, v] in &rule.response_headers {
-            if let (Ok(name), Ok(val)) = (k.parse::<HeaderName>(), v.parse::<HeaderValue>()) {
-                builder = builder.header(name, val);
-            }
-        }
-
-        return builder
-            .body(Body::from(rule.response_body.clone()))
-            .unwrap_or_else(|_| Response::builder().status(500).body(Body::empty()).unwrap());
+    if rule.def.delay_ms > 0 {
+        tokio::time::sleep(tokio::time::Duration::from_millis(rule.def.delay_ms)).await;
     }
-
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .header("content-type", "application/json")
-        .body(Body::from(
-            serde_json::json!({"error": "No mock rule matched", "method": method.as_str(), "url": uri})
-                .to_string(),
-        ))
-        .unwrap()
-}
-
-fn matches_rule(rule: &MockRuleRust, method: &str, uri: &str) -> bool {
-    if rule.method != "ANY" && !rule.method.eq_ignore_ascii_case(method) {
-        return false;
-    }
-    match rule.url_match_type.as_str() {
-        "contains" => uri.contains(rule.url_pattern.as_str()),
-        "exact" => uri == rule.url_pattern,
-        "glob" => glob_match(&rule.url_pattern, uri),
-        "regex" => glob_match(&rule.url_pattern, uri), // fallback — no regex crate
-        _ => uri.contains(rule.url_pattern.as_str()),
-    }
-}
-
-fn glob_match(pattern: &str, text: &str) -> bool {
-    let (pb, tb) = (pattern.as_bytes(), text.as_bytes());
-    let (mut pi, mut ti) = (0usize, 0usize);
-    let (mut star_pi, mut star_ti) = (usize::MAX, 0usize);
-
-    while ti < tb.len() {
-        if pi < pb.len() && (pb[pi] == b'?' || pb[pi].to_ascii_lowercase() == tb[ti].to_ascii_lowercase()) {
-            pi += 1;
-            ti += 1;
-        } else if pi < pb.len() && pb[pi] == b'*' {
-            star_pi = pi;
-            star_ti = ti;
-            pi += 1;
-        } else if star_pi != usize::MAX {
-            pi = star_pi + 1;
-            star_ti += 1;
-            ti = star_ti;
-        } else {
-            return false;
-        }
-    }
-    while pi < pb.len() && pb[pi] == b'*' {
-        pi += 1;
-    }
-    pi == pb.len()
+    emit_request(
+        &state,
+        Some(&rule.def.id),
+        method.as_str(),
+        &absolute,
+        rule.def.status_code,
+        rule.def.delay_ms,
+    );
+    answer(rule)
 }
 
 #[tauri::command]
@@ -162,8 +155,10 @@ pub async fn mock_server_start(app: AppHandle, port: u16) -> Result<(), String> 
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
 
-    let rules = manager.rules.clone();
-    let state = Arc::new(AxumState { rules, app: app.clone() });
+    let state = Arc::new(AxumState {
+        rules: manager.rules.clone(),
+        app: app.clone(),
+    });
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -210,7 +205,8 @@ pub async fn mock_server_sync_rules(
     rules: Vec<MockRuleRust>,
 ) -> Result<(), String> {
     let manager = app.state::<MockServerManager>();
-    *manager.rules.write() = rules;
+    let compiled: Vec<CompiledRule> = rules.into_iter().map(CompiledRule::compile).collect();
+    *manager.rules.write() = Arc::new(compiled);
     Ok(())
 }
 
