@@ -1,6 +1,12 @@
 import { save, open } from "@tauri-apps/plugin-dialog";
+import {
+  exportStoreChunk,
+  importPutChunk,
+  importReplaceSchema,
+  type CDPClient,
+  type IdbTransferRecord,
+} from "@capubridge/cdp-protocol";
 import { invokeCommand } from "@/runtime/ipc/client";
-import type { CDPClient } from "@capubridge/cdp-protocol";
 
 interface CdpKeyPath {
   type: "null" | "string" | "array";
@@ -52,9 +58,16 @@ export interface IdbExportedStore {
   records: Array<{ key: unknown; value: unknown }>;
 }
 
+/**
+ * A Capubridge IndexedDB export. Version 2 encodes every non-JSON value as a `__type`
+ * marker that the import turns back into the real value; version 1 files saved raw JSON.
+ */
 export interface IdbExportedDatabase {
   format: "capubridge-idb-export";
-  version: 1;
+  version: 1 | 2;
+  encoding?: "capubridge-markers-v1";
+  /** Values the export could not save in a form that restores them (version 2). */
+  lossy?: string[];
   exportedAt: string;
   origin: string;
   database: {
@@ -62,6 +75,159 @@ export interface IdbExportedDatabase {
     version: number;
     stores: IdbExportedStore[];
   };
+}
+
+export interface IdbTransferProgress {
+  store: string;
+  storeIndex: number;
+  storeCount: number;
+  records: number;
+}
+
+export interface IdbTransferOptions {
+  onProgress?: (progress: IdbTransferProgress) => void;
+  signal?: AbortSignal;
+}
+
+export interface IdbImportOptions extends IdbTransferOptions {
+  /** Replace even though the file cannot restore every value (see `exportLoss`). */
+  acceptLoss?: boolean;
+}
+
+const IMPORT_CHUNK = 1000;
+
+const V1_LOSS =
+  "This file was saved by an older Capubridge: dates were saved as text, and binary data, Maps, Sets and Blobs as empty objects.";
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  const error = new Error("The transfer was cancelled");
+  error.name = "AbortError";
+  throw error;
+}
+
+/**
+ * Exports a whole database store by store, in chunks, so no single device answer holds the
+ * database. Every value is kept: dates, binary data, Blobs, Maps and Sets travel as markers.
+ */
+export async function exportDatabase(
+  client: CDPClient,
+  origin: string,
+  databaseName: string,
+  options: IdbTransferOptions = {},
+): Promise<IdbExportedDatabase> {
+  const { databaseWithObjectStores } = await client.send<{
+    databaseWithObjectStores: CdpDatabaseWithObjectStores;
+  }>("IndexedDB.requestDatabase", { securityOrigin: origin, databaseName });
+
+  const schema = databaseWithObjectStores.objectStores;
+  const lossy = new Set<string>();
+  const stores: IdbExportedStore[] = [];
+  for (const [storeIndex, store] of schema.entries()) {
+    const records: IdbTransferRecord[] = [];
+    let after: unknown = undefined;
+    for (;;) {
+      throwIfAborted(options.signal);
+      const chunk = await exportStoreChunk(client, {
+        origin,
+        database: databaseName,
+        store: store.name,
+        after,
+      });
+      records.push(...chunk.records);
+      for (const entry of chunk.lossy) lossy.add(`${store.name}: ${entry}`);
+      options.onProgress?.({
+        store: store.name,
+        storeIndex,
+        storeCount: schema.length,
+        records: records.length,
+      });
+      if (chunk.next === null) break;
+      after = chunk.next;
+    }
+    stores.push({
+      name: store.name,
+      keyPath: cdpKeyPathToValue(store.keyPath),
+      autoIncrement: store.autoIncrement,
+      indexes: store.indexes.map((index) => ({
+        name: index.name,
+        keyPath: cdpKeyPathToValue(index.keyPath) ?? "",
+        unique: index.unique,
+        multiEntry: index.multiEntry,
+      })),
+      records,
+    });
+  }
+
+  return {
+    format: "capubridge-idb-export",
+    version: 2,
+    encoding: "capubridge-markers-v1",
+    lossy: Array.from(lossy),
+    exportedAt: new Date().toISOString(),
+    origin,
+    database: {
+      name: databaseWithObjectStores.name,
+      version: databaseWithObjectStores.version,
+      stores,
+    },
+  };
+}
+
+/** What a replace from this file would not restore exactly; empty when it is lossless. */
+export function exportLoss(data: IdbExportedDatabase): string[] {
+  if (data.version === 1) return [V1_LOSS];
+  return data.lossy ?? [];
+}
+
+/**
+ * Replaces the database `targetName` on the device (the one the user chose, never the name
+ * inside the file) with the file's schema and records, in chunks of 1,000 records. Refuses a
+ * lossy file unless `acceptLoss` is set.
+ */
+export async function importDatabaseReplace(
+  client: CDPClient,
+  data: IdbExportedDatabase,
+  targetName: string,
+  options: IdbImportOptions = {},
+): Promise<{ inserted: number }> {
+  const loss = exportLoss(data);
+  if (loss.length > 0 && options.acceptLoss !== true) {
+    throw new Error(`Refused: ${loss[0]}`);
+  }
+  throwIfAborted(options.signal);
+  const stores = data.database.stores;
+  await importReplaceSchema(client, {
+    name: targetName,
+    version: data.database.version,
+    stores: stores.map((store) => ({
+      name: store.name,
+      keyPath: store.keyPath,
+      autoIncrement: store.autoIncrement,
+      indexes: store.indexes,
+    })),
+  });
+
+  let inserted = 0;
+  for (const [storeIndex, store] of stores.entries()) {
+    for (let start = 0; start < store.records.length; start += IMPORT_CHUNK) {
+      throwIfAborted(options.signal);
+      inserted += await importPutChunk(client, {
+        database: targetName,
+        store: store.name,
+        keyPath: store.keyPath,
+        records: store.records.slice(start, start + IMPORT_CHUNK),
+        revive: data.version === 2,
+      });
+      options.onProgress?.({
+        store: store.name,
+        storeIndex,
+        storeCount: stores.length,
+        records: Math.min(start + IMPORT_CHUNK, store.records.length),
+      });
+    }
+  }
+  return { inserted };
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -83,104 +249,6 @@ function base64ToBytes(base64: string): Uint8Array {
   return out;
 }
 
-function textToBase64(text: string): string {
-  return bytesToBase64(new TextEncoder().encode(text));
-}
-
-/**
- * Pull the entire database (schema + records for every store) by running a
- * single Runtime.evaluate against the target. Records are serialized via
- * structured-clone-then-JSON; non-cloneable values fall back to `null`.
- */
-export async function exportDatabaseToJson(
-  client: CDPClient,
-  securityOrigin: string,
-  databaseName: string,
-): Promise<IdbExportedDatabase> {
-  // Schema via the IDB CDP domain (more reliable than parsing from JS).
-  const { databaseWithObjectStores } = await client.send<{
-    databaseWithObjectStores: CdpDatabaseWithObjectStores;
-  }>("IndexedDB.requestDatabase", { securityOrigin, databaseName });
-
-  // Records via Runtime.evaluate — cursor-walks every store.
-  const dbNameLit = JSON.stringify(databaseName);
-  const expression = `
-    (async () => {
-      try {
-        const openReq = indexedDB.open(${dbNameLit});
-        const db = await new Promise((resolve, reject) => {
-          openReq.onsuccess = () => resolve(openReq.result);
-          openReq.onerror = () => reject(openReq.error?.message ?? 'open failed');
-        });
-        const storeNames = Array.from(db.objectStoreNames);
-        const out = {};
-        for (const storeName of storeNames) {
-          const tx = db.transaction(storeName, 'readonly');
-          const store = tx.objectStore(storeName);
-          const records = await new Promise((resolve, reject) => {
-            const acc = [];
-            const cursorReq = store.openCursor();
-            cursorReq.onsuccess = () => {
-              const cursor = cursorReq.result;
-              if (!cursor) return resolve(acc);
-              try {
-                acc.push({ key: cursor.primaryKey, value: cursor.value });
-              } catch (e) {
-                acc.push({ key: cursor.primaryKey, value: null });
-              }
-              cursor.continue();
-            };
-            cursorReq.onerror = () => reject(cursorReq.error?.message ?? 'cursor failed');
-          });
-          out[storeName] = records;
-        }
-        db.close();
-        return JSON.stringify({ ok: true, data: out });
-      } catch (e) {
-        return JSON.stringify({ error: String(e && e.message ? e.message : e) });
-      }
-    })()
-  `;
-  const result = await client.send<{ result: { value: string } }>("Runtime.evaluate", {
-    expression,
-    awaitPromise: true,
-    returnByValue: true,
-  });
-  const raw = (result.result as Record<string, unknown>).value as string;
-  const parsed = JSON.parse(raw) as {
-    ok?: boolean;
-    error?: string;
-    data?: Record<string, Array<{ key: unknown; value: unknown }>>;
-  };
-  if (parsed.error) throw new Error(parsed.error);
-  const records = parsed.data ?? {};
-
-  const stores: IdbExportedStore[] = databaseWithObjectStores.objectStores.map((s) => ({
-    name: s.name,
-    keyPath: cdpKeyPathToValue(s.keyPath),
-    autoIncrement: s.autoIncrement,
-    indexes: s.indexes.map((i) => ({
-      name: i.name,
-      keyPath: cdpKeyPathToValue(i.keyPath) ?? "",
-      unique: i.unique,
-      multiEntry: i.multiEntry,
-    })),
-    records: records[s.name] ?? [],
-  }));
-
-  return {
-    format: "capubridge-idb-export",
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    origin: securityOrigin,
-    database: {
-      name: databaseWithObjectStores.name,
-      version: databaseWithObjectStores.version,
-      stores,
-    },
-  };
-}
-
 export async function saveIdbExportToFile(
   exported: IdbExportedDatabase,
   defaultName: string,
@@ -191,13 +259,33 @@ export async function saveIdbExportToFile(
   });
   if (!dest) return null;
   const json = JSON.stringify(exported, null, 2);
-  await invokeCommand("save_base64_file", { path: dest, data: textToBase64(json) });
+  await invokeCommand("save_base64_file", {
+    path: dest,
+    data: bytesToBase64(new TextEncoder().encode(json)),
+  });
   return dest;
 }
 
 export interface PickedIdbExport {
   path: string;
   data: IdbExportedDatabase;
+  /** What a replace from this file would not restore exactly (`exportLoss`). */
+  lossy: string[];
+}
+
+/** Checks that parsed JSON is a Capubridge IndexedDB export this version can read. */
+export function parseIdbExport(text: string): IdbExportedDatabase {
+  const data = JSON.parse(text) as Partial<IdbExportedDatabase> | null;
+  if (!data || data.format !== "capubridge-idb-export") {
+    throw new Error("Not a Capubridge IndexedDB export file");
+  }
+  if (data.version !== 1 && data.version !== 2) {
+    throw new Error(`This export was made by a newer Capubridge (format ${String(data.version)})`);
+  }
+  if (!data.database || !Array.isArray(data.database.stores)) {
+    throw new Error("The export file has no database in it");
+  }
+  return data as IdbExportedDatabase;
 }
 
 export async function pickIdbExport(): Promise<PickedIdbExport | null> {
@@ -208,90 +296,6 @@ export async function pickIdbExport(): Promise<PickedIdbExport | null> {
   });
   if (!picked || Array.isArray(picked)) return null;
   const base64 = await invokeCommand("read_local_file_base64", { path: picked });
-  const text = new TextDecoder("utf-8").decode(base64ToBytes(base64));
-  const data = JSON.parse(text) as IdbExportedDatabase;
-  if (data.format !== "capubridge-idb-export") {
-    throw new Error("Not a Capubridge IndexedDB export file");
-  }
-  return { path: picked, data };
-}
-
-/**
- * Replace-import: delete the target database, then re-create the schema and
- * insert every record. Runs entirely inside the target via Runtime.evaluate.
- */
-export async function importDatabaseReplace(
-  client: CDPClient,
-  exported: IdbExportedDatabase,
-): Promise<void> {
-  const payload = JSON.stringify(exported.database);
-  const expression = `
-    (async () => {
-      try {
-        const payload = ${JSON.stringify(payload)};
-        const spec = JSON.parse(payload);
-        await new Promise((resolve, reject) => {
-          const req = indexedDB.deleteDatabase(spec.name);
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => reject(req.error?.message ?? 'delete failed');
-          req.onblocked = () => reject('delete blocked — close any tabs holding this database');
-        });
-        const targetVersion = Math.max(1, spec.version | 0);
-        const openReq = indexedDB.open(spec.name, targetVersion);
-        const db = await new Promise((resolve, reject) => {
-          openReq.onupgradeneeded = () => {
-            const upgradeDb = openReq.result;
-            for (const s of spec.stores) {
-              const opts = {};
-              if (s.keyPath !== null && s.keyPath !== undefined) opts.keyPath = s.keyPath;
-              if (s.autoIncrement) opts.autoIncrement = true;
-              const store = upgradeDb.createObjectStore(s.name, opts);
-              for (const idx of s.indexes || []) {
-                store.createIndex(idx.name, idx.keyPath, {
-                  unique: !!idx.unique,
-                  multiEntry: !!idx.multiEntry,
-                });
-              }
-            }
-          };
-          openReq.onsuccess = () => resolve(openReq.result);
-          openReq.onerror = () => reject(openReq.error?.message ?? 'open failed');
-          openReq.onblocked = () => reject('open blocked — close any tabs holding this database');
-        });
-
-        let inserted = 0;
-        for (const s of spec.stores) {
-          const records = s.records || [];
-          if (records.length === 0) continue;
-          const tx = db.transaction(s.name, 'readwrite');
-          const store = tx.objectStore(s.name);
-          for (const rec of records) {
-            if (s.keyPath === null || s.keyPath === undefined) {
-              store.put(rec.value, rec.key);
-            } else {
-              store.put(rec.value);
-            }
-            inserted++;
-          }
-          await new Promise((resolve, reject) => {
-            tx.oncomplete = () => resolve(true);
-            tx.onerror = () => reject(tx.error?.message ?? 'tx failed');
-            tx.onabort = () => reject(tx.error?.message ?? 'tx aborted');
-          });
-        }
-        db.close();
-        return JSON.stringify({ ok: true, inserted });
-      } catch (e) {
-        return JSON.stringify({ error: String(e && e.message ? e.message : e) });
-      }
-    })()
-  `;
-  const result = await client.send<{ result: { value: string } }>("Runtime.evaluate", {
-    expression,
-    awaitPromise: true,
-    returnByValue: true,
-  });
-  const raw = (result.result as Record<string, unknown>).value as string;
-  const parsed = JSON.parse(raw) as { ok?: boolean; error?: string; inserted?: number };
-  if (parsed.error) throw new Error(parsed.error);
+  const data = parseIdbExport(new TextDecoder("utf-8").decode(base64ToBytes(base64)));
+  return { path: picked, data, lossy: exportLoss(data) };
 }

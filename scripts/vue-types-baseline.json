@@ -47,21 +47,6 @@
   "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
     "errors": 5
   },
-  "apps/desktop/src/modules/storage/indexeddb/FilterBuilder.vue": {
-    "errors": 1
-  },
-  "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue": {
-    "errors": 9
-  },
-  "apps/desktop/src/modules/storage/indexeddb/IDBTable.vue": {
-    "errors": 5
-  },
-  "apps/desktop/src/modules/storage/indexeddb/IDBTableActions.vue": {
-    "errors": 6
-  },
-  "apps/desktop/src/modules/storage/indexeddb/IDBTableToolbar.vue": {
-    "errors": 1
-  },
   "apps/desktop/src/modules/storage/localstorage/LSExplorer.vue": {
     "errors": 1
   },

@@ -35,13 +35,19 @@ export interface GridRow {
   cells: Readonly<Record<string, unknown>>;
 }
 
-/** Changeset and freshness overlay for a row (R5c). */
+/**
+ * Changeset and freshness overlay for a row (R5c). `added`, `updated` and `deleted` are what
+ * the device did while the source was watched; `staged-*` are edits not yet saved.
+ */
 export type GridRowState =
   | "staged-edit"
   | "staged-insert"
   | "staged-delete"
   | "conflict"
-  | "recent";
+  | "recent"
+  | "added"
+  | "updated"
+  | "deleted";
 
 export type GridDensity = "compact" | "default" | "comfortable";
 
@@ -50,6 +56,12 @@ export const ROW_HEIGHT: Record<GridDensity, number> = {
   default: 26,
   comfortable: 30,
 };
+
+/** The cell an inline editor is open on. */
+export interface GridEditingCell {
+  rowId: string;
+  columnId: string;
+}
 
 export interface GridCellAddress {
   row: number;

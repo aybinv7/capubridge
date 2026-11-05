@@ -9,14 +9,14 @@ export const storageRoutes = [
       {
         path: "indexeddb/:db?/:store?",
         name: "storage-indexeddb",
-        component: () => import("./indexeddb/IDBExplorer.vue"),
+        component: () => import("./indexeddb/IndexedDBView.vue"),
         meta: { label: "IndexedDB", requires: "target" },
       },
       {
         path: "indexeddb-snapshot/:db?/:store?",
         name: "storage-indexeddb-snapshot",
-        component: () => import("./indexeddb/IDBExplorer.vue"),
-        meta: { label: "IndexedDB Snapshot", navigation: false },
+        component: () => import("./indexeddb/IndexedDBView.vue"),
+        meta: { label: "IndexedDB", navigation: false, tabPath: "/storage/indexeddb" },
       },
       {
         path: "localstorage",

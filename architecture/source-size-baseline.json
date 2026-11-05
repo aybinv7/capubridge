@@ -20,22 +20,10 @@
       "rationale": "Mirror backend combines stream lifecycle, codecs, capture, input, and event adapters; v2.4.0 adds bundled scrcpy binary resolution across release platforms, while MIR-01 owns the staged runtime split. Bumped from 1284 to 1379 for scrcpy 4.x protocol support (v2.4.3) — the server shifted its video-header layout (a new session packet, renumbered CONFIG/KEY_FRAME flag bits) and this fix adds version-aware parsing for both the handshake and per-frame path; splitting the added branches out would fragment one wire-format concern across files, not draw a real module boundary. Bumped from 1379 to 1401 for async IPC (UI rewrite R0.1) — screenshot, screen-size, keyevent and scrcpy launch/stop now run off the main thread through run_blocking; MIR-01 still owns the runtime split."
     },
     {
-      "path": "apps/desktop/src/modules/storage/indexeddb/IDBTable.vue",
-      "maxLines": 1105,
-      "owner": "Storage module",
-      "rationale": "IndexedDB table combines TanStack configuration, editing actions, change overlays, virtualization, and presentation; approved pending responsibility extraction."
-    },
-    {
       "path": "apps/desktop/src/modules/recording/ReplayDatabasesPanel.vue",
       "maxLines": 1129,
       "owner": "Recording module",
       "rationale": "Replay database surface coordinates IndexedDB and SQLite snapshots, changes, filters, dialogs, and tables; REC-01 owns further capability separation."
-    },
-    {
-      "path": "apps/desktop/src/modules/storage/indexeddb/IDBExplorer.vue",
-      "maxLines": 1038,
-      "owner": "Storage module",
-      "rationale": "IndexedDB explorer remains an orchestration surface for routing, metadata, paging, mutations, imports, exports, changes, and dialogs; approved pending focused composables."
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/sqlite.rs",

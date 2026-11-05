@@ -17,7 +17,11 @@ const props = defineProps<{
   rowSelected: boolean;
   focusCol: number | null;
   rangeCols: readonly [number, number] | null;
+  /** Display index of the cell an inline editor is open on, in this row. */
+  editingCol?: number | null;
 }>();
+
+defineSlots<{ editor?: () => unknown }>();
 
 /** Cladd table typography: sans text, tabular numbers, mono only where shape matters. */
 const KIND_CLASS: Record<CellKind, string> = {
@@ -37,6 +41,9 @@ const STATE_TINT: Record<GridRowState, string> = {
     "bg-[color-mix(in_oklab,var(--state-danger)_10%,transparent)] text-cladd-fg-softer line-through",
   conflict: "prov-stale",
   recent: "bg-[color-mix(in_oklab,var(--signal-select)_10%,transparent)]",
+  added: "bg-[color-mix(in_oklab,var(--state-success)_9%,transparent)]",
+  updated: "bg-[color-mix(in_oklab,var(--state-warning)_9%,transparent)]",
+  deleted: "text-cladd-fg-softer line-through opacity-75",
 };
 
 const STATE_BAR: Record<GridRowState, string> = {
@@ -45,6 +52,9 @@ const STATE_BAR: Record<GridRowState, string> = {
   "staged-delete": "bg-error",
   conflict: "bg-error",
   recent: "bg-signal-select",
+  added: "bg-success",
+  updated: "bg-warning",
+  deleted: "bg-error",
 };
 
 function format(entry: VisibleColumn) {
@@ -75,9 +85,10 @@ function cellClass(cell: ReturnType<typeof format>) {
       : "",
     cell.stick?.side === "right" && cell === right.value[0] ? "border-l border-cladd-outline" : "",
     inRange(cell.index) ? "bg-[color-mix(in_oklab,var(--cladd-primary)_9%,transparent)]" : "",
-    props.focusCol === cell.index
+    props.focusCol === cell.index && props.editingCol !== cell.index
       ? "rounded-cladd-3xs shadow-[inset_0_0_0_1.5px_var(--cladd-primary)]"
       : "",
+    props.editingCol === cell.index ? "z-40 overflow-visible px-0.5" : "",
   ];
 }
 
@@ -127,17 +138,20 @@ function cellStyle(cell: ReturnType<typeof format>) {
       :class="cellClass(cell)"
       :style="cellStyle(cell)"
     >
-      <span
-        v-if="cell.formatted.badge"
-        class="shrink-0 rounded-cladd-full-2xs bg-cladd-surface-next px-1.5 font-mono text-cladd-2xs leading-4 text-cladd-fg-soft"
-        >{{ cell.formatted.badge }}</span
-      >
-      <span
-        dir="auto"
-        class="truncate"
-        :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
-        >{{ cell.formatted.text }}</span
-      >
+      <slot v-if="editingCol === cell.index" name="editor" />
+      <template v-else>
+        <span
+          v-if="cell.formatted.badge"
+          class="shrink-0 rounded-cladd-full-2xs bg-cladd-surface-next px-1.5 font-mono text-cladd-2xs leading-4 text-cladd-fg-soft"
+          >{{ cell.formatted.badge }}</span
+        >
+        <span
+          dir="auto"
+          class="truncate"
+          :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
+          >{{ cell.formatted.text }}</span
+        >
+      </template>
     </div>
     <div v-if="leadingSpace > 0" class="shrink-0" :style="{ width: `${leadingSpace}px` }" />
     <div
@@ -153,17 +167,20 @@ function cellStyle(cell: ReturnType<typeof format>) {
       :class="cellClass(cell)"
       :style="cellStyle(cell)"
     >
-      <span
-        v-if="cell.formatted.badge"
-        class="shrink-0 rounded-cladd-full-2xs bg-cladd-surface-next px-1.5 font-mono text-cladd-2xs leading-4 text-cladd-fg-soft"
-        >{{ cell.formatted.badge }}</span
-      >
-      <span
-        dir="auto"
-        class="truncate"
-        :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
-        >{{ cell.formatted.text }}</span
-      >
+      <slot v-if="editingCol === cell.index" name="editor" />
+      <template v-else>
+        <span
+          v-if="cell.formatted.badge"
+          class="shrink-0 rounded-cladd-full-2xs bg-cladd-surface-next px-1.5 font-mono text-cladd-2xs leading-4 text-cladd-fg-soft"
+          >{{ cell.formatted.badge }}</span
+        >
+        <span
+          dir="auto"
+          class="truncate"
+          :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
+          >{{ cell.formatted.text }}</span
+        >
+      </template>
     </div>
     <div v-if="right.length > 0" class="min-w-0 flex-1" />
     <div
@@ -179,17 +196,20 @@ function cellStyle(cell: ReturnType<typeof format>) {
       :class="cellClass(cell)"
       :style="cellStyle(cell)"
     >
-      <span
-        v-if="cell.formatted.badge"
-        class="shrink-0 rounded-cladd-full-2xs bg-cladd-surface-next px-1.5 font-mono text-cladd-2xs leading-4 text-cladd-fg-soft"
-        >{{ cell.formatted.badge }}</span
-      >
-      <span
-        dir="auto"
-        class="truncate"
-        :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
-        >{{ cell.formatted.text }}</span
-      >
+      <slot v-if="editingCol === cell.index" name="editor" />
+      <template v-else>
+        <span
+          v-if="cell.formatted.badge"
+          class="shrink-0 rounded-cladd-full-2xs bg-cladd-surface-next px-1.5 font-mono text-cladd-2xs leading-4 text-cladd-fg-soft"
+          >{{ cell.formatted.badge }}</span
+        >
+        <span
+          dir="auto"
+          class="truncate"
+          :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
+          >{{ cell.formatted.text }}</span
+        >
+      </template>
     </div>
   </div>
 </template>

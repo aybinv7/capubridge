@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { computed, markRaw, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import type { IdbExportedDatabase } from "./idbImportExport";
 
@@ -6,26 +6,35 @@ export interface IdbSnapshotEntry {
   id: string;
   importedAt: number;
   sourcePath: string;
+  /** The file's content, kept raw: it is read-only and can hold a whole database. */
   data: IdbExportedDatabase;
+  /** What the file cannot restore exactly (see `exportLoss`). */
+  lossy: string[];
 }
 
+/** IndexedDB exports opened in this session ("Opened files"); kept in memory only. */
 export const useIdbSnapshotStore = defineStore("idb-snapshot", () => {
-  const snapshots = ref<IdbSnapshotEntry[]>([]);
+  const snapshots = shallowRef<IdbSnapshotEntry[]>([]);
 
-  function addSnapshot(sourcePath: string, data: IdbExportedDatabase): IdbSnapshotEntry {
+  function addSnapshot(
+    sourcePath: string,
+    data: IdbExportedDatabase,
+    lossy: string[] = [],
+  ): IdbSnapshotEntry {
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const entry: IdbSnapshotEntry = {
       id,
       importedAt: Date.now(),
       sourcePath,
-      data,
+      data: markRaw(data),
+      lossy,
     };
     snapshots.value = [...snapshots.value, entry];
     return entry;
   }
 
   function removeSnapshot(id: string) {
-    snapshots.value = snapshots.value.filter((s) => s.id !== id);
+    snapshots.value = snapshots.value.filter((entry) => entry.id !== id);
   }
 
   function clear() {
@@ -33,7 +42,7 @@ export const useIdbSnapshotStore = defineStore("idb-snapshot", () => {
   }
 
   function getById(id: string): IdbSnapshotEntry | undefined {
-    return snapshots.value.find((s) => s.id === id);
+    return snapshots.value.find((entry) => entry.id === id);
   }
 
   const hasAny = computed(() => snapshots.value.length > 0);

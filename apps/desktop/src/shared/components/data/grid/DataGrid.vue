@@ -32,6 +32,7 @@ import {
   type GridContextAction,
   type GridContextTarget,
   type GridDensity,
+  type GridEditingCell,
   type GridRow,
   type GridRowState,
   type GridSort,
@@ -60,6 +61,10 @@ const props = withDefaults(
     /** Rows open something (a group, a record) on Enter / double-click instead of editing. */
     activateRows?: boolean;
     contextActions?: (target: GridContextTarget) => GridContextAction[];
+    /** The cell an inline editor is open on; the host renders it through the `editor` slot. */
+    editing?: GridEditingCell | null;
+    /** Persists pinned columns and hand-set widths under this key (one per table). */
+    layoutKey?: string | null;
   }>(),
   {
     loading: false,
@@ -74,6 +79,8 @@ const props = withDefaults(
     columnFeatures: () => ({ filter: false, group: false, showAs: true }),
     activateRows: false,
     contextActions: undefined,
+    editing: null,
+    layoutKey: null,
   },
 );
 
@@ -90,7 +97,10 @@ const emit = defineEmits<{
   activeRow: [rowId: string | null];
 }>();
 
-defineSlots<{ empty?: () => unknown }>();
+defineSlots<{
+  empty?: () => unknown;
+  editor?: (scope: { rowId: string; column: GridColumn; value: unknown }) => unknown;
+}>();
 
 const gridId = `grid-${useId()}`;
 const HEADER_HEIGHT = 30;
@@ -140,6 +150,7 @@ const layout = useGridColumns({
   rows: displayRows,
   gutterWidth,
   scroller,
+  layoutKey: computed(() => props.layoutKey),
 });
 const orderedColumns = layout.ordered;
 
@@ -192,8 +203,12 @@ function gutterFromEvent(event: Event): number | null {
   return Number.isInteger(row) ? row : null;
 }
 
+function fromEditor(event: Event): boolean {
+  return event.target instanceof Element && event.target.closest("[data-grid-editor]") !== null;
+}
+
 function onPointerDown(event: PointerEvent) {
-  if (event.button !== 0) return;
+  if (event.button !== 0 || fromEditor(event)) return;
   if (event.target instanceof Element && event.target.closest('[role="columnheader"]')) return;
   scroller.value?.focus({ preventScroll: true });
   const gutter = gutterFromEvent(event);
@@ -218,6 +233,7 @@ function requestEdit(row: number, col: number) {
 }
 
 function onDoubleClick(event: MouseEvent) {
+  if (fromEditor(event)) return;
   const cell = cellFromEvent(event);
   if (cell) requestEdit(cell.row, cell.col);
 }
@@ -228,6 +244,7 @@ function visibleRowCount(): number {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (fromEditor(event)) return;
   const intent = gridIntent(event);
   if (!intent) return;
   const focus = grid.selection.value.focus;
@@ -307,9 +324,25 @@ const headerCells = computed(() => [
   ...layout.pinnedRight.value,
 ]);
 
+const editingColIndex = computed(() =>
+  props.editing
+    ? orderedColumns.value.findIndex((column) => column.id === props.editing?.columnId)
+    : -1,
+);
+const editingColumn = computed(() =>
+  editingColIndex.value >= 0 ? orderedColumns.value[editingColIndex.value] : undefined,
+);
+
+function editingColFor(rowId: string | undefined): number | null {
+  return props.editing && rowId === props.editing.rowId && editingColIndex.value >= 0
+    ? editingColIndex.value
+    : null;
+}
+
 const menuTarget = shallowRef<GridContextTarget | null>(null);
 
 function onContextMenu(event: MouseEvent) {
+  if (fromEditor(event)) return;
   const focus = grid.selection.value.focus;
   const fromKeyboard = event.target === scroller.value;
   const cell = fromKeyboard && focus ? { row: focus.row, col: focus.col } : cellFromEvent(event);
@@ -451,7 +484,17 @@ defineExpose({
               grid.selection.value.focus?.row === item.index ? grid.selection.value.focus.col : null
             "
             :range-cols="rowRangeCols(item.index)"
-          />
+            :editing-col="editingColFor(displayRows[item.index]?.id)"
+          >
+            <template v-if="editing && editingColumn" #editor>
+              <slot
+                name="editor"
+                :rowId="editing.rowId"
+                :column="editingColumn"
+                :value="displayRows[item.index]?.cells[editing.columnId]"
+              />
+            </template>
+          </DataGridRow>
         </div>
 
         <div

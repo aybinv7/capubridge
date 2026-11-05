@@ -25,10 +25,69 @@ function clip(text: string): string {
   return text.length > MAX_PREVIEW ? `${text.slice(0, MAX_PREVIEW)}…` : text;
 }
 
-function isTypedBlob(
-  value: object,
-): value is { __type: string; size?: number; byteLength?: number } {
+function isTypedBlob(value: object): value is { __type: string } & Record<string, unknown> {
   return "__type" in value && typeof (value as { __type: unknown }).__type === "string";
+}
+
+type Marker = { __type: string } & Record<string, unknown>;
+
+function field(marker: Marker, name: string): unknown {
+  return marker[name];
+}
+
+function plain(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  return fallback;
+}
+
+/**
+ * Text for a value the source cannot carry as JSON (an IndexedDB `__type` marker): what it is
+ * and how big, never the raw marker object.
+ */
+export function describeMarker(marker: Marker): string {
+  const type = marker.__type;
+  const bytes = field(marker, "size") ?? field(marker, "byteLength");
+  switch (type) {
+    case "Date":
+    case "Number":
+      return plain(field(marker, "value"));
+    case "BigInt":
+      return `${plain(field(marker, "value"))}n`;
+    case "Map":
+      return `Map of ${plain(field(marker, "size"), "0")}`;
+    case "Set":
+      return `Set of ${plain(field(marker, "size"), "0")}`;
+    case "Undefined":
+      return "undefined";
+    case "RegExp":
+      return `/${plain(field(marker, "source"))}/${plain(field(marker, "flags"), "")}`;
+    case "Error":
+      return `${plain(field(marker, "name"))}: ${plain(field(marker, "message"))}`;
+    case "File":
+      return `File ${plain(field(marker, "name"), "")} ${typeof bytes === "number" ? byteSize(bytes) : ""}`.trim();
+    case "TooLarge":
+      return `Too large to show · ${byteSize(Number(field(marker, "bytes") ?? 0))}`;
+    case "Circular":
+      return "Refers back to itself";
+    case "MaxDepth":
+    case "MaxNodes":
+      return "Nested too deep to show";
+    case "Escaped":
+      return "Object with a __type field";
+    default:
+      return typeof bytes === "number" ? `${type} ${byteSize(bytes)}` : type;
+  }
+}
+
+function formatMarker(marker: Marker): FormattedCell {
+  if (marker.__type === "Date") return { kind: "date", text: describeMarker(marker), align: "end" };
+  if (marker.__type === "Number" || marker.__type === "BigInt") {
+    return { kind: "number", text: describeMarker(marker), align: "end" };
+  }
+  return { kind: "blob", text: describeMarker(marker), align: "start" };
 }
 
 /** Epoch numbers: seconds below 10^11 (year 5138), milliseconds above. */
@@ -102,17 +161,7 @@ export function formatCell(value: unknown, type?: GridColumnType): FormattedCell
     };
   }
   if (typeof value === "object") {
-    if (isTypedBlob(value)) {
-      if (value.__type === "Date" && "value" in value) {
-        return { kind: "date", text: String((value as { value: unknown }).value), align: "end" };
-      }
-      const bytes = value.size ?? value.byteLength;
-      return {
-        kind: "blob",
-        text: bytes === undefined ? value.__type : `${value.__type} ${byteSize(bytes)}`,
-        align: "start",
-      };
-    }
+    if (isTypedBlob(value)) return formatMarker(value);
     const badge = Array.isArray(value) ? `[${value.length}]` : `{${Object.keys(value).length}}`;
     let text: string;
     try {

@@ -29,8 +29,10 @@ import { useStorageGraphHistory } from "@/modules/storage/graph/useStorageGraphH
 import { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import type { StorageGraphNodeAnnotation } from "@/types/storageGraph.types";
 import { useRouter } from "vue-router";
+import { useIndexedDBChangesLease } from "@/modules/storage/changes/useIndexedDBChangesTracking";
 
 const router = useRouter();
+useIndexedDBChangesLease();
 const graphStore = useStorageGraphStore();
 const {
   scopeKey,

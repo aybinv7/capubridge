@@ -9,7 +9,10 @@ import type {
 } from "@/types/storageChanges.types";
 import { IDB_CHANGE_MAX_FEED_ENTRIES } from "@/modules/storage/changes/indexeddbChanges.service";
 
-type TrackingStatus = "idle" | "priming" | "tracking" | "error";
+type TrackingStatus = "idle" | "priming" | "tracking" | "paused" | "error";
+
+/** How long after Capubridge writes a record a change to it is still taken as its own. */
+const OWN_WRITE_WINDOW_MS = 15_000;
 
 function makeId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -28,6 +31,7 @@ export const useIndexedDBChangesStore = defineStore("indexeddb-changes", () => {
   const catalog = shallowRef<Record<string, IndexedDBStoreCatalogEntry>>({});
   const snapshots = shallowRef<Record<string, IndexedDBStoreSnapshot>>({});
   const pendingStoreKeys = ref<Set<string>>(new Set());
+  const ownWrites = new Map<string, number>();
 
   const catalogEntries = computed(() => Object.values(catalog.value));
   const snapshotEntries = computed(() => Object.values(snapshots.value));
@@ -207,6 +211,20 @@ export const useIndexedDBChangesStore = defineStore("indexeddb-changes", () => {
     lastEventAt.value = observedAt;
   }
 
+  /** Remembers records Capubridge itself wrote, so the next diff does not credit the app. */
+  function noteOwnWrite(storeKey: string, serializedKeys: readonly string[]) {
+    const now = Date.now();
+    for (const key of serializedKeys) ownWrites.set(`${storeKey}::${key}`, now);
+    for (const [entry, at] of ownWrites) {
+      if (now - at > OWN_WRITE_WINDOW_MS) ownWrites.delete(entry);
+    }
+  }
+
+  function isOwnWrite(storeKey: string, serializedKey: string): boolean {
+    const at = ownWrites.get(`${storeKey}::${serializedKey}`);
+    return at !== undefined && Date.now() - at <= OWN_WRITE_WINDOW_MS;
+  }
+
   return {
     session,
     status,
@@ -245,5 +263,7 @@ export const useIndexedDBChangesStore = defineStore("indexeddb-changes", () => {
     drainPendingStoreKeys,
     clearPendingStoreKeys,
     markEventObserved,
+    noteOwnWrite,
+    isOwnWrite,
   };
 });

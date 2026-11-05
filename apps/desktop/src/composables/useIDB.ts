@@ -45,26 +45,14 @@ export function useIDB() {
         pageSize.value,
       ]),
       queryFn: async () => {
-        console.log("[IDB] useRecords queryFn running:", {
-          origin: origin.value,
-          db: dbName.value,
-          store: storeName.value,
+        const domain = getDomain();
+        return domain.getData({
+          securityOrigin: origin.value,
+          databaseName: dbName.value,
+          objectStoreName: storeName.value,
+          skipCount: page.value * pageSize.value,
+          pageSize: pageSize.value,
         });
-        try {
-          const domain = getDomain();
-          const result = await domain.getData({
-            securityOrigin: origin.value,
-            databaseName: dbName.value,
-            objectStoreName: storeName.value,
-            skipCount: page.value * pageSize.value,
-            pageSize: pageSize.value,
-          });
-          console.log("[IDB] useRecords result:", result);
-          return result;
-        } catch (err) {
-          console.error("[IDB] useRecords error:", err);
-          throw err;
-        }
       },
       enabled: computed(
         () => !!targetId.value && !!origin.value && !!dbName.value && !!storeName.value,
@@ -77,11 +65,8 @@ export function useIDB() {
     return useQuery<StoreInfo[]>({
       queryKey: computed(() => ["idb-store-info", targetId.value, origin.value, dbName.value]),
       queryFn: async () => {
-        console.log("[IDB] getStoreInfo running, db:", dbName.value, "origin:", origin.value);
         const domain = getDomain();
-        const result = await domain.getStoreInfo(dbName.value, origin.value);
-        console.log("[IDB] getStoreInfo result count:", result.length);
-        return result;
+        return domain.getStoreInfo(dbName.value, origin.value);
       },
       enabled: computed(() => !!targetId.value && !!dbName.value && !!origin.value),
       retry: (failureCount, error) => {

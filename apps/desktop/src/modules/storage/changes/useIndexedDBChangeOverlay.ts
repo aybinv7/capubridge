@@ -65,6 +65,61 @@ function decorateRecord(
   };
 }
 
+const OFF_PAGE_REASON =
+  "Changed on the device after this page was read. This is the copy seen then; refresh to edit it.";
+const DELETED_REASON = "Deleted on the device.";
+
+/**
+ * Puts records the device changed first. A changed record that is on the page keeps the
+ * live record (its primary key and whether it can be saved); one that is not, or that was
+ * deleted, is shown from the change log and is read-only, because that copy is normalised
+ * (sorted keys, `__type` markers) and saving it would overwrite the real value.
+ */
+export function overlayRecordChanges(
+  records: readonly IDBRecord[],
+  changesByKey: ReadonlyMap<string, IndexedDBRecordChangeEntry>,
+): IndexedDBDecoratedRecord[] {
+  const currentByKey = new Map<string, IDBRecord>();
+  for (const record of records) currentByKey.set(serializeKey(record.key), record);
+
+  const promoted: IndexedDBDecoratedRecord[] = [];
+  const promotedKeys = new Set<string>();
+  for (const [key, change] of changesByKey) {
+    const current = currentByKey.get(key);
+    let record: IDBRecord | null = null;
+    if (change.operation === "delete") {
+      if (change.beforeValue !== undefined) {
+        record = {
+          key: change.key,
+          value: change.beforeValue,
+          editable: false,
+          readOnlyReason: DELETED_REASON,
+        };
+      }
+    } else if (current) {
+      record = current;
+    } else if (change.afterValue !== undefined) {
+      record = {
+        key: change.key,
+        value: change.afterValue,
+        editable: false,
+        readOnlyReason: OFF_PAGE_REASON,
+      };
+    }
+    if (!record) continue;
+    promoted.push(decorateRecord(record, change));
+    promotedKeys.add(key);
+  }
+
+  const rest = records
+    .filter((record) => !promotedKeys.has(serializeKey(record.key)))
+    .map((record) => {
+      const change = changesByKey.get(serializeKey(record.key));
+      return change ? decorateRecord(record, change) : record;
+    });
+  return [...promoted, ...rest];
+}
+
 export function useIndexedDBChangeIndex() {
   const changesStore = useIndexedDBChangesStore();
   const { changes } = storeToRefs(changesStore);
@@ -158,46 +213,9 @@ export function useIndexedDBTableChangeOverlay(
     return changesByKey;
   });
 
-  const recordsWithChanges = computed<IndexedDBDecoratedRecord[]>(() => {
-    const currentByKey = new Map<string, IDBRecord>();
-
-    for (const record of records.value) {
-      currentByKey.set(serializeKey(record.key), record);
-    }
-
-    const promoted: IndexedDBDecoratedRecord[] = [];
-    const promotedKeys = new Set<string>();
-
-    for (const [key, change] of recordChangesByKey.value) {
-      const currentRecord = currentByKey.get(key);
-      const value =
-        change.operation === "delete"
-          ? change.beforeValue
-          : (currentRecord?.value ?? change.afterValue);
-
-      if (value === undefined) continue;
-
-      promoted.push(
-        decorateRecord(
-          {
-            key: change.key,
-            value,
-          },
-          change,
-        ),
-      );
-      promotedKeys.add(key);
-    }
-
-    const rest = records.value
-      .filter((record) => !promotedKeys.has(serializeKey(record.key)))
-      .map((record) => {
-        const change = recordChangesByKey.value.get(serializeKey(record.key));
-        return change ? decorateRecord(record, change) : record;
-      });
-
-    return [...promoted, ...rest];
-  });
+  const recordsWithChanges = computed<IndexedDBDecoratedRecord[]>(() =>
+    overlayRecordChanges(records.value, recordChangesByKey.value),
+  );
 
   const storeSummary = computed(() =>
     getStoreSummary(origin.value, databaseName.value, objectStoreName.value),

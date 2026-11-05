@@ -1,327 +1,168 @@
-import { computed, onScopeDispose, watch } from "vue";
+import { computed, effectScope, onScopeDispose, watch, type EffectScope } from "vue";
+import { useDocumentVisibility } from "@vueuse/core";
 import { IDBDomain } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
+import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
-import {
-  buildStoreKey,
-  captureStoreSnapshot,
-  diffStoreSnapshots,
-  fetchOriginCatalog,
-} from "./indexeddbChanges.service";
+import { buildStoreKey, serializeKey } from "./indexeddbChanges.service";
+import { createChangeTracker, type ChangeTracker } from "./indexeddbChangeTracker";
 
 interface IndexedDBContentUpdatedEvent {
   origin: string;
-  storageKey: string;
-  bucketId: string;
   databaseName: string;
   objectStoreName: string;
 }
 
 interface IndexedDBListUpdatedEvent {
   origin: string;
-  storageKey: string;
-  bucketId: string;
 }
 
-function parseStoreKey(storeKey: string) {
-  const [origin, databaseName, objectStoreName] = storeKey.split("::");
-  return {
-    origin: origin ?? "",
-    databaseName: databaseName ?? "",
-    objectStoreName: objectStoreName ?? "",
-  };
-}
+const FLUSH_DELAY_MS = 220;
+const CATALOG_DELAY_MS = 180;
 
-export function useIndexedDBChangesTracking() {
+let holders = 0;
+let scope: EffectScope | null = null;
+
+function runTracking() {
   const targetsStore = useTargetsStore();
   const storageContextStore = useStorageContextStore();
   const changesStore = useIndexedDBChangesStore();
+  const presenceStore = useTargetPresenceStore();
+  const visibility = useDocumentVisibility();
   const { getClient } = useCDP();
 
   const targetId = computed(() => targetsStore.cdpTargetId);
   const origin = computed(() => storageContextStore.getSelectedOrigin(targetId.value));
+  const paused = computed(
+    () =>
+      visibility.value === "hidden" ||
+      presenceStore.presence === "background" ||
+      presenceStore.presence === "view-hidden",
+  );
 
-  let sessionVersion = 0;
+  let tracker: ChangeTracker | null = null;
   let flushTimer: number | null = null;
-  let refreshTimer: number | null = null;
-  let unsubscribers: Array<() => void> = [];
-  let trackedTargetId = "";
-  let trackedOrigin = "";
+  let catalogTimer: number | null = null;
 
   function clearTimers() {
-    if (flushTimer !== null) {
-      window.clearTimeout(flushTimer);
-      flushTimer = null;
-    }
-
-    if (refreshTimer !== null) {
-      window.clearTimeout(refreshTimer);
-      refreshTimer = null;
-    }
+    if (flushTimer !== null) window.clearTimeout(flushTimer);
+    if (catalogTimer !== null) window.clearTimeout(catalogTimer);
+    flushTimer = null;
+    catalogTimer = null;
   }
 
-  function cleanupActiveTracking() {
-    clearTimers();
-
-    for (const unsubscribe of unsubscribers) {
-      unsubscribe();
-    }
-
-    unsubscribers = [];
-    changesStore.clearPendingStoreKeys();
-
-    const previousTargetId = trackedTargetId;
-    const previousOrigin = trackedOrigin;
-
-    trackedTargetId = "";
-    trackedOrigin = "";
-
-    if (previousTargetId && previousOrigin) {
-      const previousClient = getClient(previousTargetId);
-
-      if (previousClient) {
-        void previousClient
-          .send("Storage.untrackIndexedDBForOrigin", {
-            origin: previousOrigin,
-          })
-          .catch((error) => {
-            console.warn("Failed to stop IndexedDB change tracking", previousOrigin, error);
-          });
-      }
-    }
-  }
-
-  async function primeCatalog(idbDomain: IDBDomain, activeOrigin: string, version: number) {
-    const previousCatalogEntries = changesStore.catalogEntries;
-    const previousSnapshots = changesStore.snapshots;
-    const catalog = await fetchOriginCatalog(idbDomain, activeOrigin);
-
-    if (version !== sessionVersion) return;
-
-    const nextStoreKeys = new Set(catalog.map((entry) => entry.storeKey));
-    const removedStoreKeys = previousCatalogEntries
-      .map((entry) => entry.storeKey)
-      .filter((storeKey) => !nextStoreKeys.has(storeKey));
-
-    changesStore.setCatalog(catalog);
-
-    if (removedStoreKeys.length > 0) {
-      changesStore.removeSnapshots(removedStoreKeys);
-
-      for (const storeKey of removedStoreKeys) {
-        const removed = parseStoreKey(storeKey);
-        changesStore.addSystemChange({
-          observedAt: new Date().toISOString(),
-          origin: removed.origin,
-          databaseName: removed.databaseName,
-          objectStoreName: removed.objectStoreName,
-          message: `Stopped tracking ${removed.databaseName}.${removed.objectStoreName} because it is no longer available`,
-        });
-      }
-    }
-
-    for (const descriptor of catalog) {
-      if (previousSnapshots[descriptor.storeKey] ?? changesStore.getSnapshot(descriptor.storeKey)) {
-        continue;
-      }
-
-      const snapshot = await captureStoreSnapshot(idbDomain, descriptor);
-
-      if (version !== sessionVersion) return;
-
-      changesStore.upsertSnapshot(snapshot);
-
-      if (!snapshot.tracked) {
-        changesStore.addSystemChange({
-          observedAt: snapshot.lastSyncedAt,
-          origin: snapshot.origin,
-          databaseName: snapshot.databaseName,
-          objectStoreName: snapshot.objectStoreName,
-          message:
-            snapshot.reason ??
-            `Tracking is disabled for ${snapshot.databaseName}.${snapshot.objectStoreName}`,
-        });
-      }
-    }
-  }
-
-  async function flushDirtyStores(idbDomain: IDBDomain, activeOrigin: string, version: number) {
-    const dirtyStoreKeys = changesStore.drainPendingStoreKeys();
-
-    if (dirtyStoreKeys.length === 0) return;
-
-    const observedAt = new Date().toISOString();
-
-    for (const storeKey of dirtyStoreKeys) {
-      if (version !== sessionVersion) return;
-
-      let descriptor = changesStore.getCatalogEntry(storeKey);
-
-      if (!descriptor) {
-        await primeCatalog(idbDomain, activeOrigin, version);
-
-        if (version !== sessionVersion) return;
-
-        descriptor = changesStore.getCatalogEntry(storeKey);
-
-        if (!descriptor) {
-          const missing = parseStoreKey(storeKey);
-          changesStore.addSystemChange({
-            observedAt,
-            origin: missing.origin || activeOrigin,
-            databaseName: missing.databaseName,
-            objectStoreName: missing.objectStoreName,
-            message: `Change detected for ${missing.databaseName}.${missing.objectStoreName}, but the store catalog could not be resolved`,
-          });
-          continue;
-        }
-      }
-
-      const previousSnapshot = changesStore.getSnapshot(storeKey);
-      const nextSnapshot = await captureStoreSnapshot(idbDomain, descriptor);
-
-      if (version !== sessionVersion) return;
-
-      changesStore.upsertSnapshot(nextSnapshot);
-
-      if (!previousSnapshot) {
-        continue;
-      }
-
-      if (!previousSnapshot.tracked || !nextSnapshot.tracked) {
-        if (
-          !nextSnapshot.tracked &&
-          (previousSnapshot.tracked || previousSnapshot.reason !== nextSnapshot.reason)
-        ) {
-          changesStore.addSystemChange({
-            observedAt,
-            origin: nextSnapshot.origin,
-            databaseName: nextSnapshot.databaseName,
-            objectStoreName: nextSnapshot.objectStoreName,
-            message:
-              nextSnapshot.reason ??
-              `Tracking is disabled for ${nextSnapshot.databaseName}.${nextSnapshot.objectStoreName}`,
-          });
-        }
-        continue;
-      }
-
-      const diffEntries = diffStoreSnapshots(previousSnapshot, nextSnapshot, observedAt);
-
-      if (diffEntries.length > 0) {
-        changesStore.addChanges(diffEntries);
-      }
-    }
-
-    changesStore.markEventObserved(observedAt);
-  }
-
-  function scheduleFlush(idbDomain: IDBDomain, activeOrigin: string, version: number) {
-    if (flushTimer !== null) return;
-
+  function scheduleFlush() {
+    if (flushTimer !== null || paused.value) return;
     flushTimer = window.setTimeout(() => {
       flushTimer = null;
-      void flushDirtyStores(idbDomain, activeOrigin, version);
-    }, 220);
+      void tracker?.flush();
+    }, FLUSH_DELAY_MS);
   }
 
-  function scheduleCatalogRefresh(idbDomain: IDBDomain, activeOrigin: string, version: number) {
-    if (refreshTimer !== null) {
-      window.clearTimeout(refreshTimer);
-    }
-
-    refreshTimer = window.setTimeout(() => {
-      refreshTimer = null;
-      void primeCatalog(idbDomain, activeOrigin, version);
-    }, 180);
+  function scheduleCatalog() {
+    if (catalogTimer !== null) window.clearTimeout(catalogTimer);
+    catalogTimer = window.setTimeout(() => {
+      catalogTimer = null;
+      void tracker?.prime();
+    }, CATALOG_DELAY_MS);
   }
+
+  watch(paused, (isPaused) => {
+    if (!tracker) return;
+    changesStore.setStatus(isPaused ? "paused" : "tracking");
+    if (!isPaused && changesStore.pendingStoreKeys.size > 0) scheduleFlush();
+  });
 
   watch(
     [targetId, origin],
     async ([nextTargetId, nextOrigin], _previous, onCleanup) => {
-      sessionVersion += 1;
-      const version = sessionVersion;
-
-      cleanupActiveTracking();
+      clearTimers();
+      tracker?.stop();
+      tracker = null;
       changesStore.finishSession();
-
-      if (!nextTargetId || !nextOrigin) {
-        return;
-      }
+      if (!nextTargetId || !nextOrigin) return;
 
       const client = getClient(nextTargetId);
-
+      changesStore.startSession(nextTargetId, nextOrigin);
       if (!client) {
-        changesStore.startSession(nextTargetId, nextOrigin);
         changesStore.setErrorMessage("No active CDP connection");
         return;
       }
 
-      const idbDomain = new IDBDomain(client);
+      const current = createChangeTracker({
+        domain: new IDBDomain(client),
+        origin: nextOrigin,
+        store: changesStore,
+        isOwnWrite: (storeKey, key) => changesStore.isOwnWrite(storeKey, serializeKey(key)),
+      });
+      tracker = current;
 
-      trackedTargetId = nextTargetId;
-      trackedOrigin = nextOrigin;
-
-      changesStore.startSession(nextTargetId, nextOrigin);
-
-      const handleContentUpdated = (payload: unknown) => {
-        const event = payload as IndexedDBContentUpdatedEvent;
-
-        if (event.origin !== nextOrigin) return;
-
-        changesStore.queueStore(
-          buildStoreKey(event.origin, event.databaseName, event.objectStoreName),
-        );
-        scheduleFlush(idbDomain, nextOrigin, version);
-      };
-
-      const handleListUpdated = (payload: unknown) => {
-        const event = payload as IndexedDBListUpdatedEvent;
-
-        if (event.origin !== nextOrigin) return;
-
-        scheduleCatalogRefresh(idbDomain, nextOrigin, version);
-      };
-
-      unsubscribers = [
-        client.on("Storage.indexedDBContentUpdated", handleContentUpdated),
-        client.on("Storage.indexedDBListUpdated", handleListUpdated),
+      const unsubscribers = [
+        client.on("Storage.indexedDBContentUpdated", (payload: unknown) => {
+          const event = payload as IndexedDBContentUpdatedEvent;
+          if (event.origin !== nextOrigin) return;
+          changesStore.queueStore(
+            buildStoreKey(event.origin, event.databaseName, event.objectStoreName),
+          );
+          scheduleFlush();
+        }),
+        client.on("Storage.indexedDBListUpdated", (payload: unknown) => {
+          if ((payload as IndexedDBListUpdatedEvent).origin === nextOrigin) scheduleCatalog();
+        }),
       ];
 
       onCleanup(() => {
-        cleanupActiveTracking();
+        clearTimers();
+        current.stop();
+        for (const unsubscribe of unsubscribers) unsubscribe();
+        changesStore.clearPendingStoreKeys();
+        void client
+          .send("Storage.untrackIndexedDBForOrigin", { origin: nextOrigin })
+          .catch((error: unknown) => {
+            console.warn("Failed to stop IndexedDB change tracking", nextOrigin, error);
+          });
       });
 
       try {
-        await client.send("Storage.trackIndexedDBForOrigin", {
-          origin: nextOrigin,
-        });
-
-        if (version !== sessionVersion) return;
-
-        await primeCatalog(idbDomain, nextOrigin, version);
-
-        if (version !== sessionVersion) return;
-
-        changesStore.setStatus("tracking");
+        await client.send("Storage.trackIndexedDBForOrigin", { origin: nextOrigin });
+        if (current.stopped) return;
+        await current.prime();
+        if (current.stopped) return;
+        changesStore.setStatus(paused.value ? "paused" : "tracking");
         changesStore.setErrorMessage(null);
       } catch (error) {
-        if (version !== sessionVersion) return;
-        changesStore.setErrorMessage(String(error));
+        if (!current.stopped) changesStore.setErrorMessage(String(error));
       }
     },
     { immediate: true },
   );
 
   onScopeDispose(() => {
-    cleanupActiveTracking();
+    clearTimers();
+    tracker?.stop();
+    tracker = null;
     changesStore.finishSession();
   });
+}
 
-  return {
-    targetId,
-    origin,
-  };
+/**
+ * Watches the selected origin's IndexedDB for device changes while a screen that shows them
+ * is mounted (IndexedDB, Graph). One tracker however many screens hold it; it pauses while the
+ * window is hidden or the app is in the background, and stops when the last holder leaves.
+ */
+export function useIndexedDBChangesLease() {
+  holders += 1;
+  if (holders === 1) {
+    scope = effectScope(true);
+    scope.run(runTracking);
+  }
+  onScopeDispose(() => {
+    holders -= 1;
+    if (holders === 0) {
+      scope?.stop();
+      scope = null;
+    }
+  });
 }

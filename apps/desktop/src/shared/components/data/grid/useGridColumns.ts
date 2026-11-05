@@ -7,6 +7,7 @@ import {
   measureColumnWidths,
   type TextMeasure,
 } from "./columnSizing";
+import { readPersisted, writePersisted } from "@/lib/persisted";
 import type { GridColumn, GridColumnType, GridRow, VisibleColumn } from "./types";
 
 const INITIAL_RECT = { width: 1200, height: 720 };
@@ -24,6 +25,21 @@ export interface GridColumnsOptions {
   rows: Ref<readonly GridRow[]>;
   gutterWidth: Ref<number>;
   scroller: Ref<HTMLElement | null>;
+  /** Storage key under which pins and hand-set widths are kept; `null` keeps them in memory. */
+  layoutKey?: Ref<string | null>;
+}
+
+interface StoredLayout {
+  pins: Record<string, "left" | "right">;
+  widths: Record<string, number>;
+}
+
+const LAYOUT_PREFIX = "capubridge:grid-layout:";
+
+function isStoredLayout(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const layout = value as Partial<StoredLayout>;
+  return typeof layout.pins === "object" && typeof layout.widths === "object";
 }
 
 function fontFamily(variable: string, fallback: string): string {
@@ -39,6 +55,30 @@ export function useGridColumns(options: GridColumnsOptions) {
   const pins = ref<Record<string, "left" | "right">>({});
   const userWidths = ref<Record<string, number>>({});
   const autoWidths = shallowRef<Record<string, number>>({});
+
+  let loadingLayout = false;
+  watch(
+    () => options.layoutKey?.value ?? null,
+    (key) => {
+      loadingLayout = true;
+      const stored = key
+        ? readPersisted<StoredLayout>(
+            `${LAYOUT_PREFIX}${key}`,
+            { pins: {}, widths: {} },
+            isStoredLayout,
+          )
+        : { pins: {}, widths: {} };
+      pins.value = { ...stored.pins };
+      userWidths.value = { ...stored.widths };
+      loadingLayout = false;
+    },
+    { immediate: true },
+  );
+  watch([pins, userWidths], ([nextPins, nextWidths]) => {
+    const key = options.layoutKey?.value;
+    if (!key || loadingLayout || stopResize) return;
+    writePersisted(`${LAYOUT_PREFIX}${key}`, { pins: nextPins, widths: nextWidths });
+  });
 
   let sans: TextMeasure | null = null;
   let mono: TextMeasure | null = null;
@@ -98,6 +138,7 @@ export function useGridColumns(options: GridColumnsOptions) {
   );
 
   watch(columnsKey, () => {
+    if (options.columns.value.length === 0) return;
     const present = new Set(options.columns.value.map((column) => column.id));
     pins.value = Object.fromEntries(Object.entries(pins.value).filter(([id]) => present.has(id)));
   });
@@ -242,6 +283,10 @@ export function useGridColumns(options: GridColumnsOptions) {
       window.removeEventListener("pointerup", onUp);
       document.body.style.cursor = "";
       stopResize = null;
+      const key = options.layoutKey?.value;
+      if (key) {
+        writePersisted(`${LAYOUT_PREFIX}${key}`, { pins: pins.value, widths: userWidths.value });
+      }
     };
     document.body.style.cursor = "col-resize";
     window.addEventListener("pointermove", onMove);

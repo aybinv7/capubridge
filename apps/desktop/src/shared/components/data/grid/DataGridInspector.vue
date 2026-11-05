@@ -23,6 +23,9 @@ const STATE_LABEL: Record<GridRowState, string> = {
   "staged-delete": "will be deleted",
   conflict: "changed on the device",
   recent: "written by the app just now",
+  added: "added on the device",
+  updated: "changed on the device",
+  deleted: "deleted on the device",
 };
 
 const VIEW_KEY = "capubridge:inspector-view";

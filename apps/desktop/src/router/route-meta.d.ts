@@ -7,5 +7,7 @@ declare module "vue-router" {
     requires?: GateRequirement;
     /** The screen offers its own "Bring to front", so the strip and the phone column do not. */
     ownsBringToFront?: boolean;
+    /** A hidden route that belongs to another tab, which stays selected while it is open. */
+    tabPath?: string;
   }
 }

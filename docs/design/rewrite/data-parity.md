@@ -17,212 +17,229 @@ home (e.g. "→ Key-value, LocalForage source").
 
 ## Shell of the route (`StoragePanel.vue`, `routes.ts`)
 
-- [ ] Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`)
-- [ ] `/storage` redirects to `/storage/indexeddb` (`routes.ts:7`)
-- [ ] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` (`routes.ts:10-56`)
-- [ ] `indexeddb/:db?/:store?` and `indexeddb-snapshot/:db?/:store?` both render `IDBExplorer.vue`; snapshot has `navigation: false` (`routes.ts:10-20`)
-- [ ] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph (they gate themselves or not at all) (`routes.ts:13,25,31,37,43,49,55`)
-- [ ] Target change remounts the tab (gate subject `target:<id>`, `src/components/gate/GatedView.vue:55`, `src/lib/gates/resolve.ts:100`); a lost link after first render keeps the tab under the stale strip (`GatedView.vue:33-37`)
-- [ ] App in background: gate notice strip only, no per-tab state (`src/lib/gates/resolve.ts:42-47`)
-- [ ] IndexedDB change tracking runs for the whole route, on every tab (`StoragePanel.vue:6`, `changes/useIndexedDBChangesTracking.ts`) ⚠ F2
-- [ ] Palette `Go to Data` / `g s` (feature registry `id: "storage"`, `commandPalette: true`)
-- [ ] No screen palette provider, no route-level shortcuts (no `useCommandProvider` in the module)
-- [ ] Lazy route chunks per tab (`routes.ts`, `() => import(...)`)
+Round 1 owns the IndexedDB lines, the change-tracking line and the links into IndexedDB. Lines owned by
+R2/R3 are unchanged and still work on today's code paths (marked _R2_ / _R3_).
+
+- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — unchanged in R1; the merges land in R2/R3
+- [x] `/storage` redirects to `/storage/indexeddb` → unchanged (`routes.ts`)
+- [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`)
+- [x] `indexeddb/:db?/:store?` and `indexeddb-snapshot/:db?/:store?` both render the IndexedDB tab; snapshot has `navigation: false` → both render `indexeddb/IndexedDBView.vue`; the file route carries `meta.tabPath` so the IndexedDB tab stays selected (`SubNavTabs.vue` `activePath`, `src/router/route-meta.d.ts`)
+- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone
+- [x] Target change remounts the tab; a lost link keeps it under the stale strip → unchanged (`GatedView.vue`)
+- [x] App in background: gate notice strip only → unchanged; the change watcher now also pauses (`changes/useIndexedDBChangesTracking.ts` `paused`)
+- [x] IndexedDB change tracking runs for the whole route ⚠ F2 → fixed: a lease (`useIndexedDBChangesLease`) held by the IndexedDB tab and Graph only, paused while the window is hidden or the app is in the background, one flush at a time, at most 40 stores watched (`changes/indexeddbChangeTracker.ts`, tested in `changes/__tests__/indexeddbChanges.test.ts`); `StoragePanel.vue` no longer starts it
+- [x] Palette `Go to Data` / `g s` → unchanged
+- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`), Open an IndexedDB export…, Show or hide the record pane (`indexeddb/useIdbCommands.ts`). Other tabs: none yet (R2/R3)
+- [x] Lazy route chunks per tab → unchanged
 
 Inbound and outbound links that must keep working:
 
-- [ ] App › Overview "Data" links to `storage-indexeddb`, `storage-localstorage`, `storage-sqlite`, `storage-opfs` by route name (`src/modules/app/overview/dataLinks.ts:7-12`, `AppStorage.vue`)
-- [ ] Device › Files viewer opens a SQLite file in Data: `{ name: "storage-sqlite", params: { db: fileName } }` when the file is in `/data/data/<selected app>/databases/` (`src/modules/devices/files/viewer/useDatabaseRoute.ts:13-32`)
-- [ ] SQLite source badge "Show in OPFS explorer" → `/storage/opfs?path=` (`sqlite/SqliteSourceBadge.vue:18-21,46-53`)
-- [ ] OPFS file click → SQLite tab with the pulled copy (`opfs/OPFSExplorer.vue:174-177`, `useOpenSqliteSource.ts:89`)
-- [ ] Graph inspector "Open data" → `/storage/indexeddb/:db/:store`, `/storage/sqlite/:db/:table`, `/storage/localforage` (`graph/StorageGraphInspector.vue:284-295`, `graph/StorageGraphExplorer.vue:322-324`)
-- [ ] Automation reads `useIndexedDBChangesStore().lastEventAt` and the SQLite changes store (`src/composables/useAutomationSignals.ts:2-18`) ⚠ C33
-- [ ] Session recorder shares `orderKeyColumns` and the SQLite pull cache (`src/composables/useSqliteRecorder.ts:4,163-168,200`) ⚠ C37
+- [x] App › Overview "Data" links by route name → unchanged (`storage-indexeddb` still resolves)
+- [ ] _R3_ Device › Files viewer opens a SQLite file in Data → unchanged
+- [ ] _R3_ SQLite source badge "Show in OPFS explorer" → unchanged
+- [ ] _R2_ OPFS file click → SQLite tab with the pulled copy → unchanged
+- [x] Graph inspector "Open data" → `/storage/indexeddb/:db/:store` still opens the store (route shape kept); Graph now holds the change-tracking lease so its change badges keep working
+- [x] Automation reads `useIndexedDBChangesStore().lastEventAt` ⚠ C33 → fixed: bumped only when a flush found changes made by the app, never for Capubridge's own writes (tagged `source: "capubridge"` through `noteOwnWrite` in `stores/useIndexedDBChangesStore.ts`) and never for empty flushes (tested). The signal exists only while IndexedDB or Graph is open (the F2 lease), as the plan decided
+- [ ] _R2_ Session recorder shares `orderKeyColumns` and the SQLite pull cache ⚠ C37 → unchanged
 
 ## Cross-cutting state shared by the tabs
 
-- [ ] Selected origin per target, in memory (`stores/useStorageContextStore.ts:5-18`); written by IndexedDB, Local storage and Graph; read by change tracking (`changes/useIndexedDBChangesTracking.ts:44,241`). `clearTarget` never called
-- [ ] Query defaults `retry: 1`, `refetchOnWindowFocus: false`, `staleTime` 0 → every tab refetches on mount (`src/main.ts:18-27`)
-- [ ] CDP calls to a backgrounded app wait for the 30 s command timeout (`packages/cdp-protocol/src/cdp/client.ts:47`), retried once → spinners up to ~60 s
-- [ ] Every device script goes through `evaluateChecked` and host data enters only as `jsLiteral` (`cdp:evaluate.ts`) — except IDB export/import (⚠ M8)
-- [ ] OPFS snapshot cache in memory, keyed `targetId::path`, reused when size + lastModified match (`opfsSnapshotCache.ts:21-50`); `clearTarget` never called
+- [x] Selected origin per target, in memory (`stores/useStorageContextStore.ts`) → unchanged; written by `indexeddb/useIdbCatalog.ts` for live databases only, never a file id (⚠ C6), read by the change watcher
+- [x] Query defaults `retry: 1`, `refetchOnWindowFocus: false`, `staleTime` 0 → unchanged; IndexedDB pages use `keepPreviousData`
+- [ ] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded)
+- [x] Every device script goes through `evaluateChecked` and host data enters only as `jsLiteral` — except IDB export/import ⚠ M8 → fixed: export and import run through `packages/cdp-protocol/src/cdp/domains/indexeddb-transfer.ts` (checked, literal)
+- [ ] _R2_ OPFS snapshot cache in memory, keyed `targetId::path` → unchanged
 
-## IndexedDB (`indexeddb/IDBExplorer.vue` and children)
+## IndexedDB (→ `indexeddb/IndexedDBView.vue` on the Data frame `modules/storage/frame/`)
 
-### Sidebar (`IDBExplorer.vue`)
+Not verified on the phone in this round: the Presalio app was closed and in the background, so the tab
+stayed behind its gate. The pending live checks are listed at the end of this section.
 
-- [ ] Search databases and stores by name, local (`IDBExplorer.vue:83,649,272-305`); "No stores match" (`:941-946`)
-- [ ] Import button (Upload) → `handleImportDatabase`: Tauri open dialog (`pickIdbExport`, `idbImportExport.ts:203`); with a live client asks to replace, otherwise opens the file as a snapshot (`IDBExplorer.vue:654-660,505-543,517-521`) ⚠ M9
-- [ ] Empty state "Import JSON snapshot" → same handler (`:724-730`)
-- [ ] "Back to live" in snapshot mode → `/storage/indexeddb` (`:668-673`)
-- [ ] Hidden databases Show/Hide toggle, persisted (`:676-691`)
-- [ ] Hidden stores Show/Hide toggle, persisted (`:694-708`)
-- [ ] Click database row → expand/collapse, persisted by name (`:752`)
-- [ ] Database overview icon → sets origin, pushes `/…/:db` (`:773-779,320-327`)
-- [ ] Database menu: Pin/Unpin (`:792`), Hide/Unhide (`:799`)
-- [ ] Database menu: Export database (JSON) → `exportDatabaseToJson` (`IndexedDB.requestDatabase` + one `Runtime.evaluate` cursor walk, `idbImportExport.ts:95-182`) → Tauri save → `save_base64_file`. Toasts `Exporting "<db>"…`, `Exported "<db>" to <path>`, "Export cancelled", `Export failed: …`, "No active CDP target" (`IDBExplorer.vue:475-503`); snapshot: re-serialises the file, `Exported to <path>` (`:477-486`) ⚠ M8 F4
-- [ ] Database menu: Import database (replace) — **MUTATES**: deletes and recreates the database named in the file (`:811`, `idbImportExport.ts:223-297`) ⚠ M7 M9
-- [ ] Database menu: Clear DB changes (hidden in snapshot, disabled without changes), local only (`:816-823`)
-- [ ] Database menu: Delete database — confirm "Delete database" → `IDBDomain.deleteDatabase` (`indexedDB.deleteDatabase` in page, `cdp:indexeddb.ts:543-558`) — **MUTATES**; failure only `console.error`; then `/storage/indexeddb` (`IDBExplorer.vue:825-831,545-577`) ⚠ M7
-- [ ] Snapshot: Remove snapshot — confirm → `snapshotStore.removeSnapshot`, `router.replace` (`:547-556`)
-- [ ] Click store → sets origin, pushes `/…/:db/:store` (`:865,307-318`)
-- [ ] Store menu: Pin/Unpin (`:894`), Hide/Unhide (`:901`), keyed `db::store` without origin
-- [ ] Store menu: Clear changes, local (`:910-918`)
-- [ ] Store menu: Clear all records — confirm "Clear all records" → `IDBDomain.clearObjectStore` (`store.clear()`, `cdp:indexeddb.ts:469-502`) — **MUTATES**; refetches records and info; failure only `console.error` (`IDBExplorer.vue:920-926,428-448`)
-- [ ] Store menu: Delete table — confirm "Delete table" → `IDBDomain.deleteObjectStore` (reopen at version+1, `cdp:indexeddb.ts:504-541`) — **MUTATES the schema**; failure only `console.error` (`IDBExplorer.vue:927-933,450-473`) ⚠ M7
-- [ ] Clear/delete store items and Clear changes hidden in snapshot mode (`:815,908`)
-- [ ] Resizable sidebar 15 % (10–30), not persisted (`:638-639`)
-- [ ] Hidden databases `localforage`, `jeepSQLiteStore`, `jeepSqliteStore` always excluded (`:292`)
-- [ ] Active store auto-expands and scrolls into view (`:603-621,624-630`)
+### Sidebar (→ `frame/DataSourceTree.vue`, `indexeddb/idbTreeModel.ts`, `indexeddb/idbTreeActions.ts`)
 
-### Database overview (`indexeddb/IDBDatabaseOverview.vue`)
+- [x] Search databases and stores by name; "No stores match" → "Find a database or store"; matching stores open their database; "Nothing is named …" when nothing matches (`frame/dataTreeModel.ts`, tested)
+- [x] Import button ⚠ M9 → split into two honest actions: the folder button "Open an IndexedDB export…" always opens the file read-only under "Opened files" (`useIdbDatabaseActions.openExport`); replacing is "Replace it from an export…" on a database's menu and replaces **that** database (M9 fixed)
+- [x] Empty state "Import JSON snapshot" → the empty sidebar says why and offers "Open an export…"
+- [x] "Back to live" in snapshot mode → both groups live in one sidebar ("On the phone", "Opened files"); clicking a live database leaves the file
+- [x] Hidden databases Show/Hide toggle, persisted → one footer "N hidden · Show them / Hide them" for databases and stores, persisted per phone and app (`useDataSidebarSettings.showHidden`)
+- [x] Hidden stores Show/Hide toggle, persisted → the same footer
+- [x] Click database row → expand/collapse, persisted → the chevron expands and collapses (persisted); clicking the row opens the overview and expands it; ← / → on the keyboard
+- [x] Database overview icon → clicking the database row opens its overview
+- [x] Database menu: Pin/Unpin, Hide/Unhide → "Pin to the top" / "Hide from the list"
+- [x] Database menu: Export database (JSON) ⚠ M8 F4 → "Export the database…": store by store in chunks with a progress toast and Cancel; lossless (dates, binary, Blobs, Maps, Sets, BigInt as markers in a version 2 file); toasts `Exporting "<db>"`, `Exported "<db>"`, Cancelled, `Could not export "<db>"` (`useIdbDatabaseActions.exportLive`, `idbTransferToasts.ts`); an opened file offers "Save a copy…"
+- [x] Database menu: Import database (replace) — **MUTATES** ⚠ M7 M9 → "Replace it from an export…": the confirmation names the chosen database, the file and its counts; the chosen database is replaced (not the one named in the file); a lossy file (version 1, or values that could not be saved) is described in the confirmation and only replaced with "Replace anyway"; blocked by the app → nothing deleted, a warning (`importDatabaseReplace`, tests in `indexeddb/__tests__/idbImportExport.test.ts` and `packages/cdp-protocol/tests/indexeddb-transfer.test.ts`)
+- [x] Database menu: Clear DB changes → "Forget the change marks" (disabled with a reason when none)
+- [x] Database menu: Delete database — **MUTATES** ⚠ M7 → "Delete the database…", confirmed; blocked by the app → a warning that the phone deletes it once the app lets go and that this cannot be cancelled; errors in a toast, never only the console (M7 fixed)
+- [x] Snapshot: Remove snapshot → "Close the file" (asks; the file on disk is untouched)
+- [x] Click store → opens it (`useIdbLocation.open`, named route params)
+- [x] Store menu: Pin/Unpin, Hide/Unhide, keyed `db::store` without origin → keyed per phone, app and `origin::db` (`frame/useDataSidebarSettings.ts`); the old settings are read as a seed (tested)
+- [x] Store menu: Clear changes → "Forget the change marks"
+- [x] Store menu: Clear all records — **MUTATES** → confirmed; records and store details read again; errors in a toast
+- [x] Store menu: Delete table — **MUTATES the schema** ⚠ M7 → "Delete the store…", confirmed (says the version goes up); blocked → nothing changed, a warning
+- [x] Clear/delete store items and Clear changes hidden in snapshot mode → opened files only offer Save a copy and Close
+- [x] Resizable sidebar 15 % (10–30), not persisted → 22 % (14–40), persisted per tab (`frame/DataWorkbench.vue`)
+- [x] Hidden databases `localforage`, `jeepSQLiteStore`, `jeepSqliteStore` always excluded → listed with their stores and a link row ("Read as key-value pairs in LocalForage", "Used by SQLite (jeep) · open in SQLite"), so no data is invisible
+- [x] Active store auto-expands and scrolls into view → the open database is always expanded; the selected row is revealed (`DataSourceTree` `reveal`)
+- New: virtualised rows, one tab stop with `aria-activedescendant`, row menus out of the tab order, change stripe with words on hover, record counts for the open database's stores
 
-- [ ] Name, origin, version (`:90-104`)
-- [ ] Stats Stores, Records, Indexes, Auto-increment, estimated size vs the origin's IndexedDB usage (`navigator.storage.estimate`) (`:35-42,115-165`, `cdp:indexeddb.ts:313-338`, `src/composables/useStorageSize.ts:50-87`) ⚠ C13 F16
-- [ ] Top-10 bars by records and by size; click a bar → open store (`:196-280,213,252`)
-- [ ] Store table: Store, Key path, Records (bar), Next key (`keyGeneratorValue`), Indexes (expandable), Auto-increment; click row → open store (`:283-419,324`)
-- [ ] Index sub-rows: name, keyPath, unique, multiEntry (`:389-487`)
-- [ ] Refresh / Retry → `refetchStoreInfo` (`:105-111,178-183`)
-- [ ] States: loading spinner (`:170-172`), "Failed to load store information" + Retry (`:175-184`), "No store details available" (`:187-193`), "No size data yet" (`:276-278`)
+### Database overview (→ `indexeddb/IdbDatabaseView.vue` on `frame/DataOverview.vue`)
 
-### Store toolbar (`indexeddb/IDBTableToolbar.vue`)
+- [x] Name, origin, version → header title, identity line `origin · version N`, `live` provenance
+- [x] Stats ⚠ C13 F16 → tiles Stores, Records, Indexes, "Size, estimated … of X used by IndexedDB" (only `navigator.storage.estimate`, F16 fixed); the size sample measures the encoded value (C13 fixed in the protocol); auto-increment per store in the list and in Structure
+- [x] Top-10 bars by records and by size; click a bar → open store → "Most records", "Largest, estimated"
+- [x] Store table: Store, Key path, Records, Next key, Indexes, Auto-increment; click → open store → the "Stores" list
+- [x] Index sub-rows → the store's Structure view (`indexeddb/IdbStructure.vue`): name, field, unique, one entry per list item
+- [x] Refresh / Retry → "Read again" in the header; "Try again" on error
+- [x] States → `DataState` loading, error with the device's words, "This database has no stores", "No size measured yet"
 
-- [ ] Change badge (+add ~update −delete) toggles "changes only", clears selection (`:55-88`, `IDBExplorer.vue:998`, `IDBTable.vue:168-173`)
-- [ ] Page size 50 / 100 / 500, resets to page 0, clamped by `indexedDbProtocolPageSize` (`:34,91-105`, `idbPaging.ts:1-7`)
-- [ ] Previous / next page; next disabled when `!hasMore` (`:109-129`, `IDBExplorer.vue:342-347`)
-- [ ] Refresh → refetch database list and records (not store info) (`:133-141`, `IDBExplorer.vue:579-582`)
+### Store toolbar (→ `indexeddb/IdbStoreView.vue` header, `frame/DataPager.vue`)
 
-### Table actions (`indexeddb/IDBTableActions.vue`)
+- [x] Change badge toggles "changes only" → `frame/ChangeSummary.vue` in the header (+ ~ − with words on hover)
+- [x] Page size 50 / 100 / 500, clamped → `DataPager` "N a page"
+- [x] Previous / next page → `DataPager`; range "51–100 of 1,234"; far pages are flagged as slow (⚠ F3, see the plan)
+- [x] Refresh → "Read again" (page) and the palette's "Read IndexedDB again" (databases, store details, page)
 
-- [ ] "Search all columns…" — TanStack global filter, current page only (`:57-60,131-148`) ⚠ C8 C10
-- [ ] Filter builder popover → `advancedFilters` (`:151-157`)
-- [ ] Clear filters (×) — column, global and advanced (`:164,72-76`)
-- [ ] Selection bar: Copy selected as JSON → toast "Copied to clipboard" / "N records copied" (`:181-190,85-94`)
-- [ ] Selection bar: Delete selected → confirm "Delete Records" "Are you sure you want to delete N record(s)? This action cannot be undone." → sequential `idbWrites.remove` — **MUTATES** (`:192-200`, `IDBTable.vue:1052-1060,610-629`, `idbWrites.ts:46-69`) ⚠ M12
-- [ ] Selection bar: Clear selection (`:202-210`)
-- [ ] Column settings popover (`:215-221`)
-- [ ] Layout menu: Auto-size columns (resets sizes), Fit to grid (fixed 1200 px), Reset layout (unpins all) (`:96-123`)
-- [ ] Export menu: CSV (filtered), JSON (filtered), Selected (N) → `useIDBTableExport`, files `idb_<store>.csv/.json`, `_selected.json`; toasts "Exported to CSV" ("N rows exported"), "Exported to JSON", "Exported selected to JSON" (`:247-263`, `useIDBTableExport.ts:30-62`) ⚠ C8
+### Table actions (→ `indexeddb/IdbRowsToolbar.vue`)
 
-### Filter builder (`indexeddb/FilterBuilder.vue`, `useAdvancedFilters.ts`)
+- [x] "Search all columns…", current page only ⚠ C8 C10 → "Find on this page" searches every column, objects included (C10 fixed); the status bar says find, filters and sort cover the rows of this page; "Search the whole store" runs a bounded scan on the phone (500 matches, 50,000 records, 4 s) and says what it covered (C8 fixed)
+- [x] Filter builder popover → "Filter" opens `src/shared/components/data/filter/DataFilterPopover.vue`
+- [x] Clear filters → "Clear filters" in the popover and "Clear find and filters" in the empty grid
+- [x] Copy selected as JSON → grid context menu "Copy as JSON" on the selection (`DataGrid`)
+- [x] Delete selected — **MUTATES** ⚠ M12 → "Delete N selected" (asks), only shown when the store can be written (M12 fixed)
+- [x] Clear selection → Escape in the grid
+- [x] Column settings → `DataGridColumnsMenu`
+- [x] Layout menu: Auto-size, Fit to grid, Reset layout → header menu "Autosize all"; the grid fills its width; unpin per column; pins and widths now persist per store (`useGridColumns` `layoutKey`)
+- [x] Export menu ⚠ C8 → "Rows shown, as CSV…", "Rows shown, as JSON…", "N selected, as JSON…" through the save dialog (`idbRowsExport.ts`, `saveFileAs` in `src/lib/download.ts`); file names `<db>_<store>_page2.csv`
 
-- [ ] Add filter (first AND, then OR), AND/OR toggle, column combobox, operator combobox, remove, Cancel, Apply (`FilterBuilder.vue:65-92,164-302`)
-- [ ] Operators: contains, equals, startsWith, endsWith, gt, gte, lt, lte, isNull, isNotNull, isTrue, isFalse, isEmpty, isNotEmpty (`useAdvancedFilters.ts:29-44`, matching `:60-97`) ⚠ C9
-- [ ] Value: date picker for gt/gte/lt/lte/equals, text otherwise (`FilterBuilder.vue:259-283`) ⚠ C9
+### Filter builder (→ `src/shared/components/data/filter/`)
 
-### Column settings (`indexeddb/IDBColumnSettings.vue`)
+- [x] Add filter, AND/OR, column, operator, remove, Cancel, Apply → the same, edited as a draft: closing drops it (C9 fixed)
+- [x] Operators ⚠ C9 → the same 14 plus "is not", offered by column type; numbers and dates compare as such (`predicates.ts`, tested)
+- [x] Value: date picker for gt/gte/lt/lte/equals ⚠ C9 → the value field follows the column type (date, number, text); text and number equality work
 
-- [ ] Show/hide per column (`:172-177`)
-- [ ] Group by per column (`:181-186`)
-- [ ] Column type guessed from 20 samples (key, value, object, int, float, bool, date, string, array, field), primary-key and indexed marks (`:30-72,154-169`)
+### Column settings (→ grid header menu, `DataGridColumnsMenu`)
 
-### Table (`indexeddb/IDBTable.vue`)
+- [x] Show/hide per column → columns menu and header "Hide"
+- [x] Group by per column → header "Group by", page-local (`idbRowPipeline.groupRows`, tested); a group row opens with Enter or double-click
+- [x] Column type guessed, primary-key and indexed marks → type from up to 50 values per field (`idbGridModel.ts`), key marked, indexed fields labelled
 
-- [ ] Columns: change/selection gutter (pinned left), Key, then one Value column (first record primitive/array) or one column per field of the first 200 records (`:194-345`) ⚠ C12
-- [ ] Cells: `JSON.stringify` for objects, `String` otherwise; Date/binary keys show `{"__type":…}` markers (`:299,318,340`) ⚠ C14
-- [ ] Select all / row checkbox; deleted-change rows not selectable (`:223-283,440`)
-- [ ] Header menu: sort asc/desc/clear (client, page, multi-sort) (`:744-773,429`) ⚠ C8
-- [ ] Header menu: Filter… (adds an empty "contains" filter) (`:778-781`); Clear filter (dead, `:782-789`)
-- [ ] Header menu: Group by / Ungroup (`:794-797,569-575`)
-- [ ] Header menu: Pin left / right / unpin (`:800-832`); Hide column (`:835-841`)
-- [ ] Column resize by drag (`:856-861`)
-- [ ] Group rows: expand and group checkbox (`:875-904`)
-- [ ] Single click opens row detail after 200 ms; second click within 200 ms starts inline edit (`:929`, `useIDBCellInteractions.ts:14,71-85`); footer hint says "Double-click row to view details" (`:1013`)
-- [ ] Virtualised rows (`useFixedVirtualList`), 30-row skeleton while loading (`:652-659`)
-- [ ] Row appearance: added / updated / deleted (75 % opacity) / selected / locally modified (`useIDBRowAppearance.ts:25-70`)
-- [ ] Footer `filtered / total rows` (`:995-997`); download icon "Copy selected as JSON" that downloads a file (`:1001-1009`)
-- [ ] Empty: "No records in this store" (`:662-667`), "No matching records" (`:670-675`)
+### Table (→ `DataGrid` in `indexeddb/IdbRows.vue`, model `indexeddb/idbGridModel.ts`)
 
-### Inline cell editor (`indexeddb/IDBCellEditor.vue`, `useIDBCellInteractions.ts`)
+- [x] Columns ⚠ C12 → union of fields over the page (C12 fixed, tested); a separate key column only when the key is not one top-level field
+- [x] Cells ⚠ C14 → markers shown as what they are ("Map of 3", "Blob 1.2 KB", dates as dates; `valueFormat.describeMarker`); row ids from the serialised key (C14 fixed, tested)
+- [x] Select all / row checkbox; deleted rows not selectable → gutter selection, Shift/Ctrl, Ctrl+A; deleted rows are never deleted again
+- [x] Header menu sort ⚠ C8 → page-local sort, said in the status bar; numbers and dates by value
+- [x] Header menu: Filter… → opens the filter popover on that column
+- [x] Header menu: Group by → page-local grouping
+- [x] Header menu: Pin / Hide → `DataGrid`
+- [x] Column resize by drag → `DataGrid`
+- [x] Group rows → rows per value with counts; "Show the rows in this group" adds the filter
+- [x] Single click opens row detail after 200 ms … → the record pane follows the focused row (no dialog, no click timing); Enter, F2 or double-click edits the cell
+- [x] Virtualised rows, skeleton → `DataGrid`
+- [x] Row appearance → `added` / `updated` / `deleted` row states with a bar (`GridRowState`)
+- [x] Footer `filtered / total rows`; "Copy selected as JSON" icon that downloaded → status bar count and pager range; the misnamed icon is gone (Export menu)
+- [x] Empty → "“store” has no records", "No row on this page matches", "Nothing in “store” matches"
 
-- [ ] Commit → `idbWrites.save` → `IDBDomain.putRecord` (`cdp:indexeddb.ts:361-430`) — **MUTATES**, no confirm (`useIDBCellInteractions.ts:87-109`) ⚠ M2 M3 M6
-- [ ] Key column and deleted rows not editable (`useIDBCellInteractions.ts:29-34`)
-- [ ] Enter commits, Escape cancels, blur commits (`IDBCellEditor.vue:120-123,134-136,173-177,195-197`) ⚠ M6
-- [ ] Numbers: ↑/↓ and ± buttons nudge (`:160-186`)
-- [ ] Dates: calendar popover, double-click to type (`:103-110,137-156`) ⚠ M5
-- [ ] Column treated as date when values look like dates or the name ends in "on"/"at" (`useIDBCellInteractions.ts:54-60`) ⚠ M6
+### Inline cell editor (→ `src/shared/components/data/grid/editors/`, `IdbRows.vue`, `useIdbStoreWrites.ts`)
 
-### Context menu (`IDBTable.vue:950-978`, `useIDBCellInteractions.ts:124-152`)
+- [x] Commit — **MUTATES** ⚠ M2 M3 M6 → a cell edit changes that one field on the phone (`patchRecord`), so dates or binary data elsewhere in the record are kept; only primitive cells edit inline (objects in the pane)
+- [x] Key column and deleted rows not editable → the same, and the pane says why
+- [x] Enter commits, Escape cancels, blur commits ⚠ M6 → blur commits only a real change; an unchanged value writes nothing; typed text keeps its type (M6 fixed, tested)
+- [x] Numbers: ↑/↓ and ± buttons → ↑/↓ in the editor (the ± buttons are gone)
+- [x] Dates ⚠ M5 → native date field on the local calendar; time of day, unit and format kept (M5 fixed, tested in Africa/Algiers)
+- [x] Column treated as date by name ⚠ M6 → by value only (ISO text), or a number column shown as dates with "Show values as"
 
-- [ ] View record
-- [ ] Edit "<column>"
-- [ ] Copy cell value → toast "Copied to clipboard"
-- [ ] Copy record as JSON (value only)
-- [ ] Delete record → `idbWrites.remove` → `IDBDomain.deleteRecord` — **MUTATES**, no confirm (`:965-976`) ⚠ M4 C14
+### Context menu (→ `IdbRows.contextActions`, `DataGrid` built-ins)
 
-### Row detail dialog (`indexeddb/IDBRowDetailDialog.vue`, `useIDBRowDetail.ts`)
+- [x] View record → "Show in the record pane"
+- [x] Edit "<column>" → the same
+- [x] Copy cell value → "Copy"
+- [x] Copy record as JSON → "Copy the record as JSON"
+- [x] Delete record — **MUTATES** ⚠ M4 C14 → "Delete the record…", asks first (M4 fixed); date and binary keys reach the phone as real keys (C14 fixed in the protocol, tested)
 
-- [ ] Header: key, size (recomputed per keystroke), `i / total`, badge unsaved / invalid / record, read-only badge (`IDBRowDetailDialog.vue:77-105`, `useIDBRowDetail.ts:42-47`)
-- [ ] Prev / Next buttons and Ctrl+↑ / Ctrl+↓; past the page fetches one record by device offset (`IDBRowDetailDialog.vue:65-76`, `useIDBRowDetail.ts:155-172`, `IDBExplorer.vue:353-374`) ⚠ C11
-- [ ] JSON editor (shared `JsonEditor`); Ctrl+F focuses its filter (`useIDBRowDetail.ts:45-53`)
-- [ ] Save button and Ctrl+S → `putRecord` — **MUTATES**; enabled only when unsaved; toast "Record contains invalid JSON" (`useIDBRowDetail.ts:117-134`)
-- [ ] Delete button → `deleteRecord` — **MUTATES**, no confirm (`useIDBRowDetail.ts:136-146`, `IDBRowDetailDialog.vue:128-136`) ⚠ M4
-- [ ] Copy → toast "Copied to clipboard" (`useIDBRowDetail.ts:148-153`)
-- [ ] Diff button when the record changed or was modified locally → `IDBChangeDiffDialog` (`IDBRowDetailDialog.vue:109-118`, `IDBTable.vue:552-554,1041-1049`)
-- [ ] Shortcut hint popover (`IDBRowDetailDialog.vue:145-167`)
+### Row detail dialog (→ `frame/RecordPane.vue`, `indexeddb/useIdbRecordPane.ts`)
 
-### Change diff dialog (`indexeddb/IDBChangeDiffDialog.vue`, `JsonDiffViewer.vue`)
+- [x] Header: key, size, i / total, badges → key, "i of n · size", "Not saved", invalid JSON, read-only reason with a lock
+- [x] Prev / Next and Ctrl+↑ / Ctrl+↓ ⚠ C11 → follow the order shown; at a page edge they turn the page (C11 fixed)
+- [x] JSON editor; Ctrl+F → `JsonEditor` under "Edit" / "JSON"; the tab's Ctrl+F leaves the pane alone
+- [x] Save and Ctrl+S — **MUTATES** → Save and Ctrl+S, only for a valid change; a read-only record never saves (M2)
+- [x] Delete — **MUTATES** ⚠ M4 → Delete asks first (M4 fixed)
+- [x] Copy → "Copy the record as JSON"
+- [x] Diff button → "Changes" view
+- [x] Shortcut hint popover → tooltips with key caps on each control
+- New: while an edit is unsaved the pane stays on that record
 
-- [ ] Store, operation badge, key, observed at; before (normalised) vs the current editor text (`IDBChangeDiffDialog.vue:38-66`, `IDBTable.vue:548-550`)
+### Change diff dialog (→ "Changes" view in `RecordPane`, `src/shared/code-viewer/JsonDiff.vue`)
+
+- [x] Store, operation, key, observed at; before vs current → the pane's state line ("Changed on the device 12 s ago" or "by Capubridge") and the before/after diff; `JsonDiff` moved to `src/shared/code-viewer/` and SQLite imports it from there (no cross-tab import)
 
 ### Write toasts (`indexeddb/idbWrites.ts`)
 
-- [ ] "Record is read-only" (`:25`), "Record saved on the device" (`:38`), "Record was not saved" (`:41`)
-- [ ] "Record deleted on the device" / "N records deleted on the device" (`:57-59`), "Record was not deleted" / "X of N deletes failed" (`:61-65`)
-- [ ] Toasts fire only after the device answers (`idbWrites.ts`, tested in `__tests__/idbWrites.test.ts`)
+- [x] "Record is read-only", "Record saved on the device", "Record was not saved" → unchanged, also for cell edits
+- [x] Delete toasts → unchanged
+- [x] Toasts fire only after the device answers → unchanged, tested
 
-### Change tracking (`changes/useIndexedDBChangesTracking.ts`, `indexeddbChanges.service.ts`, `useIndexedDBChangeOverlay.ts`, `stores/useIndexedDBChangesStore.ts`)
+### Change tracking (→ `changes/useIndexedDBChangesTracking.ts` lease, `changes/indexeddbChangeTracker.ts`)
 
-- [ ] Subscribes `Storage.trackIndexedDBForOrigin`, listens `indexedDBContentUpdated` / `indexedDBListUpdated` (`useIndexedDBChangesTracking.ts:289-298`)
-- [ ] Primes a snapshot of every store of every database of the origin, sequentially (`:96-148`)
-- [ ] Flush throttle 220 ms, catalog debounce 180 ms (`:221-239`)
-- [ ] Bounds: 1,500 records per store (else untracked), pages of 250, 400 feed entries, 64 field diffs (`indexeddbChanges.service.ts:12-16,183-230`, `useIndexedDBChangesStore.ts:140`)
-- [ ] Stale sessions dropped by `sessionVersion` (`useIndexedDBChangesTracking.ts:46,101,132,158`)
-- [ ] Changed records promoted to the top of every page (`useIndexedDBChangeOverlay.ts:161-200`) ⚠ M3
-- [ ] Sidebar change gradient and segment bar per database and store (`IDBExplorer.vue:736-770,844-877`, `changes/changeSummaryFormat.ts:16-39`)
+- [x] Subscribes `Storage.trackIndexedDBForOrigin`, listens for updates → unchanged
+- [x] Primes every store sequentially ⚠ F2 → at most 40 stores primed; the rest are marked "Not watched"
+- [x] Flush throttle 220 ms, catalog debounce 180 ms → unchanged; one flush in flight, a request during a flush runs once after it (tested)
+- [x] Bounds 1,500 / 250 / 400 / 64 → unchanged
+- [x] Stale sessions dropped → one tracker per session, stopped when the target or origin changes
+- [x] Changed records promoted ⚠ M3 → promoted rows keep the live record (primary key, read-only flag); off-page and deleted ones are read-only (M3 fixed, `overlayRecordChanges`, tested)
+- [x] Sidebar change gradient and segment bar → `frame/ChangeStripe.vue`, with words
 
 ### States
 
-- [ ] No target → gate (`routes.ts:13`)
-- [ ] Database list loading spinner (`IDBExplorer.vue:712-714`)
-- [ ] "No IndexedDB databases found" / "No snapshots imported" (`:716-731`)
-- [ ] Database list error: none, device error becomes `[]` (`cdp:indexeddb.ts:171-173`) ⚠ C34
-- [ ] "Select a database from the sidebar" (`IDBExplorer.vue:958-963`)
-- [ ] Records error "Failed to load records. Make sure the target supports IndexedDB inspection." (`:1001-1006`)
-- [ ] Loading flag includes background refetch; page change blanks the table (no `keepPreviousData`) (`:245`)
-- [ ] Paging: offset `skipCount`, `hasMore` from CDP, total from `getMetadata.entriesCount`; 10,000-record clamp in `idbPaging.ts` and the eval fallback (`cdp:indexeddb.ts:188-191,725`, `src/composables/useIDB.ts:59`) ⚠ F3
-- [ ] Records read through `IndexedDB.requestData` with an eval materialiser for values CDP cannot return by value (`cdp:indexeddb.ts:590-776`) ⚠ M2 F1
-- [ ] Records marked read-only when they hold a Date or binary anywhere (`cdp:indexeddb.ts:649-652`)
-- [ ] After save/delete only records refetch; counts and size stay stale (`IDBExplorer.vue:395-409`)
-- [ ] No polling for IndexedDB data; live changes arrive only through the change overlay
+- [x] No target → gate
+- [x] Database list loading → `DataState` in the sidebar
+- [x] "No IndexedDB databases found" / "No snapshots imported" → "This page has no IndexedDB databases." / "No export is open.", with "Open an export…"
+- [x] Database list error ⚠ C34 → shown with the device's words and Try again (C34 fixed: the protocol throws)
+- [x] "Select a database from the sidebar" → "Choose a database"; a missing database or closed file says so, with a way back
+- [x] Records error → `DataState` error with the device's words and Try again
+- [x] Page change blanks the table → the previous page stays while the next is read (`keepPreviousData`), a quiet spinner in the header
+- [x] Paging ⚠ F3 → offset paging unchanged; far pages say they are slow; "Go to key" deferred (plan §6.3 F3)
+- [x] Records read through `requestData` ⚠ M2 F1 → one `Runtime.evaluate` per page (F1 fixed, tested), `requestData` with one batched encode as the fallback; non-JSON values are read-only with a reason (M2 fixed, tested)
+- [x] Read-only when a Date or binary is anywhere → any marker in the value makes whole-record saves read-only, naming the type and field; Date and binary keys stay editable; cell edits still work on plain fields
+- [x] After save/delete only records refetch → records and store details are read again
+- [x] No polling → unchanged
 
-### Snapshot mode (route `storage-indexeddb-snapshot`)
+### Snapshot mode (→ "Opened files" in the same tab, route `storage-indexeddb-snapshot`)
 
-- [ ] Mode chosen by route name (`IDBExplorer.vue:72-75`); `:db` is the snapshot id (`:140-141,212-216`)
-- [ ] Data from computeds over the in-memory file; size by `jsonByteSize` of every record (`:142-195,151-176`)
-- [ ] `ProvenanceTag kind="imported" detail="read-only"` (`:667`); live mode shows no provenance
-- [ ] Writes refused: toast "Snapshot is read-only" / "Connect a CDP target to mutate this database." (`:77-81,381-385`); table `readOnly` (`:1016`, `IDBTable.vue:963,1031`)
-- [ ] Snapshots in memory only, lost on reload (`useIdbSnapshotStore.ts:12-41`)
-- [ ] Reachable only by URL in practice (⚠ C7); live queries still fire for the snapshot id (⚠ C6)
+- [x] Mode chosen by route name; `:db` is the file id → unchanged (`useIdbLocation`)
+- [x] Data from the file; sizes by `jsonByteSize` of every record ⚠ F15 → measured once per file (`fileStoreInfo`), file kept raw in a `shallowRef` store (F15 fixed)
+- [x] `ProvenanceTag kind="imported"`; live shows none → `imported` on every opened database and store; live data shows `live · read N s ago`
+- [x] Writes refused → nothing writable is offered on a file (no edit, no delete, read-only lock "Opened from a file")
+- [x] In memory only → unchanged (persisting is out of scope, plan §8)
+- [x] Reachable only by URL ⚠ C7; live queries for the snapshot id ⚠ C6 → "Opened files" group, the folder button and the palette's "Open an IndexedDB export…" (C7 fixed); live queries run for live databases only (C6 fixed)
 
 ### Persisted preferences
 
-- [ ] `localStorage["idb-sidebar-settings"]`: pinned/hidden databases (`origin::db`), pinned/hidden stores (`db::store`), showHiddenDbs, showHidden, expandedDbs (by name) (`stores/useSidebarSettingsStore.ts:3-63`)
-- [ ] Not persisted: column visibility/sizing/pinning/sort/grouping/filters (reset per store, `IDBTable.vue:150-166`), page size, panel sizes
+- [x] `localStorage["idb-sidebar-settings"]` → `capubridge:data-sidebar:v1` keyed `serial::package::indexeddb::origin::db`; the old key is read as a seed (tested); `useSidebarSettingsStore.ts` is gone. SQLite keeps `sqlite-sidebar-settings` until R3
+- [x] Not persisted → column pins and widths per store (`capubridge:grid-layout:*`), "Show values as" (`capubridge:data-show-as:v1`), panel sizes (`capubridge:data-layout:indexeddb`, `capubridge:data-record-pane-size`), pane open (`capubridge:data-record-pane`), Fields/JSON (`capubridge:inspector-view`); sort, filters and page size stay per visit
 
 ### URL
 
-- [ ] `:db` and `:store` decoded with an extra `decodeURIComponent` (`IDBExplorer.vue:89-90`) ⚠ C5
-- [ ] Selected database resolved by name + origin, then name only (`:212-221`); origin written back (`:592-601`)
-- [ ] Page, filter and changes-only reset on database/store change (`:584-588`)
-- [ ] After delete: `/storage/indexeddb[/db]` (`:466,570`)
+- [x] Extra `decodeURIComponent` ⚠ C5 → params used as vue-router decodes them; navigation by named route (C5 fixed for IndexedDB; SQLite in R3)
+- [x] Selected database by name + origin, then name; origin written back → unchanged (`useIdbCatalog`)
+- [x] Page, filter and changes-only reset on database/store change → unchanged
+- [x] After delete → a deleted database goes back to `/storage/indexeddb`; a deleted store to its database's overview
 
-### Import / export formats (`indexeddb/idbImportExport.ts`)
+### Import / export formats (→ `indexeddb/idbImportExport.ts` on `indexeddb-transfer.ts`)
 
-- [ ] `{ format: "capubridge-idb-export", version: 1, exportedAt, origin, database: { name, version, stores: [{ name, keyPath, autoIncrement, indexes: [{ name, keyPath, unique, multiEntry }], records: [{ key, value }] }] } }` (`:40-65`)
-- [ ] File `<db>.idb.json` through Tauri save + `save_base64_file` (`:184-196`, `IDBExplorer.vue:495`)
-- [ ] Import reads with `read_local_file_base64`, checks `format` only (`:203-217`)
-- [ ] Table CSV / JSON / selected JSON downloads (`useIDBTableExport.ts:5-62`)
+- [x] Format → version 2 adds `encoding: "capubridge-markers-v1"` and `lossy`; version 1 files still open, and a replace from them asks to accept the loss
+- [x] File `<db>.idb.json` through the save dialog → unchanged
+- [x] Import checks `format` only → checks format and version and reports what a replace would lose
+- [x] Table CSV / JSON / selected JSON → the save dialog (`saveFileAs`)
+
+### Pending live checks (IndexedDB, Presalio on the Redmi)
+
+- [ ] A Dexie database with Date fields: dates shown as dates, the record read-only with its reason, a plain field edited inline keeps the Date
+- [ ] A 10k+ store paged to the end; whole-store search caps
+- [ ] Deleting a store while the app holds the connection (blocked: nothing changed)
+- [ ] Grid pinning and group drill-in by keyboard (left unverified by `26f17f88`)
+- [ ] Row and header menus (inside the tooltip wrapper) open by click and by keyboard
+- [ ] First paint of the frame: sidebar, header, pane widths, empty states, dark and light
 
 ## Local storage (`localstorage/LSExplorer.vue`)
 

@@ -58,11 +58,13 @@ const subTabs = computed<SubTab[]>(() => {
     });
 });
 
-const activePath = computed(
-  () =>
-    subTabs.value.find((tab) => route.path === tab.path || route.path.startsWith(`${tab.path}/`))
-      ?.path,
-);
+const activePath = computed(() => {
+  const owner = route.meta.tabPath;
+  if (typeof owner === "string") return owner;
+  return subTabs.value.find(
+    (tab) => route.path === tab.path || route.path.startsWith(`${tab.path}/`),
+  )?.path;
+});
 
 function select(path: string) {
   if (path !== route.path) void router.push(path);

@@ -493,6 +493,10 @@ fix comes with a test.
 | F15 | 1   | Sidebar template functions run several times per database on every render; snapshots sit in a deep `ref` and `jsonByteSize` stringifies every record (`IDBExplorer.vue:734-746,839,942,151-176`, `useIdbSnapshotStore.ts:13`)                                                                                                                                                                                                                                                        | Computed tree model; `shallowRef`/`markRaw` snapshots; sizes computed once                                                 |
 | F16 | 1   | `useStorageSize` measures localStorage, Cache (reads every cached blob) and OPFS (recursive walk) just for the IDB overview (`useStorageSize.ts:50-87`, `cdp:storage.ts:164-198`, `cdp:opfs.ts:322-336`)                                                                                                                                                                                                                                                                             | IDB overview asks only for IDB usage (`navigator.storage.estimate` `usageDetails`)                                         |
 
+Round 1 status of F3: deep offsets are warned in the pager. "Go to key" (a key-range page) is
+**deferred** to the round-1 review or R2: it needs a second paging mode (pages counted from a key, not
+an offset) in `useIdbPage`, and it should be designed with the live check of a 10k+ store.
+
 ### 6.4 UI debt the rewrite removes
 
 - Two design systems on one screen. shadcn button, input, badge, select, dialog, popover, tooltip,

@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { GitCompare } from "lucide-vue-next";
-import JsonDiffViewer from "@/modules/storage/indexeddb/JsonDiffViewer.vue";
+import JsonDiffViewer from "@/shared/code-viewer/JsonDiff.vue";
 import type { SqliteRecordChange } from "@/types/sqliteChanges.types";
 
 const props = defineProps<{

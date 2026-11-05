@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import GatedRouterView from "@/components/gate/GatedRouterView.vue";
 import SubNavTabs from "@/components/layout/SubNavTabs.vue";
-import { useIndexedDBChangesTracking } from "@/modules/storage/changes/useIndexedDBChangesTracking";
-
-useIndexedDBChangesTracking();
 </script>
 
 <template>

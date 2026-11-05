@@ -53,10 +53,13 @@ export interface IndexedDBTrackingSession {
   startedAt: string;
 }
 
+/** Who made a change: the app on the device, or Capubridge writing through DevTools. */
+export type IndexedDBChangeSource = "external" | "capubridge";
+
 export interface IndexedDBRecordChangeEntry {
   id: string;
   kind: "record";
-  source: "external";
+  source: IndexedDBChangeSource;
   observedAt: string;
   origin: string;
   databaseName: string;
