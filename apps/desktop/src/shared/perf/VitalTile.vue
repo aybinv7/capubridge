@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Surface } from "@capubridge/cladd";
-import Sparkline from "../shared/Sparkline.vue";
+import Sparkline from "./Sparkline.vue";
 
 const props = withDefaults(
   defineProps<{

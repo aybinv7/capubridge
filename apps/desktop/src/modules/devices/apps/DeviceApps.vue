@@ -10,7 +10,7 @@ import { PACKAGE_CACHE_STALE_MS, useAppPackages } from "@/composables/useAppPack
 import { useDevicesStore } from "@/stores/devices.store";
 import type { AdbPackage } from "@/types/adb.types";
 import DetailsPane from "../shared/DetailsPane.vue";
-import DeviceConfirmDialog from "../shared/DeviceConfirmDialog.vue";
+import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
 import AppInspector from "./AppInspector.vue";
 import AppsEmpty from "./AppsEmpty.vue";
 import AppsGrid from "./AppsGrid.vue";
@@ -204,7 +204,7 @@ useAppsCommands({ selectedApp, details: shownDetails, actions, reload, openFiles
       </DetailsPane>
     </div>
 
-    <DeviceConfirmDialog
+    <ConfirmDialog
       v-model:open="actions.confirmOpen.value"
       :request="actions.confirmRequest.value"
       @confirm="actions.confirm()"

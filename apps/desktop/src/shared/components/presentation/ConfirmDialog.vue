@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Dialog } from "@capubridge/cladd";
-import type { DeviceConfirmRequest } from "./confirm";
+import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 
 const open = defineModel<boolean>("open", { required: true });
 
 const props = defineProps<{
-  request: DeviceConfirmRequest | null;
+  request: ConfirmRequest | null;
 }>();
 
 const emit = defineEmits<{ confirm: [] }>();

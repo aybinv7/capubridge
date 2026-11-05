@@ -2,7 +2,7 @@ import { computed, ref, shallowRef, triggerRef, type Ref } from "vue";
 import { toast } from "vue-sonner";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { FileEntry } from "@/types/adb.types";
-import { compareText } from "../shared/collator";
+import { compareText } from "@/shared/format/collator";
 import { ancestorPaths, fileNameFromPath, isFolderEntry, joinPath } from "./filePaths";
 
 export interface TreeRow {

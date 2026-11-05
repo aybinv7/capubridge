@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CircleStop, Eraser, Play, Trash2 } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
-import { uninstallLabel, type AppAction } from "./appsModel";
+import { uninstallLabel, type AppAction } from "@/shared/apps/appActions";
 
 const props = defineProps<{ busy: boolean; system: boolean }>();
 

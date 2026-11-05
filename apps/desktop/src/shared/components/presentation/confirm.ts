@@ -1,5 +1,5 @@
 /** What a destructive or disruptive device action asks before it runs. */
-export interface DeviceConfirmRequest {
+export interface ConfirmRequest {
   title: string;
   text: string;
   confirmLabel: string;

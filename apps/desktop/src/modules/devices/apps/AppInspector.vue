@@ -3,18 +3,14 @@ import { computed } from "vue";
 import { CircleStop, Eraser, Play, Trash2 } from "lucide-vue-next";
 import { Button, Chip, Spinner } from "@capubridge/cladd";
 import type { AdbPackage, AdbPackageDetails } from "@/types/adb.types";
-import AppIcon from "../AppIcon.vue";
+import AppIcon from "@/shared/apps/AppIcon.vue";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
-import { installDateWords, updateDateWords } from "../shared/dates";
-import AppFolderList from "./AppFolderList.vue";
-import AppSizeBreakdown from "./AppSizeBreakdown.vue";
-import {
-  appDisplayName,
-  appFolders,
-  knownValue,
-  uninstallLabel,
-  type AppAction,
-} from "./appsModel";
+import { installDateWords, updateDateWords } from "@/shared/format/dates";
+import AppFolderList from "@/shared/apps/AppFolderList.vue";
+import AppSizeBreakdown from "@/shared/apps/AppSizeBreakdown.vue";
+import { appDisplayName, knownValue } from "@/shared/apps/appIdentity";
+import { appFolders } from "@/shared/apps/appFolders";
+import { uninstallLabel, type AppAction } from "@/shared/apps/appActions";
 
 const props = defineProps<{
   serial: string;

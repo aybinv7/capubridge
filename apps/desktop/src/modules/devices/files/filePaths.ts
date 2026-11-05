@@ -1,6 +1,6 @@
 import type { FileEntry } from "@/types/adb.types";
-import { compareText } from "../shared/collator";
-import { parseDeviceDate } from "../shared/dates";
+import { compareText } from "@/shared/format/collator";
+import { parseDeviceDate } from "@/shared/format/dates";
 
 /** A listing entry with its absolute path on the phone. */
 export interface DeviceFileListEntry extends FileEntry {

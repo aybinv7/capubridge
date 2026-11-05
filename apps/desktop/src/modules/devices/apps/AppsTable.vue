@@ -11,9 +11,11 @@ import type { AdbPackage } from "@/types/adb.types";
 import SortHeader from "@/shared/components/presentation/SortHeader.vue";
 import { scrollTopToReveal } from "@/shared/list/grid";
 import { optionId, rowStateClass } from "@/shared/list/rowState";
-import AppIcon from "../AppIcon.vue";
+import AppIcon from "@/shared/apps/AppIcon.vue";
 import AppRowActions from "./AppRowActions.vue";
-import { appDisplayName, type AppAction, type AppSort, type AppSortKey } from "./appsModel";
+import { appDisplayName } from "@/shared/apps/appIdentity";
+import type { AppAction } from "@/shared/apps/appActions";
+import type { AppSort, AppSortKey } from "./appsModel";
 import { APP_ROW_HEIGHT } from "./appsView";
 
 const COLUMNS = "grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_5.5rem_7.5rem]";

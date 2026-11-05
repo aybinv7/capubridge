@@ -4,7 +4,7 @@ import { ChevronRight, Globe } from "lucide-vue-next";
 import { Surface } from "@capubridge/cladd";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
-import AppIcon from "@/modules/devices/AppIcon.vue";
+import AppIcon from "@/shared/apps/AppIcon.vue";
 import TargetRow from "./TargetRow.vue";
 import type { TargetGroup } from "./targetGroups";
 

@@ -8,7 +8,7 @@ import { useAdb } from "@/composables/useAdb";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import { useDevicesStore } from "@/stores/devices.store";
 import OverviewApp from "./OverviewApp.vue";
-import OverviewFacts from "./OverviewFacts.vue";
+import FactList from "@/shared/facts/FactList.vue";
 import OverviewHeader from "./OverviewHeader.vue";
 import OverviewVitals from "./OverviewVitals.vue";
 import { deviceFacts } from "./deviceFacts";
@@ -102,7 +102,7 @@ useCommandProvider("screen.device-overview", () => [
         </div>
         <Button size="sm" variant="transparent" @click="refetch()">Try again</Button>
       </div>
-      <OverviewFacts v-else-if="facts.length" :facts="facts" />
+      <FactList v-else-if="facts.length" title="About this phone" :facts="facts" />
     </div>
   </div>
 </template>

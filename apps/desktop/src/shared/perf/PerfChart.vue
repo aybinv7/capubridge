@@ -11,7 +11,7 @@ import {
   componentToString,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { formatClock } from "../shared/format";
+import { formatClock } from "@/shared/format/numbers";
 import type { PerfChartLine } from "./perfChart.types";
 import { sampleAccessor, seriesYDomain, type SeriesPoint } from "./perfSeries";
 

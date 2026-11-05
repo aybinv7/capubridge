@@ -5,19 +5,20 @@ import { Cpu, MemoryStick, Pause, Play } from "lucide-vue-next";
 import { Button, Spinner } from "@capubridge/cladd";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
-import { formatBytes, formatPercent } from "../shared/format";
-import PerfCard from "./PerfCard.vue";
-import PerfChart from "./PerfChart.vue";
+import { formatBytes, formatPercent } from "@/shared/format/numbers";
+import PerfCard from "@/shared/perf/PerfCard.vue";
+import PerfChart from "@/shared/perf/PerfChart.vue";
 import PerfCores from "./PerfCores.vue";
 import PerfNetwork from "./PerfNetwork.vue";
 import PerfPower from "./PerfPower.vue";
-import PerfStatusBar from "./PerfStatusBar.vue";
-import PerfWebView from "./PerfWebView.vue";
-import type { PerfChartLine } from "./perfChart.types";
-import { hasPerfReadings, loadTone, memoryTone } from "./perfView";
+import PerfStatusBar from "@/shared/perf/PerfStatusBar.vue";
+import PerfWebView from "@/shared/perf/webview/PerfWebView.vue";
+import type { PerfChartLine } from "@/shared/perf/perfChart.types";
+import { loadTone, memoryTone } from "@/shared/perf/tones";
+import { hasPerfReadings, phaseDot } from "./perfView";
 import { useDeviceVitals } from "./useDeviceVitals";
 import { usePerfPhase } from "./usePerfPhase";
-import { useWebViewMetrics } from "./useWebViewMetrics";
+import { useWebViewMetrics } from "@/shared/perf/webview/useWebViewMetrics";
 
 const PERCENT_DOMAIN: [number, number] = [0, 100];
 const CPU_LINES: PerfChartLine[] = [{ key: "cpu", label: "CPU", color: "var(--cat-device)" }];
@@ -35,6 +36,7 @@ const metrics = computed(() => vitals.latest.value);
 const cpu = computed(() => (metrics.value ? metrics.value.cpuTotal : null));
 const memory = computed(() => metrics.value?.memory ?? null);
 const live = computed(() => phase.value === "live");
+const dot = computed(() => phaseDot(phase.value));
 const waiting = computed(() => phase.value === "waiting" || phase.value === "starting");
 const hasReadings = computed(() =>
   hasPerfReadings(vitals.tickCount.value, webView.updatedAt.value),
@@ -70,7 +72,7 @@ useCommandProvider("screen.device-performance", () => [
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <PerfStatusBar
-      :phase="phase"
+      :dot="dot"
       :copy="copy"
       :last-sample-at="lastSampleAt"
       :paused="vitals.paused.value"

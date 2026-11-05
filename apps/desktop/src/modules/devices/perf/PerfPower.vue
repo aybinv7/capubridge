@@ -2,10 +2,10 @@
 import { computed } from "vue";
 import { BatteryCharging, Thermometer } from "lucide-vue-next";
 import type { PerfMetrics } from "@/types/perf.types";
-import Sparkline from "../shared/Sparkline.vue";
-import PerfCard from "./PerfCard.vue";
-import { seriesValues, type SeriesPoint } from "./perfSeries";
-import { batteryTone } from "./perfView";
+import Sparkline from "@/shared/perf/Sparkline.vue";
+import PerfCard from "@/shared/perf/PerfCard.vue";
+import { seriesValues, type SeriesPoint } from "@/shared/perf/perfSeries";
+import { batteryTone } from "@/shared/perf/tones";
 
 const PERCENT_DOMAIN = [0, 100] as const;
 

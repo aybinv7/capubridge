@@ -10,7 +10,7 @@ import { PACKAGE_CACHE_STALE_MS, useAppPackages } from "@/composables/useAppPack
 import { targetAppName } from "@/lib/target-app-name";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import AppIcon from "../AppIcon.vue";
+import AppIcon from "@/shared/apps/AppIcon.vue";
 
 const props = defineProps<{ serial: string }>();
 

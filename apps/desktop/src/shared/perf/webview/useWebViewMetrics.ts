@@ -1,8 +1,8 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type Ref } from "vue";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 import { useConnectionStore } from "@/stores/connection.store";
-import type { SeriesPoint } from "./perfSeries";
-import { SampleRing } from "./sampleRing";
+import type { SeriesPoint } from "../perfSeries";
+import { SampleRing } from "../sampleRing";
 import {
   readWebViewSample,
   WEBVIEW_CALL_TIMEOUT_MS,

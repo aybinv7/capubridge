@@ -2,11 +2,12 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { StatusDot } from "@capubridge/cladd";
-import { formatBytes, formatPercent, formatRate } from "../shared/format";
-import { batteryTone, loadTone, memoryTone, phaseDot } from "../perf/perfView";
+import { formatBytes, formatPercent, formatRate } from "@/shared/format/numbers";
+import { batteryTone, loadTone, memoryTone } from "@/shared/perf/tones";
+import { phaseDot } from "../perf/perfView";
 import { useDeviceVitals } from "../perf/useDeviceVitals";
 import { usePerfPhase } from "../perf/usePerfPhase";
-import VitalTile from "./VitalTile.vue";
+import VitalTile from "@/shared/perf/VitalTile.vue";
 
 const PERCENT_DOMAIN = [0, 100] as const;
 

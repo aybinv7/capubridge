@@ -2,14 +2,14 @@ import { computed, ref, type Ref } from "vue";
 import { toast } from "vue-sonner";
 import { useAdb } from "@/composables/useAdb";
 import type { AdbPackage } from "@/types/adb.types";
+import { appDisplayName } from "@/shared/apps/appIdentity";
 import {
   appActionCommand,
   appActionOutcome,
   appActionRequest,
-  appDisplayName,
   type AppAction,
   type AppActionSubject,
-} from "./appsModel";
+} from "@/shared/apps/appActions";
 
 function subjectOf(app: AdbPackage): AppActionSubject {
   return { name: appDisplayName(app), packageName: app.packageName, system: app.system };

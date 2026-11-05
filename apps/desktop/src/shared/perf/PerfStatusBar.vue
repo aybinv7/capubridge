@@ -1,21 +1,18 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { Pause, Play } from "lucide-vue-next";
 import { Button, StatusDot } from "@capubridge/cladd";
-import { formatClock } from "../shared/format";
-import { phaseDot, type PerfPhase, type PerfPhaseCopy } from "./perfView";
+import { formatClock } from "@/shared/format/numbers";
+import type { StatusCopy, StatusMark } from "./statusMark";
 
 const props = defineProps<{
-  phase: PerfPhase;
-  copy: PerfPhaseCopy;
+  dot: StatusMark;
+  copy: StatusCopy;
   lastSampleAt: number | null;
   paused: boolean;
   showDetail: boolean;
 }>();
 
 const emit = defineEmits<{ pause: []; resume: [] }>();
-
-const dot = computed(() => phaseDot(props.phase));
 </script>
 
 <template>
@@ -24,7 +21,7 @@ const dot = computed(() => phaseDot(props.phase));
     role="status"
     aria-live="polite"
   >
-    <StatusDot :color="dot.color" :variant="dot.variant" />
+    <StatusDot :color="props.dot.color" :variant="props.dot.variant" />
     <span class="shrink-0 text-xs font-medium text-foreground">{{ props.copy.label }}</span>
     <span v-if="props.showDetail" class="min-w-0 truncate text-xs text-muted-foreground">
       {{ props.copy.detail }}

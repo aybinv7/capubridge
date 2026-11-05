@@ -2,7 +2,8 @@ import type { ComputedRef, Ref } from "vue";
 import { CircleStop, Eraser, FolderOpen, Play, RefreshCw, Trash2 } from "lucide-vue-next";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import type { AdbPackage, AdbPackageDetails } from "@/types/adb.types";
-import { appDisplayName, appFolders } from "./appsModel";
+import { appDisplayName } from "@/shared/apps/appIdentity";
+import { appFolders } from "@/shared/apps/appFolders";
 import type { useAppActions } from "./useAppActions";
 
 interface AppsCommandDeps {

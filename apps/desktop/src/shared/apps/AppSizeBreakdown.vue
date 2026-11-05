@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { AdbPackageDetails } from "@/types/adb.types";
-import { formatBytes } from "../shared/format";
-import { totalAppSize } from "./appsModel";
+import { formatBytes } from "@/shared/format/numbers";
+import { totalAppSize } from "./appFolders";
 
 const props = defineProps<{ details: AdbPackageDetails | undefined }>();
 

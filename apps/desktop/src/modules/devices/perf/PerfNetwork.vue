@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ArrowDown, ArrowUp, Wifi } from "lucide-vue-next";
 import type { PerfMetrics } from "@/types/perf.types";
-import { formatKilobyteRate, formatRate } from "../shared/format";
-import PerfCard from "./PerfCard.vue";
-import PerfChart from "./PerfChart.vue";
-import type { PerfChartLine } from "./perfChart.types";
-import type { SeriesPoint } from "./perfSeries";
+import { formatKilobyteRate, formatRate } from "@/shared/format/numbers";
+import PerfCard from "@/shared/perf/PerfCard.vue";
+import PerfChart from "@/shared/perf/PerfChart.vue";
+import type { PerfChartLine } from "@/shared/perf/perfChart.types";
+import type { SeriesPoint } from "@/shared/perf/perfSeries";
 
 const DOWNLOAD_LINES: PerfChartLine[] = [
   { key: "rx", label: "Download, KB/s", color: "var(--cat-network)" },

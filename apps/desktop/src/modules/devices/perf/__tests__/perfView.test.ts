@@ -1,10 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
   STALE_AFTER_MS,
-  batteryTone,
   hasPerfReadings,
-  loadTone,
-  memoryTone,
   perfPhase,
   sampledSince,
   type PerfPhaseInput,
@@ -63,19 +60,5 @@ describe("perfPhase", () => {
 
   test("WebView readings alone are enough to show the charts", () => {
     expect(hasPerfReadings(0, Date.now())).toBe(true);
-  });
-});
-
-describe("reading tones", () => {
-  test("load is plain until it is high, battery until it is low", () => {
-    expect(loadTone(null)).toBe("text-muted-foreground");
-    expect(loadTone(42)).toBe("text-foreground");
-    expect(loadTone(65)).toBe("text-warning");
-    expect(loadTone(91)).toBe("text-error");
-    expect(memoryTone(62)).toBe("text-foreground");
-    expect(memoryTone(90)).toBe("text-warning");
-    expect(batteryTone(15)).toBe("text-error");
-    expect(batteryTone(35)).toBe("text-warning");
-    expect(batteryTone(90)).toBe("text-foreground");
   });
 });

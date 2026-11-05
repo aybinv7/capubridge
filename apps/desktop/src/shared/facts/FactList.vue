@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import { useId } from "vue";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
-import type { DeviceFact } from "./deviceFacts";
+import type { Fact } from "./fact";
 
-const props = defineProps<{ facts: readonly DeviceFact[] }>();
+const props = defineProps<{ title: string; facts: readonly Fact[] }>();
+
+const titleId = useId();
 </script>
 
 <template>
-  <section class="flex flex-col gap-2" aria-labelledby="overview-facts-title">
-    <h2 id="overview-facts-title" class="text-sm font-medium text-foreground">About this phone</h2>
+  <section class="flex flex-col gap-2" :aria-labelledby="titleId">
+    <h2 :id="titleId" class="text-sm font-medium text-foreground">{{ props.title }}</h2>
     <dl class="flex flex-col divide-y divide-border-subtle">
       <div
         v-for="fact in props.facts"
@@ -23,7 +26,7 @@ const props = defineProps<{ facts: readonly DeviceFact[] }>();
                 fact.mono ? 'font-mono text-xs' : 'text-sm',
                 fact.quiet ? 'text-muted-foreground' : 'text-foreground',
               ]"
-              :title="fact.value"
+              :title="fact.hint ?? fact.value"
             >
               {{ fact.value }}
             </span>

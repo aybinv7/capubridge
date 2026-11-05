@@ -1,7 +1,7 @@
 import { computed, shallowRef, type Ref } from "vue";
 import { toast } from "vue-sonner";
 import { invokeCommand } from "@/runtime/ipc/client";
-import type { DeviceConfirmRequest } from "../shared/confirm";
+import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";
 
 interface FileActionHooks {
@@ -19,7 +19,7 @@ export function useFileActions(serial: Ref<string>, hooks: FileActionHooks) {
       if (!open) pendingDelete.value = null;
     },
   });
-  const deleteRequest = computed<DeviceConfirmRequest | null>(() => {
+  const deleteRequest = computed<ConfirmRequest | null>(() => {
     const entry = pendingDelete.value;
     if (!entry) return null;
     return {

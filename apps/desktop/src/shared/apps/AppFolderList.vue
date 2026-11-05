@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { FolderOpen } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
-import type { AppFolder } from "./appsModel";
+import type { AppFolder } from "./appFolders";
 
 const props = defineProps<{ folders: readonly AppFolder[] }>();
 

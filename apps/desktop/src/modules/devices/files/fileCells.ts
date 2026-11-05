@@ -1,4 +1,4 @@
-import { formatDateWords, isFactoryDate, parseDeviceDate } from "../shared/dates";
+import { formatDateWords, isFactoryDate, parseDeviceDate } from "@/shared/format/dates";
 import { formatSize } from "./fileKinds";
 import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";
 

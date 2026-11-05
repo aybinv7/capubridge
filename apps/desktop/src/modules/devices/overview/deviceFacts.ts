@@ -1,18 +1,6 @@
 import type { DeviceOverview } from "@/composables/useAdb";
-import { formatBytes, share } from "../shared/format";
-
-/** One line of "About this phone". `copy` is what the copy button puts on the clipboard. */
-export interface DeviceFact {
-  key: string;
-  label: string;
-  value: string;
-  detail?: string;
-  mono?: boolean;
-  quiet?: boolean;
-  copy?: string;
-  /** 0–100 fill of a meter drawn under the value. */
-  meter?: number;
-}
+import type { Fact } from "@/shared/facts/fact";
+import { formatBytes, share } from "@/shared/format/numbers";
 
 function maker(manufacturer: string): string {
   const trimmed = manufacturer.trim();
@@ -37,8 +25,8 @@ function displayLine(resolution: string): string {
  * Turns the device's own report into the facts a developer reads, in reading order. The Android
  * version is left to the header, which names it next to the connection.
  */
-export function deviceFacts(info: DeviceOverview, serial: string): DeviceFact[] {
-  const facts: DeviceFact[] = [
+export function deviceFacts(info: DeviceOverview, serial: string): Fact[] {
+  const facts: Fact[] = [
     { key: "model", label: "Model", value: modelLine(info) },
     { key: "abi", label: "Processor", value: info.cpuArch || "—", mono: Boolean(info.cpuArch) },
     {

@@ -3,10 +3,10 @@ import { computed, ref, useId } from "vue";
 import { useElementSize } from "@vueuse/core";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import type { AdbPackage } from "@/types/adb.types";
-import AppIcon from "../AppIcon.vue";
+import AppIcon from "@/shared/apps/AppIcon.vue";
 import { chunkRows, scrollTopToReveal } from "@/shared/list/grid";
 import { optionId, rowStateClass } from "@/shared/list/rowState";
-import { appDisplayName } from "./appsModel";
+import { appDisplayName } from "@/shared/apps/appIdentity";
 import { APP_TILES, gridColumns, type AppsDensity } from "./appsView";
 
 const GRID_PADDING = 12;

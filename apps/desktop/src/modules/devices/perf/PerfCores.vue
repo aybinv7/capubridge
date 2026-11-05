@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { CpuCoreMetric } from "@/types/perf.types";
-import Sparkline from "../shared/Sparkline.vue";
-import { loadTone } from "./perfView";
+import Sparkline from "@/shared/perf/Sparkline.vue";
+import { loadTone } from "@/shared/perf/tones";
 
 const CORE_DOMAIN = [0, 100] as const;
 

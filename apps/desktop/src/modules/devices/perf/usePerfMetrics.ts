@@ -7,8 +7,8 @@ import {
 } from "@/runtime/session";
 import type { PerfMetrics } from "@/types/perf.types";
 import type { SessionEvent } from "@/types/session.types";
-import type { SeriesPoint } from "./perfSeries";
-import { SampleRing } from "./sampleRing";
+import type { SeriesPoint } from "@/shared/perf/perfSeries";
+import { SampleRing } from "@/shared/perf/sampleRing";
 
 /** The name this monitor holds the device's perf lease under, beside a recording's. */
 export const DEVICE_VITALS_HOLDER = "device-vitals";

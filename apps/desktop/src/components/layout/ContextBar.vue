@@ -8,7 +8,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useAppPackages } from "@/composables/useAppPackages";
 import { targetAppName } from "@/lib/target-app-name";
-import AppIcon from "@/modules/devices/AppIcon.vue";
+import AppIcon from "@/shared/apps/AppIcon.vue";
 import DeviceManagerDialog from "@/components/device-manager/DeviceManagerDialog.vue";
 import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 

@@ -3,7 +3,7 @@ import { computed, nextTick, ref, shallowRef, useId, watch } from "vue";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import DetailsPane from "../shared/DetailsPane.vue";
-import DeviceConfirmDialog from "../shared/DeviceConfirmDialog.vue";
+import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
 import { optionId } from "@/shared/list/rowState";
 import FileDetails from "./FileDetails.vue";
 import FileMenu from "./FileMenu.vue";
@@ -218,7 +218,7 @@ watch(browser.entries, () => {
       @choose-app="actions.chooseApp"
       @download="actions.download"
     />
-    <DeviceConfirmDialog
+    <ConfirmDialog
       v-model:open="actions.deleteOpen.value"
       :request="actions.deleteRequest.value"
       @confirm="actions.confirmDelete()"
