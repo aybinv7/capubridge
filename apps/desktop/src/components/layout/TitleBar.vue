@@ -16,7 +16,7 @@ const { keysOf } = useBindingHint();
 
 <template>
   <header
-    class="relative grid h-11.5 shrink-0 select-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-background pl-3"
+    class="@container/titlebar relative grid h-11.5 shrink-0 select-none grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-3 bg-background pl-3"
     style="-webkit-app-region: drag"
   >
     <div class="flex items-center gap-0.5 justify-self-start" style="-webkit-app-region: no-drag">

@@ -66,7 +66,7 @@ async function handleClick() {
       'border-border-subtle text-muted-foreground hover:text-foreground':
         recordingStore.phase === 'idle',
     }"
-    content-class-name="gap-2 pl-2.5 pr-3"
+    content-class-name="gap-2 pl-2.5 pr-3 @max-5xl/titlebar:pr-2.5"
     :disabled="recordingStore.phase === 'stopping'"
     :aria-pressed="recordingStore.phase === 'recording'"
     :title="
@@ -87,7 +87,7 @@ async function handleClick() {
           class="size-1.5 rounded-full bg-signal-rec/80 transition-colors group-hover:bg-signal-rec"
         />
       </span>
-      <span>Record session</span>
+      <span class="@max-5xl/titlebar:sr-only">Record session</span>
     </template>
 
     <template v-else-if="recordingStore.phase === 'recording'">

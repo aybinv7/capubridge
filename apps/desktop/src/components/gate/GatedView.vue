@@ -4,6 +4,7 @@ import WorkbenchGate from "@/components/gate/WorkbenchGate.vue";
 import GateStrip from "@/components/gate/GateStrip.vue";
 import { useGate } from "@/composables/useGate";
 import { useAppPackages } from "@/composables/useAppPackages";
+import { useBringToFrontOwner } from "@/composables/useBringToFrontOwner";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { degradedCopy, noticeCopy } from "@/lib/gates/copy";
 import type { GateRequirement } from "@/lib/gates/types";
@@ -18,6 +19,7 @@ const props = withDefaults(
 
 const context = useActiveContextStore();
 const { result, subject, mode } = useGate(() => props.requirement);
+const bringToFrontOwner = useBringToFrontOwner();
 
 const serial = computed(() => context.device?.serial ?? "");
 const { getCachedPackage } = useAppPackages(serial);
@@ -34,9 +36,10 @@ const strip = computed(() => {
     return degradedCopy(kind, context.gateInput, props.requirement);
   }
   const notice = result.value.notice;
-  return notice && mode.value === "open"
-    ? noticeCopy(notice, context.gateInput, appLabel.value)
-    : null;
+  if (!notice || mode.value !== "open") return null;
+  const copy = noticeCopy(notice, context.gateInput, appLabel.value);
+  if (bringToFrontOwner.value === "strip") return copy;
+  return { ...copy, actions: copy.actions.filter((action) => action !== "bring-to-front") };
 });
 </script>
 

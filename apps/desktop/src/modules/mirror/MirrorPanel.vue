@@ -9,6 +9,9 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useCDP } from "@/composables/useCDP";
+import { useAppPackages } from "@/composables/useAppPackages";
+import { useBringToFrontOwner } from "@/composables/useBringToFrontOwner";
+import { targetAppName } from "@/lib/target-app-name";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
 import { useLocalWebviewViewport } from "./useLocalWebviewViewport";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
@@ -97,15 +100,18 @@ const status = computed(() =>
     frames: frames.value,
   }),
 );
+const bringToFrontOwner = useBringToFrontOwner();
+const { getCachedPackage } = useAppPackages(computed(() => streamSerial.value ?? ""));
 const backgroundApp = computed(() => {
   const target = selectedTarget.value;
   const serial = streamSerial.value;
   if (!androidMode.value || target?.source !== "adb" || !serial || !target.packageName) return null;
-  if (presenceStore.presence !== "background") return null;
+  if (presenceStore.presence !== "background" || bringToFrontOwner.value === "route") return null;
+  const label = getCachedPackage(target.packageName)?.label;
   return {
     serial,
     packageName: target.packageName,
-    appName: target.title?.trim() || target.packageName,
+    appName: targetAppName(target, label) ?? target.packageName,
   };
 });
 
