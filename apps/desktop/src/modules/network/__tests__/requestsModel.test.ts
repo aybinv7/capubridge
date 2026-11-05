@@ -10,6 +10,7 @@ import {
   timeCell,
 } from "../requests/requestCells";
 import { requestName, requestNameParts } from "../requests/requestNames";
+import { rowCells } from "../requests/requestRowCells";
 import { requestsSummary } from "../requests/requestFilters";
 import { nextSort, sortRequests } from "../requests/requestSort";
 import { waterfallBar, waterfallRange, waterfallTicks } from "../requests/waterfall";
@@ -41,7 +42,7 @@ describe("request cells", () => {
   test("size names caches and counts WebSocket frames", () => {
     expect(sizeCell(networkEntry({ fromDiskCache: true })).text).toBe("Disk cache");
     expect(sizeCell(networkEntry({ isWebSocket: true, wsFrameCount: 1 })).text).toBe("1 frame");
-    expect(sizeCell(networkEntry({ state: "pending" })).text).toBe("…");
+    expect(sizeCell(networkEntry({ state: "pending" })).text).toBe("—");
     expect(sizeCell(networkEntry({ state: "failed" })).text).toBe("—");
   });
 
@@ -60,17 +61,32 @@ describe("request cells", () => {
     expect(isAppFile(networkEntry({ url: "https://api.test/a", transferSize: 0 }))).toBe(false);
   });
 
-  test("time flags slow requests", () => {
+  test("a slow request stands out in ink, a very slow one warns; neither reads as failed", () => {
     expect(timeCell(networkEntry({ startTimestamp: 0, finishedTimestamp: 0.2 })).tone).toBe(
       "muted",
     );
     expect(timeCell(networkEntry({ startTimestamp: 0, finishedTimestamp: 1.5 })).tone).toBe(
+      "default",
+    );
+    expect(timeCell(networkEntry({ startTimestamp: 0, finishedTimestamp: 4 })).tone).toBe(
       "warning",
     );
-    expect(timeCell(networkEntry({ startTimestamp: 0, finishedTimestamp: 4 })).tone).toBe("error");
-    expect(timeCell(networkEntry({ finishedTimestamp: null, state: "pending" })).text).toBe(
-      "Pending",
-    );
+  });
+
+  test("an open request says Pending once, in Status; its time counts up and has no size", () => {
+    const open = networkEntry({
+      finishedTimestamp: null,
+      httpStatus: null,
+      state: "pending",
+      startedAt: 1000,
+    });
+    expect(statusCell(open).text).toBe("Pending");
+    expect(timeCell(open).text).toBe("");
+    expect(sizeCell(open).text).toBe("—");
+    expect(rowCells(open).pendingSince).toBe(1000);
+    expect(
+      rowCells(networkEntry({ state: "finished", finishedTimestamp: 1 })).pendingSince,
+    ).toBeNull();
   });
 
   test("names show the path, initiators the file and line", () => {
@@ -98,6 +114,25 @@ describe("request cells", () => {
         "https://localhost/_capacitor_http_interceptor_?u=https%3A%2F%2Fodoo.test%2Fweb%2Fdataset%2Fcall_kw",
       ),
     ).toEqual({ main: "call_kw", detail: "odoo.test/web/dataset/" });
+  });
+
+  test("a path ending in an id is named by what it fetches and a short id", () => {
+    expect(
+      requestNameParts("https://api.test/v1/snapshot/3f2a9c4e-1b7d-4e8a-9f00-5c6d7e8f0001"),
+    ).toEqual({ main: "snapshot/…0001", detail: "api.test/v1/" });
+    expect(requestNameParts("https://api.test/orders/42?full=1")).toEqual({
+      main: "orders/42?full=1",
+      detail: "api.test/",
+    });
+    expect(requestNameParts("https://api.test/v1/orders/1234567890")).toEqual({
+      main: "orders/…7890",
+      detail: "api.test/v1/",
+    });
+    expect(requestNameParts("https://cdn.test/assets/0123456789abcdef0123")).toEqual({
+      main: "assets/…0123",
+      detail: "cdn.test/",
+    });
+    expect(requestNameParts("https://api.test/42")).toEqual({ main: "42", detail: "api.test/" });
   });
 
   test("the summary mentions how many are shown only while filtering", () => {

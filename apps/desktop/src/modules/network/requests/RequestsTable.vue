@@ -6,6 +6,7 @@ import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import { scrollTopToReveal } from "@/shared/list/grid";
 import { optionId, rowStateClass } from "@/shared/list/rowState";
 import type { NetworkEntry } from "@/types/network.types";
+import PendingTime from "./PendingTime.vue";
 import RequestNameCell from "./RequestNameCell.vue";
 import RequestWaterfall from "./RequestWaterfall.vue";
 import WaterfallAxis from "./WaterfallAxis.vue";
@@ -233,6 +234,10 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
           :class="[columnDisplay(column), column.className]"
         >
           <RequestNameCell v-if="column.id === 'name'" :cells="row.cells" />
+          <PendingTime
+            v-else-if="column.id === 'time' && row.cells.pendingSince !== null"
+            :since="row.cells.pendingSince"
+          />
           <template v-else-if="column.id === 'waterfall'">
             <RequestWaterfall v-if="row.bar" :bar="row.bar" :failed="row.failed" />
           </template>

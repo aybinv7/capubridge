@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useStorage } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useAppPackages } from "@/composables/useAppPackages";
 import { targetAppName } from "@/lib/target-app-name";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { MockRule } from "@/types/mock.types";
@@ -33,8 +34,15 @@ const { draft, save } = useMockRuleDraft(selectedId);
 const transfer = useMockTransfer(select);
 const reverse = useMockReverse();
 
+const { getCachedPackage } = useAppPackages(
+  computed(() => targets.selectedTarget?.deviceSerial ?? ""),
+);
+const appLabel = computed(() => {
+  const name = targets.selectedTarget?.packageName;
+  return name ? (getCachedPackage(name)?.label ?? null) : null;
+});
 const scope = computed(() =>
-  scopeWords(targets.selectedTarget, targetAppName(targets.selectedTarget, null)),
+  scopeWords(targets.selectedTarget, targetAppName(targets.selectedTarget, appLabel.value)),
 );
 const summary = computed(() =>
   rulesSummary(store.enabledCount, store.rules.length, store.interceptMode),

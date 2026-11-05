@@ -84,7 +84,7 @@ export function sizeCell(entry: NetworkEntry): Cell {
   if (entry.fromDiskCache) return { text: "Disk cache", tone: "subtle" };
   if (entry.fromServiceWorker) return { text: "Service worker", tone: "subtle" };
   if (entry.fromPrefetchCache) return { text: "Prefetch", tone: "subtle" };
-  if (entry.state === "pending") return { text: "…", tone: "subtle" };
+  if (entry.state === "pending") return { text: "—", tone: "subtle" };
   const { transferred, size } = entrySizes(entry);
   if (isAppFile(entry)) {
     return {
@@ -110,9 +110,9 @@ export function timeCell(entry: NetworkEntry): Cell {
   if (entry.state === "failed")
     return { text: entry.canceled ? "Cancelled" : "Failed", tone: "error" };
   const ms = durationMs(entry);
-  if (ms === null) return { text: entry.isWebSocket ? "Open" : "Pending", tone: "subtle" };
-  if (ms > VERY_SLOW_MS) return { text: formatMs(ms), tone: "error" };
-  if (ms > SLOW_MS) return { text: formatMs(ms), tone: "warning" };
+  if (ms === null) return { text: entry.isWebSocket ? "Open" : "", tone: "subtle" };
+  if (ms > VERY_SLOW_MS) return { text: formatMs(ms), tone: "warning" };
+  if (ms > SLOW_MS) return { text: formatMs(ms), tone: "default" };
   return { text: formatMs(ms), tone: "muted" };
 }
 

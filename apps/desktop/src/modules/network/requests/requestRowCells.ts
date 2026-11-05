@@ -25,6 +25,8 @@ export interface RowCells {
   initiator: RowCell;
   size: RowCell;
   time: RowCell;
+  /** When an open request started, so its time counts up live; `null` once it ended. */
+  pendingSince: number | null;
 }
 
 const cache = new WeakMap<NetworkEntry, RowCells>();
@@ -68,6 +70,10 @@ function build(entry: NetworkEntry): RowCells {
       className: `font-mono text-2xs tabular-nums ${TONE_CLASS[time.tone]}`,
       title: undefined,
     },
+    pendingSince:
+      entry.state === "pending" && !entry.isWebSocket && entry.finishedTimestamp === null
+        ? entry.startedAt
+        : null,
   };
 }
 
