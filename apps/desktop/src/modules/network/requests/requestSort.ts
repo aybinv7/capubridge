@@ -1,5 +1,6 @@
 import type { NetworkEntry } from "@/types/network.types";
-import { durationMs, initiatorWord, requestName, typeWord } from "./requestCells";
+import { durationMs, initiatorWord, typeWord } from "./requestCells";
+import { requestNameParts } from "./requestNames";
 
 export type RequestSortKey =
   | "name"
@@ -21,15 +22,30 @@ const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "bas
 type SortValue = number | string | null;
 
 const VALUE: Record<RequestSortKey, (entry: NetworkEntry) => SortValue> = {
-  name: (entry) => requestName(entry.url),
+  name: (entry) => requestNameParts(entry.url).main,
   method: (entry) => entry.method,
   status: (entry) => entry.httpStatus,
   type: (entry) => typeWord(entry),
   initiator: (entry) => initiatorWord(entry),
-  size: (entry) => entry.transferSize,
+  size: (entry) => entry.transferSize || entry.resourceSize,
   time: (entry) => durationMs(entry),
   start: (entry) => entry.startTimestamp,
 };
+
+const CACHED_KEYS = new Set<RequestSortKey>(["name", "type", "initiator"]);
+const keyCache = new WeakMap<NetworkEntry, Partial<Record<RequestSortKey, SortValue>>>();
+
+/** A sort value; the string ones are kept per entry object, which is replaced on every update. */
+function sortValue(entry: NetworkEntry, key: RequestSortKey): SortValue {
+  if (!CACHED_KEYS.has(key)) return VALUE[key](entry);
+  let keys = keyCache.get(entry);
+  if (!keys) {
+    keys = {};
+    keyCache.set(entry, keys);
+  }
+  if (!(key in keys)) keys[key] = VALUE[key](entry);
+  return keys[key] ?? null;
+}
 
 function compareValues(a: SortValue, b: SortValue): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
@@ -45,10 +61,10 @@ export function sortRequests(
   sort: RequestSort | null,
 ): readonly NetworkEntry[] {
   if (!sort) return entries;
-  const read = VALUE[sort.key];
+  const key = sort.key;
   const direction = sort.desc ? -1 : 1;
   return entries
-    .map((entry, index) => ({ entry, index, value: read(entry) }))
+    .map((entry, index) => ({ entry, index, value: sortValue(entry, key) }))
     .sort((a, b) => {
       if (a.value === null || b.value === null) {
         if (a.value === b.value) return a.index - b.index;

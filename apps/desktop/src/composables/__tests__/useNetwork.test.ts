@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 import { effectScope, nextTick, type EffectScope } from "vue";
 import { createPinia, setActivePinia } from "pinia";
 import type { CDPTarget } from "@/types/cdp.types";
+import { setNetworkFlushScheduler } from "@/modules/network/stores/networkFlush";
 
 type Handler = (payload: unknown) => void;
 
@@ -101,10 +102,7 @@ let scope: EffectScope;
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-    callback(0);
-    return 1;
-  });
+  setNetworkFlushScheduler(() => (flush) => flush());
   env.clients.clear();
   env.clients.set("a", fakeClient());
   env.clients.set("b", fakeClient());
@@ -182,6 +180,54 @@ describe("network capture lifecycle", () => {
     client("a").emit("Network.requestWillBeSent", request("2"));
 
     expect(store.allEntries.map((entry) => entry.requestId)).toEqual(["1"]);
+  });
+
+  test("sizes add up received chunks when the final length is 0 (files the app serves)", async () => {
+    await selectTarget("a");
+    scope.run(() => useNetwork());
+    await settle();
+    const store = useNetworkStore();
+    client("a").emit("Network.requestWillBeSent", request("1", "https://localhost/app.js"));
+    client("a").emit("Network.dataReceived", {
+      requestId: "1",
+      timestamp: 1,
+      dataLength: 3000,
+      encodedDataLength: 0,
+    });
+    client("a").emit("Network.dataReceived", {
+      requestId: "1",
+      timestamp: 1,
+      dataLength: 1000,
+      encodedDataLength: 0,
+    });
+    client("a").emit("Network.loadingFinished", {
+      requestId: "1",
+      timestamp: 2,
+      encodedDataLength: 0,
+    });
+
+    expect(store.getEntry("1")).toMatchObject({ resourceSize: 4000, transferSize: 0 });
+    expect(store.resourceBytes).toBe(4000);
+  });
+
+  test("a request open when capture restarts is marked unknown, not pending forever", async () => {
+    await selectTarget("a");
+    scope.run(() => useNetwork());
+    await settle();
+    const store = useNetworkStore();
+    client("a").emit("Network.requestWillBeSent", request("1"));
+    const { useCDP } = await import("@/composables/useCDP");
+    const connections = useCDP().connectionStore.connections as Map<string, { status: string }>;
+
+    env.clients.delete("a");
+    connections.set("a", { status: "disconnected" });
+    await settle();
+    env.clients.set("a", fakeClient());
+    connections.set("a", { status: "connected" });
+    await settle();
+
+    expect(store.getEntry("1")).toMatchObject({ state: "failed", interrupted: true });
+    expect(store.allEntries.filter((entry) => entry.state === "pending")).toHaveLength(0);
   });
 
   test("losing the target stops capture and resets its state", async () => {

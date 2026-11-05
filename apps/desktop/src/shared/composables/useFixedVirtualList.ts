@@ -56,11 +56,11 @@ export function useFixedVirtualList<T>(
 
   watch(
     () => source.value.length,
-    () => {
+    (length, previous) => {
       const element = container.value;
-      if (!element) return;
-      const maximum = Math.max(0, source.value.length * itemHeight - element.clientHeight);
-      if (element.scrollTop > maximum) element.scrollTop = maximum;
+      if (!element || (previous !== undefined && length >= previous)) return;
+      const maximum = Math.max(0, length * itemHeight - viewportHeight.value);
+      if (scrollTop.value > maximum) element.scrollTop = maximum;
       measure();
     },
     { flush: "post", immediate: true },

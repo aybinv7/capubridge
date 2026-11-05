@@ -12,30 +12,32 @@ export type UrlMatchType = "contains" | "glob" | "regex" | "exact";
 
 export type MockInterceptMode = "off" | "cdp" | "http";
 
+/** Resource types interception in the WebView pauses; scripts, images, fonts and the rest load untouched. */
+export const MOCKABLE_RESOURCE_TYPES: readonly string[] = ["Fetch", "XHR", "Document", "Other"];
+
 export interface MockResponseHeader {
   id: string;
   name: string;
   value: string;
 }
 
+/** How `responseBody` holds its bytes: as text, or as Base64 for a binary answer. */
+export type MockBodyEncoding = "text" | "base64";
+
 export interface MockRule {
   id: string;
   name: string;
   enabled: boolean;
-  // Matching
   method: HttpMethodFilter;
   urlPattern: string;
   urlMatchType: UrlMatchType;
-  // Response
   statusCode: number;
   contentType: string;
   responseHeaders: MockResponseHeader[];
   responseBody: string;
-  // Behavior
+  bodyEncoding?: MockBodyEncoding;
   delayMs: number;
   passThrough: boolean;
-  // Stats
-  hitCount: number;
   createdAt: number;
 }
 
@@ -62,7 +64,7 @@ export interface MockRuleExport {
   format: "capubridge-mock-rule";
   version: 1;
   exportedAt: string;
-  rule: Omit<MockRule, "id" | "hitCount" | "createdAt">;
+  rule: Omit<MockRule, "id" | "createdAt">;
 }
 
 export const DEFAULT_RULE_TEMPLATES: Array<{ label: string; rule: Partial<MockRule> }> = [

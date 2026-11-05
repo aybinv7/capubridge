@@ -33,10 +33,12 @@ export type CellTone = "default" | "muted" | "subtle" | "warning" | "error";
 export interface Cell {
   text: string;
   tone: CellTone;
+  title?: string;
 }
 
 /** The status column: the HTTP code, or a word for requests that have none. */
 export function statusCell(entry: NetworkEntry): Cell {
+  if (entry.interrupted) return { text: "Unknown", tone: "subtle", title: entry.errorText };
   if (entry.state === "failed") {
     if (entry.blocked) return { text: "Blocked", tone: "error" };
     return { text: entry.canceled ? "Cancelled" : "Failed", tone: "error" };
@@ -46,15 +48,33 @@ export function statusCell(entry: NetworkEntry): Cell {
   return { text: String(code), tone: statusTone(code) };
 }
 
-/** The tone of an HTTP code: client errors warn, server errors fail, redirects are quiet. */
+/** The tone of an HTTP code: success stays quiet, client errors warn, server errors fail. */
 export function statusTone(code: number): CellTone {
   if (code >= 500) return "error";
   if (code >= 400) return "warning";
-  if (code >= 300) return "muted";
-  return "default";
+  return "muted";
 }
 
-/** The size column: bytes on the wire, where it came from, or frames for a WebSocket. */
+const APP_HOSTS = new Set(["localhost", "appassets.androidplatform.net"]);
+
+/** Whether the app served this file from its own bundle on the phone, not over the network. */
+export function isAppFile(entry: NetworkEntry): boolean {
+  if (entry.transferSize > 0 || entry.remoteAddress || entry.state !== "finished") return false;
+  if (entry.fromDiskCache || entry.fromServiceWorker || entry.fromPrefetchCache) return false;
+  try {
+    const parsed = new URL(entry.url);
+    return parsed.protocol === "file:" || APP_HOSTS.has(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Bytes of a finished request: over the network, and as the decoded body. */
+export function entrySizes(entry: NetworkEntry): { transferred: number; size: number } {
+  return { transferred: entry.transferSize, size: entry.resourceSize || entry.transferSize };
+}
+
+/** The size column: transferred / size like DevTools, where it came from, or frames for a WebSocket. */
 export function sizeCell(entry: NetworkEntry): Cell {
   if (entry.isWebSocket) {
     const frames = entry.wsFrameCount;
@@ -65,7 +85,19 @@ export function sizeCell(entry: NetworkEntry): Cell {
   if (entry.fromServiceWorker) return { text: "Service worker", tone: "subtle" };
   if (entry.fromPrefetchCache) return { text: "Prefetch", tone: "subtle" };
   if (entry.state === "pending") return { text: "…", tone: "subtle" };
-  return { text: formatBytes(entry.transferSize), tone: "muted" };
+  const { transferred, size } = entrySizes(entry);
+  if (isAppFile(entry)) {
+    return {
+      text: `App · ${formatBytes(size)}`,
+      tone: "muted",
+      title: `${formatBytes(size)} from the app's own files; nothing crossed the network`,
+    };
+  }
+  const title = `${formatBytes(transferred)} transferred, ${formatBytes(size)} once decoded`;
+  if (size > transferred * 1.05 && transferred > 0) {
+    return { text: `${formatBytes(transferred)} / ${formatBytes(size)}`, tone: "muted", title };
+  }
+  return { text: formatBytes(transferred || size), tone: "muted", title };
 }
 
 /** Requests slower than these read as slow and very slow. */
@@ -74,6 +106,7 @@ export const VERY_SLOW_MS = 3000;
 
 /** The time column: the duration, or what stopped the request. */
 export function timeCell(entry: NetworkEntry): Cell {
+  if (entry.interrupted) return { text: "—", tone: "subtle" };
   if (entry.state === "failed")
     return { text: entry.canceled ? "Cancelled" : "Failed", tone: "error" };
   const ms = durationMs(entry);
@@ -118,45 +151,30 @@ const INITIATOR_WORDS: Record<string, string> = {
   other: "Other",
 };
 
-/** Who started the request: `file.js:42` when a script is known, else a word. */
-export function initiatorWord(entry: NetworkEntry): string {
+/** Who started the request: `file.js:42` (mono) when a script is known, else a word. */
+export function initiatorCell(entry: NetworkEntry): { text: string; isFile: boolean } {
   if (entry.initiatorUrl) {
-    const file = lastSegment(entry.initiatorUrl) || entry.initiatorUrl;
-    return entry.initiatorLine !== undefined ? `${file}:${entry.initiatorLine + 1}` : file;
+    const file = fileName(entry.initiatorUrl);
+    return {
+      text: entry.initiatorLine !== undefined ? `${file}:${entry.initiatorLine + 1}` : file,
+      isFile: true,
+    };
   }
-  return INITIATOR_WORDS[entry.initiatorType] ?? entry.initiatorType;
+  return { text: INITIATOR_WORDS[entry.initiatorType] ?? entry.initiatorType, isFile: false };
 }
 
-function lastSegment(url: string): string {
+/** Who started the request, as text. */
+export function initiatorWord(entry: NetworkEntry): string {
+  return initiatorCell(entry).text;
+}
+
+/** The file a URL names; a site root is its `index.html`, never its host. */
+function fileName(url: string): string {
   try {
     const parsed = new URL(url);
-    return parsed.pathname.split("/").filter(Boolean).pop() ?? parsed.host;
+    return parsed.pathname.split("/").filter(Boolean).pop() ?? "index.html";
   } catch {
     return url.split("/").filter(Boolean).pop() ?? url;
-  }
-}
-
-/** What a row is called: the path and query, the media type for `data:` URLs. */
-export function requestName(url: string): string {
-  if (url.startsWith("data:")) {
-    const end = url.search(/[;,]/);
-    return end > 0 ? url.slice(0, end) : "data:";
-  }
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "blob:") return url;
-    return `${parsed.pathname}${parsed.search}` || "/";
-  } catch {
-    return url;
-  }
-}
-
-/** The host a request went to, or an empty string when the URL has none. */
-export function requestHost(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return "";
   }
 }
 

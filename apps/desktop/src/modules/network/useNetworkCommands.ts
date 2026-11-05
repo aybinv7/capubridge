@@ -1,4 +1,3 @@
-import { nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Pause, Pin, Play, Search, Trash2 } from "lucide-vue-next";
 import { useCommandProvider } from "@/composables/useCommandProvider";
@@ -11,12 +10,8 @@ export function useNetworkCommands() {
   const router = useRouter();
 
   async function filterRequests() {
-    if (route.name === "network-requests") {
-      store.triggerFocusSearch();
-      return;
-    }
-    await router.push({ name: "network-requests", query: { focus: "filter" } });
-    await nextTick();
+    if (route.name !== "network-requests") await router.push({ name: "network-requests" });
+    store.triggerFocusSearch();
   }
 
   useCommandProvider("screen.network", () => [

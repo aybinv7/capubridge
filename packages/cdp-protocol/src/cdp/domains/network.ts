@@ -89,6 +89,15 @@ export interface LoadingFinishedEvent {
   encodedDataLength: number;
 }
 
+export interface DataReceivedEvent {
+  requestId: string;
+  timestamp: number;
+  /** Decoded bytes of this chunk. */
+  dataLength: number;
+  /** Bytes of this chunk as they crossed the network (0 for requests served by the app itself). */
+  encodedDataLength: number;
+}
+
 export interface LoadingFailedEvent {
   requestId: string;
   timestamp: number;
@@ -179,6 +188,10 @@ export class NetworkDomain {
 
   onLoadingFinished(handler: (e: LoadingFinishedEvent) => void): () => void {
     return this.client.on("Network.loadingFinished", handler as (e: unknown) => void);
+  }
+
+  onDataReceived(handler: (e: DataReceivedEvent) => void): () => void {
+    return this.client.on("Network.dataReceived", handler as (e: unknown) => void);
   }
 
   onLoadingFailed(handler: (e: LoadingFailedEvent) => void): () => void {

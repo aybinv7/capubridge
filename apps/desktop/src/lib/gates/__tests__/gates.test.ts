@@ -163,6 +163,10 @@ describe("gate copy", () => {
 
   test("background notice offers to bring the app back", () => {
     expect(noticeCopy("background", live()).actions).toEqual(["bring-to-front"]);
+    expect(noticeCopy("background", live(), "Shop Retail").title).toBe(
+      "Shop Retail is in the background",
+    );
+    expect(noticeCopy("background", live()).title).not.toContain("com.shop");
   });
 });
 
@@ -175,6 +179,7 @@ describe("link health", () => {
     expect(deriveLinkHealth("local", "connected", "background")).toBe("live");
     expect(deriveLinkHealth("adb", "error", "unknown")).toBe("failed");
     expect(presentLink("paused").tone).toBe("warning");
+    expect(presentLink("paused").label).toBe("in the background");
   });
 });
 

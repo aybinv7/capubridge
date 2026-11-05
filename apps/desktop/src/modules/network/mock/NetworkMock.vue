@@ -2,14 +2,15 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useStorage } from "@vueuse/core";
-import { Button } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { targetAppName } from "@/lib/target-app-name";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { MockRule } from "@/types/mock.types";
 import { useMockStore } from "../stores/useMockStore";
+import MockInterceptionNote from "./MockInterceptionNote.vue";
 import MockModeGuide from "./MockModeGuide.vue";
+import MockOnboarding from "./MockOnboarding.vue";
 import MockRuleEditor from "./MockRuleEditor.vue";
 import MockSidebar from "./MockSidebar.vue";
 import MockToolbar from "./MockToolbar.vue";
@@ -28,14 +29,18 @@ const selectedId = ref<string | null>(null);
 const sidebarView = ref<"rules" | "log">("rules");
 const guideOpen = useStorage("capubridge:network:mock-guide-open", false);
 
-const { draft } = useMockRuleDraft(selectedId);
+const { draft, save } = useMockRuleDraft(selectedId);
 const transfer = useMockTransfer(select);
 const reverse = useMockReverse();
 
 const scope = computed(() =>
   scopeWords(targets.selectedTarget, targetAppName(targets.selectedTarget, null)),
 );
-const summary = computed(() => rulesSummary(store.enabledCount, store.rules.length));
+const summary = computed(() =>
+  rulesSummary(store.enabledCount, store.rules.length, store.interceptMode),
+);
+const onboarding = computed(() => store.rules.length === 0 && store.log.length === 0);
+const showOffNote = computed(() => store.interceptMode === "off" && store.enabledCount > 0);
 const modeModel = computed({
   get: () => store.interceptMode,
   set: (value) => {
@@ -63,28 +68,23 @@ function create(template?: Partial<MockRule>) {
 }
 
 function duplicate(id: string) {
+  save();
   const copy = store.duplicateRule(id);
   if (copy) select(copy);
 }
 
 function remove(id: string) {
-  const index = store.rules.findIndex((rule) => rule.id === id);
-  const rule = store.rules[index];
-  if (!rule) return;
-  store.deleteRule(id);
+  if (selectedId.value === id) save();
+  const removed = store.deleteRule(id);
+  if (!removed) return;
   if (selectedId.value === id) selectedId.value = null;
-  toast(`Deleted “${rule.name}”`, {
-    action: {
-      label: "Undo",
-      onClick: () => {
-        const rules = store.rules;
-        store.rules = [...rules.slice(0, index), rule, ...rules.slice(index)];
-      },
-    },
+  toast(`Deleted “${removed.rule.name}”`, {
+    action: { label: "Undo", onClick: () => store.restoreRule(removed) },
   });
 }
 
 function exportSelected() {
+  save();
   const rule = store.rules.find((candidate) => candidate.id === selectedId.value);
   if (rule) void transfer.exportRule(rule);
 }
@@ -125,7 +125,21 @@ useMockCommands({ create, importRule: transfer.importRule });
       @create="create"
     />
     <MockModeGuide v-if="guideOpen" :port="store.httpPort" />
+    <MockInterceptionNote
+      v-if="showOffNote"
+      :rule-count="store.enabledCount"
+      :has-target="!!targets.cdpTargetId"
+      @turn-on="store.interceptMode = 'cdp'"
+    />
+    <MockOnboarding
+      v-if="onboarding"
+      class="min-h-0 flex-1"
+      :can-open-requests="router.hasRoute('network-requests')"
+      @create="create"
+      @open-requests="router.push({ name: 'network-requests' })"
+    />
     <ResizablePanelGroup
+      v-else
       direction="horizontal"
       auto-save-id="capubridge:network-mock"
       class="min-h-0 flex-1"
@@ -142,6 +156,8 @@ useMockCommands({ create, importRule: transfer.importRule });
           :rules="store.rules"
           :log="store.log"
           :selected-id="selectedId"
+          :hits="store.hitCountOf"
+          :any-hits="store.anyHits"
           @select="select"
           @open-rule="select"
           @clear="clearSelection"
@@ -166,30 +182,14 @@ useMockCommands({ create, importRule: transfer.importRule });
             @remove="selectedId && remove(selectedId)"
           />
           <div
-            v-else-if="store.rules.length"
+            v-else
             class="flex h-full items-center justify-center p-8 text-xs text-muted-foreground"
           >
-            Choose a rule on the left to edit it.
-          </div>
-          <div
-            v-else
-            class="flex h-full flex-col items-center justify-center gap-4 p-8 text-center"
-          >
-            <p class="max-w-sm text-xs text-muted-foreground">
-              A rule answers matching requests with a response you write, so you can try errors,
-              slow servers and new data without touching the backend. In Requests, “Mock this
-              response” turns a real answer into a rule.
-            </p>
-            <div class="flex gap-2">
-              <Button size="sm" variant="solid-fill" @click="create()">New rule</Button>
-              <Button
-                size="sm"
-                variant="transparent"
-                @click="router.push({ name: 'network-requests' })"
-              >
-                Go to requests
-              </Button>
-            </div>
+            {{
+              store.rules.length
+                ? "Choose a rule on the left to edit it."
+                : "No rules yet. Use New rule above, or Mock this response in Requests."
+            }}
           </div>
         </div>
       </ResizablePanel>

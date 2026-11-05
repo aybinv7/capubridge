@@ -59,8 +59,8 @@ const actions = props.actions;
       <PayloadTab
         v-else-if="tab === 'payload'"
         :entry="props.entry"
-        :body="bodies.payload.data.value"
-        :loading="bodies.payload.isFetching.value"
+        :body="bodies.settled.value ? bodies.payload.data.value : undefined"
+        :loading="!bodies.settled.value || bodies.payload.isFetching.value"
         :error="bodies.payload.error.value"
         :find-signal="props.findSignal"
         @retry="bodies.payload.refetch()"
@@ -69,11 +69,12 @@ const actions = props.actions;
         v-else-if="tab === 'response'"
         :key="props.entry.requestId"
         :entry="props.entry"
-        :body="bodies.response.data.value"
-        :loading="bodies.response.isFetching.value"
+        :body="bodies.settled.value ? bodies.response.data.value : undefined"
+        :loading="!bodies.settled.value || bodies.response.isFetching.value"
         :error="bodies.response.error.value"
         :find-signal="props.findSignal"
         @retry="bodies.response.refetch()"
+        @copy-base64="actions.copy(props.entry, 'base64')"
       />
       <TimingTab v-else-if="tab === 'timing'" :entry="props.entry" />
       <CookiesTab v-else :entry="props.entry" />

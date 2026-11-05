@@ -1,3 +1,4 @@
+import { isAppFile } from "../requestCells";
 import type { NetworkEntry, NetworkTiming } from "@/types/network.types";
 
 export type TimingPhaseId =
@@ -91,5 +92,6 @@ export function cacheSource(entry: NetworkEntry): string {
   if (entry.fromDiskCache) return "Disk cache";
   if (entry.fromServiceWorker) return "Service worker";
   if (entry.fromPrefetchCache) return "Prefetch cache";
+  if (isAppFile(entry)) return "The app's own files";
   return "Network";
 }

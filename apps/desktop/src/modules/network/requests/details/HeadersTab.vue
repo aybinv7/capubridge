@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useStorage } from "@vueuse/core";
 import type { NetworkEntry } from "@/types/network.types";
-import { TONE_CLASS, initiatorWord, statusCell, typeWord } from "../requestCells";
+import { TONE_CLASS, initiatorWord, sizeCell, statusCell, typeWord } from "../requestCells";
 import DetailsSection from "./DetailsSection.vue";
 import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
 import { sortedHeaders } from "./cookies";
@@ -44,6 +44,10 @@ const general = computed<KeyValueRow[]>(() => {
     },
     { key: "Served from", value: cacheSource(entry) },
   ];
+  if (entry.state === "finished" && !entry.isWebSocket) {
+    const size = sizeCell(entry);
+    rows.push({ key: "Size", value: size.title ?? size.text });
+  }
   if (entry.remoteAddress) rows.push({ key: "Remote address", value: entry.remoteAddress });
   if (entry.protocol) rows.push({ key: "Protocol", value: entry.protocol });
   if (entry.isWebSocket) rows.push({ key: "Frames", value: String(entry.wsFrameCount) });

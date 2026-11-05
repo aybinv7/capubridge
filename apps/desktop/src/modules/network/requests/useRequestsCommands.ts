@@ -2,6 +2,7 @@ import type { ComputedRef } from "vue";
 import { Copy, FileCode2, Link, Replace, RotateCw, Terminal } from "lucide-vue-next";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import type { NetworkEntry } from "@/types/network.types";
+import { mockAvailability } from "../mock/mockFromRequest";
 import { hasResponseBody } from "./details/useRequestBodies";
 import type { RequestActions } from "./details/useRequestActions";
 
@@ -66,13 +67,23 @@ export function useRequestsCommands({ selected, actions, reload }: RequestsComma
         run: () => (entry ? actions.copy(entry, "response") : undefined),
       },
       {
+        id: "network.copy-response-base64",
+        title: "Copy response as Base64",
+        group: "Network",
+        icon: Copy,
+        screen: true,
+        keywords: ["body", "binary", "bytes"],
+        when: () => entry !== null && hasResponseBody(entry),
+        run: () => (entry ? actions.copy(entry, "base64") : undefined),
+      },
+      {
         id: "network.mock-response",
         title: "Mock this response",
         group: "Network",
         icon: Replace,
         screen: true,
         keywords: ["fake", "stub", "rule", "override"],
-        when: () => actions.canMock && entry !== null && hasResponseBody(entry),
+        when: () => actions.canMock && entry !== null && mockAvailability(entry).ok,
         run: () => (entry ? actions.mockResponse(entry) : undefined),
       },
     ];

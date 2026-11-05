@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { Copy, Download, Maximize2, Trash2 } from "lucide-vue-next";
+import { Braces, Copy, Download, Maximize2, Trash2 } from "lucide-vue-next";
 import {
   Button,
   Input,
@@ -10,8 +10,11 @@ import {
   Select,
   Switch,
 } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import { SEGMENT_TEXT } from "@/shared/components/presentation/segmentText";
 import type { HttpMethodFilter, MockInterceptMode } from "@/types/mock.types";
+import MockBinaryBody from "./MockBinaryBody.vue";
 import MockBodyDialog from "./MockBodyDialog.vue";
 import MockBodyEditor from "./MockBodyEditor.vue";
 import MockHeadersEditor from "./MockHeadersEditor.vue";
@@ -40,13 +43,18 @@ function patch<K extends keyof MockRuleDraft>(field: K, value: MockRuleDraft[K])
   draft.value = { ...draft.value, [field]: value };
 }
 
-function openBody() {
+function formatBody() {
   const pretty = prettyBody(draft.value.responseBody, draft.value.contentType);
   if (pretty !== draft.value.responseBody) patch("responseBody", pretty);
-  bodyDialogOpen.value = true;
+}
+
+function replaceBinary() {
+  draft.value = { ...draft.value, responseBody: "", bodyEncoding: undefined };
 }
 
 const isJson = computed(() => draft.value.contentType.includes("json"));
+const isBinary = computed(() => draft.value.bodyEncoding === "base64");
+
 const contentTypeOptions = computed(() => {
   const current = draft.value.contentType;
   const known = (CONTENT_TYPES as readonly string[]).includes(current);
@@ -140,16 +148,16 @@ const headersModel = computed({
           />
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <Segmented size="sm" aria-label="How the address is matched">
-            <SegmentedButton
-              v-for="option in MATCH_TYPES"
-              :key="option.value"
-              :active="draft.urlMatchType === option.value"
-              :title="option.hint"
-              @click="patch('urlMatchType', option.value)"
-            >
-              {{ option.label }}
-            </SegmentedButton>
+          <Segmented size="sm" active-variant="solid" aria-label="How the address is matched">
+            <HintTooltip v-for="option in MATCH_TYPES" :key="option.value" :text="option.hint">
+              <SegmentedButton
+                :active="draft.urlMatchType === option.value"
+                :class="SEGMENT_TEXT"
+                @click="patch('urlMatchType', option.value)"
+              >
+                {{ option.label }}
+              </SegmentedButton>
+            </HintTooltip>
           </Segmented>
           <span class="text-xs text-muted-foreground">
             {{ draft.urlPattern ? matchHint : "An empty pattern matches every address." }}
@@ -199,21 +207,41 @@ const headersModel = computed({
             ms
           </label>
         </div>
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-muted-foreground">Body</span>
-          <Button
-            size="sm"
-            variant="transparent"
-            :outline="false"
-            content-class-name="gap-1.5"
-            class="text-muted-foreground hover:text-foreground"
-            @click="openBody"
-          >
-            <Maximize2 :size="12" :stroke-width="1.8" aria-hidden="true" />
-            Open larger
-          </Button>
+        <div class="flex items-center gap-1">
+          <span class="flex-1 text-xs text-muted-foreground">Body</span>
+          <template v-if="!isBinary">
+            <Button
+              v-if="isJson"
+              size="sm"
+              variant="transparent"
+              :outline="false"
+              content-class-name="gap-1.5"
+              class="text-muted-foreground hover:text-foreground"
+              @click="formatBody"
+            >
+              <Braces :size="12" :stroke-width="1.8" aria-hidden="true" />
+              Format JSON
+            </Button>
+            <Button
+              size="sm"
+              variant="transparent"
+              :outline="false"
+              content-class-name="gap-1.5"
+              class="text-muted-foreground hover:text-foreground"
+              @click="bodyDialogOpen = true"
+            >
+              <Maximize2 :size="12" :stroke-width="1.8" aria-hidden="true" />
+              Open larger
+            </Button>
+          </template>
         </div>
-        <div class="h-44">
+        <MockBinaryBody
+          v-if="isBinary"
+          :base64="draft.responseBody"
+          :content-type="draft.contentType"
+          @replace="replaceBinary"
+        />
+        <div v-else class="h-44">
           <MockBodyEditor v-model="bodyModel" :json="isJson" label="Response body" />
         </div>
       </section>
@@ -252,6 +280,7 @@ const headersModel = computed({
     </div>
 
     <MockBodyDialog
+      v-if="!isBinary"
       v-model:open="bodyDialogOpen"
       v-model:body="bodyModel"
       :json="isJson"

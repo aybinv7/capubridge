@@ -88,7 +88,7 @@ export function useMcpBridge() {
   }
 
   function upsertMockRule(payload: unknown): Promise<unknown> {
-    const rule = payload as Omit<MockRule, "id" | "hitCount" | "createdAt"> & { id?: string };
+    const rule = payload as Omit<MockRule, "id" | "createdAt"> & { id?: string };
     if (!rule?.name || !rule.urlPattern) {
       return Promise.reject(new Error("upsert_mock_rule requires name and urlPattern"));
     }
@@ -98,7 +98,6 @@ export function useMcpBridge() {
     const next: MockRule = {
       ...rule,
       id: existing?.id ?? crypto.randomUUID(),
-      hitCount: existing?.hitCount ?? 0,
       createdAt: existing?.createdAt ?? Date.now(),
     };
     if (existing) mockStore.updateRule(next);

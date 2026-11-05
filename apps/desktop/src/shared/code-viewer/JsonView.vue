@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { Segmented, SegmentedButton } from "@capubridge/cladd";
+import { SEGMENT_TEXT } from "@/shared/components/presentation/segmentText";
 import JsonTreeView from "./JsonTreeView.vue";
 import TextView from "./TextView.vue";
 import type { JsonParse } from "./textLines";
@@ -15,6 +16,8 @@ const props = defineProps<{
   findSignal: number;
   /** Offers the text exactly as it arrived, beside the formatted text and the tree. */
   allowRaw?: boolean;
+  wrapStorageKey?: string;
+  findLabel?: string;
 }>();
 
 const emit = defineEmits<{ download: [] }>();
@@ -55,11 +58,12 @@ watch(
 <template>
   <JsonTreeView v-if="mode === 'tree' && parsed" :value="parsed.value">
     <template #lead>
-      <Segmented size="sm" aria-label="How to show the JSON">
+      <Segmented size="sm" active-variant="solid" aria-label="How to show the JSON">
         <SegmentedButton
           v-for="option in modes"
           :key="option.value"
           :active="mode === option.value"
+          :class="SEGMENT_TEXT"
           @click="mode = option.value"
         >
           {{ option.label }}
@@ -74,14 +78,17 @@ watch(
     :truncation-note="props.truncationNote"
     :find-signal="textFindSignal"
     :notice="notice"
+    :wrap-storage-key="props.wrapStorageKey"
+    :find-label="props.findLabel"
     @download="emit('download')"
   >
     <template v-if="parsed" #lead>
-      <Segmented size="sm" aria-label="How to show the JSON">
+      <Segmented size="sm" active-variant="solid" aria-label="How to show the JSON">
         <SegmentedButton
           v-for="option in modes"
           :key="option.value"
           :active="mode === option.value"
+          :class="SEGMENT_TEXT"
           @click="mode = option.value"
         >
           {{ option.label }}

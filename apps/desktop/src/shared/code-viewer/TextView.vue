@@ -12,17 +12,29 @@ import { useHighlightedLines } from "./useHighlightedLines";
 import { useTextFind } from "./useTextFind";
 import type { TextLanguage } from "./codeLanguage";
 
-const props = defineProps<{
-  text: string;
-  language: TextLanguage;
-  truncationNote?: string | null;
-  findSignal: number;
-  notice?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    text: string;
+    language: TextLanguage;
+    truncationNote?: string | null;
+    findSignal: number;
+    notice?: string;
+    /** Where the wrap choice is remembered, so each screen keeps its own. */
+    wrapStorageKey?: string;
+    /** What the find button says it searches ("Find in this file", "Find in the response"). */
+    findLabel?: string;
+  }>(),
+  {
+    truncationNote: null,
+    notice: undefined,
+    wrapStorageKey: "capubridge.files.viewer.wrap",
+    findLabel: "Find in this file",
+  },
+);
 
 const emit = defineEmits<{ download: [] }>();
 
-const wrap = useLocalStorage("capubridge.files.viewer.wrap", false);
+const wrap = useLocalStorage(props.wrapStorageKey, false);
 const pane = ref<InstanceType<typeof TextLinesPane> | null>(null);
 const findBar = ref<InstanceType<typeof TextFindBar> | null>(null);
 
@@ -77,7 +89,7 @@ watch(find.currentMatch, (match) => {
           <WrapText :stroke-width="1.8" />
         </IconAction>
         <IconAction
-          label="Find in this file"
+          :label="props.findLabel"
           keys="ctrl f"
           :pressed="find.open.value"
           @click="openFind"

@@ -1,7 +1,6 @@
 import type { RequestSortKey } from "./requestSort";
 
 export type RequestColumnId =
-  | "method"
   | "name"
   | "status"
   | "type"
@@ -25,7 +24,6 @@ export interface RequestColumn {
 export const REQUEST_ROW_HEIGHT = 26;
 
 export const REQUEST_COLUMNS: readonly RequestColumn[] = [
-  { id: "method", label: "Method", sortKey: "method", className: "w-16 shrink-0", align: "start" },
   { id: "name", label: "Name", sortKey: "name", className: "min-w-0 flex-1", align: "start" },
   { id: "status", label: "Status", sortKey: "status", className: "w-18 shrink-0", align: "start" },
   {
@@ -48,7 +46,7 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
     id: "size",
     label: "Size",
     sortKey: "size",
-    className: "w-20 shrink-0 justify-end",
+    className: "w-28 shrink-0 justify-end",
     showAt: "@lg:flex",
     align: "end",
   },
@@ -63,11 +61,18 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
     id: "waterfall",
     label: "Waterfall",
     sortKey: "start",
-    className: "w-[22%] min-w-28 shrink-0",
+    className: "w-[24%] min-w-32 shrink-0",
     showAt: "@3xl:flex",
     align: "start",
   },
 ];
+
+/** The columns shown: the waterfall steps aside while the details pane takes the width. */
+export function visibleColumns(showWaterfall: boolean): readonly RequestColumn[] {
+  return showWaterfall
+    ? REQUEST_COLUMNS
+    : REQUEST_COLUMNS.filter((column) => column.id !== "waterfall");
+}
 
 /** The display classes of a column: always shown, or shown from its container width up. */
 export function columnDisplay(column: RequestColumn): string {

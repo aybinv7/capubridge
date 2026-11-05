@@ -1,218 +1,58 @@
 import { computed, onUnmounted, watch } from "vue";
-import { invokeCommand, listenEvent } from "@/runtime/ipc";
 import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useMockStore } from "@/modules/network/stores/useMockStore";
-import { FetchDomain } from "@capubridge/cdp-protocol";
-import type { RequestPausedEvent } from "@capubridge/cdp-protocol";
-import type { MockLogEntry } from "@/types/mock.types";
+import { earlierScopeFor, mockScopeKey } from "@/modules/network/stores/mockScope";
+import { useMockCdpEngine } from "./useMockCdpEngine";
+import { useMockHttpEngine } from "./useMockHttpEngine";
 
-function toBase64(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  const bin = Array.from(bytes, (b) => String.fromCharCode(b)).join("");
-  return btoa(bin);
-}
-
-function getHeader(headers: Record<string, string>, name: string): string | undefined {
-  const entry = Object.entries(headers).find(
-    ([headerName]) => headerName.toLowerCase() === name.toLowerCase(),
-  );
-  return entry?.[1];
-}
-
-function hasHeader(headers: Array<{ name: string; value: string }>, name: string): boolean {
-  return headers.some((header) => header.name.toLowerCase() === name.toLowerCase());
-}
-
+/**
+ * Keeps mock interception in step with the selected app and its mode: rules follow the app,
+ * the WebView engine runs while that app's DevTools link is up, the local server until it is
+ * turned off (it outlives the screen).
+ */
 export function useMockServer() {
   const store = useMockStore();
   const { getClient, connectionStore } = useCDP();
   const targetsStore = useTargetsStore();
+  const cdp = useMockCdpEngine();
+  const http = useMockHttpEngine();
 
   const targetId = computed(() => targetsStore.cdpTargetId);
-  const targetScope = computed(() => {
+  const scope = computed(() => {
     const target = targetsStore.selectedTarget;
-    if (!target) return "global";
-    return `${target.source}:${target.deviceSerial ?? "local"}:${target.id}`;
+    return {
+      key: mockScopeKey(target),
+      earlier: target ? earlierScopeFor(target) : null,
+    };
   });
   const connectionStatus = computed(() => {
     if (!targetId.value) return "disconnected";
     return connectionStore.connections.get(targetId.value)?.status ?? "disconnected";
   });
 
-  let fetchDomain: FetchDomain | null = null;
-  let unsubPaused: (() => void) | null = null;
-  let unsubHttpEvent: (() => void) | null = null;
   let modeTransition = Promise.resolve();
 
   watch(
-    targetScope,
-    (scope) => {
-      store.setScope(scope);
-    },
+    () => scope.value.key,
+    () => store.setScope(scope.value.key, scope.value.earlier),
     { immediate: true },
   );
 
   async function startCDP() {
-    await stopCDP();
     const client = getClient(targetId.value);
-    if (!client) return;
-
-    fetchDomain = new FetchDomain(client);
-
-    unsubPaused = fetchDomain.onRequestPaused((e) => {
-      void handleIntercepted(e);
-    });
-
-    await fetchDomain.enable({
-      patterns: [
-        { requestStage: "Request", resourceType: "Fetch" },
-        { requestStage: "Request", resourceType: "XHR" },
-        { requestStage: "Request", resourceType: "Document" },
-        { requestStage: "Request", resourceType: "Other" },
-      ],
-    });
-  }
-
-  async function stopCDP() {
-    if (unsubPaused) {
-      unsubPaused();
-      unsubPaused = null;
-    }
-    if (fetchDomain) {
-      await fetchDomain.disable().catch((error) => {
-        console.warn("Failed to disable CDP request interception", error);
-      });
-      fetchDomain = null;
-    }
-  }
-
-  async function handleIntercepted(e: RequestPausedEvent) {
-    const { method, url } = e.request;
-    const matched = store.findMatchingRule(method, url);
-
-    const logEntry: MockLogEntry = {
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      method,
-      url,
-      matchedRuleId: matched?.id ?? null,
-      matchedRuleName: matched?.name ?? null,
-      responseStatus: matched && !matched.passThrough ? matched.statusCode : null,
-      mode: "cdp",
-      delayApplied: matched?.delayMs ?? 0,
-      passedThrough: !matched || matched.passThrough,
-      noMatch: !matched,
-    };
-    store.addLogEntry(logEntry);
-
-    if (!matched || matched.passThrough) {
-      await fetchDomain?.continueRequest({ requestId: e.requestId }).catch((error) => {
-        console.warn("Failed to continue intercepted request", e.requestId, error);
-      });
+    if (!client) {
+      await cdp.stop();
       return;
     }
-
-    store.incrementHitCount(matched.id);
-
-    if (matched.delayMs > 0) {
-      await new Promise((r) => setTimeout(r, matched.delayMs));
-    }
-
-    const headers = [
-      ...(matched.contentType ? [{ name: "content-type", value: matched.contentType }] : []),
-      ...matched.responseHeaders.map((h) => ({ name: h.name, value: h.value })),
-    ];
-    const origin = getHeader(e.request.headers, "origin");
-    if (origin && !hasHeader(headers, "access-control-allow-origin")) {
-      headers.push({ name: "access-control-allow-origin", value: origin });
-    }
-    if (origin && !hasHeader(headers, "access-control-allow-credentials")) {
-      headers.push({ name: "access-control-allow-credentials", value: "true" });
-    }
-
-    await fetchDomain
-      ?.fulfillRequest({
-        requestId: e.requestId,
-        responseCode: matched.statusCode,
-        responseHeaders: headers,
-        body: matched.responseBody ? toBase64(matched.responseBody) : undefined,
-      })
-      .catch((fulfillError) => {
-        console.warn("Failed to fulfill mocked request; continuing original request", fulfillError);
-        void fetchDomain?.continueRequest({ requestId: e.requestId }).catch((continueError) => {
-          console.warn("Failed to recover intercepted request", e.requestId, continueError);
-        });
-      });
+    await cdp.start(client);
   }
 
-  async function startHTTP() {
-    await stopHTTP();
-    try {
-      await invokeCommand("mock_server_start", { port: store.httpPort });
-      store.httpServerRunning = true;
-      unsubHttpEvent = await listenEvent("mock-server-request", (d) => {
-        const matched = store.rules.find((r) => r.id === d.ruleId) ?? null;
-        store.addLogEntry({
-          id: crypto.randomUUID(),
-          timestamp: d.timestamp,
-          method: d.method,
-          url: d.url,
-          matchedRuleId: matched?.id ?? null,
-          matchedRuleName: matched?.name ?? null,
-          responseStatus: d.statusCode,
-          mode: "http",
-          delayApplied: 0,
-          passedThrough: false,
-          noMatch: !matched,
-        });
-        if (matched) store.incrementHitCount(matched.id);
-      });
-    } catch (error) {
-      store.httpServerRunning = false;
-      console.error("Failed to start HTTP mock server", error);
-    }
-  }
-
-  async function stopHTTP() {
-    if (unsubHttpEvent) {
-      unsubHttpEvent();
-      unsubHttpEvent = null;
-    }
-    try {
-      await invokeCommand("mock_server_stop");
-    } catch (error) {
-      console.warn("Failed to stop HTTP mock server", error);
-    }
-    store.httpServerRunning = false;
-  }
-
-  async function syncHTTPRules() {
-    if (!store.httpServerRunning) return;
-    try {
-      await invokeCommand("mock_server_sync_rules", {
-        rules: store.activeRules.map((r) => ({
-          id: r.id,
-          method: r.method,
-          url_pattern: r.urlPattern,
-          url_match_type: r.urlMatchType,
-          status_code: r.statusCode,
-          response_headers: r.responseHeaders.map((h): [string, string] => [h.name, h.value]),
-          response_body: r.responseBody,
-          delay_ms: r.delayMs,
-        })),
-      });
-    } catch (error) {
-      console.error("Failed to synchronize HTTP mock rules", error);
-    }
-  }
-
-  // React to mode changes and target changes
   watch(
     [() => store.interceptMode, targetId, connectionStatus],
     ([mode, id, status], [previousMode, previousTargetId, previousStatus]) => {
       modeTransition = modeTransition
-        .catch((error) => {
+        .catch((error: unknown) => {
           console.error("Previous mock mode transition failed", error);
         })
         .then(async () => {
@@ -221,11 +61,9 @@ export function useMockServer() {
           const connected = status === "connected";
 
           if (previousMode === "cdp" && (mode !== "cdp" || targetChanged || !connected)) {
-            await stopCDP();
+            await cdp.stop();
           }
-          if (previousMode === "http" && mode !== "http") {
-            await stopHTTP();
-          }
+          if (previousMode === "http" && mode !== "http") await http.stop();
           if (
             mode === "cdp" &&
             id &&
@@ -234,21 +72,20 @@ export function useMockServer() {
           ) {
             await startCDP();
           }
-          if (mode === "http" && modeChanged) {
-            await startHTTP();
-          }
+          if (mode === "http" && modeChanged) await http.start();
         });
     },
     { immediate: true },
   );
 
-  // Sync rules to HTTP server whenever active rules change
-  watch(() => store.activeRules, syncHTTPRules, { deep: true });
+  watch(
+    () => store.activeRules,
+    (rules) => void http.sync(rules),
+  );
 
-  onUnmounted(async () => {
-    await stopCDP();
-    // Don't stop HTTP server on unmount — it should persist until user clicks "Off"
+  onUnmounted(() => {
+    void cdp.stop();
   });
 
-  return { startCDP, stopCDP, startHTTP, stopHTTP };
+  return { startCDP, stopCDP: cdp.stop, startHTTP: http.start, stopHTTP: http.stop };
 }

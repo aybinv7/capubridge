@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
 import { useStorage } from "@vueuse/core";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -26,8 +25,6 @@ import { waterfallRange } from "./waterfall";
 
 const store = useNetworkStore();
 const presence = useTargetPresenceStore();
-const route = useRoute();
-const router = useRouter();
 const page = usePageReload();
 
 const sort = shallowRef<RequestSort | null>(null);
@@ -42,11 +39,16 @@ const findSignal = ref(0);
 const toolbar = ref<InstanceType<typeof RequestsToolbar> | null>(null);
 const table = ref<InstanceType<typeof RequestsTable> | null>(null);
 const detailsPane = ref<HTMLElement | null>(null);
-const menuEntry = shallowRef<NetworkEntry | null>(null);
+const root = ref<HTMLElement | null>(null);
+const menuId = ref<string | null>(null);
+const menuEntry = computed(() => store.entryById(menuId.value));
 
 const shown = computed(() => sortRequests(store.filteredEntries, sort.value));
-const range = computed(() => waterfallRange(store.filteredEntries));
 const selected = computed(() => store.selectedEntry);
+const range = computed(() => (selected.value ? null : waterfallRange(store.filteredEntries)));
+const revealKey = computed(
+  () => `${store.filterText}|${store.typeFilter}|${store.methodFilter}|${store.searchScope}`,
+);
 
 const captureInput = computed(() => ({
   status: store.captureStatus,
@@ -67,6 +69,7 @@ const summary = computed(() =>
     total: store.requestCount,
     shown: store.filteredEntries.length,
     transferred: store.transferredBytes,
+    resources: store.resourceBytes,
     filtering: store.hasActiveFilters,
   }),
 );
@@ -98,7 +101,9 @@ async function runEmptyAction(action: Exclude<EmptyAction, null>) {
 }
 
 useRequestsKeyboard({
+  root,
   details: detailsPane,
+  detailsHasFind: () => tab.value === "response" || tab.value === "payload",
   hasSelection: () => selected.value !== null,
   focusFilter,
   findInDetails: () => {
@@ -114,18 +119,18 @@ useRequestsCommands({ selected, actions, reload: page.reload });
 
 watch(
   () => store.focusSearchTrigger,
-  () => focusFilter(),
+  () => {
+    if (store.takeFilterFocus()) focusFilter();
+  },
 );
 
 onMounted(() => {
-  if (route.query.focus !== "filter") return;
-  focusFilter();
-  void router.replace({ query: { ...route.query, focus: undefined } });
+  if (store.takeFilterFocus()) focusFilter();
 });
 </script>
 
 <template>
-  <div class="flex h-full flex-col overflow-hidden">
+  <div ref="root" class="flex h-full flex-col overflow-hidden">
     <RequestsToolbar
       ref="toolbar"
       :word="word"
@@ -148,16 +153,18 @@ onMounted(() => {
         />
         <ContextMenu v-else>
           <ContextMenuTrigger as-child>
-            <div class="h-full" @contextmenu.capture="menuEntry = null">
+            <div class="h-full" @contextmenu.capture="menuId = null">
               <RequestsTable
                 ref="table"
                 v-model:sort="sort"
                 :entries="shown"
                 :selected-id="store.selectedId"
                 :range="range"
+                :show-waterfall="!selected"
+                :reveal-key="revealKey"
                 @select="select"
                 @clear="closeDetails"
-                @menu="menuEntry = $event"
+                @menu="menuId = $event?.requestId ?? null"
                 @inspect="focusDetails"
               />
             </div>
@@ -166,8 +173,8 @@ onMounted(() => {
             v-if="menuEntry"
             :entry="menuEntry"
             :can-mock="actions.canMock"
-            @copy="actions.copy(menuEntry, $event)"
-            @mock="actions.mockResponse(menuEntry)"
+            @copy="menuEntry && actions.copy(menuEntry, $event)"
+            @mock="menuEntry && actions.mockResponse(menuEntry)"
           />
         </ContextMenu>
       </ResizablePanel>

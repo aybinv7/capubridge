@@ -3,7 +3,7 @@ import { computed } from "vue";
 import type { NetworkEntry } from "@/types/network.types";
 import { durationMs, formatMs, sizeCell } from "../requestCells";
 import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
-import { cacheSource, timingBreakdown, type TimingPhaseId } from "./timing";
+import { timingBreakdown, type TimingPhaseId } from "./timing";
 
 const props = defineProps<{ entry: NetworkEntry }>();
 
@@ -45,11 +45,8 @@ const facts = computed<KeyValueRow[]>(() => {
             : "Not finished"
           : formatMs(ms),
     },
-    { key: "Transferred", value: sizeCell(entry).text },
-    { key: "Served from", value: cacheSource(entry) },
+    { key: "Size", value: sizeCell(entry).title ?? sizeCell(entry).text },
   ];
-  if (entry.mimeType) rows.push({ key: "Media type", value: entry.mimeType });
-  if (entry.protocol) rows.push({ key: "Protocol", value: entry.protocol });
   return rows;
 });
 </script>

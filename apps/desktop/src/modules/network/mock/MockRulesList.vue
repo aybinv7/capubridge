@@ -2,6 +2,7 @@
 import { computed, ref, useId, watch } from "vue";
 import { Trash2 } from "lucide-vue-next";
 import { Switch } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import { scrollTopToReveal } from "@/shared/list/grid";
@@ -11,7 +12,11 @@ import { TONE_CLASS, statusTone } from "../requests/requestCells";
 
 const ROW_HEIGHT = 44;
 
-const props = defineProps<{ rules: readonly MockRule[]; selectedId: string | null }>();
+const props = defineProps<{
+  rules: readonly MockRule[];
+  selectedId: string | null;
+  hits: (id: string) => number;
+}>();
 
 const emit = defineEmits<{
   select: [id: string];
@@ -33,6 +38,7 @@ const rows = computed(() =>
     rule,
     id: optionId(listId, rule.id),
     selected: rule.id === props.selectedId,
+    hits: props.hits(rule.id),
     statusClass: TONE_CLASS[statusTone(rule.statusCode)],
   })),
 );
@@ -48,7 +54,8 @@ function move(step: number) {
   const list = props.rules;
   if (!list.length) return;
   const current = list.findIndex((rule) => rule.id === props.selectedId);
-  const next = Math.min(list.length - 1, Math.max(0, current < 0 ? 0 : current + step));
+  const start = current < 0 ? (step > 0 ? -1 : list.length) : current;
+  const next = Math.min(list.length - 1, Math.max(0, start + step));
   const rule = list[next];
   if (!rule) return;
   emit("select", rule.id);
@@ -75,7 +82,7 @@ function onKeydown(event: KeyboardEvent) {
 watch(
   () => props.selectedId,
   (id) => reveal(props.rules.findIndex((rule) => rule.id === id)),
-  { flush: "post" },
+  { flush: "post", immediate: true },
 );
 </script>
 
@@ -125,13 +132,14 @@ watch(
         <span class="font-mono text-2xs tabular-nums" :class="row.statusClass">
           {{ row.rule.statusCode }}
         </span>
-        <span
-          v-if="row.rule.hitCount > 0"
-          class="font-mono text-2xs text-[var(--fg-subtle)] tabular-nums"
-          :title="`Answered ${row.rule.hitCount} ${row.rule.hitCount === 1 ? 'request' : 'requests'}`"
+        <HintTooltip
+          v-if="row.hits > 0"
+          :text="`Matched ${row.hits} ${row.hits === 1 ? 'request' : 'requests'} since Capubridge started`"
         >
-          {{ row.rule.hitCount }}×
-        </span>
+          <span class="font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">
+            {{ row.hits }}×
+          </span>
+        </HintTooltip>
       </span>
       <IconAction
         label="Delete rule"

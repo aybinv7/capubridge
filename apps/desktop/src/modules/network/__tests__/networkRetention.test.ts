@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, test } from "vite-plus/test";
 import { createPinia, setActivePinia } from "pinia";
 import type { NetworkEntry } from "@/types/network.types";
 import {
@@ -12,6 +12,7 @@ import {
   utf8ByteLength,
 } from "../networkRetention";
 import { useNetworkStore } from "../stores/useNetworkStore";
+import { setNetworkFlushScheduler } from "../stores/networkFlush";
 
 function createEntry(requestId: string, urlSuffix = ""): NetworkEntry {
   return {
@@ -32,6 +33,7 @@ function createEntry(requestId: string, urlSuffix = ""): NetworkEntry {
     finishedTimestamp: 2,
     timing: null,
     transferSize: 0,
+    resourceSize: 0,
     state: "finished",
     resourceType: "Fetch",
     fromDiskCache: false,
@@ -45,10 +47,7 @@ function createEntry(requestId: string, urlSuffix = ""): NetworkEntry {
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-    callback(0);
-    return 1;
-  });
+  setNetworkFlushScheduler(() => (flush) => flush());
 });
 
 describe("network retention", () => {

@@ -1,14 +1,12 @@
-import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, test } from "vite-plus/test";
 import { createPinia, setActivePinia } from "pinia";
 import { useNetworkStore } from "../stores/useNetworkStore";
 import { networkEntry } from "./fixtures";
+import { setNetworkFlushScheduler } from "../stores/networkFlush";
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-    callback(0);
-    return 1;
-  });
+  setNetworkFlushScheduler(() => (flush) => flush());
 });
 
 describe("network store", () => {

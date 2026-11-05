@@ -1,16 +1,19 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { computed, reactive, ref, shallowRef } from "vue";
 import { useLocalStorage } from "@vueuse/core";
 import type {
-  MockRule,
-  MockLogEntry,
   MockInterceptMode,
+  MockLogEntry,
+  MockRule,
   MockTargetConfig,
-  UrlMatchType,
 } from "@/types/mock.types";
+import { matchUrl } from "./mockMatch";
+import { GLOBAL_SCOPE } from "./mockScope";
+import { useMockPersistence } from "./useMockPersistence";
+
+export { matchUrl } from "./mockMatch";
 
 const MAX_LOG = 500;
-const GLOBAL_SCOPE = "global";
 
 function emptyConfig(): MockTargetConfig {
   return { rules: [], interceptMode: "off" };
@@ -19,7 +22,7 @@ function emptyConfig(): MockTargetConfig {
 function newRule(overrides: Partial<MockRule> = {}): MockRule {
   return {
     id: crypto.randomUUID(),
-    name: "New Rule",
+    name: "New rule",
     enabled: true,
     method: "ANY",
     urlPattern: "",
@@ -30,112 +33,128 @@ function newRule(overrides: Partial<MockRule> = {}): MockRule {
     responseBody: '{\n  "data": []\n}',
     delayMs: 0,
     passThrough: false,
-    hitCount: 0,
     createdAt: Date.now(),
     ...overrides,
   };
 }
 
+/**
+ * Mock rules and interception mode per app, plus what interception did. Rules persist through
+ * `useMockPersistence` (IndexedDB, debounced, only on definition changes); how often a rule answered
+ * lives in memory beside them, so a busy rule never rewrites the stored rules.
+ */
 export const useMockStore = defineStore("mock", () => {
-  const scopedConfigs = useLocalStorage<Record<string, MockTargetConfig>>(
-    "capubridge:mock-target-configs",
-    {},
-  );
-  const legacyRules = useLocalStorage<MockRule[]>("capubridge:mock-rules", []);
-  const legacyMode = useLocalStorage<MockInterceptMode>("capubridge:mock-mode", "off");
-  const legacyMigrated = useLocalStorage("capubridge:mock-target-configs-migrated", false);
+  const configs = shallowRef<Record<string, MockTargetConfig>>({});
   const currentScope = ref(GLOBAL_SCOPE);
   const httpPort = useLocalStorage<number>("capubridge:mock-http-port", 3001);
-
-  const log = ref<MockLogEntry[]>([]);
+  const log = shallowRef<MockLogEntry[]>([]);
   const httpServerRunning = ref(false);
+  const hits = reactive(new Map<string, number>());
+  const scopeListeners = new Set<() => void>();
 
-  const currentConfig = computed(() => scopedConfigs.value[currentScope.value] ?? emptyConfig());
-  const rules = computed<MockRule[]>({
-    get: () => currentConfig.value.rules,
-    set: (value) => updateCurrentConfig({ rules: value }),
+  const persistence = useMockPersistence({
+    read: () => configs.value,
+    write: (next) => {
+      configs.value = next;
+    },
   });
+
+  const currentConfig = computed(() => configs.value[currentScope.value] ?? emptyConfig());
+  const rules = computed<readonly MockRule[]>(() => currentConfig.value.rules);
   const interceptMode = computed<MockInterceptMode>({
     get: () => currentConfig.value.interceptMode,
-    set: (value) => updateCurrentConfig({ interceptMode: value }),
+    set: (value) => updateConfig(currentScope.value, { interceptMode: value }),
   });
-  const activeRules = computed(() => rules.value.filter((r) => r.enabled));
+  const activeRules = computed(() => rules.value.filter((rule) => rule.enabled));
   const enabledCount = computed(() => activeRules.value.length);
+  const anyHits = computed(() => rules.value.some((rule) => (hits.get(rule.id) ?? 0) > 0));
 
-  function updateCurrentConfig(update: Partial<MockTargetConfig>) {
-    scopedConfigs.value = {
-      ...scopedConfigs.value,
-      [currentScope.value]: {
-        ...currentConfig.value,
-        ...update,
-      },
-    };
+  function updateConfig(scope: string, update: Partial<MockTargetConfig>) {
+    const current = configs.value[scope] ?? emptyConfig();
+    configs.value = { ...configs.value, [scope]: { ...current, ...update } };
+    persistence.markDirty(scope);
   }
 
-  function setScope(scope: string) {
-    const nextScope = scope || GLOBAL_SCOPE;
-    if (
-      nextScope !== GLOBAL_SCOPE &&
-      !legacyMigrated.value &&
-      (legacyRules.value.length > 0 || legacyMode.value !== "off")
-    ) {
-      scopedConfigs.value = {
-        ...scopedConfigs.value,
-        [nextScope]: {
-          rules: legacyRules.value,
-          interceptMode: legacyMode.value,
-        },
-      };
-      legacyRules.value = [];
-      legacyMode.value = "off";
-      legacyMigrated.value = true;
-    }
-    currentScope.value = nextScope;
+  function setRules(next: MockRule[], scope = currentScope.value) {
+    updateConfig(scope, { rules: next });
   }
 
-  // Rule actions
+  /** Runs before the scope changes, while the old scope is still current (the editor saves here). */
+  function onBeforeScopeChange(listener: () => void): () => void {
+    scopeListeners.add(listener);
+    return () => scopeListeners.delete(listener);
+  }
+
+  /**
+   * Switches to a target's rules. The first time an app is opened after an upgrade, rules saved
+   * under that device's old page-scoped keys move to it.
+   */
+  function setScope(scope: string, earlierScope: string | null = null) {
+    const next = scope || GLOBAL_SCOPE;
+    if (next !== currentScope.value) for (const listener of scopeListeners) listener();
+    currentScope.value = next;
+    if (earlierScope) persistence.adoptEarlier(earlierScope, next);
+  }
+
   function addRule(overrides: Partial<MockRule> = {}) {
     const rule = newRule(overrides);
-    rules.value = [rule, ...rules.value];
+    setRules([rule, ...rules.value]);
     return rule.id;
   }
 
   function duplicateRule(id: string) {
-    const src = rules.value.find((r) => r.id === id);
-    if (!src) return null;
-    const dup = newRule({
-      ...src,
+    const index = rules.value.findIndex((rule) => rule.id === id);
+    const source = rules.value[index];
+    if (!source) return null;
+    const copy = newRule({
+      ...source,
       id: crypto.randomUUID(),
-      name: `${src.name} (copy)`,
-      hitCount: 0,
+      name: `${source.name} (copy)`,
       createdAt: Date.now(),
     });
-    const idx = rules.value.findIndex((r) => r.id === id);
-    rules.value = [...rules.value.slice(0, idx + 1), dup, ...rules.value.slice(idx + 1)];
-    return dup.id;
+    setRules([...rules.value.slice(0, index + 1), copy, ...rules.value.slice(index + 1)]);
+    return copy.id;
   }
 
   function updateRule(rule: MockRule) {
-    rules.value = rules.value.map((r) => (r.id === rule.id ? rule : r));
+    setRules(rules.value.map((candidate) => (candidate.id === rule.id ? rule : candidate)));
   }
 
-  function deleteRule(id: string) {
-    rules.value = rules.value.filter((r) => r.id !== id);
+  /** Deletes a rule and says where it was, so Undo can put it back in the same app and place. */
+  function deleteRule(id: string): { scope: string; index: number; rule: MockRule } | null {
+    const index = rules.value.findIndex((rule) => rule.id === id);
+    const rule = rules.value[index];
+    if (!rule) return null;
+    setRules(rules.value.filter((candidate) => candidate.id !== id));
+    hits.delete(id);
+    return { scope: currentScope.value, index, rule };
+  }
+
+  function restoreRule(removed: { scope: string; index: number; rule: MockRule }) {
+    const list = configs.value[removed.scope]?.rules ?? [];
+    if (list.some((rule) => rule.id === removed.rule.id)) return;
+    setRules(
+      [...list.slice(0, removed.index), removed.rule, ...list.slice(removed.index)],
+      removed.scope,
+    );
   }
 
   function setRuleEnabled(id: string, enabled: boolean) {
-    rules.value = rules.value.map((r) => (r.id === id ? { ...r, enabled } : r));
+    setRules(rules.value.map((rule) => (rule.id === id ? { ...rule, enabled } : rule)));
+  }
+
+  function hitCountOf(id: string): number {
+    return hits.get(id) ?? 0;
   }
 
   function incrementHitCount(id: string) {
-    rules.value = rules.value.map((r) => (r.id === id ? { ...r, hitCount: r.hitCount + 1 } : r));
+    hits.set(id, (hits.get(id) ?? 0) + 1);
   }
 
   function clearHitCounts() {
-    rules.value = rules.value.map((r) => ({ ...r, hitCount: 0 }));
+    for (const rule of rules.value) hits.delete(rule.id);
   }
 
-  // Log actions
   function addLogEntry(entry: MockLogEntry) {
     log.value = [entry, ...log.value.slice(0, MAX_LOG - 1)];
   }
@@ -144,7 +163,6 @@ export const useMockStore = defineStore("mock", () => {
     log.value = [];
   }
 
-  // Matching helper — exported so composable can use it
   function findMatchingRule(method: string, url: string): MockRule | null {
     for (const rule of activeRules.value) {
       if (rule.method !== "ANY" && rule.method.toUpperCase() !== method.toUpperCase()) continue;
@@ -163,12 +181,19 @@ export const useMockStore = defineStore("mock", () => {
     httpServerRunning,
     activeRules,
     enabledCount,
+    anyHits,
+    ready: persistence.ready,
+    saveError: persistence.error,
+    flush: persistence.flush,
     setScope,
+    onBeforeScopeChange,
     addRule,
     duplicateRule,
     updateRule,
     deleteRule,
+    restoreRule,
     setRuleEnabled,
+    hitCountOf,
     incrementHitCount,
     clearHitCounts,
     addLogEntry,
@@ -176,50 +201,3 @@ export const useMockStore = defineStore("mock", () => {
     findMatchingRule,
   };
 });
-
-export function matchUrl(pattern: string, type: UrlMatchType, url: string): boolean {
-  if (!pattern) return true;
-  switch (type) {
-    case "contains":
-      return url.includes(pattern);
-    case "exact":
-      return url === pattern;
-    case "glob":
-      return globMatch(pattern, url);
-    case "regex":
-      try {
-        return new RegExp(pattern, "i").test(url);
-      } catch {
-        return false;
-      }
-  }
-}
-
-function globMatch(pattern: string, text: string): boolean {
-  const p = pattern.toLowerCase();
-  const t = text.toLowerCase();
-  let pi = 0;
-  let ti = 0;
-  let starPi = -1;
-  let starTi = 0;
-
-  while (ti < t.length) {
-    if (pi < p.length && (p[pi] === "?" || p[pi] === t[ti])) {
-      pi++;
-      ti++;
-    } else if (pi < p.length && p[pi] === "*") {
-      starPi = pi;
-      starTi = ti;
-      pi++;
-    } else if (starPi !== -1) {
-      pi = starPi + 1;
-      starTi++;
-      ti = starTi;
-    } else {
-      return false;
-    }
-  }
-
-  while (pi < p.length && p[pi] === "*") pi++;
-  return pi === p.length;
-}

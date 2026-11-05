@@ -157,13 +157,20 @@ export function gateCopy(
   }
 }
 
-/** Title, explanation and actions for a non-blocking notice. */
-export function noticeCopy(notice: GateNotice, input: GateInput): GateCopy {
-  const app = input.target?.packageName ?? targetName(input);
+/**
+ * Title, explanation and actions for a non-blocking notice. The app is named by its label (the
+ * name on the phone) when known, never by its package.
+ */
+export function noticeCopy(
+  notice: GateNotice,
+  input: GateInput,
+  appLabel: string | null = null,
+): GateCopy {
+  const app = appLabel?.trim() || targetName(input);
   if (notice === "background") {
     return copy(
       `${app} is in the background`,
-      "Android paused its WebView. Values may be stale until the app returns to the screen.",
+      "Android may freeze it while it is away, so values can be stale until it is back on screen.",
       "warning",
       ["bring-to-front"],
     );

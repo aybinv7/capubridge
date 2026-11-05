@@ -62,3 +62,32 @@ export function lineSegments(
   }
   return segments;
 }
+
+/** Lines longer than this render cut, with a marker: one huge DOM run freezes layout. */
+export const MAX_RENDERED_LINE = 4_000;
+
+/**
+ * The segments to render for a line, cut at `MAX_RENDERED_LINE` characters with a quiet marker
+ * saying how much is left out (copy and find still see the whole text).
+ */
+export function renderedSegments(
+  line: string,
+  tokens: readonly CodeToken[] | undefined,
+  ranges: readonly MarkRange[],
+): Segment[] {
+  if (line.length <= MAX_RENDERED_LINE) return lineSegments(line, tokens, ranges);
+  const kept: CodeToken[] = [];
+  let used = 0;
+  for (const token of tokens && tokens.length > 0 ? tokens : [{ text: line }]) {
+    if (used >= MAX_RENDERED_LINE) break;
+    const text = token.text.slice(0, MAX_RENDERED_LINE - used);
+    kept.push({ ...token, text });
+    used += text.length;
+  }
+  const visible = ranges.filter((range) => range.start < MAX_RENDERED_LINE);
+  const rest = line.length - MAX_RENDERED_LINE;
+  return [
+    ...lineSegments(line.slice(0, MAX_RENDERED_LINE), kept, visible),
+    { text: ` … ${rest.toLocaleString("en-US")} more characters`, color: "var(--fg-subtle)" },
+  ];
+}

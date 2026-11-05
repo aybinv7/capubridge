@@ -3,7 +3,12 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { logLevel, type LogLevel } from "./logLevels";
 import { longestLine } from "./textLines";
-import { lineSegments, type CodeToken, type MarkRange } from "./textSegments";
+import {
+  MAX_RENDERED_LINE,
+  renderedSegments,
+  type CodeToken,
+  type MarkRange,
+} from "./textSegments";
 import type { TextLanguage } from "./codeLanguage";
 
 const ROW_HEIGHT = 20;
@@ -26,7 +31,9 @@ const LEVEL_CLASS: Record<LogLevel, string> = {
 const scroller = ref<HTMLElement | null>(null);
 const gutterChars = computed(() => String(props.lines.length).length + 2);
 const contentMinWidth = computed(() =>
-  props.wrap ? "100%" : `calc(${longestLine(props.lines) + gutterChars.value + 4}ch)`,
+  props.wrap
+    ? "100%"
+    : `calc(${Math.min(longestLine(props.lines), MAX_RENDERED_LINE + 32) + gutterChars.value + 4}ch)`,
 );
 
 const virtualizer = useVirtualizer(
@@ -51,7 +58,7 @@ function measure(element: unknown) {
 }
 
 function segmentsFor(index: number) {
-  return lineSegments(props.lines[index] ?? "", props.tokens[index], props.rangesFor(index));
+  return renderedSegments(props.lines[index] ?? "", props.tokens[index], props.rangesFor(index));
 }
 
 function lineClass(index: number): string {

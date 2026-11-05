@@ -2,37 +2,27 @@ import { computed, onScopeDispose, ref, watch, type Ref } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import type { MockRule } from "@/types/mock.types";
 import { useMockStore } from "../stores/useMockStore";
-import {
-  applyDraft,
-  draftFields,
-  draftFromRule,
-  draftSignature,
-  type MockRuleDraft,
-} from "./mockDraft";
+import { applyDraft, draftFromRule, sameEditorFields, type MockRuleDraft } from "./mockDraft";
 
 export const DRAFT_SAVE_MS = 300;
 
-function storedSignature(rule: MockRule): string {
-  return draftSignature(draftFields(rule));
-}
-
 /**
- * The editable copy of the selected rule. Edits save themselves shortly after the last change and
- * only touch the fields the editor owns, so a hit counted or a switch flipped meanwhile is kept.
- * A change made elsewhere (an import, an MCP client) replaces the draft; the echo of this draft's
- * own save does not, so typing is never interrupted.
+ * The editable copy of the selected rule. The editor replaces the draft on every edit, so a new
+ * draft object is the change marker: nothing is serialised to tell edits from echoes. Edits save
+ * shortly after the last one, before the selection or the app changes, and before an export or a
+ * duplicate reads the rule. Only the editor's fields are written, so a switch flipped meanwhile is
+ * kept; a change made elsewhere (an import, an MCP client) replaces the draft.
  */
 export function useMockRuleDraft(selectedId: Ref<string | null>) {
   const store = useMockStore();
   const draft = ref<MockRuleDraft | null>(null);
   let owner: string | null = null;
-  let baseline: string | null = null;
-  let stored: string | null = null;
+  let loaded: MockRuleDraft | null = null;
+  let stored: MockRule | null = null;
 
   const rule = computed(
     () => store.rules.find((candidate) => candidate.id === selectedId.value) ?? null,
   );
-  const ruleSignature = computed(() => (rule.value ? storedSignature(rule.value) : null));
 
   function ownerRule(): MockRule | null {
     return owner === null
@@ -44,19 +34,18 @@ export function useMockRuleDraft(selectedId: Ref<string | null>) {
     owner = selectedId.value;
     const current = ownerRule();
     draft.value = current ? draftFromRule(current) : null;
-    baseline = draft.value ? draftSignature(draft.value) : null;
-    stored = current ? storedSignature(current) : null;
+    loaded = draft.value;
+    stored = current;
   }
 
+  /** Writes the draft to its rule now, if it changed since it was loaded or last saved. */
   function save() {
     const current = ownerRule();
     const next = draft.value;
-    if (!current || !next) return;
-    const signature = draftSignature(next);
-    if (signature === baseline) return;
-    baseline = signature;
+    if (!current || !next || next === loaded) return;
+    loaded = next;
     const updated = applyDraft(current, next);
-    stored = storedSignature(updated);
+    stored = updated;
     store.updateRule(updated);
   }
 
@@ -69,18 +58,28 @@ export function useMockRuleDraft(selectedId: Ref<string | null>) {
     { immediate: true },
   );
 
-  watch(ruleSignature, (signature) => {
-    if (signature === null) {
+  watch(rule, (current) => {
+    if (current === null) {
       draft.value = null;
-      baseline = null;
+      loaded = null;
       stored = null;
-    } else if (signature !== stored) {
-      load();
+      owner = null;
+      return;
     }
+    if (current === stored) return;
+    if (stored && current.id === stored.id && sameEditorFields(current, stored)) {
+      stored = current;
+      return;
+    }
+    load();
   });
 
-  watchDebounced(draft, save, { deep: true, debounce: DRAFT_SAVE_MS });
-  onScopeDispose(save);
+  watchDebounced(draft, save, { debounce: DRAFT_SAVE_MS });
+  const stopScopeListener = store.onBeforeScopeChange(save);
+  onScopeDispose(() => {
+    save();
+    stopScopeListener();
+  });
 
   return { draft, rule, save };
 }

@@ -21,6 +21,7 @@ export function networkEntry(overrides: Partial<NetworkEntry> = {}): NetworkEntr
     finishedTimestamp: 10.2,
     timing: null,
     transferSize: 2048,
+    resourceSize: 4096,
     state: "finished",
     resourceType: "Fetch",
     fromDiskCache: false,

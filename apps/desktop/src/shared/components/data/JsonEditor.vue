@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref, shallowRef, watch, nextTick } from "vue";
+import { watchDebounced } from "@vueuse/core";
 import {
   ChevronRight,
   ChevronDown,
@@ -28,8 +29,10 @@ const emit = defineEmits<{
 
 type JsonError = { line: number; message: string } | null;
 
-const jsonError = computed<JsonError>(() => {
-  const v = props.value.trim();
+const VALIDATE_DEBOUNCE_MS = 250;
+
+function validate(value: string): JsonError {
+  const v = value.trim();
   if (!v) return null;
   try {
     JSON.parse(v);
@@ -42,11 +45,20 @@ const jsonError = computed<JsonError>(() => {
     if (lineMatch) line = parseInt(lineMatch[1]!) - 1;
     else if (posMatch) {
       const pos = parseInt(posMatch[1]!);
-      line = props.value.substring(0, pos).split("\n").length - 1;
+      line = value.substring(0, pos).split("\n").length - 1;
     }
     return { line, message: msg };
   }
-});
+}
+
+const jsonError = shallowRef<JsonError>(validate(props.value));
+watchDebounced(
+  () => props.value,
+  (value) => {
+    jsonError.value = validate(value);
+  },
+  { debounce: VALIDATE_DEBOUNCE_MS },
+);
 
 const isValid = computed(() => jsonError.value === null);
 watch(isValid, (v) => emit("validity-change", v));
@@ -270,9 +282,7 @@ const overlayRef = ref<HTMLElement | null>(null);
 const lineNumbersRef = ref<HTMLElement | null>(null);
 const filterInputRef = ref<HTMLInputElement | null>(null);
 const previewScrollRef = ref<HTMLElement | null>(null);
-
-// Used by gutter translateY — reactive scroll position
-const taScrollTop = ref(0);
+const gutterRef = ref<HTMLElement | null>(null);
 
 // Tracks the last scroll position we emitted so we only emit on actual changes.
 // This breaks the circular chain when two editors sync each other:
@@ -282,7 +292,7 @@ let _lastScrollTop = -1;
 function syncScroll() {
   if (!textareaRef.value) return;
   const { scrollTop, scrollLeft } = textareaRef.value;
-  taScrollTop.value = scrollTop;
+  if (gutterRef.value) gutterRef.value.style.transform = `translateY(-${scrollTop}px)`;
   if (overlayRef.value) {
     overlayRef.value.scrollTop = scrollTop;
     overlayRef.value.scrollLeft = scrollLeft;
@@ -529,10 +539,7 @@ defineExpose({
           class="absolute inset-y-0 left-0 w-5 overflow-hidden pointer-events-none"
           aria-hidden="true"
         >
-          <div
-            class="will-change-transform"
-            :style="{ transform: `translateY(-${taScrollTop}px)` }"
-          >
+          <div ref="gutterRef" class="will-change-transform">
             <div v-for="(line, i) in rawLines" :key="i" class="h-5 relative">
               <button
                 v-if="line.isCollapsible"

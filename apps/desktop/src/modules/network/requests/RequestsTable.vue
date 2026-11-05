@@ -1,35 +1,31 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from "vue";
+import { computed, onMounted, ref, useId, watch } from "vue";
 import { getCoreRowModel, useVueTable, type ColumnDef } from "@tanstack/vue-table";
 import SortHeader from "@/shared/components/presentation/SortHeader.vue";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import { scrollTopToReveal } from "@/shared/list/grid";
 import { optionId, rowStateClass } from "@/shared/list/rowState";
 import type { NetworkEntry } from "@/types/network.types";
+import RequestNameCell from "./RequestNameCell.vue";
 import RequestWaterfall from "./RequestWaterfall.vue";
-import {
-  TONE_CLASS,
-  initiatorWord,
-  requestName,
-  sizeCell,
-  statusCell,
-  timeCell,
-  typeWord,
-} from "./requestCells";
+import WaterfallAxis from "./WaterfallAxis.vue";
 import {
   REQUEST_COLUMNS,
   REQUEST_ROW_HEIGHT,
   columnDisplay,
   type RequestColumn,
-  type RequestColumnId,
 } from "./requestColumns";
+import { rowCells } from "./requestRowCells";
 import { nextSort, type RequestSort } from "./requestSort";
-import { waterfallBar, type WaterfallBar, type WaterfallRange } from "./waterfall";
+import { waterfallBar, type WaterfallRange } from "./waterfall";
 
 const props = defineProps<{
   entries: readonly NetworkEntry[];
   selectedId: string | null;
   range: WaterfallRange | null;
+  showWaterfall: boolean;
+  /** Changes when the filters change, so the selected row is brought back into view. */
+  revealKey: string;
 }>();
 
 const sort = defineModel<RequestSort | null>("sort", { required: true });
@@ -37,7 +33,7 @@ const sort = defineModel<RequestSort | null>("sort", { required: true });
 const emit = defineEmits<{
   select: [entry: NetworkEntry];
   clear: [];
-  menu: [entry: NetworkEntry];
+  menu: [entry: NetworkEntry | null];
   inspect: [];
 }>();
 
@@ -53,11 +49,17 @@ const table = useVueTable({
   },
   columns: columnDefs,
   manualSorting: true,
+  state: {
+    get columnVisibility() {
+      return { waterfall: props.showWaterfall };
+    },
+  },
   getCoreRowModel: getCoreRowModel(),
 });
-const columns = computed(() =>
-  table.getVisibleLeafColumns().map((column) => column.columnDef.meta as RequestColumn),
-);
+const columns = computed(() => {
+  void props.showWaterfall;
+  return table.getVisibleLeafColumns().map((column) => column.columnDef.meta as RequestColumn);
+});
 
 const scroller = ref<HTMLElement | null>(null);
 const source = computed(() => props.entries);
@@ -66,54 +68,17 @@ const { items, topSpacerHeight, bottomSpacerHeight } = useFixedVirtualList(sourc
   overscan: 12,
 });
 
-const CELL_CLASS: Record<RequestColumnId, string> = {
-  method: "font-mono text-2xs text-muted-foreground",
-  name: "font-mono text-xs text-foreground",
-  status: "font-mono text-xs tabular-nums",
-  type: "text-xs text-muted-foreground",
-  initiator: "font-mono text-2xs text-[var(--fg-subtle)]",
-  size: "font-mono text-2xs tabular-nums",
-  time: "font-mono text-2xs tabular-nums",
-  waterfall: "",
-};
-
-const EMPTY_BAR: WaterfallBar = { left: 0, waiting: 0, receiving: 0, open: false };
-
-interface RowCell {
-  text: string;
-  tone: string;
-  title: string | undefined;
-}
-
-function cellsOf(entry: NetworkEntry): Record<Exclude<RequestColumnId, "waterfall">, RowCell> {
-  const status = statusCell(entry);
-  const size = sizeCell(entry);
-  const time = timeCell(entry);
-  return {
-    method: { text: entry.method, tone: "", title: undefined },
-    name: { text: requestName(entry.url), tone: "", title: entry.url },
-    status: {
-      text: status.text,
-      tone: TONE_CLASS[status.tone],
-      title: entry.errorText || entry.statusText || undefined,
-    },
-    type: { text: typeWord(entry), tone: "", title: entry.mimeType || undefined },
-    initiator: { text: initiatorWord(entry), tone: "", title: entry.initiatorUrl },
-    size: { text: size.text, tone: TONE_CLASS[size.tone], title: undefined },
-    time: { text: time.text, tone: TONE_CLASS[time.tone], title: undefined },
-  };
-}
-
-const rows = computed(() =>
-  items.value.map(({ data: entry }) => ({
+const rows = computed(() => {
+  const range = props.showWaterfall ? props.range : null;
+  return items.value.map(({ data: entry }) => ({
     entry,
     id: optionId(listId, entry.requestId),
-    cells: cellsOf(entry),
-    bar: props.range ? waterfallBar(entry, props.range) : null,
+    cells: rowCells(entry),
+    bar: range ? waterfallBar(entry, range) : null,
     failed: entry.state === "failed",
     selected: entry.requestId === props.selectedId,
-  })),
-);
+  }));
+});
 
 const activeId = computed(() => rows.value.find((row) => row.selected)?.id);
 
@@ -128,13 +93,18 @@ function toggleSort(column: RequestColumn) {
 
 function reveal(index: number) {
   const element = scroller.value;
-  if (!element) return;
+  if (!element || index < 0) return;
   element.scrollTop = scrollTopToReveal(
     index,
     REQUEST_ROW_HEIGHT,
     element.scrollTop,
     element.clientHeight,
   );
+}
+
+function revealSelected() {
+  if (!props.selectedId) return;
+  reveal(props.entries.findIndex((entry) => entry.requestId === props.selectedId));
 }
 
 /** Moves the selection by `step` rows (±Infinity for the ends) and keeps it in view. */
@@ -179,7 +149,14 @@ function onClick(event: MouseEvent, entry: NetworkEntry) {
   emit("select", entry);
 }
 
-/** Keeps the newest request in view while the list sits at its end, nothing is selected and no sort is set. */
+/** A context menu opened from the keyboard (Menu key, Shift+F10) acts on the selected row. */
+function onListContextMenu(event: MouseEvent) {
+  const onRow = event.target instanceof Element && event.target.closest("[role='option']");
+  if (onRow) return;
+  const selected = props.entries.find((entry) => entry.requestId === props.selectedId) ?? null;
+  emit("menu", selected);
+}
+
 const FOLLOW_SLACK = REQUEST_ROW_HEIGHT * 2;
 let following = true;
 
@@ -190,15 +167,18 @@ function onScroll() {
 }
 
 watch(
-  () => props.entries.length,
-  (length, previous) => {
+  () => props.entries[props.entries.length - 1]?.requestId,
+  (last, previous) => {
     const element = scroller.value;
-    if (!element || sort.value || props.selectedId || !following || length <= (previous ?? 0))
-      return;
+    if (!element || !last || last === previous) return;
+    if (sort.value || props.selectedId || !following) return;
     element.scrollTop = element.scrollHeight;
   },
   { flush: "post" },
 );
+
+watch(() => props.revealKey, revealSelected, { flush: "post" });
+onMounted(revealSelected);
 
 defineExpose({ move, focus: () => scroller.value?.focus() });
 </script>
@@ -209,9 +189,10 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
       <span
         v-for="column in columns"
         :key="column.id"
-        class="items-center"
+        class="relative items-center"
         :class="[columnDisplay(column), column.className]"
       >
+        <WaterfallAxis v-if="column.id === 'waterfall'" :range="props.range" />
         <SortHeader
           :label="column.label"
           :state="sortState(column)"
@@ -230,6 +211,7 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
       :aria-activedescendant="activeId"
       @keydown="onKeydown"
       @scroll.passive="onScroll"
+      @contextmenu="onListContextMenu"
     >
       <div :style="{ height: `${topSpacerHeight}px` }" aria-hidden="true" />
       <div
@@ -250,16 +232,14 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
           class="min-w-0 items-center"
           :class="[columnDisplay(column), column.className]"
         >
-          <RequestWaterfall
-            v-if="column.id === 'waterfall'"
-            v-show="row.bar"
-            :bar="row.bar ?? EMPTY_BAR"
-            :failed="row.failed"
-          />
+          <RequestNameCell v-if="column.id === 'name'" :cells="row.cells" />
+          <template v-else-if="column.id === 'waterfall'">
+            <RequestWaterfall v-if="row.bar" :bar="row.bar" :failed="row.failed" />
+          </template>
           <span
             v-else
             class="truncate"
-            :class="[CELL_CLASS[column.id], row.cells[column.id].tone]"
+            :class="row.cells[column.id].className"
             :title="row.cells[column.id].title"
           >
             {{ row.cells[column.id].text }}

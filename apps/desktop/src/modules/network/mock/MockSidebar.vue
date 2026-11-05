@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { Button, SearchField, Segmented, SegmentedButton } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
+import { SEGMENT_TEXT } from "@/shared/components/presentation/segmentText";
 import type { MockLogEntry, MockRule } from "@/types/mock.types";
 import MockLogList from "./MockLogList.vue";
 import MockRulesList from "./MockRulesList.vue";
@@ -12,6 +14,8 @@ const props = defineProps<{
   rules: readonly MockRule[];
   log: readonly MockLogEntry[];
   selectedId: string | null;
+  hits: (id: string) => number;
+  anyHits: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -28,16 +32,16 @@ const search = ref("");
 const shownRules = computed(() =>
   props.rules.filter((rule) => matchesRuleSearch(rule, search.value)),
 );
-const anyHits = computed(() => props.rules.some((rule) => rule.hitCount > 0));
 </script>
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
     <div class="flex h-11 shrink-0 items-center gap-2 border-b border-border-subtle px-3">
-      <Segmented size="sm" aria-label="Rules or what was intercepted">
+      <Segmented size="sm" active-variant="solid" aria-label="Rules or what was intercepted">
         <SegmentedButton
           :active="view === 'rules'"
           content-class-name="gap-1.5"
+          :class="SEGMENT_TEXT"
           @click="view = 'rules'"
         >
           Rules
@@ -48,6 +52,7 @@ const anyHits = computed(() => props.rules.some((rule) => rule.hitCount > 0));
         <SegmentedButton
           :active="view === 'log'"
           content-class-name="gap-1.5"
+          :class="SEGMENT_TEXT"
           @click="view = 'log'"
         >
           Log
@@ -57,17 +62,20 @@ const anyHits = computed(() => props.rules.some((rule) => rule.hitCount > 0));
         </SegmentedButton>
       </Segmented>
       <span class="flex-1" />
-      <Button
-        v-if="view === 'rules' && anyHits"
-        size="sm"
-        variant="transparent"
-        :outline="false"
-        class="text-muted-foreground hover:text-foreground"
-        title="Set every rule's answered count back to zero"
-        @click="emit('resetHits')"
+      <HintTooltip
+        v-if="view === 'rules' && props.anyHits"
+        text="Sets every rule's matched count back to zero"
       >
-        Reset counts
-      </Button>
+        <Button
+          size="sm"
+          variant="transparent"
+          :outline="false"
+          class="text-muted-foreground hover:text-foreground"
+          @click="emit('resetHits')"
+        >
+          Reset counts
+        </Button>
+      </HintTooltip>
       <Button
         v-else-if="view === 'log' && props.log.length"
         size="sm"
@@ -89,7 +97,10 @@ const anyHits = computed(() => props.rules.some((rule) => rule.hitCount > 0));
           aria-label="Search rules by name or address"
         />
       </div>
-      <p v-if="!props.rules.length" class="px-4 py-3 text-xs text-muted-foreground">
+      <p
+        v-if="!props.rules.length"
+        class="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground"
+      >
         No rules yet.
       </p>
       <p
@@ -102,6 +113,7 @@ const anyHits = computed(() => props.rules.some((rule) => rule.hitCount > 0));
         v-else
         :rules="shownRules"
         :selected-id="props.selectedId"
+        :hits="props.hits"
         @select="emit('select', $event)"
         @clear="emit('clear')"
         @toggle="(id, enabled) => emit('toggle', id, enabled)"

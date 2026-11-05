@@ -5,10 +5,11 @@ import type { UpdaterProgressPayload } from "@/types/updater.types";
 import type { AutomationTaskEvent } from "@/types/automation.types";
 
 export interface MockServerRequestEvent {
-  ruleId: string;
+  ruleId: string | null;
   method: string;
   url: string;
   statusCode: number;
+  delayMs: number;
   timestamp: number;
 }
 

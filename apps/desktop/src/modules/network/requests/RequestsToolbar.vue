@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
+import { watchDebounced } from "@vueuse/core";
 import { Pause, Pin, Play, RotateCw, Trash2 } from "lucide-vue-next";
 import { SearchField, Select } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -9,14 +10,31 @@ import MockingNotice from "./MockingNotice.vue";
 import type { CaptureWord } from "./captureState";
 import { METHOD_OPTIONS, SCOPE_OPTIONS } from "./requestFilters";
 
+const FILTER_DEBOUNCE_MS = 150;
+
 const props = defineProps<{ word: CaptureWord; reloading: boolean; canReload: boolean }>();
 
 const emit = defineEmits<{ reload: [] }>();
 
 const store = useNetworkStore();
 const searchBox = ref<HTMLElement | null>(null);
+const filterInput = ref(store.filterText);
 
-const searching = computed(() => store.filterText.trim() !== "");
+watchDebounced(
+  filterInput,
+  (value) => {
+    store.filterText = value;
+  },
+  { debounce: FILTER_DEBOUNCE_MS },
+);
+watch(
+  () => store.filterText,
+  (value) => {
+    if (value !== filterInput.value) filterInput.value = value;
+  },
+);
+
+const searching = computed(() => filterInput.value.trim() !== "");
 const methodLabel = computed(() =>
   store.methodFilter === "All" ? "Any method" : store.methodFilter,
 );
@@ -62,7 +80,7 @@ defineExpose({ focusFilter });
 
     <span ref="searchBox" class="contents">
       <SearchField
-        v-model="store.filterText"
+        v-model="filterInput"
         size="sm"
         class="w-64 min-w-40 shrink"
         placeholder="Filter requests"

@@ -46,10 +46,10 @@ export function captureWord(input: CaptureInput): CaptureWord {
   }
   if (input.presence === "background") {
     return {
-      label: "Waiting",
-      tone: "neutral",
+      label: "In the background",
+      tone: "warning",
       solid: false,
-      detail: "Connected, but the app is in the background, so requests may stop arriving",
+      detail: "Android may freeze the app while it is away, so requests can stop arriving",
     };
   }
   return { label: "Live", tone: "live", solid: true, detail: null };
@@ -102,7 +102,7 @@ export function emptyCopy(input: EmptyInput): EmptyCopy {
   }
   if (input.presence === "background") {
     return {
-      title: "No requests while the app is away",
+      title: "No requests while the app is in the background",
       text: "They start arriving again once the app is back on screen.",
       action: null,
     };

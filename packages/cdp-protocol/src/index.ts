@@ -88,6 +88,7 @@ export type {
   RequestWillBeSentEvent,
   ResponseReceivedEvent,
   LoadingFinishedEvent,
+  DataReceivedEvent,
   LoadingFailedEvent,
   RequestServedFromCacheEvent,
   WebSocketCreatedEvent,

@@ -75,12 +75,15 @@ export interface NetworkEntry {
 
   // Sizes
   transferSize: number; // encoded (network) bytes
+  resourceSize: number; // decoded body bytes, summed from Network.dataReceived
 
   // Lifecycle
   state: NetworkEntryState;
   errorText?: string;
   canceled?: boolean;
   blocked?: boolean;
+  /** Capture restarted while this request was open, so how it ended was never seen. */
+  interrupted?: boolean;
 
   // Resource type
   resourceType: NetworkResourceType;

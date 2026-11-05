@@ -1,7 +1,6 @@
 import type { MockRule } from "@/types/mock.types";
-import { prettyBody } from "./mockFromRequest";
 
-/** The part of a rule the editor changes; the rest (id, on/off, hits, creation) is the store's. */
+/** The part of a rule the editor changes; the rest (id, on/off, creation) is the store's. */
 export type MockRuleDraft = Pick<
   MockRule,
   | "name"
@@ -12,12 +11,13 @@ export type MockRuleDraft = Pick<
   | "contentType"
   | "responseHeaders"
   | "responseBody"
+  | "bodyEncoding"
   | "delayMs"
   | "passThrough"
 >;
 
-/** The editor-owned fields of a rule as stored, copied so edits never reach the store. */
-export function draftFields(rule: MockRule): MockRuleDraft {
+/** A fresh, independent draft of a rule, its body kept exactly as stored. */
+export function draftFromRule(rule: MockRule): MockRuleDraft {
   return {
     name: rule.name,
     method: rule.method,
@@ -27,38 +27,46 @@ export function draftFields(rule: MockRule): MockRuleDraft {
     contentType: rule.contentType,
     responseHeaders: rule.responseHeaders.map((header) => ({ ...header })),
     responseBody: rule.responseBody,
+    bodyEncoding: rule.bodyEncoding,
     delayMs: rule.delayMs,
     passThrough: rule.passThrough,
   };
 }
 
-/** A fresh, independent draft of a rule, with a JSON body pretty-printed for editing. */
-export function draftFromRule(rule: MockRule): MockRuleDraft {
-  const fields = draftFields(rule);
-  return { ...fields, responseBody: prettyBody(fields.responseBody, fields.contentType) };
+/** Whether two rules differ in anything the editor owns; field by field, never serialised. */
+export function sameEditorFields(a: MockRule, b: MockRule): boolean {
+  if (
+    a.name !== b.name ||
+    a.method !== b.method ||
+    a.urlPattern !== b.urlPattern ||
+    a.urlMatchType !== b.urlMatchType ||
+    a.statusCode !== b.statusCode ||
+    a.contentType !== b.contentType ||
+    a.responseBody !== b.responseBody ||
+    a.bodyEncoding !== b.bodyEncoding ||
+    a.delayMs !== b.delayMs ||
+    a.passThrough !== b.passThrough ||
+    a.responseHeaders.length !== b.responseHeaders.length
+  ) {
+    return false;
+  }
+  return a.responseHeaders.every((header, index) => {
+    const other = b.responseHeaders[index];
+    return other?.name === header.name && other.value === header.value;
+  });
 }
 
-/** A comparable fingerprint of what the editor owns, to tell real changes from echoes. */
-export function draftSignature(draft: MockRuleDraft): string {
-  return JSON.stringify([
-    draft.name,
-    draft.method,
-    draft.urlPattern,
-    draft.urlMatchType,
-    draft.statusCode,
-    draft.contentType,
-    draft.responseHeaders.map((header) => [header.id, header.name, header.value]),
-    draft.responseBody,
-    draft.delayMs,
-    draft.passThrough,
-  ]);
-}
-
-/** The stored rule with the editor's fields applied, keeping its switch, hits and identity. */
+/** The stored rule with the editor's fields applied, keeping its switch and identity. */
 export function applyDraft(rule: MockRule, draft: MockRuleDraft): MockRule {
-  return {
+  const next: MockRule = {
     ...rule,
     ...draft,
-    responseHeaders: draft.responseHeaders.map((header) => ({ ...header })),
+    responseHeaders: draft.responseHeaders.map((header) => ({
+      id: header.id,
+      name: header.name,
+      value: header.value,
+    })),
   };
+  if (!draft.bodyEncoding) delete next.bodyEncoding;
+  return next;
 }

@@ -6,6 +6,7 @@ import { NetworkDomain } from "@capubridge/cdp-protocol";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { NetworkEntry, NetworkResourceType } from "@/types/network.types";
+import { finishedSizes } from "./networkSizes";
 
 const initialRetryDelay = 500;
 const maximumRetryDelay = 8_000;
@@ -102,6 +103,7 @@ export function useNetwork() {
           finishedTimestamp: null,
           timing: null,
           transferSize: 0,
+          resourceSize: 0,
           state: "pending",
           resourceType: (event.type as NetworkResourceType) ?? "Other",
           fromDiskCache: false,
@@ -136,10 +138,15 @@ export function useNetwork() {
           state: event.response.fromDiskCache ? "cached" : "pending",
         });
       }),
+      domain.onDataReceived((event) => {
+        if (activeTargetId !== targetId) return;
+        store.addReceived(event.requestId, event.dataLength, event.encodedDataLength);
+      }),
       domain.onLoadingFinished((event) => {
         if (activeTargetId !== targetId) return;
+        const existing = store.getEntry(event.requestId);
         store.patchEntry(event.requestId, {
-          transferSize: event.encodedDataLength,
+          ...finishedSizes(existing, event.encodedDataLength),
           finishedTimestamp: event.timestamp,
           state: "finished",
         });
@@ -179,6 +186,7 @@ export function useNetwork() {
           finishedTimestamp: null,
           timing: null,
           transferSize: 0,
+          resourceSize: 0,
           state: "pending",
           resourceType: "WebSocket",
           fromDiskCache: false,
@@ -208,18 +216,10 @@ export function useNetwork() {
         });
       }),
       domain.onWebSocketFrameSent((event) => {
-        if (activeTargetId !== targetId) return;
-        const existing = store.getEntry(event.requestId);
-        if (existing) {
-          store.patchEntry(event.requestId, { wsFrameCount: existing.wsFrameCount + 1 });
-        }
+        if (activeTargetId === targetId) store.countFrame(event.requestId);
       }),
       domain.onWebSocketFrameReceived((event) => {
-        if (activeTargetId !== targetId) return;
-        const existing = store.getEntry(event.requestId);
-        if (existing) {
-          store.patchEntry(event.requestId, { wsFrameCount: existing.wsFrameCount + 1 });
-        }
+        if (activeTargetId === targetId) store.countFrame(event.requestId);
       }),
     ];
   }
@@ -247,8 +247,10 @@ export function useNetwork() {
       await clearBindings();
       const client = getClient(nextTarget.id) ?? (await connectToTarget(nextTarget));
       if (attempt !== revision || targetsStore.selectedTarget?.id !== nextTarget.id) return;
+      if (!client) throw new Error("The app's DevTools connection is not open");
 
       const domain = new NetworkDomain(client);
+      store.markInterrupted();
       activeDomain = domain;
       activeTargetId = nextTarget.id;
       attachListeners(client, domain, nextTarget.id);

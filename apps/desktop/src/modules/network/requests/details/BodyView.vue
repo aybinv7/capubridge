@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import JsonView from "@/shared/code-viewer/JsonView.vue";
 import TextView from "@/shared/code-viewer/TextView.vue";
-import { formatBytes } from "../requestCells";
+import BinaryBody from "./BinaryBody.vue";
 import type { BodyContent } from "./bodyContent";
+import { NETWORK_WRAP_KEY } from "./bodyViewer";
 import DetailsState from "./DetailsState.vue";
 import ImageBody from "./ImageBody.vue";
+import SvgBody from "./SvgBody.vue";
 
 const props = defineProps<{
   content: BodyContent;
   name: string;
   emptyTitle: string;
   findSignal: number;
+  findLabel: string;
 }>();
+
+const emit = defineEmits<{ copyBase64: [] }>();
 </script>
 
 <template>
@@ -22,6 +27,8 @@ const props = defineProps<{
     :pretty="props.content.pretty"
     :parse="props.content.parse"
     :find-signal="props.findSignal"
+    :wrap-storage-key="NETWORK_WRAP_KEY"
+    :find-label="props.findLabel"
     allow-raw
   />
   <TextView
@@ -29,6 +36,8 @@ const props = defineProps<{
     :text="props.content.text"
     :language="props.content.language"
     :find-signal="props.findSignal"
+    :wrap-storage-key="NETWORK_WRAP_KEY"
+    :find-label="props.findLabel"
   />
   <ImageBody
     v-else-if="props.content.kind === 'image'"
@@ -38,9 +47,19 @@ const props = defineProps<{
     :name="props.name"
     :find-signal="props.findSignal"
   />
-  <DetailsState
+  <SvgBody
+    v-else-if="props.content.kind === 'svg'"
+    :text="props.content.text"
+    :blob="props.content.blob"
+    :name="props.name"
+    :find-signal="props.findSignal"
+  />
+  <BinaryBody
     v-else
-    title="This body is not text"
-    :text="`${formatBytes(props.content.bytes)} of ${props.content.mime}. It cannot be shown here.`"
+    :base64="props.content.base64"
+    :bytes="props.content.bytes"
+    :mime="props.content.mime"
+    :find-signal="props.findSignal"
+    @copy-base64="emit('copyBase64')"
   />
 </template>

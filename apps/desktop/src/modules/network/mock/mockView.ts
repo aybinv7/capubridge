@@ -100,15 +100,26 @@ export function scopeWords(
     return { label: "Shared rules", detail: "No app is selected, so these rules belong to no app" };
   }
   const name = appName ?? (target.title || target.url || target.id);
+  if (target.source === "adb" && target.packageName) {
+    return {
+      label: `Rules for ${name}`,
+      detail: `Kept for ${target.packageName} on ${target.deviceSerial ?? "this phone"}, across restarts`,
+    };
+  }
   return {
     label: `Rules for ${name}`,
-    detail: [target.deviceSerial ?? target.source, target.url || target.id].join(" · "),
+    detail: `Kept for pages of ${target.url || target.id}`,
   };
 }
 
-/** Rule counts as a sentence: "2 of 5 rules on". */
-export function rulesSummary(enabled: number, total: number): string {
+/** Rule counts as a sentence, honest about interception being off: "2 rules ready, interception off". */
+export function rulesSummary(enabled: number, total: number, mode: MockInterceptMode): string {
   if (total === 0) return "No rules";
+  if (mode === "off") {
+    return enabled === 0
+      ? `${total} ${total === 1 ? "rule" : "rules"}, all off`
+      : `${enabled} ${enabled === 1 ? "rule" : "rules"} ready, interception off`;
+  }
   return `${enabled} of ${total} ${total === 1 ? "rule" : "rules"} on`;
 }
 

@@ -3,6 +3,7 @@ import { computed } from "vue";
 import WorkbenchGate from "@/components/gate/WorkbenchGate.vue";
 import GateStrip from "@/components/gate/GateStrip.vue";
 import { useGate } from "@/composables/useGate";
+import { useAppPackages } from "@/composables/useAppPackages";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { degradedCopy, noticeCopy } from "@/lib/gates/copy";
 import type { GateRequirement } from "@/lib/gates/types";
@@ -18,6 +19,13 @@ const props = withDefaults(
 const context = useActiveContextStore();
 const { result, subject, mode } = useGate(() => props.requirement);
 
+const serial = computed(() => context.device?.serial ?? "");
+const { getCachedPackage } = useAppPackages(serial);
+const appLabel = computed(() => {
+  const packageName = context.gateInput.target?.packageName;
+  return packageName ? (getCachedPackage(packageName)?.label ?? null) : null;
+});
+
 const blockedKind = computed(() => (result.value.kind === "open" ? null : result.value.kind));
 
 const strip = computed(() => {
@@ -26,7 +34,9 @@ const strip = computed(() => {
     return degradedCopy(kind, context.gateInput, props.requirement);
   }
   const notice = result.value.notice;
-  return notice && mode.value === "open" ? noticeCopy(notice, context.gateInput) : null;
+  return notice && mode.value === "open"
+    ? noticeCopy(notice, context.gateInput, appLabel.value)
+    : null;
 });
 </script>
 

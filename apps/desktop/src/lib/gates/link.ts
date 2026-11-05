@@ -53,9 +53,9 @@ const PRESENTATION: Record<LinkHealth, Omit<LinkPresentation, "health">> = {
   attaching: { label: "attaching", tone: "waiting", description: "Opening a DevTools session" },
   live: { label: "live", tone: "live", description: "DevTools session open, app on screen" },
   paused: {
-    label: "paused",
+    label: "in the background",
     tone: "warning",
-    description: "App in the background; Android paused its WebView",
+    description: "App in the background; Android may freeze its WebView until it returns",
   },
   hidden: {
     label: "hidden",

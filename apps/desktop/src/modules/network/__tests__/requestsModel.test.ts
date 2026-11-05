@@ -4,14 +4,15 @@ import {
   formatBytes,
   formatMs,
   initiatorWord,
-  requestName,
+  isAppFile,
   sizeCell,
   statusCell,
   timeCell,
 } from "../requests/requestCells";
+import { requestName, requestNameParts } from "../requests/requestNames";
 import { requestsSummary } from "../requests/requestFilters";
 import { nextSort, sortRequests } from "../requests/requestSort";
-import { waterfallBar, waterfallRange } from "../requests/waterfall";
+import { waterfallBar, waterfallRange, waterfallTicks } from "../requests/waterfall";
 import { networkEntry } from "./fixtures";
 
 describe("request cells", () => {
@@ -26,7 +27,10 @@ describe("request cells", () => {
   });
 
   test("status says what happened when there is no code", () => {
-    expect(statusCell(networkEntry({ httpStatus: 204 }))).toEqual({ text: "204", tone: "default" });
+    expect(statusCell(networkEntry({ httpStatus: 204 }))).toEqual({ text: "204", tone: "muted" });
+    expect(
+      statusCell(networkEntry({ state: "failed", interrupted: true, errorText: "restarted" })),
+    ).toMatchObject({ text: "Unknown", tone: "subtle" });
     expect(statusCell(networkEntry({ httpStatus: 404 })).tone).toBe("warning");
     expect(statusCell(networkEntry({ httpStatus: 503 })).tone).toBe("error");
     expect(statusCell(networkEntry({ httpStatus: null, state: "pending" })).text).toBe("Pending");
@@ -39,6 +43,21 @@ describe("request cells", () => {
     expect(sizeCell(networkEntry({ isWebSocket: true, wsFrameCount: 1 })).text).toBe("1 frame");
     expect(sizeCell(networkEntry({ state: "pending" })).text).toBe("…");
     expect(sizeCell(networkEntry({ state: "failed" })).text).toBe("—");
+  });
+
+  test("size reads transferred / size, and files the app serves itself say so", () => {
+    expect(sizeCell(networkEntry({ transferSize: 1024, resourceSize: 4096 })).text).toBe(
+      "1.0 KB / 4.0 KB",
+    );
+    expect(sizeCell(networkEntry({ transferSize: 2048, resourceSize: 2048 })).text).toBe("2.0 KB");
+    const local = networkEntry({
+      url: "https://localhost/assets/app.js",
+      transferSize: 0,
+      resourceSize: 12288,
+    });
+    expect(isAppFile(local)).toBe(true);
+    expect(sizeCell(local).text).toBe("App · 12 KB");
+    expect(isAppFile(networkEntry({ url: "https://api.test/a", transferSize: 0 }))).toBe(false);
   });
 
   test("time flags slow requests", () => {
@@ -63,15 +82,31 @@ describe("request cells", () => {
       ),
     ).toBe("main.js:42");
     expect(initiatorWord(networkEntry({ initiatorType: "parser" }))).toBe("Page");
+    expect(
+      initiatorWord(networkEntry({ initiatorUrl: "https://localhost/", initiatorLine: 9 })),
+    ).toBe("index.html:10");
+  });
+
+  test("a row is named by what tells it apart, the host and folder quiet", () => {
+    expect(requestNameParts("https://api.test/v1/orders?page=2")).toEqual({
+      main: "orders?page=2",
+      detail: "api.test/v1/",
+    });
+    expect(requestNameParts("https://api.test/")).toEqual({ main: "api.test", detail: "" });
+    expect(
+      requestNameParts(
+        "https://localhost/_capacitor_http_interceptor_?u=https%3A%2F%2Fodoo.test%2Fweb%2Fdataset%2Fcall_kw",
+      ),
+    ).toEqual({ main: "call_kw", detail: "odoo.test/web/dataset/" });
   });
 
   test("the summary mentions how many are shown only while filtering", () => {
-    expect(requestsSummary({ total: 3, shown: 3, transferred: 2048, filtering: false })).toBe(
-      "3 requests · 2.0 KB transferred",
-    );
-    expect(requestsSummary({ total: 1, shown: 0, transferred: 0, filtering: true })).toBe(
-      "1 request · 0 B transferred · 0 shown",
-    );
+    expect(
+      requestsSummary({ total: 3, shown: 3, transferred: 2048, resources: 0, filtering: false }),
+    ).toBe("3 requests · 2.0 KB transferred");
+    expect(
+      requestsSummary({ total: 1, shown: 0, transferred: 0, resources: 4096, filtering: true }),
+    ).toBe("1 request · 0 B transferred · 4.0 KB resources · 0 shown");
   });
 });
 
@@ -94,6 +129,20 @@ describe("waterfall", () => {
     expect(waterfallRange([])).toBeNull();
   });
 
+  test("the range starts at the last page load, and earlier requests have no bar", () => {
+    const load = networkEntry({
+      requestId: "doc",
+      resourceType: "Document",
+      startTimestamp: 100,
+      responseTimestamp: 100.2,
+      finishedTimestamp: 100.5,
+    });
+    const range = waterfallRange([first, second, load]);
+    expect(range).toEqual({ start: 100, end: 100.5 });
+    expect(waterfallBar(first, range!)).toBeNull();
+    expect(waterfallTicks(range!).map((tick) => tick.label)).toEqual(["200 ms", "400 ms"]);
+  });
+
   test("bars split waiting from receiving on a shared axis", () => {
     const range = { start: 0, end: 4 };
     expect(waterfallBar(first, range)).toEqual({
@@ -113,15 +162,15 @@ describe("waterfall", () => {
       state: "pending",
     });
     const bar = waterfallBar(open, { start: 0, end: 4 });
-    expect(bar.open).toBe(true);
-    expect(bar.left + bar.waiting + bar.receiving).toBeCloseTo(100);
+    expect(bar?.open).toBe(true);
+    expect((bar?.left ?? 0) + (bar?.waiting ?? 0) + (bar?.receiving ?? 0)).toBeCloseTo(100);
   });
 
-  test("an instant request keeps a visible sliver", () => {
+  test("an instant request still gets a bar (drawn at least 3 px wide)", () => {
     const instant = networkEntry({ startTimestamp: 4, responseTimestamp: 4, finishedTimestamp: 4 });
     const bar = waterfallBar(instant, { start: 0, end: 4 });
-    expect(bar.receiving).toBeGreaterThan(0);
-    expect(bar.left + bar.receiving).toBeLessThanOrEqual(100);
+    expect(bar).not.toBeNull();
+    expect(bar?.left).toBeLessThanOrEqual(100);
   });
 });
 
@@ -187,7 +236,7 @@ describe("capture state", () => {
 
   test("an app in the background is not called live", () => {
     expect(captureWord({ ...base, presence: "background" })).toMatchObject({
-      label: "Waiting",
+      label: "In the background",
       solid: false,
     });
     expect(captureWord(base)).toMatchObject({ label: "Live", solid: true });
@@ -200,7 +249,7 @@ describe("capture state", () => {
     );
     expect(
       emptyCopy({ ...base, captured: 0, filtering: false, presence: "background" }),
-    ).toMatchObject({ title: "No requests while the app is away", action: null });
+    ).toMatchObject({ title: "No requests while the app is in the background", action: null });
     expect(emptyCopy({ ...base, captured: 0, filtering: false, status: "connecting" }).title).toBe(
       "Connecting to the app",
     );

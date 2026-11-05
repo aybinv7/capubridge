@@ -1,21 +1,7 @@
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { base64ToUtf8, utf8ToBase64 } from "@/lib/base64";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { MockRule, MockRuleExport, MockResponseHeader } from "@/types/mock.types";
-
-function textToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 32768) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + 32768));
-  }
-  return btoa(binary);
-}
-
-function base64ToText(value: string): string {
-  const binary = atob(value);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -45,6 +31,7 @@ function parseHeaders(value: unknown): MockResponseHeader[] {
   });
 }
 
+/** Reads an exported rule file's content; older files without `bodyEncoding` hold text bodies. */
 export function parseMockRuleExport(value: unknown): Partial<MockRule> {
   if (!isRecord(value) || value.format !== "capubridge-mock-rule" || value.version !== 1) {
     throw new Error("Not a Capubridge mock rule export");
@@ -61,16 +48,18 @@ export function parseMockRuleExport(value: unknown): Partial<MockRule> {
     contentType: readString(rule.contentType, "contentType"),
     responseHeaders: parseHeaders(rule.responseHeaders),
     responseBody: readString(rule.responseBody, "responseBody"),
+    ...(rule.bodyEncoding === "base64" ? { bodyEncoding: "base64" as const } : {}),
     delayMs: readNumber(rule.delayMs, "delayMs"),
     passThrough: typeof rule.passThrough === "boolean" ? rule.passThrough : false,
   };
 }
 
-export async function exportMockRule(rule: MockRule): Promise<string | null> {
-  const config: MockRuleExport = {
+/** The file content an export writes for a rule. */
+export function mockRuleExport(rule: MockRule, exportedAt = new Date()): MockRuleExport {
+  return {
     format: "capubridge-mock-rule",
     version: 1,
-    exportedAt: new Date().toISOString(),
+    exportedAt: exportedAt.toISOString(),
     rule: {
       name: rule.name,
       enabled: rule.enabled,
@@ -85,10 +74,15 @@ export async function exportMockRule(rule: MockRule): Promise<string | null> {
         value,
       })),
       responseBody: rule.responseBody,
+      ...(rule.bodyEncoding === "base64" ? { bodyEncoding: "base64" as const } : {}),
       delayMs: rule.delayMs,
       passThrough: rule.passThrough,
     },
   };
+}
+
+export async function exportMockRule(rule: MockRule): Promise<string | null> {
+  const config = mockRuleExport(rule);
   const destination = await save({
     defaultPath: `${rule.name.replace(/[^a-z0-9-_]/gi, "-").toLowerCase() || "mock-rule"}.capubridge-rule.json`,
     filters: [{ name: "Capubridge mock rule", extensions: ["json"] }],
@@ -96,7 +90,7 @@ export async function exportMockRule(rule: MockRule): Promise<string | null> {
   if (!destination) return null;
   await invokeCommand("save_base64_file", {
     path: destination,
-    data: textToBase64(JSON.stringify(config, null, 2)),
+    data: utf8ToBase64(JSON.stringify(config, null, 2)),
   });
   return destination;
 }
@@ -109,5 +103,5 @@ export async function importMockRule(): Promise<Partial<MockRule> | null> {
   });
   if (!source || Array.isArray(source)) return null;
   const encoded = await invokeCommand("read_local_file_base64", { path: source });
-  return parseMockRuleExport(JSON.parse(base64ToText(encoded)));
+  return parseMockRuleExport(JSON.parse(base64ToUtf8(encoded)));
 }

@@ -6,8 +6,10 @@ export interface MockServerRule {
   url_pattern: string;
   url_match_type: string;
   status_code: number;
+  content_type: string;
   response_headers: [string, string][];
   response_body: string;
+  body_base64: boolean;
   delay_ms: number;
 }
 

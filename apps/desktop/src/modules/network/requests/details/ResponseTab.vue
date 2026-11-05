@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, toRef } from "vue";
 import type { NetworkEntry } from "@/types/network.types";
-import { requestName } from "../requestCells";
+import { requestName } from "../requestNames";
 import BodyView from "./BodyView.vue";
 import DetailsState from "./DetailsState.vue";
 import { responseContent, type RawBody } from "./bodyContent";
+import { useBodyContent } from "./useBodyContent";
 
 const props = defineProps<{
   entry: NetworkEntry;
@@ -14,10 +15,14 @@ const props = defineProps<{
   findSignal: number;
 }>();
 
-const emit = defineEmits<{ retry: [] }>();
+const emit = defineEmits<{ retry: []; copyBase64: [] }>();
 
-const content = computed(() =>
-  props.body ? responseContent(props.body, props.entry.mimeType) : null,
+const cacheKey = computed(() => `${props.entry.requestId}@${props.entry.startTimestamp}:response`);
+const { content, formatting } = useBodyContent(
+  toRef(props, "body"),
+  cacheKey,
+  (raw) => raw.body.length,
+  (raw) => responseContent(raw, props.entry.mimeType),
 );
 const errorText = computed(() => (props.error ? String(props.error) : null));
 </script>
@@ -30,9 +35,13 @@ const errorText = computed(() => (props.error ? String(props.error) : null));
   />
   <DetailsState
     v-else-if="props.entry.state === 'failed'"
-    tone="error"
-    title="The request failed before a response arrived"
-    :detail="props.entry.errorText ?? null"
+    :tone="props.entry.interrupted ? 'default' : 'error'"
+    :title="
+      props.entry.interrupted
+        ? 'Capture restarted before this response arrived'
+        : 'The request failed before a response arrived'
+    "
+    :detail="props.entry.interrupted ? null : (props.entry.errorText ?? null)"
   />
   <DetailsState
     v-else-if="props.entry.state !== 'finished'"
@@ -49,11 +58,14 @@ const errorText = computed(() => (props.error ? String(props.error) : null));
     action-label="Try again"
     @action="emit('retry')"
   />
+  <DetailsState v-else-if="formatting" loading title="Formatting the response" />
   <BodyView
     v-else-if="content"
     :content="content"
     :name="requestName(props.entry.url)"
     empty-title="The response has no body"
     :find-signal="props.findSignal"
+    find-label="Find in the response"
+    @copy-base64="emit('copyBase64')"
   />
 </template>

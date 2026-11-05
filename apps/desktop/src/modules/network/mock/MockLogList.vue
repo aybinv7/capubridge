@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { StatusDot, type Color } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import type { MockLogEntry } from "@/types/mock.types";
 import { TONE_CLASS, statusTone } from "../requests/requestCells";
@@ -52,42 +53,50 @@ const rows = computed(() =>
     aria-label="Intercepted requests"
   >
     <div :style="{ height: `${topSpacerHeight}px` }" aria-hidden="true" />
-    <component
-      :is="row.entry.matchedRuleId ? 'button' : 'div'"
+    <div
       v-for="row in rows"
       :key="row.entry.id"
-      :type="row.entry.matchedRuleId ? 'button' : undefined"
       role="listitem"
-      class="mx-1.5 flex w-[calc(100%-0.75rem)] items-center gap-2.5 rounded-control px-2.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      :class="row.entry.matchedRuleId && 'cursor-pointer hover:bg-cladd-surface-hover'"
+      class="mx-1.5"
       :style="{ height: `${ROW_HEIGHT}px` }"
-      :title="row.entry.matchedRuleId ? 'Open the rule that matched' : undefined"
-      @click="row.entry.matchedRuleId && emit('openRule', row.entry.matchedRuleId)"
     >
-      <StatusDot :color="row.dot.color" :variant="row.dot.solid ? 'solid' : 'hollow'" size="xs" />
-      <span class="flex min-w-0 flex-1 flex-col">
-        <span class="flex min-w-0 items-baseline gap-2">
-          <span class="shrink-0 font-mono text-2xs text-muted-foreground">{{
-            row.entry.method
-          }}</span>
-          <span class="truncate font-mono text-2xs text-foreground" :title="row.entry.url">
-            {{ row.entry.url }}
+      <component
+        :is="row.entry.matchedRuleId ? 'button' : 'div'"
+        :type="row.entry.matchedRuleId ? 'button' : undefined"
+        :aria-label="
+          row.entry.matchedRuleId ? `Open the rule ${row.entry.matchedRuleName ?? ''}` : undefined
+        "
+        class="flex h-full w-full items-center gap-2.5 rounded-control px-2.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        :class="row.entry.matchedRuleId && 'cursor-pointer hover:bg-cladd-surface-hover'"
+        @click="row.entry.matchedRuleId && emit('openRule', row.entry.matchedRuleId)"
+      >
+        <StatusDot :color="row.dot.color" :variant="row.dot.solid ? 'solid' : 'hollow'" size="xs" />
+        <span class="flex min-w-0 flex-1 flex-col">
+          <span class="flex min-w-0 items-baseline gap-2">
+            <span class="shrink-0 font-mono text-2xs text-muted-foreground">{{
+              row.entry.method
+            }}</span>
+            <HintTooltip :text="row.entry.url">
+              <span class="truncate font-mono text-2xs text-foreground">{{ row.entry.url }}</span>
+            </HintTooltip>
+          </span>
+          <span class="truncate text-2xs text-[var(--fg-subtle)]">
+            {{ row.word }}
+            <template v-if="row.entry.delayApplied > 0">
+              · after {{ row.entry.delayApplied }} ms</template
+            >
           </span>
         </span>
-        <span class="truncate text-2xs text-[var(--fg-subtle)]">
-          {{ row.word }}
-          <template v-if="row.entry.delayApplied > 0">
-            · after {{ row.entry.delayApplied }} ms</template
-          >
+        <span class="flex shrink-0 flex-col items-end">
+          <span class="font-mono text-2xs tabular-nums" :class="row.statusClass">
+            {{ row.entry.responseStatus ?? "—" }}
+          </span>
+          <span class="font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">{{
+            row.time
+          }}</span>
         </span>
-      </span>
-      <span class="flex shrink-0 flex-col items-end">
-        <span class="font-mono text-2xs tabular-nums" :class="row.statusClass">
-          {{ row.entry.responseStatus ?? "—" }}
-        </span>
-        <span class="font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">{{ row.time }}</span>
-      </span>
-    </component>
+      </component>
+    </div>
     <div :style="{ height: `${bottomSpacerHeight}px` }" aria-hidden="true" />
   </div>
 </template>

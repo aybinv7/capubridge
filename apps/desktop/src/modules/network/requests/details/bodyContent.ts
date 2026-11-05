@@ -1,3 +1,4 @@
+import { base64ByteLength, base64ToBytes, base64ToUtf8 } from "@/lib/base64";
 import type { TextLanguage } from "@/shared/code-viewer/codeLanguage";
 import { parseJson, type JsonParse } from "@/shared/code-viewer/textLines";
 
@@ -12,7 +13,8 @@ export type BodyContent =
   | { kind: "json"; text: string; pretty: string; parse: JsonParse }
   | { kind: "text"; text: string; language: TextLanguage }
   | { kind: "image"; blob: Blob; base64: string; mime: string }
-  | { kind: "binary"; bytes: number; mime: string };
+  | { kind: "svg"; text: string; blob: Blob }
+  | { kind: "binary"; bytes: number; mime: string; base64: string };
 
 const TEXT_MIME =
   /^(text\/|application\/(json|.*\+json|javascript|ecmascript|xml|.*\+xml|x-www-form-urlencoded|graphql))/i;
@@ -38,19 +40,11 @@ export function languageForMime(mime: string): TextLanguage {
   return "plain";
 }
 
-function base64Bytes(value: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
-}
-
-function decodeBase64Text(value: string): string {
-  return new TextDecoder().decode(base64Bytes(value));
-}
-
 function textContent(text: string, mime: string): BodyContent {
   if (!text) return { kind: "empty" };
+  if (mediaType(mime) === "image/svg+xml") {
+    return { kind: "svg", text, blob: new Blob([text], { type: "image/svg+xml" }) };
+  }
   const language = languageForMime(mime);
   const trimmed = text.trimStart();
   const looksJson = trimmed.startsWith("{") || trimmed.startsWith("[");
@@ -71,19 +65,23 @@ export function responseContent(raw: RawBody, mime: string): BodyContent {
   if (type.startsWith("image/") && type !== "image/svg+xml") {
     return {
       kind: "image",
-      blob: new Blob([base64Bytes(raw.body)], { type }),
+      blob: new Blob([base64ToBytes(raw.body)], { type }),
       base64: raw.body,
       mime: type,
     };
   }
-  if (isTextMime(mime)) {
-    try {
-      return textContent(decodeBase64Text(raw.body), mime);
-    } catch {
-      return { kind: "binary", bytes: Math.floor((raw.body.length * 3) / 4), mime: type };
-    }
+  const binary: BodyContent = {
+    kind: "binary",
+    bytes: base64ByteLength(raw.body),
+    mime: type || "unknown",
+    base64: raw.body,
+  };
+  if (!isTextMime(mime)) return binary;
+  try {
+    return textContent(base64ToUtf8(raw.body), mime);
+  } catch {
+    return binary;
   }
-  return { kind: "binary", bytes: Math.floor((raw.body.length * 3) / 4), mime: type || "unknown" };
 }
 
 /** Form fields as `name: value` lines, or null when the text is not a URL-encoded form. */
@@ -93,10 +91,17 @@ export function formFields(text: string): string | null {
   return pairs.length > 0 ? pairs.map(([name, value]) => `${name}: ${value}`).join("\n") : null;
 }
 
+/** Base64 cut into 76-character lines (as in MIME), so no single line is megabytes long. */
+export function base64Lines(value: string): string {
+  const lines: string[] = [];
+  for (let index = 0; index < value.length; index += 76) lines.push(value.slice(index, index + 76));
+  return lines.join("\n");
+}
+
 /** How to show a request body: JSON, form fields, or its text. */
 export function payloadContent(text: string, contentType: string): BodyContent {
   if (!text) return { kind: "empty" };
-  const content = textContent(text, contentType);
+  const content = textContent(text, mediaType(contentType) === "image/svg+xml" ? "" : contentType);
   if (content.kind !== "text") return content;
   const form =
     mediaType(contentType) === "application/x-www-form-urlencoded" || content.language === "plain"
@@ -110,7 +115,7 @@ export function responseText(raw: RawBody, mime: string): string | null {
   if (!raw.base64Encoded) return raw.body;
   if (!isTextMime(mime)) return null;
   try {
-    return decodeBase64Text(raw.body);
+    return base64ToUtf8(raw.body);
   } catch {
     return null;
   }

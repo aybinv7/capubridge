@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
+  base64Lines,
   formFields,
   languageForMime,
   payloadContent,
@@ -154,7 +155,24 @@ describe("bodies", () => {
 
   test("other bytes are reported, not shown", () => {
     const content = responseContent({ body: "AAAAAAAA", base64Encoded: true }, "application/pdf");
-    expect(content).toEqual({ kind: "binary", bytes: 6, mime: "application/pdf" });
+    expect(content).toEqual({
+      kind: "binary",
+      bytes: 6,
+      mime: "application/pdf",
+      base64: "AAAAAAAA",
+    });
+  });
+
+  test("Base64 is shown in short lines, never as one huge line", () => {
+    const lengths = base64Lines("A".repeat(200))
+      .split("\n")
+      .map((line) => line.length);
+    expect(lengths).toEqual([76, 76, 48]);
+  });
+
+  test("an SVG is a picture with its text kept", () => {
+    const content = responseContent({ body: "<svg/>", base64Encoded: false }, "image/svg+xml");
+    expect(content.kind).toBe("svg");
   });
 
   test("empty bodies say so", () => {
