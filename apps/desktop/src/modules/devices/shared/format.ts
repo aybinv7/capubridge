@@ -21,6 +21,12 @@ export function formatRate(bytesPerSecond: number | null | undefined): string {
   return `${formatBytes(bytesPerSecond)}/s`;
 }
 
+/** An axis label for a rate kept in KB/s: whole KB/s below 1 MB/s, then MB/s. */
+export function formatKilobyteRate(kilobytesPerSecond: number): string {
+  if (kilobytesPerSecond >= 1024) return `${+(kilobytesPerSecond / 1024).toFixed(1)} MB/s`;
+  return `${Math.round(kilobytesPerSecond)} KB/s`;
+}
+
 /** A whole percentage, "—" when unknown. */
 export function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";

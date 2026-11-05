@@ -3,7 +3,6 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { StatusDot } from "@capubridge/cladd";
 import { formatBytes, formatPercent, formatRate } from "../shared/format";
-import { seriesValues } from "../perf/perfSeries";
 import { batteryTone, loadTone, memoryTone, phaseDot } from "../perf/perfView";
 import { useDeviceVitals } from "../perf/useDeviceVitals";
 import { usePerfPhase } from "../perf/usePerfPhase";
@@ -36,10 +35,10 @@ const networkDetail = computed(() =>
   network.value ? `↑ ${formatRate(network.value.txBps)}` : undefined,
 );
 
-const cpuValues = computed(() => seriesValues(vitals.cpuSeries.value, "cpu"));
-const memoryValues = computed(() => seriesValues(vitals.memSeries.value, "mem"));
-const batteryValues = computed(() => seriesValues(vitals.batterySeries.value, "battery"));
-const downloadValues = computed(() => seriesValues(vitals.rxSeries.value, "rx"));
+const cpuValues = computed(() => vitals.values("cpu"));
+const memoryValues = computed(() => vitals.values("mem"));
+const batteryValues = computed(() => vitals.values("battery"));
+const downloadValues = computed(() => vitals.values("rx"));
 
 function openPerformance() {
   void router.push({ name: "devices-performance" });
@@ -47,7 +46,7 @@ function openPerformance() {
 </script>
 
 <template>
-  <section class="flex flex-col gap-2" aria-labelledby="overview-vitals-title">
+  <section class="@container flex flex-col gap-2" aria-labelledby="overview-vitals-title">
     <header class="flex items-center gap-2">
       <h2 id="overview-vitals-title" class="text-sm font-medium text-foreground">Right now</h2>
       <StatusDot :color="dot.color" :variant="dot.variant" />
@@ -62,7 +61,7 @@ function openPerformance() {
         {{ vitals.paused.value ? "Resume" : "Try again" }}
       </button>
     </header>
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
       <VitalTile
         label="Processor"
         :value="formatPercent(cpu)"

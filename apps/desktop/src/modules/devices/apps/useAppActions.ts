@@ -8,7 +8,12 @@ import {
   appActionRequest,
   appDisplayName,
   type AppAction,
+  type AppActionSubject,
 } from "./appsModel";
+
+function subjectOf(app: AdbPackage): AppActionSubject {
+  return { name: appDisplayName(app), packageName: app.packageName, system: app.system };
+}
 
 interface AppActionHooks {
   onUninstalled: (app: AdbPackage) => Promise<void> | void;
@@ -31,9 +36,7 @@ export function useAppActions(serial: Ref<string>, hooks: AppActionHooks) {
     },
   });
   const confirmRequest = computed(() =>
-    pending.value
-      ? appActionRequest(pending.value.action, appDisplayName(pending.value.app))
-      : null,
+    pending.value ? appActionRequest(pending.value.action, subjectOf(pending.value.app)) : null,
   );
 
   async function launch(app: AdbPackage) {
@@ -56,11 +59,12 @@ export function useAppActions(serial: Ref<string>, hooks: AppActionHooks) {
     pending.value = null;
     if (!current || !serial.value) return;
     const { app, action } = current;
-    const name = appDisplayName(app);
+    const subject = subjectOf(app);
+    const name = subject.name;
     isActing.value = true;
     try {
-      const output = await shellCommand(serial.value, appActionCommand(action, app.packageName));
-      const outcome = appActionOutcome(action, name, output);
+      const output = await shellCommand(serial.value, appActionCommand(action, subject));
+      const outcome = appActionOutcome(action, subject, output);
       if (!outcome.ok) {
         toast.error(outcome.title, { description: outcome.description });
         return;

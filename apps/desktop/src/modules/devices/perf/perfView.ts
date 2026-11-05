@@ -1,14 +1,27 @@
 import type { Color } from "@capubridge/cladd";
 
 /** Where the device monitor stands, as the screen tells it. */
-export type PerfPhase = "error" | "paused" | "starting" | "waiting" | "overdue" | "live" | "stale";
+export type PerfPhase =
+  | "error"
+  | "paused"
+  | "offline"
+  | "starting"
+  | "waiting"
+  | "overdue"
+  | "live"
+  | "stale";
 
 export interface PerfPhaseInput {
   error: string | null;
   paused: boolean;
+  /** The phone is known but not online. */
+  offline: boolean;
+  /** The monitor should be reading now (a vitals tab is open and the window is shown). */
+  active: boolean;
   isRunning: boolean;
-  tickCount: number;
   firstSampleOverdue: boolean;
+  /** A reading arrived since the monitor last started. */
+  sampledSinceStart: boolean;
   /** Milliseconds since the newest device reading, `null` before the first one. */
   sinceLastSampleMs: number | null;
 }
@@ -17,19 +30,23 @@ export interface PerfPhaseInput {
 export const STALE_AFTER_MS = 5000;
 
 /**
- * Decides the monitor's phase. Readings always win over "waiting": once a reading has arrived the
- * monitor is live (or stale when they stopped coming), whatever else is still settling.
+ * Decides the monitor's phase. A reading only counts as live when it arrived since the monitor
+ * last started: old readings from before a pause, another tab or a hidden window are shown, but
+ * the monitor says it is starting or waiting until a fresh one comes in.
  */
 export function perfPhase(input: PerfPhaseInput): PerfPhase {
   if (input.error) return "error";
   if (input.paused) return "paused";
-  if (input.tickCount > 0) {
-    if (!input.isRunning) return "paused";
-    const age = input.sinceLastSampleMs;
-    return age !== null && age > STALE_AFTER_MS ? "stale" : "live";
-  }
-  if (!input.isRunning) return "starting";
-  return input.firstSampleOverdue ? "overdue" : "waiting";
+  if (input.offline) return "offline";
+  if (!input.active || !input.isRunning) return "starting";
+  if (!input.sampledSinceStart) return input.firstSampleOverdue ? "overdue" : "waiting";
+  const age = input.sinceLastSampleMs;
+  return age !== null && age > STALE_AFTER_MS ? "stale" : "live";
+}
+
+/** Whether a reading taken at `sampleAt` belongs to the run that started at `startedAt`. */
+export function sampledSince(sampleAt: number | null, startedAt: number | null): boolean {
+  return sampleAt !== null && startedAt !== null && sampleAt >= startedAt;
 }
 
 /** Charts are shown as soon as anything was read, from the device or from the WebView. */
@@ -49,6 +66,11 @@ export function perfPhaseCopy(phase: PerfPhase, sinceLastSampleMs: number | null
       return { label: "Stopped", detail: "The device monitor could not start." };
     case "paused":
       return { label: "Paused", detail: "Resume to read the phone again." };
+    case "offline":
+      return {
+        label: "Offline",
+        detail: "The phone is not connected. Readings resume when it is back.",
+      };
     case "starting":
       return { label: "Starting", detail: "Asking the phone for its first reading." };
     case "waiting":

@@ -4,7 +4,8 @@ import { Download, ExternalLink, FolderOpen, Trash2, View } from "lucide-vue-nex
 import { Button } from "@capubridge/cladd";
 import CopyAction from "../shared/CopyAction.vue";
 import FileGlyph from "./FileGlyph.vue";
-import { entryKindLabel, fileViewerKind, formatFileEntrySize } from "./fileKinds";
+import { modifiedCell } from "./fileCells";
+import { entryKindLabel, formatFileEntrySize } from "./fileKinds";
 import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";
 
 const props = defineProps<{
@@ -20,29 +21,32 @@ const emit = defineEmits<{
 }>();
 
 const folder = computed(() => (props.entry ? isFolderEntry(props.entry) : false));
-const viewable = computed(() => (props.entry ? fileViewerKind(props.entry) !== null : false));
 const facts = computed(() => {
   const entry = props.entry;
   if (!entry) return [];
   return [
-    { label: "Kind", value: entryKindLabel(entry), mono: false },
+    { label: "Kind", value: entryKindLabel(entry), mono: false, raw: null },
     {
       label: "Size",
-      value: formatFileEntrySize(entry, props.sizesKnown ? "0 B" : "Unknown"),
+      value: entry.noAccess
+        ? "Unknown"
+        : formatFileEntrySize(entry, props.sizesKnown ? "0 B" : "Unknown"),
       mono: true,
+      raw: null,
     },
+    { label: "Modified", value: modifiedCell(entry), mono: false, raw: entry.modified || null },
     {
-      label: "Modified",
-      value: !entry.modified || entry.modified === "—" ? "Unknown" : entry.modified,
-      mono: true,
+      label: "Permissions",
+      value: entry.noAccess ? "No access for the shell user" : entry.permissions,
+      mono: !entry.noAccess,
+      raw: null,
     },
-    { label: "Permissions", value: entry.permissions, mono: true },
   ];
 });
 </script>
 
 <template>
-  <aside class="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4" aria-label="Details">
+  <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
     <template v-if="props.entry">
       <header class="flex flex-col items-start gap-2">
         <span
@@ -63,7 +67,11 @@ const facts = computed(() => {
       <dl class="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1.5 text-xs">
         <template v-for="fact in facts" :key="fact.label">
           <dt class="text-muted-foreground">{{ fact.label }}</dt>
-          <dd class="min-w-0 truncate text-foreground" :class="fact.mono && 'font-mono text-2xs'">
+          <dd
+            class="min-w-0 truncate text-foreground"
+            :class="fact.mono && 'font-mono text-2xs'"
+            :title="fact.raw ?? undefined"
+          >
             {{ fact.value }}
           </dd>
         </template>
@@ -78,7 +86,7 @@ const facts = computed(() => {
         >
           <FolderOpen v-if="folder" :stroke-width="1.8" />
           <View v-else :stroke-width="1.8" />
-          {{ folder ? "Open folder" : viewable ? "Preview" : "Open" }}
+          {{ folder ? "Open folder" : "Preview" }}
         </Button>
         <template v-if="!folder">
           <Button
@@ -118,5 +126,5 @@ const facts = computed(() => {
     <p v-else class="m-auto max-w-48 text-center text-xs text-muted-foreground">
       Select a file or folder to see its details.
     </p>
-  </aside>
+  </div>
 </template>

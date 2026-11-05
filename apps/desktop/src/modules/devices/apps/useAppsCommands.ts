@@ -1,12 +1,13 @@
 import type { ComputedRef, Ref } from "vue";
 import { CircleStop, Eraser, FolderOpen, Play, RefreshCw, Trash2 } from "lucide-vue-next";
 import { useCommandProvider } from "@/composables/useCommandProvider";
-import type { AdbPackage } from "@/types/adb.types";
+import type { AdbPackage, AdbPackageDetails } from "@/types/adb.types";
 import { appDisplayName, appFolders } from "./appsModel";
 import type { useAppActions } from "./useAppActions";
 
 interface AppsCommandDeps {
   selectedApp: ComputedRef<AdbPackage | null>;
+  details: ComputedRef<AdbPackageDetails | undefined>;
   actions: ReturnType<typeof useAppActions>;
   reload: () => Promise<void>;
   openFiles: (path: string) => void;
@@ -16,6 +17,7 @@ interface AppsCommandDeps {
 /** Palette commands for the Apps tab: reload, and every action on the selected app. */
 export function useAppsCommands({
   selectedApp,
+  details,
   actions,
   reload,
   openFiles,
@@ -35,7 +37,7 @@ export function useAppsCommands({
     };
     if (!app) return [reloadCommand];
     const name = appDisplayName(app);
-    const privateData = appFolders(app, undefined)[0];
+    const privateData = appFolders(app, details.value).find((folder) => folder.key === "internal");
     return [
       reloadCommand,
       {
@@ -67,7 +69,7 @@ export function useAppsCommands({
       },
       {
         id: "device.apps.uninstall",
-        title: `Uninstall ${name}`,
+        title: app.system ? `Remove ${name} for this user` : `Uninstall ${name}`,
         group: "Devices" as const,
         icon: Trash2,
         screen: true,

@@ -185,5 +185,75 @@ New: Pause / Resume (status bar, Overview, palette `device.perf.toggle`), newest
 
 ## Known, unchanged
 
-- Listing a symlinked folder (`/sdcard`, `/etc`) shows the link itself, and expanding it in the tree
-  lists `/etc/etc` (toast). `adb_list_dir` runs `ls` without a trailing slash; places use real paths.
+- ~~Listing a symlinked folder (`/sdcard`, `/etc`) shows the link itself, and expanding it in the tree
+  lists `/etc/etc` (toast).~~ Fixed in round 1: `adb_list_dir` lists every path but `/` with a
+  trailing slash (`src-tauri/src/commands/files.rs`), so links show their contents.
+- The old `adb_perf_start` / `adb_perf_stop` commands still exist and bypass the lease holders; the
+  front end no longer calls them.
+- `modules/app/AppIcon.vue` (another module) still keys its icon query by APK and icon path, so the
+  same icon can be fetched once per module.
+
+## Round 1 reshapes (review `device-review.md`)
+
+Every line above stays reachable; these are the capabilities whose shape changed.
+
+Shell and monitor
+
+- One owner for the monitor (`perf/useDeviceVitals.ts` `createDeviceVitals`): a queue that clears
+  the history when the phone changes, then starts or stops the lease. The perf lease is now held
+  by name (`device-vitals` here, `recording` in `src/composables/usePerfRecorder.ts`); the stream
+  stops only when the last holder leaves (`src-tauri/src/session/perf_holders.rs`), so Overview
+  never ends a recording's stream.
+- Phases (`perf/perfView.ts`): new `offline`; a monitor that is not running yet, or has no reading
+  since it started, is `starting` / `waiting`, never `stale`.
+- History is a ring buffer with a time per sample (`perf/sampleRing.ts`); charts use real times
+  and show gaps after a pause.
+- WebView metrics moved out of the route monitor into `perf/useWebViewMetrics.ts`, used only by
+  Performance: one read at a time, 2 s timeout per call, `Performance.disable` on leave. It says
+  "In the background" (hollow dot) when the app is not on screen.
+- Sampling (Rust, `src-tauri/src/commands/perf/`): one shell per tick for the `/proc` files, the
+  temperature probe found once per session, battery every 10 s, a 1 s interval.
+
+Overview
+
+- Vital tiles: the sparkline is a full-width band along the bottom; four tiles from a 42 rem panel
+  (container query), two below.
+- App card: name from `src/lib/target-app-name.ts` (same order as the title bar), package on hover
+  only; "Open" becomes "Bring to front" while the app is in the background.
+
+Apps
+
+- List: 30 px rows, columns Name | Package (quiet mono) | State (System only in All, Disabled in
+  warning) | actions; sortable by name or package; header outside the listbox,
+  `aria-activedescendant`, row actions out of the tab order.
+- Click selects (a double-click no longer clears it); Escape or the pane's Close clears. The
+  resizable 64 / 36 split is replaced by `shared/DetailsPane.vue`, which opens on selection and
+  collapses when nothing is selected (same pane in Files).
+- `?package=` follows the selection both ways. A linked app the saved scope hides widens the scope
+  for this visit only (`apps/useAppSelection.ts`).
+- System apps: "Remove for this user" (`pm uninstall --user current`) with honest copy, instead of
+  a false "Uninstall".
+- Dates in words; "Came with the phone" for factory dates; Updated hidden unless after Installed.
+  The install date now skips other users' epoch entries (`src-tauri/src/commands/package_times.rs`).
+- Details wait 200 ms after the selection settles; sizes come from a 60 s `dumpsys diskstats`
+  cache per phone (`src-tauri/src/commands/package_sizes.rs`).
+- Icons: keyed by phone and package, three reads at a time newest first, dropped when the row goes
+  away (`iconQueue.ts`), Rust gate of three (`icon_gate.rs`); an app without an icon shows a neutral
+  tile with the first letter of its name and is not asked again.
+- Layout toggle is two `IconAction`s (list, icons) in Apps and Files.
+
+Files
+
+- Opens on phone storage (`/storage/emulated/0`) or the last folder of that phone.
+- Entries the shell cannot read show their name, "No access" and a dash, not `?` rows.
+- Refresh keeps the tree branch until the new listing arrives (`useFileTree.reload`).
+- Sorting by Modified compares dates; names sort naturally (`shared/collator.ts`); the listing is
+  sorted once per listing and order, the filter runs after.
+- Toolbar: "Auto-refresh: Off / 3 s / …"; Folder / Phone only while searching; one eye toggle.
+- Whole-phone search needs three characters and gives up after 10 s.
+- Keys keep working after clicking a button in a row; only text fields and menus keep their keys.
+- Viewer rebuilt (`files/viewer/`): one view per kind (image with zoom and pan, video and audio
+  from a Blob URL, text and code with highlighting and find, JSON text or tree, SQLite facts, hex
+  for anything else), previous / next over every file of the folder, read caps decided from the
+  listing size (`adb_read_file_bytes`, binary IPC). The separate "No preview" dialog is folded
+  into the hex view, with the same Default app, Choose app… and Download actions.

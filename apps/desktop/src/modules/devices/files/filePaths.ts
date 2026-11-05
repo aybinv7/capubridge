@@ -1,4 +1,6 @@
 import type { FileEntry } from "@/types/adb.types";
+import { compareText } from "../shared/collator";
+import { parseDeviceDate } from "../shared/dates";
 
 /** A listing entry with its absolute path on the phone. */
 export interface DeviceFileListEntry extends FileEntry {
@@ -58,10 +60,13 @@ export function ancestorPaths(dir: string): string[] {
 }
 
 function compareBy(key: FileSortKey, a: DeviceFileListEntry, b: DeviceFileListEntry): number {
-  if (key === "size") return a.size - b.size || a.name.localeCompare(b.name);
-  if (key === "modified")
-    return a.modified.localeCompare(b.modified) || a.name.localeCompare(b.name);
-  return a.name.localeCompare(b.name);
+  if (key === "size") return a.size - b.size || compareText(a.name, b.name);
+  if (key === "modified") {
+    const timeA = parseDeviceDate(a.modified) ?? Number.NEGATIVE_INFINITY;
+    const timeB = parseDeviceDate(b.modified) ?? Number.NEGATIVE_INFINITY;
+    return (timeA === timeB ? 0 : timeA < timeB ? -1 : 1) || compareText(a.name, b.name);
+  }
+  return compareText(a.name, b.name);
 }
 
 /** Folders always come first; within each group entries follow the chosen column. */
@@ -78,15 +83,38 @@ export function sortEntries(
   });
 }
 
+export interface EntryFilter {
+  showHidden: boolean;
+  query: string;
+}
+
+/** The entries of `dir` with their absolute paths. */
+export function entriesWithPaths(
+  entries: readonly FileEntry[],
+  dir: string,
+): DeviceFileListEntry[] {
+  return entries.map((entry) => ({ ...entry, path: joinPath(dir, entry.name) }));
+}
+
+/** Drops dot files unless asked and keeps names containing the query; order is kept. */
+export function filterEntries<T extends FileEntry>(
+  entries: readonly T[],
+  options: EntryFilter,
+): T[] {
+  const query = options.query.trim().toLowerCase();
+  if (options.showHidden && !query) return entries.slice();
+  return entries.filter(
+    (entry) =>
+      (options.showHidden || !entry.name.startsWith(".")) &&
+      (!query || entry.name.toLowerCase().includes(query)),
+  );
+}
+
 /** Entries of the open folder, without dot files unless asked, filtered by name. */
 export function visibleEntries(
   entries: readonly FileEntry[],
   dir: string,
-  options: { showHidden: boolean; query: string },
+  options: EntryFilter,
 ): DeviceFileListEntry[] {
-  const query = options.query.trim().toLowerCase();
-  return entries
-    .filter((entry) => options.showHidden || !entry.name.startsWith("."))
-    .filter((entry) => !query || entry.name.toLowerCase().includes(query))
-    .map((entry) => ({ ...entry, path: joinPath(dir, entry.name) }));
+  return filterEntries(entriesWithPaths(entries, dir), options);
 }

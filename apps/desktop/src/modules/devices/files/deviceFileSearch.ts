@@ -6,7 +6,8 @@ import {
   type DeviceFileListEntry,
 } from "./filePaths";
 
-export const DEVICE_SEARCH_MIN_CHARS = 1;
+export const DEVICE_SEARCH_MIN_CHARS = 3;
+export const DEVICE_SEARCH_TIMEOUT_S = 10;
 export const DEVICE_SEARCH_DEBOUNCE_MS = 450;
 export const DEVICE_SEARCH_LIMIT = 180;
 
@@ -16,6 +17,10 @@ function shellQuote(value: string): string {
   return value.replace(/'/g, "'\\''");
 }
 
+function doubleQuote(value: string): string {
+  return value.replace(/(["\\$`])/g, "\\$1");
+}
+
 function findPattern(value: string): string {
   return value.replace(/(\\|\*|\?|\[|\])/g, "\\$1");
 }
@@ -23,7 +28,7 @@ function findPattern(value: string): string {
 /**
  * One shell command that looks for names containing `query` in the places apps keep files:
  * shared storage, app data, temp, installed packages and the system, de-duplicated, capped at
- * `limit`, each line `type<TAB>path`.
+ * `limit`, each line `type<TAB>path`. The whole walk gives up after `DEVICE_SEARCH_TIMEOUT_S`.
  */
 export function deviceSearchCommand(query: string, limit = DEVICE_SEARCH_LIMIT): string | null {
   const escaped = shellQuote(findPattern(query.trim()));
@@ -41,7 +46,7 @@ export function deviceSearchCommand(query: string, limit = DEVICE_SEARCH_LIMIT):
   ];
   const finds = roots.map((root) => `find ${root} -iname '*${escaped}*' 2>/dev/null; `).join("");
   return (
-    `{ ${finds}} | awk '!seen[$0]++' | head -n ${limit} ` +
+    `timeout ${DEVICE_SEARCH_TIMEOUT_S} sh -c "${doubleQuote(finds)}" | awk '!seen[$0]++' | head -n ${limit} ` +
     `| while IFS= read -r p; do ` +
     `if [ -L "$p" ]; then t=symlink; ` +
     `elif [ -d "$p" ]; then t=dir; ` +

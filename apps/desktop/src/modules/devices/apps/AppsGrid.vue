@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, useId } from "vue";
 import { useElementSize } from "@vueuse/core";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import type { AdbPackage } from "@/types/adb.types";
 import AppIcon from "../AppIcon.vue";
 import { chunkRows, scrollTopToReveal } from "../shared/grid";
+import { optionId, rowStateClass } from "../shared/rowState";
 import { appDisplayName } from "./appsModel";
 import { APP_TILES, gridColumns, type AppsDensity } from "./appsView";
 
@@ -18,17 +19,17 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  toggle: [app: AdbPackage];
   select: [app: AdbPackage];
+  clear: [];
   launch: [app: AdbPackage];
 }>();
+
+const listId = useId();
 
 const scroller = ref<HTMLElement | null>(null);
 const { width } = useElementSize(scroller);
 const tile = computed(() => APP_TILES[props.density]);
-const columns = computed(() =>
-  gridColumns(Math.max(0, width.value - GRID_PADDING * 2), props.density),
-);
+const columns = computed(() => gridColumns(width.value, props.density));
 const rows = computed(() => chunkRows(props.apps, columns.value));
 const { items, topSpacerHeight, bottomSpacerHeight } = useFixedVirtualList(rows, scroller, {
   itemHeight: tile.value.height,
@@ -69,8 +70,22 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === "Enter") {
     const app = props.apps.find((entry) => entry.packageName === props.selected);
     if (app) emit("launch", app);
+  } else if (event.key === "Escape" && props.selected) {
+    event.preventDefault();
+    emit("clear");
   }
 }
+
+function onClick(event: MouseEvent, app: AdbPackage) {
+  if (event.detail > 1) return;
+  emit("select", app);
+}
+
+const activeId = computed(() => {
+  const name = props.selected;
+  const shown = items.value.some((row) => row.data.some((app) => app.packageName === name));
+  return name && shown ? optionId(listId, name) : undefined;
+});
 </script>
 
 <template>
@@ -81,6 +96,7 @@ function onKeydown(event: KeyboardEvent) {
     tabindex="0"
     role="listbox"
     aria-label="Apps"
+    :aria-activedescendant="activeId"
     @keydown="onKeydown"
   >
     <div :style="{ height: `${topSpacerHeight}px` }" aria-hidden="true" />
@@ -93,21 +109,16 @@ function onKeydown(event: KeyboardEvent) {
         gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
       }"
     >
-      <button
+      <div
         v-for="app in row.data"
+        :id="optionId(listId, app.packageName)"
         :key="app.packageName"
-        type="button"
         role="option"
-        tabindex="-1"
         :aria-selected="app.packageName === props.selected"
-        class="m-0.5 flex min-w-0 flex-col items-center justify-center gap-2 rounded-well px-2 outline-none"
-        :class="
-          app.packageName === props.selected
-            ? 'bg-cladd-surface-next shadow-bevel'
-            : 'hover:bg-cladd-surface-hover'
-        "
+        class="m-0.5 flex min-w-0 cursor-default flex-col items-center justify-start gap-2 rounded-well px-2 pt-3"
+        :class="rowStateClass(app.packageName === props.selected)"
         :title="app.packageName"
-        @click="emit('toggle', app)"
+        @click="onClick($event, app)"
         @dblclick="emit('launch', app)"
       >
         <AppIcon
@@ -115,13 +126,16 @@ function onKeydown(event: KeyboardEvent) {
           :apk-path="app.apkPath"
           :package-name="app.packageName"
           :icon-path="app.iconPath"
+          :label="appDisplayName(app)"
           :size="tile.icon"
           :class="{ 'opacity-50 grayscale': !app.enabled }"
         />
-        <span class="line-clamp-2 w-full text-center text-xs leading-tight text-foreground">
+        <span
+          class="line-clamp-2 h-8 w-full text-center text-xs leading-4 [overflow-wrap:anywhere] text-foreground"
+        >
           {{ appDisplayName(app) }}
         </span>
-      </button>
+      </div>
     </div>
     <div :style="{ height: `${bottomSpacerHeight}px` }" aria-hidden="true" />
   </div>

@@ -1,33 +1,43 @@
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { useTimestamp } from "@vueuse/core";
 import type { DeviceVitals } from "./useDeviceVitals";
-import { hasPerfReadings, perfPhase, perfPhaseCopy } from "./perfView";
+import { perfPhase, perfPhaseCopy, sampledSince } from "./perfView";
 
-/** The monitor's phase, its words, and whether there is anything to chart. Ticks once a second. */
+/**
+ * The monitor's phase and its words. The clock that turns live into stale only ticks while the
+ * monitor is running; otherwise nothing on screen depends on the time.
+ */
 export function usePerfPhase(vitals: DeviceVitals) {
-  const now = useTimestamp({ interval: 1000 });
+  const clock = useTimestamp({ interval: 1000, controls: true, immediate: false });
 
-  const lastSampleAt = computed(() => vitals.latest.value?.timestamp ?? null);
-  const sinceLastSampleMs = computed(() =>
-    lastSampleAt.value === null ? null : Math.max(0, now.value - lastSampleAt.value),
+  watch(
+    () => vitals.isRunning.value && vitals.active.value,
+    (running) => {
+      if (running) clock.resume();
+      else clock.pause();
+    },
+    { immediate: true },
   );
+
+  const sinceLastSampleMs = computed(() => {
+    const at = vitals.lastSampleAt.value;
+    return at === null ? null : Math.max(0, clock.timestamp.value - at);
+  });
   const phase = computed(() =>
     perfPhase({
       error: vitals.error.value,
       paused: vitals.paused.value,
+      offline: vitals.offline.value,
+      active: vitals.active.value,
       isRunning: vitals.isRunning.value,
-      tickCount: vitals.tickCount.value,
       firstSampleOverdue: vitals.firstSampleOverdue.value,
+      sampledSinceStart: sampledSince(vitals.lastSampleAt.value, vitals.startedAt.value),
       sinceLastSampleMs: sinceLastSampleMs.value,
     }),
   );
-  const staleSeconds = computed(() =>
-    phase.value === "stale" ? Math.round((sinceLastSampleMs.value ?? 0) / 1000) : 0,
-  );
-  const copy = computed(() => perfPhaseCopy(phase.value, staleSeconds.value * 1000));
-  const hasReadings = computed(() =>
-    hasPerfReadings(vitals.tickCount.value, vitals.cdpLastUpdatedAt.value),
+  const copy = computed(() =>
+    perfPhaseCopy(phase.value, phase.value === "stale" ? sinceLastSampleMs.value : null),
   );
 
-  return { phase, copy, lastSampleAt, hasReadings };
+  return { phase, copy, lastSampleAt: vitals.lastSampleAt };
 }

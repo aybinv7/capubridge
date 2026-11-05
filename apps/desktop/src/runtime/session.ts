@@ -98,12 +98,14 @@ export function stopLogcatLeaseEffect(serial: string) {
   return invokeCommandEffect("session_stop_logcat_lease", { serial });
 }
 
-export function startPerfLeaseEffect(serial: string) {
-  return invokeCommandEffect("session_start_perf_lease", { serial });
+/** Takes the device's perf lease for `holder`; the stream runs while anyone holds it. */
+export function startPerfLeaseEffect(serial: string, holder?: string) {
+  return invokeCommandEffect("session_start_perf_lease", { serial, holder });
 }
 
-export function stopPerfLeaseEffect(serial: string) {
-  return invokeCommandEffect("session_stop_perf_lease", { serial });
+/** Gives `holder`'s perf lease back; the stream stops when the last holder leaves. */
+export function stopPerfLeaseEffect(serial: string, holder?: string) {
+  return invokeCommandEffect("session_stop_perf_lease", { serial, holder });
 }
 
 export function startMirrorLeaseEffect(serial: string) {

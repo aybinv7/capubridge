@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, ref, shallowRef, useId, watch } from "vue";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import DetailsPane from "../shared/DetailsPane.vue";
 import DeviceConfirmDialog from "../shared/DeviceConfirmDialog.vue";
+import { optionId } from "../shared/rowState";
 import FileDetails from "./FileDetails.vue";
 import FileMenu from "./FileMenu.vue";
-import FileUnsupportedDialog from "./FileUnsupportedDialog.vue";
-import FileViewerDialog from "./FileViewerDialog.vue";
 import FilesGrid from "./FilesGrid.vue";
 import FilesList from "./FilesList.vue";
+import FilesListHeader from "./FilesListHeader.vue";
 import FilesSidebar from "./FilesSidebar.vue";
 import FilesState from "./FilesState.vue";
 import FilesToolbar from "./FilesToolbar.vue";
@@ -18,6 +19,7 @@ import { useFileBrowser } from "./useFileBrowser";
 import { useFileViewer } from "./useFileViewer";
 import { useFilesCommands } from "./useFilesCommands";
 import { useFilesKeyboard } from "./useFilesKeyboard";
+import FileViewerDialog from "./viewer/FileViewerDialog.vue";
 
 const browser = useFileBrowser();
 const viewer = useFileViewer(browser.serial, browser.entries);
@@ -30,6 +32,7 @@ const listPane = ref<HTMLElement | null>(null);
 const listView = ref<InstanceType<typeof FilesList> | InstanceType<typeof FilesGrid> | null>(null);
 const menuEntry = shallowRef<DeviceFileListEntry | null>(null);
 const searchFocused = ref(false);
+const listId = useId();
 
 const sizesKnown = computed(() => browser.scope.value === "folder");
 const showEntries = computed(
@@ -39,6 +42,12 @@ const showEntries = computed(
     !browser.needsQuery.value &&
     browser.entries.value.length > 0,
 );
+
+const activeId = computed(() => {
+  const path = browser.selectedPath.value;
+  if (!path || !showEntries.value || !listView.value?.isRendered(path)) return undefined;
+  return optionId(listId, path);
+});
 
 function open(entry: DeviceFileListEntry) {
   if (isFolderEntry(entry)) browser.openFolder(entry.path);
@@ -109,64 +118,79 @@ watch(browser.entries, () => {
       <ResizableHandle />
       <ResizablePanel :default-size="80" class="min-h-0">
         <div class="flex h-full min-h-0">
-          <ContextMenu>
-            <ContextMenuTrigger as-child>
-              <div
-                ref="listPane"
-                class="min-w-0 flex-1 outline-none"
-                tabindex="0"
-                role="listbox"
-                :aria-label="
-                  browser.scope.value === 'device' ? 'Search results' : 'Folder contents'
-                "
-                @keydown="onKeydown"
-                @contextmenu.capture="menuEntry = null"
-              >
-                <template v-if="showEntries">
-                  <FilesList
-                    v-if="browser.view.value === 'list'"
-                    ref="listView"
-                    v-model:sort="browser.sort.value"
-                    :entries="browser.entries.value"
-                    :selected="browser.selectedPath.value"
-                    :sizes-known="sizesKnown"
-                    @select="browser.select"
-                    @open="open"
-                    @menu="onMenu"
-                    @download="actions.download"
-                    @delete="actions.requestDelete"
-                  />
-                  <FilesGrid
-                    v-else
-                    ref="listView"
-                    :entries="browser.entries.value"
-                    :selected="browser.selectedPath.value"
-                    @select="browser.select"
-                    @open="open"
-                    @menu="onMenu"
-                  />
-                </template>
-                <FilesState
-                  v-else
-                  :loading="browser.loading.value"
-                  :error="browser.errorText.value"
-                  :needs-query="browser.needsQuery.value"
-                  :scope="browser.scope.value"
-                  :filtered="browser.query.value.trim() !== ''"
-                />
-              </div>
-            </ContextMenuTrigger>
-            <FileMenu
-              v-if="menuEntry"
-              :entry="menuEntry"
-              @open="open(menuEntry)"
-              @details="showDetails(menuEntry)"
-              @open-on-computer="actions.openOnComputer(menuEntry)"
-              @download="actions.download(menuEntry)"
-              @delete="actions.requestDelete(menuEntry)"
+          <div class="flex min-w-0 flex-1 flex-col">
+            <FilesListHeader
+              v-if="showEntries && browser.view.value === 'list'"
+              v-model:sort="browser.sort.value"
             />
-          </ContextMenu>
-          <div v-if="browser.detailsOpen.value" class="w-72 shrink-0 border-l border-border-subtle">
+            <ContextMenu>
+              <ContextMenuTrigger as-child>
+                <div
+                  ref="listPane"
+                  class="min-h-0 flex-1 outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+                  tabindex="0"
+                  :role="showEntries ? 'listbox' : undefined"
+                  :aria-label="
+                    browser.scope.value === 'device' ? 'Search results' : 'Folder contents'
+                  "
+                  :aria-activedescendant="activeId"
+                  @keydown="onKeydown"
+                  @contextmenu.capture="menuEntry = null"
+                >
+                  <template v-if="showEntries">
+                    <FilesList
+                      v-if="browser.view.value === 'list'"
+                      ref="listView"
+                      :list-id="listId"
+                      :entries="browser.entries.value"
+                      :selected="browser.selectedPath.value"
+                      :sizes-known="sizesKnown"
+                      @select="browser.select"
+                      @open="open"
+                      @menu="onMenu"
+                      @download="actions.download"
+                      @delete="actions.requestDelete"
+                    />
+                    <FilesGrid
+                      v-else
+                      ref="listView"
+                      :list-id="listId"
+                      :entries="browser.entries.value"
+                      :selected="browser.selectedPath.value"
+                      @select="browser.select"
+                      @open="open"
+                      @menu="onMenu"
+                    />
+                  </template>
+                  <FilesState
+                    v-else
+                    :loading="browser.loading.value"
+                    :error="browser.errorText.value"
+                    :needs-query="browser.needsQuery.value"
+                    :scope="browser.scope.value"
+                    :filtered="browser.query.value.trim() !== ''"
+                  />
+                </div>
+              </ContextMenuTrigger>
+              <FileMenu
+                v-if="menuEntry"
+                :entry="menuEntry"
+                @open="open(menuEntry)"
+                @details="showDetails(menuEntry)"
+                @open-on-computer="actions.openOnComputer(menuEntry)"
+                @download="actions.download(menuEntry)"
+                @delete="actions.requestDelete(menuEntry)"
+              />
+            </ContextMenu>
+          </div>
+          <DetailsPane
+            :open="browser.detailsOpen.value"
+            title="Details"
+            :label="
+              browser.selected.value ? `Details of ${browser.selected.value.name}` : 'Details'
+            "
+            @close="browser.detailsOpen.value = false"
+          >
             <FileDetails
               :entry="browser.selected.value"
               :sizes-known="sizesKnown"
@@ -177,7 +201,7 @@ watch(browser.entries, () => {
               @download="browser.selected.value && actions.download(browser.selected.value)"
               @delete="browser.selected.value && actions.requestDelete(browser.selected.value)"
             />
-          </div>
+          </DetailsPane>
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>
@@ -185,18 +209,11 @@ watch(browser.entries, () => {
     <FileViewerDialog
       v-model:open="viewer.open.value"
       :entry="viewer.entry.value"
-      :content="viewer.content.value"
-      :loading="viewer.loading.value"
-      :error="viewer.error.value"
-      :gallery-index="viewer.galleryIndex.value"
-      :gallery-total="viewer.galleryTotal.value"
-      @open-on-computer="actions.openOnComputer"
-      @download="actions.download"
+      :state="viewer.state.value"
+      :position="viewer.position.value"
+      :database-route="viewer.databaseRoute.value"
       @step="viewer.step"
-    />
-    <FileUnsupportedDialog
-      v-model:open="viewer.unsupportedOpen.value"
-      :entry="viewer.unsupported.value"
+      @retry="viewer.retry"
       @open-on-computer="actions.openOnComputer"
       @choose-app="actions.chooseApp"
       @download="actions.download"

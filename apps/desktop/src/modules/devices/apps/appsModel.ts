@@ -1,8 +1,22 @@
 import type { AdbPackage, AdbPackageDetails } from "@/types/adb.types";
 import type { DeviceConfirmRequest } from "../shared/confirm";
+import { compareText } from "../shared/collator";
 
 export type AppScope = "third-party" | "system" | "all";
 export type AppAction = "forceStop" | "clearData" | "uninstall";
+export type AppSortKey = "name" | "package";
+
+export interface AppSort {
+  key: AppSortKey;
+  desc: boolean;
+}
+
+/** The app an action is about: what to call it, and whether it came with the phone. */
+export interface AppActionSubject {
+  name: string;
+  packageName: string;
+  system: boolean;
+}
 
 export interface AppFolder {
   key: string;
@@ -22,6 +36,26 @@ export function appDisplayName(app: Pick<AdbPackage, "label" | "packageName">): 
   return label ? label : app.packageName;
 }
 
+/** Apps in the chosen order; ties fall back to the package name so the order never jumps. */
+export function sortApps(packages: readonly AdbPackage[], sort: AppSort): AdbPackage[] {
+  const keyed = packages.map((app) => ({
+    app,
+    key: sort.key === "name" ? appDisplayName(app) : app.packageName,
+  }));
+  keyed.sort(
+    (a, b) => compareText(a.key, b.key) || compareText(a.app.packageName, b.app.packageName),
+  );
+  const ordered = keyed.map((entry) => entry.app);
+  return sort.desc ? ordered.reverse() : ordered;
+}
+
+/** Whether `scope` shows `app`; an app the listing does not have is only shown by All. */
+export function scopeShowing(scope: AppScope, app: Pick<AdbPackage, "system"> | null): boolean {
+  if (scope === "all") return true;
+  if (!app) return false;
+  return scope === "system" ? app.system : !app.system;
+}
+
 /** Keeps the apps in scope whose name or package contains the query, case-insensitively. */
 export function filterApps(
   packages: readonly AdbPackage[],
@@ -30,8 +64,7 @@ export function filterApps(
 ): AdbPackage[] {
   const needle = query.trim().toLowerCase();
   return packages.filter((app) => {
-    if (scope === "system" && !app.system) return false;
-    if (scope === "third-party" && app.system) return false;
+    if (!scopeShowing(scope, app)) return false;
     if (!needle) return true;
     return (
       appDisplayName(app).toLowerCase().includes(needle) ||
@@ -98,15 +131,28 @@ export function appFolders(app: AdbPackage, details: AdbPackageDetails | undefin
   return folders;
 }
 
-/** The shell command behind each app action. */
-export function appActionCommand(action: AppAction, packageName: string): string {
-  if (action === "forceStop") return `am force-stop ${packageName}`;
-  if (action === "clearData") return `pm clear ${packageName}`;
-  return `pm uninstall ${packageName}`;
+/** The word on the uninstall button: system apps can only be removed for the current user. */
+export function uninstallLabel(system: boolean): string {
+  return system ? "Remove for this user" : "Uninstall";
+}
+
+/**
+ * The shell command behind each app action. A system app cannot be uninstalled from the system
+ * image, so it is removed for the current user instead.
+ */
+export function appActionCommand(action: AppAction, subject: AppActionSubject): string {
+  const pkg = subject.packageName;
+  if (action === "forceStop") return `am force-stop ${pkg}`;
+  if (action === "clearData") return `pm clear ${pkg}`;
+  return subject.system ? `pm uninstall --user current ${pkg}` : `pm uninstall ${pkg}`;
 }
 
 /** What the confirmation asks, in plain words. */
-export function appActionRequest(action: AppAction, name: string): DeviceConfirmRequest {
+export function appActionRequest(
+  action: AppAction,
+  subject: AppActionSubject,
+): DeviceConfirmRequest {
+  const name = subject.name;
   if (action === "forceStop") {
     return {
       title: `Force stop ${name}?`,
@@ -120,6 +166,14 @@ export function appActionRequest(action: AppAction, name: string): DeviceConfirm
       title: `Clear the data of ${name}?`,
       text: "Deletes the app's data and cache on the phone, as if it was just installed.",
       confirmLabel: "Clear data",
+      danger: true,
+    };
+  }
+  if (subject.system) {
+    return {
+      title: `Remove ${name} for this user?`,
+      text: 'It came with the phone, so Android keeps a copy in the system. It disappears for this user with its data, and comes back after a factory reset or with "cmd package install-existing".',
+      confirmLabel: "Remove for this user",
       danger: true,
     };
   }
@@ -143,15 +197,21 @@ export interface AppActionOutcome {
  */
 export function appActionOutcome(
   action: AppAction,
-  name: string,
+  subject: AppActionSubject,
   output: string,
 ): AppActionOutcome {
+  const name = subject.name;
   if (action === "forceStop") return { ok: true, title: `${name} was stopped` };
   const ok = output.toLowerCase().includes("success");
   if (action === "clearData") {
     return ok
       ? { ok, title: `Data of ${name} cleared` }
       : { ok, title: "Could not clear the data", description: output.trim() };
+  }
+  if (subject.system) {
+    return ok
+      ? { ok, title: `${name} removed for this user` }
+      : { ok, title: `Could not remove ${name}`, description: output.trim() };
   }
   return ok
     ? { ok, title: `${name} uninstalled` }

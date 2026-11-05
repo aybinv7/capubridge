@@ -1,122 +1,103 @@
-import { computed, ref, shallowRef, watch, type ComputedRef, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { computed, onScopeDispose, ref, shallowRef, watch, type ComputedRef, type Ref } from "vue";
 import { invokeCommand } from "@/runtime/ipc/client";
-import {
-  decodeBase64Text,
-  fileMimeType,
-  fileViewerKind,
-  parseJsonViewerValue,
-  type DeviceFileViewerContent,
-} from "./fileKinds";
 import type { DeviceFileListEntry } from "./filePaths";
+import { galleryEntries, galleryNeighbour, galleryPosition } from "./viewer/gallery";
+import { loadViewerContent } from "./viewer/loadContent";
+import { useDatabaseRoute } from "./viewer/useDatabaseRoute";
+import type { FileBytes, ViewerState } from "./viewer/viewerContent";
+
+const STEP_SETTLE_MS = 140;
+const RELEASE_AFTER_CLOSE_MS = 260;
+const IDLE: ViewerState = { status: "idle" };
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 /**
- * The in-app viewer for images, videos, JSON and text, with previous / next over the folder's
- * pictures and videos. Files it cannot show go to `unsupported`, which offers other ways to open.
+ * The in-app viewer: which file is open, its loading state, and previous / next over the folder's
+ * files. Reads go through `adb_read_file_bytes` with a budget per kind; a read that finishes after
+ * the user has moved on is dropped, and stepping waits a moment so holding an arrow key does not
+ * queue a read per file. Content is released shortly after the dialog closes, once its exit
+ * animation is done, so large media does not stay in memory.
  */
 export function useFileViewer(serial: Ref<string>, entries: ComputedRef<DeviceFileListEntry[]>) {
   const open = ref(false);
-  const loading = ref(false);
-  const error = ref("");
-  const pending = shallowRef<DeviceFileListEntry | null>(null);
-  const content = shallowRef<DeviceFileViewerContent | null>(null);
-  const unsupported = shallowRef<DeviceFileListEntry | null>(null);
+  const entry = shallowRef<DeviceFileListEntry | null>(null);
+  const state = shallowRef<ViewerState>(IDLE);
   let requestId = 0;
+  let stepTimer: ReturnType<typeof setTimeout> | undefined;
+  let releaseTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const entry = computed(() => content.value?.entry ?? pending.value);
-  const gallery = computed(() =>
-    entries.value.filter((item) => {
-      const kind = fileViewerKind(item);
-      return kind === "image" || kind === "video";
-    }),
-  );
-  const galleryIndex = computed(() =>
-    entry.value ? gallery.value.findIndex((item) => item.path === entry.value?.path) : -1,
-  );
+  const gallery = computed(() => galleryEntries(entries.value));
+  const position = computed(() => galleryPosition(gallery.value, entry.value?.path ?? null));
+  const databaseRoute = useDatabaseRoute(serial, entry, state);
 
-  watch(open, (isOpen) => {
-    if (isOpen) return;
-    requestId += 1;
-    loading.value = false;
-    content.value = null;
-    pending.value = null;
-  });
-
-  const unsupportedOpen = computed({
-    get: () => unsupported.value !== null,
-    set: (value: boolean) => {
-      if (!value) unsupported.value = null;
-    },
-  });
-
-  async function show(target: DeviceFileListEntry) {
-    const kind = fileViewerKind(target);
-    if (!kind) {
-      open.value = false;
-      unsupported.value = target;
-      return;
-    }
+  async function load(target: DeviceFileListEntry) {
     const id = ++requestId;
-    unsupported.value = null;
-    open.value = true;
-    loading.value = true;
-    error.value = "";
-    pending.value = target;
-    content.value = null;
+    state.value = { status: "loading" };
     try {
-      const file = await invokeCommand("adb_read_file", {
-        serial: serial.value,
-        path: target.path,
+      const outcome = await loadViewerContent(target.name, target.size, async (maxBytes) => {
+        const buffer = await invokeCommand("adb_read_file_bytes", {
+          serial: serial.value,
+          path: target.path,
+          maxBytes,
+        });
+        if (id !== requestId) throw new Error("A newer file was opened");
+        const bytes: FileBytes = new Uint8Array(buffer);
+        return bytes;
       });
-      if (id !== requestId) return;
-      const mime = fileMimeType(target, kind);
-      const text = kind === "json" || kind === "text" ? decodeBase64Text(file.base64) : "";
-      content.value = {
-        entry: { ...target, size: file.size },
-        kind,
-        mime,
-        dataUrl: `data:${mime};base64,${file.base64}`,
-        text,
-        jsonValue: kind === "json" ? parseJsonViewerValue(text) : null,
-      };
-    } catch (err) {
-      if (id !== requestId) return;
-      error.value = String(err);
-      toast.error(`Could not open ${target.name}`, { description: String(err) });
-    } finally {
-      if (id === requestId) loading.value = false;
+      if (id === requestId) state.value = outcome;
+    } catch (error) {
+      if (id === requestId) state.value = { status: "error", message: errorText(error) };
     }
   }
 
+  function begin(target: DeviceFileListEntry) {
+    clearTimeout(stepTimer);
+    clearTimeout(releaseTimer);
+    requestId += 1;
+    entry.value = target;
+    state.value = { status: "loading" };
+    open.value = true;
+  }
+
+  function show(target: DeviceFileListEntry): Promise<void> {
+    begin(target);
+    return load(target);
+  }
+
   function step(direction: "prev" | "next") {
-    const items = gallery.value;
-    if (items.length < 2) return;
-    const current = Math.max(0, galleryIndex.value);
-    const next =
-      direction === "prev"
-        ? (current - 1 + items.length) % items.length
-        : (current + 1) % items.length;
-    const target = items[next];
-    if (target) void show(target);
+    const target = galleryNeighbour(gallery.value, entry.value?.path ?? null, direction);
+    if (!target) return;
+    begin(target);
+    stepTimer = setTimeout(() => void load(target), STEP_SETTLE_MS);
+  }
+
+  function retry() {
+    if (entry.value) void show(entry.value);
   }
 
   function close() {
     open.value = false;
-    unsupported.value = null;
   }
 
-  return {
-    open,
-    loading,
-    error,
-    entry,
-    content,
-    galleryIndex,
-    galleryTotal: computed(() => gallery.value.length),
-    unsupported,
-    unsupportedOpen,
-    show,
-    step,
-    close,
-  };
+  watch(open, (isOpen) => {
+    if (isOpen) return;
+    requestId += 1;
+    clearTimeout(stepTimer);
+    clearTimeout(releaseTimer);
+    releaseTimer = setTimeout(() => {
+      state.value = IDLE;
+      entry.value = null;
+    }, RELEASE_AFTER_CLOSE_MS);
+  });
+
+  onScopeDispose(() => {
+    requestId += 1;
+    clearTimeout(stepTimer);
+    clearTimeout(releaseTimer);
+  });
+
+  return { open, entry, state, position, databaseRoute, show, step, retry, close };
 }

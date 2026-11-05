@@ -89,6 +89,8 @@ export interface FileEntry {
   modified: string; // "YYYY-MM-DD HH:MM" or "Mon DD HH:MM"
   entryType: "file" | "dir" | "symlink" | "other";
   permissions: string; // 9-char unix perm string e.g. "rwxr-xr-x"
+  /** The shell user may not read this entry: `ls` printed `?` for everything but its name. */
+  noAccess?: boolean;
 }
 
 export interface DeviceFileContent {

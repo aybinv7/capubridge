@@ -12,6 +12,8 @@ import type { PerfMetrics } from "@/types/perf.types";
 
 type Writer = ReturnType<typeof useSessionWriter>;
 
+const RECORDING_PERF_HOLDER = "recording";
+
 export function usePerfRecorder(
   serial: string,
   client: CDPClient | null,
@@ -118,7 +120,7 @@ export function usePerfRecorder(
   async function start() {
     console.log("[perf-recorder] start — serial:", serial, "cdp:", client ? "yes" : "no");
     try {
-      await runSessionEffect(startPerfLeaseEffect(serial), {
+      await runSessionEffect(startPerfLeaseEffect(serial, RECORDING_PERF_HOLDER), {
         operation: "session.startPerfLease",
       });
       console.log("[perf-recorder] perf lease started");
@@ -151,7 +153,7 @@ export function usePerfRecorder(
     writeSample(Date.now());
 
     try {
-      await runSessionEffect(stopPerfLeaseEffect(serial), {
+      await runSessionEffect(stopPerfLeaseEffect(serial, RECORDING_PERF_HOLDER), {
         operation: "session.stopPerfLease",
       });
     } catch {

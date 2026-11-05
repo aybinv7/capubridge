@@ -6,19 +6,24 @@ const props = withDefaults(
     identifier: string;
     source?: string | null;
     loading?: boolean;
-    size?: "sm" | "md" | "lg";
+    size?: "xs" | "sm" | "md" | "lg";
     alt?: string;
+    /** The app's name; its first letter stands in while there is no icon. */
+    label?: string | null;
   }>(),
   {
     source: null,
     loading: false,
     size: "md",
     alt: "Application icon",
+    label: null,
   },
 );
 
 const sizeClasses = computed(() => {
   switch (props.size) {
+    case "xs":
+      return "w-5 h-5 rounded-md text-2xs";
     case "sm":
       return "w-8 h-8 rounded-lg text-sm";
     case "lg":
@@ -28,31 +33,9 @@ const sizeClasses = computed(() => {
   }
 });
 
-const backgroundColor = computed(() => {
-  const colors = [
-    "#6366f1",
-    "#8b5cf6",
-    "#a855f7",
-    "#ec4899",
-    "#f43f5e",
-    "#ef4444",
-    "#f97316",
-    "#eab308",
-    "#22c55e",
-    "#10b981",
-    "#14b8a6",
-    "#06b6d4",
-    "#3b82f6",
-    "#0ea5e9",
-  ];
-  let hash = 0;
-  for (let index = 0; index < props.identifier.length; index += 1) {
-    hash = props.identifier.charCodeAt(index) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length] ?? colors[0];
-});
-
 const letter = computed(() => {
+  const label = props.label?.trim();
+  if (label) return label.charAt(0).toUpperCase();
   const parts = props.identifier.split(".");
   const value = parts.at(-1) || props.identifier;
   return value.charAt(0).toUpperCase();
@@ -60,9 +43,8 @@ const letter = computed(() => {
 </script>
 
 <template>
-  <div v-if="loading" :class="sizeClasses" class="shrink-0 animate-pulse bg-surface-3" />
   <img
-    v-else-if="source"
+    v-if="source"
     :src="source"
     :alt="alt"
     :class="sizeClasses"
@@ -71,9 +53,9 @@ const letter = computed(() => {
   />
   <div
     v-else
-    :class="sizeClasses"
-    class="flex shrink-0 items-center justify-center font-bold text-white"
-    :style="{ backgroundColor }"
+    :class="[sizeClasses, loading && 'opacity-60']"
+    class="flex shrink-0 items-center justify-center bg-surface-2 font-medium text-muted-foreground shadow-bevel transition-opacity duration-200 ease-in-out"
+    aria-hidden="true"
   >
     {{ letter }}
   </div>

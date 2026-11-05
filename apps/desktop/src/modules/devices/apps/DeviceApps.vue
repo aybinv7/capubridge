@@ -1,50 +1,54 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { computed, onBeforeUnmount, ref, shallowRef } from "vue";
+import { useRouter } from "vue-router";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { useStorage } from "@vueuse/core";
+import { refDebounced, useStorage } from "@vueuse/core";
 import { Button, Spinner } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useAdb } from "@/composables/useAdb";
 import { PACKAGE_CACHE_STALE_MS, useAppPackages } from "@/composables/useAppPackages";
 import { useDevicesStore } from "@/stores/devices.store";
 import type { AdbPackage } from "@/types/adb.types";
+import DetailsPane from "../shared/DetailsPane.vue";
 import DeviceConfirmDialog from "../shared/DeviceConfirmDialog.vue";
 import AppInspector from "./AppInspector.vue";
 import AppsEmpty from "./AppsEmpty.vue";
 import AppsGrid from "./AppsGrid.vue";
 import AppsTable from "./AppsTable.vue";
 import AppsToolbar from "./AppsToolbar.vue";
-import { countApps, filterApps, type AppScope } from "./appsModel";
+import { countApps, filterApps, sortApps, type AppScope, type AppSort } from "./appsModel";
 import type { AppsDensity, AppsView } from "./appsView";
 import { useAppActions } from "./useAppActions";
+import { useAppSelection } from "./useAppSelection";
 import { useAppsCommands } from "./useAppsCommands";
 
+const DETAILS_DEBOUNCE_MS = 200;
+
 const devicesStore = useDevicesStore();
-const route = useRoute();
 const router = useRouter();
 const queryClient = useQueryClient();
 const { getPackageDetails, cancelListPackages } = useAdb();
 
 const serial = computed(() => devicesStore.selectedDevice?.serial ?? "");
 const search = ref("");
-const scope = useStorage<AppScope>("capubridge:device-apps:scope", "third-party");
+const savedScope = useStorage<AppScope>("capubridge:device-apps:scope", "third-party");
 const view = useStorage<AppsView>("capubridge:device-apps:view", "list");
 const density = useStorage<AppsDensity>("capubridge:device-apps:density", "medium");
-const selectedName = ref<string | null>(null);
+const sort = shallowRef<AppSort>({ key: "name", desc: false });
 const cancelling = ref(false);
+
+const selection = useAppSelection(serial, savedScope);
+const scope = selection.scope;
+const selectedName = selection.selectedName;
 
 const fetchScope = computed(() => (scope.value === "third-party" ? "third-party" : "all"));
 const { usePackages, refreshPackages, readPackagesCache } = useAppPackages(serial);
 const { data: packages, isLoading, isFetching, isError, error, refetch } = usePackages(fetchScope);
+selection.watchListing(packages);
 
 const busyLoading = computed(() => isLoading.value || isFetching.value);
-const sortedApps = computed(() =>
-  filterApps(packages.value ?? [], scope.value, search.value).sort((a, b) =>
-    (a.label?.trim() || a.packageName).localeCompare(b.label?.trim() || b.packageName),
-  ),
-);
+const orderedApps = computed(() => sortApps(packages.value ?? [], sort.value));
+const shownApps = computed(() => filterApps(orderedApps.value, scope.value, search.value));
 const counts = computed(() => {
   if (!packages.value) return null;
   const all =
@@ -57,50 +61,32 @@ const selectedApp = computed(
   () => packages.value?.find((app) => app.packageName === selectedName.value) ?? null,
 );
 
+const detailsName = refDebounced(selectedName, DETAILS_DEBOUNCE_MS);
 const {
   data: details,
   isLoading: loadingDetails,
   error: detailsError,
   refetch: refetchDetails,
 } = useQuery({
-  queryKey: computed(() => ["package-details", serial.value, selectedName.value ?? ""]),
-  queryFn: () => getPackageDetails(serial.value, selectedName.value ?? ""),
-  enabled: computed(() => !!serial.value && !!selectedName.value),
+  queryKey: computed(() => ["package-details", serial.value, detailsName.value ?? ""]),
+  queryFn: () => getPackageDetails(serial.value, detailsName.value ?? ""),
+  enabled: computed(() => !!serial.value && !!detailsName.value),
   staleTime: PACKAGE_CACHE_STALE_MS,
 });
+const shownDetails = computed(() =>
+  detailsName.value === selectedName.value ? details.value : undefined,
+);
+const detailsPending = computed(
+  () => detailsName.value !== selectedName.value || loadingDetails.value,
+);
 
 const actions = useAppActions(serial, {
   onUninstalled: async (app) => {
-    if (selectedName.value === app.packageName) selectedName.value = null;
+    if (selectedName.value === app.packageName) selection.clear();
     await reload();
   },
   onDataCleared: () => void refetchDetails(),
 });
-
-watch(serial, () => {
-  selectedName.value = null;
-});
-const requestedName = ref<string | null>(null);
-watch(
-  () => route.query.package,
-  (requested) => {
-    const name = Array.isArray(requested) ? requested[0] : requested;
-    if (typeof name !== "string" || !name) return;
-    selectedName.value = name;
-    requestedName.value = name;
-    void router.replace({ query: { ...route.query, package: undefined } });
-  },
-  { immediate: true },
-);
-watch(
-  [packages, requestedName],
-  ([list, name]) => {
-    if (!list || !name) return;
-    requestedName.value = null;
-    if (!list.some((app) => app.packageName === name) && scope.value !== "all") scope.value = "all";
-  },
-  { immediate: true },
-);
 
 async function reload() {
   await refreshPackages(fetchScope.value);
@@ -120,34 +106,27 @@ async function cancelLoad(silent = false) {
   }
 }
 
-function select(app: AdbPackage) {
-  selectedName.value = selectedName.value === app.packageName ? null : app.packageName;
-}
-
-function focus(app: AdbPackage) {
-  selectedName.value = app.packageName;
-}
-
 function openFiles(path: string) {
   void router.push({ name: "devices-files", query: { path } });
 }
 
 onBeforeUnmount(() => void cancelLoad(true));
 
-useAppsCommands({ selectedApp, actions, reload, openFiles, serial });
+useAppsCommands({ selectedApp, details: shownDetails, actions, reload, openFiles, serial });
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden">
     <AppsToolbar
       v-model:search="search"
-      v-model:scope="scope"
       v-model:view="view"
       v-model:density="density"
+      :scope="scope"
       :counts="counts"
-      :shown="sortedApps.length"
+      :shown="shownApps.length"
       :loading="busyLoading"
       :cancelling="cancelling"
+      @update:scope="selection.chooseScope"
       @refresh="void reload()"
       @cancel="void cancelLoad()"
     />
@@ -173,18 +152,19 @@ useAppsCommands({ selectedApp, actions, reload, openFiles, serial });
       </div>
     </div>
 
-    <ResizablePanelGroup v-else direction="horizontal" class="min-h-0 flex-1">
-      <ResizablePanel :default-size="64" :min-size="40">
-        <AppsEmpty v-if="!sortedApps.length" :searching="search.trim() !== ''" :scope="scope" />
+    <div v-else class="flex min-h-0 flex-1">
+      <div class="min-w-0 flex-1">
+        <AppsEmpty v-if="!shownApps.length" :searching="search.trim() !== ''" :scope="scope" />
         <AppsTable
           v-else-if="view === 'list'"
+          v-model:sort="sort"
           :serial="serial"
-          :apps="sortedApps"
+          :apps="shownApps"
           :selected="selectedName"
           :busy="actions.isActing.value"
           :show-kind="scope === 'all'"
-          @toggle="select"
-          @select="focus"
+          @select="selection.select"
+          @clear="selection.clear"
           @launch="actions.launch"
           @action="actions.request"
         />
@@ -192,38 +172,37 @@ useAppsCommands({ selectedApp, actions, reload, openFiles, serial });
           v-else
           :key="density"
           :serial="serial"
-          :apps="sortedApps"
+          :apps="shownApps"
           :selected="selectedName"
           :density="density"
-          @toggle="select"
-          @select="focus"
+          @select="selection.select"
+          @clear="selection.clear"
           @launch="actions.launch"
         />
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel :default-size="36" :min-size="26" :max-size="50" class="min-h-0">
+      </div>
+      <DetailsPane
+        :open="selectedApp !== null"
+        title="App details"
+        :label="
+          selectedApp ? `Details of ${selectedApp.label || selectedApp.packageName}` : 'App details'
+        "
+        @close="selection.clear"
+      >
         <AppInspector
           v-if="selectedApp"
           :serial="serial"
           :app="selectedApp"
-          :details="details"
-          :loading-details="loadingDetails"
+          :details="shownDetails"
+          :loading-details="detailsPending"
           :details-error="detailsError"
           :busy="actions.isActing.value"
-          @close="selectedName = null"
           @launch="actions.launch(selectedApp)"
           @action="actions.request(selectedApp, $event)"
           @open-files="openFiles"
           @retry-details="refetchDetails()"
         />
-        <div v-else class="flex h-full flex-col items-center justify-center gap-1 px-8 text-center">
-          <p class="text-sm text-foreground">No app selected</p>
-          <p class="max-w-64 text-xs text-muted-foreground">
-            Choose an app to open it, stop it, clear its data or browse its folders.
-          </p>
-        </div>
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      </DetailsPane>
+    </div>
 
     <DeviceConfirmDialog
       v-model:open="actions.confirmOpen.value"

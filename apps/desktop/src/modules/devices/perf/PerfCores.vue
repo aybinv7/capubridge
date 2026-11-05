@@ -2,22 +2,22 @@
 import { computed } from "vue";
 import type { CpuCoreMetric } from "@/types/perf.types";
 import Sparkline from "../shared/Sparkline.vue";
-import { seriesValues, type SeriesPoint } from "./perfSeries";
 import { loadTone } from "./perfView";
 
 const CORE_DOMAIN = [0, 100] as const;
 
 const props = defineProps<{
   cores: readonly CpuCoreMetric[];
-  series: readonly SeriesPoint[][];
+  /** Recent load of one core, oldest first. */
+  values: (core: number) => readonly (number | null)[];
   live: boolean;
 }>();
 
 const cells = computed(() =>
-  props.cores.map((core, index) => ({
+  props.cores.map((core) => ({
     core: core.core,
     usage: Math.round(core.usage),
-    values: seriesValues(props.series[index] ?? [], "y"),
+    values: props.values(core.core),
   })),
 );
 </script>
@@ -25,7 +25,7 @@ const cells = computed(() =>
 <template>
   <ul
     v-if="cells.length"
-    class="grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2"
+    class="grid grid-cols-[repeat(auto-fit,minmax(112px,1fr))] gap-2"
     aria-label="Load per core"
   >
     <li

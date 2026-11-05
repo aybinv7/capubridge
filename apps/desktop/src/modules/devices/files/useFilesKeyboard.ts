@@ -1,3 +1,4 @@
+import { ownsKeys } from "../shared/keyTargets";
 import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";
 import type { useFileBrowser } from "./useFileBrowser";
 
@@ -22,7 +23,8 @@ export function useFilesKeyboard(deps: FilesKeyboardDeps) {
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (event.target !== event.currentTarget) return;
+    if (ownsKeys(event.target) || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === "Enter" && event.target instanceof HTMLButtonElement) return;
     const grid = browser.view.value === "grid";
     const selected = browser.selected.value;
     switch (event.key) {

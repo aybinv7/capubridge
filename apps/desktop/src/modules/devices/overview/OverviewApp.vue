@@ -2,11 +2,13 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
-import { ArrowRight, Play } from "lucide-vue-next";
+import { ArrowRight, ArrowUpRight, Play } from "lucide-vue-next";
 import { Button, Surface } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
 import { useAdb } from "@/composables/useAdb";
 import { PACKAGE_CACHE_STALE_MS, useAppPackages } from "@/composables/useAppPackages";
+import { targetAppName } from "@/lib/target-app-name";
+import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import AppIcon from "../AppIcon.vue";
 
@@ -14,6 +16,7 @@ const props = defineProps<{ serial: string }>();
 
 const router = useRouter();
 const targets = useTargetsStore();
+const presence = useTargetPresenceStore();
 const { getPackageDetails, openPackage } = useAdb();
 const { getCachedPackage } = useAppPackages(computed(() => props.serial));
 const launching = ref(false);
@@ -25,7 +28,10 @@ const packageName = computed(() => {
   return target.packageName;
 });
 const cached = computed(() => (packageName.value ? getCachedPackage(packageName.value) : null));
-const label = computed(() => cached.value?.label?.trim() || packageName.value || "");
+const label = computed(
+  () => targetAppName(targets.selectedTarget, cached.value?.label) ?? packageName.value ?? "",
+);
+const inBackground = computed(() => presence.presence === "background");
 
 const { data: details } = useQuery({
   queryKey: computed(() => ["package-details", props.serial, packageName.value ?? ""]),
@@ -41,12 +47,17 @@ const version = computed(() => {
   return code ? `Version ${name} (${code})` : `Version ${name}`;
 });
 
+const subline = computed(() =>
+  [version.value, inBackground.value ? "In the background" : null].filter(Boolean).join(" · "),
+);
+
 async function launch() {
   if (!packageName.value) return;
   launching.value = true;
   try {
     await openPackage(props.serial, packageName.value);
-    toast.success(`${label.value} opened on the phone`);
+    if (inBackground.value) presence.probeNow();
+    else toast.success(`${label.value} opened on the phone`);
   } catch (error) {
     toast.error(`Could not open ${label.value}`, { description: String(error) });
   } finally {
@@ -80,13 +91,9 @@ function showInApps() {
         size="sm"
         class="!size-9 !rounded-inner"
       />
-      <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span class="flex min-w-0 flex-1 flex-col gap-0.5" :title="packageName">
         <span class="truncate text-sm font-medium text-foreground">{{ label }}</span>
-        <span class="flex min-w-0 items-center gap-1.5 text-2xs text-[var(--fg-subtle)]">
-          <span v-if="version" class="shrink-0 text-muted-foreground">{{ version }}</span>
-          <span v-if="version" aria-hidden="true">·</span>
-          <span class="truncate font-mono">{{ packageName }}</span>
-        </span>
+        <span v-if="subline" class="truncate text-2xs text-muted-foreground">{{ subline }}</span>
       </span>
       <Button
         size="sm"
@@ -95,8 +102,9 @@ function showInApps() {
         content-class-name="gap-1.5 px-2.5 [&>svg]:size-3.5"
         @click="launch"
       >
-        <Play :stroke-width="1.8" />
-        Open
+        <ArrowUpRight v-if="inBackground" :stroke-width="1.8" />
+        <Play v-else :stroke-width="1.8" />
+        {{ inBackground ? "Bring to front" : "Open" }}
       </Button>
       <Button
         size="sm"

@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useElementSize } from "@vueuse/core";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import { chunkRows, columnsFor, scrollTopToReveal } from "../shared/grid";
+import { optionId, rowStateClass } from "../shared/rowState";
 import FileGlyph from "./FileGlyph.vue";
 import { formatSizeLabel } from "./fileKinds";
 import type { DeviceFileListEntry } from "./filePaths";
@@ -13,6 +14,7 @@ const PADDING = 12;
 const props = defineProps<{
   entries: readonly DeviceFileListEntry[];
   selected: string | null;
+  listId: string;
 }>();
 
 const emit = defineEmits<{
@@ -23,9 +25,7 @@ const emit = defineEmits<{
 
 const scroller = ref<HTMLElement | null>(null);
 const { width } = useElementSize(scroller);
-const columnCount = computed(() =>
-  columnsFor(Math.max(0, width.value - PADDING * 2), FILE_TILE.width),
-);
+const columnCount = computed(() => columnsFor(width.value, FILE_TILE.width));
 const rows = computed(() => chunkRows(props.entries, columnCount.value));
 const { items, topSpacerHeight, bottomSpacerHeight } = useFixedVirtualList(rows, scroller, {
   itemHeight: FILE_TILE.height,
@@ -45,7 +45,17 @@ function reveal(index: number) {
   );
 }
 
-defineExpose({ reveal, columns: () => columnCount.value });
+function onClick(event: MouseEvent, entry: DeviceFileListEntry) {
+  if (event.detail > 1) return;
+  emit("select", entry);
+}
+
+/** Whether the tile of `path` is rendered, so it can be the active descendant. */
+function isRendered(path: string): boolean {
+  return items.value.some((row) => row.data.some((entry) => entry.path === path));
+}
+
+defineExpose({ reveal, isRendered, columns: () => columnCount.value });
 </script>
 
 <template>
@@ -62,23 +72,20 @@ defineExpose({ reveal, columns: () => columnCount.value });
     >
       <div
         v-for="entry in row.data"
+        :id="optionId(props.listId, entry.path)"
         :key="entry.path"
         role="option"
         :aria-selected="entry.path === props.selected"
-        class="m-0.5 flex min-w-0 cursor-default flex-col items-center justify-center gap-1.5 rounded-well px-2"
-        :class="
-          entry.path === props.selected
-            ? 'bg-cladd-surface-next shadow-bevel'
-            : 'hover:bg-cladd-surface-hover'
-        "
+        class="m-0.5 flex min-w-0 cursor-default flex-col items-center justify-start gap-1.5 rounded-well px-2 pt-3"
+        :class="rowStateClass(entry.path === props.selected)"
         :title="entry.path"
-        @click="emit('select', entry)"
+        @click="onClick($event, entry)"
         @dblclick="emit('open', entry)"
         @contextmenu="emit('menu', entry)"
       >
         <FileGlyph :entry="entry" :size="32" />
         <span
-          class="line-clamp-2 w-full text-center text-xs leading-tight break-all text-foreground"
+          class="line-clamp-2 h-8 w-full text-center text-xs leading-4 [overflow-wrap:anywhere] text-foreground"
         >
           {{ entry.name }}
         </span>

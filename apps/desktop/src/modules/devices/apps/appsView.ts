@@ -17,7 +17,7 @@ export const APP_TILES: Record<AppsDensity, TileSize> = {
 };
 
 /** Row height of the list view. */
-export const APP_ROW_HEIGHT = 44;
+export const APP_ROW_HEIGHT = 30;
 
 /** How many tiles fit across `width` pixels, never fewer than one. */
 export function gridColumns(width: number, density: AppsDensity): number {

@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { ChevronRight, Folder, FolderOpen } from "lucide-vue-next";
 import { Spinner } from "@capubridge/cladd";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
+import { rowStateClass } from "../shared/rowState";
 import { FILE_PLACES, TREE_ROW_HEIGHT } from "./filesView";
 import type { TreeRow } from "./useFileTree";
 
@@ -32,11 +33,11 @@ function isAncestor(path: string): boolean {
         <button
           type="button"
           class="flex h-7 w-full items-center gap-2 rounded-control px-2 text-left text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          :class="
-            props.dir === place.path
-              ? 'bg-cladd-surface-next text-foreground shadow-bevel'
-              : 'text-muted-foreground hover:bg-cladd-surface-hover hover:text-foreground'
-          "
+          :class="[
+            rowStateClass(props.dir === place.path),
+            props.dir !== place.path && 'text-muted-foreground hover:text-foreground',
+          ]"
+          :aria-current="props.dir === place.path ? 'location' : undefined"
           :title="place.path"
           @click="emit('open', place.path)"
         >
@@ -51,13 +52,13 @@ function isAncestor(path: string): boolean {
         v-for="item in items"
         :key="item.data.path"
         class="mx-1.5 flex items-center gap-1 rounded-control pr-2 text-xs"
-        :class="
-          item.data.path === props.dir
-            ? 'bg-cladd-surface-next text-foreground shadow-bevel'
-            : isAncestor(item.data.path)
-              ? 'text-foreground hover:bg-cladd-surface-hover'
-              : 'text-muted-foreground hover:bg-cladd-surface-hover hover:text-foreground'
-        "
+        :class="[
+          rowStateClass(item.data.path === props.dir),
+          item.data.path !== props.dir &&
+            (isAncestor(item.data.path)
+              ? 'text-foreground'
+              : 'text-muted-foreground hover:text-foreground'),
+        ]"
         :style="{ height: `${TREE_ROW_HEIGHT}px`, paddingLeft: `${4 + item.data.depth * 12}px` }"
       >
         <button

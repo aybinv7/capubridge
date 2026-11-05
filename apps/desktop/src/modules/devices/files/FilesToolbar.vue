@@ -3,7 +3,6 @@ import { computed } from "vue";
 import {
   ArrowUp,
   Eye,
-  EyeOff,
   LayoutGrid,
   List,
   PanelRight,
@@ -33,9 +32,9 @@ const emit = defineEmits<{
 }>();
 
 const intervalLabel = computed(
-  () =>
-    REFRESH_INTERVALS.find((option) => option.value === refreshEveryMs.value)?.label ?? "Manual",
+  () => REFRESH_INTERVALS.find((option) => option.value === refreshEveryMs.value)?.label ?? "Off",
 );
+const searching = computed(() => query.value.trim() !== "" || scope.value === "device");
 const intervalModel = computed({
   get: () => refreshEveryMs.value,
   set: (value: unknown) => {
@@ -65,7 +64,7 @@ const intervalModel = computed({
       @focusin="emit('searchFocus', true)"
       @focusout="emit('searchFocus', false)"
     />
-    <Segmented size="sm" aria-label="Where to search">
+    <Segmented v-if="searching" size="sm" aria-label="Where to search">
       <SegmentedButton :active="scope === 'folder'" @click="scope = 'folder'"
         >Folder</SegmentedButton
       >
@@ -90,7 +89,7 @@ const intervalModel = computed({
       <template #icon>
         <RadioTower :size="13" :stroke-width="1.8" aria-hidden="true" />
       </template>
-      {{ intervalLabel }}
+      Auto-refresh: {{ intervalLabel }}
     </Select>
     <IconAction label="Read the folder again" :loading="props.loading" @click="emit('refresh')">
       <RefreshCw :stroke-width="1.8" />
@@ -102,29 +101,16 @@ const intervalModel = computed({
       :pressed="showHidden"
       @click="showHidden = !showHidden"
     >
-      <EyeOff v-if="showHidden" :stroke-width="1.8" />
-      <Eye v-else :stroke-width="1.8" />
+      <Eye :stroke-width="1.8" />
     </IconAction>
-    <Segmented size="sm" aria-label="Layout">
-      <SegmentedButton
-        :active="view === 'list'"
-        aria-label="List"
-        title="List"
-        square
-        @click="view = 'list'"
-      >
-        <List :size="14" :stroke-width="1.8" />
-      </SegmentedButton>
-      <SegmentedButton
-        :active="view === 'grid'"
-        aria-label="Icons"
-        title="Icons"
-        square
-        @click="view = 'grid'"
-      >
-        <LayoutGrid :size="14" :stroke-width="1.8" />
-      </SegmentedButton>
-    </Segmented>
+    <span class="flex items-center gap-0.5" role="group" aria-label="Layout">
+      <IconAction label="Show as a list" toggle :pressed="view === 'list'" @click="view = 'list'">
+        <List :stroke-width="1.8" />
+      </IconAction>
+      <IconAction label="Show as icons" toggle :pressed="view === 'grid'" @click="view = 'grid'">
+        <LayoutGrid :stroke-width="1.8" />
+      </IconAction>
+    </span>
     <IconAction
       :label="detailsOpen ? 'Hide details' : 'Show details'"
       toggle

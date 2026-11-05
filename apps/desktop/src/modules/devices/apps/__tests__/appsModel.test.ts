@@ -8,7 +8,10 @@ import {
   appFolders,
   countApps,
   filterApps,
+  scopeShowing,
+  sortApps,
   totalAppSize,
+  uninstallLabel,
 } from "../appsModel";
 
 function app(packageName: string, system = false, label?: string): AdbPackage {
@@ -74,22 +77,57 @@ describe("appsModel", () => {
   });
 
   test("actions map to their shell command, question and outcome", () => {
-    expect(appActionCommand("forceStop", "a.b")).toBe("am force-stop a.b");
-    expect(appActionCommand("clearData", "a.b")).toBe("pm clear a.b");
-    expect(appActionCommand("uninstall", "a.b")).toBe("pm uninstall a.b");
-    expect(appActionRequest("uninstall", "Alpha")).toMatchObject({
+    const alpha = { name: "Alpha", packageName: "a.b", system: false };
+    expect(appActionCommand("forceStop", alpha)).toBe("am force-stop a.b");
+    expect(appActionCommand("clearData", alpha)).toBe("pm clear a.b");
+    expect(appActionCommand("uninstall", alpha)).toBe("pm uninstall a.b");
+    expect(appActionRequest("uninstall", alpha)).toMatchObject({
       danger: true,
       confirmLabel: "Uninstall",
     });
-    expect(appActionRequest("forceStop", "Alpha").danger).toBe(false);
-    expect(appActionOutcome("clearData", "Alpha", "Success\n").ok).toBe(true);
-    expect(
-      appActionOutcome("uninstall", "Alpha", "Failure [DELETE_FAILED_INTERNAL_ERROR]"),
-    ).toEqual({
+    expect(appActionRequest("forceStop", alpha).danger).toBe(false);
+    expect(appActionOutcome("clearData", alpha, "Success\n").ok).toBe(true);
+    expect(appActionOutcome("uninstall", alpha, "Failure [DELETE_FAILED_INTERNAL_ERROR]")).toEqual({
       ok: false,
       title: "Could not uninstall",
       description: "Failure [DELETE_FAILED_INTERNAL_ERROR]",
     });
-    expect(appActionOutcome("forceStop", "Alpha", "").ok).toBe(true);
+    expect(appActionOutcome("forceStop", alpha, "").ok).toBe(true);
+  });
+
+  test("a system app is removed for the current user, and the copy says so", () => {
+    const settings = { name: "Settings", packageName: "com.android.settings", system: true };
+    expect(uninstallLabel(true)).toBe("Remove for this user");
+    expect(uninstallLabel(false)).toBe("Uninstall");
+    expect(appActionCommand("uninstall", settings)).toBe(
+      "pm uninstall --user current com.android.settings",
+    );
+    const request = appActionRequest("uninstall", settings);
+    expect(request.confirmLabel).toBe("Remove for this user");
+    expect(request.text).toContain("factory reset");
+    expect(appActionOutcome("uninstall", settings, "Success").title).toBe(
+      "Settings removed for this user",
+    );
+  });
+
+  test("sorting is done once with a natural, case-blind order and a stable tie", () => {
+    const list = [app("b.two", false, "item 10"), app("a.one", false, "Item 9"), app("c", false)];
+    expect(sortApps(list, { key: "name", desc: false }).map((a) => a.packageName)).toEqual([
+      "c",
+      "a.one",
+      "b.two",
+    ]);
+    expect(sortApps(list, { key: "package", desc: true }).map((a) => a.packageName)).toEqual([
+      "c",
+      "b.two",
+      "a.one",
+    ]);
+  });
+
+  test("a scope shows only its kind; an app the listing lacks needs All", () => {
+    expect(scopeShowing("third-party", { system: false })).toBe(true);
+    expect(scopeShowing("third-party", { system: true })).toBe(false);
+    expect(scopeShowing("system", null)).toBe(false);
+    expect(scopeShowing("all", null)).toBe(true);
   });
 });

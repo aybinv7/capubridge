@@ -50,8 +50,8 @@ export interface SessionBridgeService {
   refreshTargets: (serial: string) => Effect.Effect<SessionTargetSnapshot[], IpcError>;
   startLogcatLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
   stopLogcatLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
-  startPerfLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
-  stopPerfLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
+  startPerfLease: (serial: string, holder?: string) => Effect.Effect<SessionLeaseState, IpcError>;
+  stopPerfLease: (serial: string, holder?: string) => Effect.Effect<SessionLeaseState, IpcError>;
   startMirrorLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
   stopMirrorLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
   attachConsoleTarget: (

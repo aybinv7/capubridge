@@ -12,7 +12,9 @@ describe("fileKinds", () => {
     expect(fileViewerKind(entry("clip.mp4"))).toBe("video");
     expect(fileViewerKind(entry("state.json"))).toBe("json");
     expect(fileViewerKind(entry("app.log"))).toBe("text");
-    expect(fileViewerKind(entry("base.apk"))).toBeNull();
+    expect(fileViewerKind(entry("base.apk"))).toBe("binary");
+    expect(fileViewerKind(entry("notes"))).toBe("unknown");
+    expect(fileViewerKind(entry("Camera", "dir"))).toBeNull();
   });
 
   test("names kinds in plain words", () => {

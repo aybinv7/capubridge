@@ -45,11 +45,13 @@ const parts = computed(() => {
         :style="{ width: `${part.width}%` }"
       />
     </div>
-    <ul class="flex gap-4 text-2xs text-muted-foreground">
+    <ul class="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-muted-foreground">
       <li v-for="part in parts" :key="part.key" class="flex items-center gap-1.5">
         <span class="size-1.5 rounded-full" :class="part.tone" aria-hidden="true" />
         {{ part.label }}
-        <span class="font-mono text-foreground tabular-nums">{{ formatBytes(part.value) }}</span>
+        <span class="font-mono whitespace-nowrap text-foreground tabular-nums">
+          {{ formatBytes(part.value) }}
+        </span>
       </li>
     </ul>
   </div>

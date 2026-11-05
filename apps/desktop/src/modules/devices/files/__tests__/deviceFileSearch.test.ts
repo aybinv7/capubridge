@@ -1,35 +1,23 @@
 import { describe, expect, test } from "vite-plus/test";
-import { deviceSearchCommand, parseDeviceSearch } from "../deviceFileSearch";
-
-function previousCommand(escaped: string, limit: number): string {
-  return (
-    `{ ` +
-    `find /sdcard/Android/data -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /storage/emulated/0/Android/data -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /sdcard -maxdepth 8 -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /storage/emulated/0 -maxdepth 8 -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /data/local/tmp -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /data/data -maxdepth 4 -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /data/app -maxdepth 4 -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /system -maxdepth 7 -iname '*${escaped}*' 2>/dev/null; ` +
-    `find /vendor -maxdepth 6 -iname '*${escaped}*' 2>/dev/null; ` +
-    `} | awk '!seen[$0]++' | head -n ${limit} ` +
-    `| while IFS= read -r p; do ` +
-    `if [ -L "$p" ]; then t=symlink; ` +
-    `elif [ -d "$p" ]; then t=dir; ` +
-    `elif [ -f "$p" ]; then t=file; ` +
-    `else t=other; fi; ` +
-    `printf '%s\\t%s\\n' "$t" "$p"; done`
-  );
-}
+import {
+  DEVICE_SEARCH_MIN_CHARS,
+  deviceSearchCommand,
+  parseDeviceSearch,
+} from "../deviceFileSearch";
 
 describe("deviceFileSearch", () => {
-  test("builds the same command the Files tab always ran", () => {
-    expect(deviceSearchCommand("log", 180)).toBe(previousCommand("log", 180));
+  test("walks the usual places under one ten second limit, capped and typed", () => {
+    const command = deviceSearchCommand("log", 180) ?? "";
+    expect(command.startsWith(`timeout 10 sh -c "find /sdcard/Android/data -iname '*log*'`)).toBe(
+      true,
+    );
+    expect(command).toContain("find /vendor -maxdepth 6 -iname '*log*' 2>/dev/null; \" | awk");
+    expect(command).toContain("| head -n 180 ");
+    expect(DEVICE_SEARCH_MIN_CHARS).toBe(3);
   });
 
   test("escapes glob characters and quotes", () => {
-    expect(deviceSearchCommand("a*b'c")).toContain(`-iname '*a\\*b'\\''c*'`);
+    expect(deviceSearchCommand("a*b'c")).toContain(`-iname '*a\\\\*b'\\\\''c*'`);
     expect(deviceSearchCommand("   ")).toBeNull();
   });
 

@@ -1,6 +1,3 @@
-/** A rolling metric history. `null` marks a tick with no sample, which charts draw as a gap. */
-export type MetricHistory = Array<number | null>;
-
 export type SeriesPoint = { x: number } & Record<string, number | null>;
 
 export interface SeriesStats {
@@ -8,32 +5,6 @@ export interface SeriesStats {
   min: number;
   max: number;
   avg: number;
-}
-
-export const HISTORY_LENGTH = 60;
-
-/** An empty history: no sample yet, so nothing is drawn instead of a flat line at zero. */
-export function emptyHistory(length = HISTORY_LENGTH): MetricHistory {
-  return Array.from({ length }, () => null);
-}
-
-/** Appends a sample (or a gap) and drops the oldest tick. */
-export function pushSample(
-  history: MetricHistory,
-  value: number | null | undefined,
-): MetricHistory {
-  const next = value !== null && value !== undefined && Number.isFinite(value) ? value : null;
-  return [...history.slice(1), next];
-}
-
-export function hasSamples(history: MetricHistory): boolean {
-  return history.some((value) => value !== null);
-}
-
-/** Maps a history onto chart points ending at `latestTick`, keeping gaps as `null`. */
-export function toSeries(history: MetricHistory, key: string, latestTick: number): SeriesPoint[] {
-  const xStart = latestTick - history.length + 1;
-  return history.map((value, i) => ({ x: xStart + i, [key]: value }) as SeriesPoint);
 }
 
 function sampledValues(series: readonly SeriesPoint[], key: string): number[] {
@@ -96,17 +67,4 @@ export function seriesValues(series: readonly SeriesPoint[], key: string): Array
     const value = point[key];
     return typeof value === "number" && Number.isFinite(value) ? value : null;
   });
-}
-
-/**
- * Wall-clock time of chart tick `x`, given the newest tick and when it was read. Ticks are about a
- * second apart, so older ticks are counted back in whole seconds.
- */
-export function tickTimestamp(
-  x: number,
-  latestX: number,
-  latestTimestamp: number | null,
-): number | null {
-  if (latestTimestamp === null || !Number.isFinite(x)) return null;
-  return latestTimestamp - Math.max(0, Math.round(latestX - x)) * 1000;
 }

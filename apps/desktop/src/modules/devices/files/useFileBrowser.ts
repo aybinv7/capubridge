@@ -12,14 +12,15 @@ import {
   parseDeviceSearch,
 } from "./deviceFileSearch";
 import {
+  entriesWithPaths,
+  filterEntries,
   normalizePath,
   parentPath,
   sortEntries,
-  visibleEntries,
   type DeviceFileListEntry,
   type FileSort,
 } from "./filePaths";
-import type { FilesView, SearchScope } from "./filesView";
+import { HOME_FOLDER, type FilesView, type SearchScope } from "./filesView";
 import { useFileTree } from "./useFileTree";
 
 /**
@@ -34,7 +35,8 @@ export function useFileBrowser() {
   const visibility = useDocumentVisibility();
 
   const serial = computed(() => devices.selectedDevice?.serial ?? "");
-  const dir = ref("/");
+  const dir = ref(HOME_FOLDER);
+  const lastFolders = useStorage<Record<string, string>>("capubridge:device-files:last", {});
   const selectedPath = ref<string | null>(null);
   const showHidden = ref(false);
   const detailsOpen = ref(false);
@@ -88,13 +90,13 @@ export function useFileBrowser() {
     staleTime: 5_000,
   });
 
+  const sortedListing = computed(() =>
+    sortEntries(entriesWithPaths(listing.data.value ?? [], dir.value), sort.value),
+  );
+  const sortedSearch = computed(() => sortEntries(deviceSearch.data.value ?? [], sort.value));
   const entries = computed<DeviceFileListEntry[]>(() => {
-    if (scope.value === "device") return sortEntries(deviceSearch.data.value ?? [], sort.value);
-    const shown = visibleEntries(listing.data.value ?? [], dir.value, {
-      showHidden: showHidden.value,
-      query: query.value,
-    });
-    return sortEntries(shown, sort.value);
+    if (scope.value === "device") return sortedSearch.value;
+    return filterEntries(sortedListing.value, { showHidden: showHidden.value, query: query.value });
   });
   const loading = computed(() =>
     scope.value === "device" ? deviceSearch.isFetching.value : listing.isLoading.value,
@@ -154,15 +156,15 @@ export function useFileBrowser() {
       }
       return;
     }
-    tree.forget(dir.value);
-    await queryClient.invalidateQueries({ queryKey: ["adb-dir", serial.value, dir.value] });
+    const folder = dir.value;
+    await tree.reload(folder, async () => (await listing.refetch()).data);
   }
 
   watch(
     [serial, requestedPath],
     ([nextSerial, path]) => {
       if (!nextSerial) return;
-      dir.value = path ?? "/";
+      dir.value = path ?? lastFolders.value[nextSerial] ?? HOME_FOLDER;
       selectedPath.value = null;
       detailsOpen.value = false;
       tree.reset();
@@ -172,6 +174,7 @@ export function useFileBrowser() {
   );
 
   watch(dir, (next, previous) => {
+    if (serial.value) lastFolders.value = { ...lastFolders.value, [serial.value]: next };
     if (previous !== undefined && next !== previous) void tree.revealPath(next);
   });
 

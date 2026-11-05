@@ -53,6 +53,7 @@ export interface DeviceCommandMap {
   adb_list_dir: IpcCommand<{ serial: string; path: string }, FileEntry[]>;
   adb_pull_file: IpcCommand<{ serial: string; path: string }, string>;
   adb_read_file: IpcCommand<{ serial: string; path: string }, DeviceFileContent>;
+  adb_read_file_bytes: IpcCommand<{ serial: string; path: string; maxBytes: number }, ArrayBuffer>;
   adb_open_file: IpcCommand<{ serial: string; path: string }, string>;
   adb_open_file_picker: IpcCommand<{ serial: string; path: string }, string>;
   adb_delete_file: IpcCommand<{ serial: string; path: string; isDir: boolean }, void>;

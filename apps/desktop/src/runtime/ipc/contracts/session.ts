@@ -35,8 +35,8 @@ export interface SessionCommandMap {
   session_refresh_targets: IpcCommand<{ serial: string }, SessionTargetSnapshot[]>;
   session_start_logcat_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
   session_stop_logcat_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
-  session_start_perf_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
-  session_stop_perf_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
+  session_start_perf_lease: IpcCommand<{ serial: string; holder?: string }, SessionLeaseState>;
+  session_stop_perf_lease: IpcCommand<{ serial: string; holder?: string }, SessionLeaseState>;
   session_start_mirror_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
   session_stop_mirror_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
   session_attach_console_target: IpcCommand<

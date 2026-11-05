@@ -126,6 +126,7 @@ export const IPC_COMMAND_NAMES = [
   "adb_list_dir",
   "adb_pull_file",
   "adb_read_file",
+  "adb_read_file_bytes",
   "adb_open_file",
   "adb_open_file_picker",
   "adb_delete_file",

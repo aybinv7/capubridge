@@ -2,6 +2,7 @@ import { computed, ref, shallowRef, triggerRef, type Ref } from "vue";
 import { toast } from "vue-sonner";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { FileEntry } from "@/types/adb.types";
+import { compareText } from "../shared/collator";
 import { ancestorPaths, fileNameFromPath, isFolderEntry, joinPath } from "./filePaths";
 
 export interface TreeRow {
@@ -26,8 +27,13 @@ export function useFileTree(serial: Ref<string>) {
     triggerRef(contents);
   }
 
-  function forget(path: string) {
-    if (contents.value.delete(path)) triggerRef(contents);
+  /**
+   * Reads a folder again. Its branch stays as it was until the new listing arrives, so a refresh
+   * never empties the tree; a failed read keeps the old branch.
+   */
+  async function reload(path: string, read: () => Promise<FileEntry[] | undefined>) {
+    const next = await read();
+    if (next) remember(path, next);
   }
 
   async function load(path: string) {
@@ -82,7 +88,7 @@ export function useFileTree(serial: Ref<string>) {
           children
             .filter(isFolderEntry)
             .map((entry) => entry.name)
-            .sort((a, b) => a.localeCompare(b))
+            .sort(compareText)
             .map((name) => joinPath(path, name)),
           depth + 1,
         );
@@ -92,5 +98,5 @@ export function useFileTree(serial: Ref<string>) {
     return out;
   });
 
-  return { rows, remember, forget, revealPath, toggle, reset };
+  return { rows, remember, reload, revealPath, toggle, reset };
 }

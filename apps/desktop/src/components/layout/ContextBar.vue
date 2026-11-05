@@ -7,6 +7,7 @@ import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useAppPackages } from "@/composables/useAppPackages";
+import { targetAppName } from "@/lib/target-app-name";
 import AppIcon from "@/modules/devices/AppIcon.vue";
 import DeviceManagerDialog from "@/components/device-manager/DeviceManagerDialog.vue";
 import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
@@ -34,13 +35,8 @@ const targetPackage = computed(() => {
 });
 
 const targetLabel = computed(() => {
-  const selected = target.value;
-  if (!selected) return null;
   const packageName = targetPackage.value;
-  const appLabel = packageName ? getCachedPackage(packageName)?.label?.trim() : null;
-  if (appLabel) return appLabel;
-  const title = selected.title?.trim();
-  return title ? title : selected.url;
+  return targetAppName(target.value, packageName ? getCachedPackage(packageName)?.label : null);
 });
 
 const leadMark = computed(() => {

@@ -98,25 +98,13 @@ const searchSummary = computed(() => {
         {{ option.label }}
       </SegmentedButton>
     </Segmented>
-    <Segmented size="sm" aria-label="Layout">
-      <SegmentedButton
-        :active="view === 'list'"
-        aria-label="List"
-        title="List"
-        square
-        @click="view = 'list'"
-      >
-        <List :size="14" :stroke-width="1.8" />
-      </SegmentedButton>
-      <SegmentedButton
-        :active="view === 'grid'"
-        aria-label="Icons"
-        title="Icons"
-        square
-        @click="view = 'grid'"
-      >
-        <LayoutGrid :size="14" :stroke-width="1.8" />
-      </SegmentedButton>
-    </Segmented>
+    <span class="flex items-center gap-0.5" role="group" aria-label="Layout">
+      <IconAction label="Show as a list" toggle :pressed="view === 'list'" @click="view = 'list'">
+        <List :stroke-width="1.8" />
+      </IconAction>
+      <IconAction label="Show as icons" toggle :pressed="view === 'grid'" @click="view = 'grid'">
+        <LayoutGrid :stroke-width="1.8" />
+      </IconAction>
+    </span>
   </div>
 </template>

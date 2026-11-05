@@ -1,106 +1,16 @@
-import { Archive, File, FileText, Film, Image, Music, Package } from "lucide-vue-next";
+﻿import { Archive, File, FileText, Film, Image, Music, Package } from "lucide-vue-next";
 import type { FileEntry } from "@/types/adb.types";
-import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";
-
-export type DeviceFileViewerKind = "image" | "video" | "json" | "text";
-
-export interface DeviceFileViewerContent {
-  entry: DeviceFileListEntry;
-  kind: DeviceFileViewerKind;
-  mime: string;
-  dataUrl: string;
-  text: string;
-  jsonValue: unknown;
-}
-
-const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"]);
-const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "mov", "m4v", "3gp"]);
-const JSON_EXTENSIONS = new Set(["json", "har", "map"]);
-const TEXT_EXTENSIONS = new Set([
-  "txt",
-  "md",
-  "log",
-  "csv",
-  "xml",
-  "yaml",
-  "yml",
-  "ini",
-  "conf",
-  "properties",
-  "html",
-  "css",
-  "js",
-  "ts",
-  "tsx",
-  "jsx",
-  "vue",
-  "rs",
-  "kt",
-  "java",
-  "gradle",
-  "sh",
-]);
-const MIME_BY_EXTENSION: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  gif: "image/gif",
-  webp: "image/webp",
-  bmp: "image/bmp",
-  svg: "image/svg+xml",
-  mp4: "video/mp4",
-  webm: "video/webm",
-  ogv: "video/ogg",
-  mov: "video/quicktime",
-  m4v: "video/mp4",
-  "3gp": "video/3gpp",
-  json: "application/json",
-  har: "application/json",
-  map: "application/json",
-  txt: "text/plain",
-  md: "text/markdown",
-  log: "text/plain",
-  csv: "text/csv",
-  xml: "application/xml",
-  yaml: "text/yaml",
-  yml: "text/yaml",
-};
+import { isFolderEntry } from "./filePaths";
+import { kindFromName, type NameKind } from "./viewer/viewerKinds";
 
 export function entryExtension(entry: FileEntry) {
   return entry.name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-export function fileViewerKind(entry: FileEntry): DeviceFileViewerKind | null {
-  const ext = entryExtension(entry);
-  if (IMAGE_EXTENSIONS.has(ext)) return "image";
-  if (VIDEO_EXTENSIONS.has(ext)) return "video";
-  if (JSON_EXTENSIONS.has(ext)) return "json";
-  if (TEXT_EXTENSIONS.has(ext)) return "text";
-  return null;
+/** What the viewer would open a file as, judged by its name; null for folders. */
+export function fileViewerKind(entry: FileEntry): NameKind | null {
+  return isFolderEntry(entry) ? null : kindFromName(entry.name);
 }
-
-export function fileMimeType(entry: FileEntry, kind: DeviceFileViewerKind) {
-  const ext = entryExtension(entry);
-  return MIME_BY_EXTENSION[ext] ?? (kind === "text" ? "text/plain" : "application/octet-stream");
-}
-
-export function decodeBase64Text(base64: string) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-}
-
-export function parseJsonViewerValue(text: string) {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
-  }
-}
-
 /** The icon for a file, by extension; folders draw their own. */
 export function fileIcon(entry: FileEntry) {
   if (isFolderEntry(entry)) return null;

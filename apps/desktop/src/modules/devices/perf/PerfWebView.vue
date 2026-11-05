@@ -1,22 +1,25 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Layers } from "lucide-vue-next";
-import { StatusDot, type Color } from "@capubridge/cladd";
-import type { CdpMetricsStatus } from "./usePerfMetrics";
+import { StatusDot } from "@capubridge/cladd";
+import type { AppPresence } from "@/lib/gates/presence";
 import { formatClock } from "../shared/format";
 import PerfCard from "./PerfCard.vue";
 import PerfChart from "./PerfChart.vue";
+import PerfLegend from "./PerfLegend.vue";
 import type { PerfChartLine } from "./perfChart.types";
 import { mergeSeries, seriesStats, type SeriesPoint, type SeriesStats } from "./perfSeries";
+import type { WebViewSource } from "./webViewSample";
+import type { WebViewMetricsStatus } from "./useWebViewMetrics";
+import { webViewStatusCopy } from "./webViewCopy";
 
 const props = defineProps<{
-  status: CdpMetricsStatus;
-  message: string;
-  source: "none" | "performance" | "runtime-fallback";
+  status: WebViewMetricsStatus;
+  source: WebViewSource;
+  presence: AppPresence;
   updatedAt: number | null;
-  heapUsed: readonly SeriesPoint[];
-  heapTotal: readonly SeriesPoint[];
-  domNodes: readonly SeriesPoint[];
+  failure: string | null;
+  series: (channel: string) => SeriesPoint[];
 }>();
 
 const HEAP_LINES: PerfChartLine[] = [
@@ -27,32 +30,20 @@ const NODE_LINES: PerfChartLine[] = [
   { key: "domNodes", label: "DOM nodes", color: "var(--foreground)" },
 ];
 
-const STATUS_WORDS: Record<CdpMetricsStatus, { label: string; color: Color | undefined }> = {
-  idle: { label: "Idle", color: undefined },
-  waiting: { label: "Waiting", color: undefined },
-  active: { label: "Live", color: "lime" },
-  degraded: { label: "Partial", color: "yellow" },
-  error: { label: "Stopped", color: "red" },
-};
+const heapSource = () => mergeSeries(props.series("heapUsed"), props.series("heapTotal"));
+const nodeSource = () => props.series("domNodes");
 
-const statusWord = computed(() => STATUS_WORDS[props.status]);
-const sourceWord = computed(() => {
-  if (props.source === "performance") return "Performance domain";
-  if (props.source === "runtime-fallback") return "Runtime and memory fallback";
-  return null;
-});
-const heapSeries = computed(() => mergeSeries(props.heapUsed, props.heapTotal));
-const heapStats = computed(() => seriesStats(props.heapUsed, "heapUsed"));
-const heapTotalStats = computed(() => seriesStats(props.heapTotal, "heapTotal"));
-const nodeStats = computed(() => seriesStats(props.domNodes, "domNodes"));
-const heapDetail = computed(() => {
-  const used = summary(heapStats.value, megabytes);
-  const allocated = heapTotalStats.value;
-  return allocated ? `${used} · ${megabytes(allocated.now)} allocated` : used;
-});
+const statusCopy = computed(() => webViewStatusCopy(props.status, props.source, props.presence));
+const heapStats = computed(() => seriesStats(props.series("heapUsed"), "heapUsed"));
+const allocatedStats = computed(() => seriesStats(props.series("heapTotal"), "heapTotal"));
+const nodeStats = computed(() => seriesStats(props.series("domNodes"), "domNodes"));
 
 function megabytes(value: number): string {
   return `${value.toFixed(value >= 100 ? 0 : 1)} MB`;
+}
+
+function megabyteAxis(value: number): string {
+  return `${Math.round(value)} MB`;
 }
 
 function count(value: number): string {
@@ -67,30 +58,48 @@ function summary(stats: SeriesStats | null, format: (value: number) => string): 
 
 <template>
   <section class="flex flex-col gap-3" aria-labelledby="perf-webview-title">
-    <header class="flex items-center gap-2">
+    <header class="flex min-w-0 items-center gap-2">
       <Layers :size="14" :stroke-width="1.8" class="text-muted-foreground" aria-hidden="true" />
       <h2 id="perf-webview-title" class="text-sm font-medium text-foreground">WebView</h2>
-      <StatusDot :color="statusWord.color" :variant="statusWord.color ? 'solid' : 'hollow'" />
-      <span class="text-xs text-muted-foreground">{{ statusWord.label }}</span>
-      <span class="min-w-0 truncate text-xs text-[var(--fg-subtle)]">{{ props.message }}</span>
+      <StatusDot :color="statusCopy.color" :variant="statusCopy.variant" />
+      <span class="shrink-0 text-xs text-muted-foreground">{{ statusCopy.label }}</span>
+      <span
+        class="min-w-0 truncate text-xs text-[var(--fg-subtle)]"
+        :title="props.failure ?? statusCopy.sourceHint ?? undefined"
+      >
+        {{ statusCopy.detail }}
+      </span>
       <span class="flex-1" />
       <span
         v-if="props.updatedAt !== null"
         class="shrink-0 font-mono text-2xs text-[var(--fg-subtle)] tabular-nums"
-        :title="sourceWord ? `Read through the ${sourceWord}` : undefined"
+        :title="`Newest reading at ${formatClock(props.updatedAt)}`"
       >
         {{ formatClock(props.updatedAt) }}
       </span>
     </header>
 
-    <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+    <div v-if="props.updatedAt !== null" class="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
       <PerfCard
         title="JavaScript heap"
         :value="heapStats ? megabytes(heapStats.now) : '—'"
-        :detail="heapDetail"
+        :detail="allocatedStats ? `${megabytes(allocatedStats.now)} allocated` : undefined"
       >
         <div class="h-32">
-          <PerfChart :series="heapSeries" :lines="HEAP_LINES" :latest-timestamp="props.updatedAt" />
+          <PerfChart :source="heapSource" :lines="HEAP_LINES" :y-format="megabyteAxis" />
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <PerfLegend :lines="HEAP_LINES" />
+          <dl class="flex flex-col gap-0.5 text-right text-2xs text-muted-foreground tabular-nums">
+            <div>
+              <dt class="sr-only">Used</dt>
+              <dd>Used: {{ summary(heapStats, megabytes) }}</dd>
+            </div>
+            <div>
+              <dt class="sr-only">Allocated</dt>
+              <dd>Allocated: {{ summary(allocatedStats, megabytes) }}</dd>
+            </div>
+          </dl>
         </div>
       </PerfCard>
       <PerfCard
@@ -99,11 +108,7 @@ function summary(stats: SeriesStats | null, format: (value: number) => string): 
         :detail="summary(nodeStats, count)"
       >
         <div class="h-32">
-          <PerfChart
-            :series="props.domNodes"
-            :lines="NODE_LINES"
-            :latest-timestamp="props.updatedAt"
-          />
+          <PerfChart :source="nodeSource" :lines="NODE_LINES" :y-format="count" />
         </div>
       </PerfCard>
     </div>
