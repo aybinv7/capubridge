@@ -265,7 +265,9 @@ async function focusExistingDetachedMirror() {
   const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
   const existing = await WebviewWindow.getByLabel(DETACHED_MIRROR_LABEL);
   if (!existing) return null;
-  await existing.unminimize().catch(() => undefined);
+  await existing.unminimize().catch((error: unknown) => {
+    console.warn("Could not restore the minimized screen window", error);
+  });
   await existing.show();
   await existing.setFocus();
   return existing;
