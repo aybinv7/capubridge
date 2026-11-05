@@ -73,6 +73,8 @@ windows-sys = { version = "0.59", features = [
   "Win32_System_Environment",
   "Win32_System_Threading",
 ] }
+webview2-com = "0.38"
+windows-core = "0.61"
 
 [dev-dependencies]
 rmcp = { version = "2.2", features = ["client", "transport-streamable-http-client-reqwest"] }

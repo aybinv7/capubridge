@@ -5,7 +5,9 @@ mod commands;
 mod error;
 mod mcp;
 mod session;
+mod webview_settings;
 
+use automation::store::{AutomationStore, AutomationStoreState};
 use commands::adb::{
     adb_cancel_list_packages, adb_connect_device, adb_disconnect_device, adb_get_app_icon,
     adb_get_device_info, adb_get_package_details, adb_list_devices, adb_list_packages,
@@ -13,18 +15,14 @@ use commands::adb::{
     adb_remove_reverse, adb_restart_server, adb_reverse, adb_root, adb_shell_command,
     adb_start_server, adb_tcpip, start_logcat, stop_logcat,
 };
+use commands::artemis::{
+    artemis_diagnose, artemis_get_steps, artemis_get_trace, artemis_start_task, artemis_stop_task,
+};
 use commands::automation::{
     automation_event_append, automation_events_read, automation_task_upsert, automation_tasks_list,
-    jev_decide,
-    recording_read_attachment, recording_session_attach,
-};
-use commands::artemis::{artemis_diagnose, artemis_get_steps, artemis_get_trace, artemis_start_task, artemis_stop_task};
-use commands::reasoning::{
-    reasoning_provider_complete, reasoning_provider_delete_credential, reasoning_provider_get_credential_status,
-    reasoning_provider_set_credential,
+    jev_decide, recording_read_attachment, recording_session_attach,
 };
 use commands::cdp_proxy::{cdp_start_proxy, cdp_stop_proxy};
-use commands::target_probe::cdp_probe_target;
 use commands::chrome::{
     chrome_activate_target, chrome_fetch_targets, chrome_find, chrome_is_running, chrome_kill_all,
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
@@ -34,25 +32,30 @@ use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
     adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
 };
+#[cfg(target_os = "windows")]
+use commands::local_webview::enable_webview2_remote_debugging;
 use commands::local_webview::{
     local_device_name, local_webview_fetch_cdp_target, local_webview_inject_scrollbar_hide,
     local_webview_navigate, local_webview_open_devtools,
 };
-#[cfg(target_os = "windows")]
-use commands::local_webview::enable_webview2_remote_debugging;
 use commands::mirror::{
     adb_mirror_get_clipboard, adb_mirror_get_screen_size, adb_mirror_inject_keycode,
-    adb_mirror_inject_text, adb_mirror_keyevent, adb_mirror_launch_scrcpy,
-    adb_mirror_scrcpy_start, adb_mirror_scrcpy_stop, adb_mirror_screenshot,
-    adb_mirror_scroll_event, adb_mirror_set_clipboard, adb_mirror_start_recording,
-    adb_mirror_stop_recording, adb_mirror_stop_scrcpy, adb_mirror_swipe, adb_mirror_tap,
-    adb_mirror_touch_event,
+    adb_mirror_inject_text, adb_mirror_keyevent, adb_mirror_launch_scrcpy, adb_mirror_scrcpy_start,
+    adb_mirror_scrcpy_stop, adb_mirror_screenshot, adb_mirror_scroll_event,
+    adb_mirror_set_clipboard, adb_mirror_start_recording, adb_mirror_stop_recording,
+    adb_mirror_stop_scrcpy, adb_mirror_swipe, adb_mirror_tap, adb_mirror_touch_event,
 };
 use commands::mock_server::{
     mock_server_start, mock_server_status, mock_server_stop, mock_server_sync_rules,
     MockServerManager,
 };
+use commands::opfs_pull::{opfs_pull_sqlite, opfs_stat_file};
 use commands::perf::{adb_perf_start, adb_perf_stop};
+use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
+use commands::reasoning::{
+    reasoning_provider_complete, reasoning_provider_delete_credential,
+    reasoning_provider_get_credential_status, reasoning_provider_set_credential,
+};
 use commands::recording::{
     recording_cleanup_orphans, recording_delete_session, recording_list_sessions,
     recording_read_session, recording_session_append, recording_session_start,
@@ -60,41 +63,37 @@ use commands::recording::{
 };
 use commands::recording_db::{
     recording_database_change_summaries, recording_database_change_summary,
-    recording_database_changed_rows,
-    recording_database_changes_for_keys, recording_database_snapshot_begin,
-    recording_database_snapshot_finish, recording_database_snapshot_page,
-    recording_database_sources, recording_database_table_rows,
+    recording_database_changed_rows, recording_database_changes_for_keys,
+    recording_database_snapshot_begin, recording_database_snapshot_finish,
+    recording_database_snapshot_page, recording_database_sources, recording_database_table_rows,
 };
-use commands::opfs_pull::{opfs_pull_sqlite, opfs_stat_file};
-use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
+use commands::recording_export::{recording_export_preview, recording_export_session};
 use commands::sqlite::{
     sqlite_close_database, sqlite_execute_query, sqlite_execute_write, sqlite_export_bytes,
     sqlite_list_databases, sqlite_open_database, sqlite_overwrite_local_bytes,
-    sqlite_refresh_database, sqlite_save_local_bytes, sqlite_scan_all_databases, sqlite_stat_database,
-    sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes, sqlite_table_rows,
+    sqlite_refresh_database, sqlite_save_local_bytes, sqlite_scan_all_databases,
+    sqlite_stat_database, sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes,
+    sqlite_table_rows,
 };
+use commands::target_probe::cdp_probe_target;
 use commands::updater::{updater_check, updater_install, PendingUpdate};
 use mcp::commands::{
     mcp_create_principal, mcp_get_status, mcp_list_principals, mcp_regenerate_token,
     mcp_revoke_principal, mcp_set_allow_mutations, mcp_set_enabled, mcp_set_port,
 };
-use commands::recording_export::{recording_export_preview, recording_export_session};
 use mcp::McpServerState;
-use tauri::Manager;
-use automation::store::{AutomationStore, AutomationStoreState};
 use session::{
-    cache_store::SessionCacheStore,
-    session_attach_console_target, session_detach_console_target, session_start_logcat_lease,
-    session_start_mirror_lease, session_start_perf_lease, session_stop_logcat_lease,
-    session_stop_mirror_lease, session_stop_perf_lease,
-    session_cancel_list_packages, session_get_device_info, session_get_registry_state,
-    session_list_devices, session_list_packages, session_list_reverse,
-    session_list_targets, session_list_webview_sockets, session_open_package,
-    session_reboot, session_refresh_devices, session_refresh_packages, session_refresh_targets,
-    session_forget_device, session_remove_reverse, session_reverse, session_root,
-    session_set_active_device,
-    session_shell_command, session_tcpip, start_device_tracker, SessionRegistryState,
+    cache_store::SessionCacheStore, session_attach_console_target, session_cancel_list_packages,
+    session_detach_console_target, session_forget_device, session_get_device_info,
+    session_get_registry_state, session_list_devices, session_list_packages, session_list_reverse,
+    session_list_targets, session_list_webview_sockets, session_open_package, session_reboot,
+    session_refresh_devices, session_refresh_packages, session_refresh_targets,
+    session_remove_reverse, session_reverse, session_root, session_set_active_device,
+    session_shell_command, session_start_logcat_lease, session_start_mirror_lease,
+    session_start_perf_lease, session_stop_logcat_lease, session_stop_mirror_lease,
+    session_stop_perf_lease, session_tcpip, start_device_tracker, SessionRegistryState,
 };
+use tauri::Manager;
 
 /// Suppress Windows error dialogs (RunDLL, GPF, critical-error) for this
 /// process and every child process it spawns. Must be called before any
@@ -154,6 +153,7 @@ pub fn run() {
         .manage(mcp::bridge::FrontendBridge::new())
         .manage(PendingUpdate::default())
         .plugin(tauri_plugin_shell::init())
+        .on_page_load(|webview, _payload| webview_settings::disable_browser_shortcuts(webview))
         .setup(move |app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

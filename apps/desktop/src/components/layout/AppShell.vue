@@ -57,7 +57,7 @@ async function syncInspectModeToDetached(enabled: boolean) {
 }
 
 function focusMainContent() {
-  mainContentRef.value?.focus();
+  mainContentRef.value?.focus({ preventScroll: true });
 }
 
 async function focusDock() {
@@ -227,10 +227,10 @@ onUnmounted(() => {
         </main>
 
         <Transition
-          enter-active-class="transition-all duration-200 ease-out"
-          leave-active-class="transition-all duration-150 ease-in"
-          enter-from-class="translate-y-full opacity-0"
-          leave-to-class="translate-y-full opacity-0"
+          enter-active-class="transition-opacity duration-100 ease-out"
+          leave-active-class="transition-opacity duration-75 ease-in"
+          enter-from-class="opacity-0"
+          leave-to-class="opacity-0"
         >
           <BottomDock
             v-if="dockStore.isOpen"

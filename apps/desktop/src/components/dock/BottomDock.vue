@@ -30,7 +30,7 @@ const currentTab = computed(() => {
 
 function focusDock() {
   void nextTick(() => {
-    rootRef.value?.focus();
+    rootRef.value?.focus({ preventScroll: true });
   });
 }
 
