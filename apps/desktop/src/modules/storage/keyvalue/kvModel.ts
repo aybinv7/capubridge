@@ -175,7 +175,8 @@ function markerType(value: unknown): string | null {
   return typeof type === "string" ? type : null;
 }
 
-function describeValue(value: unknown): { type: KvValueType; label: string } {
+/** What a LocalForage value holds, as the Type column says it. */
+export function describeValue(value: unknown): { type: KvValueType; label: string } {
   if (value === null) return { type: "null", label: "null" };
   if (typeof value === "string") {
     return value === "" ? { type: "empty", label: "Empty text" } : { type: "text", label: "Text" };

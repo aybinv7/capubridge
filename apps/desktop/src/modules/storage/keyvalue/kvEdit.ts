@@ -1,4 +1,10 @@
-import type { KvEntry, KvSourceKind } from "./kvModel";
+import {
+  describeText,
+  describeValue,
+  type KvEntry,
+  type KvSourceKind,
+  type KvValueType,
+} from "./kvModel";
 
 /** How the value is edited: plain text, or JSON checked before it is saved. */
 export type KvEditorMode = "text" | "json";
@@ -119,4 +125,40 @@ export function modeNote(kind: KvSourceKind, mode: KvEditorMode): string {
 /** A key the pane can save under, or why not. */
 export function keyProblem(key: string): string | null {
   return key === "" ? "A key needs at least one character." : null;
+}
+
+function draftType(
+  kind: KvSourceKind,
+  mode: KvEditorMode,
+  draft: string,
+): { type: KvValueType; label: string } | null {
+  if (kind !== "forage") return describeText(draft);
+  if (mode === "text")
+    return draft === "" ? { type: "empty", label: "Empty text" } : { type: "text", label: "Text" };
+  try {
+    return describeValue(JSON.parse(draft) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+function plainText(type: KvValueType): boolean {
+  return type === "text" || type === "empty";
+}
+
+/**
+ * A warning when the draft would store another type than the value had (a number saved as text,
+ * an object as a list): the app may not read it back. Never blocks the save.
+ */
+export function typeChange(
+  kind: KvSourceKind,
+  entry: KvEntry | null,
+  mode: KvEditorMode,
+  draft: string,
+): string | null {
+  if (!entry || entry.type === "special") return null;
+  const next = draftType(kind, mode, draft);
+  if (!next || next.type === entry.type) return null;
+  if (plainText(next.type) && plainText(entry.type)) return null;
+  return `Type changes from ${entry.typeLabel} to ${next.label}: the app may not read it back.`;
 }

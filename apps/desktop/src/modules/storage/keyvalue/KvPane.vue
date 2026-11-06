@@ -4,6 +4,7 @@ import { refDebounced } from "@vueuse/core";
 import { ChevronDown, ChevronUp, Lock, Trash2, X } from "lucide-vue-next";
 import { Button, Input, Segmented, SegmentedButton } from "@capubridge/cladd";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { formatBytes } from "@/shared/format/numbers";
 import {
@@ -14,6 +15,7 @@ import {
   lineBreakNote,
   originalText,
   restoreLineBreaks,
+  typeChange,
   type KvEditorMode,
 } from "./kvEdit";
 import type { KvEntry, KvSourceKind } from "./kvModel";
@@ -78,6 +80,11 @@ const problem = computed(() => {
   if (settledDraft.value.trim() === "") return "Type a JSON value, or switch to Text";
   return draftProblem(settledDraft.value, "json") ? "The JSON is not valid" : null;
 });
+const typeWarning = computed(() =>
+  dirty.value && problem.value === null
+    ? typeChange(props.kind, props.entry, mode.value, settledDraft.value)
+    : null,
+);
 const renames = computed(() => !creating.value && keyDraft.value !== baseKey.value);
 const keyIssue = computed(() => keyProblem(keyDraft.value));
 const canSave = computed(
@@ -280,6 +287,11 @@ defineExpose({ discard, edit });
       </Button>
       <span class="flex-1" />
       <span v-if="problem" class="truncate text-2xs text-error">{{ problem }}</span>
+      <HintTooltip v-else-if="typeWarning" :text="typeWarning">
+        <span class="truncate text-2xs text-warning" tabindex="0" role="status">
+          {{ typeWarning }}
+        </span>
+      </HintTooltip>
       <Button v-if="dirty && !creating" size="sm" variant="transparent" @click="discard">
         Discard
       </Button>
