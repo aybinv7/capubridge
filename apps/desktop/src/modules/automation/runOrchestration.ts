@@ -24,7 +24,6 @@ import { cachedPackages, setCachedPackageDetails } from "./useInstalledPackages"
 import { startRunRecording, RECORDING_ENABLED } from "./runTrace";
 import { createJevPolicy } from "./policies/jev";
 import { createEmbeddedReasoningPolicy } from "./policies/embedded";
-import { JEV_MODEL_VERSION } from "./policies/jev";
 import { createRulesPolicy } from "./policies/rules";
 import { candidatesFromObservation } from "./authoringCandidates";
 import type { RuleIntent } from "./policies/rules";
@@ -55,7 +54,6 @@ export function availablePolicies(): PolicyOption[] {
   return [rules, jev, embedded].map((policy) => ({
     id: policy.id,
     label: policy.label,
-    model: policy.id === "jev" ? JEV_MODEL_VERSION : undefined,
     isRemote: policy.isRemote,
     dataNotice: policy.dataNotice,
   }));

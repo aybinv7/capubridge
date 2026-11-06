@@ -37,6 +37,7 @@ export function createDesktopExecutorDeps(
       }),
     actions: createDeviceActions(),
     readSignals: () => readAutomationSignals(serial, appPackage),
+    captureScreen: () => invokeCommand("adb_mirror_screenshot", { serial }),
     resolveTarget,
     buildCandidates,
     evaluateAssertion,

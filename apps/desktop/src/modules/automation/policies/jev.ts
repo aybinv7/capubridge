@@ -1,107 +1,117 @@
-import { invokeCommand } from "@/runtime/ipc/client";
 import type { JsonValue } from "@/runtime/ipc/contracts/common";
 import { buildCandidates } from "../elementIndex";
 import type { Candidate } from "../elementIndex";
 import type { Decision, DecisionOperation, StepRecord, TargetRef } from "@/types/automation.types";
 import { PolicyDecisionError, registerPolicy } from "./types";
-import type { RemotePolicy, RemotePolicyInput } from "./types";
+import type { PolicyDecisionFailure, RemotePolicy, RemotePolicyInput } from "./types";
 import { redactText } from "../redact";
+import { submitDecision } from "../decisions/decisionClient";
+import type { DecisionTransport } from "../decisions/decisionClient";
+import { findDecisionModel, maxContextTokens } from "../decisions/decisionModels";
+import type { DecisionModelDescriptor } from "../decisions/decisionModels";
+import { readDecisionModelId } from "../decisions/decisionModelSetting";
+import { desktopDecisionTransport } from "../decisions/decisionTransport";
+import { DecisionClientError } from "../decisions/decisionTypes";
+import type { DecisionQuestion, DecisionRequest, DecisionResult } from "../decisions/decisionTypes";
+import { estimateTextTokens, toWireRequest } from "../decisions/decisionWire";
+import type { ImageTokenCalibration } from "../decisions/imageCalibration";
+import { encodeScreenInWebView } from "../decisions/screenImage";
+import type { ScreenEncoder, ScreenImage } from "../decisions/screenImage";
+import { mapJevResponse } from "./jevAnswers";
+import { OPERATION_CRITERIA } from "./jevOperations";
+import { planVisual, visualQuestions } from "./jevVisual";
 
 /**
- * Pinned Jev model version. Identical prompts are not comparable across
- * versions, so this is a version and never `jev-latest`.
- *
- * Provider slugs differ: TypeSafe's own API takes `jev-1.13`, while
- * OpenRouter's alpha decisions endpoint takes the bare slug without any
- * `~` prefix (verified live: `typesafe/jev-1.13-20260917` answers 200; the
- * `~`-prefixed form is rejected as nonexistent). Set
- * `CAPUBRIDGE_JEV_MODEL` to override this without a rebuild when pointing at
- * a gateway.
+ * Pinned Jev release, as TypeSafe names it. Identical prompts are not
+ * comparable across versions, so this is a release and never `jev-latest`.
+ * The capability table maps it to the OpenRouter slug; the decision model
+ * setting can choose another table entry.
  */
-export const JEV_MODEL_VERSION = "jev-1.13";
+export const JEV_MODEL_VERSION = "jev-1.14.0";
+
+/** Served only when the pin has no endpoint; it cannot read images or answer box questions. */
+export const JEV_FALLBACK_VERSION = "jev-1.13";
 
 /** Rendered at the point of selection. A remote policy must state what leaves the machine. */
 export const JEV_DATA_NOTICE =
   "Jev sends the redacted screen structure to a third-party US-hosted model service. " +
   "Internal and synthetic sessions only until a written DPA exists.";
 
+/** Stated beside the model choice when the chosen model can be sent screenshots. */
+export const JEV_SCREEN_NOTICE =
+  "On screens with no web view, this model is also sent a downscaled screenshot, which cannot be redacted.";
+
 /** A remote policy can choose from at most this many options in one question. */
 export const JEV_MAX_OPTIONS = 255;
 
-/**
- * Operations Jev may answer, extending the step vocabulary with loop control.
- *
- * These are `criteria`, not bare options: the API declares a choice as a map
- * of option to description, and the model reads those descriptions literally.
- * A bare `"wait"` carries no signal about when waiting is the right answer,
- * so each description states the condition that selects it.
- */
-const OPERATION_CRITERIA: Record<
-  Extract<
-    DecisionOperation,
-    "tap" | "longPress" | "type" | "pressKey" | "back" | "wait" | "done" | "blocked"
-  >,
-  string
-> = {
-  tap: "Press one element once to activate it",
-  longPress: "Press and hold one element to open a context action",
-  type: "Enter text into the focused or targeted input field",
-  pressKey: "Send a hardware or system key such as enter or the keyboard dismiss",
-  back: "Go back one screen",
-  wait: "Do nothing this step because the screen is still loading or settling",
-  done: "Stop stepping because the goal appears to have been achieved",
-  blocked: "Stop stepping because the goal cannot be advanced from this screen",
-};
-
-/** Operations Jev may answer, derived from the criteria so there is one source of truth. */
-const OPERATION_OPTIONS = Object.keys(OPERATION_CRITERIA) as DecisionOperation[];
-
-/** Operations that must resolve a target before they execute. */
-const TARGETING_OPERATIONS: DecisionOperation[] = ["tap", "longPress", "type"];
+/** The smallest candidate set kept when trimming a request to a small context. */
+const JEV_MIN_OPTIONS = 8;
 
 /** One built request plus the choice sets the response is validated against. */
 export interface JevRequestBuild {
+  request: DecisionRequest;
   body: Record<string, JsonValue>;
+  model: DecisionModelDescriptor;
   sent: Candidate[];
   sentIndices: number[];
   textSpans: string[];
   trimmed: boolean;
   allowedOperations: DecisionOperation[];
+  screen: ScreenImage | null;
 }
 
-/** Transport for one Jev call. Injected in tests; the default calls Rust-side HTTP. */
-export interface JevTransport {
-  decide(body: Record<string, JsonValue>): Promise<JsonValue>;
-}
+/** Transport for one decisions call. Injected in tests; the default calls Rust-side HTTP. */
+export type JevTransport = DecisionTransport;
 
 /** Options for the Jev policy. The API key is never one of them. */
 export interface JevPolicyOptions {
+  /** A capability-table model id; defaults to the decision model setting, read per step. */
   model?: string;
   transport?: JevTransport;
+  encodeScreen?: ScreenEncoder;
+  calibration?: Readonly<Record<string, ImageTokenCalibration>>;
 }
 
 /**
  * Jev policy behind the redaction gate. Accepts only a RedactedObservation,
  * so calling it with a raw Observation does not type-check. Sends one
- * request carrying every question; screenshots never leave the machine.
+ * request carrying every question. A screenshot leaves only on a screen
+ * with no DOM, to a model that can locate targets in it and whose image
+ * delivery can be verified.
  */
 export function createJevPolicy(options: JevPolicyOptions = {}): RemotePolicy {
-  const model = options.model ?? JEV_MODEL_VERSION;
-  const transport = options.transport ?? defaultTransport;
+  const transport = options.transport ?? desktopDecisionTransport;
+  const encode = options.encodeScreen ?? encodeScreenInWebView;
   return {
     id: "jev",
     label: "Jev",
     isRemote: true,
     dataNotice: JEV_DATA_NOTICE,
     decide: async (input: RemotePolicyInput): Promise<Decision> => {
-      const build = buildJevRequestBody(input, model);
-      let response: JsonValue;
-      try {
-        response = await transport.decide(build.body);
-      } catch (error) {
-        throw mapTransportError(error);
+      const modelId = options.model ?? readDecisionModelId();
+      const model = findDecisionModel(modelId);
+      if (model === null) {
+        throw new PolicyDecisionError(
+          "unsupported",
+          `decision model "${modelId}" is not in the capability table`,
+        );
       }
-      return mapJevResponse(response, build);
+      const visual = await planVisual(model, input, encode, options.calibration);
+      const build = buildJevRequestBody(
+        input,
+        model.id,
+        visual.kind === "on" ? visual.screen : null,
+      );
+      let result: DecisionResult;
+      try {
+        result = await submitDecision(model.id, build.request, {
+          transport,
+          calibration: options.calibration,
+        });
+      } catch (error) {
+        throw toPolicyError(error);
+      }
+      return mapJevResponse(result, build, visual);
     },
   };
 }
@@ -110,24 +120,63 @@ export function createJevPolicy(options: JevPolicyOptions = {}): RemotePolicy {
  * Builds the single batched request from the redacted observation and a
  * candidate set re-derived from the redacted layers. The caller-passed set
  * is never trusted for labels: re-deriving here keeps exactly one path from
- * raw pixels to remote payload, so even a caller bug cannot leak an
+ * raw layers to remote payload, so even a caller bug cannot leak an
  * unmasked value. Goal words become the text_span options, so the model
- * selects exact spans instead of generating free text.
+ * selects exact spans instead of generating free text. A model with a small
+ * context gets fewer candidates rather than a request it would truncate.
  */
-export function buildJevRequestBody(input: RemotePolicyInput, model: string): JevRequestBuild {
+export function buildJevRequestBody(
+  input: RemotePolicyInput,
+  modelId: string,
+  screen: ScreenImage | null = null,
+): JevRequestBuild {
+  const model = findDecisionModel(modelId);
+  if (model === null) {
+    throw new PolicyDecisionError(
+      "unsupported",
+      `decision model "${modelId}" is not in the capability table`,
+    );
+  }
   const derived = buildCandidates({
     native: input.observation.native,
     webview: input.observation.webview,
   });
-  const trimmed = derived.length > JEV_MAX_OPTIONS;
-  const sent = trimmed ? derived.slice(0, JEV_MAX_OPTIONS) : derived;
-  const sentIndices = sent.map((candidate) => candidate.index);
   const textSpans = goalSpans(input.goal);
-  const allowedOperations = Object.keys(operationChoices(sent, textSpans)) as DecisionOperation[];
+  let limit = Math.min(JEV_MAX_OPTIONS, derived.length);
+  let built = assembleRequest(input, derived.slice(0, limit), derived.length, textSpans, screen);
+  while (limit > JEV_MIN_OPTIONS && estimateTextTokens(built.request) > maxContextTokens(model)) {
+    limit = Math.max(JEV_MIN_OPTIONS, Math.floor(limit / 2));
+    built = assembleRequest(input, derived.slice(0, limit), derived.length, textSpans, screen);
+  }
+  const sent = derived.slice(0, limit);
+  const preview = toWireRequest(model, built.request, () => "capu-asset-preview");
+  return {
+    request: built.request,
+    body: preview.body,
+    model,
+    sent,
+    sentIndices: sent.map((candidate) => candidate.index),
+    textSpans,
+    trimmed: sent.length < derived.length,
+    allowedOperations: built.allowedOperations,
+    screen,
+  };
+}
+
+function assembleRequest(
+  input: RemotePolicyInput,
+  sent: Candidate[],
+  derivedCount: number,
+  textSpans: string[],
+  screen: ScreenImage | null,
+): { request: DecisionRequest; allowedOperations: DecisionOperation[] } {
+  const allowedOperations = Object.keys(
+    operationChoices(sent, textSpans, screen !== null),
+  ) as DecisionOperation[];
   const history = input.history[input.history.length - 1];
   return {
-    body: {
-      model,
+    allowedOperations,
+    request: {
       state: {
         goal: input.goal,
         stepIndex: input.stepIndex,
@@ -141,15 +190,11 @@ export function buildJevRequestBody(input: RemotePolicyInput, model: string): Je
           recentErrors: input.observation.signals.recentErrors,
           lastDbWrite: input.observation.signals.lastDbWrite,
         },
-        trimmed,
+        trimmed: sent.length < derivedCount,
       },
-      questions: buildQuestions(sent, textSpans),
+      questions: buildQuestions(sent, textSpans, screen !== null),
+      images: screen === null ? [] : [screen.image],
     },
-    sent,
-    sentIndices,
-    textSpans,
-    trimmed,
-    allowedOperations,
   };
 }
 
@@ -203,13 +248,16 @@ function describeResolvedTarget(target: NonNullable<StepRecord["resolvedTarget"]
  * A choice with no criteria is not a valid question, and an empty one would
  * otherwise invite the model to answer a target that cannot exist.
  */
-function buildQuestions(sent: Candidate[], textSpans: string[]): JsonValue {
-  const operationCriteria = operationChoices(sent, textSpans);
-  const questions: Record<string, JsonValue> = {
+function buildQuestions(
+  sent: Candidate[],
+  textSpans: string[],
+  visual: boolean,
+): Record<string, DecisionQuestion> {
+  const questions: Record<string, DecisionQuestion> = {
     operation: {
       type: "choice",
       instructions: "Which single device operation should run next to advance the goal?",
-      criteria: operationCriteria,
+      criteria: operationChoices(sent, textSpans, visual),
     },
     screen_ready: {
       type: "noul",
@@ -242,15 +290,24 @@ function buildQuestions(sent: Candidate[], textSpans: string[]): JsonValue {
       criteria: spanCriteria(textSpans),
     };
   }
-  return questions;
+  return visual ? { ...questions, ...visualQuestions() } : questions;
 }
 
-function operationChoices(sent: Candidate[], textSpans: string[]): Record<string, string> {
+/**
+ * The operations this screen can serve. Pressing needs a candidate or, on a
+ * screen sent as an image, a visual target; typing always needs an input
+ * candidate and a goal span.
+ */
+function operationChoices(
+  sent: Candidate[],
+  textSpans: string[],
+  visual: boolean,
+): Record<string, string> {
   const choices: Record<string, string> = {};
-  const hasTarget = sent.length > 0;
+  const canPress = sent.length > 0 || visual;
   const hasInput = sent.some((candidate) => candidate.isInput);
   for (const [operation, criteria] of Object.entries(OPERATION_CRITERIA)) {
-    if ((operation === "tap" || operation === "longPress") && !hasTarget) {
+    if ((operation === "tap" || operation === "longPress") && !canPress) {
       continue;
     }
     if (operation === "type" && (!hasInput || textSpans.length === 0)) {
@@ -298,189 +355,29 @@ function spanCriteria(textSpans: string[]): Record<string, string> {
 }
 
 /**
- * Maps one Jev response to a Decision, carrying the model confidence
- * through unchanged. A target outside the sent set is rejected, never
- * executed; transport problems become PolicyDecisionErrors, never
- * fabricated decisions.
+ * Maps a decisions-client failure to a policy failure, keeping each kind
+ * distinct so the trace says whether a model could not serve the step, an
+ * image went unread, or the network failed.
  */
-function mapJevResponse(response: JsonValue, build: JevRequestBuild): Decision {
-  const decision = decisionFromResponse(response, build);
-  const answers = isRecord(response) && isRecord(response["answers"]) ? response["answers"] : null;
-  const goalReached = readNoul(answers === null ? undefined : answers["goal_reached"]);
-  return goalReached === null
-    ? decision
-    : { ...decision, reason: `${decision.reason}, goal_reached ${goalReached}` };
-}
-
-/**
- * Reads a noul answer as a probability rounded to two places, or null. The
- * goal belief is recorded in every decision's reason so a run that fails to
- * stop can be diagnosed from its trace: whether Jev believed the goal was
- * met is otherwise invisible.
- */
-function readNoul(value: JsonValue | undefined): number | null {
-  if (!isRecord(value)) {
-    return null;
+function toPolicyError(error: unknown): PolicyDecisionError {
+  if (error instanceof PolicyDecisionError) {
+    return error;
   }
-  const noul = (value as Record<string, JsonValue>)["noul"];
-  if (typeof noul !== "number" || !Number.isFinite(noul) || noul < 0 || noul > 1) {
-    return null;
-  }
-  return Math.round(noul * 100) / 100;
-}
-
-function decisionFromResponse(response: JsonValue, build: JevRequestBuild): Decision {
-  if (!isRecord(response) || !isRecord(response["answers"])) {
-    throw new PolicyDecisionError("malformed", "jev response carries no answers object");
-  }
-  const answers = response["answers"] as Record<string, JsonValue>;
-  const operationAnswer = readChoice(answers["operation"], "operation");
-  if (typeof operationAnswer.choice !== "string" || !isOperation(operationAnswer.choice)) {
-    throw new PolicyDecisionError(
-      "malformed",
-      `jev answered an unknown operation ${JSON.stringify(operationAnswer.choice)}`,
+  if (!(error instanceof DecisionClientError)) {
+    return new PolicyDecisionError(
+      "transport",
+      error instanceof Error ? error.message : String(error),
     );
   }
-  const operation = operationAnswer.choice;
-  if (!build.allowedOperations.includes(operation)) {
-    throw new PolicyDecisionError(
-      "malformed",
-      `jev answered unsupported operation ${JSON.stringify(operation)} for the current screen`,
-    );
-  }
-  const confidence =
-    typeof operationAnswer.confidence === "number" ? operationAnswer.confidence : 1;
-  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
-    throw new PolicyDecisionError("malformed", "jev operation confidence is outside 0..1");
-  }
-  if (TARGETING_OPERATIONS.includes(operation)) {
-    if (build.sent.length === 0) {
-      throw new PolicyDecisionError(
-        "rejected-target",
-        `jev answered ${operation} but no candidate was on screen to target`,
-      );
-    }
-    const targetAnswer = readChoice(answers["target"], "target");
-    const chosenIndex = readCandidateIndex(targetAnswer.choice);
-    if (chosenIndex === null || !build.sentIndices.includes(chosenIndex)) {
-      throw new PolicyDecisionError(
-        "rejected-target",
-        `jev chose target ${JSON.stringify(targetAnswer.choice)} outside the sent set`,
-      );
-    }
-    const candidate = build.sent.find((entry) => entry.index === chosenIndex);
-    if (candidate === undefined) {
-      throw new PolicyDecisionError(
-        "rejected-target",
-        `jev chose target ${chosenIndex} outside the sent set`,
-      );
-    }
-    const target = candidateTarget(candidate);
-    if (operation === "type") {
-      const textAnswer = readChoice(answers["text_span"], "text_span");
-      if (typeof textAnswer.choice !== "string" || !build.textSpans.includes(textAnswer.choice)) {
-        throw new PolicyDecisionError("malformed", "jev answered text outside the goal spans");
-      }
-      return {
-        operation,
-        target,
-        text: textAnswer.choice,
-        confidence,
-        reason: `jev ${operation} target ${chosenIndex} (confidence ${confidence})`,
-        detail: response,
-      };
-    }
-    return {
-      operation,
-      target,
-      confidence,
-      reason: `jev ${operation} target ${chosenIndex} (confidence ${confidence})`,
-      detail: response,
-    };
-  }
-  if (operation === "pressKey") {
-    const text = readOptionalSpan(answers["text_span"], build.textSpans);
-    return {
-      operation,
-      text,
-      confidence,
-      reason:
-        text === undefined
-          ? `jev ${operation} (confidence ${confidence})`
-          : `jev ${operation} "${text}" (confidence ${confidence})`,
-      detail: response,
-    };
-  }
-  return {
-    operation,
-    confidence,
-    reason: `jev ${operation} (confidence ${confidence})`,
-    detail: response,
+  const failure: Record<DecisionClientError["kind"], PolicyDecisionFailure> = {
+    unsupported: "unsupported",
+    unverified: "unverified",
+    unavailable: "transport",
+    malformed: "malformed",
+    timeout: "timeout",
+    transport: "transport",
   };
-}
-
-/**
- * Reads an optional text span. Absence or an out-of-spans choice yields
- * undefined rather than malformed: the step then fails in the executor with
- * a recorded "needs text" error instead of vanishing without a trace.
- */
-function readOptionalSpan(value: JsonValue | undefined, spans: string[]): string | undefined {
-  if (!isRecord(value) || !("choice" in value)) {
-    return undefined;
-  }
-  const choice = (value as Record<string, JsonValue>)["choice"];
-  return typeof choice === "string" && spans.includes(choice) ? choice : undefined;
-}
-
-/**
- * Reads a chosen candidate index. Criteria keys are strings on the wire, so
- * the answer normally comes back as `"12"`, but a numeric answer is accepted
- * too rather than depending on how a given gateway serializes the key.
- */
-function readCandidateIndex(choice: unknown): number | null {
-  if (typeof choice === "number") return Number.isInteger(choice) ? choice : null;
-  if (typeof choice !== "string" || choice.trim() === "") return null;
-  const parsed = Number(choice);
-  return Number.isInteger(parsed) ? parsed : null;
-}
-
-/**
- * Maps a chosen candidate to the most stable target reference: selector
- * first, native index second, text third, raw point last.
- */
-function candidateTarget(candidate: Candidate): TargetRef {
-  if (candidate.cssSelector !== null) {
-    return { kind: "selector", cssSelector: candidate.cssSelector };
-  }
-  if (candidate.source === "native" && candidate.nativeIndex !== null) {
-    return { kind: "nativeIndex", index: candidate.nativeIndex };
-  }
-  if (candidate.text !== null) {
-    return { kind: "text", text: candidate.text, exact: true };
-  }
-  return { kind: "point", x: candidate.center.x, y: candidate.center.y };
-}
-
-/** Default transport: Rust-side HTTP so no key ever reaches the WebView. */
-const defaultTransport: JevTransport = {
-  decide: async (body: Record<string, JsonValue>): Promise<JsonValue> =>
-    invokeCommand("jev_decide", { payload: { body } }),
-};
-
-/**
- * Maps a transport failure to a PolicyDecisionError, preserving the
- * Rust-side classification: non-2xx, timeouts and malformed bodies stay
- * distinct instead of collapsing into one transport error.
- */
-function mapTransportError(error: unknown): PolicyDecisionError {
-  const text = flattenErrorText(error);
-  if (text.includes("jev-timeout:")) {
-    return new PolicyDecisionError("timeout", text);
-  }
-  if (text.includes("jev-malformed:")) {
-    return new PolicyDecisionError("malformed", text);
-  }
-  return new PolicyDecisionError("transport", text);
+  return new PolicyDecisionError(failure[error.kind], error.message);
 }
 
 /**
@@ -521,56 +418,6 @@ function goalSpans(goal: string): string[] {
     }
   }
   return spans.length > 0 ? spans : [""];
-}
-
-/**
- * Reads one Choice answer, throwing malformed when the shape is wrong.
- */
-function readChoice(
-  value: JsonValue | undefined,
-  name: string,
-): { choice: unknown; confidence: unknown } {
-  if (!isRecord(value) || !("choice" in value)) {
-    throw new PolicyDecisionError("malformed", `jev answer "${name}" is not a choice`);
-  }
-  const record = value as Record<string, JsonValue>;
-  return { choice: record["choice"], confidence: record["confidence"] };
-}
-
-/**
- * Reports whether the value names a known operation.
- */
-function isOperation(value: string): value is DecisionOperation {
-  return (OPERATION_OPTIONS as string[]).includes(value);
-}
-
-/**
- * Reports whether the value is a JSON object.
- */
-function isRecord(value: JsonValue | undefined): value is Record<string, JsonValue> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/**
- * Flattens an error and its causes into one searchable text.
- */
-function flattenErrorText(error: unknown): string {
-  const parts: string[] = [];
-  let current: unknown = error;
-  while (current !== null && current !== undefined) {
-    if (current instanceof Error) {
-      parts.push(current.message);
-      current = (current as { cause?: unknown }).cause;
-      continue;
-    }
-    if (typeof current === "string") {
-      parts.push(current);
-      break;
-    }
-    parts.push(JSON.stringify(current) ?? "unknown error");
-    break;
-  }
-  return parts.join(" | ");
 }
 
 registerPolicy("jev", (options?: unknown) => createJevPolicy(readJevOptions(options)));

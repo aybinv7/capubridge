@@ -13,6 +13,12 @@ export interface PolicyInput<ObservationT = Observation> {
   history: StepRecord[];
   stepIndex: number;
   stateFingerprint?: string;
+  /**
+   * Captures the device screen as a base64 PNG, or "" when none was taken.
+   * Pixels cannot be masked like the redacted layers, so a remote policy may
+   * call it only for screens with no DOM, under its data notice.
+   */
+  readScreen?: () => Promise<string>;
 }
 
 /**
@@ -53,7 +59,14 @@ export interface RemotePolicy extends AgentPolicy<RemotePolicyInput> {
 }
 
 /** Why a policy call failed, distinct from a policy answering blocked. */
-export type PolicyDecisionFailure = "transport" | "rejected-target" | "timeout" | "malformed";
+export type PolicyDecisionFailure =
+  | "transport"
+  | "rejected-target"
+  | "timeout"
+  | "malformed"
+  | "unsupported"
+  | "unverified"
+  | "refused";
 
 /**
  * A failed policy call. The executor distinguishes this from a blocked

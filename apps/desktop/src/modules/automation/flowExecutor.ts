@@ -86,6 +86,8 @@ export interface ExecutorDeps {
   clickWebview?: (target: TargetRef) => Promise<boolean>;
   authorizeAction?: (decision: Decision, stepId: string) => Promise<void>;
   readSignals?: () => SessionSignalState;
+  /** Captures the device screen as a base64 PNG for a policy that asks for it, "" on failure. */
+  captureScreen?: () => Promise<string>;
   policies?: PolicyProvider;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;

@@ -72,7 +72,7 @@ describe("embedded reasoning egress", () => {
  */
 function gatePolicies(): AgentPolicy<PolicyInput>[] {
   return [
-    createJevPolicy({ transport: { decide: () => Promise.resolve({}) } }),
+    createJevPolicy({ transport: { send: () => Promise.resolve({}) } }),
     createEmbeddedReasoningPolicy(),
   ].map((policy) => ({
     id: policy.id,

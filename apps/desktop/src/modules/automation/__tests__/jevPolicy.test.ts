@@ -10,6 +10,7 @@ import {
   JEV_MODEL_VERSION,
 } from "../policies/jev";
 import type { JevTransport } from "../policies/jev";
+import { DEFAULT_DECISION_MODEL_ID, requireDecisionModel } from "../decisions/decisionModels";
 import { redactObservation } from "../redact";
 import type { RedactedObservation } from "../redact";
 import { PolicyDecisionError } from "../policies/types";
@@ -140,8 +141,8 @@ function fakeTransport(response: JsonValue): { transport: JevTransport; calls: u
   return {
     calls,
     transport: {
-      decide: (body) => {
-        calls.push(body);
+      send: (request) => {
+        calls.push(request.body);
         return Promise.resolve(response);
       },
     },
@@ -164,7 +165,8 @@ describe("jev policy", () => {
     await createJevPolicy({ transport }).decide(input);
     expect(calls).toHaveLength(1);
     const body = calls[0] as Record<string, JsonValue>;
-    expect(body["model"]).toBe(JEV_MODEL_VERSION);
+    expect(body["model"]).toBe(requireDecisionModel(DEFAULT_DECISION_MODEL_ID).openrouterSlug);
+    expect(requireDecisionModel(DEFAULT_DECISION_MODEL_ID).typesafeId).toBe(JEV_MODEL_VERSION);
     const questions = body["questions"] as Record<string, JsonValue>;
     expect(Object.keys(questions).sort()).toEqual([
       "goal_reached",
@@ -178,7 +180,7 @@ describe("jev policy", () => {
   test("a 300-candidate set is capped to 255 options and the trim is recorded", async () => {
     const { input } = redactedInput(300);
     expect(input.candidates.length).toBeGreaterThan(255);
-    const build = buildJevRequestBody(input, JEV_MODEL_VERSION);
+    const build = buildJevRequestBody(input, DEFAULT_DECISION_MODEL_ID);
     const questions = build.body["questions"] as Record<string, JsonValue>;
     const target = questions["target"] as { criteria: Record<string, string> };
     expect(Object.keys(target.criteria).length).toBeLessThanOrEqual(255);
@@ -189,7 +191,7 @@ describe("jev policy", () => {
 
   test("every question declares instructions and criteria, never a bare options list", () => {
     const { input } = redactedInput();
-    const build = buildJevRequestBody(input, JEV_MODEL_VERSION);
+    const build = buildJevRequestBody(input, DEFAULT_DECISION_MODEL_ID);
     const questions = build.body["questions"] as Record<string, Record<string, JsonValue>>;
     for (const [name, question] of Object.entries(questions)) {
       expect(typeof question["type"], `${name}.type`).toBe("string");
@@ -201,7 +203,7 @@ describe("jev policy", () => {
 
   test("choice criteria are a map of option to description, not an array", () => {
     const { input } = redactedInput();
-    const build = buildJevRequestBody(input, JEV_MODEL_VERSION);
+    const build = buildJevRequestBody(input, DEFAULT_DECISION_MODEL_ID);
     const questions = build.body["questions"] as Record<string, Record<string, JsonValue>>;
     const operation = questions["operation"]["criteria"] as Record<string, string>;
     expect(Array.isArray(operation)).toBe(false);
@@ -230,7 +232,7 @@ describe("jev policy", () => {
       history: [],
       stepIndex: 0,
     };
-    const build = buildJevRequestBody(input, JEV_MODEL_VERSION);
+    const build = buildJevRequestBody(input, DEFAULT_DECISION_MODEL_ID);
     const questions = build.body["questions"] as Record<string, Record<string, JsonValue>>;
     const target = questions["target"]["criteria"] as Record<string, string>;
     const nonClickableEntry = Object.values(target).find((desc) =>
@@ -323,7 +325,7 @@ describe("jev policy", () => {
 
   test("the full payload build carries neither the password nor the token", () => {
     const { input } = redactedInput();
-    const build = buildJevRequestBody(input, JEV_MODEL_VERSION);
+    const build = buildJevRequestBody(input, DEFAULT_DECISION_MODEL_ID);
     const body = JSON.stringify(build.body);
     expect(body).not.toContain("hunter2correct");
     expect(body).not.toContain("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
@@ -348,9 +350,11 @@ describe("jev transport mapping", () => {
   test("the default transport nests the body under the payload key", async () => {
     invokeMock.mockResolvedValue(wireResponse("done", "0", 0.9));
     const { input } = redactedInput();
-    const expected = buildJevRequestBody(input, JEV_MODEL_VERSION).body;
+    const expected = buildJevRequestBody(input, DEFAULT_DECISION_MODEL_ID).body;
     await createJevPolicy().decide(input);
-    expect(invokeMock).toHaveBeenCalledWith("jev_decide", { payload: { body: expected } });
+    expect(invokeMock).toHaveBeenCalledWith("jev_decide", {
+      payload: { body: expected, typesafeModel: JEV_MODEL_VERSION, dangerZone: [] },
+    });
     invokeMock.mockReset();
   });
 

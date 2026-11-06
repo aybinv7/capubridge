@@ -158,6 +158,7 @@ export async function advanceGoal(
     history: records,
     stepIndex: records.length,
     stateFingerprint,
+    readScreen: deps.captureScreen,
   };
   if (runtime.policy.decideBatch !== undefined) {
     try {
