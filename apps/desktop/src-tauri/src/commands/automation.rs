@@ -11,29 +11,29 @@ use crate::automation::hedge::{hedged, Transience};
 use crate::automation::store::{AutomationEventPage, AutomationStoreState};
 use crate::blocking::run_blocking;
 
-/// Request body forwarded to the Jev System One endpoint.
+/// Request forwarded to the decisions endpoint.
 ///
-/// The body is built on the TypeScript side from a redacted observation.
-/// This command only transports it and classifies transport failures.
+/// The body is built on the TypeScript side from a redacted observation, with
+/// the OpenRouter slug as its model. This command only picks the TypeSafe name
+/// when the endpoint is TypeSafe's own API, maps opt-in features to headers,
+/// transports it and classifies transport failures.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JevDecidePayload {
     pub body: serde_json::Value,
+    #[serde(default)]
+    pub typesafe_model: Option<String>,
+    #[serde(default)]
+    pub danger_zone: Vec<String>,
 }
 
-/// Environment variable carrying the Jev endpoint (gateway URL for POST /v1/systemone).
+/// Environment variable carrying the decisions endpoint.
 ///
 /// TypeSafe's own API is `https://api.typesafe.ai/v1/systemone`; OpenRouter
-/// serves the same models from `https://openrouter.ai/api/alpha/decisions`.
+/// serves the same envelope from `https://openrouter.ai/api/alpha/decisions`.
 const JEV_ENDPOINT_ENV: &str = "CAPUBRIDGE_JEV_ENDPOINT";
-/// Environment variable carrying the Jev API key. Never leaves this module.
+/// Environment variable carrying the API key. Never leaves this module.
 const JEV_API_KEY_ENV: &str = "CAPUBRIDGE_JEV_API_KEY";
-/// Optional model override, because the same model has a different slug per
-/// provider: `jev-1.13` on TypeSafe, `typesafe/jev-1.13-20260917` on
-/// OpenRouter (verified live; the `~`-prefixed form is rejected as
-/// nonexistent). Overrides the `model` the TypeScript policy pinned, without
-/// a rebuild.
-const JEV_MODEL_ENV: &str = "CAPUBRIDGE_JEV_MODEL";
 /// Start the hedged second leg once a call has outrun the measured normal
 /// band: warm calls answered in 0.4 to 1.2 s.
 const JEV_HEDGE_AFTER: Duration = Duration::from_millis(1_500);
@@ -47,30 +47,34 @@ const JEV_POOL_IDLE: Duration = Duration::from_secs(90);
 /// Bytes of a non-2xx body kept in the error for diagnosis.
 const JEV_ERROR_SNIPPET_LEN: usize = 500;
 
-/// Forwards one batched Jev decision request and returns the parsed response.
+/// Forwards one batched decisions request and returns the parsed response.
 ///
-/// The API key is read from the process environment and never crosses into
-/// JavaScript. Non-2xx responses, timeouts and malformed bodies surface as
-/// distinct, prefixed errors so the TypeScript policy can map them without
-/// parsing free text.
+/// The model is chosen in the app's settings and travels in the body; there is
+/// no environment override, so the capability checks made before sending always
+/// describe the model that is asked. The API key is read from the process
+/// environment and never crosses into JavaScript. Non-2xx responses, timeouts
+/// and malformed bodies surface as distinct, prefixed errors so the TypeScript
+/// client can map them without parsing free text.
 #[tauri::command]
 pub async fn jev_decide(payload: JevDecidePayload) -> Result<serde_json::Value, String> {
     let endpoint = std::env::var(JEV_ENDPOINT_ENV).map_err(|_| {
-        format!("jev-not-configured: set {JEV_ENDPOINT_ENV} to the Jev System One endpoint")
+        format!("jev-not-configured: set {JEV_ENDPOINT_ENV} to the decisions endpoint")
     })?;
     let api_key = std::env::var(JEV_API_KEY_ENV)
         .map_err(|_| format!("jev-not-configured: set {JEV_API_KEY_ENV} to call Jev"))?;
-    let mut body = payload.body;
-    if let Ok(model) = std::env::var(JEV_MODEL_ENV) {
-        if !model.is_empty() {
-            if let Some(object) = body.as_object_mut() {
-                object.insert("model".into(), serde_json::Value::String(model));
-            }
-        }
-    }
+    let headers = danger_zone_headers(&payload.danger_zone)?;
+    let body = body_for_endpoint(&endpoint, payload.body, payload.typesafe_model.as_deref())?;
     let client = jev_client()?;
     hedged(
-        || send_jev(client, endpoint.clone(), api_key.clone(), body.clone()),
+        || {
+            send_jev(
+                client,
+                endpoint.clone(),
+                api_key.clone(),
+                body.clone(),
+                headers.clone(),
+            )
+        },
         JEV_HEDGE_AFTER,
         JEV_DEADLINE,
         || JevFailure {
@@ -83,6 +87,48 @@ pub async fn jev_decide(payload: JevDecidePayload) -> Result<serde_json::Value, 
     )
     .await
     .map_err(|failure| failure.message)
+}
+
+/// Whether the endpoint is TypeSafe's own API rather than a gateway.
+fn is_typesafe_endpoint(endpoint: &str) -> bool {
+    reqwest::Url::parse(endpoint)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_owned))
+        .is_some_and(|host| host == "typesafe.ai" || host.ends_with(".typesafe.ai"))
+}
+
+/// Swaps the OpenRouter slug for the TypeSafe name on TypeSafe's own API, and
+/// refuses a model TypeSafe does not serve before anything is sent.
+fn body_for_endpoint(
+    endpoint: &str,
+    mut body: serde_json::Value,
+    typesafe_model: Option<&str>,
+) -> Result<serde_json::Value, String> {
+    if !is_typesafe_endpoint(endpoint) {
+        return Ok(body);
+    }
+    let Some(name) = typesafe_model else {
+        return Err("jev-unsupported: this model is not served by TypeSafe's own API; pick a Jev model or point the endpoint at OpenRouter".into());
+    };
+    if let Some(object) = body.as_object_mut() {
+        object.insert("model".into(), serde_json::Value::String(name.to_owned()));
+    }
+    Ok(body)
+}
+
+/// Maps opt-in features to `TypeSafe-Danger-Zone-*` headers. Only known
+/// features pass, so the WebView can never set an arbitrary header.
+fn danger_zone_headers(features: &[String]) -> Result<Vec<&'static str>, String> {
+    features
+        .iter()
+        .map(|feature| match feature.as_str() {
+            "images" => Ok("TypeSafe-Danger-Zone-Images"),
+            "long-context" => Ok("TypeSafe-Danger-Zone-Long-Context"),
+            other => Err(format!(
+                "jev-unsupported: unknown opt-in feature \"{other}\""
+            )),
+        })
+        .collect()
 }
 
 /// One process-wide client. Building a client per call paid a fresh TCP and
@@ -124,21 +170,20 @@ async fn send_jev(
     endpoint: String,
     api_key: String,
     body: serde_json::Value,
+    headers: Vec<&'static str>,
 ) -> Result<serde_json::Value, JevFailure> {
-    let response = client
-        .post(endpoint)
-        .bearer_auth(api_key)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|error| JevFailure {
-            message: if error.is_timeout() {
-                format!("jev-timeout: Jev decision call timed out: {error}")
-            } else {
-                format!("jev-transport: failed to reach Jev: {error}")
-            },
-            transient: true,
-        })?;
+    let mut request = client.post(endpoint).bearer_auth(api_key).json(&body);
+    for header in headers {
+        request = request.header(header, "true");
+    }
+    let response = request.send().await.map_err(|error| JevFailure {
+        message: if error.is_timeout() {
+            format!("jev-timeout: Jev decision call timed out: {error}")
+        } else {
+            format!("jev-transport: failed to reach Jev: {error}")
+        },
+        transient: true,
+    })?;
     let status = response.status();
     if !status.is_success() {
         let code = status.as_u16();
@@ -287,11 +332,7 @@ pub(crate) fn automation_summary_from_path(
         Err(_) => String::new(),
     };
     let (step_count, failed_step_index) = summarize_automation_track(&ndjson);
-    Some(automation_summary(
-        section,
-        step_count,
-        failed_step_index,
-    ))
+    Some(automation_summary(section, step_count, failed_step_index))
 }
 
 /// Builds an automation summary from a manifest section and track stats.
@@ -379,10 +420,7 @@ pub async fn recording_session_attach(
 /// Reads one session attachment (a step screenshot) from a finalized
 /// archive and returns it base64-encoded for display.
 #[tauri::command]
-pub async fn recording_read_attachment(
-    file_path: String,
-    name: String,
-) -> Result<String, String> {
+pub async fn recording_read_attachment(file_path: String, name: String) -> Result<String, String> {
     let name = validate_attachment_name(&name)?.to_string();
     let file = fs::File::open(&file_path).map_err(|e| format!("Cannot open session file: {e}"))?;
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Invalid .capu file: {e}"))?;
@@ -393,4 +431,54 @@ pub async fn recording_read_attachment(
     std::io::Read::read_to_end(&mut attachment, &mut bytes)
         .map_err(|e| format!("Failed to read attachment {name}: {e}"))?;
     Ok(general_purpose::STANDARD.encode(&bytes))
+}
+
+#[cfg(test)]
+mod jev_decide_tests {
+    use super::*;
+
+    #[test]
+    fn openrouter_keeps_the_slug() {
+        let body = serde_json::json!({ "model": "typesafe/jev-1.14" });
+        let out = body_for_endpoint(
+            "https://openrouter.ai/api/alpha/decisions",
+            body,
+            Some("jev-1.14.0"),
+        )
+        .unwrap();
+        assert_eq!(out["model"], "typesafe/jev-1.14");
+    }
+
+    #[test]
+    fn typesafe_takes_its_own_name() {
+        let body = serde_json::json!({ "model": "typesafe/jev-1.14" });
+        let out = body_for_endpoint(
+            "https://api.typesafe.ai/v1/systemone",
+            body,
+            Some("jev-1.14.0"),
+        )
+        .unwrap();
+        assert_eq!(out["model"], "jev-1.14.0");
+    }
+
+    #[test]
+    fn typesafe_refuses_a_model_it_does_not_serve() {
+        let body = serde_json::json!({ "model": "liquid/d1" });
+        let error =
+            body_for_endpoint("https://api.typesafe.ai/v1/systemone", body, None).unwrap_err();
+        assert!(error.starts_with("jev-unsupported:"));
+    }
+
+    #[test]
+    fn only_known_features_become_headers() {
+        let headers = danger_zone_headers(&["images".into(), "long-context".into()]).unwrap();
+        assert_eq!(
+            headers,
+            vec![
+                "TypeSafe-Danger-Zone-Images",
+                "TypeSafe-Danger-Zone-Long-Context"
+            ]
+        );
+        assert!(danger_zone_headers(&["Authorization".into()]).is_err());
+    }
 }
