@@ -50,6 +50,11 @@ function blocked(kind: GateKind): GateResult {
   return { kind, notice: null };
 }
 
+/** An Android WebView whose app package is known, so its files can be read over ADB. */
+export function isAppTarget(input: GateInput): boolean {
+  return input.target?.source === "adb" && Boolean(input.target.packageName);
+}
+
 /**
  * Decides whether a screen with `requirement` can render, and if not, which single
  * reason to show. The first broken link of device › target › DevTools link wins.
@@ -77,6 +82,11 @@ export function resolveGate(requirement: GateRequirement, input: GateInput): Gat
     return block ? blocked(block) : { kind: "open", notice: noticeFor(input) };
   }
 
+  if (requirement === "data" && isAppTarget(input)) {
+    const block = deviceBlock(input);
+    return block ? blocked(block) : { kind: "open", notice: noticeFor(input) };
+  }
+
   if (target.source === "adb") {
     const block = deviceBlock(input);
     if (block) return blocked(block);
@@ -97,6 +107,7 @@ export function gateSubjectKey(requirement: GateRequirement, input: GateInput): 
       return `device:${input.device?.serial ?? "-"}`;
     case "app-target":
     case "target":
+    case "data":
       return `target:${input.target?.id ?? "-"}`;
   }
 }

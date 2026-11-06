@@ -1,8 +1,12 @@
 import type { ADBDevice } from "@/types/adb.types";
 import type { AppPresence } from "@/lib/gates/presence";
 
-/** What a screen needs before it can show anything truthful. */
-export type GateRequirement = "none" | "device" | "target" | "app-target";
+/**
+ * What a screen needs before it can show anything truthful. `data` opens for an Android app
+ * target on an online device (its files are read over ADB, no DevTools link needed) or, for any
+ * other target, once its DevTools link is up.
+ */
+export type GateRequirement = "none" | "device" | "target" | "app-target" | "data";
 
 export type GateTargetSource = "adb" | "local" | "chrome";
 

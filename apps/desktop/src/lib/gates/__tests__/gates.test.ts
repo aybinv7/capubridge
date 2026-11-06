@@ -92,7 +92,46 @@ describe("resolveGate", () => {
     expect(resolveGate("app-target", live({ link: "disconnected" })).kind).toBe("open");
   });
 
+  test("data screens open for an android app without its DevTools link", () => {
+    expect(resolveGate("data", live({ link: "disconnected" }))).toEqual({
+      kind: "open",
+      notice: null,
+    });
+    expect(resolveGate("data", live({ link: "idle", presence: "background" }))).toEqual({
+      kind: "open",
+      notice: "background",
+    });
+    expect(resolveGate("data", live({ device: { ...onlineDevice, status: "offline" } })).kind).toBe(
+      "device-offline",
+    );
+    expect(resolveGate("data", input({ device: onlineDevice })).kind).toBe("no-target");
+  });
+
+  test("data screens need the DevTools link for any other target", () => {
+    const local = { id: "l", source: "local" as const, title: "Local" };
+    expect(resolveGate("data", input({ target: local, link: "connected" })).kind).toBe("open");
+    expect(resolveGate("data", input({ target: local, link: "connecting" })).kind).toBe(
+      "connecting",
+    );
+    const bare = { id: "b", source: "adb" as const, title: "Shell" };
+    expect(resolveGate("data", live({ target: bare, link: "idle" })).kind).toBe("idle");
+    expect(resolveGate("data", live({ target: bare })).kind).toBe("open");
+  });
+
+  test("the data chain skips DevTools only for an app target", () => {
+    expect(buildChain("data", live({ link: "idle" })).map((link) => link.key)).toEqual([
+      "adb",
+      "host",
+      "target",
+    ]);
+    const local = { id: "l", source: "local" as const, title: "Local" };
+    expect(
+      buildChain("data", input({ target: local, link: "connected" })).map((link) => link.key),
+    ).toEqual(["host", "target", "link"]);
+  });
+
   test("the subject key follows what the screen shows", () => {
+    expect(gateSubjectKey("data", live())).toBe("target:t1");
     expect(gateSubjectKey("device", live())).toBe("device:phone-a");
     expect(gateSubjectKey("target", live())).toBe("target:t1");
     expect(gateSubjectKey("none", live())).toBe("none");

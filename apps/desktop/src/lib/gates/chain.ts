@@ -1,3 +1,4 @@
+import { isAppTarget } from "@/lib/gates/resolve";
 import type { ChainLink, GateInput, GateRequirement } from "@/lib/gates/types";
 
 function adbLink(input: GateInput): ChainLink {
@@ -38,8 +39,9 @@ function targetLink(input: GateInput, requirement: GateRequirement): ChainLink {
   if (target.source === "adb" && input.presence === "gone") {
     return { key: "target", label: "Target", value: `${target.title} · gone`, state: "broken" };
   }
-  const label = requirement === "app-target" ? "App" : "Target";
-  const value = requirement === "app-target" ? (target.packageName ?? target.title) : target.title;
+  const app = requirement === "app-target" || (requirement === "data" && isAppTarget(input));
+  const label = app ? "App" : "Target";
+  const value = app ? (target.packageName ?? target.title) : target.title;
   return { key: "target", label, value, state: "ok" };
 }
 
@@ -74,7 +76,9 @@ export function buildChain(requirement: GateRequirement, input: GateInput): Chai
   }
   links.push(hostLink(input));
   links.push(targetLink(input, requirement));
-  if (requirement === "target") links.push(devtoolsLink(input));
+  if (requirement === "target" || (requirement === "data" && !isAppTarget(input))) {
+    links.push(devtoolsLink(input));
+  }
   return settle(links);
 }
 
