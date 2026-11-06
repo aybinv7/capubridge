@@ -582,6 +582,33 @@ pub async fn sqlite_table_foreign_keys(
     .await
 }
 
+/// Every row of a prepared statement as JSON cells. A row that fails to read fails the whole
+/// read, so a page never shows fewer rows than the database holds without saying so.
+fn read_rows(
+    stmt: &mut rusqlite::Statement<'_>,
+    col_count: usize,
+    blob_limit: Option<usize>,
+    context: &str,
+) -> Result<Vec<Vec<Value>>, String> {
+    let mut rows = stmt.query([]).map_err(|e| format!("{context}: {e}"))?;
+    let mut out = Vec::new();
+    while let Some(row) = rows
+        .next()
+        .map_err(|e| format!("A row could not be read: {e}"))?
+    {
+        let mut vals = Vec::with_capacity(col_count);
+        for i in 0..col_count {
+            let val = row
+                .get_ref(i)
+                .map(|v| v.into())
+                .unwrap_or(rusqlite::types::Value::Null);
+            vals.push(sqlite_value_to_json(&val, blob_limit));
+        }
+        out.push(vals);
+    }
+    Ok(out)
+}
+
 /// Fetch paginated rows from a table.
 /// This is the only command that pulls the DB file (lazy, cached).
 #[tauri::command]
@@ -624,21 +651,7 @@ pub async fn sqlite_table_rows(
         let columns: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
         let col_count = columns.len();
 
-        let rows: Vec<Vec<Value>> = stmt
-            .query_map([], |row| {
-                let mut vals = Vec::with_capacity(col_count);
-                for i in 0..col_count {
-                    let val = row
-                        .get_ref(i)
-                        .map(|v| v.into())
-                        .unwrap_or(rusqlite::types::Value::Null);
-                    vals.push(sqlite_value_to_json(&val, blob_limit));
-                }
-                Ok(vals)
-            })
-            .map_err(|e| format!("Failed to read rows: {e}"))?
-            .collect::<Result<_, _>>()
-            .map_err(|e| format!("A row could not be read: {e}"))?;
+        let rows = read_rows(&mut stmt, col_count, blob_limit, "Failed to read rows")?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let row_count = rows.len();
@@ -687,21 +700,7 @@ pub async fn sqlite_execute_query(
             return Err("Only SELECT queries are supported on read-only databases".to_string());
         }
 
-        let rows: Vec<Vec<Value>> = stmt
-            .query_map([], |row| {
-                let mut vals = Vec::with_capacity(col_count);
-                for i in 0..col_count {
-                    let val = row
-                        .get_ref(i)
-                        .map(|v| v.into())
-                        .unwrap_or(rusqlite::types::Value::Null);
-                    vals.push(sqlite_value_to_json(&val, blob_limit));
-                }
-                Ok(vals)
-            })
-            .map_err(|e| format!("Query failed: {e}"))?
-            .collect::<Result<_, _>>()
-            .map_err(|e| format!("A row could not be read: {e}"))?;
+        let rows = read_rows(&mut stmt, col_count, blob_limit, "Query failed")?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let row_count = rows.len();
@@ -908,18 +907,6 @@ pub async fn sqlite_save_local_bytes(name: String, base64_data: String) -> Resul
     .map_err(|e| e.to_string())?
 }
 
-/// A page copy may be refreshed only inside Capubridge's own temp folder, and never over a
-/// file opened on this computer, whose working copy holds the person's changes.
-fn refresh_target_allowed(path: &std::path::Path) -> Result<(), String> {
-    let inside = path
-        .parent()
-        .is_some_and(|parent| parent == sqlite_temp_dir().as_path());
-    if !inside || crate::commands::sqlite_opened::is_opened_file(path) {
-        return Err("Only a copy read from a page can be refreshed here".to_string());
-    }
-    Ok(())
-}
-
 #[tauri::command]
 pub async fn sqlite_overwrite_local_bytes(path: String, base64_data: String) -> Result<(), String> {
     use base64::Engine;
@@ -935,7 +922,7 @@ pub async fn sqlite_overwrite_local_bytes(path: String, base64_data: String) -> 
             return Err("Not a valid SQLite database (magic header mismatch)".to_string());
         }
         let p = std::path::PathBuf::from(&path);
-        refresh_target_allowed(&p)?;
+        crate::commands::sqlite_opened::page_copy_refresh_allowed(&p)?;
         std::fs::write(&p, &bytes).map_err(|e| format!("write failed: {e}"))?;
         Ok(())
     })
@@ -1000,56 +987,4 @@ pub async fn sqlite_execute_write(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use rusqlite::types::Value as Sql;
-
-    #[test]
-    fn integers_past_two_to_the_53_travel_as_exact_text() {
-        assert_eq!(
-            sqlite_value_to_json(&Sql::Integer(42), None),
-            serde_json::json!(42)
-        );
-        assert_eq!(
-            sqlite_value_to_json(&Sql::Integer(9_007_199_254_740_993), None),
-            serde_json::json!({ "__type": "Number", "value": "9007199254740993" })
-        );
-        assert_eq!(
-            sqlite_value_to_json(&Sql::Integer(i64::MIN), None),
-            serde_json::json!({ "__type": "Number", "value": i64::MIN.to_string() })
-        );
-    }
-
-    #[tokio::test]
-    async fn a_row_that_fails_to_read_fails_the_query_instead_of_vanishing() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("shop.db");
-        Connection::open(&path)
-            .unwrap()
-            .execute_batch("CREATE TABLE item (id INTEGER PRIMARY KEY); INSERT INTO item VALUES (1), (2), (3);")
-            .unwrap();
-        let result = sqlite_execute_query(
-            LOCAL_SERIAL.to_string(),
-            "file".to_string(),
-            path.to_string_lossy().to_string(),
-            "SELECT CASE WHEN id = 2 THEN abs(-9223372036854775808) ELSE id END FROM item ORDER BY id"
-                .to_string(),
-            None,
-        )
-        .await;
-        assert!(result.is_err(), "{result:?}");
-    }
-
-    #[test]
-    fn blobs_carry_their_bytes_and_say_when_they_are_cut() {
-        let bytes = vec![0u8, 255, 16];
-        assert_eq!(
-            sqlite_value_to_json(&Sql::Blob(bytes.clone()), None),
-            serde_json::json!({ "__type": "Blob", "size": 3, "hex": "00ff10", "complete": true })
-        );
-        assert_eq!(
-            sqlite_value_to_json(&Sql::Blob(bytes), Some(2)),
-            serde_json::json!({ "__type": "Blob", "size": 3, "hex": "00ff", "complete": false })
-        );
-    }
-}
+mod tests;

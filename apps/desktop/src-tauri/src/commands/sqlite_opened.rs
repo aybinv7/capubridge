@@ -129,6 +129,18 @@ pub(crate) fn is_opened_file(path: &Path) -> bool {
     registry().is_ok_and(|files| files.contains_key(path))
 }
 
+/// A page copy may be refreshed only inside Capubridge's own temp folder, and never over a
+/// file opened on this computer, whose working copy holds the person's changes.
+pub(crate) fn page_copy_refresh_allowed(path: &Path) -> Result<(), String> {
+    let inside = path
+        .parent()
+        .is_some_and(|parent| parent == sqlite_temp_dir().as_path());
+    if !inside || is_opened_file(path) {
+        return Err("Only a copy read from a page can be refreshed here".to_string());
+    }
+    Ok(())
+}
+
 /// Folds a write-ahead log back into the main file, so a copy of the main file holds every
 /// committed change.
 pub(crate) fn checkpoint(conn: &Connection) -> Result<(), String> {
