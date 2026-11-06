@@ -82,7 +82,7 @@ defineExpose({ revealLine, focus });
 <template>
   <div
     ref="scroller"
-    class="code-tokens h-full overflow-auto bg-surface-cut font-mono text-xs leading-5"
+    class="code-tokens h-full overflow-auto bg-surface-cut font-mono text-xs leading-5 select-text"
     tabindex="0"
     role="document"
   >

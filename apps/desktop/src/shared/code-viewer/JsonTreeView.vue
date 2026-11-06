@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from "vue";
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-vue-next";
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy } from "lucide-vue-next";
+import { toast } from "@/lib/toast";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import ViewerToolbar from "./ViewerToolbar.vue";
@@ -45,6 +46,15 @@ function toggle(row: JsonRow) {
   expanded.value = next;
 }
 
+async function copyAll() {
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(props.value, null, 2));
+    toast.success("Copied as JSON");
+  } catch (error) {
+    toast.error("Could not copy", { description: String(error) });
+  }
+}
+
 function collapseAll() {
   expanded.value = new Set([ROOT_ID]);
 }
@@ -64,6 +74,9 @@ function expandLevels() {
         >
       </template>
       <template #end>
+        <IconAction label="Copy as JSON" @click="copyAll">
+          <Copy :stroke-width="1.8" />
+        </IconAction>
         <IconAction label="Open four levels" @click="expandLevels">
           <ChevronsUpDown :stroke-width="1.8" />
         </IconAction>
@@ -74,7 +87,7 @@ function expandLevels() {
     </ViewerToolbar>
     <div
       ref="scroller"
-      class="min-h-0 flex-1 overflow-auto bg-surface-cut py-1 font-mono text-xs"
+      class="min-h-0 flex-1 overflow-auto bg-surface-cut py-1 font-mono text-xs select-text"
       role="tree"
       aria-label="JSON tree"
     >

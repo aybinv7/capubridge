@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, toRef, watch } from "vue";
 import { useLocalStorage } from "@vueuse/core";
-import { Search, WrapText } from "lucide-vue-next";
+import { Search, WrapText, Copy } from "lucide-vue-next";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import { toast } from "@/lib/toast";
 import TextFindBar from "./TextFindBar.vue";
 import TextLinesPane from "./TextLinesPane.vue";
 import ViewerNote from "./ViewerNote.vue";
@@ -35,6 +36,15 @@ const props = withDefaults(
 const emit = defineEmits<{ download: [] }>();
 
 const wrap = useLocalStorage(props.wrapStorageKey, false);
+
+async function copyAll() {
+  try {
+    await navigator.clipboard.writeText(props.text);
+    toast.success("Copied");
+  } catch (error) {
+    toast.error("Could not copy", { description: String(error) });
+  }
+}
 const pane = ref<InstanceType<typeof TextLinesPane> | null>(null);
 const findBar = ref<InstanceType<typeof TextFindBar> | null>(null);
 
@@ -80,6 +90,9 @@ watch(find.currentMatch, (match) => {
         </span>
       </template>
       <template #end>
+        <IconAction label="Copy all" @click="copyAll">
+          <Copy :stroke-width="1.8" />
+        </IconAction>
         <IconAction
           :label="wrap ? 'Stop wrapping long lines' : 'Wrap long lines'"
           toggle
