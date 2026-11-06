@@ -12,12 +12,14 @@ function describe(error: unknown): string {
 }
 
 /**
- * Capture for a drawer view in a window of its own. The window follows the main window's
+ * Capture for the drawer's views in a window of their own. The window follows the main window's
  * selected target (relayed by `useDrawerTargetRelay`) and reads the device registry, so its
- * gate and `package:mine` see what the main window sees. Logs joins the device's one logcat
+ * gates and `package:mine` see what the main window sees. Logs joins the device's one logcat
  * run; Console holds its own console lease on the same target.
  */
-export function useDrawerWindowCapture(view: DrawerView) {
+export function useDrawerWindowCapture(views: readonly DrawerView[]) {
+  const hasLogs = views.includes("logs");
+  const hasConsole = views.includes("console");
   const sessionStore = useSessionStore();
   const targetsStore = useTargetsStore();
   const consoleStore = useConsoleStore();
@@ -25,10 +27,10 @@ export function useDrawerWindowCapture(view: DrawerView) {
   let stopListening: (() => void) | null = null;
   let disposed = false;
 
-  function report(prefix: string, error: unknown) {
+  function report(prefix: string, error: unknown, only?: DrawerView) {
     const message = `${prefix}: ${describe(error)}`;
-    if (view === "logs") logcatStore.error = message;
-    else consoleStore.error = message;
+    if (hasLogs && only !== "console") logcatStore.error = message;
+    if (hasConsole && only !== "logs") consoleStore.error = message;
   }
 
   sessionStore
@@ -48,16 +50,17 @@ export function useDrawerWindowCapture(view: DrawerView) {
     })
     .catch((error: unknown) => report("Could not get the target from the main window", error));
 
-  if (view === "logs") {
-    useLogcatCapture();
-  } else {
-    consoleStore.acquireLease().catch((error: unknown) => report("Console capture failed", error));
+  if (hasLogs) useLogcatCapture();
+  if (hasConsole) {
+    consoleStore
+      .acquireLease()
+      .catch((error: unknown) => report("Console capture failed", error, "console"));
     watch(
       () => consoleStore.activeTarget,
       (target) => {
         consoleStore
           .syncLease(target ?? null)
-          .catch((error: unknown) => report("Console capture failed", error));
+          .catch((error: unknown) => report("Console capture failed", error, "console"));
       },
     );
   }
@@ -66,10 +69,12 @@ export function useDrawerWindowCapture(view: DrawerView) {
     disposed = true;
     stopListening?.();
     stopListening = null;
-    if (view === "console") {
+    if (hasConsole) {
       consoleStore
         .releaseLease()
-        .catch((error: unknown) => report("Console capture did not stop cleanly", error));
+        .catch((error: unknown) =>
+          report("Console capture did not stop cleanly", error, "console"),
+        );
     }
   });
 }

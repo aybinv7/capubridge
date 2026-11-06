@@ -16,13 +16,11 @@ export const DRAWER_VIEW_META: Readonly<Record<DrawerView, DrawerViewMeta>> = {
   console: { label: "Console", icon: SquareTerminal, requirement: "target" },
 };
 
-/** Window label of a view that lives in a window of its own. */
-export function drawerWindowLabel(view: DrawerView): string {
-  return `drawer-${view}`;
-}
+/** Label of the one window that holds the drawer's views when they leave the main window. */
+export const DRAWER_WINDOW_LABEL = "drawer-window";
 
-/** Whether the window of `view` exists right now. */
-export async function isDrawerWindowOpen(view: DrawerView): Promise<boolean> {
+/** Whether the drawer's own window exists right now. */
+export async function isDrawerWindowOpen(): Promise<boolean> {
   const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-  return (await WebviewWindow.getByLabel(drawerWindowLabel(view))) !== null;
+  return (await WebviewWindow.getByLabel(DRAWER_WINDOW_LABEL)) !== null;
 }
