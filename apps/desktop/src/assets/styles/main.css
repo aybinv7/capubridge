@@ -373,3 +373,42 @@
     box-shadow: inset 2px 0 0 var(--signal-select);
   }
 }
+
+/* Menus open like Cladd's popovers: they scale up from where they were opened with the spring
+   curve, and close quickly with a plain ease. */
+@keyframes cladd-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes cladd-menu-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+.cladd-menu[data-state="open"] {
+  animation: cladd-menu-in 320ms cubic-bezier(0, 1, 0, 1.025) both;
+}
+
+.cladd-menu[data-state="closed"] {
+  animation: cladd-menu-out 150ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cladd-menu[data-state="open"],
+  .cladd-menu[data-state="closed"] {
+    animation-duration: 1ms;
+  }
+}

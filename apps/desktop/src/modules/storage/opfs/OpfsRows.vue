@@ -226,6 +226,7 @@ defineExpose({ focusFind });
         layout-key="opfs"
         @update:sort="sort = $event"
         @active-row="$event && pane.follow($event)"
+        @pick="pane.show"
         @activate="activate"
         @inspect="pane.show"
         @delete="requestDelete"

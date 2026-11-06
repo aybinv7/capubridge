@@ -549,6 +549,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
           @update:sort="sort = $event"
           @column-action="onColumnAction"
           @active-row="$event && !groupBy && (pane.activeRowId.value = $event)"
+          @pick="!groupBy && pane.show($event)"
           @inspect="pane.show"
           @edit="startEdit"
           @delete="requestDelete"

@@ -95,7 +95,7 @@ function resetWidth() {
     >
       <ResizablePanel id="data-rows-grid" :order="1" :min-size="30" class="min-h-0">
         <div
-          class="h-full min-h-0 pb-2 pl-2"
+          class="isolate h-full min-h-0 pb-2 pl-2"
           :class="paneOpen ? '' : 'pr-2'"
           :inert="expanded || undefined"
         >
@@ -139,7 +139,7 @@ function resetWidth() {
     <div
       :id="overlayId"
       ref="overlay"
-      class="absolute inset-0 z-10 flex-col bg-surface-0 px-2 pb-2"
+      class="absolute inset-0 z-30 flex-col bg-surface-0 px-2 pb-2"
       :class="expanded ? 'flex' : 'hidden'"
     />
   </div>

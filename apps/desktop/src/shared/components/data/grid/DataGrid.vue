@@ -108,6 +108,8 @@ const emit = defineEmits<{
   summary: [summary: GridSummary];
   /** The focused data row; `null` on a section header or a note. */
   activeRow: [rowId: string | null];
+  /** A data row was clicked with the pointer: hosts open it in their record pane. */
+  pick: [rowId: string];
   /** A section header asks to open (`true`) or close. */
   toggleSection: [rowId: string, open: boolean];
   /** A note row's action was chosen (a click, Enter or Space). */
@@ -319,6 +321,8 @@ function onPointerDown(event: PointerEvent) {
   if (!cell) return;
   grid.focusAt(cell.row, cell.col, event.shiftKey);
   startDrag(cell);
+  const picked = displayRows.value[cell.row];
+  if (picked && !picked.section && !picked.note && !event.shiftKey) emit("pick", picked.id);
 }
 
 let dragLast: { row: number; col: number } | null = null;

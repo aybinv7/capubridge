@@ -206,6 +206,7 @@ defineExpose({ focusFind });
         layout-key="cache-storage"
         @update:sort="sort = $event"
         @active-row="$event && pane.follow($event)"
+        @pick="pane.show"
         @activate="pane.show"
         @inspect="pane.show"
         @delete="requestDelete"

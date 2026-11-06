@@ -269,6 +269,7 @@ defineExpose({ guardDiscard, startCreate, focusFind });
         :layout-key="`kv:${source.kind}`"
         @update:sort="sort = $event"
         @active-row="$event && followSettled($event)"
+        @pick="inspect"
         @inspect="inspect"
         @edit="startEdit"
         @delete="requestDelete"

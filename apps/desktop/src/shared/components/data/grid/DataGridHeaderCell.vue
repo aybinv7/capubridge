@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import {
   ArrowDown,
   ArrowDownWideNarrow,
@@ -112,6 +112,14 @@ const style = computed(() => {
   return value;
 });
 
+const menuOpen = ref(false);
+
+/** A right-click anywhere on the header opens the column's menu, the same as its ⋯ button. */
+function onContextMenu(event: MouseEvent) {
+  event.preventDefault();
+  menuOpen.value = true;
+}
+
 function onHeaderClick(event: MouseEvent) {
   if (event.ctrlKey || event.metaKey || event.shiftKey) {
     emit("select", event.shiftKey);
@@ -125,6 +133,7 @@ function onHeaderClick(event: MouseEvent) {
   <div
     role="columnheader"
     :aria-sort="ariaSort"
+    @contextmenu.stop="onContextMenu"
     class="group/header relative flex h-full shrink-0 items-center bg-cladd-surface"
     :class="[
       stick ? 'sticky z-20' : '',
@@ -163,7 +172,7 @@ function onHeaderClick(event: MouseEvent) {
       <ArrowDown v-else-if="sort === 'desc'" :size="11" class="shrink-0 text-cladd-fg" />
     </button>
 
-    <DropdownMenu>
+    <DropdownMenu v-model:open="menuOpen">
       <DropdownMenuTrigger as-child>
         <button
           type="button"

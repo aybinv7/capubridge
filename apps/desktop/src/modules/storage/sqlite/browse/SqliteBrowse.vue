@@ -555,6 +555,7 @@ defineExpose({
             @update:sort="query.setSort($event)"
             @column-action="onColumnAction"
             @active-row="$event && (pane.activeRowId.value = $event)"
+            @pick="pane.show"
             @inspect="pane.show"
             @toggle-section="groups.toggle"
             @note-action="groups.noteAction"
