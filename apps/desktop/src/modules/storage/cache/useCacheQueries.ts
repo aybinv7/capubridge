@@ -64,7 +64,12 @@ export function useCacheEntries(
     ]),
     queryFn: async () => {
       const page = await withReadTimeout(domain().entries(origin.value, cacheName.value), 15_000);
-      return { rows: page.entries.map(toRow), total: page.total, described: page.described };
+      return {
+        rows: page.entries.map(toRow),
+        total: page.total,
+        described: page.described,
+        fingerprint: page.fingerprint,
+      };
     },
     enabled: computed(
       () => Boolean(targetId.value && origin.value && cacheName.value) && !paused.value,
@@ -76,6 +81,7 @@ export function useCacheEntries(
     rows: computed(() => query.data.value?.rows ?? []),
     total: computed(() => query.data.value?.total ?? null),
     described: computed(() => query.data.value?.described ?? null),
+    fingerprint: computed(() => query.data.value?.fingerprint ?? null),
     loading: computed(() => query.isLoading.value),
     fetching: computed(() => query.isFetching.value),
     /** No rows of this cache are on screen yet. */

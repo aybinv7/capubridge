@@ -7,20 +7,25 @@ import {
   deleteEntriesScript,
   entriesScript,
   entryScript,
+  versionsScript,
   type CacheEntryTarget,
+  type CacheExpectation,
 } from "./cache-storage-scripts.js";
 
-export type { CacheEntryTarget } from "./cache-storage-scripts.js";
+export type { CacheEntryTarget, CacheExpectation } from "./cache-storage-scripts.js";
 export {
   CACHE_BODY_PREVIEW_BYTES,
   CACHE_DETAIL_BUDGET_MS,
   CACHE_ENTRY_READ_LIMIT,
+  CACHE_VERSION_BODY_BYTES,
 } from "./cache-storage-scripts.js";
 
 /** One cache of the page's origin. `count` is `null` when it could not be read. */
 export interface CacheStorageCache {
   name: string;
   count: number | null;
+  /** Fingerprint of the cache's entries (ids only), for a whole-cache delete to compare. */
+  fingerprint: string | null;
 }
 
 export interface CacheStorageCatalog {
@@ -61,6 +66,8 @@ export interface CacheStorageEntriesPage {
   total: number;
   /** Entries whose response was described. */
   described: number;
+  /** Fingerprint of all the cache's entries (ids only), as `CacheStorageCache.fingerprint`. */
+  fingerprint: string;
 }
 
 /** Up to `CACHE_BODY_PREVIEW_BYTES` of a body: text as text, anything else as Base64. */
@@ -84,11 +91,24 @@ export interface CacheStorageEntryDetail {
   body: CacheStorageBody | null;
 }
 
-/** What a delete of entries did: ids deleted, already gone, and kept because they changed. */
+/** One entry a delete could not handle, with the phone's reason. */
+export interface CacheStorageDeleteFailure {
+  id: string;
+  error: string;
+}
+
+/** What a delete of entries did, by id. */
 export interface CacheStorageDeleteResult {
   deleted: string[];
+  /** Already gone from the phone. */
   gone: string[];
+  /** Kept: the response is not the one the person saw (or was never read). */
   changed: string[];
+  /** Kept: deleting it would also remove an entry the person did not choose. */
+  shared: string[];
+  failed: CacheStorageDeleteFailure[];
+  /** Entries the browser removed beyond the ones it matched (should be 0). */
+  extra: number;
 }
 
 /** The cache or the entry is not on the phone any more. */
@@ -160,7 +180,12 @@ export class CacheStorageDomain {
     const reply = parseReply<CacheStorageEntriesPage>(
       await this.evaluate(entriesScript(origin, cacheName)),
     );
-    return { entries: reply.entries, total: reply.total, described: reply.described };
+    return {
+      entries: reply.entries,
+      total: reply.total,
+      described: reply.described,
+      fingerprint: reply.fingerprint,
+    };
   }
 
   /** One entry with all its headers and the start of its body. */
@@ -176,8 +201,23 @@ export class CacheStorageDomain {
   }
 
   /**
-   * Deletes entries of one cache. An entry whose response changed since it was read is kept
-   * (listed in `changed`) unless `force`; throws `CacheStorageGoneError` when the cache is gone.
+   * The response fingerprint of each entry in `ids` still in the cache, for entries a list read
+   * did not reach: the version a delete then checks is the one read just before the person said yes.
+   */
+  async versions(
+    origin: string,
+    cacheName: string,
+    ids: readonly string[],
+  ): Promise<Record<string, string>> {
+    const reply = parseReply<{ versions: Record<string, string> }>(
+      await this.evaluate(versionsScript(origin, cacheName, ids)),
+    );
+    return reply.versions;
+  }
+
+  /**
+   * Deletes entries of one cache (see `CacheStorageDeleteResult`). An entry whose response is
+   * not the one seen is kept unless `force`; throws `CacheStorageGoneError` when the cache is gone.
    */
   async deleteEntries(
     origin: string,
@@ -185,24 +225,31 @@ export class CacheStorageDomain {
     targets: readonly CacheEntryTarget[],
     force = false,
   ): Promise<CacheStorageDeleteResult> {
-    const reply = parseReply<CacheStorageDeleteResult>(
+    const reply = parseReply<Partial<CacheStorageDeleteResult> & CacheStorageDeleteResult>(
       await this.evaluate(deleteEntriesScript(origin, cacheName, targets, force)),
     );
-    return { deleted: reply.deleted, gone: reply.gone, changed: reply.changed };
+    return {
+      deleted: reply.deleted,
+      gone: reply.gone,
+      changed: reply.changed,
+      shared: reply.shared ?? [],
+      failed: reply.failed ?? [],
+      extra: reply.extra ?? 0,
+    };
   }
 
   /**
-   * Deletes a whole cache. Throws `CacheStorageChangedError` when it no longer holds
-   * `expectedCount` entries, unless `force`. Resolves `{ gone: true }` when it was already gone.
+   * Deletes a whole cache. Throws `CacheStorageChangedError` when it no longer holds the entries
+   * in `expected`, unless `force`. Resolves `{ gone: true }` when it was already gone.
    */
   async deleteCache(
     origin: string,
     cacheName: string,
-    expectedCount: number | null,
+    expected: CacheExpectation | null,
     force = false,
   ): Promise<{ gone: boolean }> {
     const reply = parseReply<{ gone?: boolean }>(
-      await this.evaluate(deleteCacheScript(origin, cacheName, expectedCount, force)),
+      await this.evaluate(deleteCacheScript(origin, cacheName, expected, force)),
     );
     return { gone: reply.gone === true };
   }

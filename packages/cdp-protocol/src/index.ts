@@ -74,6 +74,7 @@ export {
   CACHE_BODY_PREVIEW_BYTES,
   CACHE_DETAIL_BUDGET_MS,
   CACHE_ENTRY_READ_LIMIT,
+  CACHE_VERSION_BODY_BYTES,
   CacheStorageChangedError,
   CacheStorageDomain,
   CacheStorageGoneError,
@@ -81,9 +82,11 @@ export {
 } from "./cdp/domains/cache-storage.js";
 export type {
   CacheEntryTarget,
+  CacheExpectation,
   CacheStorageBody,
   CacheStorageCache,
   CacheStorageCatalog,
+  CacheStorageDeleteFailure,
   CacheStorageDeleteResult,
   CacheStorageEntriesPage,
   CacheStorageEntry,

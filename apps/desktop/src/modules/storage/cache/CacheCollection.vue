@@ -69,7 +69,12 @@ const sizeText = computed(() => {
 });
 
 function deleteCache() {
-  void writes.confirmAndRemoveCache(read.pending.value ? null : read.total.value);
+  const total = read.total.value;
+  void writes.confirmAndRemoveCache(
+    read.pending.value || total === null
+      ? null
+      : { count: total, fingerprint: read.fingerprint.value },
+  );
 }
 
 defineExpose({

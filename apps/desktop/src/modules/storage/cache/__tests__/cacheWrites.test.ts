@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { ref } from "vue";
-import type { CacheStorageDomain } from "@capubridge/cdp-protocol";
+import type { CacheStorageDeleteResult, CacheStorageDomain } from "@capubridge/cdp-protocol";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 vi.mock("vue-sonner", () => ({ toast }));
@@ -39,6 +39,12 @@ function device(
   };
 }
 
+function done(partial: Partial<CacheStorageDeleteResult>): CacheStorageDeleteResult {
+  return { deleted: [], gone: [], changed: [], shared: [], failed: [], extra: 0, ...partial };
+}
+
+const seen = (count: number) => ({ count, fingerprint: "f" });
+
 beforeEach(() => {
   toast.success.mockReset();
   toast.error.mockReset();
@@ -48,7 +54,7 @@ beforeEach(() => {
 describe("deleting entries", () => {
   test("sends each entry with the response the person saw, to the cache on screen", async () => {
     const { domain, deleteEntries } = device({
-      deleteEntries: vi.fn().mockResolvedValue({ deleted: ["a"], gone: [], changed: [] }),
+      deleteEntries: vi.fn().mockResolvedValue(done({ deleted: ["a"], gone: [], changed: [] })),
     });
     await expect(cacheWrites(domain, ORIGIN, "api", vi.fn()).removeEntries([rowA])).resolves.toBe(
       1,
@@ -59,7 +65,7 @@ describe("deleting entries", () => {
 
   test("an entry the app replaced is kept unless the person agrees", async () => {
     const { domain, deleteEntries } = device({
-      deleteEntries: vi.fn().mockResolvedValue({ deleted: [], gone: [], changed: ["a"] }),
+      deleteEntries: vi.fn().mockResolvedValue(done({ deleted: [], gone: [], changed: ["a"] })),
     });
     const confirm = vi.fn().mockResolvedValue(false);
     await expect(cacheWrites(domain, ORIGIN, "api", confirm).removeEntries([rowA])).resolves.toBe(
@@ -77,8 +83,8 @@ describe("deleting entries", () => {
   test("forces only the changed entries once the person agrees", async () => {
     const deleteEntries = vi
       .fn()
-      .mockResolvedValueOnce({ deleted: ["b"], gone: [], changed: ["a"] })
-      .mockResolvedValueOnce({ deleted: ["a"], gone: [], changed: [] });
+      .mockResolvedValueOnce(done({ deleted: ["b"], gone: [], changed: ["a"] }))
+      .mockResolvedValueOnce(done({ deleted: ["a"], gone: [], changed: [] }));
     const { domain } = device({ deleteEntries });
     const removed = await cacheWrites(
       domain,
@@ -100,7 +106,7 @@ describe("deleting entries", () => {
 
   test("an entry already gone is said, and a failure carries the phone's words", async () => {
     const gone = device({
-      deleteEntries: vi.fn().mockResolvedValue({ deleted: [], gone: ["a"], changed: [] }),
+      deleteEntries: vi.fn().mockResolvedValue(done({ deleted: [], gone: ["a"], changed: [] })),
     });
     await cacheWrites(gone.domain, ORIGIN, "api", vi.fn()).removeEntries([rowA]);
     expect(toast.info).toHaveBeenCalledWith("“a” was already gone from the phone");
@@ -116,6 +122,59 @@ describe("deleting entries", () => {
   });
 });
 
+describe("deleting entries the read did not fully see", () => {
+  test("a part that failed is said, with what was deleted", async () => {
+    const { domain } = device({
+      deleteEntries: vi
+        .fn()
+        .mockResolvedValue(done({ deleted: ["b"], failed: [{ id: "a", error: "unreadable" }] })),
+    });
+    await expect(
+      cacheWrites(domain, ORIGIN, "api", vi.fn()).removeEntries([rowA, rowB]),
+    ).resolves.toBe(1);
+    expect(toast.error).toHaveBeenCalledWith("Deleted 1 entry on the phone", {
+      description: "1 failed: unreadable.",
+    });
+  });
+
+  test("an entry that would take a Vary sibling with it is kept and said", async () => {
+    const { domain } = device({
+      deleteEntries: vi.fn().mockResolvedValue(done({ shared: ["a"] })),
+    });
+    await cacheWrites(domain, ORIGIN, "api", vi.fn()).removeEntries([rowA]);
+    expect(toast.info).toHaveBeenCalledWith("Nothing was deleted", {
+      description: expect.stringContaining("another entry for the same address"),
+    });
+  });
+
+  test("the response of a row the list did not reach is read before the question", async () => {
+    const unread = { ...rowA, version: "" };
+    const order: string[] = [];
+    const versions = vi.fn(async () => {
+      order.push("versions");
+      return { a: "v-now" };
+    });
+    const deleteEntries = vi.fn(async () => done({ deleted: ["a"] }));
+    const confirm = vi.fn(async () => {
+      order.push("confirm");
+      return true;
+    });
+    const writes = useCacheWrites({
+      origin: ORIGIN,
+      cacheName: "api",
+      domain: () => ({ versions, deleteEntries }) as unknown as CacheStorageDomain,
+      pending: ref(false),
+      away: ref(null),
+      confirm,
+      afterEntries: vi.fn(),
+      afterCache: vi.fn(),
+    });
+    await writes.confirmAndRemove([unread]);
+    expect(order).toEqual(["versions", "confirm"]);
+    expect(deleteEntries).toHaveBeenCalledWith(ORIGIN, "api", [{ id: "a", version: "v-now" }]);
+  });
+});
+
 describe("deleting a cache", () => {
   test("a cache that changed since the read is kept unless the person agrees", async () => {
     const deleteCache = vi
@@ -124,7 +183,9 @@ describe("deleting a cache", () => {
       .mockResolvedValueOnce({ gone: false });
     const { domain } = device({ deleteCache });
     const refuse = vi.fn().mockResolvedValue(false);
-    await expect(cacheWrites(domain, ORIGIN, "api", refuse).removeCache(3)).resolves.toBe(false);
+    await expect(cacheWrites(domain, ORIGIN, "api", refuse).removeCache(seen(3))).resolves.toBe(
+      false,
+    );
     expect(refuse).toHaveBeenCalledWith(
       expect.objectContaining({
         text: "It now holds 5 entries, not the 3 entries you saw. Delete the cache anyway?",
@@ -140,9 +201,9 @@ describe("deleting a cache", () => {
       .mockResolvedValueOnce({ gone: false });
     const { domain } = device({ deleteCache });
     await expect(
-      cacheWrites(domain, ORIGIN, "api", vi.fn().mockResolvedValue(true)).removeCache(3),
+      cacheWrites(domain, ORIGIN, "api", vi.fn().mockResolvedValue(true)).removeCache(seen(3)),
     ).resolves.toBe(true);
-    expect(deleteCache).toHaveBeenLastCalledWith(ORIGIN, "api", 3, true);
+    expect(deleteCache).toHaveBeenLastCalledWith(ORIGIN, "api", seen(3), true);
     expect(toast.success).toHaveBeenCalledWith("Deleted the cache “api” on the phone");
   });
 
@@ -150,14 +211,18 @@ describe("deleting a cache", () => {
     const { domain } = device({
       deleteCache: vi.fn().mockRejectedValue(new CacheStorageGoneError("gone")),
     });
-    await expect(cacheWrites(domain, ORIGIN, "api", vi.fn()).removeCache(3)).resolves.toBe(true);
+    await expect(cacheWrites(domain, ORIGIN, "api", vi.fn()).removeCache(seen(3))).resolves.toBe(
+      true,
+    );
     expect(toast.info).toHaveBeenCalledWith("The cache “api” was already gone");
   });
 });
 
 describe("deletes wait when the phone cannot be trusted to answer, and always ask first", () => {
   function setup(state: { pending: boolean; away: string | null }, answer: boolean) {
-    const deleteEntries = vi.fn().mockResolvedValue({ deleted: ["a"], gone: [], changed: [] });
+    const deleteEntries = vi
+      .fn()
+      .mockResolvedValue(done({ deleted: ["a"], gone: [], changed: [] }));
     const deleteCache = vi.fn().mockResolvedValue({ gone: false });
     const confirm = vi.fn().mockResolvedValue(answer);
     const afterCache = vi.fn();
@@ -187,7 +252,7 @@ describe("deletes wait when the phone cannot be trusted to answer, and always as
       { pending: false, away: "The app is in the background" },
       true,
     );
-    await expect(writes.confirmAndRemoveCache(3)).resolves.toBe(false);
+    await expect(writes.confirmAndRemoveCache(seen(3))).resolves.toBe(false);
     expect(deleteCache).not.toHaveBeenCalled();
     expect(toast.info).toHaveBeenCalledWith("Nothing was deleted", {
       description: "The app is in the background",
@@ -200,7 +265,7 @@ describe("deletes wait when the phone cannot be trusted to answer, and always as
       false,
     );
     await writes.confirmAndRemove([rowA]);
-    await writes.confirmAndRemoveCache(3);
+    await writes.confirmAndRemoveCache(seen(3));
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(confirm.mock.calls[0]?.[0]).toMatchObject({ title: "Delete “a”?", danger: true });
     expect(confirm.mock.calls[1]?.[0]).toMatchObject({
@@ -213,8 +278,8 @@ describe("deletes wait when the phone cannot be trusted to answer, and always as
 
   test("a confirmed cache delete reaches the cache on screen with the count seen", async () => {
     const { writes, deleteCache, afterCache } = setup({ pending: false, away: null }, true);
-    await expect(writes.confirmAndRemoveCache(3)).resolves.toBe(true);
-    expect(deleteCache).toHaveBeenCalledWith(ORIGIN, "api", 3, false);
+    await expect(writes.confirmAndRemoveCache(seen(3))).resolves.toBe(true);
+    expect(deleteCache).toHaveBeenCalledWith(ORIGIN, "api", seen(3), false);
     expect(afterCache).toHaveBeenCalled();
   });
 });

@@ -1,9 +1,13 @@
 import { describe, expect, test } from "vite-plus/test";
-import type { CacheStorageCatalog, CacheStorageEntry } from "@capubridge/cdp-protocol";
+import type {
+  CacheStorageCatalog,
+  CacheStorageEntry,
+  CacheStorageEntryDetail,
+} from "@capubridge/cdp-protocol";
 import { cacheBodyView } from "../cacheBody";
 import { freshnessOf, freshnessWords } from "../cacheFreshness";
 import { gridRowOf, shownRows } from "../cacheGrid";
-import { entryName, toRow } from "../cacheModel";
+import { entryName, responseChanged, toRow } from "../cacheModel";
 import { buildCacheSections, resolveCache } from "../cacheSources";
 import { EMPTY_SETTINGS, detail, entry } from "./cacheFixtures";
 
@@ -127,8 +131,8 @@ describe("the sidebar and the address", () => {
     origin: "https://localhost",
     available: true,
     caches: [
-      { name: "workbox-precache-v2", count: 40 },
-      { name: "api", count: 3 },
+      { name: "workbox-precache-v2", count: 40, fingerprint: null },
+      { name: "api", count: 3, fingerprint: null },
     ],
   };
 
@@ -193,5 +197,15 @@ describe("the body in the pane", () => {
     expect(
       cacheBodyView({ ...detail({ body: "", contentType: "", size: null }), body: null }),
     ).toBeNull();
+  });
+});
+
+describe("the pane's changed banner", () => {
+  test("a row the list read did not reach is never said to have changed", () => {
+    const row = toRow(entry({ id: "a", url: "https://localhost/a", version: "" }));
+    const detail = { version: "v-now" } as CacheStorageEntryDetail;
+    expect(responseChanged(row, detail)).toBe(false);
+    expect(responseChanged({ ...row, version: "v-old" }, detail)).toBe(true);
+    expect(responseChanged({ ...row, version: "v-now" }, detail)).toBe(false);
   });
 });

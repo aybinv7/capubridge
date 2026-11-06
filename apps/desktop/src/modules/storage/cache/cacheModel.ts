@@ -1,4 +1,4 @@
-import type { CacheStorageEntry } from "@capubridge/cdp-protocol";
+import type { CacheStorageEntry, CacheStorageEntryDetail } from "@capubridge/cdp-protocol";
 import { mediaType } from "@/shared/http/bodyContent";
 import { statusTone, type CellTone } from "@/shared/http/tone";
 
@@ -140,4 +140,15 @@ export function responseTypeWords(type: string | null): string {
     default:
       return type;
   }
+}
+
+/**
+ * The phone now holds another response than the list read. A row the list read did not reach
+ * has no version to compare, so it never counts as changed.
+ */
+export function responseChanged(
+  row: CacheRow,
+  detail: CacheStorageEntryDetail | undefined,
+): boolean {
+  return detail !== undefined && row.version !== "" && detail.version !== row.version;
 }

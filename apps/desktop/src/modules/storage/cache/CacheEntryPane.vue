@@ -11,7 +11,7 @@ import DetailsState from "@/shared/http/DetailsState.vue";
 import { TONE_CLASS } from "@/shared/http/tone";
 import CacheEntryBody from "./CacheEntryBody.vue";
 import CacheEntryHeaders from "./CacheEntryHeaders.vue";
-import type { CacheRow } from "./cacheModel";
+import { responseChanged, type CacheRow } from "./cacheModel";
 
 type PaneTab = "headers" | "response";
 
@@ -55,9 +55,7 @@ const tab = computed<PaneTab>({
 });
 const findSignal = ref(0);
 
-const changed = computed(
-  () => props.detail !== undefined && props.detail.version !== props.row.version,
-);
+const changed = computed(() => responseChanged(props.row, props.detail));
 const subtitle = computed(() => [props.position, props.row.kind].filter(Boolean).join(" · "));
 
 function asTab(value: unknown): PaneTab {
