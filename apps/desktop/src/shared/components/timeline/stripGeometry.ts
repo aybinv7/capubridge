@@ -90,11 +90,23 @@ function bucketLength(buckets: BucketWindow): number {
   return length;
 }
 
-/** Log scale against the window's busiest second, so a quiet second still shows. */
-function scaleHeight(count: number, peak: number, height: number): number {
+/** Below this many items a second never reaches full height, so a few lines stay low. */
+const QUIET_PEAK = 6;
+/** Bends the log scale so quiet seconds sit lower and busy ones keep their height. */
+const QUIET_CURVE = 1.6;
+
+/**
+ * Log scale against the window's busiest second, bent toward the floor: a quiet second still
+ * shows, but sits clearly lower than a busy one.
+ */
+export function scaleHeight(count: number, peak: number, height: number): number {
   if (count <= 0) return 0;
-  return Math.max(1, (height * Math.log1p(count)) / Math.log1p(Math.max(peak, 6)));
+  const ratio = Math.min(1, Math.log1p(count) / Math.log1p(Math.max(peak, QUIET_PEAK)));
+  return Math.max(1, height * ratio ** QUIET_CURVE);
 }
+
+/** Share of each second left empty between bars once a second is wide enough to show a gap. */
+const BAR_GAP_SHARE = 0.3;
 
 interface SlotCursor {
   pxPerSecond: number;
@@ -103,9 +115,14 @@ interface SlotCursor {
   width: number;
 }
 
+/** The gap between two bars: none while a second is under 4 px, then about a third of it. */
+export function barGap(pxPerSecond: number): number {
+  return pxPerSecond >= 4 ? Math.max(1.5, pxPerSecond * BAR_GAP_SHARE) : 0;
+}
+
 function cursorFor(scale: StripScale): SlotCursor {
   const pxPerSecond = (1000 / scale.windowMs) * scale.width;
-  return { pxPerSecond, gap: pxPerSecond >= 4 ? 1 : 0, x: 0, width: 0 };
+  return { pxPerSecond, gap: barGap(pxPerSecond), x: 0, width: 0 };
 }
 
 function placeSlot(cursor: SlotCursor, second: number, scale: StripScale): boolean {

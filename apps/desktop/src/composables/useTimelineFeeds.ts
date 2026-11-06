@@ -9,7 +9,7 @@ import {
   consoleMarkers,
   exceptionMarker,
   logcatMarkers,
-  networkMarker,
+  networkActivityMarkers,
 } from "@/lib/timeline/markerMappers";
 import type { NetworkEntry } from "@/types/network.types";
 import type { TimelineMarkerInput } from "@/types/timeline.types";
@@ -84,7 +84,9 @@ export function useTimelineFeeds() {
       }
       const deviceMs =
         activity.kind === "failed" ? finishedWallMs(activity.entry) : activity.entry.startedAt;
-      timeline.push(networkMarker(activity.entry, timeline.toHostMs(serial, deviceMs)));
+      timeline.pushMany(
+        networkActivityMarkers(activity.kind, activity.entry, timeline.toHostMs(serial, deviceMs)),
+      );
     }),
   ];
 

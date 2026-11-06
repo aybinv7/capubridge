@@ -1,10 +1,12 @@
 import { describe, expect, test } from "vite-plus/test";
 import { TIMELINE_LANES, type TimelineLane } from "@/types/timeline.types";
 import {
+  barGap,
   buildStripGeometry,
   createStripGeometry,
   hairlineRects,
   rangeRects,
+  scaleHeight,
   secondToX,
   unkeptWidth,
   xToSecond,
@@ -58,6 +60,24 @@ describe("strip geometry", () => {
     const capBottom = (geometry.rest.errors.data[1] ?? 0) + (geometry.rest.errors.data[3] ?? 0);
     expect(capBottom).toBeLessThan(consoleTop);
     expect(geometry.lanes.errors.count).toBe(1);
+  });
+
+  test("keeps quiet seconds low and busy seconds full height", () => {
+    expect(scaleHeight(0, 50, 14)).toBe(0);
+    expect(scaleHeight(1, 50, 14)).toBeLessThan(2);
+    expect(scaleHeight(1, 1, 14)).toBeLessThan(14 * 0.25);
+    expect(scaleHeight(50, 50, 14)).toBeCloseTo(14, 5);
+    expect(scaleHeight(10, 50, 14)).toBeLessThan(scaleHeight(25, 50, 14));
+  });
+
+  test("leaves about a third of each wide second empty between bars", () => {
+    expect(barGap(2)).toBe(0);
+    expect(barGap(4.7)).toBe(1.5);
+    expect(barGap(23)).toBeCloseTo(6.9, 5);
+    const window = buckets(60, () => 1);
+    const { data } = buildStripGeometry(window, scale(60_000, 600), scale(60_000, 600)).lanes
+      .logcat;
+    expect(data[2]).toBeCloseTo(7, 5);
   });
 
   test("clips seconds outside the window", () => {

@@ -56,15 +56,44 @@ export function requestFailed(entry: NetworkEntry): boolean {
   return entry.state === "failed" || (entry.httpStatus !== null && entry.httpStatus >= 400);
 }
 
+function networkLabel(entry: NetworkEntry): string {
+  const status = entry.httpStatus === null ? "" : ` ${entry.httpStatus}`;
+  return `${entry.method}${status} ${entry.url}`;
+}
+
 /** A request start on the Network lane; a failure is marked with error severity. */
 export function networkMarker(entry: NetworkEntry, hostMs: number): TimelineMarkerInput {
-  const failed = requestFailed(entry);
-  const status = entry.httpStatus === null ? "" : ` ${entry.httpStatus}`;
   return {
     t: hostMs,
     lane: "network",
-    severity: failed ? "error" : "info",
+    severity: requestFailed(entry) ? "error" : "info",
     ref: { kind: "network", id: entry.requestId },
-    label: `${entry.method}${status} ${entry.url}`,
+    label: networkLabel(entry),
   };
+}
+
+/** A failed request (a network error, or 400 and above) on the Errors lane, as a red cap. */
+export function networkErrorMarker(entry: NetworkEntry, hostMs: number): TimelineMarkerInput {
+  return {
+    t: hostMs,
+    lane: "errors",
+    severity: "error",
+    ref: { kind: "network", id: entry.requestId },
+    label: networkLabel(entry),
+  };
+}
+
+/**
+ * Markers for one network activity: a new request goes on the Network lane, and on Errors too
+ * when it already failed; a request that fails later adds only its Errors marker, so the
+ * Network lane counts each request once.
+ */
+export function networkActivityMarkers(
+  kind: "request" | "failed",
+  entry: NetworkEntry,
+  hostMs: number,
+): TimelineMarkerInput[] {
+  if (kind === "failed") return [networkErrorMarker(entry, hostMs)];
+  const start = networkMarker(entry, hostMs);
+  return requestFailed(entry) ? [start, networkErrorMarker(entry, hostMs)] : [start];
 }
