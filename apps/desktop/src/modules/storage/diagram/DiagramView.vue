@@ -12,6 +12,7 @@ import {
   watch,
   type EffectScope,
 } from "vue";
+import { holdElk } from "./storageGraphElkLayout";
 import { useRoute, useRouter } from "vue-router";
 import { SelectionMode, VueFlow, useVueFlow } from "@vue-flow/core";
 import { Button } from "@capubridge/cladd";
@@ -179,6 +180,7 @@ watch(
   { immediate: true },
 );
 onBeforeUnmount(() => leaseScope?.stop());
+onBeforeUnmount(holdElk());
 
 watch(
   () => route.fullPath,

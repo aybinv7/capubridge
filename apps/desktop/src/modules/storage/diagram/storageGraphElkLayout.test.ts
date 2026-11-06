@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { cachedUntilFailure, layoutStorageGraphWithElk } from "./storageGraphElkLayout";
+import { cachedUntilFailure, holdElk, layoutStorageGraphWithElk } from "./storageGraphElkLayout";
 import { buildStorageGraphNamingFamilies } from "./storageGraphNamingFamilies";
 
 test("ELK lays out tables and returns routed relationship points", async () => {
@@ -122,5 +122,22 @@ describe("cachedUntilFailure (B9)", () => {
     await expect(load()).resolves.toBe(2);
     await expect(load()).resolves.toBe(2);
     expect(calls).toBe(2);
+  });
+});
+
+describe("holdElk (P10)", () => {
+  test("the engine is let go when the last Diagram leaves, and loads again after", async () => {
+    let loads = 0;
+    const cached = cachedUntilFailure(async () => ({ id: ++loads }));
+    await cached();
+    expect(cached.loaded()).toEqual({ id: 1 });
+    cached.forget();
+    expect(cached.loaded()).toBeNull();
+    await expect(cached()).resolves.toEqual({ id: 2 });
+    const releaseA = holdElk();
+    const releaseB = holdElk();
+    releaseA();
+    releaseA();
+    releaseB();
   });
 });

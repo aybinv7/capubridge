@@ -12,19 +12,39 @@ export interface StorageGraphElkLayoutResult {
   routes: Record<string, StorageGraphPosition[]>;
 }
 
+/** A memoised async load whose failure is not kept, and which can be let go. */
+export interface CachedLoad<T> {
+  (): Promise<T>;
+  /** The loaded value, if a load finished. */
+  loaded: () => T | null;
+  /** Drops what was loaded; the next call loads again. */
+  forget: () => void;
+}
+
 /**
  * Memoises an async load, but not its failure: a rejected load is dropped, so the next call
  * tries again instead of failing until the app reloads (B9).
  */
-export function cachedUntilFailure<T>(load: () => Promise<T>): () => Promise<T> {
+export function cachedUntilFailure<T>(load: () => Promise<T>): CachedLoad<T> {
   let pending: Promise<T> | null = null;
-  return () => {
-    pending ??= load().catch((error: unknown) => {
-      pending = null;
-      throw error;
-    });
+  let value: T | null = null;
+  const get = () => {
+    pending ??= load().then(
+      (loaded) => (value = loaded),
+      (error: unknown) => {
+        pending = null;
+        throw error;
+      },
+    );
     return pending;
   };
+  return Object.assign(get, {
+    loaded: () => value,
+    forget: () => {
+      pending = null;
+      value = null;
+    },
+  });
 }
 
 /**
@@ -43,6 +63,25 @@ const elkEngine = cachedUntilFailure(async (): Promise<InstanceType<typeof ELK>>
   ]);
   return new Api({ workerFactory: () => new Worker(workerUrl) });
 });
+
+let holders = 0;
+
+/**
+ * Keeps the ELK worker while a Diagram is on screen; when the last one goes, the worker is
+ * stopped and loads again with the next layout (P10). Returns the release.
+ */
+export function holdElk(): () => void {
+  holders += 1;
+  let held = true;
+  return () => {
+    if (!held) return;
+    held = false;
+    holders -= 1;
+    if (holders > 0) return;
+    if (typeof Worker !== "undefined") elkEngine.loaded()?.terminateWorker();
+    elkEngine.forget();
+  };
+}
 
 function sourcePortId(edgeId: string): string {
   return `${edgeId}:source`;

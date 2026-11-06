@@ -7,8 +7,13 @@ import {
   buildIndexedDbDescriptor,
   buildLocalForageDescriptor,
 } from "@/modules/storage/diagram/storageGraphEntityBuilders";
+import { mapLimited } from "./mapLimited";
 import { sqliteDiagramEntities } from "./sqliteDiagramEntities";
 import type { StorageGraphEntityDescriptor } from "@/types/storageGraph.types";
+
+/** The app's other databases read two at a time, six tables at a time each (P4). */
+const PARALLEL_DATABASES = 2;
+const PARALLEL_TABLES = 6;
 
 export interface UseStorageGraphQueriesParams {
   getClient: ReturnType<typeof useCDP>["getClient"];
@@ -141,27 +146,23 @@ export function useStorageGraphQueries({
         (database) => database.path !== skipSqlitePath.value,
       );
 
-      const settled = await Promise.allSettled(
-        databases.map(async (database) => {
+      const settled = await mapLimited(databases, PARALLEL_DATABASES, async (database) => {
+        try {
           const tables = await openDatabase(serial.value, selectedPackageName.value, database.path);
-          const schemas = await Promise.all(
-            tables.map(async (table) => {
-              const [columns, indexes, foreignKeys] = await Promise.all([
-                tableColumns(serial.value, selectedPackageName.value, database.path, table.name),
-                tableIndexes(serial.value, selectedPackageName.value, database.path, table.name),
-                tableForeignKeys(
-                  serial.value,
-                  selectedPackageName.value,
-                  database.path,
-                  table.name,
-                ),
-              ]);
-              return { table, columns, indexes, foreignKeys };
-            }),
-          );
-          return { name: database.name, path: database.path, tables: schemas };
-        }),
-      );
+          const schemas = await mapLimited(tables, PARALLEL_TABLES, async (table) => {
+            const [columns, indexes, foreignKeys] = await Promise.all([
+              tableColumns(serial.value, selectedPackageName.value, database.path, table.name),
+              tableIndexes(serial.value, selectedPackageName.value, database.path, table.name),
+              tableForeignKeys(serial.value, selectedPackageName.value, database.path, table.name),
+            ]);
+            return { table, columns, indexes, foreignKeys };
+          });
+          const value = { name: database.name, path: database.path, tables: schemas };
+          return { status: "fulfilled", value } satisfies PromiseSettledResult<typeof value>;
+        } catch (reason) {
+          return { status: "rejected", reason } satisfies PromiseRejectedResult;
+        }
+      });
       const failed = settled.flatMap((outcome, index) =>
         outcome.status === "rejected"
           ? [{ database: databases[index]?.name, reason: outcome.reason }]
