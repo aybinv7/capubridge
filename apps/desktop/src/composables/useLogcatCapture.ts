@@ -2,6 +2,7 @@ import { onScopeDispose, watch } from "vue";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useLogcatStore } from "@/stores/logcat.store";
 import { useSessionStore } from "@/stores/session.store";
+import { useTargetsStore } from "@/stores/targets.store";
 
 /**
  * Keeps this window's logcat capture on the active device for as long as the calling scope
@@ -12,6 +13,7 @@ export function useLogcatCapture() {
   const sessionStore = useSessionStore();
   const devicesStore = useDevicesStore();
   const logcatStore = useLogcatStore();
+  const targetsStore = useTargetsStore();
 
   function report(error: unknown) {
     logcatStore.error = `Logcat capture failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -29,6 +31,12 @@ export function useLogcatCapture() {
     ([serial, online]) => {
       logcatStore.follow(serial, online).catch(report);
     },
+    { immediate: true },
+  );
+
+  watch(
+    () => targetsStore.selectedTarget?.packageName ?? null,
+    (packageName) => logcatStore.setWatchedPackage(packageName),
     { immediate: true },
   );
 

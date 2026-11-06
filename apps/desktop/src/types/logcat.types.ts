@@ -56,6 +56,8 @@ export interface LogcatEntry {
   processName: string | null;
   packageName: string | null;
   message: string;
+  /** Set on rows Capubridge adds itself: the inspected app's process ended or started. */
+  marker?: "process-started" | "process-ended";
 }
 
 /** What this window's logcat channel receives. */

@@ -43,8 +43,7 @@ const expanded = { isExpanded: () => true };
 describe("buildConsoleRows", () => {
   it("lists flat entries in order", () => {
     const rows = buildConsoleRows(ring([entry("a", "one"), entry("b", "two")]), {
-      query: "",
-      level: "all",
+      test: null,
       ...expanded,
     });
     expect(rows.map((row) => [row.entry.id, row.depth])).toEqual([
@@ -59,15 +58,14 @@ describe("buildConsoleRows", () => {
       entry("c1", "child", { parentId: "g" }),
       entry("after", "after"),
     ];
-    const open = buildConsoleRows(ring(entries), { query: "", level: "all", ...expanded });
+    const open = buildConsoleRows(ring(entries), { test: null, ...expanded });
     expect(open.map((row) => [row.entry.id, row.depth])).toEqual([
       ["g", 0],
       ["c1", 1],
       ["after", 0],
     ]);
     const closed = buildConsoleRows(ring(entries), {
-      query: "",
-      level: "all",
+      test: null,
       isExpanded: () => false,
     });
     expect(closed.map((row) => row.entry.id)).toEqual(["g", "after"]);
@@ -80,16 +78,21 @@ describe("buildConsoleRows", () => {
       entry("hit", "needle", { parentId: "h", level: "error" }),
       entry("miss", "hay"),
     ];
-    const rows = buildConsoleRows(ring(entries), { query: "NEEDLE", level: "all", ...expanded });
+    const rows = buildConsoleRows(ring(entries), {
+      test: (item) => item.message === "needle",
+      ...expanded,
+    });
     expect(rows.map((row) => row.entry.id)).toEqual(["g", "h", "hit"]);
-    const errors = buildConsoleRows(ring(entries), { query: "", level: "error", ...expanded });
+    const errors = buildConsoleRows(ring(entries), {
+      test: (item) => item.level === "error",
+      ...expanded,
+    });
     expect(errors.map((row) => row.entry.id)).toEqual(["g", "h", "hit"]);
   });
 
   it("shows children whose group was evicted at the top level", () => {
     const rows = buildConsoleRows(ring([entry("orphan", "left", { parentId: "gone" })]), {
-      query: "",
-      level: "all",
+      test: null,
       ...expanded,
     });
     expect(rows.map((row) => [row.entry.id, row.depth])).toEqual([["orphan", 0]]);

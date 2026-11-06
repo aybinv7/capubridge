@@ -21,6 +21,16 @@ export interface ConsoleProp {
   value: ConsoleArg;
 }
 
+/** One call frame of a console or exception stack, 1-based like the source label. */
+export interface StackFrame {
+  functionName: string;
+  url: string | null;
+  lineNumber: number | null;
+  columnNumber: number | null;
+  /** `file.js:12:4`, or "runtime" when the frame has no URL. */
+  source: string;
+}
+
 export interface ConsoleEntry {
   seq: number;
   id: string;
@@ -39,6 +49,10 @@ export interface ConsoleEntry {
   url: string | null;
   lineNumber: number | null;
   columnNumber: number | null;
+  /** The request a network-sourced `Log.entryAdded` message is about. */
+  networkRequestId?: string | null;
+  /** Call frames for errors, warnings, traces and asserts; other calls keep none. */
+  frames?: StackFrame[] | null;
 }
 
 export interface ConsoleExceptionEntry {
@@ -53,9 +67,16 @@ export interface ConsoleExceptionEntry {
   lineNumber: number | null;
   columnNumber: number | null;
   stack: string[];
+  frames?: StackFrame[];
 }
 
 export interface ReplHistoryEntry {
+  /**
+   * Places of the input and its result in the console's sequence, so messages the expression
+   * logged sit between them.
+   */
+  seq: number;
+  resultSeq: number;
   id: string;
   targetId: string;
   timestamp: number;

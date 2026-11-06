@@ -10,11 +10,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConsoleStore } from "@/stores/console.store";
 import type { ConsoleEntry, ConsoleEntryLevel } from "@/types/console.types";
 import ConsoleArgsView from "@/components/console/ConsoleArgsView.vue";
-import { buildConsoleRows, type ConsoleFilterLevel } from "@/lib/console/consoleRows";
+import { buildConsoleRows, consoleSearchText } from "@/lib/console/consoleRows";
 import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
 import { useRevealFocus } from "@/shared/timeline/revealFocus";
 
-type FilterLevel = ConsoleFilterLevel;
+type FilterLevel = ConsoleEntryLevel | "all" | "verbose";
 
 const consoleStore = useConsoleStore();
 
@@ -39,9 +39,18 @@ function toggleGroup(entry: ConsoleEntry) {
 
 const visibleRows = computed(() => {
   void consoleStore.entryVersion;
+  const query = debouncedQuery.value.trim().toLowerCase();
+  const level = activeLevel.value;
+  const levelOk = (entry: ConsoleEntry) =>
+    level === "all" ||
+    (level === "verbose"
+      ? entry.level === "log" || entry.level === "debug"
+      : entry.level === level);
   return buildConsoleRows(consoleStore.consoleSource.ring, {
-    query: debouncedQuery.value,
-    level: activeLevel.value,
+    test:
+      query || level !== "all"
+        ? (entry) => levelOk(entry) && (!query || consoleSearchText(entry).includes(query))
+        : null,
     isExpanded,
   });
 });

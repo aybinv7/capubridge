@@ -1,6 +1,6 @@
 import { computed, markRaw, ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
-import { useDockStore } from "@/stores/dock.store";
+import { useDrawerStore } from "@/stores/drawer.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
 import { createSerialQueue } from "@/lib/serial-queue";
 import { RingBuffer } from "@/lib/ring-buffer";
@@ -8,6 +8,7 @@ import { STREAM_CAPS } from "@/lib/stream-caps";
 import { createStreamFeed } from "@/lib/stream-feed";
 import { toLogcatEntry } from "@/lib/logcat/logcatEntry";
 import { createLogcatTally } from "@/lib/logcat/logcatTally";
+import { createProcessTracker } from "@/lib/logcat/processMarkers";
 import { runSessionEffect, startLogcatLeaseEffect, stopLogcatLeaseEffect } from "@/runtime/session";
 import type {
   LogcatBatchPayload,
@@ -22,6 +23,14 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function countWarnings(batch: readonly LogcatEntry[]): number {
+  let count = 0;
+  for (const entry of batch) {
+    if (entry.level === "W" || entry.level === "E" || entry.level === "F") count += 1;
+  }
+  return count;
+}
+
 /**
  * Logcat of the active device, captured at app level. The window holds one lease on the
  * device's capture (Rust shares one run between every window that holds it); views only read.
@@ -33,12 +42,13 @@ function errorMessage(error: unknown): string {
  * updates the level and package tallies incrementally. Consumers subscribe to `feed`.
  */
 export const useLogcatStore = defineStore("logcat", () => {
-  const dockStore = useDockStore();
+  const drawer = useDrawerStore();
   const leaseQueue = createSerialQueue();
 
   const ring = markRaw(new RingBuffer<LogcatEntry>(STREAM_CAPS.logcat));
   const feed = markRaw(createStreamFeed<LogcatEntry>("logcat"));
   const tally = createLogcatTally();
+  const processes = createProcessTracker();
   const version = shallowRef(0);
   const levelCounts = shallowRef(tally.levels());
   const packages = shallowRef<string[]>([]);
@@ -53,6 +63,9 @@ export const useLogcatStore = defineStore("logcat", () => {
   const pausedCount = ref(0);
   const error = ref<string | null>(null);
   const buffers = ref<string[] | null>(null);
+  /** When the stream last turned live, for "Live since"; null while it is not live. */
+  const liveSince = ref<number | null>(null);
+  const watchedPackage = ref<string | null>(null);
 
   const isStreaming = computed(() => streamState.value === "live");
   const size = computed(() => {
@@ -90,7 +103,7 @@ export const useLogcatStore = defineStore("logcat", () => {
     }
     publish();
     feed.emit({ kind: "append", items: batch, evicted });
-    dockStore.markUnread("logcat");
+    drawer.noteArrivals("logs", countWarnings(batch));
   }
 
   const batcher = createFrameBatcher<LogcatEntry>(flush, STREAM_CAPS.logcat);
@@ -118,7 +131,9 @@ export const useLogcatStore = defineStore("logcat", () => {
       return;
     }
     for (const line of batch.lines) {
-      batcher.push(toLogcatEntry(batch.serial, line));
+      const entry = toLogcatEntry(batch.serial, line);
+      for (const marker of processes.observe(entry)) batcher.push(marker);
+      batcher.push(entry);
     }
   }
 
@@ -126,6 +141,8 @@ export const useLogcatStore = defineStore("logcat", () => {
     if (status.serial !== serial.value || !acceptsGeneration(status.generation)) {
       return;
     }
+    if (status.state === "live" && streamState.value !== "live") liveSince.value = Date.now();
+    if (status.state !== "live") liveSince.value = null;
     streamState.value = status.state;
     attempt.value = status.attempt;
     retryInMs.value = status.retryInMs;
@@ -152,6 +169,7 @@ export const useLogcatStore = defineStore("logcat", () => {
 
   function resetStreamState() {
     streamState.value = "stopped";
+    liveSince.value = null;
     attempt.value = 0;
     retryInMs.value = null;
     clockWentBack.value = false;
@@ -217,6 +235,7 @@ export const useLogcatStore = defineStore("logcat", () => {
       if (serial.value !== nextSerial) {
         serial.value = nextSerial;
         clock.value = null;
+        processes.reset();
         clear();
       }
 
@@ -246,7 +265,6 @@ export const useLogcatStore = defineStore("logcat", () => {
   /**
    * Picks the logcat buffers to read (`main`, `system`, `crash`, `events`, `kernel`, ...);
    * null goes back to the device default. Restarts the capture so the choice takes effect.
-   * The UI does not offer it yet.
    */
   function setBuffers(next: string[] | null) {
     return leaseQueue.run(async () => {
@@ -258,6 +276,12 @@ export const useLogcatStore = defineStore("logcat", () => {
       clear();
       await acquire(currentSerial, true);
     });
+  }
+
+  /** Follows the inspected app's process, so its restarts show as rows. */
+  function setWatchedPackage(packageName: string | null) {
+    watchedPackage.value = packageName;
+    processes.setPackage(packageName);
   }
 
   /** Freezes the views; capture goes on and every new line is kept in the ring. */
@@ -305,6 +329,9 @@ export const useLogcatStore = defineStore("logcat", () => {
     restart,
     buffers,
     setBuffers,
+    liveSince,
+    watchedPackage,
+    setWatchedPackage,
     pause,
     resume,
     togglePaused,

@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { effectScope, ref } from "vue";
 import { createPinia, setActivePinia } from "pinia";
-import { useRingView } from "@/composables/useRingView";
-import { buildConsoleRows } from "@/lib/console/consoleRows";
-import { compileLogcatFilter } from "@/lib/logcat/logcatFilter";
+import { useRepeatRingView } from "@/composables/useRepeatRingView";
+import { compileConsoleQuery } from "@/lib/console/consoleQuery";
+import { ConsoleStreamView } from "@/lib/console/consoleStreamView";
+import { compileLogcatQuery } from "@/lib/logcat/logcatQuery";
 import { toLogcatEntry } from "@/lib/logcat/logcatEntry";
 import { STREAM_CAPS } from "@/lib/stream-caps";
 import type { ConsoleEntry } from "@/types/console.types";
 import type { LogcatEntry, LogcatLevel } from "@/types/logcat.types";
 
-vi.mock("@/stores/dock.store", () => ({
-  useDockStore: () => ({ markUnread: () => undefined }),
+vi.mock("@/stores/drawer.store", () => ({
+  useDrawerStore: () => ({ noteArrivals: () => undefined }),
 }));
 
 vi.mock("@/stores/connection.store", () => ({
@@ -112,14 +113,16 @@ describe("stream flush cost", () => {
     }
     const scope = effectScope();
     const predicate = ref(
-      compileLogcatFilter({
-        text: "status 200",
-        tag: "",
-        packageName: "com.example.app7",
-        levels: ["I", "W", "E", "F"],
-      }),
+      compileLogcatQuery("status 200 package:com.example.app7 level:I -tag:Tag3", {
+        myPackage: "com.example.app7",
+        hostTime: (entry) => entry.tsMs,
+      }).predicate,
     );
-    const view = scope.run(() => useRingView(store, predicate));
+    const rule = {
+      keyOf: (entry: LogcatEntry) => entry.id,
+      same: (a: LogcatEntry, b: LogcatEntry) => a.tag === b.tag && a.message === b.message,
+    };
+    const view = scope.run(() => useRepeatRingView(store, predicate, { rule }));
     if (!view) throw new Error("view not created");
 
     const steady: number[] = [];
@@ -143,28 +146,39 @@ describe("stream flush cost", () => {
     expect(burstStats.p95).toBeLessThan(FLUSH_BUDGET_MS);
   });
 
-  test("a console flush into a full 10,000-entry ring, rows rebuilt, stays under 4 ms", () => {
+  test("a console flush into a full 10,000-entry ring, with stream rows, stays under 4 ms", () => {
     const store = useConsoleStore();
+    const query = compileConsoleQuery("level:verbose -url:cdn.test", {
+      hostTime: (item) => item.time,
+    });
     for (let filled = 0; filled < STREAM_CAPS.console; filled += 500) {
       store.flushEntries(consoleEntries(500));
     }
 
+    const view = new ConsoleStreamView(() => ({
+      entries: store.consoleSource.ring,
+      exceptions: store.exceptionSource.ring,
+      repl: store.replHistory,
+      test: query.predicate,
+      isExpanded: () => true,
+    }));
+    view.rebuild();
+    const unsubscribe = store.consoleSource.feed.subscribe((change) => view.applyEntries(change));
+
     const samples: number[] = [];
     for (let round = 0; round < 200; round += 1) {
       const batch = consoleEntries(4);
-      samples.push(
-        measure(() => {
-          store.flushEntries(batch);
-          buildConsoleRows(store.consoleSource.ring, {
-            query: "",
-            level: "all",
-            isExpanded: () => true,
-          });
-        }),
-      );
+      samples.push(measure(() => store.flushEntries(batch)));
     }
+    const incremental = view.rows.map((row) => `${row.item.key}:${row.count}`).join();
+    view.rebuild();
+    expect(view.rows.map((row) => `${row.item.key}:${row.count}`).join()).toBe(incremental);
+    const rebuilds: number[] = [];
+    for (let round = 0; round < 30; round += 1) rebuilds.push(measure(() => view.rebuild()));
+    unsubscribe();
+    console.info("[perf] console full rebuild, 10k ring with a query (ms)", summarize(rebuilds));
     const stats = summarize(samples.slice(20));
-    console.info("[perf] console flush + rows, 4 entries into 10k ring (ms)", stats);
+    console.info("[perf] console flush + stream rows, 4 entries into 10k ring (ms)", stats);
     expect(store.levelCounts.all).toBe(STREAM_CAPS.console);
     expect(stats.p95).toBeLessThan(FLUSH_BUDGET_MS);
   });

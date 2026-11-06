@@ -11,6 +11,7 @@ import type {
   ConsoleEntry,
   ConsoleEntryLevel,
   ConsoleExceptionEntry,
+  StackFrame,
 } from "@/types/console.types";
 
 /** What turning CDP events into entries needs from the console store. */
@@ -25,6 +26,28 @@ export function buildId(parts: Array<string | number | null | undefined>): strin
   return parts.map((part) => (part == null ? "null" : String(part))).join(":");
 }
 
+const MAX_FRAMES = 40;
+const TYPES_WITH_FRAMES = new Set(["error", "warning", "trace", "assert"]);
+
+/** Structured frames of a CDP stack trace, at most {@link MAX_FRAMES}. */
+export function readFrames(callFrames: readonly unknown[]): StackFrame[] {
+  const frames: StackFrame[] = [];
+  for (const raw of callFrames) {
+    if (frames.length >= MAX_FRAMES) break;
+    if (!isRecord(raw)) continue;
+    const location = readFrameSource(raw);
+    frames.push({
+      functionName:
+        typeof raw.functionName === "string" && raw.functionName ? raw.functionName : "",
+      url: location.url,
+      lineNumber: location.lineNumber,
+      columnNumber: location.columnNumber,
+      source: location.source,
+    });
+  }
+  return frames;
+}
+
 function runtimeLevelFromType(type: string): ConsoleEntryLevel {
   if (type === "warning") return "warn";
   if (type === "error" || type === "assert") return "error";
@@ -34,7 +57,8 @@ function runtimeLevelFromType(type: string): ConsoleEntryLevel {
 }
 
 function logLevelFromType(type: string): ConsoleEntryLevel {
-  if (type === "verbose" || type === "info") return "info";
+  if (type === "verbose") return "debug";
+  if (type === "info") return "info";
   if (type === "warning") return "warn";
   if (type === "error") return "error";
   return "log";
@@ -102,6 +126,8 @@ export function runtimeConsoleEntry(
     url: sourceDetails.url,
     lineNumber: sourceDetails.lineNumber,
     columnNumber: sourceDetails.columnNumber,
+    frames:
+      TYPES_WITH_FRAMES.has(runtimeType) && callFrames.length > 0 ? readFrames(callFrames) : null,
   };
 }
 
@@ -145,6 +171,10 @@ export function logEventEntry(
     url,
     lineNumber,
     columnNumber: null,
+    networkRequestId:
+      typeof entry.networkRequestId === "string" && entry.networkRequestId
+        ? entry.networkRequestId
+        : null,
   };
 }
 
@@ -196,5 +226,6 @@ export function exceptionEntry(
     lineNumber: sourceDetails.lineNumber,
     columnNumber: sourceDetails.columnNumber,
     stack: callFrames.filter(isRecord).map(stackLine),
+    frames: readFrames(callFrames),
   };
 }

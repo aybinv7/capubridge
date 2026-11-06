@@ -6,7 +6,7 @@ import {
   runSessionEffect,
 } from "@/runtime/session";
 import { useConnectionStore } from "@/stores/connection.store";
-import { useDockStore } from "@/stores/dock.store";
+import { useDrawerStore } from "@/stores/drawer.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
 import { createConsoleBuffer } from "@/lib/console/consoleBuffer";
@@ -14,6 +14,8 @@ import { formatTimestamp, isRecord } from "@/lib/console/consoleFormat";
 import { consoleSignature, createReplayGuard, exceptionSignature } from "@/lib/console/replayGuard";
 import { STREAM_CAPS } from "@/lib/stream-caps";
 import { withTimeout } from "@/lib/with-timeout";
+import { fetchCompletionNames } from "@/lib/console/replCompletion";
+import { replResultText } from "@/lib/console/replResult";
 import type { CDPTarget } from "@/types/cdp.types";
 import type {
   ConsoleArg,
@@ -46,10 +48,18 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function countWarnings(batch: readonly ConsoleEntry[]): number {
+  let count = 0;
+  for (const entry of batch) {
+    if (entry.level === "warn" || entry.level === "error") count += 1;
+  }
+  return count;
+}
+
 export const useConsoleStore = defineStore("console", () => {
   const connectionStore = useConnectionStore();
   const targetsStore = useTargetsStore();
-  const dockStore = useDockStore();
+  const drawer = useDrawerStore();
 
   const buffer = markRaw(createConsoleBuffer());
   const entryVersion = shallowRef(0);
@@ -75,6 +85,12 @@ export const useConsoleStore = defineStore("console", () => {
   const isReady = ref(false);
   const error = ref<string | null>(null);
   const captureStatus = ref<ConsoleCaptureStatus>("idle");
+  /** When capture last turned live, for "Live since"; null while it is not live. */
+  const liveSince = ref<number | null>(null);
+  watch(captureStatus, (status, previous) => {
+    if (status === "live" && previous !== "live") liveSince.value = Date.now();
+    if (status !== "live") liveSince.value = null;
+  });
 
   const activeTarget = computed(() => targetsStore.selectedTarget);
   const activeTargetLabel = computed(
@@ -104,7 +120,7 @@ export const useConsoleStore = defineStore("console", () => {
     pendingGroups.clear();
     entryVersion.value += 1;
     levelCounts.value = buffer.counts();
-    maybeMarkConsoleUnread();
+    drawer.noteArrivals("console", countWarnings(batch));
   }
 
   const entryBatcher = createFrameBatcher<ConsoleEntry>(flushEntries, STREAM_CAPS.console);
@@ -112,7 +128,7 @@ export const useConsoleStore = defineStore("console", () => {
   const exceptionBatcher = createFrameBatcher<ConsoleExceptionEntry>((batch) => {
     buffer.appendExceptions(batch);
     exceptionVersion.value += 1;
-    maybeMarkExceptionsUnread();
+    drawer.noteArrivals("console", batch.length);
   }, STREAM_CAPS.exceptions);
 
   function clearRetry() {
@@ -158,35 +174,13 @@ export const useConsoleStore = defineStore("console", () => {
     replHistory.value = [];
   }
 
-  function maybeMarkConsoleUnread() {
-    dockStore.markUnread("console");
-  }
-
-  function maybeMarkExceptionsUnread() {
-    dockStore.markUnread("exceptions");
-  }
-
   function pushConsoleEntry(entry: ConsoleEntry) {
     if (replayGuard.isReplay(entry.timestamp, consoleSignature(entry))) {
       return;
     }
-    if (!entry.isGroup) {
-      const lastEntry = entryBatcher.last() ?? buffer.entries.last();
-      if (
-        lastEntry &&
-        lastEntry.origin === entry.origin &&
-        lastEntry.level === entry.level &&
-        lastEntry.source === entry.source &&
-        lastEntry.message === entry.message &&
-        lastEntry.parentId === entry.parentId &&
-        Math.abs(lastEntry.timestamp - entry.timestamp) < 250
-      ) {
-        return;
-      }
-    } else {
+    if (entry.isGroup) {
       pendingGroups.set(entry.id, entry);
     }
-
     entryBatcher.push(entry);
   }
 
@@ -197,8 +191,11 @@ export const useConsoleStore = defineStore("console", () => {
     exceptionBatcher.push(entry);
   }
 
-  function pushReplEntry(entry: ReplHistoryEntry) {
-    replHistory.value = trimList([...replHistory.value, entry], maxReplEntries);
+  function pushReplEntry(entry: Omit<ReplHistoryEntry, "seq" | "resultSeq">, inputSeq: number) {
+    replHistory.value = trimList(
+      [...replHistory.value, { ...entry, seq: inputSeq, resultSeq: ++idCounter }],
+      maxReplEntries,
+    );
   }
 
   function handleRuntimeConsole(targetId: string, payload: unknown) {
@@ -512,25 +509,33 @@ export const useConsoleStore = defineStore("console", () => {
       return "";
     }
 
+    const inputSeq = ++idCounter;
+    const timestamp = Date.now();
     const client = boundTargetId.value ? connectionStore.getClient(boundTargetId.value) : null;
     const targetId = boundTargetId.value;
+
+    function record(status: ReplHistoryEntry["status"], result: string, outcome: string) {
+      pushReplEntry(
+        {
+          id: buildId(["repl", timestamp, outcome, inputSeq]),
+          targetId: targetId ?? "none",
+          timestamp,
+          timestampLabel: formatTimestamp(timestamp),
+          expression: normalizedExpression,
+          result,
+          status,
+        },
+        inputSeq,
+      );
+    }
+
     if (!client || !targetId) {
       const message = "No active CDP target";
-      const timestamp = Date.now();
-      pushReplEntry({
-        id: buildId(["repl", timestamp, message]),
-        targetId: "none",
-        timestamp,
-        timestampLabel: formatTimestamp(timestamp),
-        expression: normalizedExpression,
-        result: message,
-        status: "error",
-      });
+      record("error", message, "no-target");
       throw new Error(message);
     }
 
-    const timestamp = Date.now();
-
+    let response: Record<string, unknown>;
     try {
       const result = await withTimeout(
         client.send<{ result?: unknown; exceptionDetails?: unknown }>("Runtime.evaluate", {
@@ -544,52 +549,27 @@ export const useConsoleStore = defineStore("console", () => {
         replTimeoutMs,
         `No answer after ${replTimeoutMs / 1000} s. The expression may still be running in the app.`,
       );
-
-      const response = isRecord(result) ? result : {};
-      if (response.exceptionDetails) {
-        const details = isRecord(response.exceptionDetails) ? response.exceptionDetails : {};
-        const message =
-          (typeof details.text === "string" && details.text) ||
-          (isRecord(details.exception) && typeof details.exception.description === "string"
-            ? details.exception.description
-            : "Evaluation failed");
-        pushReplEntry({
-          id: buildId(["repl", timestamp, "error", normalizedExpression]),
-          targetId,
-          timestamp,
-          timestampLabel: formatTimestamp(timestamp),
-          expression: normalizedExpression,
-          result: message,
-          status: "error",
-        });
-        throw new Error(message);
-      }
-
-      const resultArg = parseRemoteValue(response.result);
-      const resultText = resultArg.kind === "primitive" ? resultArg.text : resultArg.description;
-      pushReplEntry({
-        id: buildId(["repl", timestamp, "ok", normalizedExpression]),
-        targetId,
-        timestamp,
-        timestampLabel: formatTimestamp(timestamp),
-        expression: normalizedExpression,
-        result: resultText,
-        status: "ok",
-      });
-      return resultText;
+      response = isRecord(result) ? result : {};
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      pushReplEntry({
-        id: buildId(["repl", timestamp, "throw", normalizedExpression]),
-        targetId,
-        timestamp,
-        timestampLabel: formatTimestamp(timestamp),
-        expression: normalizedExpression,
-        result: message,
-        status: "error",
-      });
+      record("error", describeError(err), "throw");
       throw err;
     }
+
+    if (response.exceptionDetails) {
+      const details = isRecord(response.exceptionDetails) ? response.exceptionDetails : {};
+      const message =
+        (isRecord(details.exception) && typeof details.exception.description === "string"
+          ? details.exception.description
+          : null) ||
+        (typeof details.text === "string" && details.text) ||
+        "Evaluation failed";
+      record("error", message, "error");
+      throw new Error(message);
+    }
+
+    const resultText = replResultText(response.result);
+    record("ok", resultText, "ok");
+    return resultText;
   }
 
   async function fetchObjectProperties(
@@ -615,6 +595,16 @@ export const useConsoleStore = defineStore("console", () => {
         name: typeof it.name === "string" ? it.name : "?",
         value: parseRemoteValue(it.value),
       }));
+  }
+
+  /**
+   * Names the prompt can complete on `objectExpr` (globals when null), read from the bound
+   * target without side effects. Empty when no target is bound.
+   */
+  async function completionNames(objectExpr: string | null): Promise<string[]> {
+    const client = boundTargetId.value ? connectionStore.getClient(boundTargetId.value) : null;
+    if (!client) return [];
+    return fetchCompletionNames(client, objectExpr);
   }
 
   const consoleSource = markRaw({
@@ -649,6 +639,8 @@ export const useConsoleStore = defineStore("console", () => {
     acquireLease,
     releaseLease,
     evaluate,
+    completionNames,
+    liveSince,
     fetchObjectProperties,
     clearConsole,
     clearExceptions,

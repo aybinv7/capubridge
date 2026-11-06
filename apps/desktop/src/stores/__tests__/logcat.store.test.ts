@@ -13,8 +13,8 @@ const runtime = vi.hoisted(() => ({
   buffers: [] as Array<string[] | undefined>,
 }));
 
-vi.mock("@/stores/dock.store", () => ({
-  useDockStore: () => ({ markUnread: () => undefined }),
+vi.mock("@/stores/drawer.store", () => ({
+  useDrawerStore: () => ({ noteArrivals: () => undefined }),
 }));
 
 vi.mock("@/runtime/session", () => ({

@@ -1,7 +1,5 @@
 import type { RingBuffer } from "@/lib/ring-buffer";
-import type { ConsoleEntry, ConsoleEntryLevel } from "@/types/console.types";
-
-export type ConsoleFilterLevel = ConsoleEntryLevel | "all" | "verbose";
+import type { ConsoleEntry } from "@/types/console.types";
 
 export interface ConsoleRow {
   entry: ConsoleEntry;
@@ -9,9 +7,9 @@ export interface ConsoleRow {
 }
 
 export interface ConsoleRowOptions {
-  query: string;
-  level: ConsoleFilterLevel;
-  isExpanded(entry: ConsoleEntry): boolean;
+  /** Keeps an entry; null keeps every entry. Groups on the path to a kept entry stay. */
+  test: ((entry: ConsoleEntry) => boolean) | null;
+  isExpanded: (entry: ConsoleEntry) => boolean;
 }
 
 const searchTexts = new WeakMap<ConsoleEntry, string>();
@@ -26,12 +24,6 @@ export function consoleSearchText(entry: ConsoleEntry): string {
   return text;
 }
 
-function levelMatches(entry: ConsoleEntry, level: ConsoleFilterLevel): boolean {
-  if (level === "all") return true;
-  if (level === "verbose") return entry.level === "log" || entry.level === "debug";
-  return entry.level === level;
-}
-
 /**
  * The console rows to show, in order, with group depth. A filter keeps the groups on the path
  * to a match. One pass over the buffer; groups only cost a child index when there are any.
@@ -40,8 +32,8 @@ export function buildConsoleRows(
   ring: RingBuffer<ConsoleEntry>,
   options: ConsoleRowOptions,
 ): ConsoleRow[] {
-  const query = options.query.trim().toLowerCase();
-  const filterActive = query !== "" || options.level !== "all";
+  const test = options.test;
+  const filterActive = test !== null;
   const children = new Map<string, ConsoleEntry[]>();
   const roots: ConsoleEntry[] = [];
   const shown = filterActive ? new Set<string>() : null;
@@ -60,8 +52,12 @@ export function buildConsoleRows(
     }
   });
 
-  if (children.size === 0 && !filterActive) {
-    return ordered.map((entry) => ({ entry, depth: 0 }));
+  if (children.size === 0) {
+    const flat: ConsoleRow[] = [];
+    for (const entry of ordered) {
+      if (!test || test(entry)) flat.push({ entry, depth: 0 });
+    }
+    return flat;
   }
 
   if (shown) {
@@ -72,10 +68,7 @@ export function buildConsoleRows(
     for (let index = ordered.length - 1; index >= 0; index -= 1) {
       const entry = ordered[index];
       if (!entry) continue;
-      const matches =
-        shown.has(entry.id) ||
-        (levelMatches(entry, options.level) &&
-          (!query || consoleSearchText(entry).includes(query)));
+      const matches = shown.has(entry.id) || (test !== null && test(entry));
       if (!matches) continue;
       shown.add(entry.id);
       let parentId = entry.parentId;
