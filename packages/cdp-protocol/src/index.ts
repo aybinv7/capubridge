@@ -136,13 +136,18 @@ export type {
 } from "./cdp/domains/opfs-sqlite-discovery.js";
 export {
   FORAGE_READ_LIMIT,
+  KEYVALUE_DELETE_BATCH,
   KeyValueConflictError,
+  KeyValueDeleteError,
   KeyValueDomain,
   KeyValueWrongOriginError,
 } from "./cdp/domains/keyvalue.js";
 export type {
   KeyValueArea,
   KeyValueConflict,
+  KeyValueDeleteItem,
+  KeyValueDeleteOptions,
+  KeyValueDeleteResult,
   KeyValueDiscovery,
   KeyValueForageEntry,
   KeyValueForagePage,

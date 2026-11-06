@@ -134,3 +134,27 @@ describe("LocalForage writes keep what the person did not see", () => {
     db.close();
   });
 });
+
+describe("LocalForage deletes keep what the person did not see", () => {
+  test("a value the app changed is kept, the rest of the batch is deleted in one transaction", async () => {
+    await seedForage(name, [
+      ["a", { v: 1 }],
+      ["b", { v: 9 }],
+    ]);
+    const result = await domain.deleteMany(target(), [
+      { key: "a", expected: '{"v":1}' },
+      { key: "b", expected: '{"v":2}' },
+      { key: "c", expected: "1" },
+    ]);
+    expect(result).toEqual({ deleted: [0], changed: [1], gone: [2] });
+    expect(await readForage(name)).toEqual({ b: { v: 9 } });
+  });
+
+  test("a single delete of a changed value is refused", async () => {
+    await seedForage(name, [["a", 2]]);
+    await expect(
+      domain.write(target(), { op: "delete", key: "a", expected: "1" }),
+    ).rejects.toMatchObject({ conflict: "changed" });
+    expect(await readForage(name)).toEqual({ a: 2 });
+  });
+});

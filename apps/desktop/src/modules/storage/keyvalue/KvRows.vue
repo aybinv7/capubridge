@@ -341,6 +341,15 @@ defineExpose({ guardDiscard, startCreate, focusFind });
       <Lock :size="11" aria-hidden="true" class="shrink-0" />
       <span class="truncate">{{ editNote }}</span>
     </span>
+    <span
+      v-if="writes.progress.value"
+      class="truncate text-foreground tabular-nums"
+      role="status"
+      aria-live="polite"
+    >
+      Deleting {{ writes.progress.value.done.toLocaleString("en-US") }} of
+      {{ writes.progress.value.total.toLocaleString("en-US") }} keys
+    </span>
     <span v-if="more && total !== null" class="truncate text-[var(--fg-subtle)]">
       First {{ entries.length.toLocaleString("en-US") }} of {{ total.toLocaleString("en-US") }} keys
       read

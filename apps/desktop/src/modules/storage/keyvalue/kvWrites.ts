@@ -1,6 +1,7 @@
 import { toast } from "vue-sonner";
 import {
   KeyValueConflictError,
+  KeyValueDeleteError,
   type KeyValueConflict,
   type KeyValueDomain,
   type KeyValueWriteInput,
@@ -58,6 +59,47 @@ export function deleteQuestion(entries: readonly KvEntry[], listName: string): C
     confirmLabel: single ? "Delete key" : `Delete ${entries.length} keys`,
     danger: true,
   };
+}
+
+function changedQuestion(entries: readonly KvEntry[], changed: readonly number[]): ConfirmRequest {
+  const single = changed.length === 1 ? entries[changed[0] ?? -1] : undefined;
+  return {
+    title: single
+      ? `${quoted(single.key)} changed on the phone`
+      : `${changed.length} keys changed on the phone`,
+    text: "The app wrote a new value after the list was read, so it is not what you saw. Delete the new value anyway?",
+    confirmLabel: changed.length === 1 ? "Delete it anyway" : "Delete them anyway",
+    danger: true,
+  };
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+function reportDeletes(entries: readonly KvEntry[], deleted: number, gone: number, kept: number) {
+  const single = entries.length === 1 ? entries[0] : undefined;
+  if (single) {
+    if (deleted === 1) toast.success(`Deleted ${quoted(single.key)} on the phone`);
+    else if (gone === 1) toast.info(`${quoted(single.key)} was already gone from the phone`);
+    else toast.info("Nothing was deleted", { description: "The app's new value was kept." });
+    return;
+  }
+  const parts = [
+    gone > 0 ? `${plural(gone, "was", "were")} already gone` : "",
+    kept > 0 ? `${kept} changed on the phone and ${kept === 1 ? "was" : "were"} kept` : "",
+  ].filter(Boolean);
+  const description = parts.length ? `${parts.join("; ")}.` : undefined;
+  if (deleted > 0)
+    toast.success(`Deleted ${plural(deleted, "key", "keys")} on the phone`, { description });
+  else toast.info("Nothing was deleted", { description });
+}
+
+function reportFailure(total: number, done: number, error: unknown) {
+  const description = error instanceof Error ? error.message : String(error);
+  if (total === 1) toast.error("The key was not deleted", { description });
+  else if (done === 0) toast.error("No key was deleted", { description });
+  else toast.error(`${done} of ${total} keys were deleted before it failed`, { description });
 }
 
 function savedText(request: KvSaveRequest): string {
@@ -126,33 +168,41 @@ export function kvWrites(
     }
   }
 
-  async function remove(entries: readonly KvEntry[]): Promise<number> {
+  /**
+   * Deletes `entries` in batches. A key whose value the app changed since it was read is kept
+   * and asked about; only a yes deletes it. Resolves how many are no longer on the phone.
+   */
+  async function remove(
+    entries: readonly KvEntry[],
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<number> {
+    const items = entries.map((entry) => ({ key: entry.rawKey, expected: entry.stored }));
     let deleted = 0;
     let gone = 0;
-    const failures: string[] = [];
-    for (const entry of entries) {
-      try {
-        const result = await domain.write(target, { op: "delete", key: entry.rawKey });
-        if (result.gone) gone += 1;
-        else deleted += 1;
-      } catch (error) {
-        failures.push(error instanceof Error ? error.message : String(error));
+    let kept = 0;
+    try {
+      const first = await domain.deleteMany(target, items, { onProgress });
+      deleted = first.deleted.length;
+      gone = first.gone.length;
+      kept = first.changed.length;
+      if (kept > 0 && (await confirm(changedQuestion(entries, first.changed)))) {
+        const again = first.changed
+          .map((index) => items[index])
+          .filter((item) => item !== undefined);
+        const forced = await domain.deleteMany(target, again, { force: true });
+        deleted += forced.deleted.length;
+        gone += forced.gone.length;
+        kept = forced.changed.length;
       }
+    } catch (error) {
+      if (error instanceof KeyValueDeleteError) {
+        deleted += error.done.deleted.length;
+        gone += error.done.gone.length;
+      }
+      reportFailure(entries.length, deleted + gone, error);
+      return deleted + gone;
     }
-    const alreadyGone = gone > 0 ? ` ${gone} ${gone === 1 ? "was" : "were"} already gone.` : "";
-    if (failures.length === 0) {
-      const single = entries.length === 1 ? entries[0] : undefined;
-      if (single && gone === 1) toast.info(`${quoted(single.key)} was already gone from the phone`);
-      else if (single) toast.success(`Deleted ${quoted(single.key)} on the phone`);
-      else toast.success(`Deleted ${deleted} keys on the phone.${alreadyGone}`);
-    } else {
-      toast.error(
-        entries.length === 1
-          ? "The key was not deleted"
-          : `${failures.length} of ${entries.length} deletes failed`,
-        { description: failures[0] },
-      );
-    }
+    reportDeletes(entries, deleted, gone, kept);
     return deleted + gone;
   }
 

@@ -2,15 +2,19 @@ import { DeviceEvaluationError, evaluateChecked } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 import { toRecord, type EncodedRecord } from "./indexeddb-records.js";
 import {
+  KEYVALUE_DELETE_BATCH,
   discoveryScript,
+  forageDeleteScript,
   forageReadScript,
   forageWriteScript,
+  storageDeleteScript,
   storageWriteScript,
+  type KeyValueDeleteItem,
   type KeyValueWriteInput,
 } from "./keyvalue-scripts.js";
 
-export type { KeyValueWriteInput } from "./keyvalue-scripts.js";
-export { FORAGE_READ_LIMIT } from "./keyvalue-scripts.js";
+export type { KeyValueDeleteItem, KeyValueWriteInput } from "./keyvalue-scripts.js";
+export { FORAGE_READ_LIMIT, KEYVALUE_DELETE_BATCH } from "./keyvalue-scripts.js";
 
 /** Local storage or Session storage of one origin. */
 export type KeyValueArea = "local" | "session";
@@ -90,6 +94,33 @@ export class KeyValueWrongOriginError extends Error {
 /** How a write ended: `gone` when a delete found nothing to delete. */
 export interface KeyValueWriteResult {
   gone: boolean;
+}
+
+/** What a batch delete did, as indexes into the keys it was given. */
+export interface KeyValueDeleteResult {
+  deleted: number[];
+  /** Already gone from the phone. */
+  gone: number[];
+  /** Kept: the app changed the value after it was read. */
+  changed: number[];
+}
+
+/** A batch delete failed part way; `done` says what the phone had deleted by then. */
+export class KeyValueDeleteError extends Error {
+  override name = "KeyValueDeleteError";
+  constructor(
+    message: string,
+    readonly done: KeyValueDeleteResult,
+  ) {
+    super(message);
+  }
+}
+
+export interface KeyValueDeleteOptions {
+  /** Delete values the app changed since they were read (the person said yes). */
+  force?: boolean;
+  /** Called after each part of a long batch with how many keys were handled. */
+  onProgress?: (done: number, total: number) => void;
 }
 
 interface FrameNode {
@@ -241,6 +272,39 @@ export class KeyValueDomain {
       { frameId: frame.id, worldName: "capubridge-keyvalue" },
     );
     return world.executionContextId;
+  }
+
+  /**
+   * Deletes keys of one list, `KEYVALUE_DELETE_BATCH` at a time, resolving the frame once. A key
+   * whose value is not what the person saw (`expected`) is kept unless `force`.
+   */
+  async deleteMany(
+    target: KeyValueTarget,
+    items: readonly KeyValueDeleteItem[],
+    options: KeyValueDeleteOptions = {},
+  ): Promise<KeyValueDeleteResult> {
+    const force = options.force === true;
+    const contextId = target.kind === "area" ? await this.contextFor(target.origin) : undefined;
+    const out: KeyValueDeleteResult = { deleted: [], gone: [], changed: [] };
+    for (let start = 0; start < items.length; start += KEYVALUE_DELETE_BATCH) {
+      const part = items.slice(start, start + KEYVALUE_DELETE_BATCH);
+      const script =
+        target.kind === "area"
+          ? storageDeleteScript(target.origin, target.area, part, force)
+          : forageDeleteScript(target.origin, target.database, target.store, part, force);
+      let reply: KeyValueDeleteResult;
+      try {
+        reply = parseReply<KeyValueDeleteResult>(await this.evaluate(script, contextId));
+      } catch (error) {
+        if (start === 0) throw error;
+        throw new KeyValueDeleteError(error instanceof Error ? error.message : String(error), out);
+      }
+      out.deleted.push(...reply.deleted.map((index) => start + index));
+      out.gone.push(...reply.gone.map((index) => start + index));
+      out.changed.push(...reply.changed.map((index) => start + index));
+      options.onProgress?.(start + part.length, items.length);
+    }
+    return out;
   }
 
   /**

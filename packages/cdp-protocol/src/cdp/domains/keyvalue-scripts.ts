@@ -78,6 +78,8 @@ export function storageWriteScript(
       const exists = current !== null;
       if (input.op === 'delete') {
         if (!exists) return JSON.stringify({ ok: true, gone: true });
+        const changed = __kvCheck(input, current, exists, false);
+        if (changed) return changed;
         area.removeItem(input.key);
         return JSON.stringify({ ok: true });
       }
@@ -219,11 +221,15 @@ export function forageWriteScript(
         try {
           const key = __cbRevive(input.key, false);
           const exists = (await __cbRequest(objectStore.count(key))) > 0;
+          const codec = __cbCodec(${jsLiteral(IDB_VIEW_LIMITS)});
           if (input.op === 'delete') {
-            if (exists) objectStore.delete(key);
+            const checks = exists && typeof input.expected === 'string' && !input.overwriteChanged;
+            const current = checks ? JSON.stringify(codec.encode(await __cbRequest(objectStore.get(key))).value) : null;
+            const changed = checks ? __kvCheck(input, current, exists, false) : null;
+            if (changed) reply = changed;
+            else if (exists) objectStore.delete(key);
             else reply = JSON.stringify({ ok: true, gone: true });
           } else {
-            const codec = __cbCodec(${jsLiteral(IDB_VIEW_LIMITS)});
             const current = exists ? JSON.stringify(codec.encode(await __cbRequest(objectStore.get(key))).value) : null;
             const moves = input.op === 'rename' && input.nextKey !== input.key;
             const targetTaken = moves
@@ -245,6 +251,107 @@ export function forageWriteScript(
         }
         await done;
         return reply;
+      } finally {
+        db.close();
+      }
+    } catch (e) {
+      return __kvFailure(e);
+    }
+  })()`;
+}
+
+/** One key of a batch delete, with the stored value the person saw (as in `KeyValueWriteInput`). */
+export interface KeyValueDeleteItem {
+  key: unknown;
+  expected?: string;
+}
+
+/** How many keys one delete script handles; a longer batch runs in several, with progress. */
+export const KEYVALUE_DELETE_BATCH = 500;
+
+/**
+ * Deletes keys of one origin's Local or Session storage in one synchronous block: a key whose
+ * value is not what the person saw is kept (its index in `changed`) unless `force`, one already
+ * gone is named in `gone`.
+ */
+export function storageDeleteScript(
+  origin: string,
+  area: "local" | "session",
+  items: readonly KeyValueDeleteItem[],
+  force: boolean,
+): string {
+  return `(() => {
+    ${REPLY_HELPERS}
+    const origin = ${jsLiteral(origin)};
+    const items = ${jsLiteral(items)};
+    const force = ${jsLiteral(force)};
+    try {
+      if (location.origin !== origin) {
+        return JSON.stringify({ error: 'This frame belongs to another origin (' + location.origin + ') than ' + origin + '; nothing was changed', wrongOrigin: true });
+      }
+      const area = ${area === "session" ? "sessionStorage" : "localStorage"};
+      const out = { deleted: [], gone: [], changed: [] };
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+        const current = area.getItem(item.key);
+        if (current === null) { out.gone.push(index); continue; }
+        if (!force && typeof item.expected === 'string' && current !== item.expected) { out.changed.push(index); continue; }
+        area.removeItem(item.key);
+        out.deleted.push(index);
+      }
+      return JSON.stringify(out);
+    } catch (e) {
+      return __kvFailure(e);
+    }
+  })()`;
+}
+
+/**
+ * Deletes keys of one LocalForage store in one read-write transaction, comparing each stored
+ * value with what the person saw through the encoder the read used (see `storageDeleteScript`).
+ */
+export function forageDeleteScript(
+  origin: string,
+  database: string,
+  store: string,
+  items: readonly KeyValueDeleteItem[],
+  force: boolean,
+): string {
+  return `(async () => {
+    ${IDB_DEVICE_CODEC_SOURCE}
+    ${REPLY_HELPERS}
+    const items = ${jsLiteral(items)};
+    const force = ${jsLiteral(force)};
+    try {
+      __cbCheckOrigin(${jsLiteral(origin)});
+      const db = await __cbOpenExisting(${jsLiteral(database)});
+      try {
+        const name = ${jsLiteral(store)};
+        if (!db.objectStoreNames.contains(name)) throw new Error('The store "' + name + '" is not in this database any more; nothing was changed');
+        const tx = db.transaction(name, 'readwrite');
+        const objectStore = tx.objectStore(name);
+        const done = __cbTxDone(tx);
+        const codec = __cbCodec(${jsLiteral(IDB_VIEW_LIMITS)});
+        const out = { deleted: [], gone: [], changed: [] };
+        try {
+          for (let index = 0; index < items.length; index++) {
+            const item = items[index];
+            const key = __cbRevive(item.key, false);
+            if ((await __cbRequest(objectStore.count(key))) === 0) { out.gone.push(index); continue; }
+            if (!force && typeof item.expected === 'string') {
+              const current = JSON.stringify(codec.encode(await __cbRequest(objectStore.get(key))).value);
+              if (current !== item.expected) { out.changed.push(index); continue; }
+            }
+            objectStore.delete(key);
+            out.deleted.push(index);
+          }
+        } catch (error) {
+          try { tx.abort(); } catch (ignored) { void ignored; }
+          await done.catch(function () { return undefined; });
+          throw error;
+        }
+        await done;
+        return JSON.stringify(out);
       } finally {
         db.close();
       }

@@ -21,6 +21,8 @@ export function useKvWrites(options: {
   afterWrite: () => void;
 }) {
   const saving = ref(false);
+  /** Keys handled so far by a long delete, or `null`. */
+  const progress = ref<{ done: number; total: number } | null>(null);
 
   const blockedReason = computed(() => {
     if (options.away.value) return options.away.value;
@@ -28,16 +30,16 @@ export function useKvWrites(options: {
     return null;
   });
 
-  function writer() {
+  function writer(nothing: string) {
     const blocked = blockedReason.value;
     if (blocked) {
-      toast.info("Nothing was saved", { description: blocked });
+      toast.info(nothing, { description: blocked });
       return null;
     }
     try {
       return kvWrites(options.domain(), options.source, options.confirm);
     } catch (error) {
-      toast.error("Nothing was saved", {
+      toast.error(nothing, {
         description: error instanceof Error ? error.message : String(error),
       });
       return null;
@@ -54,7 +56,7 @@ export function useKvWrites(options: {
   }
 
   async function save(request: KvSaveRequest): Promise<KvSaveOutcome> {
-    const writes = writer();
+    const writes = writer("Nothing was saved");
     if (!writes) return "kept";
     const outcome = await run(() => writes.save(request));
     if (outcome === "saved") options.afterWrite();
@@ -62,19 +64,31 @@ export function useKvWrites(options: {
   }
 
   async function remove(entries: readonly KvEntry[]): Promise<number> {
-    const writes = writer();
+    const writes = writer("Nothing was deleted");
     if (!writes || entries.length === 0) return 0;
-    const removed = await run(() => writes.remove(entries));
-    if (removed > 0) options.afterWrite();
-    return removed;
+    try {
+      const removed = await run(() =>
+        writes.remove(entries, (done, total) => {
+          progress.value = done < total ? { done, total } : null;
+        }),
+      );
+      if (removed > 0) options.afterWrite();
+      return removed;
+    } finally {
+      progress.value = null;
+    }
   }
 
   /** Asks first, naming the keys and `listName`; deletes only on yes. */
   async function confirmAndRemove(entries: readonly KvEntry[], listName: string): Promise<number> {
     if (entries.length === 0) return 0;
+    if (blockedReason.value) {
+      toast.info("Nothing was deleted", { description: blockedReason.value });
+      return 0;
+    }
     if (!(await options.confirm(deleteQuestion(entries, listName)))) return 0;
     return remove(entries);
   }
 
-  return { blockedReason, saving, save, confirmAndRemove };
+  return { blockedReason, saving, progress, save, confirmAndRemove };
 }

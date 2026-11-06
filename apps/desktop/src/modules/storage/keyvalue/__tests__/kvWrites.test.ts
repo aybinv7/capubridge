@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import type { KeyValueDomain, KeyValueWriteInput } from "@capubridge/cdp-protocol";
+import type {
+  KeyValueDeleteItem,
+  KeyValueDeleteResult,
+  KeyValueDomain,
+  KeyValueWriteInput,
+} from "@capubridge/cdp-protocol";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 vi.mock("vue-sonner", () => ({ toast }));
 vi.mock("@capubridge/cdp-protocol", () => ({
+  KeyValueDeleteError: class extends Error {},
   KeyValueConflictError: class extends Error {
     constructor(
       readonly conflict: string,
@@ -139,22 +145,61 @@ describe("saving a key", () => {
 });
 
 describe("deleting keys", () => {
-  test("keeps going after a failure and says what happened", async () => {
-    const results = [
-      Promise.resolve({ gone: false }),
-      Promise.reject(new Error("gone wrong")),
-      Promise.resolve({ gone: true }),
-    ];
-    const { domain: device } = domain(() => results.shift() ?? Promise.resolve({ gone: false }));
-    const entries = areaEntries([
-      { key: "a", value: "1" },
-      { key: "b", value: "2" },
-      { key: "c", value: "3" },
+  const entries = areaEntries([
+    { key: "a", value: "1" },
+    { key: "b", value: "2" },
+    { key: "c", value: "3" },
+  ]);
+
+  function deleter(results: KeyValueDeleteResult[]) {
+    const calls: { items: KeyValueDeleteItem[]; force: boolean }[] = [];
+    const device = {
+      deleteMany: vi.fn(
+        async (_target: unknown, items: KeyValueDeleteItem[], options: { force?: boolean }) => {
+          calls.push({ items, force: options.force === true });
+          const next = results.shift();
+          if (!next) throw new Error("gone wrong");
+          return next;
+        },
+      ),
+    } as unknown as KeyValueDomain;
+    return { device, calls };
+  }
+
+  test("sends what the person saw, so the phone keeps a value the app changed", async () => {
+    const { device, calls } = deleter([{ deleted: [0, 2], gone: [], changed: [1] }]);
+    const confirm = vi.fn().mockResolvedValue(false);
+    const removed = await kvWrites(device, source, confirm).remove(entries);
+    expect(calls[0]?.items).toEqual([
+      { key: "a", expected: "1" },
+      { key: "b", expected: "2" },
+      { key: "c", expected: "3" },
     ]);
-    const removed = await kvWrites(device, source, vi.fn()).remove(entries);
+    expect(calls[0]?.force).toBe(false);
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "“b” changed on the phone" }),
+    );
+    expect(calls).toHaveLength(1);
     expect(removed).toBe(2);
-    expect(toast.error).toHaveBeenCalledWith("1 of 3 deletes failed", {
-      description: "gone wrong",
+    expect(toast.success).toHaveBeenCalledWith("Deleted 2 keys on the phone", {
+      description: "1 changed on the phone and was kept.",
     });
+  });
+
+  test("a yes deletes only the changed keys, forced", async () => {
+    const { device, calls } = deleter([
+      { deleted: [0], gone: [2], changed: [1] },
+      { deleted: [0], gone: [], changed: [] },
+    ]);
+    const removed = await kvWrites(device, source, vi.fn().mockResolvedValue(true)).remove(entries);
+    expect(calls[1]).toEqual({ items: [{ key: "b", expected: "2" }], force: true });
+    expect(removed).toBe(3);
+  });
+
+  test("a failure says how many were deleted before it", async () => {
+    const { device } = deleter([]);
+    const removed = await kvWrites(device, source, vi.fn()).remove(entries);
+    expect(removed).toBe(0);
+    expect(toast.error).toHaveBeenCalledWith("No key was deleted", { description: "gone wrong" });
   });
 });

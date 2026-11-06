@@ -158,3 +158,52 @@ describe("reads", () => {
     expect(await domain.readArea(PAGE, "session")).toEqual([{ key: "b", value: "two" }]);
   });
 });
+
+describe("deletes keep what the person did not see", () => {
+  test("a key the app changed after the read is kept until the person agrees", async () => {
+    const page = fakeOrigin({ cart: "app wrote this" });
+    const domain = new KeyValueDomain(pageClient({ [PAGE]: page }));
+    const remove = { op: "delete", key: "cart", expected: "what I saw" } as const;
+    await expect(domain.write(local, remove)).rejects.toMatchObject({ conflict: "changed" });
+    expect(page.local.getItem("cart")).toBe("app wrote this");
+    await domain.write(local, { ...remove, overwriteChanged: true });
+    expect(page.local.getItem("cart")).toBeNull();
+  });
+
+  test("a batch deletes what is unchanged, names what changed or went, in one frame lookup", async () => {
+    const page = fakeOrigin({ a: "1", b: "app", c: "3" });
+    const frame = fakeOrigin({ a: "1", b: "2", c: "3" });
+    const client = pageClient({ [PAGE]: page, [FRAME]: frame }, [
+      { id: "main", origin: PAGE },
+      { id: "child", origin: FRAME },
+    ]);
+    frame.local.setItem("b", "app");
+    const progress: number[] = [];
+    const result = await new KeyValueDomain(client).deleteMany(
+      { kind: "area", origin: FRAME, area: "local" },
+      [
+        { key: "a", expected: "1" },
+        { key: "b", expected: "2" },
+        { key: "gone", expected: "x" },
+        { key: "c", expected: "3" },
+      ],
+      { onProgress: (done) => progress.push(done) },
+    );
+    expect(result).toEqual({ deleted: [0, 3], changed: [1], gone: [2] });
+    expect(frame.local.toObject()).toEqual({ b: "app" });
+    expect(page.local.toObject()).toEqual({ a: "1", b: "app", c: "3" });
+    expect(client.calls.filter((call) => call === "Page.createIsolatedWorld")).toHaveLength(1);
+    expect(progress.at(-1)).toBe(4);
+  });
+
+  test("a forced batch deletes the changed keys too", async () => {
+    const page = fakeOrigin({ b: "app" });
+    const result = await new KeyValueDomain(pageClient({ [PAGE]: page })).deleteMany(
+      local,
+      [{ key: "b", expected: "2" }],
+      { force: true },
+    );
+    expect(result.deleted).toEqual([0]);
+    expect(page.local.toObject()).toEqual({});
+  });
+});
