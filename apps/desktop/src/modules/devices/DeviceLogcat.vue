@@ -155,6 +155,9 @@ function exportTxt() {
             total
             <span v-if="logcatStore.pausedCount" class="text-warning">
               · {{ logcatStore.pausedCount }} buffered
+              <template v-if="logcatStore.pausedDropped">
+                · {{ logcatStore.pausedDropped }} older lines not kept
+              </template>
             </span>
           </div>
         </div>

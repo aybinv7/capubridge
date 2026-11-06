@@ -6,6 +6,7 @@ use crate::commands::logcat::adb_stream::{AdbShellStream, LineSplitter, StreamRe
 use crate::commands::logcat::clock::{
     host_now_ms, measure_clock, resume_plan, ClockSample, LogcatCursor, ResumeFilter, ResumeFrom,
 };
+use crate::commands::logcat::identity::IdentityResolver;
 use crate::commands::logcat::leases::LogcatRun;
 use crate::commands::logcat::parse::{classify_line, AssembledEntry, LineAssembler, LogcatLine};
 use crate::commands::logcat::types::{
@@ -76,7 +77,10 @@ impl RunReporter {
     }
 }
 
-fn to_payload(entry: AssembledEntry) -> LogcatLinePayload {
+fn to_payload(entry: AssembledEntry, identity: Option<&IdentityResolver>) -> LogcatLinePayload {
+    let identity = identity
+        .map(|resolver| resolver.identify(entry.uid, entry.pid))
+        .unwrap_or_default();
     LogcatLinePayload {
         seq: NEXT_SEQ.fetch_add(1, Ordering::Relaxed),
         ts_ms: entry.ts_ms,
@@ -86,12 +90,12 @@ fn to_payload(entry: AssembledEntry) -> LogcatLinePayload {
         level: entry.level,
         tag: entry.tag,
         message: entry.message,
-        process_name: None,
-        package_name: None,
+        process_name: identity.process_name,
+        package_name: identity.package_name,
     }
 }
 
-struct Pump {
+struct Pump<'a> {
     assembler: LineAssembler,
     filter: ResumeFilter,
     batch: Vec<LogcatLinePayload>,
@@ -99,9 +103,32 @@ struct Pump {
     cursor: Option<LogcatCursor>,
     lines_seen: u64,
     last_other: Option<String>,
+    identity: Option<&'a IdentityResolver>,
 }
 
-impl Pump {
+impl<'a> Pump<'a> {
+    fn new(
+        from: ResumeFrom,
+        cursor: Option<LogcatCursor>,
+        identity: Option<&'a IdentityResolver>,
+    ) -> Self {
+        Self {
+            assembler: LineAssembler::default(),
+            filter: ResumeFilter::new(from),
+            batch: Vec::new(),
+            batch_started: None,
+            cursor,
+            lines_seen: 0,
+            last_other: None,
+            identity,
+        }
+    }
+
+    fn complete(&mut self, entry: AssembledEntry) {
+        let payload = to_payload(entry, self.identity);
+        self.batch.push(payload);
+    }
+
     fn handle_line(&mut self, raw: &str) {
         match classify_line(raw) {
             LogcatLine::Header(header) => {
@@ -111,7 +138,7 @@ impl Pump {
                 self.cursor = Some(LogcatCursor::advance(self.cursor, header.ts_ms));
                 self.lines_seen += 1;
                 if let Some(entry) = self.assembler.push(LogcatLine::Header(header)) {
-                    self.batch.push(to_payload(entry));
+                    self.complete(entry);
                 }
             }
             LogcatLine::Other(text) => {
@@ -126,7 +153,7 @@ impl Pump {
 
     fn settle(&mut self) {
         if let Some(entry) = self.assembler.flush() {
-            self.batch.push(to_payload(entry));
+            self.complete(entry);
         }
     }
 
@@ -156,18 +183,11 @@ fn pump(
     reporter: &mut RunReporter,
     from: ResumeFrom,
     cursor: &mut Option<LogcatCursor>,
+    identity: &IdentityResolver,
 ) -> PumpEnd {
     let mut buffer = vec![0u8; READ_BUFFER_BYTES];
     let mut splitter = LineSplitter::default();
-    let mut state = Pump {
-        assembler: LineAssembler::default(),
-        filter: ResumeFilter::new(from),
-        batch: Vec::new(),
-        batch_started: None,
-        cursor: *cursor,
-        lines_seen: 0,
-        last_other: None,
-    };
+    let mut state = Pump::new(from, *cursor, Some(identity));
     let mut clock_checked = Instant::now();
     let mut error = None;
 
@@ -229,6 +249,7 @@ fn run_loop(serial: String, run: LogcatRun, sink: Arc<dyn LogcatSink>) {
     let mut dropped_at: Option<Instant> = None;
 
     reporter.status(LogcatStreamState::Connecting, 0, None, None, false);
+    let identity = IdentityResolver::start(&serial);
     while !run.is_stopped() {
         let device_now = match measure_clock(&serial) {
             Ok(sample) => {
@@ -254,7 +275,14 @@ fn run_loop(serial: String, run: LogcatRun, sink: Arc<dyn LogcatSink>) {
                         plan.clock_went_back,
                     );
                     let connected_at = Instant::now();
-                    let end = pump(&mut stream, &run, &mut reporter, plan.from, &mut cursor);
+                    let end = pump(
+                        &mut stream,
+                        &run,
+                        &mut reporter,
+                        plan.from,
+                        &mut cursor,
+                        &identity,
+                    );
                     dropped_at = Some(Instant::now());
                     if end.lines_seen > 0 || connected_at.elapsed() >= STABLE_CONNECTION {
                         attempt = 0;
@@ -325,15 +353,7 @@ mod tests {
 
     #[test]
     fn a_resumed_stream_neither_repeats_nor_loses_lines() {
-        let mut first = Pump {
-            assembler: LineAssembler::default(),
-            filter: ResumeFilter::new(ResumeFrom::Tail(256)),
-            batch: Vec::new(),
-            batch_started: None,
-            cursor: None,
-            lines_seen: 0,
-            last_other: None,
-        };
+        let mut first = Pump::new(ResumeFrom::Tail(256), None, None);
         for line in [
             "1730000000.100 10145:100 100 I App: a",
             "1730000000.200 10145:100 100 I App: b",
@@ -352,15 +372,7 @@ mod tests {
         );
 
         let plan = resume_plan(cursor, Some(1_730_000_009_000), 1_000);
-        let mut second = Pump {
-            assembler: LineAssembler::default(),
-            filter: ResumeFilter::new(plan.from),
-            batch: Vec::new(),
-            batch_started: None,
-            cursor,
-            lines_seen: 0,
-            last_other: None,
-        };
+        let mut second = Pump::new(plan.from, cursor, None);
         for line in [
             "1730000000.200 10145:100 100 I App: b",
             "1730000000.200 10145:100 101 I App: c",
@@ -380,15 +392,7 @@ mod tests {
 
     #[test]
     fn batches_are_released_by_size_or_age() {
-        let mut pump = Pump {
-            assembler: LineAssembler::default(),
-            filter: ResumeFilter::new(ResumeFrom::Tail(1)),
-            batch: Vec::new(),
-            batch_started: None,
-            cursor: None,
-            lines_seen: 0,
-            last_other: None,
-        };
+        let mut pump = Pump::new(ResumeFrom::Tail(1), None, None);
         assert!(pump.take_due(false).is_none());
         for index in 0..BATCH_MAX_LINES + 1 {
             pump.handle_line(&format!("1730000000.000 1:{} 1 I T: {index}", index + 1));

@@ -20,7 +20,7 @@ import type {
 import type { SessionEvent } from "@/types/session.types";
 
 const maxLogcatEntries = 900;
-const maxPausedBufferEntries = 400;
+const maxPausedBufferEntries = maxLogcatEntries;
 
 function trimEntries(entries: LogcatEntry[]): LogcatEntry[] {
   return entries.length > maxLogcatEntries
@@ -59,20 +59,23 @@ export const useLogcatStore = defineStore("logcat", () => {
   const isPaused = ref(false);
   const pausedEntries = shallowRef<LogcatEntry[]>([]);
   const pausedCount = ref(0);
+  const pausedDropped = ref(0);
   const error = ref<string | null>(null);
   const unlisten = shallowRef<null | (() => void)>(null);
 
   const isStreaming = computed(() => streamState.value === "live");
 
   let initializePromise: Promise<void> | null = null;
-  let lastQueuedId: LogcatEntry["id"] | null = null;
   let heldSerial: string | null = null;
   let generation = 0;
 
   const batcher = createFrameBatcher<LogcatEntry>((batch) => {
     if (isPaused.value) {
-      pausedEntries.value = trimPausedEntries(pausedEntries.value.concat(batch));
-      pausedCount.value += batch.length;
+      const combined = pausedEntries.value.concat(batch);
+      const kept = trimPausedEntries(combined);
+      pausedDropped.value += combined.length - kept.length;
+      pausedEntries.value = kept;
+      pausedCount.value = kept.length;
     } else {
       entries.value = trimEntries(entries.value.concat(batch));
     }
@@ -81,10 +84,10 @@ export const useLogcatStore = defineStore("logcat", () => {
 
   function clear() {
     batcher.clear();
-    lastQueuedId = null;
     entries.value = [];
     pausedEntries.value = [];
     pausedCount.value = 0;
+    pausedDropped.value = 0;
   }
 
   function acceptsGeneration(reported: number): boolean {
@@ -103,12 +106,7 @@ export const useLogcatStore = defineStore("logcat", () => {
       return;
     }
     for (const line of batch.lines) {
-      const entry = toLogcatEntry(batch.serial, line);
-      if (lastQueuedId === entry.id) {
-        continue;
-      }
-      lastQueuedId = entry.id;
-      batcher.push(entry);
+      batcher.push(toLogcatEntry(batch.serial, line));
     }
   }
 
@@ -258,6 +256,7 @@ export const useLogcatStore = defineStore("logcat", () => {
 
     batcher.flushNow();
     isPaused.value = false;
+    pausedDropped.value = 0;
     if (pausedEntries.value.length > 0) {
       entries.value = trimEntries(entries.value.concat(pausedEntries.value));
       pausedEntries.value = [];
@@ -301,6 +300,7 @@ export const useLogcatStore = defineStore("logcat", () => {
     isReady,
     isPaused,
     pausedCount,
+    pausedDropped,
     error,
     initialize,
     follow,
