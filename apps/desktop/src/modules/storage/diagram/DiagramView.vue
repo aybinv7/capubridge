@@ -200,6 +200,34 @@ watch([selectedNodeId, selectedEdgeId, selectedClusterId], (ids) => {
   if (ids.some(Boolean)) inspectorOpen.value = true;
 });
 
+/**
+ * The canvas keys (U7): Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) undo and redo, + and − zoom, 0
+ * fits, Escape clears the selection. Typing in a field of the canvas is left alone.
+ */
+function onCanvasKeydown(event: KeyboardEvent) {
+  const target = event.target;
+  if (
+    target instanceof HTMLElement &&
+    target.closest("input, textarea, select, [contenteditable]")
+  ) {
+    return;
+  }
+  const mod = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+  let handled = true;
+  if (mod && key === "z") {
+    if (event.shiftKey) editing.redo();
+    else editing.undo();
+  } else if (mod && key === "y") editing.redo();
+  else if (mod || event.altKey) handled = false;
+  else if (event.key === "+" || event.key === "=") void zoomIn({ duration: 120 });
+  else if (event.key === "-") void zoomOut({ duration: 120 });
+  else if (event.key === "0") void interactions.fitCanvas();
+  else if (event.key === "Escape") interactions.clearSelection();
+  else handled = false;
+  if (handled) event.preventDefault();
+}
+
 function hideInspector() {
   inspectorOpen.value = false;
   interactions.clearSelection();
@@ -284,7 +312,10 @@ watch(
         id="diagram-canvas"
         :order="1"
         :min-size="40"
-        class="diagram-canvas relative min-w-0 overflow-hidden bg-surface-cut"
+        class="diagram-canvas relative min-w-0 overflow-hidden bg-surface-cut outline-none"
+        tabindex="-1"
+        aria-label="Diagram canvas"
+        @keydown="onCanvasKeydown"
       >
         <DataState
           v-if="!hasEntities && model.loading.value"
@@ -343,6 +374,7 @@ watch(
           :selection-key-code="canvasMode === 'select'"
           multi-selection-key-code="Shift"
           :selection-mode="SelectionMode.Partial"
+          :delete-key-code="['Backspace', 'Delete']"
           :nodes-draggable="canvasMode === 'select'"
           :elements-selectable="true"
           :nodes-connectable="canvasMode === 'select'"
