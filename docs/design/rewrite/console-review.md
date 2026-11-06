@@ -452,3 +452,59 @@ alone; the only view changes are virtualisation and the wiring the engine needs.
   lookup there is logged, not shown (S16).
 - **Source-size baseline.** `commands/adb.rs` lost the 330 logcat lines (now about 1,650); its
   2,045-line exception can be lowered.
+
+## UI round notes
+
+UI round on `feat/ui-ux-overhaul` (2026-11-07). The dock is gone; the console drawer grows out
+of the timeline tray. Every line of `console-parity.md` is ticked with where it lives now.
+
+### Done
+
+| Items                                                                                                              | Where                                                               |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Placement: one drawer joined to the tray, maximise, pop-out and back                                               | `components/drawer/*`                                               |
+| U1 (22 px rows, follow the end, "N new lines", End)                                                                | `modules/console/list/*`                                            |
+| U2 (repeats ×N), U5 (stacks folded, JSON in the code viewer)                                                       | `lib/stream-rows/*`, `list/StackLines.vue`                          |
+| U3 (one grammar, chips mirror the floor, history, Ctrl+Space)                                                      | `lib/stream-query/*`, `list/StreamQueryField.vue`                   |
+| U4 (fields filter, Alt excludes, row menu)                                                                         | `logcat/*`, `stream/*`                                              |
+| U6 (Open request, source filters and copy, WebView echoes)                                                         | `useConsoleActions.ts`, `LogsOptions.vue`                           |
+| U7 (two views: prompt under the stream, Errors mode)                                                               | `stream/*`                                                          |
+| U8, U10, U12 (one state word, counts only above zero, unread count)                                                | `list/StreamStatus.vue`, `drawer.store.ts`                          |
+| U9 (gates in both hosts), U11 (Cladd only), U13, U14, U15, U16, U17, U18                                           | see the parity ticks                                                |
+| Engine leftovers: process rows (S8), buffer picker (S19), selection, export, Ctrl+L, Escape order, keyboard resize | `lib/logcat/processMarkers.ts`, `LogsOptions.vue`, `StreamList.vue` |
+| Timeline: failed requests as error caps, thinner bars, lower when quiet                                            | `markerMappers.ts`, `stripGeometry.ts`                              |
+
+### Where the result differs from the review, and why
+
+- **Source links copy, they do not open.** There is no viewer for the app's own files yet, so
+  a source filters (click), hides (Alt+click) or copies its location (row menu).
+- **Level chips are a floor, not a set.** `level:W` means W and above, as asked; one exact level
+  is still reachable with `level:W -level:E`.
+- **Free words form one phrase.** `null pointer` searches for that phrase; separate phrases
+  are AND'd. Same-key terms are OR'd and different keys AND'd, as in Android Studio.
+- **Repeats are folded in the view, no longer dropped in the store.** The 250 ms drop hid how
+  often a line repeated.
+- **One capture owner for logcat, a second CDP client for a Console pop-out.** Logcat in a
+  pop-out joins the device's one run; a Console pop-out still holds its own lease on the same
+  target (engine round, S4). Moving console capture fully to the main window is not done.
+- **Pop-outs are not remembered.** A main-window reload with a view popped out shows it in
+  both places until the window closes.
+- **`modules/console/logs` became `logcat`.** `apps/desktop/.gitignore` ignores folders named
+  `logs`, so `f08fff93` and `07149bcd` were committed without the Logs view and do not build on
+  their own; `5afe972` adds it.
+
+### Measured (stream flush test, run alone; `streamFlush.perf.test.ts`)
+
+- Logcat, 10 lines into a full 50,000-line ring with a query and grouped view: p95 0.014 ms.
+- Logcat, 500-line burst: p95 0.22 ms (0.87 ms before checks were ordered by cost).
+- Console, 4 entries into a full 10,000-entry ring with stream rows: p95 0.10 ms.
+- Console full rebuild on a query change: median 1.3 ms.
+- Under the whole parallel suite single runs can exceed 4 ms at p95 (scheduling and GC), as the
+  engine round noted; the test passed in the last full run.
+
+### Not checked against a device
+
+The owner was using the app, so nothing was clicked. Screenshots show the drawer open on Console
+joined to the strip. First things to try: Logs on a crash (`is:crash`, a stack, "Process N
+ended / started"), a JSON log line opened, Errors mode after two uncaught exceptions, the prompt
+(↑, Tab after `document.`), a pop-out and "Put back in the drawer".
