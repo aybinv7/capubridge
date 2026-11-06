@@ -58,11 +58,11 @@ empty state; "Mocking N rules" notice when interception is on (`requests/Mocking
 ## Request list (`requests/RequestsTable.vue`)
 
 - [x] Virtualised list → TanStack Table columns + `useFixedVirtualList`, 30 px single-line rows (polish pass, was 26), overscan 12
-- [x] Column header → Name · Status · Type · Initiator · Size · Time · Waterfall, every column sortable (`SortHeader`, ascending → descending → capture order, `requests/requestSort.ts`, string keys cached per entry); the Method column became a quiet prefix in Name, shown only when not GET (round 1, U1); Type, Initiator, Size and Waterfall step aside by container width (`requests/requestColumns.ts`); Type also steps aside while the type filter keeps a single type (`columnVisibility`, polish pass); every cell shares one text size (`text-xs`, quiet parts by colour only) so all columns sit on one baseline, header and rows share one left edge per column, and a stable scrollbar gutter keeps right-aligned Size and Time under their labels
+- [x] Column header → Method · Status · Name · Path · Host · Type · Initiator · Size · Time · Waterfall, one fact per column on one grid template shared by header and rows (`columns/`, columns pass), every column sortable (`SortHeader`, ascending → descending → capture order, `requests/requestSort.ts`, string keys cached per entry, Path and Host added); columns resize from the header edge that follows the pointer (double-click for the default width) and hide from a Columns menu in the filter bar, both kept per list (`capubridge:network:columns:requests:v1`); when the list narrows Initiator steps aside first, then the waterfall, Path, Type, Size and Host, while Method, Status, Name and Time stay (`requests/requestColumns.ts`, `columns/listColumns.ts`, tested); Type also steps aside while the type filter keeps a single type and the waterfall while the details are open, and the Columns menu says so (`hiddenByContext`); every cell shares one text size (`text-xs`, quiet parts by colour only) so all columns sit on one baseline, header and rows share one left edge per column, and a stable scrollbar gutter keeps right-aligned Size and Time under their labels
 - [x] Type icon per resource type → dropped as a duplicate signal; the Type column names it in words (`typeWord`)
-- [x] Method badge tinted per method → quiet mono prefix in Name when not GET (`requests/RequestNameCell.vue`)
-- [x] Status tinted, `ERR`, `—` → 2xx and 3xx quiet, 4xx warning, 5xx error; words Failed, Cancelled, Blocked, Pending, and Unknown for a request still open when capture restarted (`requests/requestCells.ts` `statusCell`, round 1, U14/P8)
-- [x] URL as path + query, selectable → Name: last segment + query as the main text, the host quiet after it on the same line (the app's own files carry none: their size already says "App"), a CapacitorHttp call named by the address it carries (`requests/requestNames.ts`); the folder moved to the tooltip (full URL) and the details header's address line (round 1, U1; polish pass)
+- [x] Method badge tinted per method → its own narrow Method column again, every method named, a quiet neutral by verb (GET/HEAD/OPTIONS quietest, POST/PUT/PATCH a step up, DELETE the strongest neutral, never a hue; `methodTone`, columns pass)
+- [x] Status tinted, `ERR`, `—` → 2xx quietest, 3xx a step up, 4xx, 5xx and failures in the error colour (`src/shared/http/tone.ts`, columns pass); words Failed, Cancelled, Blocked, Pending, and Unknown for a request still open when capture restarted (`requests/requestCells.ts` `statusCell`, round 1, U14/P8)
+- [x] URL as path + query, selectable → three columns from one parse (`requestNameParts`, columns pass): Name (last segment + query, an id-ending path as "snapshot/…0001", a site root as "/", the full URL in the tooltip), Path (the folder before it, quiet mono, given way from its start so its end stays visible, `columns/TruncateStart.vue`) and Host (the app's own files carry none: their size already says "App"); a CapacitorHttp call is read from the address it carries; the details header keeps the full address line
 - [x] Type short label → words (Fetch, XHR, Script, Image, …)
 - [x] Size `…` / `—` / `(cache)` / bytes → `…`, `—`, Disk cache, Service worker, Prefetch, "transferred / size" like DevTools, "App · size" for files the app serves itself (sizes summed from `Network.dataReceived`, Content-Length as fallback); WebSockets show frames (`sizeCell`, `src/composables/networkSizes.ts`, round 1, P9/U3)
 - [x] Time `…` / aborted / failed / ms / s, tinted over 1 s and 3 s → a live count while open, Open for a WebSocket, same thresholds (`timeCell`); a failed request shows how long it ran, quietly, or "—", since Status already says Failed / Cancelled / Blocked (polish pass)
@@ -80,6 +80,12 @@ right-click menu (`requests/RequestContextMenu.vue`), follows new requests while
 nothing selected and no sort, `aria-activedescendant` listbox.
 
 ## Request details (`requests/details/`)
+
+Columns pass: the list sits in a recessed well (`SurfaceCut`) and the details are raised one level
+(`Surface +1`, outlined) through the shared `src/shared/components/layout/RecordSplit.vue`, like the
+Data tabs: the pane resizes in pixels (320–1100, 560 by default, `capubridge:network-requests-pane:v1`,
+double-click the handle for the default), and a maximise toggle in the details header fills the
+split (Esc puts it back first, then closes).
 
 - [x] Resizable side pane opened by selection → Reka splitter, 42 % default (26–70 %), width remembered (`auto-save-id`), `NetworkRequests.vue`; since the polish pass the pane is its own raised Cladd `Surface` (level +1, outline bevel, 1 px line, `rounded-well`) inset 8 px from the panel edges, with an 8 px gap holding the resize handle (a hairline on hover, selection blue while dragging)
 - [x] Header: method, short URL, close → `RequestDetailsHeader.vue`, the one home of the request's identity (`details/requestFacts.ts` `headerFacts`): method (always, GET included), name, status with its reason ("404 Not Found"), the full address as a quiet selectable line, then Mock this response, Copy menu, close with Esc hint
@@ -138,17 +144,17 @@ requests with the reason in its tooltip otherwise (round 1, P6/U6).
 
 ## Mocking rules and log (`mock/MockSidebar.vue`, `mock/MockRulesList.vue`, `mock/MockLogList.vue`)
 
-- [x] Rules (n) · Log (n), Clear log, Reset hits → Cladd `Segmented` with counts; "Clear log"; "Reset counts" (only when a rule has matched; counts are kept in memory for this run, round 1, F1)
+- [x] Rules (n) · Log (n), Clear log, Reset hits → Cladd `Segmented` with counts; "Clear log"; "Reset counts" (only when a rule has matched; counts are kept in memory for this run, round 1, F1); one bar above the well with the search and a Columns menu per view (`mock/MockWorkspace.vue`, columns pass)
 - [x] Rule search with clear → Cladd `SearchField` "Search by name or address"
 - [x] No rules: text + Create first rule → one onboarding panel across the tab (no split) with the nine templates as starters, New empty rule and Mock a real response from Requests (`mock/MockOnboarding.vue`, round 1, U13)
-- [x] Rule rows → virtualised listbox, 44 px: Cladd `Switch`, method, name (dimmed when off), pattern or "Every address", status tinted by outcome, `n×` matched with a Cladd tooltip, delete on hover (`tabindex="-1"`); ↑/↓, Home/End (also with nothing selected, P7), Space toggles, Esc clears
+- [x] Rule rows → virtualised listbox in a recessed well, one 30 px line in columns (`mock/MockRulesTable.vue`, `mock/mockColumns.ts`, columns pass): On (Cladd `Switch`), Method, Name (the row dimmed when off), Match (pattern given way from its start, or "Every address"), Status tinted by outcome, Delay, Hits (the count with a Cladd tooltip, "—" before a match), delete on hover (`tabindex="-1"`); no column sorts, since the first matching rule answers; columns resize and hide like Requests (`capubridge:network:columns:mock-rules:v1`), Delay, Hits, Method and Match step aside when narrow; ↑/↓, Home/End (also with nothing selected, P7), Space toggles, Esc clears
 - [x] Log empty → "Nothing intercepted yet. Requests appear here while interception is on."
-- [x] Log rows → virtualised, 40 px `div role="listitem"` rows (a button inside when the row opens a rule, U15): outcome dot, method, URL, rule name or Passed through / No rule, delay, status, clock time (relative times went stale without a tick); a matched row opens its rule
+- [x] Log rows → virtualised, one 30 px line in columns (`mock/MockLogTable.vue`, columns pass), `div role="listitem"` rows (a button inside when the row opens a rule, U15): Time (clock time; relative times went stale without a tick), Method, Status, URL (given way from its start, full in a Cladd tooltip), Rule (outcome dot + rule name or Passed through / No rule), Delay; resizable and hideable (`capubridge:network:columns:mock-log:v1`); a matched row opens its rule
 - [x] Log keeps 500 entries in memory → unchanged store
 
 ## Mocking rule editor (`mock/MockRuleEditor.vue`, `mock/MockHeadersEditor.vue`, `mock/MockBodyEditor.vue`, `mock/MockBodyDialog.vue`)
 
-- [x] No selection → "Choose a rule on the left to edit it." (or the rules explanation when there are none)
+- [x] No selection → the editor pane closes and the rules take the width; the bar says "Choose a rule to edit it" (the well says "No rules yet. Use New rule above, or Mock this response in Requests." when there are none); the editor sits raised beside the list through the shared record split (520 px by default, 380–1000, `capubridge:network-mock-pane:v1`) with a close action (columns pass)
 - [x] Name; Duplicate, Export (disabled while a transfer runs), Delete → Cladd `Input`; `IconAction`s; delete now offers Undo in a toast
 - [x] Match: method, pattern with per-type placeholder, match type → "Which requests": Cladd `Select`, `Input`, `Segmented` Contains · Wildcard · Regex · Exact with a hint sentence
 - [x] Response: status 100–599, content type (five), delay 0–60 000 → "Answer with": `NumberField`s (clamped), content type `Select` that also keeps a custom type (from Mock this response)
@@ -219,7 +225,7 @@ Each duplicate removed, and where its fact lives now:
 | `cookie` / `set-cookie` raw in the header lists and parsed in Cookies   | Cookies tab; the header lists link to it ("3 cookies")                                          |
 | Failed / Cancelled in both Status and Time of a row                     | Status; Time shows how long it ran                                                              |
 | The type word in every row while the type filter keeps one type         | The selected filter segment; the Type column steps aside                                        |
-| Host and folder in every row, plus "App · size" for the app's files     | Host after the name for network requests only; the folder in the tooltip and the details header |
+| Host and folder in every row, plus "App · size" for the app's files     | Their own Host and Path columns (columns pass); Host stays empty for the app's own files        |
 | "N requests … N shown" while filtering                                  | "3 of 12 requests"                                                                              |
 | Toolbar "Live" / "In the background" beside the pill saying the same    | Title-bar pill (and the app strip); the toolbar names only Paused, Connecting, Not capturing    |
 

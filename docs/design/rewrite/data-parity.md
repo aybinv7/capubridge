@@ -710,7 +710,7 @@ are relative to `modules/storage/sqlite/`.
 ### Step 1 — the shared record pane
 
 - [x] Inspector (Space or status-bar button, Fields / JSON, FK link, `capubridge:data-record-pane`,
-      `capubridge:inspector-view`) → the shared `frame/RecordPane.vue` in `frame/RecordSplit.vue`
+      `capubridge:inspector-view`) → the shared `frame/RecordPane.vue` in `src/shared/components/layout/RecordSplit.vue`
       (`browse/SqliteBrowse.vue`): resizable 280–960 px under the one Data width
       (`capubridge:data-record-pane-size:v2`, panel ids `data-rows-*`), double-click on the handle for
       380 px; shown only with a row (the toggle remembers); titled by the row's key (`id 4182`,
@@ -757,7 +757,7 @@ are relative to `modules/storage/sqlite/`.
       workspace raised one level (`Surface variant="solid" level="+1" outline`, `rounded-well`, 8 px
       gutters); the handle's line shows on hover and drag only. Sidebar 220–440 px, 280 by default (was
       200–360, 260), same keys `capubridge:data-layout:v2:<tab>`
-- [x] Grid and record pane → `frame/RecordSplit.vue` for SQLite, IndexedDB, Key-value, Cache storage and
+- [x] Grid and record pane → `RecordSplit.vue` (moved to `src/shared/components/layout/` so Network shares it) for SQLite, IndexedDB, Key-value, Cache storage and
       OPFS: the grid in a recessed well (`SurfaceCut`, `rounded-well`), `DataGrid frame="none"` (no own
       level-1 box or border; sticky cells take the well's fill; `G/DataGrid.vue`, tested), the record
       pane raised one more level (`Surface +1`, outline). Every tab keeps its own pane, keys and
