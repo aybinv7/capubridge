@@ -31,6 +31,17 @@ export interface OpfsSaveResult {
   changed: boolean;
 }
 
+/** One staged change of an opened file: an UPDATE or an INSERT of exactly one row. */
+export interface SqliteChangeStatement {
+  sql: string;
+}
+
+export interface SqliteChangesetResult {
+  /** The rowid each INSERT was given, `null` for an UPDATE. */
+  insertedRowIds: (number | null)[];
+  durationMs: number;
+}
+
 interface SqliteDatabaseArgs {
   serial: string;
   package: string;
@@ -88,4 +99,8 @@ export interface StorageCommandMap {
   sqlite_export_bytes: IpcCommand<SqliteDatabaseArgs, string>;
   sqlite_export_dump: IpcCommand<SqliteDatabaseArgs & { dest: string }, number>;
   sqlite_import_dump: IpcCommand<SqliteDatabaseArgs & { sql: string }, void>;
+  sqlite_apply_changeset: IpcCommand<
+    SqliteDatabaseArgs & { statements: SqliteChangeStatement[] },
+    SqliteChangesetResult
+  >;
 }

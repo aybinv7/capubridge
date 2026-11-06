@@ -23,6 +23,7 @@ pub(crate) mod package_times;
 pub mod perf;
 pub mod port_forward;
 pub mod sqlite;
+pub mod sqlite_changeset;
 pub mod sqlite_dump;
 pub mod recording;
 pub mod recording_export;

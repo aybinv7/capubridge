@@ -77,6 +77,7 @@ use commands::sqlite::{
     sqlite_stat_database, sqlite_table_columns, sqlite_table_foreign_keys, sqlite_table_indexes,
     sqlite_table_rows,
 };
+use commands::sqlite_changeset::sqlite_apply_changeset;
 use commands::sqlite_dump::{sqlite_export_dump, sqlite_import_dump};
 use commands::target_probe::cdp_probe_target;
 use commands::updater::{updater_check, updater_install, PendingUpdate};
@@ -374,6 +375,7 @@ pub fn run() {
             sqlite_export_bytes,
             sqlite_export_dump,
             sqlite_import_dump,
+            sqlite_apply_changeset,
             mock_server_start,
             mock_server_stop,
             mock_server_sync_rules,
