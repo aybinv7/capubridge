@@ -46,6 +46,7 @@ const emit = defineEmits<{
   openTable: [table: string];
   action: [id: string];
   refresh: [];
+  fileAction: [action: "save-file" | "save-as"];
 }>();
 
 const address = computed(() => props.address);
@@ -189,6 +190,9 @@ defineExpose({
     :changes-only="changesOnly"
     :query="query"
     :save-changes="(staged) => saveChanges(keyColumns, staged)"
+    :saves-to="db.sourceFilePath ?? null"
+    :unsaved="db.unsavedToSource === true"
+    @file-action="emit('fileAction', $event)"
     @follow-foreign-key="followForeignKey"
     @delete="deleteRows(keyColumns, $event)"
     @open-row-diff="openRowDiff"

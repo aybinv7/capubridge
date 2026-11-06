@@ -9,6 +9,7 @@ import {
   Pin,
   PinOff,
   RefreshCw,
+  Save,
   Table2,
   Trash2,
   X,
@@ -22,6 +23,7 @@ export type SqliteSourceActionId =
   | "pin"
   | "hide"
   | "export-file"
+  | "save-file"
   | "export-dump"
   | "import-dump"
   | "clear-marks"
@@ -46,12 +48,23 @@ function hasChanges(changes: { total: number } | undefined): boolean {
 function exportActions(db: SqliteDbFile, context: SqliteTreeActionContext): DataAction[] {
   const reason = context.unreadableReason(db);
   const blocked = reason ? { disabled: true, reason } : {};
+  const opened = db.sourceKind === "imported";
   return [
+    ...(opened && db.unsavedToSource
+      ? [
+          {
+            id: "save-file",
+            label: "Save to the file",
+            icon: Save,
+            separatorBefore: true,
+          },
+        ]
+      : []),
     {
       id: "export-file",
-      label: "Save a copy of the file…",
+      label: opened ? "Save as…" : "Save a copy of the file…",
       icon: Download,
-      separatorBefore: true,
+      separatorBefore: !(opened && db.unsavedToSource),
       ...blocked,
     },
     { id: "export-dump", label: "Save as SQL…", icon: FileCode, ...blocked },
@@ -126,7 +139,12 @@ export function sqliteTreeActions(
     ...exportActions(db, context),
   );
   if (writable) {
-    actions.push({ id: "import-dump", label: "Replace with an SQL file…", icon: FileUp });
+    actions.push({
+      id: "import-dump",
+      label: "Replace with an SQL file…",
+      icon: FileUp,
+      danger: true,
+    });
   }
   actions.push({
     id: "clear-marks",

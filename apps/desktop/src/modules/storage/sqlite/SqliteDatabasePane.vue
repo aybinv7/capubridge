@@ -71,9 +71,7 @@ defineExpose({ focusSearch: () => sql.value?.focus() });
 <template>
   <DataCollectionHeader
     :title="db.name"
-    :identity="
-      db.sourceOpfsPath ?? (db.sourceKind === 'imported' ? 'opened on this computer' : db.path)
-    "
+    :identity="db.sourceOpfsPath ?? db.sourceFilePath ?? db.path"
     :provenance="provenance"
     :read-at="readAt"
     :busy="fetching && !loading"

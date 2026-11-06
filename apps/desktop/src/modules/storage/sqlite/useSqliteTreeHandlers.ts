@@ -82,6 +82,10 @@ export function useSqliteTreeHandlers(
   }
 
   function exportFile(db: SqliteDbFile) {
+    if (db.sourceKind === "imported") {
+      void writes.saveAs(db);
+      return;
+    }
     const address = addressOf(db, tab.reach.value);
     if (!address) {
       toast.info(`“${db.name}” cannot be saved yet`, { description: unreadableReason(db) ?? "" });
@@ -111,11 +115,16 @@ export function useSqliteTreeHandlers(
     });
   }
 
-  function closeFile(sourceId: string) {
+  async function closeFile(sourceId: string) {
     const id = tab.fileIdOf(sourceId);
     if (!id) return;
-    files.close(id);
-    if (tab.current.value?.sourceId === sourceId) location.open(null);
+    const wasOpen = tab.current.value?.sourceId === sourceId;
+    try {
+      await files.close(id);
+    } catch (error) {
+      toast.error("Could not remove the working copy", { description: describe(error) });
+    }
+    if (wasOpen) location.open(null);
   }
 
   function run(actionId: string, row: DataTreeRow) {
@@ -138,10 +147,11 @@ export function useSqliteTreeHandlers(
     else if (actionId === "pin") settings.togglePinned(scope.value, sourceId);
     else if (actionId === "hide") settings.toggleHidden(scope.value, sourceId);
     else if (actionId === "export-file") exportFile(db);
+    else if (actionId === "save-file") void writes.saveToFile(db);
     else if (actionId === "export-dump") exportDump(db);
     else if (actionId === "import-dump") void writes.replaceWithDump(db);
     else if (actionId === "clear-marks") changes.clearDatabaseChanges(serial, pkg, db.path);
-    else if (actionId === "close-file") closeFile(sourceId);
+    else if (actionId === "close-file") void closeFile(sourceId);
     else if (actionId === "show-in-opfs") {
       void router.push({ name: "storage-opfs", query: { path: db.sourceOpfsDirectory ?? "" } });
     }
@@ -173,6 +183,7 @@ export function useSqliteTreeHandlers(
     refresh,
     exportFile,
     exportDump,
+    saveFile: writes.saveToFile,
     run,
     deleteRows,
     saveChanges,

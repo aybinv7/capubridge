@@ -18,10 +18,7 @@ export async function exportSqliteFile(
   address: SqliteAddress,
   name: string,
 ): Promise<string | null> {
-  const dest = await save({
-    defaultPath: /\.(sqlite3?|db3?)$/i.test(name) ? name : `${name}.sqlite`,
-    filters: [{ name: "SQLite database", extensions: ["sqlite", "db", "sqlite3", "db3"] }],
-  });
+  const dest = await pickSqliteDestination(name);
   if (!dest) return null;
   const data = await invokeCommand("sqlite_export_bytes", addressArgs(address));
   await invokeCommand("save_base64_file", { path: dest, data });
@@ -53,22 +50,22 @@ export async function importSqlDump(address: SqliteAddress, dumpSql: string): Pr
   await invokeCommand("sqlite_import_dump", { ...addressArgs(address), sql: dumpSql });
 }
 
-export interface PickedSqliteFile {
-  path: string;
-  name: string;
-  bytes: Uint8Array;
-}
-
-export async function pickSqliteFile(): Promise<PickedSqliteFile | null> {
+/** Asks for a SQLite file on this computer; resolves its path, or `null` when cancelled. */
+export async function pickSqliteFile(): Promise<string | null> {
   const picked = await open({
     multiple: false,
     directory: false,
     filters: [{ name: "SQLite database", extensions: ["sqlite", "db", "db3", "sqlite3"] }],
   });
-  if (!picked || Array.isArray(picked)) return null;
-  const bytes = base64ToBytes(await invokeCommand("read_local_file_base64", { path: picked }));
-  const name = picked.split(/[\\/]/).pop() || "imported.sqlite";
-  return { path: picked, name, bytes };
+  return !picked || Array.isArray(picked) ? null : picked;
+}
+
+/** Asks where to save a copy of a database file; `null` when the person cancelled. */
+export function pickSqliteDestination(name: string): Promise<string | null> {
+  return save({
+    defaultPath: /\.(sqlite3?|db3?)$/i.test(name) ? name : `${name}.sqlite`,
+    filters: [{ name: "SQLite database", extensions: ["sqlite", "db", "sqlite3", "db3"] }],
+  });
 }
 
 export interface PickedSqlDump {

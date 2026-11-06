@@ -72,6 +72,10 @@ const props = defineProps<{
   query: SqliteTableQuery;
   /** Saves staged edits and new rows to the opened file; resolves whether it saved. */
   saveChanges: (staged: SqliteStaged) => Promise<boolean>;
+  /** The file an opened file saves to, or `null` for a phone or page copy. */
+  savesTo?: string | null;
+  /** The opened file's working copy holds changes its file does not have yet. */
+  unsaved?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -79,6 +83,7 @@ const emit = defineEmits<{
   delete: [records: Record<string, unknown>[]];
   openRowDiff: [rowKey: string];
   retry: [];
+  fileAction: [action: "save-file" | "save-as"];
 }>();
 
 const grouped = computed(() => props.query.groupBy.value);
@@ -338,9 +343,13 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
       :pending="staging.pending.value"
       :saving="staging.saving.value"
       :note="staging.note.value"
+      :saves-to="savesTo ?? null"
+      :unsaved="unsaved === true"
       @add-row="staging.addRow()"
       @discard="staging.discard()"
       @save="staging.save()"
+      @save-file="emit('fileAction', 'save-file')"
+      @save-as="emit('fileAction', 'save-as')"
     />
     <SqliteBrowseToolbar
       ref="toolbar"

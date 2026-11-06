@@ -45,7 +45,9 @@ function sourceNode(sourceId: string, db: SqliteDbFile, input: SqliteTreeInput):
   const kind = db.sourceKind ?? "native-android";
   const note = db.unreachable
     ? "The page is not answering (app in the background). Its copy is read again when it is back."
-    : undefined;
+    : db.unsavedToSource
+      ? "Changed here but not written to the file yet: Save to the file, or Save as…"
+      : undefined;
   return {
     id: sourceId,
     label: db.name,

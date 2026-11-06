@@ -8,6 +8,21 @@ import type {
 } from "@/types/sqlite.types";
 import type { IpcCommand } from "@/runtime/ipc/contracts/common";
 
+/** A file opened on this computer: its working copy and the file it came from. */
+export interface SqliteOpenedLocalFile {
+  path: string;
+  name: string;
+  original: string;
+  size: number;
+  walBeside: boolean;
+}
+
+/** Where an opened file was saved, and where its previous version was kept. */
+export interface SqliteSavedOpenedFile {
+  path: string;
+  backup: string;
+}
+
 export interface SqliteFileStat {
   size: number;
   modifiedAt: number;
@@ -103,4 +118,8 @@ export interface StorageCommandMap {
     SqliteDatabaseArgs & { statements: SqliteChangeStatement[] },
     SqliteChangesetResult
   >;
+  sqlite_open_local_file: IpcCommand<{ path: string }, SqliteOpenedLocalFile>;
+  sqlite_save_opened_file: IpcCommand<SqliteDatabaseArgs, SqliteSavedOpenedFile>;
+  sqlite_save_opened_file_as: IpcCommand<SqliteDatabaseArgs & { dest: string }, string>;
+  sqlite_close_opened_file: IpcCommand<SqliteDatabaseArgs, void>;
 }

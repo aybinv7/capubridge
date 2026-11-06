@@ -11,6 +11,10 @@ export interface SqliteDbFile {
   sourceKey?: string;
   sourceOpfsPath?: string;
   sourceOpfsDirectory?: string;
+  /** For a file opened on this computer: the file that was picked, which saving writes to. */
+  sourceFilePath?: string;
+  /** The working copy of an opened file holds changes not written to its file yet. */
+  unsavedToSource?: boolean;
   stripSahPoolHeader?: boolean;
   sourceTech?: SqliteSourceTech;
   /** Listed from an earlier discovery; its WebView cannot be reached right now. */

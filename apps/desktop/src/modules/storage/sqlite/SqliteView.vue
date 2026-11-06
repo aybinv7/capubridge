@@ -103,6 +103,13 @@ function headerAction(actionId: string) {
   if (row) handlers.run(actionId, row);
 }
 
+function fileAction(action: "save-file" | "save-as") {
+  const db = current.value?.db;
+  if (!db) return;
+  if (action === "save-as") handlers.exportFile(db);
+  else void handlers.saveFile(db);
+}
+
 function findHere(): boolean {
   const element = root.value;
   const active = document.activeElement;
@@ -222,6 +229,7 @@ useSqliteCommands({
           @open-table="handlers.openTable"
           @action="headerAction"
           @refresh="handlers.refresh()"
+          @file-action="fileAction"
         />
         <SqliteDatabasePane
           v-else
