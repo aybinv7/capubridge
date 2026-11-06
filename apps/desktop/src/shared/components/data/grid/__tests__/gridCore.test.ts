@@ -296,3 +296,18 @@ describe("fillToWidth", () => {
     expect(fillToWidth({ a: 500 }, ["a"], new Set(["a"]), 300)).toEqual({ a: 500 });
   });
 });
+
+describe("long text cells (F6)", () => {
+  test("a megabyte value shows a bounded preview and a bounded line count", () => {
+    const value = "line\n".repeat(200_000);
+    const cell = formatCell(value);
+    expect(cell.text.length).toBeLessThanOrEqual(241);
+    expect(cell.badge).toBe("⏎13107+");
+    expect(cellToText(value)).toBe(value);
+  });
+
+  test("a short value keeps its exact line count", () => {
+    expect(formatCell("a\nb\nc").badge).toBe("⏎2");
+    expect(formatCell("plain").badge).toBeUndefined();
+  });
+});

@@ -29,6 +29,33 @@ function clip(text: string): string {
 
 const formattedObjects = new WeakMap<object, FormattedCell>();
 
+/** How far into a long string a cell looks to count its line breaks. */
+const LINE_SCAN = 64 * 1024;
+
+/**
+ * A text cell from a bounded look at the string: the preview flattens only the first few
+ * hundred characters and the line count stops at `LINE_SCAN` ("⏎2000+"), so a megabyte value
+ * costs the same as a short one on every scroll frame. Copying still takes the full value.
+ */
+function stringCell(value: string): FormattedCell {
+  const scanned = Math.min(value.length, LINE_SCAN);
+  let breaks = 0;
+  let from = value.indexOf("\n");
+  while (from >= 0 && from < scanned) {
+    breaks += 1;
+    from = value.indexOf("\n", from + 1);
+  }
+  const more = from >= scanned;
+  const head = value.length > MAX_PREVIEW * 4 ? value.slice(0, MAX_PREVIEW * 4) : value;
+  const flat = breaks > 0 ? head.replace(/\s*\n\s*/g, " ⏎ ") : head;
+  return {
+    kind: "string",
+    text: head.length < value.length ? `${flat.slice(0, MAX_PREVIEW)}…` : clip(flat),
+    badge: breaks > 0 || more ? `⏎${breaks}${more ? "+" : ""}` : undefined,
+    align: "start",
+  };
+}
+
 const LOCAL_DATE = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
@@ -234,14 +261,7 @@ export function formatCell(value: unknown, type?: GridColumnType): FormattedCell
   if (typeof value === "string") {
     if (value.startsWith(BLOB_PREFIX))
       return { kind: "blob", text: value.slice(1, -1), align: "start" };
-    const lines = value.includes("\n") ? value.split("\n").length : 0;
-    const flat = lines > 0 ? value.replace(/\s*\n\s*/g, " ⏎ ") : value;
-    return {
-      kind: "string",
-      text: clip(flat),
-      badge: lines > 0 ? `⏎${lines - 1}` : undefined,
-      align: "start",
-    };
+    return stringCell(value);
   }
   if (typeof value === "object") {
     if (isTypedBlob(value)) return formatMarker(value);
