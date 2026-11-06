@@ -11,6 +11,7 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
 import { createConsoleBuffer } from "@/lib/console/consoleBuffer";
 import { formatTimestamp, isRecord } from "@/lib/console/consoleFormat";
+import { consoleSignature, createReplayGuard, exceptionSignature } from "@/lib/console/replayGuard";
 import { STREAM_CAPS } from "@/lib/stream-caps";
 import { withTimeout } from "@/lib/with-timeout";
 import type { CDPTarget } from "@/types/cdp.types";
@@ -90,6 +91,7 @@ export const useConsoleStore = defineStore("console", () => {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retryDelay = initialRetryDelay;
   const pendingGroups = new Map<string, ConsoleEntry>();
+  const replayGuard = createReplayGuard();
   const eventContext: ConsoleEventContext = {
     nextSeq: () => ++idCounter,
     groupStack: [],
@@ -144,6 +146,7 @@ export const useConsoleStore = defineStore("console", () => {
     clearRetry();
     retryDelay = initialRetryDelay;
     boundTargetId.value = targetId;
+    replayGuard.disarm();
     clearConsole();
     clearExceptions();
     replHistory.value = [];
@@ -164,6 +167,9 @@ export const useConsoleStore = defineStore("console", () => {
   }
 
   function pushConsoleEntry(entry: ConsoleEntry) {
+    if (replayGuard.isReplay(entry.timestamp, consoleSignature(entry))) {
+      return;
+    }
     if (!entry.isGroup) {
       const lastEntry = entryBatcher.last() ?? buffer.entries.last();
       if (
@@ -185,6 +191,9 @@ export const useConsoleStore = defineStore("console", () => {
   }
 
   function pushException(entry: ConsoleExceptionEntry) {
+    if (replayGuard.isReplay(entry.timestamp, exceptionSignature(entry))) {
+      return;
+    }
     exceptionBatcher.push(entry);
   }
 
@@ -226,10 +235,21 @@ export const useConsoleStore = defineStore("console", () => {
     retryDelay = Math.min(retryDelay * 2, maximumRetryDelay);
   }
 
+  function armReplayGuard() {
+    entryBatcher.flushNow();
+    exceptionBatcher.flushNow();
+    const signatures: string[] = [];
+    buffer.entries.forEach((entry) => signatures.push(consoleSignature(entry)));
+    buffer.exceptions.forEach((entry) => signatures.push(exceptionSignature(entry)));
+    replayGuard.arm(signatures, Date.now());
+  }
+
   async function bindLeasedClientInternal() {
     const targetId = leasedTargetId.value;
     if (targetId !== boundTargetId.value) {
       resetTargetState(targetId);
+    } else if (buffer.entries.size > 0 || buffer.exceptions.size > 0) {
+      armReplayGuard();
     }
 
     clearClientBindings();
