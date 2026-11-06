@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from "vue";
-import { Download, Group, X } from "lucide-vue-next";
+import { Download } from "lucide-vue-next";
 import { Button, Popover, SearchField } from "@capubridge/cladd";
-import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { DataGridColumnsMenu, type GridColumn } from "@/shared/components/data/grid";
 import SqliteFilterChips from "./SqliteFilterChips.vue";
 import SqliteFilterPopover from "./SqliteFilterPopover.vue";
+import SqliteGroupMenu from "./SqliteGroupMenu.vue";
 import type { SqliteExportFormat, SqliteExportScope } from "./sqliteQuery";
+import type { SqliteGroupRows } from "./useSqliteGroupRows";
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 
 /**
@@ -15,6 +16,7 @@ import type { SqliteTableQuery } from "./useSqliteTableQuery";
  */
 const props = defineProps<{
   query: SqliteTableQuery;
+  groups: SqliteGroupRows;
   columns: readonly GridColumn[];
   selectedRows: number;
   /** Why the filters did not run, from the database. */
@@ -78,22 +80,12 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
       @remove="query.removeFilter"
       @clear-where="query.setWhere('')"
     />
-    <HintTooltip
+    <SqliteGroupMenu
       v-if="query.groupBy.value"
-      :text="`Grouped by ${query.groupBy.value}. Click to show the rows again.`"
-    >
-      <Button
-        size="sm"
-        variant="solid"
-        content-class-name="gap-1.5"
-        :aria-label="`Stop grouping by ${query.groupBy.value}`"
-        @click="query.setGroupBy(null)"
-      >
-        <Group :size="13" aria-hidden="true" />
-        <span class="font-mono">{{ query.groupBy.value }}</span>
-        <X :size="12" aria-hidden="true" />
-      </Button>
-    </HintTooltip>
+      :column="query.groupBy.value"
+      :groups="groups"
+      @stop="query.setGroupBy(null)"
+    />
     <SqliteFilterPopover
       ref="filter"
       :query="query"

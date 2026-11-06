@@ -43,6 +43,7 @@ import {
   type SqliteExportFormat,
   type SqliteExportScope,
 } from "./sqliteQuery";
+import type { SqliteGroupRows } from "./useSqliteGroupRows";
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 import SqliteBrowseToolbar from "./SqliteBrowseToolbar.vue";
 import SqliteEditBar from "./SqliteEditBar.vue";
@@ -80,6 +81,8 @@ const props = defineProps<{
   /** Show only rows the app changed while this table was watched. */
   changesOnly?: boolean;
   query: SqliteTableQuery;
+  /** The grouped view as sections, used while the query groups by a column. */
+  groups: SqliteGroupRows;
   /** Saves staged edits and new rows to the opened file; resolves whether it saved. */
   saveChanges: (staged: SqliteStaged) => Promise<boolean>;
   /** The file an opened file saves to, or `null` for a phone or page copy. */
@@ -107,20 +110,22 @@ const emit = defineEmits<{
 const grouped = computed(() => props.query.groupBy.value);
 const offset = computed(() => props.query.page.value * props.query.pageSize.value);
 
-const columns = computed(() => {
-  const base = toGridColumns(props.result?.columns ?? [], props.columnInfo, props.foreignKeys);
-  return grouped.value
-    ? base.map((column) =>
-        column.id === "rows" ? { ...column, title: "rows", type: "integer" as const } : column,
-      )
-    : base;
+const columnNames = computed(() => {
+  if (!grouped.value) return props.result?.columns ?? [];
+  return props.columnInfo.length > 0
+    ? props.columnInfo.map((column) => column.name)
+    : (props.groups.readColumns.value ?? []);
 });
-
-const mapped = computed(() =>
-  props.result
-    ? toGridRows(props.result, grouped.value ? [] : props.columnInfo, offset.value)
-    : { rows: [], identified: true },
+const columns = computed(() =>
+  toGridColumns(columnNames.value, props.columnInfo, props.foreignKeys),
 );
+
+const mapped = computed(() => {
+  if (grouped.value) return { rows: props.groups.dataRows.value, identified: true };
+  return props.result
+    ? toGridRows(props.result, props.columnInfo, offset.value)
+    : { rows: [], identified: true };
+});
 
 const readOnly = computed(
   () => grouped.value !== null || props.readOnlyReason !== null || !mapped.value.identified,
@@ -141,7 +146,6 @@ const staging = useSqliteStagedEdits({
 
 const rowStates = computed(() => {
   const states = new Map<string, GridRowState>();
-  if (grouped.value) return states;
   if (props.changesByRowKey) {
     for (const row of mapped.value.rows) {
       if (props.changesByRowKey.has(row.id)) states.set(row.id, "recent");
@@ -151,7 +155,9 @@ const rowStates = computed(() => {
   return states;
 });
 
-const shownRows = computed(() => (grouped.value ? mapped.value.rows : staging.rows.value));
+const shownRows = computed(() => (grouped.value ? props.groups.rows.value : staging.rows.value));
+/** The rows that hold data, in display order: what the record pane steps through. */
+const recordRows = computed(() => (grouped.value ? mapped.value.rows : staging.rows.value));
 
 const visibleRows = computed(() =>
   props.changesOnly && !grouped.value
@@ -159,7 +165,9 @@ const visibleRows = computed(() =>
     : shownRows.value,
 );
 const lockReason = computed(() => {
-  if (grouped.value) return null;
+  if (grouped.value) {
+    return props.readOnlyReason ?? "Grouped rows are read-only. Stop grouping to edit them.";
+  }
   return (
     props.readOnlyReason ??
     (mapped.value.identified
@@ -208,15 +216,22 @@ const FILTER_ACTIONS: Array<{ id: PredicateOperator; label: string }> = [
   { id: "not-null", label: "Filter: is not NULL" },
 ];
 
-function groupValue(rowId: string | null): unknown {
-  const column = grouped.value;
-  const row = mapped.value.rows.find((entry) => entry.id === rowId);
-  return column && row ? row.cells[column] : undefined;
+/** Leaves grouping for the rows of one group, as a filter chip. */
+function filterToGroup(rowId: string | null) {
+  const group = props.groups.groupOf(rowId);
+  if (!group) return;
+  try {
+    props.query.openGroup(group.value);
+  } catch (error) {
+    toast.error("Could not filter to this group", {
+      description: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 function contextActions(target: GridContextTarget): GridContextAction[] {
-  if (grouped.value) {
-    return [{ id: "open-group", label: "Show the rows in this group", separatorBefore: true }];
+  if (grouped.value && props.groups.groupOf(target.rowId)) {
+    return [{ id: "open-group", label: "Filter to this group", separatorBefore: true }];
   }
   const actions: GridContextAction[] = [];
   if (target.columnId && target.rowId && !readOnly.value && !staging.isDeleting(target.rowId)) {
@@ -278,7 +293,7 @@ function recordsFor(rowIds: readonly string[]): Record<string, unknown>[] {
 }
 
 function runContextAction(actionId: string, target: GridContextTarget) {
-  if (actionId === "open-group") props.query.openGroup(groupValue(target.rowId));
+  if (actionId === "open-group") filterToGroup(target.rowId);
   else if (actionId.startsWith("filter:") && target.columnId) {
     const operator = actionId.slice("filter:".length) as PredicateOperator;
     try {
@@ -297,10 +312,6 @@ function runContextAction(actionId: string, target: GridContextTarget) {
   } else if (actionId === "set-null" && target.rowId && target.columnId) {
     staging.setNull(target.rowId, target.columnId);
   }
-}
-
-function openGroupRow(rowId: string) {
-  if (grouped.value) props.query.openGroup(groupValue(rowId));
 }
 
 function requestDelete(rowIds: string[]) {
@@ -333,7 +344,7 @@ function exportRows(format: SqliteExportFormat, scope: SqliteExportScope) {
 const grid = ref<InstanceType<typeof DataGrid> | null>(null);
 const paneView = ref<InstanceType<typeof RecordPane> | null>(null);
 const pane = useRecordPane({
-  rows: shownRows,
+  rows: recordRows,
   grid,
   page: computed(() => props.query.page.value),
   hasMore: computed(() => props.hasMore),
@@ -341,7 +352,7 @@ const pane = useRecordPane({
   setPage: (page) => (props.query.page.value = page),
 });
 const maximized = ref(false);
-const paneShown = computed(() => pane.visible.value && paneRow.value !== null && !grouped.value);
+const paneShown = computed(() => pane.visible.value && paneRow.value !== null);
 watch(paneShown, (shown) => {
   if (!shown) maximized.value = false;
 });
@@ -352,7 +363,7 @@ const keyColumnNames = computed(() =>
     .sort((a, b) => a.pk - b.pk)
     .map((column) => column.name),
 );
-const paneRow = computed(() => shownRows.value.find((row) => row.id === pane.rowId.value) ?? null);
+const paneRow = computed(() => recordRows.value.find((row) => row.id === pane.rowId.value) ?? null);
 const paneChange = computed(() =>
   pane.rowId.value ? (props.changesByRowKey?.get(pane.rowId.value) ?? null) : null,
 );
@@ -363,9 +374,12 @@ const paneTitle = computed(() => {
     recordKeyLabel(keyColumnNames.value, row.cells) ?? `row ${offset.value + pane.index.value + 1}`
   );
 });
-const paneSubtitle = computed(() =>
-  pane.index.value >= 0 ? `row ${offset.value + pane.index.value + 1}` : "not in the rows shown",
-);
+const paneSubtitle = computed(() => {
+  if (pane.index.value < 0) return "not in the rows shown";
+  return grouped.value
+    ? `in a group of ${grouped.value}`
+    : `row ${offset.value + pane.index.value + 1}`;
+});
 const paneState = computed(() => {
   const change = paneChange.value;
   const seen = change ? Date.parse(change.observedAt) : Number.NaN;
@@ -432,7 +446,7 @@ function onPaneKeydown(event: KeyboardEvent) {
 function onGridKeydown(event: KeyboardEvent) {
   if (event.key !== " " || !event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)
     return;
-  if (grouped.value || !pane.rowId.value) return;
+  if (!pane.rowId.value) return;
   event.preventDefault();
   event.stopPropagation();
   pane.show(pane.rowId.value);
@@ -447,7 +461,7 @@ const summary = shallowRef<GridSummary>({
   aggregate: null,
 });
 
-const sort = computed<GridSort | null>(() => (grouped.value ? null : props.query.gridSort.value));
+const sort = computed<GridSort | null>(() => props.query.gridSort.value);
 const noMatch = computed(() => {
   const parts = [
     ...props.query.filters.value.map((chip) => chip.label),
@@ -499,6 +513,7 @@ defineExpose({
       ref="toolbar"
       v-model:visibility="visibility"
       :query="query"
+      :groups="groups"
       :columns="columns"
       :selected-rows="summary.selectedRows"
       :filter-error="filterError"
@@ -532,17 +547,17 @@ defineExpose({
             :column-visibility="visibility"
             :show-as="showAs"
             :grouped-column="grouped"
-            :column-features="{ filter: !grouped, group: true, showAs: true }"
+            :column-features="{ filter: true, group: true, showAs: true }"
             :context-actions="contextActions"
-            :activate-rows="grouped !== null"
             :layout-key="`sqlite:${stateKey}/${tableName}`"
             :editing="staging.editing.value"
             @edit="staging.startEdit"
             @update:sort="query.setSort($event)"
             @column-action="onColumnAction"
-            @active-row="$event && !grouped && (pane.activeRowId.value = $event)"
+            @active-row="$event && (pane.activeRowId.value = $event)"
             @inspect="pane.show"
-            @activate="openGroupRow"
+            @toggle-section="groups.toggle"
+            @note-action="groups.noteAction"
             @summary="summary = $event"
             @delete="requestDelete"
             @context-action="runContextAction"

@@ -9,6 +9,7 @@ import type { SqliteColumnInfo, SqliteDbFile, SqliteTableInfo } from "@/types/sq
 import SqliteBrowse from "./browse/SqliteBrowse.vue";
 import type { SqliteStaged } from "./browse/sqliteChangeset";
 import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
+import { useSqliteGroupRows } from "./browse/useSqliteGroupRows";
 import { useSqliteRows } from "./browse/useSqliteRows";
 import { rowOrderOf } from "./browse/sqliteRowOrder";
 import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
@@ -100,6 +101,17 @@ const rows = useSqliteRows({
   query,
   tableRowCount: computed(() => props.info?.rowCount ?? null),
   rowOrder,
+  active: shown,
+});
+
+const groups = useSqliteGroupRows({
+  address,
+  table,
+  query,
+  rowOrder,
+  columnInfo: columns,
+  groupPage: computed(() => (query.groupBy.value ? (rows.page.value?.result ?? null) : null)),
+  stateKey: computed(() => `${stateKey.value}/${props.table}`),
   active: shown,
 });
 
@@ -215,6 +227,7 @@ defineExpose({
     :read-only-reason="sqliteReadOnlyReason(db)"
     :changes-only="changesOnly"
     :query="query"
+    :groups="groups"
     :save-changes="(staged) => saveChanges(keyColumns, staged)"
     :saves-to="db.sourceFilePath ?? null"
     :unsaved="db.unsavedToSource === true"
