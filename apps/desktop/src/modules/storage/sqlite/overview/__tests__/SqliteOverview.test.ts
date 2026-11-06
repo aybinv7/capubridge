@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { computed, createApp, defineComponent, h, nextTick, type App } from "vue";
+import { computed, createApp, h, nextTick, type App } from "vue";
 import type { SqliteTableInfo } from "@/types/sqlite.types";
 
 vi.mock("../useSqliteFacts", () => ({
@@ -15,9 +15,6 @@ vi.mock("@/modules/storage/changes/useSqliteChangeOverlay", () => ({
   useSqliteChangeIndex: () => ({
     getTableSummary: () => ({ add: 0, update: 0, delete: 0, total: 0, latestAt: null }),
   }),
-}));
-vi.mock("../SqliteOverviewTables.vue", () => ({
-  default: defineComponent({ name: "Tables", render: () => h("div", "tables grid") }),
 }));
 
 const { default: SqliteOverview } = await import("../../SqliteOverview.vue");
@@ -70,10 +67,13 @@ describe("the overview's states keep their words", () => {
     expect((await mount({})).text).toContain("This database has no tables");
   });
 
-  test("with tables: the grid, what changed and the checks", async () => {
+  test("with tables: the numbers, the cards and the list", async () => {
     const { text } = await mount({ tables: [table] });
-    expect(text).toContain("tables grid");
+    expect(text).toContain("Tables");
+    expect(text).toContain("Most rows");
+    expect(text).toContain("Health");
+    expect(text).toContain("Configuration");
     expect(text).toContain("Nothing changed since it was opened");
-    expect(text).toContain("Schema checks");
+    expect(text).toContain("Tables and views");
   });
 });

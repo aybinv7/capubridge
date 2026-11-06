@@ -6,6 +6,8 @@ import type { SqliteAddress } from "../sqliteAddress";
 import { runQuery } from "../sqliteReads";
 import type { HealthCheck } from "./sqliteHealth";
 
+import SqliteOverviewCard from "./SqliteOverviewCard.vue";
+
 /**
  * Schema checks: the cheap ones from the facts, each with "Show" to narrow the table grid, and
  * the two that read the whole file (`quick_check`, `foreign_key_check`), run only when asked.
@@ -69,8 +71,7 @@ const DEEP: Array<{ id: Deep; label: string; hint: string }> = [
 </script>
 
 <template>
-  <section class="flex flex-col gap-1.5" aria-label="Schema checks">
-    <h3 class="text-2xs font-medium text-[var(--fg-subtle)]">Schema checks</h3>
+  <SqliteOverviewCard title="Health">
     <p v-if="checks.length === 0" class="flex items-center gap-2 text-xs text-muted-foreground">
       <StatusDot variant="hollow" size="xs" /> Nothing stands out
     </p>
@@ -115,5 +116,5 @@ const DEEP: Array<{ id: Deep; label: string; hint: string }> = [
         {{ deep.label }}
       </Button>
     </div>
-  </section>
+  </SqliteOverviewCard>
 </template>

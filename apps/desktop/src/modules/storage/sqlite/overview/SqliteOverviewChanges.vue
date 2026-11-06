@@ -5,6 +5,8 @@ import { ListButton, StatusDot } from "@capubridge/cladd";
 import { formatAge } from "@/modules/storage/frame/changeWords";
 import type { SqliteChangeSummary } from "@/types/sqliteChanges.types";
 
+import SqliteOverviewCard from "./SqliteOverviewCard.vue";
+
 /**
  * What the app changed while this database was watched, newest first, from the change index the
  * 5 s check already keeps (no read of its own). A table opens with a click.
@@ -32,8 +34,7 @@ const rows = computed(() =>
 </script>
 
 <template>
-  <section class="flex flex-col gap-1.5" aria-label="Changed while watched">
-    <h3 class="text-2xs font-medium text-[var(--fg-subtle)]">Changed while watched</h3>
+  <SqliteOverviewCard title="Changed while watched">
     <p v-if="!watched" class="text-xs text-muted-foreground">
       A file opened here is not watched; Read again compares it.
     </p>
@@ -56,5 +57,5 @@ const rows = computed(() =>
       </span>
       <span class="w-16 shrink-0 text-right text-2xs text-[var(--fg-subtle)]">{{ row.age }}</span>
     </ListButton>
-  </section>
+  </SqliteOverviewCard>
 </template>
