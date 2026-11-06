@@ -353,3 +353,24 @@
     transparent 1px 6px
   );
 }
+
+@keyframes reveal-flash {
+  0%,
+  35% {
+    background-color: color-mix(in oklab, var(--signal-select) 20%, transparent);
+    box-shadow: inset 2px 0 0 var(--signal-select);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 2px 0 0 transparent;
+  }
+}
+
+@utility reveal-flash {
+  animation: reveal-flash 1.6s ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    box-shadow: inset 2px 0 0 var(--signal-select);
+  }
+}

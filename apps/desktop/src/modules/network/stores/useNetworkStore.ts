@@ -65,6 +65,7 @@ export const useNetworkStore = defineStore("network", () => {
 
   const isRecording = ref(true);
   const selectedId = ref<string | null>(null);
+  const revealSeq = ref(0);
   const filterText = ref("");
   const typeFilter = ref<NetworkTypeFilter>("All");
   const methodFilter = ref("All");
@@ -339,6 +340,11 @@ export const useNetworkStore = defineStore("network", () => {
     selectedId.value = id;
   }
 
+  /** Asks Requests to scroll the selected request into view (the timeline's "Go to"). */
+  function requestReveal() {
+    revealSeq.value += 1;
+  }
+
   let filterFocusAt = 0;
 
   /** Asks Requests to focus its filter, now or as soon as it opens (within a few seconds). */
@@ -400,6 +406,8 @@ export const useNetworkStore = defineStore("network", () => {
     clear,
     clearFilters,
     select,
+    revealSeq,
+    requestReveal,
     triggerFocusSearch,
     takeFilterFocus,
     setCaptureState,

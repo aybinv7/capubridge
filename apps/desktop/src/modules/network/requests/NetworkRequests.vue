@@ -52,7 +52,8 @@ const visibility = computed(() =>
   columnVisibility({ waterfall: !selected.value, typeFilter: store.typeFilter }),
 );
 const revealKey = computed(
-  () => `${store.filterText}|${store.typeFilter}|${store.methodFilter}|${store.searchScope}`,
+  () =>
+    `${store.filterText}|${store.typeFilter}|${store.methodFilter}|${store.searchScope}|${store.revealSeq}`,
 );
 
 const captureInput = computed(() => ({

@@ -20,6 +20,7 @@ import { formatLogcatLine } from "@/lib/logcat/logcatEntry";
 import { compileLogcatFilter } from "@/lib/logcat/logcatFilter";
 import { useRingView } from "@/composables/useRingView";
 import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
+import { useRevealFocus } from "@/shared/timeline/revealFocus";
 import type { LogcatEntry } from "@/types/logcat.types";
 
 const devicesStore = useDevicesStore();
@@ -57,12 +58,25 @@ const predicate = computed(() =>
 const { rows: filteredEntries } = useRingView(logcatStore, predicate, { frozen: isPaused });
 const {
   bindScrollArea,
+  virtualizer,
   visible: virtualItems,
   totalSize,
   measure,
 } = useScrollAreaVirtualizer(filteredEntries, {
   estimateSize: 37,
   itemKey: (entry) => entry.id,
+});
+
+const flashId = useRevealFocus("logcat", {
+  rows: filteredEntries,
+  idOf: (entry) => entry.id,
+  scrollToIndex: (index) => virtualizer.value.scrollToIndex(index, { align: "center" }),
+  showAll: () => {
+    textFilter.value = "";
+    tagFilter.value = "";
+    packageFilter.value = "__all__";
+    activeLevels.value = ["V", "D", "I", "W", "E", "F"];
+  },
 });
 
 function toggleLevel(level: LogcatEntry["level"]) {
@@ -279,6 +293,7 @@ function exportTxt() {
           :ref="measure"
           :data-index="item.index"
           class="absolute top-0 left-0 grid w-full grid-cols-[44px_84px_54px_160px_96px_minmax(0,1fr)] gap-2 border-b border-border/15 px-3 py-2 hover:bg-surface-2/60"
+          :class="flashId === item.item.id ? 'reveal-flash' : ''"
           :style="{ transform: `translateY(${item.start}px)` }"
         >
           <div class="text-muted-foreground/65">{{ item.item.level }}</div>

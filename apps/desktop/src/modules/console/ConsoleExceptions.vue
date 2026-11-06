@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConsoleStore } from "@/stores/console.store";
 import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
+import { useRevealFocus } from "@/shared/timeline/revealFocus";
 
 const consoleStore = useConsoleStore();
 
@@ -25,12 +26,22 @@ const filteredEntries = computed(() => {
 
 const {
   bindScrollArea,
+  virtualizer,
   visible: virtualEntries,
   totalSize,
   measure,
 } = useScrollAreaVirtualizer(filteredEntries, {
   estimateSize: 120,
   itemKey: (entry) => entry.id,
+});
+
+const flashId = useRevealFocus("exception", {
+  rows: filteredEntries,
+  idOf: (entry) => entry.id,
+  scrollToIndex: (index) => virtualizer.value.scrollToIndex(index, { align: "center" }),
+  showAll: () => {
+    searchQuery.value = "";
+  },
 });
 </script>
 
@@ -94,7 +105,10 @@ const {
           class="absolute top-3 right-3 left-3 pb-2"
           :style="{ transform: `translateY(${start}px)` }"
         >
-          <section class="rounded-xl border border-error/20 bg-error/6 p-3">
+          <section
+            class="rounded-xl border border-error/20 bg-error/6 p-3"
+            :class="flashId === entry.id ? 'reveal-flash' : ''"
+          >
             <div class="flex items-start gap-2">
               <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0 text-error" />
               <div class="min-w-0 flex-1">

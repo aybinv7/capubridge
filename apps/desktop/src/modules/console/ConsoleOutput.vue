@@ -12,6 +12,7 @@ import type { ConsoleEntry, ConsoleEntryLevel } from "@/types/console.types";
 import ConsoleArgsView from "@/components/console/ConsoleArgsView.vue";
 import { buildConsoleRows, type ConsoleFilterLevel } from "@/lib/console/consoleRows";
 import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
+import { useRevealFocus } from "@/shared/timeline/revealFocus";
 
 type FilterLevel = ConsoleFilterLevel;
 
@@ -47,12 +48,23 @@ const visibleRows = computed(() => {
 
 const {
   bindScrollArea,
+  virtualizer,
   visible: virtualRows,
   totalSize,
   measure,
 } = useScrollAreaVirtualizer(visibleRows, {
   estimateSize: 26,
   itemKey: (row) => row.entry.id,
+});
+
+const flashId = useRevealFocus("console", {
+  rows: visibleRows,
+  idOf: (row) => row.entry.id,
+  scrollToIndex: (index) => virtualizer.value.scrollToIndex(index, { align: "center" }),
+  showAll: () => {
+    searchQuery.value = "";
+    activeLevel.value = "all";
+  },
 });
 
 function rowClass(level: ConsoleEntryLevel): string {
@@ -185,7 +197,7 @@ const FILTER_LEVELS = [
           :ref="measure"
           :data-index="index"
           class="group absolute top-0 left-0 w-full select-text"
-          :class="rowClass(entry.level)"
+          :class="[rowClass(entry.level), flashId === entry.id ? 'reveal-flash' : '']"
           :style="{ transform: `translateY(${start}px)` }"
           @dblclick="copyEntry(entry)"
         >
