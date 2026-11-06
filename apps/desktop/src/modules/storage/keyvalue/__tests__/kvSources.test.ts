@@ -15,6 +15,7 @@ const discovery: KeyValueDiscovery = {
     { database: "cache", store: "images", count: 9 },
   ],
   forageError: null,
+  plainDatabases: [],
 };
 
 const query = (partial: Partial<Record<"origin" | "source" | "database" | "store", string>>) => ({

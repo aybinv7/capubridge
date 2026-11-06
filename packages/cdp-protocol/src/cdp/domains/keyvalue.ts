@@ -43,6 +43,13 @@ export interface KeyValueDiscovery {
   forage: KeyValueForageStore[];
   /** Why LocalForage stores could not all be listed. */
   forageError: string | null;
+  /** Databases (`name@version`) that are not LocalForage; pass them back as `skip` next time. */
+  plainDatabases: string[];
+}
+
+export interface KeyValueDiscoverOptions {
+  /** Databases (`name@version`) known not to be LocalForage; they are not opened. */
+  skip?: readonly string[];
 }
 
 export interface KeyValueStorageEntry {
@@ -186,14 +193,15 @@ export class KeyValueDomain {
   }
 
   /** Lists the page's origins, its storage counts and its LocalForage stores. */
-  async discover(): Promise<KeyValueDiscovery> {
+  async discover(options: KeyValueDiscoverOptions = {}): Promise<KeyValueDiscovery> {
     const page = parseReply<{
       origin: string;
       local: number | null;
       session: number | null;
       forage: KeyValueForageStore[];
       forageError: string | null;
-    }>(await this.evaluate(discoveryScript()));
+      plain?: string[];
+    }>(await this.evaluate(discoveryScript(options.skip)));
     const origins = [page.origin];
     try {
       for (const frame of await this.frames()) {
@@ -208,6 +216,7 @@ export class KeyValueDomain {
       counts: { local: page.local, session: page.session },
       forage: page.forage,
       forageError: page.forageError,
+      plainDatabases: page.plain ?? [],
     };
   }
 

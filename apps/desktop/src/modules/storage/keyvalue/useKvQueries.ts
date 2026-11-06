@@ -6,6 +6,7 @@ import { withReadTimeout } from "@/modules/storage/frame/useDataPresence";
 import { areaEntries, forageEntries, type KvReadResult, type KvSource } from "./kvModel";
 
 const ENTRIES_CACHE_MS = 30_000;
+const CATALOG_FRESH_MS = 10_000;
 
 function errorText(error: unknown): string | null {
   if (!error) return null;
@@ -23,13 +24,27 @@ export function useKvDomain(targetId: Ref<string>) {
   };
 }
 
-/** Every key-value source of the page, read again on demand. Reads wait while `paused`. */
+const plainDatabases = new Map<string, readonly string[]>();
+
+/**
+ * Every key-value source of the page, read again on demand. Reads wait while `paused`. The
+ * databases found not to be LocalForage are remembered per target, so a read again does not
+ * open them a second time (a new version of one is looked at again).
+ */
 export function useKvCatalog(targetId: Ref<string>, paused: Ref<boolean>) {
   const domain = useKvDomain(targetId);
   const query = useQuery({
     queryKey: computed(() => ["kv-sources", targetId.value]),
-    queryFn: () => withReadTimeout(domain().discover()),
+    queryFn: async () => {
+      const target = targetId.value;
+      const found = await withReadTimeout(
+        domain().discover({ skip: plainDatabases.get(target) ?? [] }),
+      );
+      plainDatabases.set(target, found.plainDatabases);
+      return found;
+    },
     enabled: computed(() => Boolean(targetId.value) && !paused.value),
+    staleTime: CATALOG_FRESH_MS,
     retry: false,
   });
   return {

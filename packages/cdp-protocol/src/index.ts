@@ -148,6 +148,7 @@ export type {
   KeyValueDeleteItem,
   KeyValueDeleteOptions,
   KeyValueDeleteResult,
+  KeyValueDiscoverOptions,
   KeyValueDiscovery,
   KeyValueForageEntry,
   KeyValueForagePage,

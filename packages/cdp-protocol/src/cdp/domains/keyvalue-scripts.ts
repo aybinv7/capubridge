@@ -7,8 +7,8 @@ export const FORAGE_DETECT_STORE = "local-forage-detect-blob-support";
 /** How many LocalForage entries one read returns at most. */
 export const FORAGE_READ_LIMIT = 5000;
 
-/** How long discovery waits for one database to open before it skips it. */
-const FORAGE_OPEN_WAIT_MS = 3000;
+/** How long discovery waits for the databases to open before it skips those still opening. */
+const FORAGE_OPEN_WAIT_MS = 2500;
 
 /** Fields shared by every key-value write the device checks before it changes anything. */
 export interface KeyValueWriteInput {
@@ -125,53 +125,64 @@ export function storageReadScript(origin: string, area: "local" | "session"): st
 /**
  * Counts of the page's own Local and Session storage, and every LocalForage store it keeps in
  * IndexedDB: a database is LocalForage's when it holds LocalForage's blob-support store, or is
- * named `localforage`. Databases are opened only if they exist (never created or upgraded) and
- * closed right after; one that does not open within a few seconds is skipped and named.
+ * named `localforage`. Databases are opened in parallel, only if they exist (never created or
+ * upgraded), close the moment the app upgrades them, and are closed right after; those still
+ * opening when `FORAGE_OPEN_WAIT_MS` runs out are skipped and named. Databases in `skip`
+ * (`name@version`, known not to be LocalForage) are not opened; `plain` names those found.
  */
-export function discoveryScript(): string {
+export function discoveryScript(skip: readonly string[] = []): string {
   return `(async () => {
     ${IDB_DEVICE_CODEC_SOURCE}
-    const out = { origin: location.origin, local: null, session: null, forage: [], forageError: null };
+    const out = { origin: location.origin, local: null, session: null, forage: [], forageError: null, plain: [] };
     try { out.local = localStorage.length; } catch (e) { out.local = null; }
     try { out.session = sessionStorage.length; } catch (e) { out.session = null; }
+    const skip = new Set(${jsLiteral(skip)});
     const skipped = [];
-    function openBriefly(name) {
-      let late = false;
+    let late = false;
+    let timer = 0;
+    const deadline = new Promise(function (resolve) {
+      timer = setTimeout(function () { late = true; resolve(null); }, ${FORAGE_OPEN_WAIT_MS});
+    });
+    async function look(entry) {
+      const name = entry.name;
       const opening = __cbOpenExisting(name);
       opening.then(function (db) { if (late) db.close(); }, function () { return undefined; });
-      return Promise.race([
-        opening,
-        new Promise(function (_, reject) {
-          setTimeout(function () { late = true; reject(new Error('busy')); }, ${FORAGE_OPEN_WAIT_MS});
-        }),
-      ]);
+      const db = await Promise.race([opening.catch(function () { return undefined; }), deadline]);
+      if (db === null) { skipped.push(name); return; }
+      if (!db) return;
+      try {
+        const stores = Array.from(db.objectStoreNames);
+        if (name !== 'localforage' && stores.indexOf(${jsLiteral(FORAGE_DETECT_STORE)}) === -1) {
+          out.plain.push(name + '@' + db.version);
+          return;
+        }
+        for (const store of stores) {
+          if (store === ${jsLiteral(FORAGE_DETECT_STORE)}) continue;
+          let count = null;
+          try { count = await __cbRequest(db.transaction(store, 'readonly').objectStore(store).count()); } catch (e) { count = null; }
+          out.forage.push({ database: name, store: store, count: count });
+        }
+      } finally {
+        db.close();
+      }
     }
     try {
-      const names = typeof indexedDB.databases === 'function'
-        ? (await indexedDB.databases()).map(function (entry) { return entry.name; }).filter(Boolean)
-        : ['localforage'];
-      for (const name of names) {
-        let db;
-        try { db = await openBriefly(name); } catch (e) {
-          if (e && e.message === 'busy') skipped.push(name);
-          continue;
+      const entries = typeof indexedDB.databases === 'function'
+        ? (await indexedDB.databases()).filter(function (entry) { return Boolean(entry.name); })
+        : [{ name: 'localforage', version: undefined }];
+      const looked = entries.filter(function (entry) {
+        if (entry.version !== undefined && skip.has(entry.name + '@' + entry.version)) {
+          out.plain.push(entry.name + '@' + entry.version);
+          return false;
         }
-        try {
-          const stores = Array.from(db.objectStoreNames);
-          if (name !== 'localforage' && stores.indexOf(${jsLiteral(FORAGE_DETECT_STORE)}) === -1) continue;
-          for (const store of stores) {
-            if (store === ${jsLiteral(FORAGE_DETECT_STORE)}) continue;
-            let count = null;
-            try { count = await __cbRequest(db.transaction(store, 'readonly').objectStore(store).count()); } catch (e) { count = null; }
-            out.forage.push({ database: name, store: store, count: count });
-          }
-        } finally {
-          db.close();
-        }
-      }
+        return true;
+      });
+      await Promise.all(looked.map(look));
+      if (!late) clearTimeout(timer);
     } catch (e) {
       out.forageError = e && e.message ? e.message : String(e);
     }
+    out.forage.sort(function (a, b) { return a.database < b.database ? -1 : a.database > b.database ? 1 : a.store < b.store ? -1 : a.store > b.store ? 1 : 0; });
     if (skipped.length && !out.forageError) {
       out.forageError = 'Busy, not looked inside: ' + skipped.join(', ');
     }

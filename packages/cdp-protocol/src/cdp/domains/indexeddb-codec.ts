@@ -80,7 +80,7 @@ export const IDB_VIEW_LIMITS: IdbEncodeLimits = {
 /**
  * Device-side encoder and reviver, as JavaScript source to paste into a device script. It
  * defines `__cbCodec(options)`, `__cbRecordEncoder(limits)`, `__cbRevive(value, lenient)`,
- * `__cbOpenExisting(name)` (never creates a database), `__cbCheckOrigin(origin)`,
+ * `__cbOpenExisting(name)` (never creates a database, and closes when the app upgrades it), `__cbCheckOrigin(origin)`,
  * `__cbKeyText(key)`, `__cbRequest(req)`, `__cbTxDone(tx)` and `__cbRange(spec)`.
  */
 export const IDB_DEVICE_CODEC_SOURCE = String.raw`
@@ -363,7 +363,11 @@ async function __cbOpenExisting(name) {
       created = true;
       req.transaction.abort();
     };
-    req.onsuccess = function () { resolve(req.result); };
+    req.onsuccess = function () {
+      const db = req.result;
+      db.onversionchange = function () { db.close(); };
+      resolve(db);
+    };
     req.onerror = function (event) {
       if (event && event.preventDefault) event.preventDefault();
       reject(created ? new Error(absent) : (req.error && req.error.message ? req.error.message : 'open failed'));
