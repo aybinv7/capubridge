@@ -7,20 +7,21 @@ vi.mock("vue-sonner", () => ({ toast }));
 vi.mock("@capubridge/cdp-protocol", () => ({ KeyValueConflictError: class extends Error {} }));
 
 const { useKvWrites } = await import("../useKvWrites");
-const { makeSource } = await import("../kvModel");
+const { areaEntries, makeSource } = await import("../kvModel");
 
-function setup(state: { pending: boolean; away: string | null }) {
+function setup(state: { pending: boolean; away: string | null }, answer = false) {
   const write = vi.fn().mockResolvedValue({ gone: false });
   const afterWrite = vi.fn();
+  const confirm = vi.fn().mockResolvedValue(answer);
   const writes = useKvWrites({
     source: makeSource({ kind: "local", origin: "https://app" }),
     domain: () => ({ write }) as unknown as KeyValueDomain,
     pending: ref(state.pending),
     away: ref(state.away),
-    confirm: vi.fn(),
+    confirm,
     afterWrite,
   });
-  return { writes, write, afterWrite };
+  return { writes, write, afterWrite, confirm };
 }
 
 describe("writes wait when the phone cannot be trusted to answer (U1)", () => {
@@ -45,5 +46,34 @@ describe("writes wait when the phone cannot be trusted to answer (U1)", () => {
     await expect(writes.save({ entry: null, key: "a", value: "b" })).resolves.toBe("saved");
     expect(write).toHaveBeenCalledTimes(1);
     expect(afterWrite).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("deletes ask first", () => {
+  const entries = () =>
+    areaEntries([
+      { key: "token", value: "x" },
+      { key: "user", value: "y" },
+    ]);
+
+  test("nothing is deleted when the answer is no", async () => {
+    const { writes, write, confirm } = setup({ pending: false, away: null }, false);
+    const [first] = entries();
+    await expect(writes.confirmAndRemove(first ? [first] : [], "Local storage")).resolves.toBe(0);
+    expect(confirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Delete “token”?",
+        text: "“token” is deleted from Local storage on the phone. This cannot be undone.",
+        danger: true,
+      }),
+    );
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  test("every key asked about is deleted on yes", async () => {
+    const { writes, write, confirm } = setup({ pending: false, away: null }, true);
+    await expect(writes.confirmAndRemove(entries(), "Session storage")).resolves.toBe(2);
+    expect(confirm.mock.calls[0]?.[0]).toMatchObject({ title: "Delete 2 keys?" });
+    expect(write).toHaveBeenCalledTimes(2);
   });
 });

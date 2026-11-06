@@ -54,6 +54,12 @@ export function useKvPane(options: {
     open.value = true;
   }
 
+  /** Follows the grid's focus; an unsaved edit or new key keeps the pane until it is settled. */
+  function follow(id: string) {
+    activeId.value = id;
+    if (!dirty.value) creating.value = false;
+  }
+
   function startCreate() {
     if (dirty.value) return;
     creating.value = true;
@@ -100,6 +106,7 @@ export function useKvPane(options: {
     canNext,
     setDirty,
     show,
+    follow,
     startCreate,
     step,
     settle,

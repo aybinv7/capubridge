@@ -47,6 +47,19 @@ function question(conflict: KeyValueConflict, key: string): ConfirmRequest {
   };
 }
 
+/** The question every delete asks first, naming the key (or how many) and the list. */
+export function deleteQuestion(entries: readonly KvEntry[], listName: string): ConfirmRequest {
+  const single = entries.length === 1 ? entries[0] : undefined;
+  return {
+    title: single ? `Delete ${quoted(single.key)}?` : `Delete ${entries.length} keys?`,
+    text: single
+      ? `${quoted(single.key)} is deleted from ${listName} on the phone. This cannot be undone.`
+      : `${entries.length} keys are deleted from ${listName} on the phone. This cannot be undone.`,
+    confirmLabel: single ? "Delete key" : `Delete ${entries.length} keys`,
+    danger: true,
+  };
+}
+
 function savedText(request: KvSaveRequest): string {
   if (!request.entry) return `Added ${quoted(request.key)} on the phone`;
   if (request.entry.key !== request.key) {

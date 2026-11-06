@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { refDebounced } from "@vueuse/core";
 import { ChevronDown, ChevronUp, Lock, Trash2, X } from "lucide-vue-next";
 import { Button, Input, Segmented, SegmentedButton } from "@capubridge/cladd";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
@@ -60,6 +61,12 @@ const dirty = computed(() =>
       draft.value !== baseDraft.value ||
       (props.kind === "forage" && mode.value !== baseMode.value),
 );
+const settledDraft = refDebounced(draft, 200);
+const problem = computed(() => {
+  if (mode.value !== "json") return null;
+  if (settledDraft.value.trim() === "") return "Type a JSON value, or switch to Text";
+  return draftProblem(settledDraft.value, "json") ? "The JSON is not valid" : null;
+});
 const renames = computed(() => !creating.value && keyDraft.value !== baseKey.value);
 const keyIssue = computed(() => keyProblem(keyDraft.value));
 const canSave = computed(
@@ -67,6 +74,7 @@ const canSave = computed(
     readOnlyReason.value === null &&
     props.blockedReason === null &&
     keyIssue.value === null &&
+    problem.value === null &&
     (creating.value || dirty.value),
 );
 
@@ -255,6 +263,7 @@ defineExpose({ discard, edit });
         Delete
       </Button>
       <span class="flex-1" />
+      <span v-if="problem" class="truncate text-2xs text-error">{{ problem }}</span>
       <Button v-if="dirty && !creating" size="sm" variant="transparent" @click="discard">
         Discard
       </Button>

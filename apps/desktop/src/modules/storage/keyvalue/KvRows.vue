@@ -136,26 +136,13 @@ function requestDelete(ids: readonly string[]) {
   const list = ids
     .map((id) => byId.value.get(id))
     .filter((entry): entry is KvEntry => entry !== undefined);
-  if (list.length === 0) return;
-  const single = list.length === 1 ? list[0] : undefined;
-  void props
-    .confirm({
-      title: single ? `Delete “${single.key}”?` : `Delete ${list.length} keys?`,
-      text: single
-        ? `“${single.key}” is deleted from ${listName.value} on the phone. This cannot be undone.`
-        : `${list.length} keys are deleted from ${listName.value} on the phone. This cannot be undone.`,
-      confirmLabel: single ? "Delete key" : `Delete ${list.length} keys`,
-      danger: true,
-    })
-    .then(async (confirmed) => {
-      if (!confirmed) return;
-      const removed = await props.writes.remove(list);
-      if (removed === 0) return;
-      if (pane.base.value && list.some((entry) => entry.id === pane.base.value?.id)) {
-        pane.settle(null);
-      }
-      grid.value?.clearSelection();
-    });
+  void props.writes.confirmAndRemove(list, listName.value).then((removed) => {
+    if (removed === 0) return;
+    if (pane.base.value && list.some((entry) => entry.id === pane.base.value?.id)) {
+      pane.settle(null);
+    }
+    grid.value?.clearSelection();
+  });
 }
 
 async function savePane(request: { key: string; value: string; mode: KvEditorMode }) {
@@ -281,7 +268,7 @@ defineExpose({ guardDiscard, startCreate, focusFind });
           :context-actions="contextActions"
           :layout-key="`kv:${source.kind}`"
           @update:sort="sort = $event"
-          @active-row="$event && (pane.activeId.value = $event)"
+          @active-row="$event && pane.follow($event)"
           @inspect="inspect"
           @edit="startEdit"
           @delete="requestDelete"

@@ -82,6 +82,24 @@ describe("the key-value pane", () => {
     expect(view.root.querySelector("textarea")?.value).toBe('{"a":2}');
   });
 
+  test("JSON that does not parse cannot be saved, and says so once", async () => {
+    vi.useFakeTimers();
+    const view = await mount('{"a":1}');
+    await view.pane()?.edit("value");
+    await nextTick();
+    const textarea = view.root.querySelector("textarea");
+    if (!textarea) throw new Error("no editor");
+    typeInto(textarea, '{"a":');
+    await vi.advanceTimersByTimeAsync(300);
+    await nextTick();
+    vi.useRealTimers();
+    expect(view.root.textContent).toContain("The JSON is not valid");
+    view.root
+      .querySelector("section")
+      ?.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true }));
+    expect(view.saves).toEqual([]);
+  });
+
   test("Save sends the text exactly as typed", async () => {
     const view = await mount("plain");
     await view.pane()?.edit("value");

@@ -9,8 +9,8 @@ export const VALUE_COLUMN = "value";
 export const KV_COLUMNS: readonly GridColumn[] = [
   { id: KEY_COLUMN, title: "Key", type: "key", primaryKey: true, width: 240 },
   { id: VALUE_COLUMN, title: "Value", type: "unknown", width: 420 },
-  { id: "type", title: "Type", type: "unknown", readOnly: true, width: 120 },
-  { id: "size", title: "Size", type: "unknown", readOnly: true, width: 90 },
+  { id: "type", title: "Type", type: "text", readOnly: true, width: 120 },
+  { id: "size", title: "Size", type: "text", readOnly: true, width: 90 },
 ];
 
 const rowCache = new WeakMap<KvEntry, GridRow>();

@@ -4,7 +4,7 @@ import { refDebounced } from "@vueuse/core";
 import { Button, Segmented, SegmentedButton } from "@capubridge/cladd";
 import JsonEditor from "@/shared/components/data/JsonEditor.vue";
 import { SEGMENT_TEXT } from "@/shared/components/presentation/segmentText";
-import { draftProblem, formatJson, modeNote, switchDraft, type KvEditorMode } from "./kvEdit";
+import { formatJson, modeNote, switchDraft, type KvEditorMode } from "./kvEdit";
 import type { KvSourceKind } from "./kvModel";
 import KvTextEditor from "./KvTextEditor.vue";
 
@@ -21,7 +21,6 @@ const json = ref<InstanceType<typeof JsonEditor> | null>(null);
 const text = ref<InstanceType<typeof KvTextEditor> | null>(null);
 
 const settled = refDebounced(draft, 200);
-const problem = computed(() => draftProblem(settled.value, mode.value));
 const formatted = computed(() => (mode.value === "json" ? formatJson(settled.value) : null));
 const canFormat = computed(() => formatted.value !== null && formatted.value !== settled.value);
 const hasCarriageReturns = computed(() => props.kind !== "forage" && draft.value.includes("\r"));
@@ -74,8 +73,5 @@ defineExpose({
       <JsonEditor v-if="mode === 'json'" ref="json" v-model:value="draft" />
       <KvTextEditor v-else ref="text" v-model="draft" :label="`Value of ${keyLabel}`" />
     </div>
-    <p v-if="problem" class="shrink-0 truncate text-2xs text-error" role="status">
-      {{ problem }}
-    </p>
   </div>
 </template>

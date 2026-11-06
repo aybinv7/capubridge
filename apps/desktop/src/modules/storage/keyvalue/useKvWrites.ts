@@ -3,7 +3,7 @@ import { toast } from "vue-sonner";
 import type { KeyValueDomain } from "@capubridge/cdp-protocol";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { KvEntry, KvSource } from "./kvModel";
-import { kvWrites, type KvSaveOutcome, type KvSaveRequest } from "./kvWrites";
+import { deleteQuestion, kvWrites, type KvSaveOutcome, type KvSaveRequest } from "./kvWrites";
 
 /**
  * Saves and deletes for the list on screen. The list is fixed for the life of the screen that
@@ -69,5 +69,12 @@ export function useKvWrites(options: {
     return removed;
   }
 
-  return { blockedReason, saving, save, remove };
+  /** Asks first, naming the keys and `listName`; deletes only on yes. */
+  async function confirmAndRemove(entries: readonly KvEntry[], listName: string): Promise<number> {
+    if (entries.length === 0) return 0;
+    if (!(await options.confirm(deleteQuestion(entries, listName)))) return 0;
+    return remove(entries);
+  }
+
+  return { blockedReason, saving, save, confirmAndRemove };
 }

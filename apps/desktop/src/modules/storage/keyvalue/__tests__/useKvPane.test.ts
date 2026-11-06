@@ -52,6 +52,18 @@ describe("an unsaved edit is never swapped or dropped (S6)", () => {
     expect(pane.canNext.value).toBe(false);
   });
 
+  test("a new key with content stays while the grid moves; an empty one gives way", () => {
+    const { pane } = setup({ a: "1" });
+    pane.startCreate();
+    pane.setDirty(true);
+    pane.follow("k:a");
+    expect(pane.creating.value).toBe(true);
+    pane.setDirty(false);
+    pane.follow("k:a");
+    expect(pane.creating.value).toBe(false);
+    expect(pane.base.value?.key).toBe("a");
+  });
+
   test("after a save the pane follows the key under its new name", () => {
     const { pane, phone } = setup({ a: "1" });
     pane.show("k:a");

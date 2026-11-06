@@ -20,21 +20,21 @@ home (e.g. "→ Key-value, LocalForage source").
 Round 1 owns the IndexedDB lines, the change-tracking line and the links into IndexedDB. Lines owned by
 R2/R3 are unchanged and still work on today's code paths (marked _R2_ / _R3_).
 
-- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — unchanged in R1; the merges land in R2/R3
+- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; the Cache rename and the Graph merge are still to come (R2b/R3)
 - [x] `/storage` redirects to `/storage/indexeddb` → unchanged (`routes.ts`)
-- [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`)
+- [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`); R2a: `storage-localstorage` and `storage-localforage` (and their paths) now redirect to `storage-keyvalue` with `?source=local` / `?source=forage`, hidden from the tabs (`navigation: false`)
 - [x] `indexeddb/:db?/:store?` and `indexeddb-snapshot/:db?/:store?` both render the IndexedDB tab; snapshot has `navigation: false` → both render `indexeddb/IndexedDBView.vue`; the file route carries `meta.tabPath` so the IndexedDB tab stays selected (`SubNavTabs.vue` `activePath`, `src/router/route-meta.d.ts`)
-- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone
+- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`)
 - [x] Target change remounts the tab; a lost link keeps it under the stale strip → unchanged (`GatedView.vue`)
 - [x] App in background: gate notice strip only → unchanged; the change watcher now also pauses (`changes/useIndexedDBChangesTracking.ts` `paused`)
 - [x] IndexedDB change tracking runs for the whole route ⚠ F2 → fixed: a lease (`useIndexedDBChangesLease`) held by the IndexedDB tab and Graph only, paused while the window is hidden or the app is in the background, one flush at a time, at most 40 stores watched plus any the person asks for ("Watch this store"), flushes spaced by max(1 s, 2 × last flush), 8 s per store read with two retries (`changes/indexeddbChangeTracker.ts`, tests in `changes/__tests__/indexeddbChanges.test.ts`). Round 1 fixes (P3): when the last holder leaves, the feed and baselines stay (reset only on target or origin change) and the watcher only listens (`indexeddbChangesLease.test.ts`); `StoragePanel.vue` no longer starts it
 - [x] Palette `Go to Data` / `g s` → unchanged
-- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Other tabs: none yet (R2/R3)
+- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). Cache, OPFS, SQLite: none yet (R2b/R3)
 - [x] Lazy route chunks per tab → unchanged
 
 Inbound and outbound links that must keep working:
 
-- [x] App › Overview "Data" links by route name → unchanged (`storage-indexeddb` still resolves)
+- [x] App › Overview "Data" links by route name → unchanged (`storage-indexeddb` still resolves); R2a: its "Local storage" link is "Key-value" (`storage-keyvalue`, `app/overview/dataLinks.ts`)
 - [ ] _R3_ Device › Files viewer opens a SQLite file in Data → unchanged
 - [ ] _R3_ SQLite source badge "Show in OPFS explorer" → unchanged
 - [ ] _R2_ OPFS file click → SQLite tab with the pulled copy → unchanged
@@ -46,7 +46,7 @@ Inbound and outbound links that must keep working:
 
 - [x] Selected origin per target, in memory (`stores/useStorageContextStore.ts`) → unchanged; written by `indexeddb/useIdbCatalog.ts` for live databases only, never a file id (⚠ C6), read by the change watcher
 - [x] Query defaults `retry: 1`, `refetchOnWindowFocus: false`, `staleTime` 0 → unchanged; IndexedDB pages use `keepPreviousData`
-- [ ] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded)
+- [ ] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded). R2a: Key-value reads pause while the app is away and run again on its return, with 10 s read timeouts (`useDataPresence`); Cache and OPFS still wait (R2b)
 - [x] Every device script goes through `evaluateChecked` and host data enters only as `jsLiteral` — except IDB export/import ⚠ M8 → fixed: export and import run through `packages/cdp-protocol/src/cdp/domains/indexeddb-transfer.ts` (checked, literal)
 - [ ] _R2_ OPFS snapshot cache in memory, keyed `targetId::path` → unchanged
 
@@ -242,43 +242,73 @@ stayed behind its gate. The pending live checks are listed at the end of this se
 - [ ] First paint of the frame: sidebar, header, pane widths, empty states, dark and light
 - [ ] Round 1 fixes, not checked live (the owner was using the app during the fix round): pixel pane sizes, "Waiting for the app" and Bring to front, the gate's "Open an IndexedDB export…", a streamed export of a real database opened back, a replace through the scratch database on the phone (with a test database, never the app's), "Not watched" / "Watch this store", Shift+F10 row menus, the discard question on paging, local dates in cells
 
-## Local storage (`localstorage/LSExplorer.vue`)
+## Key-value (→ `keyvalue/KeyValueView.vue` on the Data frame; R2a)
 
-- [ ] Origins sidebar from `Page.getFrameTree` security origins (main page + iframes); `DOMStorage.enable` per fetch (`LSExplorer.vue:379-392`, `cdp:storage.ts:28-51`, `src/composables/useStorage.ts:26-29`)
-- [ ] Select origin → `storageContextStore.setSelectedOrigin` (also retargets IndexedDB change tracking) (`:42-45,197-199`)
-- [ ] First origin auto-selected when none (`:355-359`)
-- [ ] Filter "Filter keys or values…", substring on key or value (`:169-176,414-418`) ⚠ F10
-- [ ] Count "(N entries)" of the filtered list (`:420-422`)
-- [ ] "New Key" → create dialog (`:272-281,424-426`)
-- [ ] "Refresh" → refetch origins and entries (`:218-221,427-429`)
-- [ ] Table Key / Value / Size / actions, virtualised (`:451-454`, `useFixedVirtualList`)
-- [ ] Size = UTF-8 bytes of the value (`:314-317,478`)
-- [ ] Double-click row, FileCode or Pencil → edit dialog (`:465,488,504`)
-- [ ] Row Copy (`:496`, `copyValue :223-228`) ⚠ C26
-- [ ] Row Trash → confirm "Delete Entry" "Are you sure you want to delete `<key>`? This cannot be undone." → `DOMStorage.removeDOMStorageItem` — **MUTATES**; error only `console.error` (`:201-216,658-677`, `cdp:storage.ts:60-65`) ⚠ C28
-- [ ] Save (edit/create) only by Ctrl+S → `DOMStorage.setDOMStorageItem` — **MUTATES**; JSON pretty-printed before write; inline "Failed to save: …" (`:283-312,640-644`, `cdp:storage.ts:67-73`) ⚠ C27 M11
-- [ ] Rename (delete then set) — unreachable (`:299-302,628-634`) ⚠ C27
-- [ ] Dialog: key title, original-value size, type chip json / number / date / boolean / string (`inferType`), Invalid / Unsaved badges (`:76-106,161-165,188-193,554-577`) ⚠ C29
-- [ ] Dialog: Prev / Next, Copy, shortcut hint (`:537-550,581-622`)
-- [ ] Keys while the dialog is open: Ctrl+F filter, Ctrl+↑/↓ prev/next, Ctrl+S save (`:321-346`); prev/next/close discard edits without asking (`:247-270,348-353`)
-- [ ] States: origins spinner, "No origins found" (`:368-377`); "Select an origin from the sidebar" (`:401-406`); entries spinner (`:433-435`); "Failed to load" / "No LocalStorage entries" without error text (`:436-444`)
-- [ ] sessionStorage not supported (`isLocalStorage: true`, `cdp:storage.ts:55,62,69`)
-- [ ] All entries in one `getDOMStorageItems` call (`cdp:storage.ts:53-58`); no live DOMStorage events
-- [ ] No persisted preferences, import/export, sort or context menu
+Local storage and LocalForage are one tab (`data-plan.md` §3, §5.2). Paths below are relative to
+`modules/storage/keyvalue/`; the device side is `cdp:keyvalue.ts` and `cdp:keyvalue-scripts.ts`.
+Every write goes through `Runtime.evaluate` on the phone (Local and Session storage in the frame of
+their origin: the page itself, or an isolated world of that frame; LocalForage in the page), and the
+phone refuses anything the person did not see (`KeyValueWriteInput`). Device tests:
+`packages/cdp-protocol/tests/keyvalue-storage.test.ts` and `keyvalue-forage.test.ts`; screen tests:
+`keyvalue/__tests__/`.
 
-## LocalForage (`localforage/LocalForageExplorer.vue`)
+### Local storage (was `localstorage/LSExplorer.vue`, removed)
 
-Same screen as Local storage (about 600 of 668 lines duplicated, `data-plan.md` §2.3). Differences:
+- [x] Origins sidebar from `Page.getFrameTree` security origins (main page + iframes); `DOMStorage.enable` per fetch (`LSExplorer.vue:379-392`, `cdp:storage.ts:28-51`, `src/composables/useStorage.ts:26-29`) → `KeyValueDomain.discover` (page origin first, then frames; opaque `://` and `null` origins left out; `DOMStorage.enable` once per discovery), sidebar `kvSources.buildKvSections`: "This page" with its host quiet beside it, a frame by its host with "frame"
+- [x] Select origin → `storageContextStore.setSelectedOrigin` (also retargets IndexedDB change tracking) (`:42-45,197-199`) → unchanged, when the open list's origin changes (`KeyValueView.vue`)
+- [x] First origin auto-selected when none (`:355-359`) → `resolveSource`: the page origin, Local storage, written into the address (`?origin=&source=`) without a history entry (`useKvLocation.settle`)
+- [x] Filter "Filter keys or values…", substring on key or value (`:169-176,414-418`) ⚠ F10 → "Find a key or value" (`KvRows.vue`), any case, debounced 150 ms, on lower-case text built once per read (`kvModel.searchText`); a value longer than 100,000 characters is searched in its first 100,000
+- [x] Count "(N entries)" of the filtered list (`:420-422`) → status bar "N rows", or "12 of 50 rows" while find narrows; the sidebar count of the open list comes from its own read
+- [x] "New Key" → create dialog (`:272-281,424-426`) → "New key" in the header, "Add a key" in an empty list, the sidebar row menu and the palette: the pane opens on a new key with the Key field in focus
+- [x] "Refresh" → refetch origins and entries (`:218-221,427-429`) → "Read again" in the header (the list) and in the sidebar row menu; the palette's "Read key-value data again" reads the origins and the list
+- [x] Table Key / Value / Size / actions, virtualised (`:451-454`, `useFixedVirtualList`) → `DataGrid` Key · Value · Type · Size (`kvGrid.ts`), virtualised, sortable by any column, row actions in the context menu (right-click, Shift+F10). JSON objects and lists preview as `{3}` / `[12]`
+- [x] Size = UTF-8 bytes of the value (`:314-317,478`) → same meaning, counted once per read without allocating (`kvModel.utf8Length`) ⚠ F10 fixed
+- [x] Double-click row, FileCode or Pencil → edit dialog (`:465,488,504`) → double-click, Enter or F2 open the pane on Edit (on the Key column: the key field, to rename); Space shows the pane; context menu "Edit the value", "Rename the key". A read-only value says why in the status bar
+- [x] Row Copy (`:496`, `copyValue :223-228`) ⚠ C26 → fixed: "Copy the value as stored" copies that row's own stored value (context menu and pane header), plus "Copy the key"
+- [x] Row Trash → confirm "Delete Entry" "Are you sure you want to delete `<key>`? This cannot be undone." → `DOMStorage.removeDOMStorageItem` — **MUTATES**; error only `console.error` (`:201-216,658-677`, `cdp:storage.ts:60-65`) ⚠ C28 → fixed: Delete in the pane, the context menu, the Delete key and "Delete N selected", always confirmed ("Delete “key”?" … "on the phone. This cannot be undone."); a failure is a toast with the phone's words, a key already gone is said; rows and the pane follow the key, never a position (`kvWrites.remove`, `entryIdFor`)
+- [x] Save (edit/create) only by Ctrl+S → `DOMStorage.setDOMStorageItem` — **MUTATES**; JSON pretty-printed before write; inline "Failed to save: …" (`:283-312,640-644`, `cdp:storage.ts:67-73`) ⚠ C27 M11 → fixed: a visible Save ("Add key" for a new key) and Ctrl+S; the text is written exactly as typed (JSON mode checks it, "Format JSON" indents only on request); a failure is a toast with the phone's words and the edit stays. A new key that exists asks "Replace the value of “key”?"; a value the app changed since the read asks "“key” changed on the phone" before writing over it; one the app deleted asks before creating it again (`kvWrites.save`, `storageWriteScript`)
+- [x] Rename (delete then set) — unreachable (`:299-302,628-634`) ⚠ C27 → fixed: the Key field in Edit; set then remove in one script on the phone, so nothing is lost when the write fails (a full phone leaves both keys as they were); a taken key asks first
+- [x] Dialog: key title, original-value size, type chip json / number / date / boolean / string (`inferType`), Invalid / Unsaved badges (`:76-106,161-165,188-193,554-577`) ⚠ C29 → pane header: key, "3 of 42 · JSON object · 1.2 KB", "Not saved"; the JSON problem in words under the editor; Type column labels (`describeText`). C29 fixed: a value opens exactly as stored, so nothing looks changed on open
+- [x] Dialog: Prev / Next, Copy, shortcut hint (`:537-550,581-622`) → pane Previous / Next key (Ctrl+↑/↓), Copy the value as stored, Close (Escape); the shortcuts show in each button's tooltip
+- [x] Keys while the dialog is open: Ctrl+F filter, Ctrl+↑/↓ prev/next, Ctrl+S save (`:321-346`); prev/next/close discard edits without asking (`:247-270,348-353`) → Ctrl+F finds in the value (Value) or in the JSON editor (Edit), Ctrl+↑/↓, Ctrl+S. Fixed: prev/next are off while an edit is unsaved; close, hiding the pane, New key, another list and leaving the tab ask "Discard changes to “key”?"; a fresh read never replaces the draft, and the pane says "Changed on the phone after you began editing" or "Deleted on the phone after you began editing" (`useKvPane`)
+- [x] States: origins spinner, "No origins found" (`:368-377`); "Select an origin from the sidebar" (`:401-406`); entries spinner (`:433-435`); "Failed to load" / "No LocalStorage entries" without error text (`:436-444`) → sidebar spinner and error with Try again; "Reading the page's key-value data"; errors with the phone's words and Try again, and a failed re-read keeps the last rows under a compact error; "Waiting for the app" with Bring to front (rows kept, writes held with the reason); "Local storage of this page is empty." with Add a key; "No key or value matches" with Clear find; a list no longer on the page says so with a way back
+- [x] sessionStorage not supported (`isLocalStorage: true`, `cdp:storage.ts:55,62,69`) → Session storage per origin, read and written like Local storage (new, `data-plan.md` §9 q4)
+- [x] All entries in one `getDOMStorageItems` call (`cdp:storage.ts:53-58`); no live DOMStorage events → unchanged: one call per list. Still no live events, said honestly: "on the phone · read N ago" without the live dot (U6)
+- [x] No persisted preferences, import/export, sort or context menu → sort by column, a context menu, the pane shown or hidden and its width, sidebar pins and hidden entries per phone and app (`useDataSidebarSettings`, kind `keyvalue`), and the open list in the address. Import/export: still none
 
-- [ ] Origins: `[location.origin]` when an IndexedDB database named `localforage` exists, else `[]` (`cdp:localforage.ts:26-44`) ⚠ C30
-- [ ] Selected origin in a local ref, not the store; has no effect on reads/writes (`LocalForageExplorer.vue:38,183-185`, `cdp:localforage.ts:46,129,133`)
-- [ ] Reads: page `localforage` global (`keys()` + `getItem`) or raw IDB `localforage/keyvaluepairs` `getAll` + `getAllKeys`, everything in one `Runtime.evaluate` (`cdp:localforage.ts:63-111`) ⚠ F9
-- [ ] Values shown as JSON text; Date, Blob, BigInt, ArrayBuffer, Set, Map become `{__type}` placeholders (`cdp:localforage.ts:50-61`) ⚠ M10
-- [ ] Delete → confirm → `mutate("delete")` (`removeItem` or IDB `store.delete`) — **MUTATES**; error toast `Could not delete "<key>"` with the error (`:192-202`, `cdp:localforage.ts:133-180`)
-- [ ] Save by Ctrl+S → `mutate("set")` (device `JSON.parse` with string fallback, `setItem` or IDB `put`) — **MUTATES** (`:269-298`, `cdp:localforage.ts:129-175`) ⚠ C27 M10
-- [ ] Rename sets new then deletes old — unreachable (`:284-288`)
-- [ ] Empty text "No LocalForage entries" (`:419-430`)
-- [ ] The `localforage` IndexedDB database is hidden from the IndexedDB tab (`indexeddb/IDBExplorer.vue:292`)
+### LocalForage (was `localforage/LocalForageExplorer.vue`, removed)
+
+- [x] Origins: `[location.origin]` when an IndexedDB database named `localforage` exists, else `[]` (`cdp:localforage.ts:26-44`) ⚠ C30 → fixed: every LocalForage store of the page, found by LocalForage's own blob-support store (any database name, any store name) or by the `localforage` name, listed under "This page" ("LocalForage", "LocalForage “cache” › images"); a database busy for 3 s is skipped and named under the origin
+- [x] Selected origin in a local ref, not the store; has no effect on reads/writes (`LocalForageExplorer.vue:38,183-185`, `cdp:localforage.ts:46,129,133`) → stores belong to the page origin; reads and writes check it on the phone and refuse another origin
+- [x] Reads: page `localforage` global (`keys()` + `getItem`) or raw IDB `localforage/keyvaluepairs` `getAll` + `getAllKeys`, everything in one `Runtime.evaluate` (`cdp:localforage.ts:63-111`) ⚠ F9 → raw IndexedDB only, opened only if it exists (never `createInstance`, never an upgrade: M10's second half), read by cursor through the IndexedDB encoder, up to 5,000 keys and 12 MiB; the status bar says "First 5,000 of N keys read". F9 partly: values still come with the keys in one read (no previews first), now capped
+- [x] Values shown as JSON text; Date, Blob, BigInt, ArrayBuffer, Set, Map become `{__type}` placeholders (`cdp:localforage.ts:50-61`) ⚠ M10 → fixed: the IndexedDB markers, shown in words in the grid and the pane (`Date 5 Nov 2026, 14:32`, `Blob 1.2 KB · image/png`); such a value is read-only with its reason and can only be deleted, never saved back as an object
+- [x] Delete → confirm → `mutate("delete")` (`removeItem` or IDB `store.delete`) — **MUTATES**; error toast `Could not delete "<key>"` with the error (`:192-202`, `cdp:localforage.ts:133-180`) → confirmed delete in one transaction on the phone (`forageWriteScript`), the same toasts as Local storage
+- [x] Save by Ctrl+S → `mutate("set")` (device `JSON.parse` with string fallback, `setItem` or IDB `put`) — **MUTATES** (`:269-298`, `cdp:localforage.ts:129-175`) ⚠ C27 M10 → fixed: visible Save and Ctrl+S; Text saves a string, JSON saves the value it holds (no guessing); the stored value is compared on the phone, through the same encoder, with what was read before it is replaced; a new key that exists asks first
+- [x] Rename sets new then deletes old — unreachable (`:284-288`) → the Key field in Edit, put then delete in one transaction; a taken key asks; a key that is not text cannot be renamed and says so
+- [x] Empty text "No LocalForage entries" (`:419-430`) → "LocalForage of this page is empty." with Add a key
+- [x] The `localforage` IndexedDB database is hidden from the IndexedDB tab (`indexeddb/IDBExplorer.vue:292`) → listed in IndexedDB since R1; its link now reads "Read as key-value pairs in Key-value" and opens that database here (`idbTreeModel.ts`)
+
+### Not carried over, on purpose
+
+- The LocalForage localStorage driver (`<name>/<key>` keys) is not listed as a LocalForage source: its
+  keys and values are already readable and editable under Local storage, and detecting it by key
+  prefix would be a guess (`data-plan.md` §5.2 asked for it).
+- LocalForage databases other than `localforage` are not linked from the IndexedDB tab yet (they are
+  listed there as plain databases); that is round 1's tab.
+
+### Pending live checks (Key-value)
+
+Seen live on the emulator (Capuchoo Testbed): the tab, the sidebar ("This page", Local storage 3,
+Session storage 0) and an empty Session storage list. Not checked, because the app was in use and
+checks never write on the phone:
+
+- [ ] Local storage of a real app: JSON values previewed, sizes, find, sort, the pane's Text / Tree / Raw
+- [ ] A frame origin (iframe) listed, read and written through its isolated world
+- [ ] A LocalForage store of a real app (Presalio on the Redmi): found, read, Date or Blob values read-only
+- [ ] Saves, renames, deletes and the "changed on the phone" question on a test key (never the app's own data)
+- [ ] "Waiting for the app" and Bring to front with the app in the background; reads again on return
+- [ ] The old addresses `/storage/localstorage` and `/storage/localforage` and the IndexedDB link land on the right list
+- [ ] Dark and light first paint; the pane at 280 and 560 px
 
 ## Cache (`cache/CacheExplorer.vue`)
 
