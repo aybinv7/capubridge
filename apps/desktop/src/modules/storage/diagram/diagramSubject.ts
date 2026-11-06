@@ -38,7 +38,13 @@ export interface IdbDiagramSubject {
 export type DiagramSubject = SqliteDiagramSubject | IdbDiagramSubject;
 
 /** The diagram's own database, as the cross-source queries skip it. */
-export function ownDatabase(subject: DiagramSubject): { sqlitePath: string; idbName: string } {
-  if (subject.kind === "sqlite") return { sqlitePath: subject.db.path, idbName: "" };
-  return { sqlitePath: "", idbName: subject.database.name };
+export function ownDatabase(subject: DiagramSubject): {
+  sqlitePath: string;
+  sqliteName: string;
+  idbName: string;
+} {
+  if (subject.kind === "sqlite") {
+    return { sqlitePath: subject.db.path, sqliteName: subject.db.name, idbName: "" };
+  }
+  return { sqlitePath: "", sqliteName: "", idbName: subject.database.name };
 }

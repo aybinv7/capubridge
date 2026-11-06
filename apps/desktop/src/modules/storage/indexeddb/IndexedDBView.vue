@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useQueryClient } from "@tanstack/vue-query";
 import { useRouter } from "vue-router";
 import { Database, FolderOpen, Table2 } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
@@ -190,9 +191,17 @@ function onToggle(sourceId: string, expanded: boolean) {
   settings.setExpanded(scope.value, sourceId, expanded);
 }
 
+const queryClient = useQueryClient();
+
+/** Reads the database again; its diagram's sample is read again too (B7). */
+function refreshDatabase() {
+  void catalog.refetchStoreInfo();
+  void queryClient.invalidateQueries({ queryKey: ["idb-diagram"] });
+}
+
 function refreshAll() {
   void catalog.refetchDatabases();
-  void catalog.refetchStoreInfo();
+  refreshDatabase();
   void storeView.value?.refresh();
 }
 
@@ -354,7 +363,7 @@ useIdbCommands({
         @open="
           location.open(catalog.openDatabase.value.mode, catalog.openDatabase.value.id, $event)
         "
-        @refresh="catalog.refetchStoreInfo()"
+        @refresh="refreshDatabase()"
         @action="openRow && onTreeAction($event, openRow)"
       />
       <IdbStoreView

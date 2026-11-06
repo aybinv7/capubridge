@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from "vue";
+import { computed } from "vue";
+import { DiagramViewAsync as DiagramView } from "@/modules/storage/diagram/diagramAsync";
 import { RefreshCw } from "lucide-vue-next";
 import type { StoreInfo } from "@capubridge/cdp-protocol";
 import { formatBytes } from "@/shared/format/numbers";
@@ -14,8 +15,6 @@ import type { DataAction } from "@/modules/storage/frame/dataFrame.types";
 import IdbStoresList from "./IdbStoresList.vue";
 import type { IdbOpenDatabase } from "./useIdbCatalog";
 import type { IdbDatabaseView } from "./useIdbLocation";
-
-const DiagramView = defineAsyncComponent(() => import("@/modules/storage/diagram/DiagramView.vue"));
 
 /**
  * A database at a glance (size, stores, records, the largest stores and every store's shape),
@@ -54,7 +53,9 @@ const diagram = computed<IdbDiagramSubject | null>(() => {
       serial: file ? "" : props.owner.serial,
       packageName: file ? "file" : props.owner.packageName,
       kind: "indexeddb",
-      databasePath: file ? `file:${database.name}` : `${database.origin}/${database.name}`,
+      databasePath: file
+        ? `file:${database.file?.sourcePath ?? ""}/${database.name}`
+        : `${database.origin}/${database.name}`,
     },
     database,
     stores: props.stores,

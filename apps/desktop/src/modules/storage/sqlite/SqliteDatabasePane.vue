@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed, ref } from "vue";
+import { DiagramViewAsync as DiagramView } from "@/modules/storage/diagram/diagramAsync";
 import { RefreshCw } from "lucide-vue-next";
 import { Segmented, SegmentedButton } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -14,8 +15,6 @@ import SqliteSourceBadge from "./SqliteSourceBadge.vue";
 import SqliteSqlPane from "./SqliteSqlPane.vue";
 import type { SqliteAddress } from "./sqliteAddress";
 import type { SqliteDatabaseView } from "./useSqliteLocation";
-
-const DiagramView = defineAsyncComponent(() => import("@/modules/storage/diagram/DiagramView.vue"));
 
 /** The open database: its header, then the overview, free SQL, or its diagram. */
 const props = defineProps<{
@@ -56,7 +55,7 @@ const diagram = computed<SqliteDiagramSubject | null>(() => {
       serial: file ? "" : props.owner.serial,
       packageName: file ? "file" : props.owner.packageName,
       kind: "sqlite",
-      databasePath: file ? `file:${props.db.name}` : props.db.path,
+      databasePath: file ? `file:${props.db.sourceFilePath ?? props.db.name}` : props.db.path,
     },
     db: props.db,
     address,

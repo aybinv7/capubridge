@@ -29,6 +29,8 @@ export interface UseStorageGraphQueriesParams {
   enabled: Ref<boolean>;
   /** The database the diagram draws from its own open copy, never pulled again here. */
   skipSqlitePath: Ref<string>;
+  /** The name of that database: another database with the same name gets its path as its id. */
+  ownSqliteName: Ref<string>;
   /** The IndexedDB database the diagram draws itself. */
   skipIdbDatabase: Ref<string>;
 }
@@ -42,6 +44,7 @@ export function useStorageGraphQueries({
   selectedPackageName,
   enabled,
   skipSqlitePath,
+  ownSqliteName,
   skipIdbDatabase,
 }: UseStorageGraphQueriesParams) {
   const {
@@ -129,6 +132,7 @@ export function useStorageGraphQueries({
       serial.value,
       selectedPackageName.value,
       skipSqlitePath.value,
+      ownSqliteName.value,
     ]),
     enabled: computed(() => enabled.value && Boolean(serial.value && selectedPackageName.value)),
     staleTime: 60_000,
@@ -173,6 +177,7 @@ export function useStorageGraphQueries({
         schemas,
         (databasePath, sql) =>
           executeQuery(serial.value, selectedPackageName.value, databasePath, sql),
+        new Set(ownSqliteName.value ? [ownSqliteName.value] : []),
       );
       return descriptors;
     },

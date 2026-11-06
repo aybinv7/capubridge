@@ -92,6 +92,7 @@ export function useDiagramModel(subject: Ref<DiagramSubject>, includeOther: Ref<
     ),
     enabled: includeOther,
     skipSqlitePath: computed(() => skip.value.sqlitePath),
+    ownSqliteName: computed(() => skip.value.sqliteName),
     skipIdbDatabase: computed(() => skip.value.idbName),
   });
 

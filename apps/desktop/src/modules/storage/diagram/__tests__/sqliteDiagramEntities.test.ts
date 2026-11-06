@@ -1,6 +1,6 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import type { SqliteColumnInfo } from "@/types/sqlite.types";
-import { sqliteDiagramEntities } from "../sqliteDiagramEntities";
+import { sqliteDiagramEntities, sqliteIdNames } from "../sqliteDiagramEntities";
 
 function column(name: string, pk = 0): SqliteColumnInfo {
   return { cid: 0, name, colType: "INTEGER", notnull: false, defaultValue: null, pk };
@@ -46,4 +46,18 @@ test("one database's tables, linked by declared keys and by *_id columns the dat
   expect(entities[0]?.groupKey).toBe("sqlite:opfs:/shop.db");
   expect(queries).toHaveLength(1);
   expect(queries[0]).toMatch(/^opfs:\/shop\.db SELECT COUNT/);
+});
+
+describe("databases with the same name (B5)", () => {
+  test("the second one is told apart by its path, the first keeps its ids", () => {
+    const names = sqliteIdNames(
+      [
+        { name: "app.db", path: "/data/a/app.db" },
+        { name: "app.db", path: "/data/b/app.db" },
+        { name: "cache.db", path: "/data/cache.db" },
+      ],
+      new Set(["cache.db"]),
+    );
+    expect([...names.values()]).toEqual(["app.db", "/data/b/app.db", "/data/cache.db"]);
+  });
 });

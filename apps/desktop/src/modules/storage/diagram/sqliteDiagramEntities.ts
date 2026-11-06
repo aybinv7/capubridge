@@ -52,19 +52,41 @@ function diagnosticOf(database: SqliteDatabaseSchema, schema: SqliteTableSchema)
 }
 
 /**
+ * The name each database's node ids are built from: its name, or its path when that name is
+ * already taken (`taken`, or an earlier database of the list), so two `app.db` files never
+ * share nodes (B5). The first one keeps its name, so saved layouts keep their nodes.
+ */
+export function sqliteIdNames(
+  databases: readonly Pick<SqliteDatabaseSchema, "name" | "path">[],
+  taken: ReadonlySet<string> = new Set(),
+): Map<string, string> {
+  const used = new Set(taken);
+  const names = new Map<string, string>();
+  for (const database of databases) {
+    const name = used.has(database.name) ? database.path : database.name;
+    used.add(database.name);
+    names.set(database.path, name);
+  }
+  return names;
+}
+
+/**
  * The diagram's tables of one or more databases: columns, indexes and declared foreign keys,
  * plus the `*_id` links the data itself confirms (checked by `validate` on each database).
+ * `takenNames` are database names already drawn (the open database).
  */
 export async function sqliteDiagramEntities(
   packageName: string,
   databases: readonly SqliteDatabaseSchema[],
   validate: SqliteValidate,
+  takenNames: ReadonlySet<string> = new Set(),
 ): Promise<StorageGraphEntityDescriptor[]> {
+  const idNames = sqliteIdNames(databases, takenNames);
   const results = databases.flatMap((database) =>
     database.tables.map((schema) => ({
       descriptor: buildSqliteDescriptor(
         packageName,
-        database.name,
+        idNames.get(database.path) ?? database.name,
         database.path,
         schema.table,
         [...schema.columns],
@@ -94,7 +116,7 @@ export async function sqliteDiagramEntities(
             targetNodeId: makeGraphId(
               "sqlite",
               packageName,
-              result.diagnostic.database,
+              idNames.get(result.diagnostic.databasePath) ?? result.diagnostic.database,
               reference.table,
             ),
             targetFieldName: reference.primaryKey,
