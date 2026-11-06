@@ -146,12 +146,14 @@ function requestDelete(ids: readonly string[]) {
 }
 
 async function savePane(request: { key: string; value: string; mode: KvEditorMode }) {
+  const base = pane.creating.value ? null : pane.base.value;
   const outcome = await props.writes.save({
-    entry: pane.creating.value ? null : pane.base.value,
+    entry: base,
     key: request.key,
     value: valueToWrite(props.source.kind, request.mode, request.value),
   });
-  if (outcome === "saved") pane.settle(entryIdFor(request.key));
+  if (outcome !== "saved") return;
+  pane.settle(base && base.key === request.key ? base.id : entryIdFor(request.key));
 }
 
 async function copyText(text: string, what: string) {
