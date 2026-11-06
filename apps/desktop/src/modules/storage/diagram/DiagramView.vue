@@ -13,6 +13,7 @@ import {
   type EffectScope,
 } from "vue";
 import { holdElk } from "./storageGraphElkLayout";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useRoute, useRouter } from "vue-router";
 import { SelectionMode, VueFlow, useVueFlow } from "@vue-flow/core";
 import { Button } from "@capubridge/cladd";
@@ -194,6 +195,16 @@ watch(scopeKey, () => {
   interactions.clearSelection();
 });
 
+const inspectorOpen = ref(false);
+watch([selectedNodeId, selectedEdgeId, selectedClusterId], (ids) => {
+  if (ids.some(Boolean)) inspectorOpen.value = true;
+});
+
+function hideInspector() {
+  inspectorOpen.value = false;
+  interactions.clearSelection();
+}
+
 watch(interactions.selectedNodes, (value) => {
   if (value.length === 1) {
     selectedNodeId.value = value[0]?.id ?? "";
@@ -264,8 +275,17 @@ watch(
       class="shrink-0 border-b border-border-subtle"
       @retry="model.refetch()"
     />
-    <div class="flex min-h-0 flex-1">
-      <div class="diagram-canvas relative min-w-0 flex-1 overflow-hidden bg-surface-cut">
+    <ResizablePanelGroup
+      direction="horizontal"
+      auto-save-id="capubridge:diagram-inspector-size:v1"
+      class="min-h-0 flex-1"
+    >
+      <ResizablePanel
+        id="diagram-canvas"
+        :order="1"
+        :min-size="40"
+        class="diagram-canvas relative min-w-0 overflow-hidden bg-surface-cut"
+      >
         <DataState
           v-if="!hasEntities && model.loading.value"
           kind="loading"
@@ -364,25 +384,39 @@ watch(
           @undo="editing.undo"
           @redo="editing.redo"
         />
-      </div>
-
-      <DiagramInspector
-        :node="interactions.selectedNode.value"
-        :edge="interactions.selectedEdge.value"
-        :cluster="interactions.selectedCluster.value"
-        :related-tables="interactions.relatedTables.value"
-        :entity-title-by-id="interactions.entityTitleById.value"
-        @close="interactions.clearSelection"
-        @save-annotation="editing.saveAnnotation"
-        @save-note="editing.saveNote"
-        @delete-note="editing.deleteNote"
-        @open-node="router.push($event)"
-        @save-edge="editing.saveEdge"
-        @delete-edge="editing.deleteEdge"
-        @save-cluster="editing.saveCluster"
-        @focus-node="editing.focusNode"
-      />
-    </div>
+      </ResizablePanel>
+      <template v-if="inspectorOpen">
+        <ResizableHandle
+          class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
+        />
+        <ResizablePanel
+          id="diagram-inspector"
+          :order="2"
+          size-unit="px"
+          :default-size="320"
+          :min-size="260"
+          :max-size="560"
+          class="min-h-0"
+        >
+          <DiagramInspector
+            :node="interactions.selectedNode.value"
+            :edge="interactions.selectedEdge.value"
+            :cluster="interactions.selectedCluster.value"
+            :related-tables="interactions.relatedTables.value"
+            :entity-title-by-id="interactions.entityTitleById.value"
+            @close="hideInspector"
+            @save-annotation="editing.saveAnnotation"
+            @save-note="editing.saveNote"
+            @delete-note="editing.deleteNote"
+            @open-node="router.push($event)"
+            @save-edge="editing.saveEdge"
+            @delete-edge="editing.deleteEdge"
+            @save-cluster="editing.saveCluster"
+            @focus-node="editing.focusNode"
+          />
+        </ResizablePanel>
+      </template>
+    </ResizablePanelGroup>
   </div>
 </template>
 

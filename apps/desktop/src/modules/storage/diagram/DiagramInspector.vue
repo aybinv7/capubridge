@@ -14,7 +14,10 @@ import DiagramEdgePanel from "./DiagramEdgePanel.vue";
 import DiagramEntityPanel from "./DiagramEntityPanel.vue";
 import DiagramNotePanel from "./DiagramNotePanel.vue";
 
-/** The pane beside the canvas for what is selected; it is not shown when nothing is. */
+/**
+ * The pane beside the canvas for what is selected. Once open it stays, with a quiet line when
+ * nothing is selected, so the canvas does not jump on every click (B6); Hide closes it.
+ */
 const props = defineProps<{
   node: { id: string; data: StorageGraphNodeData } | null;
   edge: StorageGraphRelationship | null;
@@ -60,20 +63,24 @@ const heading = computed(() => {
 
 <template>
   <aside
-    v-if="heading"
-    class="flex w-80 shrink-0 flex-col overflow-hidden border-l border-border-subtle bg-surface-0"
+    class="flex h-full w-full flex-col overflow-hidden border-l border-border-subtle bg-surface-0"
     aria-label="Selection"
   >
     <header class="flex items-start gap-2 border-b border-border-subtle px-3 py-2.5">
       <div class="min-w-0 flex-1">
-        <p class="text-2xs text-muted-foreground">{{ heading.kind }}</p>
-        <h2 class="truncate text-sm font-medium text-foreground">{{ heading.title }}</h2>
+        <template v-if="heading">
+          <p class="text-2xs text-muted-foreground">{{ heading.kind }}</p>
+          <h2 class="truncate text-sm font-medium text-foreground">{{ heading.title }}</h2>
+        </template>
+        <p v-else class="py-1 text-xs text-muted-foreground">
+          Select a table, a note or a link to see it here.
+        </p>
       </div>
-      <IconAction label="Clear the selection" size="sm" @click="emit('close')">
+      <IconAction label="Hide this panel" size="sm" @click="emit('close')">
         <X :stroke-width="1.8" />
       </IconAction>
     </header>
-    <div class="min-h-0 flex-1 overflow-y-auto p-3">
+    <div v-if="heading" class="min-h-0 flex-1 overflow-y-auto p-3">
       <DiagramClusterPanel
         v-if="cluster"
         :cluster="cluster"
