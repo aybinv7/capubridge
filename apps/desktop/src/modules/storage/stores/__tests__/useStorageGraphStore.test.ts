@@ -147,4 +147,14 @@ describe("useStorageGraphStore", () => {
     ]);
     expect(store.getNodePosition(key, "b")).toEqual({ x: 3, y: 4 });
   });
+
+  test("a layout used every day is kept when the oldest are dropped (B2)", () => {
+    const store = useStorageGraphStore();
+    store.setNodePosition("daily", "users", { x: 1, y: 1 });
+    for (let i = 0; i < 99; i++) store.setNodePosition(`once-${i}`, "t", { x: 0, y: 0 });
+    store.setNodePosition("daily", "users", { x: 2, y: 2 });
+    store.setNodePosition("one-more", "t", { x: 0, y: 0 });
+    expect(store.getNodePosition("daily", "users")).toEqual({ x: 2, y: 2 });
+    expect(store.getNodePosition("once-0", "t")).toBeUndefined();
+  });
 });
