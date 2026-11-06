@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { toast } from "vue-sonner";
 import { RefreshCw, Trash2 } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import DataCollectionHeader from "@/modules/storage/frame/DataCollectionHeader.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
+import { useWhenRead } from "@/modules/storage/frame/useWhenRead";
 import CacheRows from "./CacheRows.vue";
 import { hostOf } from "./cacheSources";
 import { useCacheDomain, useCacheEntries } from "./useCacheQueries";
@@ -68,13 +70,19 @@ const sizeText = computed(() => {
   return `${total.toLocaleString("en-US")} ${total === 1 ? "entry" : "entries"}`;
 });
 
+const whenRead = useWhenRead(read.pending, read.error, () =>
+  toast.info("Nothing was deleted", {
+    description: `The cache “${props.cacheName}” could not be read, so it was not deleted.`,
+  }),
+);
+
 function deleteCache() {
-  const total = read.total.value;
-  void writes.confirmAndRemoveCache(
-    read.pending.value || total === null
-      ? null
-      : { count: total, fingerprint: read.fingerprint.value },
-  );
+  whenRead.run(() => {
+    const total = read.total.value;
+    void writes.confirmAndRemoveCache(
+      total === null ? null : { count: total, fingerprint: read.fingerprint.value },
+    );
+  });
 }
 
 defineExpose({

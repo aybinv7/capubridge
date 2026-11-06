@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { toast } from "vue-sonner";
 import { ArrowUp, RefreshCw, Trash2 } from "lucide-vue-next";
 import { Button, Segmented, SegmentedButton } from "@capubridge/cladd";
 import {
@@ -12,6 +13,7 @@ import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import DataCollectionHeader from "@/modules/storage/frame/DataCollectionHeader.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
+import { useWhenRead } from "@/modules/storage/frame/useWhenRead";
 import { useOpfsSnapshotCache } from "@/modules/storage/opfsSnapshotCache";
 import { useOpenSqliteSource } from "@/modules/storage/useOpenSqliteSource";
 import OpfsBreadcrumbs from "./OpfsBreadcrumbs.vue";
@@ -157,9 +159,15 @@ function selfRow(): OpfsRow {
   };
 }
 
+const whenRead = useWhenRead(read.pending, read.error, () =>
+  toast.info("Nothing was deleted", {
+    description: `The folder “${label.value}” could not be read, so it was not deleted.`,
+  }),
+);
+
 function deleteFolder() {
   if (!props.path) return;
-  void folderWrites.confirmAndRemove([selfRow()]);
+  whenRead.run(() => void folderWrites.confirmAndRemove([selfRow()]));
 }
 
 function openDatabase(row: OpfsRow) {
