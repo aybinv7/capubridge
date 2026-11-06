@@ -62,10 +62,7 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
 </script>
 
 <template>
-  <div
-    ref="root"
-    class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-cladd-outline px-2 py-1.5"
-  >
+  <div ref="root" class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 px-2 py-2">
     <slot name="lead" />
     <SearchField
       v-model="searchDraft"

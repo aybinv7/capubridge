@@ -549,9 +549,10 @@ defineExpose({
     />
     <RecordSplit v-else :pane-open="paneShown" :maximized="maximized">
       <template #grid>
-        <div class="h-full min-h-0 p-2" @keydown.capture="onGridKeydown">
+        <div class="h-full min-h-0" @keydown.capture="onGridKeydown">
           <DataGrid
             ref="grid"
+            frame="none"
             :label="tableName"
             :columns="columns"
             :rows="visibleRows"
@@ -606,16 +607,9 @@ defineExpose({
           </DataGrid>
         </div>
       </template>
-      <template #pane="{ maximized: filling }">
-        <div
-          class="h-full min-h-0 py-2 pr-2"
-          :class="filling ? 'pl-2' : ''"
-          @keydown="onPaneKeydown"
-        >
-          <div
-            v-if="paneRow"
-            class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
-          >
+      <template #pane>
+        <div class="h-full min-h-0" @keydown="onPaneKeydown">
+          <template v-if="paneRow">
             <RecordPane
               ref="paneView"
               :key="`${stateKey}/${tableName}`"
@@ -639,7 +633,7 @@ defineExpose({
               @maximize="maximized = $event"
               @follow-foreign-key="(target, value) => emit('followForeignKey', target, value)"
             />
-          </div>
+          </template>
         </div>
       </template>
     </RecordSplit>

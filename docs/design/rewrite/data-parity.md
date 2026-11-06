@@ -751,6 +751,20 @@ are relative to `modules/storage/sqlite/`.
       the rows' provenance and "read 12 s ago" sit in the status bar beside the query time. Structure
       and SQL keep a slim bar with the switch and the same actions
 
+### Step 3 — depth (all five Data tabs at once)
+
+- [x] Frame → `frame/DataWorkbench.vue`: the sidebar stays on the panel; the open collection sits on a
+      workspace raised one level (`Surface variant="solid" level="+1" outline`, `rounded-well`, 8 px
+      gutters); the handle's line shows on hover and drag only. Sidebar 220–440 px, 280 by default (was
+      200–360, 260), same keys `capubridge:data-layout:v2:<tab>`
+- [x] Grid and record pane → `frame/RecordSplit.vue` for SQLite, IndexedDB, Key-value, Cache storage and
+      OPFS: the grid in a recessed well (`SurfaceCut`, `rounded-well`), `DataGrid frame="none"` (no own
+      level-1 box or border; sticky cells take the well's fill; `G/DataGrid.vue`, tested), the record
+      pane raised one more level (`Surface +1`, outline). Every tab keeps its own pane, keys and
+      Escape handling. The pane width is now one width across the five tabs (panel ids `data-rows-*`):
+      the other four start once from 380 px
+- [x] SQLite's toolbar loses its bottom border (the well separates it)
+
 ### Step 4 — hot access
 
 - [x] New: "Go to a table…" (`mod+p`, palette, the button above the sidebar search,
@@ -793,3 +807,6 @@ Not checked: the owner's app was not driven (screenshots only), and no data was 
 - [ ] Go to row on a sorted, filtered phone table (a status column): the row lands on the right page;
       a hidden row's "Clear them and go"; a foreign-key link (if Presalio declares any) lands on the row
 - [ ] The sidebar's Pinned / Tables (n) headings with a pinned table; recents after an app restart
+- [ ] Depth in dark and light on all five Data tabs: the workspace raised above the sidebar, the grid in
+      its well, the record pane above it; the grid's sticky row numbers match the well; overview pages,
+      the Diagram canvas and the SQL pane on the workspace surface

@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef } from "vue";
 import { refDebounced, useDebounceFn } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { Lock, PanelRight, Trash2 } from "lucide-vue-next";
 import { Button, SearchField } from "@capubridge/cladd";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   DataGrid,
   DataGridStatus,
@@ -253,92 +253,70 @@ defineExpose({ guardDiscard, startCreate, focusFind });
     </IconAction>
   </div>
 
-  <ResizablePanelGroup
-    direction="horizontal"
-    auto-save-id="capubridge:data-record-pane-size:v2"
-    class="min-h-0 flex-1"
-  >
-    <ResizablePanel id="kv-rows-grid" :order="1" :min-size="35" class="min-h-0">
-      <div class="h-full min-h-0 px-2 pb-2">
-        <DataGrid
-          ref="grid"
-          :label="listName"
-          :columns="KV_COLUMNS"
-          :rows="rows"
-          :loading="loading"
-          :read-only="writes.blockedReason.value !== null"
-          :sort="sort"
-          :column-features="{ filter: false, group: false, showAs: false }"
-          :context-actions="contextActions"
-          :layout-key="`kv:${source.kind}`"
-          @update:sort="sort = $event"
-          @active-row="$event && followSettled($event)"
-          @inspect="inspect"
-          @edit="startEdit"
-          @delete="requestDelete"
-          @summary="summary = $event"
-          @context-action="runContextAction"
-        >
-          <template #empty>
-            <div v-if="narrowed" class="flex flex-col items-start gap-2">
-              <span>No key or value matches “{{ findText.trim() }}”.</span>
-              <Button size="sm" variant="transparent" @click="find = ''">Clear find</Button>
-            </div>
-            <div v-else class="flex flex-col items-start gap-2">
-              <span>{{ listName }} of this page is empty.</span>
-              <Button
-                v-if="writes.blockedReason.value === null"
-                size="sm"
-                variant="transparent"
-                @click="startCreate"
-              >
-                Add a key
-              </Button>
-            </div>
-          </template>
-        </DataGrid>
-      </div>
-    </ResizablePanel>
-    <template v-if="pane.visible.value">
-      <ResizableHandle
-        class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
-      />
-      <ResizablePanel
-        id="kv-rows-pane"
-        :order="2"
-        size-unit="px"
-        :default-size="380"
-        :min-size="280"
-        :max-size="960"
-        class="min-h-0"
+  <RecordSplit :pane-open="!!pane.visible.value">
+    <template #grid>
+      <DataGrid
+        ref="grid"
+        frame="none"
+        :label="listName"
+        :columns="KV_COLUMNS"
+        :rows="rows"
+        :loading="loading"
+        :read-only="writes.blockedReason.value !== null"
+        :sort="sort"
+        :column-features="{ filter: false, group: false, showAs: false }"
+        :context-actions="contextActions"
+        :layout-key="`kv:${source.kind}`"
+        @update:sort="sort = $event"
+        @active-row="$event && followSettled($event)"
+        @inspect="inspect"
+        @edit="startEdit"
+        @delete="requestDelete"
+        @summary="summary = $event"
+        @context-action="runContextAction"
       >
-        <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">
-          <div
-            class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
-          >
-            <KvPane
-              ref="paneView"
-              :key="paneKey"
-              :kind="source.kind"
-              :entry="pane.creating.value ? null : pane.base.value"
-              :position="panePosition"
-              :state-text="paneState"
-              :blocked-reason="writes.blockedReason.value"
-              :saving="writes.saving.value"
-              :can-prev="pane.canPrev.value"
-              :can-next="pane.canNext.value"
-              @save="savePane"
-              @delete="pane.base.value && requestDelete([pane.base.value.id])"
-              @prev="pane.step(-1)"
-              @next="pane.step(1)"
-              @close="closePane"
-              @dirty="pane.setDirty"
-            />
+        <template #empty>
+          <div v-if="narrowed" class="flex flex-col items-start gap-2">
+            <span>No key or value matches “{{ findText.trim() }}”.</span>
+            <Button size="sm" variant="transparent" @click="find = ''">Clear find</Button>
           </div>
-        </div>
-      </ResizablePanel>
+          <div v-else class="flex flex-col items-start gap-2">
+            <span>{{ listName }} of this page is empty.</span>
+            <Button
+              v-if="writes.blockedReason.value === null"
+              size="sm"
+              variant="transparent"
+              @click="startCreate"
+            >
+              Add a key
+            </Button>
+          </div>
+        </template>
+      </DataGrid>
     </template>
-  </ResizablePanelGroup>
+    <template #pane>
+      <div v-if="pane.visible.value" class="h-full min-h-0" @keydown="onPaneKeydown">
+        <KvPane
+          ref="paneView"
+          :key="paneKey"
+          :kind="source.kind"
+          :entry="pane.creating.value ? null : pane.base.value"
+          :position="panePosition"
+          :state-text="paneState"
+          :blocked-reason="writes.blockedReason.value"
+          :saving="writes.saving.value"
+          :can-prev="pane.canPrev.value"
+          :can-next="pane.canNext.value"
+          @save="savePane"
+          @delete="pane.base.value && requestDelete([pane.base.value.id])"
+          @prev="pane.step(-1)"
+          @next="pane.step(1)"
+          @close="closePane"
+          @dirty="pane.setDirty"
+        />
+      </div>
+    </template>
+  </RecordSplit>
 
   <DataGridStatus :summary="summary" :total="narrowed ? entries.length : null">
     <span v-if="editNote" class="flex min-w-0 items-center gap-1 text-foreground" role="status">

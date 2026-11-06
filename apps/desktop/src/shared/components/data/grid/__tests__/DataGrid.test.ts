@@ -83,6 +83,20 @@ afterEach(() => {
 });
 
 describe("DataGrid", () => {
+  test("draws its own box by default, and leaves depth to the well with frame none", async () => {
+    const boxed = await mount();
+    expect(boxed.grid.classList.contains("cladd-surface-level-1")).toBe(true);
+    expect(boxed.grid.classList.contains("border")).toBe(true);
+    boxed.app.unmount();
+    boxed.root.remove();
+    const inWell = await mount({ frame: "none" });
+    expect(inWell.grid.classList.contains("cladd-surface-level-1")).toBe(false);
+    expect(inWell.grid.classList.contains("border")).toBe(false);
+    expect(inWell.grid.style.getPropertyValue("--color-cladd-bg")).toBe(
+      "var(--color-cladd-surface-cut)",
+    );
+  });
+
   test("renders a labelled, virtualised grid with stable row ids and NULL cells", async () => {
     const { grid } = await mount();
     expect(grid.getAttribute("aria-label")).toBe("users");

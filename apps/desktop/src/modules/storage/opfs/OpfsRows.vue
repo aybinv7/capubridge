@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
 import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import { refDebounced } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { Lock, PanelRight, Trash2 } from "lucide-vue-next";
 import { Button, SearchField } from "@capubridge/cladd";
 import type { OPFSDomain } from "@capubridge/cdp-protocol";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   DataGrid,
   DataGridStatus,
@@ -209,85 +209,67 @@ defineExpose({ focusFind });
     </IconAction>
   </div>
 
-  <ResizablePanelGroup
-    direction="horizontal"
-    auto-save-id="capubridge:data-record-pane-size:v2"
-    class="min-h-0 flex-1"
-  >
-    <ResizablePanel id="opfs-rows-grid" :order="1" :min-size="35" class="min-h-0">
-      <div class="h-full min-h-0 px-2 pb-2">
-        <DataGrid
-          ref="grid"
-          :label="`Folder ${folderLabel}`"
-          :columns="OPFS_COLUMNS"
-          :rows="gridRows"
-          :loading="loading"
-          :read-only="writes.blockedReason.value !== null"
-          :sort="sort"
-          activate-rows
-          :column-features="{ filter: false, group: false, showAs: false }"
-          :context-actions="contextActions"
-          layout-key="opfs"
-          @update:sort="sort = $event"
-          @active-row="$event && pane.follow($event)"
-          @activate="activate"
-          @inspect="pane.show"
-          @delete="requestDelete"
-          @summary="summary = $event"
-          @context-action="runContextAction"
-        >
-          <template #empty>
-            <div v-if="narrowed" class="flex flex-col items-start gap-2">
-              <span>Nothing here is named “{{ findText.trim() }}”.</span>
-              <Button size="sm" variant="transparent" @click="find = ''">Clear find</Button>
-            </div>
-            <span v-else>The folder “{{ folderLabel }}” is empty.</span>
-          </template>
-        </DataGrid>
-      </div>
-    </ResizablePanel>
-    <template v-if="pane.visible.value && pane.row.value">
-      <ResizableHandle
-        class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
-      />
-      <ResizablePanel
-        id="opfs-rows-pane"
-        :order="2"
-        size-unit="px"
-        :default-size="420"
-        :min-size="280"
-        :max-size="960"
-        class="min-h-0"
+  <RecordSplit :pane-open="!!(pane.visible.value && pane.row.value)">
+    <template #grid>
+      <DataGrid
+        ref="grid"
+        frame="none"
+        :label="`Folder ${folderLabel}`"
+        :columns="OPFS_COLUMNS"
+        :rows="gridRows"
+        :loading="loading"
+        :read-only="writes.blockedReason.value !== null"
+        :sort="sort"
+        activate-rows
+        :column-features="{ filter: false, group: false, showAs: false }"
+        :context-actions="contextActions"
+        layout-key="opfs"
+        @update:sort="sort = $event"
+        @active-row="$event && pane.follow($event)"
+        @activate="activate"
+        @inspect="pane.show"
+        @delete="requestDelete"
+        @summary="summary = $event"
+        @context-action="runContextAction"
       >
-        <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">
-          <div
-            class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
-          >
-            <OpfsFilePane
-              :key="pane.row.value.id"
-              :row="pane.row.value"
-              :state="preview.state.value"
-              :position="panePosition"
-              :away="away"
-              :blocked-reason="writes.blockedReason.value"
-              :busy="writes.busy.value"
-              :saving="saving === pane.row.value.path"
-              :can-prev="pane.canPrev.value"
-              :can-next="pane.canNext.value"
-              @prev="pane.step(-1)"
-              @next="pane.step(1)"
-              @close="pane.close()"
-              @delete="pane.row.value && requestDelete([pane.row.value.id])"
-              @download="pane.row.value && emit('download', pane.row.value)"
-              @retry="preview.retry()"
-              @open-database="pane.row.value && emit('openDatabase', pane.row.value)"
-              @open-folder="pane.row.value && emit('openFolder', pane.row.value.path)"
-            />
+        <template #empty>
+          <div v-if="narrowed" class="flex flex-col items-start gap-2">
+            <span>Nothing here is named “{{ findText.trim() }}”.</span>
+            <Button size="sm" variant="transparent" @click="find = ''">Clear find</Button>
           </div>
-        </div>
-      </ResizablePanel>
+          <span v-else>The folder “{{ folderLabel }}” is empty.</span>
+        </template>
+      </DataGrid>
     </template>
-  </ResizablePanelGroup>
+    <template #pane>
+      <div
+        v-if="pane.visible.value && pane.row.value"
+        class="h-full min-h-0"
+        @keydown="onPaneKeydown"
+      >
+        <OpfsFilePane
+          :key="pane.row.value.id"
+          :row="pane.row.value"
+          :state="preview.state.value"
+          :position="panePosition"
+          :away="away"
+          :blocked-reason="writes.blockedReason.value"
+          :busy="writes.busy.value"
+          :saving="saving === pane.row.value.path"
+          :can-prev="pane.canPrev.value"
+          :can-next="pane.canNext.value"
+          @prev="pane.step(-1)"
+          @next="pane.step(1)"
+          @close="pane.close()"
+          @delete="pane.row.value && requestDelete([pane.row.value.id])"
+          @download="pane.row.value && emit('download', pane.row.value)"
+          @retry="preview.retry()"
+          @open-database="pane.row.value && emit('openDatabase', pane.row.value)"
+          @open-folder="pane.row.value && emit('openFolder', pane.row.value.path)"
+        />
+      </div>
+    </template>
+  </RecordSplit>
 
   <DataGridStatus :summary="summary" :total="narrowed ? rows.length : null">
     <span v-if="unread > 0" class="truncate text-[var(--fg-subtle)]">

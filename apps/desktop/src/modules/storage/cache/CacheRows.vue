@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
 import { computed, ref, shallowRef } from "vue";
 import { refDebounced } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { Lock, PanelRight, Trash2 } from "lucide-vue-next";
 import { Button, SearchField } from "@capubridge/cladd";
 import { CACHE_BODY_PREVIEW_BYTES, CacheStorageGoneError } from "@capubridge/cdp-protocol";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   DataGrid,
   DataGridStatus,
@@ -189,85 +189,67 @@ defineExpose({ focusFind });
     </IconAction>
   </div>
 
-  <ResizablePanelGroup
-    direction="horizontal"
-    auto-save-id="capubridge:data-record-pane-size:v2"
-    class="min-h-0 flex-1"
-  >
-    <ResizablePanel id="cache-rows-grid" :order="1" :min-size="35" class="min-h-0">
-      <div class="h-full min-h-0 px-2 pb-2">
-        <DataGrid
-          ref="grid"
-          :label="`Cache ${cacheName}`"
-          :columns="columns"
-          :rows="gridRows"
-          :loading="loading"
-          :read-only="writes.blockedReason.value !== null"
-          :sort="sort"
-          activate-rows
-          :column-features="{ filter: false, group: false, showAs: false }"
-          :context-actions="contextActions"
-          layout-key="cache-storage"
-          @update:sort="sort = $event"
-          @active-row="$event && pane.follow($event)"
-          @activate="pane.show"
-          @inspect="pane.show"
-          @delete="requestDelete"
-          @summary="summary = $event"
-          @context-action="runContextAction"
-        >
-          <template #empty>
-            <div v-if="narrowed" class="flex flex-col items-start gap-2">
-              <span>No entry matches “{{ findText.trim() }}”.</span>
-              <Button size="sm" variant="transparent" @click="find = ''">Clear find</Button>
-            </div>
-            <span v-else>The cache “{{ cacheName }}” is empty.</span>
-          </template>
-        </DataGrid>
-      </div>
-    </ResizablePanel>
-    <template v-if="pane.visible.value && pane.row.value">
-      <ResizableHandle
-        class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
-      />
-      <ResizablePanel
-        id="cache-rows-pane"
-        :order="2"
-        size-unit="px"
-        :default-size="420"
-        :min-size="280"
-        :max-size="960"
-        class="min-h-0"
+  <RecordSplit :pane-open="!!(pane.visible.value && pane.row.value)">
+    <template #grid>
+      <DataGrid
+        ref="grid"
+        frame="none"
+        :label="`Cache ${cacheName}`"
+        :columns="columns"
+        :rows="gridRows"
+        :loading="loading"
+        :read-only="writes.blockedReason.value !== null"
+        :sort="sort"
+        activate-rows
+        :column-features="{ filter: false, group: false, showAs: false }"
+        :context-actions="contextActions"
+        layout-key="cache-storage"
+        @update:sort="sort = $event"
+        @active-row="$event && pane.follow($event)"
+        @activate="pane.show"
+        @inspect="pane.show"
+        @delete="requestDelete"
+        @summary="summary = $event"
+        @context-action="runContextAction"
       >
-        <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">
-          <div
-            class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
-          >
-            <CacheEntryPane
-              :key="`${cacheName}::${pane.row.value.id}`"
-              :row="pane.row.value"
-              :detail="detail"
-              :loading="entry.loading.value || settledId !== shownId"
-              :error="entryError"
-              :gone="entryGone"
-              :position="panePosition"
-              :blocked-reason="writes.blockedReason.value"
-              :busy="writes.busy.value"
-              :can-prev="pane.canPrev.value"
-              :can-next="pane.canNext.value"
-              @delete="pane.row.value && requestDelete([pane.row.value.id])"
-              @prev="pane.step(-1)"
-              @next="pane.step(1)"
-              @close="pane.close()"
-              @retry="entry.refetch()"
-              @read-body="bodyAskedFor = pane.row.value?.id ?? null"
-              @read-list="emit('readList')"
-            />
+        <template #empty>
+          <div v-if="narrowed" class="flex flex-col items-start gap-2">
+            <span>No entry matches “{{ findText.trim() }}”.</span>
+            <Button size="sm" variant="transparent" @click="find = ''">Clear find</Button>
           </div>
-        </div>
-      </ResizablePanel>
+          <span v-else>The cache “{{ cacheName }}” is empty.</span>
+        </template>
+      </DataGrid>
     </template>
-  </ResizablePanelGroup>
+    <template #pane>
+      <div
+        v-if="pane.visible.value && pane.row.value"
+        class="h-full min-h-0"
+        @keydown="onPaneKeydown"
+      >
+        <CacheEntryPane
+          :key="`${cacheName}::${pane.row.value.id}`"
+          :row="pane.row.value"
+          :detail="detail"
+          :loading="entry.loading.value || settledId !== shownId"
+          :error="entryError"
+          :gone="entryGone"
+          :position="panePosition"
+          :blocked-reason="writes.blockedReason.value"
+          :busy="writes.busy.value"
+          :can-prev="pane.canPrev.value"
+          :can-next="pane.canNext.value"
+          @delete="pane.row.value && requestDelete([pane.row.value.id])"
+          @prev="pane.step(-1)"
+          @next="pane.step(1)"
+          @close="pane.close()"
+          @retry="entry.refetch()"
+          @read-body="bodyAskedFor = pane.row.value?.id ?? null"
+          @read-list="emit('readList')"
+        />
+      </div>
+    </template>
+  </RecordSplit>
 
   <DataGridStatus :summary="summary" :total="narrowed ? rows.length : null">
     <span v-if="total !== null && total > read" class="truncate text-[var(--fg-subtle)]">

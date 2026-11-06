@@ -1,20 +1,25 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
+import { Surface, SurfaceCut } from "@capubridge/cladd";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 const PANE_DEFAULT = 380;
 const SETTLE = "cubic-bezier(0, 1, 0.2, 1)";
 
 /**
- * The grid beside its record pane, as every Data tab lays it out: one width for the pane
- * across Data (persisted), 280–960 px, the grid never under 30 %. A double-click on the handle
- * puts the pane back to its default width. `maximized` lets the pane fill the split: the grid
- * stays mounted under it (inert), and the pane's edge travels across with Cladd's settle curve.
+ * The grid beside its record pane, as every Data tab lays it out. The grid sits in a recessed
+ * well (`SurfaceCut`); the record pane is raised one level above the workspace (`Surface +1`).
+ * One width for the pane across Data (persisted), 280–960 px, the grid never under 30 %; a
+ * double-click on the handle puts the pane back to its default width. `maximized` lets the pane
+ * fill the split: the grid stays mounted under it (inert), and the pane's edge travels across
+ * with Cladd's settle curve.
  */
 const props = defineProps<{
   paneOpen: boolean;
   maximized?: boolean;
 }>();
+
+defineSlots<{ grid: () => unknown; pane: (props: { maximized: boolean }) => unknown }>();
 
 interface PanelHandle {
   resize: (size: number) => void;
@@ -86,8 +91,14 @@ function resetWidth() {
       class="min-h-0 flex-1"
     >
       <ResizablePanel id="data-rows-grid" :order="1" :min-size="30" class="min-h-0">
-        <div class="h-full min-h-0" :inert="expanded || undefined">
-          <slot name="grid" />
+        <div
+          class="h-full min-h-0 pb-2 pl-2"
+          :class="paneOpen ? '' : 'pr-2'"
+          :inert="expanded || undefined"
+        >
+          <SurfaceCut class="h-full min-h-0 rounded-well" content-class-name="h-full min-h-0">
+            <slot name="grid" />
+          </SurfaceCut>
         </div>
       </ResizablePanel>
       <template v-if="paneOpen">
@@ -107,11 +118,19 @@ function resetWidth() {
         >
           <div
             ref="paneBox"
-            class="h-full min-h-0"
-            :class="expanded ? 'absolute inset-0 z-10' : ''"
+            class="h-full min-h-0 pr-2 pb-2"
+            :class="expanded ? 'absolute inset-0 z-10 pl-2' : ''"
             :data-maximized="expanded || undefined"
           >
-            <slot name="pane" :maximized="expanded" />
+            <Surface
+              variant="solid"
+              level="+1"
+              outline
+              class="h-full min-h-0 overflow-hidden rounded-well"
+              content-class-name="flex h-full min-h-0 flex-col"
+            >
+              <slot name="pane" :maximized="expanded" />
+            </Surface>
           </div>
         </ResizablePanel>
       </template>

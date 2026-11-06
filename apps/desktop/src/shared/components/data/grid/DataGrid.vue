@@ -39,6 +39,9 @@ import {
   type GridSummary,
 } from "./types";
 
+/** In a well, opaque sticky cells (`bg-cladd-bg`) take the well's cut fill instead. */
+const WELL_FILL = { "--color-cladd-bg": "var(--color-cladd-surface-cut)" };
+
 const props = withDefaults(
   defineProps<{
     /** Accessible name, e.g. the table or store name. */
@@ -65,8 +68,14 @@ const props = withDefaults(
     editing?: GridEditingCell | null;
     /** Persists pinned columns and hand-set widths under this key (one per table). */
     layoutKey?: string | null;
+    /**
+     * `box` draws the grid's own level-1 box with a border; `none` leaves the depth to the
+     * well it sits in (a Cladd `SurfaceCut`), and sticky cells take the well's fill.
+     */
+    frame?: "box" | "none";
   }>(),
   {
+    frame: "box",
     loading: false,
     density: "default",
     readOnly: false,
@@ -404,8 +413,14 @@ defineExpose({
             : undefined
         "
         :aria-busy="loading || undefined"
-        :class="layout.fits.value ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto'"
-        class="cladd-surface-level-1 relative h-full min-h-0 rounded-cladd-md border border-cladd-outline bg-cladd-bg text-cladd-fg outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+        :class="[
+          layout.fits.value ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto',
+          frame === 'none'
+            ? 'rounded-[inherit] focus-visible:ring-inset'
+            : 'cladd-surface-level-1 rounded-cladd-md border border-cladd-outline bg-cladd-bg',
+        ]"
+        :style="frame === 'none' ? WELL_FILL : undefined"
+        class="relative h-full min-h-0 text-cladd-fg outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
         @pointerdown="onPointerDown"
         @dblclick="onDoubleClick"
         @keydown="onKeydown"

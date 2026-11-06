@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { refDebounced, useDocumentVisibility, useNow } from "@vueuse/core";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button, Chip } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   cellToText,
   DataGrid,
@@ -524,123 +524,103 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
       class="shrink-0 border-b border-border-subtle"
       @retry="pager.refetch()"
     />
-    <ResizablePanelGroup
-      direction="horizontal"
-      auto-save-id="capubridge:data-record-pane-size:v2"
-      class="min-h-0 flex-1"
-    >
-      <ResizablePanel id="idb-rows-grid" :order="1" :min-size="35" class="min-h-0">
-        <div class="h-full min-h-0 px-2 pb-2">
-          <DataGrid
-            ref="grid"
-            :label="store"
-            :columns="gridColumns"
-            :rows="gridRows"
-            :loading="pager.loading.value"
-            :read-only="!writes.canWrite.value || groupBy !== null"
-            :row-states="model.states"
-            :sort="sort"
-            :row-number-offset="inStoreSearch ? 0 : pager.page.value * pager.pageSize.value"
-            :column-visibility="visibility"
-            :show-as="showAs"
-            :column-features="{ filter: !groupBy, group: true, showAs: true }"
-            :grouped-column="groupBy"
-            :activate-rows="groupBy !== null"
-            :context-actions="contextActions"
-            :editing="editing"
-            :layout-key="layoutKey"
-            @activate="openGroup"
-            @update:sort="sort = $event"
-            @column-action="onColumnAction"
-            @active-row="$event && !groupBy && (pane.activeRowId.value = $event)"
-            @inspect="pane.show"
-            @edit="startEdit"
-            @delete="requestDelete"
-            @summary="summary = $event"
-            @context-action="runContextAction"
-          >
-            <template #editor="{ rowId, column, value }">
-              <CellEditor
-                :key="`${rowId}:${column.id}`"
-                :value="value"
-                :like="columnSample(column.id)"
-                :kind="editorKindFor(value, showAs[column.id], columnSample(column.id)) ?? 'text'"
-                :label="`Edit ${column.title}`"
-                @commit="commitEdit"
-                @cancel="cancelEdit"
-                @rejected="note"
-              />
-            </template>
-            <template #empty>
-              <div
-                v-if="search || predicates.length || changesOnly"
-                class="flex flex-col items-start gap-2"
-              >
-                <span>No row on this page matches.</span>
-                <Button
-                  size="sm"
-                  variant="transparent"
-                  @click="
-                    search = '';
-                    predicates = [];
-                  "
-                >
-                  Clear find and filters
-                </Button>
-              </div>
-              <span v-else-if="inStoreSearch">Nothing in “{{ store }}” matches.</span>
-              <span v-else-if="pager.page.value > 0">No records on this page.</span>
-              <span v-else>“{{ store }}” has no records.</span>
-            </template>
-          </DataGrid>
-        </div>
-      </ResizablePanel>
-      <template v-if="pane.visible.value && paneRecord && paneRow && !groupBy">
-        <ResizableHandle
-          class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
-        />
-        <ResizablePanel
-          id="idb-rows-pane"
-          :order="2"
-          size-unit="px"
-          :default-size="360"
-          :min-size="280"
-          :max-size="960"
-          class="min-h-0"
+    <RecordSplit :pane-open="!!(pane.visible.value && paneRecord && paneRow && !groupBy)">
+      <template #grid>
+        <DataGrid
+          ref="grid"
+          frame="none"
+          :label="store"
+          :columns="gridColumns"
+          :rows="gridRows"
+          :loading="pager.loading.value"
+          :read-only="!writes.canWrite.value || groupBy !== null"
+          :row-states="model.states"
+          :sort="sort"
+          :row-number-offset="inStoreSearch ? 0 : pager.page.value * pager.pageSize.value"
+          :column-visibility="visibility"
+          :show-as="showAs"
+          :column-features="{ filter: !groupBy, group: true, showAs: true }"
+          :grouped-column="groupBy"
+          :activate-rows="groupBy !== null"
+          :context-actions="contextActions"
+          :editing="editing"
+          :layout-key="layoutKey"
+          @activate="openGroup"
+          @update:sort="sort = $event"
+          @column-action="onColumnAction"
+          @active-row="$event && !groupBy && (pane.activeRowId.value = $event)"
+          @inspect="pane.show"
+          @edit="startEdit"
+          @delete="requestDelete"
+          @summary="summary = $event"
+          @context-action="runContextAction"
         >
-          <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">
+          <template #editor="{ rowId, column, value }">
+            <CellEditor
+              :key="`${rowId}:${column.id}`"
+              :value="value"
+              :like="columnSample(column.id)"
+              :kind="editorKindFor(value, showAs[column.id], columnSample(column.id)) ?? 'text'"
+              :label="`Edit ${column.title}`"
+              @commit="commitEdit"
+              @cancel="cancelEdit"
+              @rejected="note"
+            />
+          </template>
+          <template #empty>
             <div
-              class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
+              v-if="search || predicates.length || changesOnly"
+              class="flex flex-col items-start gap-2"
             >
-              <RecordPane
-                ref="paneView"
-                :key="`${layoutKey}::${paneRow.id}`"
-                :title="keyLabelOf(paneRecord)"
-                :subtitle="paneSubtitle"
-                :state-text="paneState"
-                :columns="
-                  model.columns.filter((column) => column.id !== KEY_COLUMN || !model.keyField)
+              <span>No row on this page matches.</span>
+              <Button
+                size="sm"
+                variant="transparent"
+                @click="
+                  search = '';
+                  predicates = [];
                 "
-                :cells="paneRow.cells"
-                :value="paneRecord.value"
-                :read-only-reason="paneReadOnly"
-                :can-delete="writes.canWrite.value && !paneRecord.__changeDeleted"
-                :before="paneBefore"
-                :can-prev="pane.canPrev.value"
-                :can-next="pane.canNext.value"
-                :saving="writes.saving.value"
-                @save="savePane"
-                @delete="requestDelete([paneRow.id])"
-                @prev="pane.step(-1)"
-                @next="pane.step(1)"
-                @close="closePane"
-                @dirty="pane.setDirty"
-              />
+              >
+                Clear find and filters
+              </Button>
             </div>
-          </div>
-        </ResizablePanel>
+            <span v-else-if="inStoreSearch">Nothing in “{{ store }}” matches.</span>
+            <span v-else-if="pager.page.value > 0">No records on this page.</span>
+            <span v-else>“{{ store }}” has no records.</span>
+          </template>
+        </DataGrid>
       </template>
-    </ResizablePanelGroup>
+      <template #pane>
+        <div
+          v-if="pane.visible.value && paneRecord && paneRow && !groupBy"
+          class="h-full min-h-0"
+          @keydown="onPaneKeydown"
+        >
+          <RecordPane
+            ref="paneView"
+            :key="`${layoutKey}::${paneRow.id}`"
+            :title="keyLabelOf(paneRecord)"
+            :subtitle="paneSubtitle"
+            :state-text="paneState"
+            :columns="model.columns.filter((column) => column.id !== KEY_COLUMN || !model.keyField)"
+            :cells="paneRow.cells"
+            :value="paneRecord.value"
+            :read-only-reason="paneReadOnly"
+            :can-delete="writes.canWrite.value && !paneRecord.__changeDeleted"
+            :before="paneBefore"
+            :can-prev="pane.canPrev.value"
+            :can-next="pane.canNext.value"
+            :saving="writes.saving.value"
+            @save="savePane"
+            @delete="requestDelete([paneRow.id])"
+            @prev="pane.step(-1)"
+            @next="pane.step(1)"
+            @close="closePane"
+            @dirty="pane.setDirty"
+          />
+        </div>
+      </template>
+    </RecordSplit>
   </template>
 
   <DataGridStatus
