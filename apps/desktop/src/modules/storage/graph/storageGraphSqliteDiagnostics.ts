@@ -168,6 +168,9 @@ export async function discoverLogicalSqliteReferences(
       if (column.primaryKey || !column.name.toLowerCase().endsWith("_id")) {
         return [];
       }
+      if (source.foreignKeys.some((foreignKey) => foreignKey.fromColumn === column.name)) {
+        return [];
+      }
       const indexed = source.indexes.some((index) => index.columns.includes(column.name));
       if (!indexed) {
         return [];

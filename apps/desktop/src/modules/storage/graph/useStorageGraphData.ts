@@ -7,7 +7,7 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useStorageContextStore } from "@/modules/storage/stores/useStorageContextStore";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
-import { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
+import { graphScopeKey, useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import {
   buildAutoLayoutPositions,
   buildSchemaLayoutPositions,
@@ -78,13 +78,7 @@ export function useStorageGraphData() {
   });
 
   const scopeKey = computed(() =>
-    [
-      "storage-graph",
-      serial.value || "no-serial",
-      targetId.value || "no-target",
-      selectedOrigin.value || "no-origin",
-      selectedPackageName.value || "no-package",
-    ].join(":"),
+    graphScopeKey(serial.value, selectedOrigin.value, selectedPackageName.value),
   );
 
   const { indexedDbQuery, localForageQuery, sqliteQuery } = useStorageGraphQueries({

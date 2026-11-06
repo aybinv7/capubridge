@@ -6,7 +6,7 @@ import {
   isStorageGraphRouteAttached,
   type StorageGraphCanvasMode,
 } from "@/modules/storage/graph/storageGraphCanvas.utils";
-import { buildStorageGraphNamingFamilies } from "@/modules/storage/graph/storageGraphElkLayout";
+import { buildStorageGraphNamingFamilies } from "@/modules/storage/graph/storageGraphNamingFamilies";
 import type { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import type {
   StorageGraphEntityDescriptor,

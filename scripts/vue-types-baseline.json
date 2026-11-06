@@ -39,15 +39,9 @@
     "errors": 1
   },
   "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue": {
-    "errors": 3
+    "errors": 2
   },
   "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
     "errors": 5
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteDatabaseOverview.vue": {
-    "errors": 2
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteTableToolbar.vue": {
-    "errors": 1
   }
 }

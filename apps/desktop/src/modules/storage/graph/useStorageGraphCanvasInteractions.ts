@@ -161,12 +161,10 @@ export function useStorageGraphCanvasInteractions(
   }
 
   function persistNodePositions(currentNodes: StorageGraphMountedNode[]) {
-    for (const node of currentNodes) {
-      graphStore.setNodePosition(scopeKey.value, node.id, {
-        x: node.position.x,
-        y: node.position.y,
-      });
-    }
+    graphStore.setNodePositions(
+      scopeKey.value,
+      currentNodes.map((node) => [node.id, { x: node.position.x, y: node.position.y }]),
+    );
   }
 
   function setSelectedNodeIds(nodeIds: string[]) {
@@ -474,5 +472,6 @@ export function useStorageGraphCanvasInteractions(
     handleNodeDragStop,
     handleViewportChange,
     handleSelectionAction,
+    updateZoomPercent,
   };
 }

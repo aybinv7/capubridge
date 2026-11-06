@@ -1,8 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import {
-  buildStorageGraphNamingFamilies,
-  layoutStorageGraphWithElk,
-} from "./storageGraphElkLayout";
+import { layoutStorageGraphWithElk } from "./storageGraphElkLayout";
+import { buildStorageGraphNamingFamilies } from "./storageGraphNamingFamilies";
 
 test("ELK lays out tables and returns routed relationship points", async () => {
   const result = await layoutStorageGraphWithElk(

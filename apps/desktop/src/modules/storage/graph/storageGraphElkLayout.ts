@@ -1,26 +1,38 @@
-import ELK from "elkjs/lib/elk.bundled.js";
+import type ELK from "elkjs/lib/elk-api";
 import type { ElkExtendedEdge, ElkNode, ElkPoint, ElkPort } from "elkjs/lib/elk-api";
 import type { StorageGraphPosition, StorageGraphRelationship } from "@/types/storageGraph.types";
-
-interface StorageGraphElkNode {
-  id: string;
-  name: string;
-  width: number;
-  height: number;
-}
-
-export interface StorageGraphNamingFamily {
-  key: string;
-  anchorId: string;
-  memberIds: string[];
-}
+import {
+  buildStorageGraphNamingFamilies,
+  type StorageGraphElkNode,
+  type StorageGraphNamingFamily,
+} from "./storageGraphNamingFamilies";
 
 export interface StorageGraphElkLayoutResult {
   positions: Record<string, StorageGraphPosition>;
   routes: Record<string, StorageGraphPosition[]>;
 }
 
-const elk = new ELK();
+let engine: Promise<InstanceType<typeof ELK>> | null = null;
+
+/**
+ * ELK (about 1.6 MB) loads the first time a layout is asked for, never with the screen. In the
+ * app it runs in a worker, so a big layout never freezes the window; without workers (tests) it
+ * runs in place.
+ */
+function elkEngine(): Promise<InstanceType<typeof ELK>> {
+  engine ??= (async () => {
+    if (typeof Worker === "undefined") {
+      const { default: Bundled } = await import("elkjs/lib/elk.bundled.js");
+      return new Bundled();
+    }
+    const [{ default: Api }, { default: workerUrl }] = await Promise.all([
+      import("elkjs/lib/elk-api.js"),
+      import("elkjs/lib/elk-worker.min.js?url"),
+    ]);
+    return new Api({ workerFactory: () => new Worker(workerUrl) });
+  })();
+  return engine;
+}
 
 function sourcePortId(edgeId: string): string {
   return `${edgeId}:source`;
@@ -49,56 +61,6 @@ function collectAbsoluteNodePositions(
     }
     collectAbsoluteNodePositions(child.children ?? [], positions, x, y);
   }
-}
-
-export function buildStorageGraphNamingFamilies(
-  nodes: StorageGraphElkNode[],
-  relationships: StorageGraphRelationship[],
-): StorageGraphNamingFamily[] {
-  const degree = new Map(nodes.map((node) => [node.id, 0]));
-  for (const relationship of relationships) {
-    degree.set(relationship.source, (degree.get(relationship.source) ?? 0) + 1);
-    degree.set(relationship.target, (degree.get(relationship.target) ?? 0) + 1);
-  }
-  const tokenized = nodes.map((node) => ({
-    node,
-    tokens: node.name.toLowerCase().split("_").filter(Boolean),
-  }));
-  const firstTokenGroups = new Map<string, typeof tokenized>();
-  for (const item of tokenized) {
-    const prefix = item.tokens[0];
-    if (!prefix) {
-      continue;
-    }
-    const group = firstTokenGroups.get(prefix) ?? [];
-    group.push(item);
-    firstTokenGroups.set(prefix, group);
-  }
-  const candidateGroups: Array<{ key: string; items: typeof tokenized }> = [];
-  for (const [prefix, items] of firstTokenGroups) {
-    if (items.length >= 3) {
-      candidateGroups.push({ key: prefix, items });
-      continue;
-    }
-  }
-
-  return candidateGroups.map(({ key, items }) => {
-    const anchor = [...items].sort((left, right) => {
-      const leftExact = left.node.name.toLowerCase() === key ? 1 : 0;
-      const rightExact = right.node.name.toLowerCase() === key ? 1 : 0;
-      return (
-        rightExact - leftExact ||
-        (degree.get(right.node.id) ?? 0) - (degree.get(left.node.id) ?? 0) ||
-        left.tokens.length - right.tokens.length ||
-        left.node.name.localeCompare(right.node.name)
-      );
-    })[0];
-    return {
-      key,
-      anchorId: anchor?.node.id ?? items[0]?.node.id ?? "",
-      memberIds: items.map((item) => item.node.id),
-    };
-  });
 }
 
 export async function layoutStorageGraphWithElk(
@@ -208,6 +170,7 @@ export async function layoutStorageGraphWithElk(
       targets: [targetPortId(edge.id)],
     })),
   };
+  const elk = await elkEngine();
   const result = await elk.layout(graph);
   const positions: Record<string, StorageGraphPosition> = {};
   collectAbsoluteNodePositions(result.children ?? [], positions);

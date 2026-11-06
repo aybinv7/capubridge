@@ -113,10 +113,11 @@ export function useStorageGraphQueries({
   const sqliteQuery = useQuery({
     queryKey: computed(() => ["storage-graph-sqlite", serial.value, selectedPackageName.value]),
     enabled: computed(() => Boolean(serial.value && selectedPackageName.value)),
+    staleTime: 60_000,
     queryFn: async () => {
       const databases = await listDatabases(serial.value, selectedPackageName.value);
 
-      const databaseResults = await Promise.all(
+      const settled = await Promise.allSettled(
         databases.map(async (database) => {
           const tables = await openDatabase(serial.value, selectedPackageName.value, database.path);
 
@@ -170,7 +171,16 @@ export function useStorageGraphQueries({
           );
         }),
       );
-      const results = databaseResults.flat();
+      const failed = settled.flatMap((outcome, index) =>
+        outcome.status === "rejected"
+          ? [{ database: databases[index]?.name, reason: outcome.reason }]
+          : [],
+      );
+      if (failed.length > 0 && failed.length === settled.length) throw failed[0]?.reason;
+      if (failed.length > 0) console.warn("[storage-graph][sqlite] databases left out", failed);
+      const results = settled.flatMap((outcome) =>
+        outcome.status === "fulfilled" ? outcome.value : [],
+      );
       const diagnostics = results.map((result) => result.diagnostic);
       const logicalReferences = await discoverLogicalSqliteReferences(
         diagnostics,

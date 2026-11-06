@@ -28,9 +28,10 @@ export function useStorageGraphRelationships(
           continue;
         }
 
+        const kind = field.references.relationshipKind ?? "foreign-key";
         edges.push({
-          id: `foreign-key:${entity.id}:${field.name}:${field.references.targetNodeId}`,
-          kind: field.references.relationshipKind ?? "foreign-key",
+          id: `${kind}:${entity.id}:${field.name}:${field.references.targetNodeId}`,
+          kind,
           source: entity.id,
           target: field.references.targetNodeId,
           label: field.references.targetFieldName

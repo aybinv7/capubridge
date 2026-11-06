@@ -6,9 +6,6 @@
 @import "@capubridge/cladd/css";
 @import "./cladd-bridge.css";
 
-@import "@vue-flow/core/dist/style.css";
-@import "@vue-flow/core/dist/theme-default.css";
-
 @custom-variant dark (&:is([data-theme-mode="dark"] *));
 
 /* -----------------------------------------------------------------------

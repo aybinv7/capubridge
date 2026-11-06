@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import "@vue-flow/core/dist/style.css";
+import "@vue-flow/core/dist/theme-default.css";
 import { computed, markRaw, nextTick, ref, watch } from "vue";
+import { refDebounced } from "@vueuse/core";
 import { SelectionMode, VueFlow, useVueFlow } from "@vue-flow/core";
 import { toast } from "vue-sonner";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +66,7 @@ const edgeTypes = {
 const { fitView, getViewport, setCenter, zoomIn, zoomOut } = useVueFlow();
 
 const search = ref("");
+const searchApplied = refDebounced(search, 200);
 const sourceFilter = ref<"all" | "indexeddb" | "localforage" | "sqlite">("all");
 const graphStrategy = ref<"inferred" | "schema">("inferred");
 const showHeuristicEdges = ref(true);
@@ -100,7 +104,7 @@ const activeAutoLayoutPositions = computed(() =>
 );
 
 const filteredEntities = computed(() => {
-  const query = search.value.trim().toLowerCase();
+  const query = searchApplied.value.trim().toLowerCase();
 
   return entities.value.filter((entity) => {
     if (sourceFilter.value !== "all" && entity.storageKind !== sourceFilter.value) {
@@ -197,6 +201,7 @@ const {
   handleNodeDragStop,
   handleViewportChange,
   handleSelectionAction,
+  updateZoomPercent,
 } = useStorageGraphCanvasInteractions({
   scopeKey,
   graphStore,

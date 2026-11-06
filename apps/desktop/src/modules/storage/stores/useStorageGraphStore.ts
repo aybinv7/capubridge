@@ -10,8 +10,59 @@ import type {
 } from "@/types/storageGraph.types";
 
 const STORAGE_KEY = "capubridge:storage-graph:v1";
+const SCOPE_PREFIX = "storage-graph:v2:";
+const MAX_SCOPES = 60;
+const PERSIST_DELAY_MS = 400;
 
 type StorageGraphScopes = Record<string, StorageGraphPersistedScope>;
+
+/**
+ * Where a graph's layout is kept: the phone, the page's origin and the app. The DevTools page id
+ * is left out on purpose: it changes on every reload, and with it the layout was lost (C4).
+ */
+export function graphScopeKey(serial: string, origin: string, packageName: string): string {
+  return `${SCOPE_PREFIX}${serial || "no-serial"}:${origin || "no-origin"}:${packageName || "no-package"}`;
+}
+
+/**
+ * The v2 key of a scope saved under the old `storage-graph:serial:pageId:origin:package` key.
+ * The origin holds colons, so the page id is the second field and the package the last.
+ */
+export function migrateScopeKey(key: string): string {
+  if (key.startsWith(SCOPE_PREFIX) || !key.startsWith("storage-graph:")) return key;
+  const rest = key.slice("storage-graph:".length);
+  const serialEnd = rest.indexOf(":");
+  const targetEnd = rest.indexOf(":", serialEnd + 1);
+  const packageStart = rest.lastIndexOf(":");
+  if (serialEnd < 0 || targetEnd < 0 || packageStart <= targetEnd) return key;
+  return graphScopeKey(
+    rest.slice(0, serialEnd),
+    rest.slice(targetEnd + 1, packageStart),
+    rest.slice(packageStart + 1),
+  );
+}
+
+function scopeWeight(scope: StorageGraphPersistedScope): number {
+  return (
+    Object.keys(scope.positions).length +
+    scope.notes.length +
+    scope.manualEdges.length +
+    Object.keys(scope.annotations).length +
+    scope.groups.length
+  );
+}
+
+/** Keeps the most recently written scopes, so the saved layouts never grow without bound. */
+function pruneScopes(scopes: StorageGraphScopes): StorageGraphScopes {
+  const keys = Object.keys(scopes);
+  if (keys.length <= MAX_SCOPES) return scopes;
+  const kept: StorageGraphScopes = {};
+  for (const key of keys.slice(-MAX_SCOPES)) {
+    const scope = scopes[key];
+    if (scope) kept[key] = scope;
+  }
+  return kept;
+}
 
 function createEmptyScope(): StorageGraphPersistedScope {
   return {
@@ -47,13 +98,29 @@ function loadScopes(): StorageGraphScopes {
       return {};
     }
 
-    return Object.fromEntries(
-      Object.entries(parsed).map(([scopeKey, scope]) => [scopeKey, normalizeScope(scope)]),
-    );
+    const migrated: StorageGraphScopes = {};
+    for (const [key, scope] of Object.entries(parsed)) {
+      const next = migrateScopeKey(key);
+      const normalized = normalizeScope(scope);
+      const existing = migrated[next];
+      if (!existing || scopeWeight(normalized) >= scopeWeight(existing)) {
+        delete migrated[next];
+        migrated[next] = normalized;
+      }
+    }
+    return pruneScopes(migrated);
   } catch {
     return {};
   }
 }
+
+const EMPTY_SCOPE: StorageGraphPersistedScope = Object.freeze({
+  positions: Object.freeze({}),
+  notes: Object.freeze([]),
+  manualEdges: Object.freeze([]),
+  annotations: Object.freeze({}),
+  groups: Object.freeze([]),
+}) as unknown as StorageGraphPersistedScope;
 
 function cloneScope(scope: StorageGraphPersistedScope): StorageGraphPersistedScope {
   return JSON.parse(JSON.stringify(scope)) as StorageGraphPersistedScope;
@@ -78,14 +145,19 @@ function makeId(prefix: string): string {
 
 export const useStorageGraphStore = defineStore("storage-graph", () => {
   const scopes = ref<StorageGraphScopes>(loadScopes());
+  let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
-  watch(
-    scopes,
-    (value) => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-    },
-    { deep: true },
-  );
+  watch(scopes, () => {
+    if (persistTimer !== null) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(scopes.value));
+      } catch (error) {
+        console.warn("Could not save the graph layout", error);
+      }
+    }, PERSIST_DELAY_MS);
+  });
 
   function ensureScope(scopeKey: string): StorageGraphPersistedScope {
     const existing = scopes.value[scopeKey];
@@ -94,15 +166,29 @@ export const useStorageGraphStore = defineStore("storage-graph", () => {
     }
 
     const scope = createEmptyScope();
-    scopes.value = {
+    scopes.value = pruneScopes({
       ...scopes.value,
       [scopeKey]: scope,
-    };
+    });
     return scope;
   }
 
+  /** Reads a scope; one never written reads as empty and is not created by reading (C3). */
   function getScope(scopeKey: string): StorageGraphPersistedScope {
-    return ensureScope(scopeKey);
+    return scopes.value[scopeKey] ?? EMPTY_SCOPE;
+  }
+
+  /** Saves many node positions in one write (a drag of a frame moves all its members). */
+  function setNodePositions(
+    scopeKey: string,
+    entries: ReadonlyArray<readonly [string, StorageGraphPosition]>,
+  ) {
+    if (entries.length === 0) return;
+    const scope = ensureScope(scopeKey);
+    scopes.value = {
+      ...scopes.value,
+      [scopeKey]: { ...scope, positions: { ...scope.positions, ...Object.fromEntries(entries) } },
+    };
   }
 
   function setNodePosition(scopeKey: string, nodeId: string, position: StorageGraphPosition) {
@@ -299,6 +385,7 @@ export const useStorageGraphStore = defineStore("storage-graph", () => {
   return {
     scopes,
     getScope,
+    setNodePositions,
     getNodePosition,
     setNodePosition,
     upsertNote,
