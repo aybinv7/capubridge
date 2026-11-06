@@ -63,7 +63,7 @@ function onFocusOut(event: FocusEvent) {
 defineExpose({
   focus() {
     void nextTick(() => {
-      const list = root.value?.querySelector<HTMLElement>('[role="listbox"]:not([hidden])');
+      const list = root.value?.querySelector<HTMLElement>('[data-active="true"] [role="listbox"]');
       (list ?? root.value)?.focus({ preventScroll: true });
     });
   },

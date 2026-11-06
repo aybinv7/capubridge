@@ -26,6 +26,7 @@ watch(
       <div
         v-if="visited.has(view)"
         v-show="view === props.current"
+        :data-active="view === props.current"
         class="absolute inset-0 flex flex-col"
       >
         <GatedView :requirement="DRAWER_VIEW_META[view].requirement" density="compact">
