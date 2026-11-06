@@ -62,13 +62,60 @@ fn parse_number(token: &str) -> Option<u32> {
     token.parse().ok()
 }
 
-/// Splits the `uid:` column off. logcat prints it as `%5s:` or `%5d:` straight
-/// before the `%5d` pid, so a five-digit pid follows the colon with no space.
-fn split_uid(rest: &str) -> (Option<Option<u32>>, String) {
-    let (token, after) = split_token(rest);
-    match token.split_once(':') {
-        Some((uid, pid_part)) => (Some(parse_number(uid)), format!("{pid_part}{after}")),
-        None => (None, rest.to_string()),
+/// Reads a uid column value: a number, a well-known name, or an app id such as
+/// `u0_a145`.
+fn parse_uid(token: &str) -> Option<u32> {
+    if let Some(number) = parse_number(token) {
+        return Some(number);
+    }
+    match token {
+        "root" => return Some(0),
+        "system" => return Some(1000),
+        "shell" => return Some(2000),
+        "nobody" => return Some(9999),
+        _ => {}
+    }
+    let rest = token.strip_prefix('u')?;
+    let (user, app) = rest.split_once('_')?;
+    let user = parse_number(user)?;
+    let app_id = if let Some(app) = app.strip_prefix('a') {
+        10_000 + parse_number(app)?
+    } else if let Some(isolated) = app.strip_prefix('i') {
+        90_000 + parse_number(isolated)?
+    } else {
+        return None;
+    };
+    user.checked_mul(100_000)?.checked_add(app_id)
+}
+
+/// Collects the id columns between the time and the level. logcat prints them
+/// as `uid pid tid`, `uid:pid tid` (a five-digit pid glued to the colon),
+/// `uid: pid tid`, or `pid tid` when the uid column is absent.
+fn collect_id_fields(mut rest: &str) -> Option<(Vec<String>, char, &str)> {
+    let mut fields: Vec<String> = Vec::with_capacity(3);
+    loop {
+        let (token, after) = split_token(rest);
+        if token.is_empty() {
+            return None;
+        }
+        if fields.len() >= 2 && token.chars().count() == 1 {
+            if let Some(level) = token.chars().next().and_then(normalize_level) {
+                return Some((fields, level, after));
+            }
+        }
+        match token.split_once(':') {
+            Some((uid, pid)) => {
+                fields.push(uid.to_string());
+                if !pid.is_empty() {
+                    fields.push(pid.to_string());
+                }
+            }
+            None => fields.push(token.to_string()),
+        }
+        if fields.len() > 3 {
+            return None;
+        }
+        rest = after;
     }
 }
 
@@ -88,21 +135,18 @@ fn split_tag(rest: &str) -> Option<(String, String)> {
 pub(crate) fn parse_header(line: &str) -> Option<LogcatHeaderLine> {
     let (time, rest) = split_token(line);
     let ts_ms = parse_epoch_ms(time)?;
-    let (uid, rest) = split_uid(rest);
-    let (pid, rest) = split_token(&rest);
+    let (fields, level, rest) = collect_id_fields(rest)?;
+    let (uid, pid, tid) = match fields.as_slice() {
+        [pid, tid] => (None, pid, tid),
+        [uid, pid, tid] => (parse_uid(uid), pid, tid),
+        _ => return None,
+    };
     let pid = parse_number(pid)?;
-    let (tid, rest) = split_token(rest);
     let tid = parse_number(tid)?;
-    let (level, rest) = split_token(rest);
-    let mut level_chars = level.chars();
-    let level = normalize_level(level_chars.next()?)?;
-    if level_chars.next().is_some() {
-        return None;
-    }
     let (tag, message) = split_tag(rest)?;
     Some(LogcatHeaderLine {
         ts_ms,
-        uid: uid.flatten(),
+        uid,
         pid: Some(pid),
         tid: Some(tid),
         level,
@@ -232,10 +276,67 @@ mod tests {
     fn parses_a_named_uid_and_a_padded_tag() {
         let parsed =
             header("     1730000000.121  root:  612   640 I vold    : Disk at 179:64 changed");
-        assert_eq!(parsed.uid, None);
+        assert_eq!(parsed.uid, Some(0));
         assert_eq!(parsed.pid, Some(612));
         assert_eq!(parsed.tag, "vold");
         assert_eq!(parsed.message, "Disk at 179:64 changed");
+    }
+
+    #[test]
+    fn parses_the_uid_column_printed_without_a_colon() {
+        let numeric = header(
+            "         1793987330.497  1000  1203  1244 I libPerfCtl: xgfGetFPS pid:2763 fps:60",
+        );
+        assert_eq!(numeric.uid, Some(1000));
+        assert_eq!(numeric.pid, Some(1203));
+        assert_eq!(numeric.tid, Some(1244));
+        assert_eq!(numeric.level, 'I');
+        assert_eq!(numeric.tag, "libPerfCtl");
+        assert_eq!(numeric.message, "xgfGetFPS pid:2763 fps:60");
+
+        let named = header(
+            "         1793987330.498 shell  1336  1336 I adbd    : adbd service requested 'shell'",
+        );
+        assert_eq!(named.uid, Some(2000));
+        assert_eq!(named.pid, Some(1336));
+        assert_eq!(named.tag, "adbd");
+
+        let app = header("         1793987330.600 u0_a145 23762 23770 W chromium: slow frame");
+        assert_eq!(app.uid, Some(10_145));
+        assert_eq!(app.pid, Some(23762));
+        assert_eq!(app.tid, Some(23770));
+        assert_eq!(app.level, 'W');
+    }
+
+    /// Run with `CAPUBRIDGE_LOGCAT_SAMPLE=<file> cargo test -- --ignored` on a
+    /// capture from a real device (`adb shell logcat -v threadtime -v epoch -v uid -d`).
+    #[test]
+    #[ignore]
+    fn parses_a_real_device_capture() {
+        let path = std::env::var("CAPUBRIDGE_LOGCAT_SAMPLE").expect("CAPUBRIDGE_LOGCAT_SAMPLE");
+        let text = std::fs::read_to_string(path).expect("readable sample");
+        let lines: Vec<&str> = text
+            .lines()
+            .filter(|line| !line.trim().is_empty() && !line.starts_with("--------- "))
+            .collect();
+        let parsed = lines.iter().filter(|line| parse_header(line).is_some()).count();
+        let unparsed: Vec<&&str> = lines
+            .iter()
+            .filter(|line| parse_header(line).is_none())
+            .take(5)
+            .collect();
+        assert!(
+            parsed * 1000 >= lines.len() * 999,
+            "{parsed} of {} lines parsed; first misses: {unparsed:?}",
+            lines.len()
+        );
+    }
+
+    #[test]
+    fn reads_secondary_user_and_isolated_uids() {
+        assert_eq!(parse_uid("u10_a7"), Some(1_010_007));
+        assert_eq!(parse_uid("u0_i3"), Some(90_003));
+        assert_eq!(parse_uid("media"), None);
     }
 
     #[test]
