@@ -79,6 +79,10 @@ use commands::sqlite::{
 };
 use commands::sqlite_changeset::sqlite_apply_changeset;
 use commands::sqlite_dump::{sqlite_export_dump, sqlite_import_dump};
+use commands::sqlite_opened::{
+    sqlite_close_opened_file, sqlite_open_local_file, sqlite_save_opened_file,
+    sqlite_save_opened_file_as,
+};
 use commands::target_probe::cdp_probe_target;
 use commands::updater::{updater_check, updater_install, PendingUpdate};
 use mcp::commands::{
@@ -376,6 +380,10 @@ pub fn run() {
             sqlite_export_dump,
             sqlite_import_dump,
             sqlite_apply_changeset,
+            sqlite_open_local_file,
+            sqlite_save_opened_file,
+            sqlite_save_opened_file_as,
+            sqlite_close_opened_file,
             mock_server_start,
             mock_server_stop,
             mock_server_sync_rules,
