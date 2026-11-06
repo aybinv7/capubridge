@@ -110,20 +110,6 @@ export function useSQLite() {
     });
   }
 
-  async function executeWrite(
-    serial: string,
-    pkg: string,
-    dbPath: string,
-    sql: string,
-  ): Promise<SqliteQueryResult> {
-    return invokeCommand("sqlite_execute_write", {
-      serial,
-      package: pkg,
-      dbPath,
-      sql,
-    });
-  }
-
   async function exportBytes(serial: string, pkg: string, dbPath: string): Promise<Uint8Array> {
     const base64 = await invokeCommand("sqlite_export_bytes", {
       serial,
@@ -165,7 +151,6 @@ export function useSQLite() {
     tableForeignKeys,
     tableRows,
     executeQuery,
-    executeWrite,
     exportBytes,
     refreshDatabase,
     closeDatabase,

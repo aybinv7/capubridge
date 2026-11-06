@@ -169,64 +169,6 @@ export class JeepSqliteDomain {
     return parsed as JeepSqliteDatabase[];
   }
 
-  async deleteDatabase(params: {
-    key: string;
-    idbName?: string;
-    storeName?: string;
-  }): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        (async () => {
-          const idbName = ${JSON.stringify(params.idbName ?? "jeepSQLiteStore")};
-          const storeName = ${JSON.stringify(params.storeName ?? "databases")};
-          const key = ${JSON.stringify(params.key)};
-
-          const openDb = (name) =>
-            new Promise((resolve, reject) => {
-              const req = indexedDB.open(name);
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => reject(req.error?.message ?? "open failed");
-              req.onblocked = () => reject("open blocked");
-            });
-
-          const request = (req) =>
-            new Promise((resolve, reject) => {
-              req.onsuccess = () => resolve(req.result);
-              req.onerror = () => reject(req.error?.message ?? "request failed");
-            });
-
-          try {
-            const db = await openDb(idbName);
-            try {
-              if (!db.objectStoreNames.contains(storeName)) {
-                throw new Error("jeep-sqlite store not found");
-              }
-              const tx = db.transaction(storeName, "readwrite");
-              await request(tx.objectStore(storeName).delete(key));
-              await new Promise((resolve, reject) => {
-                tx.oncomplete = () => resolve(true);
-                tx.onerror = () => reject(tx.error?.message ?? "transaction failed");
-                tx.onabort = () => reject("transaction aborted");
-              });
-              return JSON.stringify({ ok: true });
-            } finally {
-              db.close();
-            }
-          } catch (e) {
-            return JSON.stringify({ __jeepSqliteError: e && e.message ? e.message : String(e) });
-          }
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const value = (result.result as Record<string, unknown>).value as string;
-    const parsed = JSON.parse(value);
-    if (parsed && typeof parsed === "object" && "__jeepSqliteError" in parsed) {
-      throw new Error((parsed as { __jeepSqliteError: string }).__jeepSqliteError);
-    }
-  }
-
   async hashDatabaseBytes(params: {
     key: string;
     idbName?: string;
