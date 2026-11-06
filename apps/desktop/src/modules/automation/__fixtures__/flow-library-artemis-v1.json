@@ -1,0 +1,55 @@
+[
+  {
+    "appPackage": "com.presalio.app",
+    "id": "flow-artemis-mixed",
+    "name": "Open orders with Artemis",
+    "steps": [
+      {
+        "id": "step-open",
+        "op": "openApp",
+        "packageName": "com.presalio.app"
+      },
+      {
+        "acknowledgedNotice": true,
+        "goal": "Open the orders list",
+        "id": "step-goal-artemis",
+        "limits": {
+          "maxConsecutiveFailures": 5,
+          "maxDurationMs": 600000,
+          "maxSteps": 60
+        },
+        "op": "goal",
+        "policyId": "artemis"
+      },
+      {
+        "acknowledgedNotice": true,
+        "goal": "Replay the login",
+        "id": "step-goal-rules",
+        "limits": {
+          "maxConsecutiveFailures": 3,
+          "maxDurationMs": 300000,
+          "maxSteps": 40
+        },
+        "op": "goal",
+        "policyId": "rules"
+      }
+    ],
+    "version": 1
+  },
+  {
+    "appPackage": "com.example.app",
+    "id": "flow-plain",
+    "name": "Sign in",
+    "steps": [
+      {
+        "id": "step-tap",
+        "op": "tap",
+        "target": {
+          "cssSelector": "#login",
+          "kind": "selector"
+        }
+      }
+    ],
+    "version": 1
+  }
+]

@@ -170,8 +170,6 @@ export function describeOrigin(origin: AutomationTaskOrigin): string {
   switch (origin) {
     case "mcp":
       return "An MCP client";
-    case "artemis":
-      return "Artemis";
     case "flow":
     case "local-chat":
       return "This workbench";

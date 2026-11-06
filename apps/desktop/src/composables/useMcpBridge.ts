@@ -10,7 +10,11 @@ import type { RecordingConfig } from "@/types/replay.types";
 import { getRunRegistry } from "@/modules/automation/runRegistry";
 import { waitForRun } from "@/modules/automation/runWait";
 import type { PolicyId } from "@/modules/automation/policies/types";
-import type { Assertion } from "@/types/automation.types";
+import { POLICY_IDS } from "@/modules/automation/flowShared";
+import { isRemovedArtemis, REMOVED_ARTEMIS_MESSAGE } from "@/modules/automation/removedPolicies";
+import type { Assertion, ReasoningOwner } from "@/types/automation.types";
+
+const REASONING_OWNERS: readonly ReasoningOwner[] = ["embedded", "mcp-host", "deterministic"];
 
 /**
  * Frontend half of the MCP → frontend bridge (see `mcp/bridge.rs`). The MCP
@@ -160,12 +164,10 @@ export function useMcpBridge() {
     if (!params.goal || !params.policyId || !params.deviceSerial) {
       throw new Error("automation_run_agent_goal requires goal, policyId and deviceSerial");
     }
-    if (
-      params.policyId !== "rules" &&
-      params.policyId !== "artemis" &&
-      params.policyId !== "jev" &&
-      params.policyId !== "embedded"
-    ) {
+    if (isRemovedArtemis(params.policyId)) {
+      throw new Error(REMOVED_ARTEMIS_MESSAGE);
+    }
+    if (!POLICY_IDS.includes(params.policyId as PolicyId)) {
       throw new Error(`unknown policy '${params.policyId}'`);
     }
     const runId = getRunRegistry().startGoal(
@@ -316,13 +318,21 @@ export function useMcpBridge() {
   function automationHandoffTask(payload: unknown): Promise<unknown> {
     const { taskId, owner, reason } = (payload ?? {}) as {
       taskId?: string;
-      owner?: "embedded" | "mcp-host" | "artemis" | "deterministic";
+      owner?: string;
       reason?: string | null;
     };
     if (!taskId || !owner) {
       throw new Error("automation_handoff_task requires taskId and owner");
     }
-    return Promise.resolve(getRunRegistry().handoffTask(taskId, owner, reason ?? null));
+    if (isRemovedArtemis(owner)) {
+      throw new Error(REMOVED_ARTEMIS_MESSAGE);
+    }
+    if (!REASONING_OWNERS.includes(owner as ReasoningOwner)) {
+      throw new Error("owner must be embedded, mcp-host or deterministic");
+    }
+    return Promise.resolve(
+      getRunRegistry().handoffTask(taskId, owner as ReasoningOwner, reason ?? null),
+    );
   }
 
   function automationUpdateTaskPlan(payload: unknown): Promise<unknown> {

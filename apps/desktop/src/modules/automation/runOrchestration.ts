@@ -3,7 +3,6 @@ import { useSessionStore } from "@/stores/session.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import {
   appendRunEntry,
-  ARTEMIS_PARKED_REASON,
   createRunView,
   DEFAULT_POLICY_ID,
   defaultLimitsFor,
@@ -53,27 +52,13 @@ export function availablePolicies(): PolicyOption[] {
   const rules = createRulesPolicy([]);
   const jev = createJevPolicy();
   const embedded = createEmbeddedReasoningPolicy();
-  const policies = [rules, jev, embedded].map((policy) => ({
+  return [rules, jev, embedded].map((policy) => ({
     id: policy.id,
     label: policy.label,
     model: policy.id === "jev" ? JEV_MODEL_VERSION : undefined,
     isRemote: policy.isRemote,
     dataNotice: policy.dataNotice,
   }));
-  return [
-    ...policies,
-    {
-      id: "artemis" as const,
-      label: "Artemis",
-      isRemote: false,
-      dataNotice: null,
-      // Parked, not removed. The ARTEMIS policy and its transport stay in the
-      // tree; the bridge from the desktop app to the ARTEMIS process is not
-      // wired, so selecting it could only fail every decision. Clear this
-      // reason to bring it back once that bridge exists.
-      unavailableReason: ARTEMIS_PARKED_REASON,
-    },
-  ];
 }
 
 function mapStatus(
@@ -184,7 +169,7 @@ export function createRunOrchestration() {
   }
 
   function onPolicyChange(id: string): void {
-    if (id !== "rules" && id !== "jev" && id !== "embedded" && id !== "artemis") {
+    if (id !== "rules" && id !== "jev" && id !== "embedded") {
       return;
     }
     selectedPolicyId.value = id;
@@ -310,8 +295,6 @@ export function createRunOrchestration() {
     switch (selectedPolicyId.value) {
       case "rules":
         return createRulesPolicy(rulesIntents.value);
-      case "artemis":
-        throw new Error("ARTEMIS policy is unavailable until its task bridge is wired");
       case "jev":
         return createJevPolicy();
       case "embedded":

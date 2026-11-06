@@ -151,7 +151,7 @@ export type PresalioAcceptanceAvailability = "completed" | "failed" | "unavailab
 export interface PresalioAcceptanceReport {
   version: 1;
   scenario: "presalio-order-v1";
-  mode: "embedded" | "claude-mcp" | "chatgpt-mcp" | "artemis-pro" | "deterministic";
+  mode: "embedded" | "claude-mcp" | "chatgpt-mcp" | "deterministic";
   availability: PresalioAcceptanceAvailability;
   runId: string | null;
   completedMilestones: PresalioMilestone[];
@@ -226,6 +226,8 @@ export interface Flow {
   acceptanceScenario?: "presalio-order-v1";
   steps: FlowStep[];
   description?: string;
+  /** Set when loading upgraded the flow (a removed policy was replaced); shown until dismissed. */
+  migrationNote?: string;
 }
 
 /** Operations a policy may answer, extending the step vocabulary with loop control. */
@@ -326,10 +328,10 @@ export type AutomationTaskRunId = string;
 export type AutomationTaskEventId = string;
 
 /** The one component permitted to make the next automation decision. */
-export type ReasoningOwner = "embedded" | "mcp-host" | "artemis" | "deterministic";
+export type ReasoningOwner = "embedded" | "mcp-host" | "deterministic";
 
 /** How a task first entered Capubridge. */
-export type AutomationTaskOrigin = "local-chat" | "mcp" | "artemis" | "flow";
+export type AutomationTaskOrigin = "local-chat" | "mcp" | "flow";
 
 /** Authenticated principal that created or currently controls a task. */
 export interface AutomationPrincipal {

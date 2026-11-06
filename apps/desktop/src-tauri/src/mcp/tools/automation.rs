@@ -23,8 +23,29 @@ use crate::mcp::types::{
 
 /// Policies that run locally. Anything else sends redacted screen structure
 /// off this machine and needs explicit acknowledgement per call.
-const LOCAL_POLICIES: [&str; 2] = ["rules", "artemis"];
-const SUPPORTED_POLICIES: [&str; 4] = ["rules", "artemis", "jev", "embedded"];
+const LOCAL_POLICIES: [&str; 1] = ["rules"];
+const SUPPORTED_POLICIES: [&str; 3] = ["rules", "jev", "embedded"];
+const REASONING_OWNERS: [&str; 3] = ["embedded", "mcp-host", "deterministic"];
+
+/// The Artemis agent was removed; Jev replaced it. Callers that still name it
+/// get an error that says so instead of a generic unknown-policy message.
+const REMOVED_ARTEMIS_ID: &str = "artemis";
+const REMOVED_ARTEMIS_MESSAGE: &str = "The Artemis policy was removed from Capubridge. Use \"jev\" (the AI agent, needs acknowledge_data_notice: true) or \"rules\" (replays a saved flow).";
+
+/// Rejects a policy id this build cannot run, naming the replacement when the
+/// caller still asks for the removed Artemis agent.
+fn require_supported_policy(policy_id: &str) -> Result<(), ErrorData> {
+    if policy_id == REMOVED_ARTEMIS_ID {
+        return Err(ErrorData::invalid_params(REMOVED_ARTEMIS_MESSAGE.to_string(), None));
+    }
+    if !SUPPORTED_POLICIES.contains(&policy_id) {
+        return Err(ErrorData::invalid_params(
+            format!("Policy '{policy_id}' is unknown. Use one of: {}.", SUPPORTED_POLICIES.join(", ")),
+            None,
+        ));
+    }
+    Ok(())
+}
 
 /// Maximum trace records returned in one read.
 const MAX_TRACE_LIMIT: u64 = 500;
@@ -63,7 +84,7 @@ impl CapuBridgeTools {
 
     #[tool(
         name = "run_agent_goal",
-        description = "Start an agent-goal automation run with a policy (via the app UI). Returns a run id immediately; then call wait_for_run once instead of polling get_run_status. Jev and embedded reasoning send redacted screen structure off this machine and need acknowledge_data_notice: true. Pass app_package (the one app the goal may act in) unless flow_id names a flow that declares one. ARTEMIS runs locally and preserves its own supervised trace. Requires confirm: true.",
+        description = "Start an agent-goal automation run with a policy (via the app UI). Returns a run id immediately; then call wait_for_run once instead of polling get_run_status. Jev and embedded reasoning send redacted screen structure off this machine and need acknowledge_data_notice: true. Pass app_package (the one app the goal may act in) unless flow_id names a flow that declares one. Policies: jev (the AI agent), embedded, or rules (replays flow_id locally). Requires confirm: true.",
         annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn run_agent_goal(
@@ -80,12 +101,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<RunAgentGoalParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        if !SUPPORTED_POLICIES.contains(&policy_id.as_str()) {
-            return Err(ErrorData::invalid_params(
-                format!("Policy '{policy_id}' is unavailable in the current automation bridge."),
-                None,
-            ));
-        }
+        require_supported_policy(&policy_id)?;
         if !LOCAL_POLICIES.contains(&policy_id.as_str()) && !acknowledge_data_notice.unwrap_or(false) {
             return Err(ErrorData::invalid_params(
                 format!(
@@ -139,9 +155,7 @@ impl CapuBridgeTools {
             confirm,
         }): Parameters<RunAgentGoalParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        if !SUPPORTED_POLICIES.contains(&policy_id.as_str()) {
-            return Err(ErrorData::invalid_params(format!("Policy '{policy_id}' is unavailable in the current automation bridge."), None));
-        }
+        require_supported_policy(&policy_id)?;
         if !LOCAL_POLICIES.contains(&policy_id.as_str()) && !acknowledge_data_notice.unwrap_or(false) {
             return Err(ErrorData::invalid_params("Remote task creation requires acknowledge_data_notice: true.".to_string(), None));
         }
@@ -409,8 +423,11 @@ impl CapuBridgeTools {
         &self,
         Parameters(HandoffTaskParams { task_id, owner, reason, confirm }): Parameters<HandoffTaskParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        if !["embedded", "mcp-host", "artemis", "deterministic"].contains(&owner.as_str()) {
-            return Err(ErrorData::invalid_params("owner must be embedded, mcp-host, artemis, or deterministic".to_string(), None));
+        if owner == REMOVED_ARTEMIS_ID {
+            return Err(ErrorData::invalid_params(REMOVED_ARTEMIS_MESSAGE.to_string(), None));
+        }
+        if !REASONING_OWNERS.contains(&owner.as_str()) {
+            return Err(ErrorData::invalid_params("owner must be embedded, mcp-host, or deterministic".to_string(), None));
         }
         self.require_mutation(confirm, "task_handoff")?;
         let result = self
@@ -544,9 +561,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn run_agent_goal_accepts_artemis_without_acknowledgement() {
+    async fn run_agent_goal_rejects_removed_artemis_policy_naming_jev() {
         let result = tools()
             .run_agent_goal(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
+                goal: "sign in".into(),
+                policy_id: "artemis".into(),
+                device_serial: "serial-1".into(),
+                flow_id: None,
+                app_package: None,
+                limits: None,
+                acknowledge_data_notice: Some(true),
+                confirm: true,
+            }))
+            .await;
+        let message = format!("{:?}", result.expect_err("must reject"));
+        assert!(message.contains("Artemis policy was removed"));
+        assert!(message.contains("jev"));
+    }
+
+    #[tokio::test]
+    async fn task_create_rejects_removed_artemis_policy() {
+        let result = tools()
+            .task_create(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
                 goal: "sign in".into(),
                 policy_id: "artemis".into(),
                 device_serial: "serial-1".into(),
@@ -557,7 +593,40 @@ mod tests {
                 confirm: true,
             }))
             .await;
-        assert!(result.is_err(), "no app handle, so the bridge must fail");
+        let message = format!("{:?}", result.expect_err("must reject"));
+        assert!(message.contains("Artemis policy was removed"));
+    }
+
+    #[tokio::test]
+    async fn run_agent_goal_rejects_unknown_policy_listing_supported_ones() {
+        let result = tools()
+            .run_agent_goal(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
+                goal: "sign in".into(),
+                policy_id: "mystery".into(),
+                device_serial: "serial-1".into(),
+                flow_id: None,
+                app_package: None,
+                limits: None,
+                acknowledge_data_notice: Some(true),
+                confirm: true,
+            }))
+            .await;
+        let message = format!("{:?}", result.expect_err("must reject"));
+        assert!(message.contains("rules, jev, embedded"));
+    }
+
+    #[tokio::test]
+    async fn task_handoff_rejects_removed_artemis_owner() {
+        let result = tools()
+            .task_handoff(Parameters(HandoffTaskParams {
+                task_id: "task-1".into(),
+                owner: "artemis".into(),
+                reason: None,
+                confirm: true,
+            }))
+            .await;
+        let message = format!("{:?}", result.expect_err("must reject"));
+        assert!(message.contains("Artemis policy was removed"));
     }
 
     #[tokio::test]

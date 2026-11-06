@@ -440,7 +440,7 @@ pub struct QueryRecordingParams {
 /// policy default in the app UI.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RunGoalLimits {
-    /// Maximum agent steps (default 40, higher for ARTEMIS).
+    /// Maximum agent steps (default 40).
     #[serde(default)]
     pub max_steps: Option<u64>,
     /// Maximum wall-clock run time in milliseconds.
@@ -465,10 +465,10 @@ pub struct RunFlowParams {
 /// Parameters for `run_agent_goal` - start an agent-goal run with a policy.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RunAgentGoalParams {
-    /// Natural-language goal for jev; ignored for rules (which replays a flow).
+    /// Natural-language goal for jev or embedded; ignored for rules (which replays a flow).
     pub goal: String,
-    /// Policy id: rules, artemis, or jev. Artemis runs report unavailable
-    /// until its task bridge is wired.
+    /// Policy id: jev (the AI agent), embedded, or rules. The removed artemis
+    /// policy is rejected with an error naming the replacement.
     pub policy_id: String,
     /// ADB serial of the device to drive.
     pub device_serial: String,
@@ -532,6 +532,7 @@ pub struct CancelTaskParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct HandoffTaskParams {
     pub task_id: String,
+    /// New reasoning owner: embedded, mcp-host, or deterministic.
     pub owner: String,
     #[serde(default)]
     pub reason: Option<String>,

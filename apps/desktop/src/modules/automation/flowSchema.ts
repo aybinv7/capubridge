@@ -57,6 +57,12 @@ export function parseFlow(input: unknown): FlowParseResult {
   if (record["description"] !== undefined && typeof record["description"] !== "string") {
     errors.push({ path: "description", message: "flow description must be a string when present" });
   }
+  if (record["migrationNote"] !== undefined && typeof record["migrationNote"] !== "string") {
+    errors.push({
+      path: "migrationNote",
+      message: "flow migrationNote must be a string when present",
+    });
+  }
 
   let steps: FlowStep[] = [];
   if (!Array.isArray(record["steps"])) {
@@ -120,6 +126,9 @@ export function parseFlow(input: unknown): FlowParseResult {
   if (typeof record["description"] === "string") {
     flow.description = record["description"];
   }
+  if (typeof record["migrationNote"] === "string" && record["migrationNote"] !== "") {
+    flow.migrationNote = record["migrationNote"];
+  }
   return { ok: true, flow };
 }
 
@@ -152,16 +161,11 @@ export function createEmptyFlow(name: string, appPackage: string): Flow {
   };
 }
 
-/**
- * Default per-goal run limits by policy. Figures from the CB-42 handoff
- * (ARTEMIS_SUGGESTED_LIMITS.flash) and the CB-40/CB-47 defaults: ARTEMIS is
- * materially slower per step than Jev, so its duration default is larger.
- */
+/** Default per-goal run limits by policy, from the CB-40/CB-47 defaults. */
 const GOAL_LIMIT_DEFAULTS: Record<PolicyId, RunLimits> = {
   rules: { maxSteps: 40, maxDurationMs: 300000, maxConsecutiveFailures: 3 },
   jev: { maxSteps: 40, maxDurationMs: 300000, maxConsecutiveFailures: 5 },
   embedded: { maxSteps: 40, maxDurationMs: 300000, maxConsecutiveFailures: 5 },
-  artemis: { maxSteps: 60, maxDurationMs: 600000, maxConsecutiveFailures: 5 },
 };
 
 /**

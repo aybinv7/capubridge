@@ -23,7 +23,7 @@ export const STEP_OPS: readonly FlowStepOp[] = [
 ];
 
 /** Policy ids understood by the schema. */
-export const POLICY_IDS: readonly PolicyId[] = ["rules", "artemis", "jev", "embedded"];
+export const POLICY_IDS: readonly PolicyId[] = ["rules", "jev", "embedded"];
 
 /** Assertion kinds understood by the schema. */
 export const ASSERTION_KINDS: readonly Assertion["kind"][] = [

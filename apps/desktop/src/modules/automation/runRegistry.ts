@@ -20,7 +20,6 @@ import {
   acceptanceMilestonesForFlow,
   acceptanceModeForPolicy,
   acceptanceUnavailableReason,
-  artemisOperation,
   asDisposable,
   backfillAssertions,
   buildRegistryPolicy,
@@ -68,7 +67,6 @@ import {
 import { createReasoningStreamEvent } from "./reasoning/streamEvents";
 import type { ReasoningStreamRecord } from "./reasoning/streamEvents";
 import { createReasoningOwnerCoordinator } from "./reasoning/ownerCoordinator";
-import type { ArtemisTraceAction } from "./policies/artemis";
 import { actionClassForDecision, authorizeFlow, authorizeRequest } from "./taskAuthorization";
 import { buildPresalioAcceptanceReport } from "./acceptance";
 
@@ -289,39 +287,6 @@ export function createRunRegistry(deps: RunRegistryDeps) {
     );
     managed.taskRuntime = appendAutomationTaskEvent(managed.taskRuntime, event);
     enqueuePersistence(managed, () => invokeCommand("automation_event_append", { event }));
-  }
-
-  function createArtemisActionAppender(
-    managed: ManagedRun,
-  ): (traceId: string, actions: ArtemisTraceAction[]) => void {
-    const seen = new Set<string>();
-    return (_traceId, actions) => {
-      for (const action of actions) {
-        if (seen.has(action.id)) continue;
-        seen.add(action.id);
-        const sequence = managed.taskRuntime.events.length + 1;
-        const event = createAutomationTaskEvent({
-          id: `event-${managed.runId}-${sequence}`,
-          taskId: managed.taskId,
-          runId: managed.runId,
-          sequence,
-          occurredAt: Math.max(Date.now(), managed.taskRuntime.events.at(-1)?.occurredAt ?? 0),
-          origin: managed.taskRuntime.task.origin,
-          principalId: managed.taskRuntime.task.principal.id,
-          connectionId: managed.taskRuntime.task.principal.connectionId,
-          kind: "action.dispatched",
-          data: {
-            stepId: `artemis-${action.id}`,
-            operation: artemisOperation(action.name),
-            status: action.status === "success" ? "dispatched" : "failed",
-            target: null,
-            error: action.error,
-          },
-        });
-        managed.taskRuntime = appendAutomationTaskEvent(managed.taskRuntime, event);
-        enqueuePersistence(managed, () => invokeCommand("automation_event_append", { event }));
-      }
-    };
   }
 
   async function finishRecording(
@@ -578,11 +543,7 @@ export function createRunRegistry(deps: RunRegistryDeps) {
       if (goal.trim() === "") {
         throw new Error("goal must not be empty");
       }
-      if (
-        policyId !== "rules" &&
-        policyId !== "artemis" &&
-        options.acknowledgeDataNotice !== true
-      ) {
+      if (policyId !== "rules" && options.acknowledgeDataNotice !== true) {
         throw new Error(
           `policy '${policyId}' sends data off this machine; re-call with acknowledgeDataNotice: true`,
         );
@@ -642,14 +603,8 @@ export function createRunRegistry(deps: RunRegistryDeps) {
             ? new Map()
             : acceptanceMilestonesForFlow(deps.loadFlow(options.flowId)),
       };
-      const policy = buildRegistryPolicy(
-        policyId,
-        options.flowId ?? null,
-        deps,
-        (record) => appendReasoningStream(managed, record),
-        createArtemisActionAppender(managed),
-        deviceSerial,
-        managed.taskRuntime.task.appPackage,
+      const policy = buildRegistryPolicy(policyId, options.flowId ?? null, deps, (record) =>
+        appendReasoningStream(managed, record),
       );
       managed.disposePolicy = asDisposable(policy);
       queueRuntimePersistence(managed);
@@ -1126,7 +1081,7 @@ export function createRunRegistry(deps: RunRegistryDeps) {
         flowId: run.flowId,
         taskId: run.taskId,
         attempt: run.taskRuntime.run.attempt + 1,
-        acknowledgeDataNotice: run.policyId !== "rules" && run.policyId !== "artemis",
+        acknowledgeDataNotice: run.policyId !== "rules",
         principal: run.taskRuntime.task.principal,
         appPackage: run.taskRuntime.task.appPackage,
       });

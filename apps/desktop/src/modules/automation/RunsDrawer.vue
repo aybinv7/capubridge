@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { drawerRows, historyEmptyReason, permalinkFor } from "./runsDrawerState";
 import { RECORDING_ENABLED } from "./runTrace";
-import { toRunRow } from "./runHistory";
+import { policyLabelOf, toRunRow } from "./runHistory";
 import type { RunRow } from "./runHistory";
 import { invokeCommand } from "@/runtime/ipc/client";
 
@@ -163,7 +163,8 @@ defineExpose({
                   >
                 </span>
                 <span class="text-xs text-muted-foreground">
-                  {{ rowAt(v.index)!.policyId }} · {{ rowAt(v.index)!.stepCount }} steps ·
+                  {{ policyLabelOf(rowAt(v.index)!.policyId) }} ·
+                  {{ rowAt(v.index)!.stepCount }} steps ·
                   {{ new Date(rowAt(v.index)!.startedAt).toLocaleString() }}
                 </span>
                 <Button

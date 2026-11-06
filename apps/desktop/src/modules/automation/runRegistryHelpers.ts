@@ -9,7 +9,6 @@ import type {
   AutomationPrincipal,
   AutomationTask,
   Flow,
-  FlowStepOp,
   PresalioAcceptanceReport,
   ReasoningOwner,
   StepRecord,
@@ -20,9 +19,6 @@ import type { RuleIntent } from "./policies/rules";
 import { createRulesPolicy } from "./policies/rules";
 import { createJevPolicy } from "./policies/jev";
 import { createEmbeddedReasoningPolicy } from "./policies/embedded";
-import { createArtemisPolicy } from "./policies/artemis";
-import type { ArtemisTraceAction } from "./policies/artemis";
-import { createArtemisTransport } from "./artemisTransport";
 import type { ReasoningStreamRecord } from "./reasoning/streamEvents";
 import type { ManagedRun, RunRegistryDeps } from "./runRegistryTypes";
 import type { PresalioMilestone } from "./acceptance";
@@ -87,16 +83,13 @@ export async function launchSelectedApp(
 
 /**
  * Builds the policy for an MCP goal run. Rules replays a saved flow's
- * steps as intents; jev and artemis take the free-prose goal.
+ * steps as intents; jev and embedded take the free-prose goal.
  */
 export function buildRegistryPolicy(
   policyId: PolicyId,
   flowId: string | null,
   deps: RunRegistryDeps,
   onReasoningActivity?: (record: ReasoningStreamRecord) => void,
-  onArtemisActions?: (traceId: string, actions: ArtemisTraceAction[]) => void,
-  deviceSerial?: string | null,
-  appPackage?: string | null,
 ): LocalPolicy | RemotePolicy {
   switch (policyId) {
     case "rules": {
@@ -117,24 +110,7 @@ export function buildRegistryPolicy(
       return createJevPolicy();
     case "embedded":
       return createEmbeddedReasoningPolicy({ onActivity: onReasoningActivity });
-    case "artemis":
-      return createArtemisPolicy({
-        transport: createArtemisTransport(appPackage ?? null),
-        deviceSerial: deviceSerial ?? null,
-        onActions: onArtemisActions,
-      });
   }
-}
-
-export function artemisOperation(name: string): FlowStepOp {
-  const normalized = name.toLowerCase();
-  if (normalized.includes("launch")) return "openApp";
-  if (normalized.includes("type") || normalized.includes("input")) return "type";
-  if (normalized.includes("scroll")) return "scroll";
-  if (normalized.includes("swipe")) return "swipe";
-  if (normalized.includes("back")) return "back";
-  if (normalized.includes("wait")) return "wait";
-  return "tap";
 }
 
 /**
@@ -154,8 +130,6 @@ export function ownerForPolicy(policyId: PolicyId): ReasoningOwner {
   switch (policyId) {
     case "rules":
       return "deterministic";
-    case "artemis":
-      return "artemis";
     case "jev":
       return "embedded";
     case "embedded":
@@ -217,9 +191,6 @@ export function acceptanceModeForPolicy(
   policyId: PolicyId,
   principal: AutomationPrincipal,
 ): PresalioAcceptanceReport["mode"] {
-  if (policyId === "artemis") {
-    return "artemis-pro";
-  }
   if (principal.kind === "mcp") {
     return principal.clientName?.toLowerCase().includes("claude") ? "claude-mcp" : "chatgpt-mcp";
   }

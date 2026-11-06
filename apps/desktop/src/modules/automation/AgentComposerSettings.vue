@@ -36,12 +36,6 @@ const modelLabel = computed(
 
 const modelSelectorOpen = ref(false);
 
-/** A parked policy stays listed but cannot be chosen; the reason says why. */
-function parkedReason(policy: PolicyOption): string | null {
-  const reason = policy.unavailableReason ?? null;
-  return reason === null || reason === "" ? null : reason;
-}
-
 function selectPolicy(id: string): void {
   emit("selectPolicy", id);
   modelSelectorOpen.value = false;
@@ -70,14 +64,11 @@ function selectPolicy(id: string): void {
               v-for="policy in policies"
               :key="policy.id"
               :value="policy.id"
-              :disabled="parkedReason(policy) !== null"
-              :title="parkedReason(policy) ?? undefined"
-              @select="parkedReason(policy) === null ? selectPolicy(policy.id) : undefined"
+              @select="selectPolicy(policy.id)"
             >
               <Gauge class="size-4" />
               <ModelSelectorName>
                 {{ policy.label }}{{ policy.model === undefined ? "" : ` · ${policy.model}` }}
-                {{ parkedReason(policy) === null ? "" : " · paused" }}
               </ModelSelectorName>
             </ModelSelectorItem>
           </ModelSelectorGroup>

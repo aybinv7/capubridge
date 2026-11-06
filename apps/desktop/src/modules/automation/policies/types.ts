@@ -2,8 +2,8 @@ import type { ActionBatch, Decision, Observation, StepRecord } from "@/types/aut
 import type { Candidate } from "../elementIndex";
 import type { RedactedObservation } from "../redact";
 
-/** Policies the workbench can drive. Rules first; neither remote policy is required. */
-export type PolicyId = "rules" | "artemis" | "jev" | "embedded";
+/** Policies the workbench can drive: rules replays a flow, jev and embedded reason over the screen. */
+export type PolicyId = "rules" | "jev" | "embedded";
 
 /** Input to a local policy, which may see the raw observation. */
 export interface PolicyInput<ObservationT = Observation> {

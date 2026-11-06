@@ -72,8 +72,8 @@ describe("policyGate", () => {
     const gate1 = gateGoalStep(step, [remotePolicy()]);
     expect(gate1.runnable).toBe(true);
 
-    const switched = { ...step, policyId: "artemis" as PolicyId, acknowledgedNotice: false };
-    const gate2 = gateGoalStep(switched, [remotePolicy("artemis")]);
+    const switched = { ...step, policyId: "embedded" as PolicyId, acknowledgedNotice: false };
+    const gate2 = gateGoalStep(switched, [remotePolicy("embedded")]);
     expect(gate2.runnable).toBe(false);
   });
 
@@ -92,10 +92,10 @@ describe("policyGate", () => {
 
   test("default limits differ by policy", () => {
     const rulesGate = gateGoalStep(goalStep("rules"), [localPolicy()]);
-    const artemisGate = gateGoalStep(goalStep("artemis", true), [
-      remotePolicy("artemis", "notice"),
-    ]);
-    expect(artemisGate.limits.maxDurationMs).toBeGreaterThan(rulesGate.limits.maxDurationMs);
+    const jevGate = gateGoalStep(goalStep("jev", true), [remotePolicy("jev", "notice")]);
+    expect(jevGate.limits.maxConsecutiveFailures).toBeGreaterThan(
+      rulesGate.limits.maxConsecutiveFailures,
+    );
   });
 
   test("a flow with one remote goal step among local ones is flagged as transferring", () => {

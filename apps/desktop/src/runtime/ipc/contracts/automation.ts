@@ -7,21 +7,6 @@ import type {
 } from "@/types/automation.types";
 
 export interface AutomationCommandMap {
-  artemis_start_task: IpcCommand<
-    {
-      payload: {
-        goal: string;
-        deviceSerial: string | null;
-        model: "flash" | "pro";
-        lockedAppPackage: string | null;
-      };
-    },
-    { traceId: string; status: string }
-  >;
-  artemis_get_trace: IpcCommand<{ payload: { traceId: string } }, JsonValue>;
-  artemis_get_steps: IpcCommand<{ payload: { traceId: string } }, JsonValue>;
-  artemis_stop_task: IpcCommand<{ payload: { traceId: string } }, void>;
-  artemis_diagnose: IpcCommand<undefined, JsonValue>;
   jev_decide: IpcCommand<{ payload: { body: JsonValue } }, JsonValue>;
   reasoning_provider_set_credential: IpcCommand<
     { payload: { provider: "openrouter" | "openai" | "anthropic"; apiKey: string } },

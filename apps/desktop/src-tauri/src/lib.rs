@@ -15,9 +15,6 @@ use commands::adb::{
     adb_remove_reverse, adb_restart_server, adb_reverse, adb_root, adb_shell_command,
     adb_start_server, adb_tcpip, start_logcat, stop_logcat,
 };
-use commands::artemis::{
-    artemis_diagnose, artemis_get_steps, artemis_get_trace, artemis_start_task, artemis_stop_task,
-};
 use commands::automation::{
     automation_event_append, automation_events_read, automation_task_upsert, automation_tasks_list,
     jev_decide, recording_read_attachment, recording_session_attach,
@@ -424,11 +421,6 @@ pub fn run() {
             automation_event_append,
             automation_events_read,
             automation_tasks_list,
-            artemis_start_task,
-            artemis_get_trace,
-            artemis_get_steps,
-            artemis_stop_task,
-            artemis_diagnose,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

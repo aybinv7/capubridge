@@ -105,8 +105,6 @@ const defaultPolicyProvider: PolicyProvider = {
         return createJevPolicy();
       case "embedded":
         return createEmbeddedReasoningPolicy();
-      case "artemis":
-        throw new Error("ARTEMIS policy is unavailable until its task bridge is wired");
     }
   },
 };

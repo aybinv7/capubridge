@@ -1,4 +1,5 @@
 import type { AssertionResult } from "./assertions";
+import { isRemovedArtemis, REMOVED_ARTEMIS_LABEL } from "./removedPolicies";
 import type {
   AutomationCapuEvent,
   RustSessionListItem,
@@ -214,8 +215,26 @@ export function policyProvenance(policyId: string): string {
   if (policyId === "jev") {
     return "Remote policy: the redacted screen structure was sent to a third-party service during this run.";
   }
-  if (policyId === "rules" || policyId === "artemis") {
+  if (policyId === "rules" || isRemovedArtemis(policyId)) {
     return "Local policy: nothing left the machine during this run.";
   }
   return `Unknown policy "${policyId}": treat its data boundary as unverified.`;
+}
+
+const POLICY_LABELS: Readonly<Record<string, string>> = {
+  rules: "Rules",
+  jev: "Jev",
+  embedded: "Embedded reasoning",
+};
+
+/**
+ * Names the policy that drove a saved run. Runs recorded by the removed
+ * Artemis agent stay readable under a label that says it is gone; an id this
+ * build does not know is shown as recorded.
+ */
+export function policyLabelOf(policyId: string): string {
+  if (isRemovedArtemis(policyId)) {
+    return REMOVED_ARTEMIS_LABEL;
+  }
+  return POLICY_LABELS[policyId] ?? policyId;
 }

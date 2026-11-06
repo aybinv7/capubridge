@@ -155,32 +155,17 @@ describe("runGoal", () => {
     expect(observes).toBeLessThanOrEqual(4);
   });
 
-  test("ARTEMIS supervision waits remain bounded by duration instead of the generic no-progress cap", async () => {
-    const policy = {
-      ...policyWith([
-        { operation: "wait" as const, confidence: 1, reason: "artemis task trace-1 running" },
-        { operation: "wait" as const, confidence: 1, reason: "artemis task trace-1 running" },
-        { operation: "wait" as const, confidence: 1, reason: "artemis task trace-1 running" },
-        { operation: "wait" as const, confidence: 1, reason: "artemis task trace-1 running" },
-        { operation: "done" as const, confidence: 1, reason: "artemis task trace-1 completed" },
-      ]),
-      id: "artemis" as const,
-    };
-    const sleeps: number[] = [];
+  test("a policy that keeps answering wait halts after three waits", async () => {
+    const wait = { operation: "wait" as const, confidence: 1, reason: "still loading" };
     const result = await runGoal(
       "open presalio",
-      policy,
-      deps({
-        sleep: (duration) => {
-          sleeps.push(duration);
-          return Promise.resolve();
-        },
-      }),
+      policyWith([wait, wait, wait, wait, { operation: "done", confidence: 1, reason: "done" }]),
+      deps({ sleep: () => Promise.resolve() }),
       LIMITS,
       new AbortController().signal,
     );
-    expect(result.status).toBe("passed");
-    expect(sleeps).toEqual([1000, 1000, 1000, 1000]);
+    expect(result.status).toBe("halted");
+    expect(result.failureReason).toContain("made no progress after 3 waits");
   });
 
   test("a done answer with passing assertions yields passed", async () => {
@@ -292,7 +277,7 @@ describe("runGoal", () => {
 });
 
 describe("CB-53 mixed flows", () => {
-  function goalStep(id: string, policyId: "rules" | "jev" | "artemis" = "rules"): GoalStep {
+  function goalStep(id: string, policyId: "rules" | "jev" = "rules"): GoalStep {
     return {
       id,
       op: "goal",

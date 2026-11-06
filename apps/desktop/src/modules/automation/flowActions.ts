@@ -138,9 +138,7 @@ export async function performAction(
     case "wait": {
       const durationMs =
         step?.op === "wait" ? step.durationMs : (deps.settlePollMs ?? DEFAULT_SETTLE_POLL_MS);
-      await (deps.sleep ?? defaultSleep)(
-        decision.reason.startsWith("artemis task") ? Math.max(1000, durationMs) : durationMs,
-      );
+      await (deps.sleep ?? defaultSleep)(durationMs);
       return null;
     }
     case "assert": {

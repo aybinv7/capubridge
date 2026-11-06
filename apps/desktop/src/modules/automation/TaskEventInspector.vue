@@ -3,6 +3,7 @@ import { X } from "lucide-vue-next";
 import { computed } from "vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { describeStoredOwner } from "./taskEvents";
 import type { PersistedAutomationTaskSnapshot } from "./taskEvents";
 import type { AutomationTaskEvent } from "@/types/automation.types";
 
@@ -59,7 +60,7 @@ const model = computed(() =>
       <div class="flex flex-wrap gap-1.5">
         <Badge variant="outline">{{ task.task.origin }}</Badge>
         <Badge variant="outline">{{ task.task.principal.label }}</Badge>
-        <Badge variant="outline">{{ task.task.reasoningOwner ?? "owner undisclosed" }}</Badge>
+        <Badge variant="outline">{{ describeStoredOwner(task.task.reasoningOwner) }}</Badge>
       </div>
       <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
         <dt class="text-muted-foreground">Provider</dt>

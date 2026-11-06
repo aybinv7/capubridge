@@ -8,6 +8,7 @@ import {
   serializeFlow,
   validateStep,
 } from "../flowSchema";
+import { REMOVED_ARTEMIS_MESSAGE } from "../removedPolicies";
 
 /** Builds a flow carrying one step of every supported op. */
 function buildFullFlow(): Flow {
@@ -363,15 +364,40 @@ describe("goal steps", () => {
     expect(goalStepNeedsAcknowledgement({ id: "x", op: "tap" })).toBe(false);
   });
 
-  test("createGoalStep validates and the ARTEMIS duration exceeds the Jev default", () => {
-    const artemis = createGoalStep("drive", "artemis");
+  test("createGoalStep validates and rules allows fewer consecutive failures than Jev", () => {
+    const rules = createGoalStep("drive", "rules");
     const jev = createGoalStep("drive", "jev");
-    expect(validateStep(artemis)).toEqual([]);
+    expect(validateStep(rules)).toEqual([]);
     expect(validateStep(jev)).toEqual([]);
-    if (artemis.op !== "goal" || jev.op !== "goal") {
+    if (rules.op !== "goal" || jev.op !== "goal") {
       throw new Error("createGoalStep must build goal steps");
     }
-    expect(artemis.limits.maxDurationMs).toBeGreaterThan(jev.limits.maxDurationMs);
+    expect(rules.limits.maxConsecutiveFailures).toBeLessThan(jev.limits.maxConsecutiveFailures);
+  });
+
+  test("a goal step naming the removed Artemis policy fails with a message naming Jev", () => {
+    const errors = validateStep({
+      id: "g",
+      op: "goal",
+      goal: "drive",
+      policyId: "artemis",
+      limits: { maxSteps: 60, maxDurationMs: 600000, maxConsecutiveFailures: 5 },
+      acknowledgedNotice: true,
+    });
+    expect(errors).toEqual([{ path: "step.policyId", message: REMOVED_ARTEMIS_MESSAGE }]);
+    expect(REMOVED_ARTEMIS_MESSAGE).toContain('"jev"');
+  });
+
+  test("a migration note round-trips and a non-string one is rejected", () => {
+    const base = { version: 1, id: "f", name: "n", appPackage: "a.b", steps: [] };
+    const parsed = parseFlow({ ...base, migrationNote: "moved to Jev" });
+    expect(parsed.ok && parsed.flow.migrationNote).toBe("moved to Jev");
+    if (parsed.ok) {
+      expect(JSON.parse(serializeFlow(parsed.flow))).toMatchObject({
+        migrationNote: "moved to Jev",
+      });
+    }
+    expect(parseFlow({ ...base, migrationNote: 3 }).ok).toBe(false);
   });
 
   test("a pre-existing flow with no goal step serializes byte-identically", () => {

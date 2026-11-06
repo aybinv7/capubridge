@@ -129,6 +129,13 @@ export const useFlowStore = defineStore("automation-flows", () => {
     mutateActive((flow) => ({ ...flow, steps: deleteStep(flow.steps, index) }));
   }
 
+  function dismissMigrationNote(): void {
+    mutateActive((flow) => {
+      const { migrationNote: _dismissed, ...rest } = flow;
+      return rest;
+    });
+  }
+
   return {
     flows,
     activeId,
@@ -147,5 +154,6 @@ export const useFlowStore = defineStore("automation-flows", () => {
     updateStep,
     moveStepBy,
     deleteStepBy,
+    dismissMigrationNote,
   };
 });

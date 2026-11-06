@@ -1,5 +1,6 @@
 import type { Flow } from "@/types/automation.types";
 import { parseFlow, serializeFlow } from "./flowSchema";
+import { migrateStoredFlow } from "./flowMigrate";
 
 /** Persistence behind one seam so the backing store can move without touching callers. */
 export interface FlowStorage {
@@ -38,7 +39,7 @@ export function createLocalStorageFlowStorage(storage?: Storage): FlowStorage {
       }
       const flows: Flow[] = [];
       for (const entry of parsed) {
-        const result = parseFlow(entry);
+        const result = parseFlow(migrateStoredFlow(entry));
         if (result.ok) {
           flows.push(result.flow);
         }

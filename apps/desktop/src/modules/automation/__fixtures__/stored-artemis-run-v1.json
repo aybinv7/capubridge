@@ -1,0 +1,62 @@
+{
+  "sessionListItem": {
+    "sessionId": "session-artemis-1",
+    "label": "Open the orders list",
+    "startedAt": 1730000000000,
+    "duration": 42000,
+    "deviceSerial": "device-1",
+    "targetUrl": null,
+    "filePath": "C:/recordings/session-artemis-1.capu",
+    "fileSizeBytes": 2048,
+    "incomplete": false,
+    "missingTracks": [],
+    "automation": {
+      "runStatus": "passed",
+      "policyId": "artemis",
+      "flowName": null,
+      "goal": "Open the orders list",
+      "stepCount": 6,
+      "failedStepIndex": null
+    }
+  },
+  "taskSnapshot": {
+    "task": {
+      "schemaVersion": 1,
+      "id": "task-artemis-1",
+      "conversationId": null,
+      "origin": "mcp",
+      "principal": {
+        "id": "principal-mcp",
+        "label": "Claude Code",
+        "kind": "mcp",
+        "connectionId": "connection-1",
+        "clientName": "claude-code"
+      },
+      "originalGoal": "Open the orders list",
+      "appPackage": "com.presalio.app",
+      "deviceSerial": "device-1",
+      "reasoningOwner": "artemis",
+      "authorizationScope": null,
+      "status": "completed",
+      "activeRunId": null,
+      "terminalReason": null,
+      "createdAt": 1000,
+      "updatedAt": 43000
+    },
+    "runs": [
+      {
+        "schemaVersion": 1,
+        "id": "task-run-artemis-1",
+        "taskId": "task-artemis-1",
+        "attempt": 1,
+        "status": "completed",
+        "reasoningOwner": "artemis",
+        "principalId": "principal-mcp",
+        "deviceLease": null,
+        "startedAt": 1000,
+        "endedAt": 43000
+      }
+    ],
+    "events": []
+  }
+}

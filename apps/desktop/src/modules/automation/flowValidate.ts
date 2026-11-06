@@ -5,6 +5,7 @@ import {
 } from "@/types/automation.types";
 import type { PolicyId } from "@/modules/automation/policies/types";
 import type { FlowParseError } from "./flowShared";
+import { isRemovedArtemis, REMOVED_ARTEMIS_MESSAGE } from "./removedPolicies";
 import {
   ASSERTION_KINDS,
   POLICY_IDS,
@@ -172,7 +173,9 @@ export function validateStepAt(step: unknown, path: string): FlowParseError[] {
       if (readNonEmptyString(record["goal"]) === null) {
         errors.push({ path: `${path}.goal`, message: "goal step goal must be a non-empty string" });
       }
-      if (
+      if (isRemovedArtemis(record["policyId"])) {
+        errors.push({ path: `${path}.policyId`, message: REMOVED_ARTEMIS_MESSAGE });
+      } else if (
         typeof record["policyId"] !== "string" ||
         !POLICY_IDS.includes(record["policyId"] as PolicyId)
       ) {

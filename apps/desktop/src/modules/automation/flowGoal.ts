@@ -229,14 +229,11 @@ export async function advanceGoal(
   } else {
     runtime.consecutiveRepeats = 0;
   }
-  if (!(runtime.policy.id === "artemis" && decision.operation === "wait")) {
-    runtime.taken += 1;
-  }
+  runtime.taken += 1;
   runtime.lastDecision = decision;
   if (decision.operation === "wait") {
     runtime.consecutiveWaits += 1;
     if (
-      runtime.policy.id !== "artemis" &&
       runtime.step.limits.maxSteps > MAX_CONSECUTIVE_WAIT_DECISIONS &&
       runtime.consecutiveWaits > MAX_CONSECUTIVE_WAIT_DECISIONS
     ) {

@@ -7,7 +7,6 @@ pub const AUTOMATION_TASK_SCHEMA_VERSION: u8 = 1;
 pub enum ReasoningOwner {
     Embedded,
     McpHost,
-    Artemis,
     Deterministic,
 }
 
@@ -16,7 +15,6 @@ pub enum ReasoningOwner {
 pub enum AutomationTaskOrigin {
     LocalChat,
     Mcp,
-    Artemis,
     Flow,
 }
 

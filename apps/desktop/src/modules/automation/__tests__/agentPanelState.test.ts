@@ -2,7 +2,6 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   appendFeedEntry,
   appendRunEntry,
-  ARTEMIS_PARKED_REASON,
   cancelRunView,
   createRunView,
   DEFAULT_POLICY_ID,
@@ -43,28 +42,6 @@ describe("agent panel state", () => {
     expect(selection.notice).toBe(LOCAL_POLICY_STATEMENT);
   });
 
-  test("a parked policy cannot run and says why", () => {
-    const selection = describePolicySelection({
-      ...RULES,
-      id: "artemis",
-      label: "Artemis",
-      unavailableReason: ARTEMIS_PARKED_REASON,
-    });
-    expect(selection.runnable).toBe(false);
-    expect(selection.notice).toBe(ARTEMIS_PARKED_REASON);
-  });
-
-  test("parking beats the local statement, so a parked local policy still cannot run", () => {
-    const parked = describePolicySelection({ ...RULES, unavailableReason: "paused for now" });
-    expect(parked.runnable).toBe(false);
-    expect(parked.notice).not.toBe(LOCAL_POLICY_STATEMENT);
-  });
-
-  test("an absent or empty reason leaves a policy runnable", () => {
-    expect(describePolicySelection({ ...RULES, unavailableReason: null }).runnable).toBe(true);
-    expect(describePolicySelection({ ...RULES, unavailableReason: "" }).runnable).toBe(true);
-  });
-
   test("a remote policy with a null notice cannot run", () => {
     const selection = describePolicySelection({
       id: "jev",
@@ -75,10 +52,14 @@ describe("agent panel state", () => {
     expect(selection.runnable).toBe(false);
   });
 
-  test("ARTEMIS default duration is materially larger than the Jev default", () => {
-    const artemis = defaultLimitsFor("artemis");
-    const jev = defaultLimitsFor("jev");
-    expect(artemis.maxDurationMs).toBeGreaterThan(jev.maxDurationMs);
+  test("rules tolerates fewer consecutive failures than the reasoning policies", () => {
+    const rules = defaultLimitsFor("rules");
+    expect(rules.maxConsecutiveFailures).toBeLessThan(
+      defaultLimitsFor("jev").maxConsecutiveFailures,
+    );
+    expect(rules.maxConsecutiveFailures).toBeLessThan(
+      defaultLimitsFor("embedded").maxConsecutiveFailures,
+    );
   });
 
   test("the feed appends in order and keeps ordering when results arrive out of order", () => {

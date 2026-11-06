@@ -2,6 +2,9 @@ import type { Assertion, Flow, FlowStep, TargetRef } from "@/types/automation.ty
 import { buildStep } from "./flowBuild";
 import type { FlowParseError } from "./flowShared";
 import { validateStepAt } from "./flowValidate";
+import { POLICY_IDS } from "./flowShared";
+import { isRemovedArtemis, REMOVED_ARTEMIS_MESSAGE } from "./removedPolicies";
+import type { PolicyId } from "./policies/types";
 
 export type FlowDslResult = { ok: true; flow: Flow } | { ok: false; errors: FlowParseError[] };
 
@@ -155,8 +158,11 @@ function parseStep(operation: string, args: string[], line: number): Record<stri
       return { ...base, op: operation, assertion: parseAssertion(args) };
     case "goal": {
       const policyId = required(args, 0, "policy");
-      if (!["rules", "artemis", "jev", "embedded"].includes(policyId)) {
-        throw new Error("policy must be rules, artemis, jev or embedded");
+      if (isRemovedArtemis(policyId)) {
+        throw new Error(REMOVED_ARTEMIS_MESSAGE);
+      }
+      if (!POLICY_IDS.includes(policyId as PolicyId)) {
+        throw new Error(`policy must be ${POLICY_IDS.join(", ")}`);
       }
       const goal = required(args, 1, "goal");
       const maxSteps = numberAt(args, 2, "max steps");

@@ -290,7 +290,7 @@ export interface AutomationManifest {
   goal: string | null;
   taskId?: string;
   taskRunId?: string;
-  taskOrigin?: "local-chat" | "mcp" | "artemis" | "flow";
+  taskOrigin?: "local-chat" | "mcp" | "flow";
   /**
    * The flow exactly as it was when this run started. `flowId` alone makes a
    * trace a lie the moment the flow is edited, because the steps the run

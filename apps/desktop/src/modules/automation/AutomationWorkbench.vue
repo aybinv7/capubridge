@@ -10,7 +10,6 @@ import {
   OctagonX,
   Play,
   Plus,
-  Sparkles,
 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { Badge } from "@/components/ui/badge";
@@ -27,13 +26,13 @@ import {
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import AgentWorkspace from "./AgentWorkspace.vue";
+import FlowMigrationNote from "./FlowMigrationNote.vue";
 import FlowSourceEditor from "./FlowSourceEditor.vue";
 import RunsDrawer from "./RunsDrawer.vue";
 import StepCanvas from "./StepCanvas.vue";
 import StepInspector from "./StepInspector.vue";
 import { EDITABLE_STEP_OPS } from "./flowEditorState";
 import type { Flow, FlowStep, FlowStepOp } from "@/types/automation.types";
-import type { PolicyOption } from "./agentPanelState";
 import type { RunView, RunViewStep } from "./runSource";
 import { fromArchive } from "./runSource";
 import { flowFromRunSteps, moveTargetFor } from "./stepRowModel";
@@ -153,7 +152,7 @@ const inspectorFilePath = computed<string | null>(() =>
   isRunMode.value ? archivedFilePath.value : null,
 );
 
-const POLICY_ICONS = { rules: ListChecks, jev: Globe, artemis: Sparkles } as const;
+const POLICY_ICONS = { rules: ListChecks, jev: Globe } as const;
 
 function policyIcon(id: string) {
   return POLICY_ICONS[id as keyof typeof POLICY_ICONS] ?? ListChecks;
@@ -163,12 +162,6 @@ function policyPillClass(active: boolean): string {
   return active
     ? "text-brand font-medium bg-brand-soft border border-brand/25"
     : "text-muted-foreground/50 hover:text-muted-foreground hover:bg-surface-2 border border-transparent";
-}
-
-/** A parked policy stays listed but cannot be selected; the reason says why. */
-function policyParkedReason(policy: PolicyOption): string | null {
-  const reason = policy.unavailableReason ?? null;
-  return reason === null || reason === "" ? null : reason;
 }
 
 /**
@@ -466,13 +459,10 @@ watch(sourceMode, (open) => {
               v-for="policy in orch.policies"
               :key="policy.id"
               type="button"
-              :disabled="policyParkedReason(policy) !== null"
-              :title="policyParkedReason(policy) ?? policy.dataNotice ?? policy.label"
+              :title="policy.dataNotice ?? policy.label"
               :class="[
                 'flex items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 rounded-xl',
-                policyParkedReason(policy) !== null
-                  ? 'cursor-not-allowed opacity-40 line-through border border-transparent'
-                  : policyPillClass(orch.selectedPolicyId.value === policy.id),
+                policyPillClass(orch.selectedPolicyId.value === policy.id),
               ]"
               @click="onPolicyChange(policy.id)"
             >
@@ -632,6 +622,13 @@ watch(sourceMode, (open) => {
             >
               {{ orch.runView.value.failureReason }}
             </p>
+
+            <FlowMigrationNote
+              v-if="!isRunMode && activeFlow?.migrationNote !== undefined"
+              class="mb-3"
+              :note="activeFlow?.migrationNote ?? ''"
+              @dismiss="flowStore.dismissMigrationNote"
+            />
 
             <div class="flex-1 overflow-hidden rounded-lg border border-border/40">
               <FlowSourceEditor
