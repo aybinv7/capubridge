@@ -15,7 +15,8 @@ import {
 import { useDevicesStore } from "@/stores/devices.store";
 import { useLogcatStore } from "@/stores/logcat.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import type { LogcatEntry } from "@/types/console.types";
+import { formatLogcatLine } from "@/lib/logcat/logcatEntry";
+import type { LogcatEntry } from "@/types/logcat.types";
 
 const devicesStore = useDevicesStore();
 const logcatStore = useLogcatStore();
@@ -75,7 +76,7 @@ const filteredEntries = computed(() => {
       return true;
     }
 
-    const message = [entry.packageName, entry.processName, entry.tag, entry.message, entry.raw]
+    const message = [entry.packageName, entry.processName, entry.tag, entry.message]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -132,7 +133,7 @@ function exportJson() {
 
 function exportTxt() {
   const serial = selectedDevice.value?.serial ?? "device";
-  const data = filteredEntries.value.map((entry) => entry.raw).join("\n");
+  const data = filteredEntries.value.map(formatLogcatLine).join("\n");
   downloadFile(data, `logcat_${serial}.txt`, "text/plain");
 }
 </script>

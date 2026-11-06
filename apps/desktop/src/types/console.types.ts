@@ -62,18 +62,3 @@ export interface ReplHistoryEntry {
   result: string;
   status: "ok" | "error";
 }
-
-export interface LogcatEntry {
-  id: string;
-  serial: string;
-  date: string;
-  time: string;
-  pid: number | null;
-  tid: number | null;
-  level: "V" | "D" | "I" | "W" | "E" | "F";
-  tag: string;
-  processName: string | null;
-  packageName: string | null;
-  message: string;
-  raw: string;
-}

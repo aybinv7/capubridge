@@ -1,15 +1,22 @@
-import { ref, shallowRef } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import { useDockStore } from "@/stores/dock.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
 import { createSerialQueue } from "@/lib/serial-queue";
+import { toLogcatEntry } from "@/lib/logcat/logcatEntry";
 import {
   runSessionEffect,
   startLogcatLeaseEffect,
   stopLogcatLeaseEffect,
   subscribeSessionEventsEffect,
 } from "@/runtime/session";
-import type { LogcatEntry } from "@/types/console.types";
+import type {
+  LogcatBatchPayload,
+  LogcatClockSample,
+  LogcatEntry,
+  LogcatStatusPayload,
+  LogcatStreamState,
+} from "@/types/logcat.types";
 import type { SessionEvent } from "@/types/session.types";
 
 const maxLogcatEntries = 900;
@@ -34,6 +41,8 @@ function errorMessage(error: unknown): string {
 /**
  * Logcat of the active device, captured at app level. The window holds one lease on the
  * device's capture (Rust shares one run between every window that holds it); views only read.
+ * Rust streams one long-running logcat per device and reconnects on its own; this store shows
+ * the state it reports, and ignores reports from a run that was replaced.
  */
 export const useLogcatStore = defineStore("logcat", () => {
   const dockStore = useDockStore();
@@ -41,7 +50,11 @@ export const useLogcatStore = defineStore("logcat", () => {
 
   const entries = shallowRef<LogcatEntry[]>([]);
   const serial = ref<string | null>(null);
-  const isStreaming = ref(false);
+  const streamState = ref<LogcatStreamState>("stopped");
+  const attempt = ref(0);
+  const retryInMs = ref<number | null>(null);
+  const clock = ref<LogcatClockSample | null>(null);
+  const clockWentBack = ref(false);
   const isReady = ref(false);
   const isPaused = ref(false);
   const pausedEntries = shallowRef<LogcatEntry[]>([]);
@@ -49,9 +62,12 @@ export const useLogcatStore = defineStore("logcat", () => {
   const error = ref<string | null>(null);
   const unlisten = shallowRef<null | (() => void)>(null);
 
+  const isStreaming = computed(() => streamState.value === "live");
+
   let initializePromise: Promise<void> | null = null;
   let lastQueuedId: LogcatEntry["id"] | null = null;
   let heldSerial: string | null = null;
+  let generation = 0;
 
   const batcher = createFrameBatcher<LogcatEntry>((batch) => {
     if (isPaused.value) {
@@ -71,40 +87,58 @@ export const useLogcatStore = defineStore("logcat", () => {
     pausedCount.value = 0;
   }
 
-  function pushEntry(entry: LogcatEntry) {
-    if (entry.serial !== serial.value) {
-      return;
+  function acceptsGeneration(reported: number): boolean {
+    if (reported < generation) {
+      return false;
     }
+    generation = reported;
+    return true;
+  }
 
-    if (lastQueuedId === entry.id) {
+  function handleBatch(batch: LogcatBatchPayload) {
+    if (batch.serial !== serial.value || heldSerial !== batch.serial) {
       return;
     }
-    lastQueuedId = entry.id;
-    batcher.push(entry);
+    if (!acceptsGeneration(batch.generation)) {
+      return;
+    }
+    for (const line of batch.lines) {
+      const entry = toLogcatEntry(batch.serial, line);
+      if (lastQueuedId === entry.id) {
+        continue;
+      }
+      lastQueuedId = entry.id;
+      batcher.push(entry);
+    }
+  }
+
+  function handleStatus(status: LogcatStatusPayload) {
+    if (status.serial !== serial.value || heldSerial !== status.serial) {
+      return;
+    }
+    if (!acceptsGeneration(status.generation)) {
+      return;
+    }
+    streamState.value = status.state;
+    attempt.value = status.attempt;
+    retryInMs.value = status.retryInMs;
+    clockWentBack.value = status.clockWentBack;
+    if (status.clock) {
+      clock.value = status.clock;
+    }
+    error.value =
+      status.state === "reconnecting" && status.message
+        ? `Reconnecting (attempt ${status.attempt}): ${status.message}`
+        : null;
   }
 
   function handleSessionEvent(event: SessionEvent) {
-    if (event.type === "logcatEntry") {
-      pushEntry(event.entry);
+    if (event.type === "logcatBatch") {
+      handleBatch(event.batch);
       return;
     }
-
-    if (event.type === "logcatError") {
-      if (event.serial !== serial.value) {
-        return;
-      }
-
-      error.value = event.message;
-      isStreaming.value = false;
-      return;
-    }
-
-    if (event.type === "leaseStateChanged") {
-      if (event.lease.kind !== "logcat" || event.lease.serial !== serial.value) {
-        return;
-      }
-
-      isStreaming.value = event.lease.active && heldSerial === event.lease.serial;
+    if (event.type === "logcatStatus") {
+      handleStatus(event.status);
     }
   }
 
@@ -130,13 +164,20 @@ export const useLogcatStore = defineStore("logcat", () => {
     return initializePromise;
   }
 
+  function resetStreamState() {
+    streamState.value = "stopped";
+    attempt.value = 0;
+    retryInMs.value = null;
+    clockWentBack.value = false;
+  }
+
   async function releaseHeld() {
     const previous = heldSerial;
     if (!previous) {
       return;
     }
     heldSerial = null;
-    isStreaming.value = false;
+    resetStreamState();
     try {
       await runSessionEffect(stopLogcatLeaseEffect(previous), {
         operation: "session.stopLogcatLease",
@@ -148,15 +189,17 @@ export const useLogcatStore = defineStore("logcat", () => {
 
   async function acquire(targetSerial: string, restart: boolean) {
     error.value = null;
+    heldSerial = targetSerial;
+    if (streamState.value === "stopped") {
+      streamState.value = "connecting";
+    }
     try {
       await runSessionEffect(startLogcatLeaseEffect(targetSerial, { restart }), {
         operation: "session.startLogcatLease",
       });
-      heldSerial = targetSerial;
-      isStreaming.value = serial.value === targetSerial;
     } catch (err) {
       heldSerial = null;
-      isStreaming.value = false;
+      resetStreamState();
       error.value = errorMessage(err);
     }
   }
@@ -170,7 +213,7 @@ export const useLogcatStore = defineStore("logcat", () => {
     return leaseQueue.run(async () => {
       await initialize();
       const wanted = online ? nextSerial : null;
-      if (wanted && wanted === heldSerial && wanted === serial.value && isStreaming.value) {
+      if (wanted && wanted === heldSerial && wanted === serial.value) {
         return;
       }
 
@@ -180,6 +223,7 @@ export const useLogcatStore = defineStore("logcat", () => {
 
       if (serial.value !== nextSerial) {
         serial.value = nextSerial;
+        clock.value = null;
         clear();
       }
 
@@ -187,7 +231,6 @@ export const useLogcatStore = defineStore("logcat", () => {
         if (!nextSerial) {
           error.value = null;
         }
-        isStreaming.value = false;
         return;
       }
 
@@ -249,6 +292,11 @@ export const useLogcatStore = defineStore("logcat", () => {
   return {
     entries,
     serial,
+    streamState,
+    attempt,
+    retryInMs,
+    clock,
+    clockWentBack,
     isStreaming,
     isReady,
     isPaused,

@@ -1,5 +1,9 @@
+mod adb_stream;
+pub(crate) mod clock;
 pub(crate) mod leases;
-mod poll;
+mod parse;
+mod stream;
+pub(crate) mod types;
 
-pub use poll::LogcatEntryPayload;
-pub(crate) use poll::{spawn_logcat_run, LogcatCallbacks};
+pub(crate) use stream::spawn_logcat_run;
+pub use types::{LogcatBatchPayload, LogcatStatusPayload};

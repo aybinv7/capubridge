@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Emitter};
 
-use crate::commands::logcat::LogcatEntryPayload;
+use crate::commands::logcat::{LogcatBatchPayload, LogcatStatusPayload};
 use crate::commands::perf::PerfMetrics;
 use crate::session::types::{SessionEvent, SessionLeaseState, SessionRegistrySnapshot};
 
@@ -14,21 +14,30 @@ pub fn emit_registry_snapshot(app: &AppHandle, snapshot: SessionRegistrySnapshot
 }
 
 pub fn emit_lease_state(app: &AppHandle, lease: SessionLeaseState) {
-    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::LeaseStateChanged { lease });
+    let _ = app.emit(
+        SESSION_EVENT_NAME,
+        SessionEvent::LeaseStateChanged { lease },
+    );
 }
 
-pub fn emit_logcat_entry(app: &AppHandle, serial: String, entry: LogcatEntryPayload) {
-    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::LogcatEntry { serial, entry });
+pub fn emit_logcat_batch(app: &AppHandle, batch: LogcatBatchPayload) {
+    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::LogcatBatch { batch });
 }
 
-pub fn emit_logcat_error(app: &AppHandle, serial: String, message: String) {
-    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::LogcatError { serial, message });
+pub fn emit_logcat_status(app: &AppHandle, status: LogcatStatusPayload) {
+    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::LogcatStatus { status });
 }
 
 pub fn emit_perf_metrics(app: &AppHandle, serial: String, metrics: PerfMetrics) {
-    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::PerfMetrics { serial, metrics });
+    let _ = app.emit(
+        SESSION_EVENT_NAME,
+        SessionEvent::PerfMetrics { serial, metrics },
+    );
 }
 
 pub fn emit_perf_error(app: &AppHandle, serial: String, message: String) {
-    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::PerfError { serial, message });
+    let _ = app.emit(
+        SESSION_EVENT_NAME,
+        SessionEvent::PerfError { serial, message },
+    );
 }

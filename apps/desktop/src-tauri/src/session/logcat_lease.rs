@@ -7,9 +7,10 @@ use tauri::{AppHandle, Manager, State, WindowEvent};
 use crate::commands::logcat::leases::{
     logcat_holder_name, LogcatAcquire, LogcatRun, LOGCAT_LEASES,
 };
-use crate::commands::logcat::{spawn_logcat_run, LogcatCallbacks};
+use crate::commands::logcat::spawn_logcat_run;
+use crate::commands::logcat::types::{LogcatBatchPayload, LogcatSink, LogcatStatusPayload};
 use crate::error::{AppResult, AppResultExt};
-use crate::session::events::{emit_lease_state, emit_logcat_entry, emit_logcat_error};
+use crate::session::events::{emit_lease_state, emit_logcat_batch, emit_logcat_status};
 use crate::session::live_features::require_hot_session;
 use crate::session::registry::{SessionRegistry, SessionRegistryState};
 use crate::session::types::SessionLeaseState;
@@ -17,51 +18,54 @@ use crate::session::types::SessionLeaseState;
 static HOOKED_WINDOWS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 
-fn spawn_run(app: &AppHandle, registry: Arc<SessionRegistry>, serial: &str, run: LogcatRun) {
-    let entry_app = app.clone();
-    let error_app = app.clone();
-    let stopped_app = app.clone();
-    let entry_generation = run.generation;
-    let entry_serial = serial.to_string();
-    let error_serial = serial.to_string();
+/// Delivers a run's reports to the app, dropping those of a run that was replaced.
+struct AppLogcatSink {
+    app: AppHandle,
+    registry: Arc<SessionRegistry>,
+}
 
-    spawn_logcat_run(
-        serial.to_string(),
-        run,
-        LogcatCallbacks {
-            on_entry: Box::new(move |entry| {
-                if LOGCAT_LEASES
-                    .lock()
-                    .is_current(&entry_serial, entry_generation)
-                {
-                    emit_logcat_entry(&entry_app, entry.serial.clone(), entry);
-                }
-            }),
-            on_error: Box::new(move |payload| {
-                if LOGCAT_LEASES
-                    .lock()
-                    .is_current(&error_serial, entry_generation)
-                {
-                    emit_logcat_error(&error_app, payload.serial, payload.message);
-                }
-            }),
-            on_stopped: Box::new(move |stopped_serial, generation| {
-                let held = {
-                    let mut leases = LOGCAT_LEASES.lock();
-                    if !leases.ended(&stopped_serial, generation) {
-                        return;
-                    }
-                    leases.is_held(&stopped_serial)
-                };
-                if held {
-                    return;
-                }
-                if let Ok(lease) = registry.set_logcat_lease(&stopped_serial, false) {
-                    emit_lease_state(&stopped_app, lease);
-                }
-            }),
-        },
-    );
+impl LogcatSink for AppLogcatSink {
+    fn lines(&self, batch: LogcatBatchPayload) {
+        if LOGCAT_LEASES
+            .lock()
+            .is_current(&batch.serial, batch.generation)
+        {
+            emit_logcat_batch(&self.app, batch);
+        }
+    }
+
+    fn status(&self, status: LogcatStatusPayload) {
+        if LOGCAT_LEASES
+            .lock()
+            .is_current(&status.serial, status.generation)
+        {
+            emit_logcat_status(&self.app, status);
+        }
+    }
+
+    fn ended(&self, serial: &str, generation: u64) {
+        let held = {
+            let mut leases = LOGCAT_LEASES.lock();
+            if !leases.ended(serial, generation) {
+                return;
+            }
+            leases.is_held(serial)
+        };
+        if held {
+            return;
+        }
+        if let Ok(lease) = self.registry.set_logcat_lease(serial, false) {
+            emit_lease_state(&self.app, lease);
+        }
+    }
+}
+
+fn spawn_run(app: &AppHandle, registry: Arc<SessionRegistry>, serial: &str, run: LogcatRun) {
+    let sink = Arc::new(AppLogcatSink {
+        app: app.clone(),
+        registry,
+    });
+    spawn_logcat_run(serial.to_string(), run, sink);
 }
 
 fn release_window_holder(app: &AppHandle, holder: &str) {

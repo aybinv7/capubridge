@@ -1,4 +1,4 @@
-import type { LogcatEntry } from "@/types/console.types";
+import type { LogcatBatchPayload, LogcatStatusPayload } from "@/types/logcat.types";
 import type { PerfMetrics } from "@/types/perf.types";
 
 export type SessionTrackerStatus = "stopped" | "starting" | "running" | "error";
@@ -91,14 +91,12 @@ export type SessionEvent =
       lease: SessionLeaseState;
     }
   | {
-      type: "logcatEntry";
-      serial: string;
-      entry: LogcatEntry;
+      type: "logcatBatch";
+      batch: LogcatBatchPayload;
     }
   | {
-      type: "logcatError";
-      serial: string;
-      message: string;
+      type: "logcatStatus";
+      status: LogcatStatusPayload;
     }
   | {
       type: "perfMetrics";

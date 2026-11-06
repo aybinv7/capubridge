@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
-const ADB_HOST: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 5037);
+pub(crate) const ADB_HOST: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 5037);
 const DISABLE_AUTOSTART_SENTINEL: &str = "__capubridge_disable_adb_autostart__";
 const ADB_OVERRIDE_ENV: &str = "CAPUBRIDGE_ADB_PATH";
 
