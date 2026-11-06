@@ -123,19 +123,18 @@ defineExpose({ openFor });
 <template>
   <Popover v-model:open="open" position="bottom-end" content-class-name="w-96 p-3">
     <template #trigger>
-      <HintTooltip text="Filter by a column or with SQL">
-        <Button
-          size="sm"
-          :variant="active ? 'solid' : 'transparent'"
-          :outline="active"
-          :color="error ? 'red' : undefined"
-          content-class-name="gap-1.5"
-          aria-haspopup="dialog"
-        >
-          <ListFilter :size="13" aria-hidden="true" />
-          Filter
-        </Button>
-      </HintTooltip>
+      <Button
+        size="sm"
+        :variant="active ? 'solid' : 'transparent'"
+        :outline="active"
+        :color="error ? 'red' : undefined"
+        content-class-name="gap-1.5"
+        aria-haspopup="dialog"
+        aria-label="Filter by a column or with SQL"
+      >
+        <ListFilter :size="13" aria-hidden="true" />
+        Filter
+      </Button>
     </template>
     <form ref="form" class="flex flex-col gap-3" @submit.prevent="apply">
       <fieldset data-condition class="flex flex-col gap-2">

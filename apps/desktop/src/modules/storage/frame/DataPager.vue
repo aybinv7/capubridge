@@ -78,6 +78,7 @@ const sizeModel = computed({
       variant="transparent"
       :outline="false"
       :keyboard-hints="false"
+      popover-position="top-end"
       aria-label="Rows per page"
       class="w-auto shrink-0 text-muted-foreground"
     >

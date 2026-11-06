@@ -15,7 +15,6 @@ import { rowOrderOf } from "./browse/sqliteRowOrder";
 import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
 import SqliteSqlPane from "./SqliteSqlPane.vue";
 import SqliteStructure from "./SqliteStructure.vue";
-import SqliteTableActions from "./SqliteTableActions.vue";
 import SqliteTableViewSwitch from "./SqliteTableViewSwitch.vue";
 import type { SqliteAddress } from "./sqliteAddress";
 import { runQuery } from "./sqliteReads";
@@ -245,14 +244,10 @@ defineExpose({
     <template #changes>
       <ChangeSummary v-model:changes-only="changesOnly" :changes="tableSummary" />
     </template>
-    <template #trail>
-      <SqliteTableActions :table="table" :actions="actions" @action="emit('action', $event)" />
-    </template>
   </SqliteBrowse>
   <div v-else class="flex shrink-0 items-center gap-2 border-b border-cladd-outline px-2 py-1.5">
     <SqliteTableViewSwitch :view="view" @set-view="emit('setView', $event)" />
     <span class="flex-1" />
-    <SqliteTableActions :table="table" :actions="actions" @action="emit('action', $event)" />
   </div>
   <SqliteStructure
     v-if="view === 'structure'"

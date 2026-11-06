@@ -83,6 +83,31 @@ const tableNames = computed(() => new Set(byName.value.keys()));
 const info = computed(() => byName.value.get(props.table));
 const gone = computed(() => props.table !== "" && props.tablesLoaded && !info.value);
 
+const TABLE_PREFIX = "table:";
+const DATABASE_PREFIX = "db:";
+
+/**
+ * One ⋯ menu for the open database: the shown table's actions first, then the database's,
+ * so the tab strip and the table toolbar never both carry one.
+ */
+const menuActions = computed<DataAction[]>(() => {
+  const forTable =
+    props.table && info.value
+      ? props.tableActions.map((action) => ({ ...action, id: `${TABLE_PREFIX}${action.id}` }))
+      : [];
+  const forDatabase = props.databaseActions.map((action, index) => ({
+    ...action,
+    id: `${DATABASE_PREFIX}${action.id}`,
+    separatorBefore: index === 0 ? forTable.length > 0 : action.separatorBefore,
+  }));
+  return [...forTable, ...forDatabase];
+});
+
+function onMenu(id: string) {
+  if (id.startsWith(TABLE_PREFIX)) emit("action", id.slice(TABLE_PREFIX.length), props.table);
+  else emit("action", id.slice(DATABASE_PREFIX.length), null);
+}
+
 const strip = computed(() =>
   stripTabs({
     tabs: props.tabs.state.value.tabs,
@@ -137,10 +162,10 @@ defineExpose({
         <RefreshCw :stroke-width="1.8" />
       </IconAction>
       <DataRowMenu
-        v-if="databaseActions.length"
-        :actions="databaseActions"
-        :label="`Actions for ${db.name}`"
-        @select="emit('action', $event, null)"
+        v-if="menuActions.length"
+        :actions="menuActions"
+        :label="table ? `Actions for ${table} and ${db.name}` : `Actions for ${db.name}`"
+        @select="onMenu"
       />
     </template>
   </SqliteTabStrip>
