@@ -3,22 +3,38 @@ import { nextTick, ref, useId, watch } from "vue";
 import { Surface, SurfaceCut } from "@capubridge/cladd";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
-const PANE_DEFAULT = 380;
 const SETTLE = "cubic-bezier(0, 1, 0.2, 1)";
 
 /**
- * The grid beside its record pane, as every Data tab lays it out. The grid sits in a recessed
- * well (`SurfaceCut`); the record pane is raised one level above the workspace (`Surface +1`).
- * One width for the pane across Data (persisted), 280–960 px, the grid never under 30 %; a
- * double-click on the handle puts the pane back to its default width. `maximized` lets the pane
+ * A list beside its record pane, as every Data tab and Network lays it out. The list sits in a
+ * recessed well (`SurfaceCut`); the record pane is raised one level above it (`Surface +1`).
+ * One persisted pane width per `saveId` (Data shares one), 280–960 px by default, the list never
+ * under 30 %; a double-click on the handle puts the pane back to its default width. `maximized` lets the pane
  * fill the split: it moves (teleported, never remounted) into an overlay that covers the whole
  * split, the grid stays mounted under it (inert), and its edge travels across with Cladd's
  * settle curve.
  */
-const props = defineProps<{
-  paneOpen: boolean;
-  maximized?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    paneOpen: boolean;
+    maximized?: boolean;
+    /** Where the pane width persists. */
+    saveId?: string;
+    /** Prefix of the two panel ids, unique per split on a page. */
+    panelPrefix?: string;
+    paneDefault?: number;
+    paneMin?: number;
+    paneMax?: number;
+  }>(),
+  {
+    maximized: false,
+    saveId: "capubridge:data-record-pane-size:v2",
+    panelPrefix: "data-rows",
+    paneDefault: 380,
+    paneMin: 280,
+    paneMax: 960,
+  },
+);
 
 defineSlots<{ grid: () => unknown; pane: (props: { maximized: boolean }) => unknown }>();
 
@@ -82,18 +98,14 @@ watch(
 );
 
 function resetWidth() {
-  panel.value?.resize(PANE_DEFAULT);
+  panel.value?.resize(props.paneDefault);
 }
 </script>
 
 <template>
   <div ref="root" class="relative flex min-h-0 flex-1">
-    <ResizablePanelGroup
-      direction="horizontal"
-      auto-save-id="capubridge:data-record-pane-size:v2"
-      class="min-h-0 flex-1"
-    >
-      <ResizablePanel id="data-rows-grid" :order="1" :min-size="30" class="min-h-0">
+    <ResizablePanelGroup direction="horizontal" :auto-save-id="props.saveId" class="min-h-0 flex-1">
+      <ResizablePanel :id="`${props.panelPrefix}-grid`" :order="1" :min-size="30" class="min-h-0">
         <div
           class="isolate h-full min-h-0 pb-2 pl-2"
           :class="paneOpen ? '' : 'pr-2'"
@@ -110,13 +122,13 @@ function resetWidth() {
           @dblclick="resetWidth"
         />
         <ResizablePanel
-          id="data-rows-pane"
+          :id="`${props.panelPrefix}-pane`"
           ref="panel"
           :order="2"
           size-unit="px"
-          :default-size="PANE_DEFAULT"
-          :min-size="280"
-          :max-size="960"
+          :default-size="props.paneDefault"
+          :min-size="props.paneMin"
+          :max-size="props.paneMax"
           class="min-h-0"
         >
           <div ref="paneBox" class="h-full min-h-0 pr-2 pb-2">

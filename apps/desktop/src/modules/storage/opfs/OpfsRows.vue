@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
+import RecordSplit from "@/shared/components/layout/RecordSplit.vue";
 import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import { refDebounced } from "@vueuse/core";
 import { toast } from "@/lib/toast";

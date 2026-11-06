@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
+import RecordSplit from "@/shared/components/layout/RecordSplit.vue";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { refDebounced, useDocumentVisibility, useNow } from "@vueuse/core";
 import { Lock, PanelRight } from "lucide-vue-next";
