@@ -20,6 +20,21 @@ describe("timeline strip store", () => {
     expect(strip.mutedLanes).toEqual([]);
   });
 
+  test("sits at the bottom by default, moves to the top, and remembers it", () => {
+    const first = useTimelineStripStore();
+    expect(first.edge).toBe("bottom");
+    first.setEdge("top");
+    setActivePinia(createPinia());
+    expect(useTimelineStripStore().edge).toBe("top");
+  });
+
+  test("keeps older saved choices that have no edge", () => {
+    localStorage.setItem(KEY, JSON.stringify({ hidden: true, window: "1m", mutedLanes: [] }));
+    const strip = useTimelineStripStore();
+    expect(strip.hidden).toBe(true);
+    expect(strip.edge).toBe("bottom");
+  });
+
   test("mutes and restores a lane, keeping lane order, and persists it", () => {
     const strip = useTimelineStripStore();
     strip.toggleLane("logcat");

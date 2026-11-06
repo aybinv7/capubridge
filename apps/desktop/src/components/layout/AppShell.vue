@@ -2,6 +2,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import WorkColumnFoot from "@/components/drawer/WorkColumnFoot.vue";
+import TimelineStrip from "@/shared/components/timeline/TimelineStrip.vue";
+import { useTimelineStripStore } from "@/stores/timelineStrip.store";
 import { isDrawerWindowOpen } from "@/components/drawer/drawerViews";
 import TitleBar from "./TitleBar.vue";
 import Sidebar from "./Sidebar.vue";
@@ -34,6 +36,7 @@ const footRef = ref<InstanceType<typeof WorkColumnFoot> | null>(null);
 const mirrorStore = useMirrorStore();
 const inspectStore = useInspectStore();
 const drawerStore = useDrawerStore();
+const timelineStrip = useTimelineStripStore();
 const devicesStore = useDevicesStore();
 const uiStore = useUIStore();
 const router = useRouter();
@@ -251,6 +254,19 @@ onUnmounted(() => {
       <div
         class="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
       >
+        <Transition
+          enter-active-class="transition-[opacity,translate] duration-300 ease-cladd-settle motion-reduce:transition-none"
+          leave-active-class="transition-[opacity,translate] duration-200 ease-in-out motion-reduce:transition-none"
+          enter-from-class="-translate-y-2 opacity-0"
+          leave-to-class="-translate-y-2 opacity-0"
+        >
+          <div
+            v-if="!timelineStrip.hidden && timelineStrip.edge === 'top'"
+            class="shrink-0 px-1.5 pt-1.5"
+          >
+            <TimelineStrip />
+          </div>
+        </Transition>
         <main
           ref="mainContentRef"
           tabindex="-1"

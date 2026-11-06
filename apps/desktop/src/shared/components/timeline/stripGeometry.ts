@@ -1,14 +1,14 @@
 import { TIMELINE_LANES, type TimelineLane } from "@/types/timeline.types";
 
 /** Height of the resting strip, and the band its stacked density bars live in. */
-export const REST_HEIGHT = 28;
-const REST_BAND_TOP = 8;
-const REST_BAND_BOTTOM = 22;
+export const REST_HEIGHT = 34;
+const REST_BAND_TOP = 9;
+const REST_BAND_BOTTOM = 26;
 
 /** Height of the expanded strip: four lane rows, then the time axis. */
-export const EXPANDED_HEIGHT = 68;
-export const LANE_TOP = 4;
-export const LANE_ROW_HEIGHT = 12;
+export const EXPANDED_HEIGHT = 90;
+export const LANE_TOP = 6;
+export const LANE_ROW_HEIGHT = 16;
 export const AXIS_TOP = LANE_TOP + LANE_ROW_HEIGHT * TIMELINE_LANES.length;
 
 const REST_STACK_ORDER: readonly TimelineLane[] = ["logcat", "console", "network"];

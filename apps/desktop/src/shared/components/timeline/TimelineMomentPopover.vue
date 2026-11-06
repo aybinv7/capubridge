@@ -14,19 +14,18 @@ import { openRecordingAt } from "@/shared/timeline/openRecordingAt";
 import type { TimelineLane, TimelineMarker, TimelineOverlay } from "@/types/timeline.types";
 import { buildMoment, type MomentItem } from "./momentItems";
 import { formatClock } from "./stripFormat";
-import type { StripPalette } from "./stripPaint";
 import TimelineMomentList from "./TimelineMomentList.vue";
-import TimelineMomentSecond from "./TimelineMomentSecond.vue";
 
 /**
- * The preview of one second, above the strip: the second magnified, then up to 20 items in time
- * order with "Go to". Items read live from the reveal registry, so aged-out ones say so.
+ * The preview of one second, next to the strip, which highlights that second while it is open:
+ * up to 20 items in time order with "Go to". Items read live from the reveal registry, so
+ * aged-out ones say so.
  */
 const props = defineProps<{
   second: number | null;
   anchorRect: DOMRectReadOnly | undefined;
   muted: ReadonlySet<TimelineLane>;
-  palette: StripPalette;
+  position: "top" | "bottom";
 }>();
 
 const open = defineModel<boolean>("open", { required: true });
@@ -106,9 +105,9 @@ async function openRecording() {
   <Popover
     v-model:open="open"
     :anchor-rect="props.anchorRect"
-    position="top"
+    :position="props.position"
     :offset="8"
-    class="w-96"
+    class="w-[min(40rem,calc(100vw-2rem))]"
     content-class-name="flex w-full flex-col gap-2 p-2.5"
     :aria-label="`What happened at ${title}`"
   >
@@ -118,14 +117,6 @@ async function openRecording() {
         {{ moment.total === 0 ? "Nothing in this second" : `${moment.total} in this second` }}
       </span>
     </header>
-
-    <TimelineMomentSecond
-      v-if="props.second !== null"
-      :second="props.second"
-      :markers="markers"
-      :muted="props.muted"
-      :palette="props.palette"
-    />
 
     <TimelineMomentList
       v-if="moment.items.length"

@@ -7,9 +7,9 @@ import ConsoleDrawer from "./ConsoleDrawer.vue";
 import { useDrawerPopout } from "./useDrawerPopout";
 
 /**
- * The foot of the work column: the console drawer joined to the timeline tray. Opening the
- * drawer grows it upward out of the tray; maximised, it takes the whole column. Pop-outs are
- * managed here, so a view can come back even after the drawer closed.
+ * The foot of the work column: the console drawer above the timeline tray, each its own card.
+ * The strip sits here only while it is set to the bottom edge. Maximised, the drawer takes the
+ * whole column. Pop-outs are managed here, so a view can come back even after the drawer closed.
  */
 const emit = defineEmits<{ requestMainFocus: [] }>();
 
@@ -18,7 +18,7 @@ const strip = useTimelineStripStore();
 const { popOut } = useDrawerPopout();
 const consoleDrawer = ref<InstanceType<typeof ConsoleDrawer> | null>(null);
 
-const stripShown = computed(() => !strip.hidden);
+const stripShown = computed(() => !strip.hidden && strip.edge === "bottom");
 const fills = computed(() => drawer.isOpen && drawer.maximized);
 
 defineExpose({
@@ -33,8 +33,7 @@ defineExpose({
     class="flex flex-col"
     :class="[
       fills ? 'min-h-0 flex-1' : 'shrink-0',
-      drawer.isOpen || stripShown ? 'px-1.5 pb-1.5' : '',
-      !drawer.isOpen && stripShown ? 'pt-1.5' : '',
+      drawer.isOpen || stripShown ? 'gap-1.5 px-1.5 pt-1.5 pb-1.5' : '',
     ]"
   >
     <Transition
@@ -48,8 +47,6 @@ defineExpose({
       <ConsoleDrawer
         v-if="drawer.isOpen"
         ref="consoleDrawer"
-        class="mt-1.5"
-        :joined="stripShown"
         @popout="popOut"
         @request-main-focus="emit('requestMainFocus')"
       />
@@ -60,7 +57,7 @@ defineExpose({
       enter-from-class="translate-y-2 opacity-0"
       leave-to-class="translate-y-2 opacity-0"
     >
-      <TimelineStrip v-if="stripShown" :joined="drawer.isOpen" />
+      <TimelineStrip v-if="stripShown" />
     </Transition>
   </div>
 </template>

@@ -12,13 +12,26 @@ import { TIMELINE_LANES, type TimelineLane } from "@/types/timeline.types";
 
 const LS_STRIP = "capubridge:timeline-strip";
 
+/** Which edge of the work column the strip sits on. */
+export type StripEdge = "top" | "bottom";
+
 interface PersistedStrip {
   hidden: boolean;
   window: StripWindow;
   mutedLanes: TimelineLane[];
+  edge?: StripEdge;
 }
 
-const DEFAULTS: PersistedStrip = { hidden: false, window: DEFAULT_STRIP_WINDOW, mutedLanes: [] };
+const DEFAULTS: PersistedStrip = {
+  hidden: false,
+  window: DEFAULT_STRIP_WINDOW,
+  mutedLanes: [],
+  edge: "bottom",
+};
+
+function isEdge(value: unknown): value is StripEdge {
+  return value === "top" || value === "bottom";
+}
 
 function isLane(value: unknown): value is TimelineLane {
   return typeof value === "string" && (TIMELINE_LANES as readonly string[]).includes(value);
@@ -31,7 +44,8 @@ function isPersistedStrip(value: unknown): value is PersistedStrip {
     typeof candidate.hidden === "boolean" &&
     isStripWindow(candidate.window) &&
     Array.isArray(candidate.mutedLanes) &&
-    candidate.mutedLanes.every(isLane)
+    candidate.mutedLanes.every(isLane) &&
+    (candidate.edge === undefined || isEdge(candidate.edge))
   );
 }
 
@@ -45,6 +59,7 @@ export const useTimelineStripStore = defineStore("timelineStrip", () => {
   const hidden = ref(saved.hidden);
   const span = ref<StripWindow>(saved.window);
   const mutedLanes = ref<TimelineLane[]>([...new Set(saved.mutedLanes)]);
+  const edge = ref<StripEdge>(saved.edge ?? "bottom");
 
   const windowMs = computed(() => STRIP_WINDOW_MS[span.value]);
   const mutedSet = computed(() => new Set(mutedLanes.value));
@@ -54,6 +69,7 @@ export const useTimelineStripStore = defineStore("timelineStrip", () => {
       hidden: hidden.value,
       window: span.value,
       mutedLanes: mutedLanes.value,
+      edge: edge.value,
     } satisfies PersistedStrip);
   }
 
@@ -77,6 +93,12 @@ export const useTimelineStripStore = defineStore("timelineStrip", () => {
   function setHidden(next: boolean) {
     if (hidden.value === next) return;
     hidden.value = next;
+    persist();
+  }
+
+  function setEdge(next: StripEdge) {
+    if (edge.value === next) return;
+    edge.value = next;
     persist();
   }
 
@@ -112,6 +134,8 @@ export const useTimelineStripStore = defineStore("timelineStrip", () => {
     span,
     windowMs,
     mutedLanes,
+    edge,
+    setEdge,
     isLaneMuted,
     toggleLane,
     setWindow,

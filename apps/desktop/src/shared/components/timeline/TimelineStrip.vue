@@ -30,9 +30,6 @@ const LIVE_WITHIN_MS = 2000;
 const RISE = EXPANDED_HEIGHT - REST_HEIGHT;
 const MOMENT_REQUEST_TTL_MS = 4000;
 
-/** `joined`: the console drawer sits on top, so the resting tray squares its top corners. */
-const props = withDefaults(defineProps<{ joined?: boolean }>(), { joined: false });
-
 const strip = useTimelineStripStore();
 const timeline = useTimelineStore();
 const logcat = useLogcatStore();
@@ -165,12 +162,18 @@ watch(
   { immediate: true },
 );
 
+const edge = computed(() => strip.edge);
 const clip = computed(() => {
   if (expanded.value) return "inset(0 round 10px)";
-  return props.joined
-    ? `inset(${RISE}px 0 0 0 round 0 0 10px 10px)`
-    : `inset(${RISE}px 0 0 0 round 10px)`;
+  return edge.value === "bottom"
+    ? `inset(${RISE}px 0 0 0 round 10px)`
+    : `inset(0 0 ${RISE}px 0 round 10px)`;
 });
+const lanesHidden = computed(() =>
+  edge.value === "bottom"
+    ? "pointer-events-none translate-y-2 opacity-0"
+    : "pointer-events-none -translate-y-2 opacity-0",
+);
 
 onBeforeUnmount(clearTimers);
 </script>
@@ -181,10 +184,11 @@ onBeforeUnmount(clearTimers);
     :style="{ height: `${REST_HEIGHT}px` }"
     aria-label="Timeline"
   >
-    <TimelineTray :expanded="expanded" :joined="props.joined" />
+    <TimelineTray :expanded="expanded" :edge="edge" />
     <div
-      class="absolute inset-x-0 bottom-0"
+      class="absolute inset-x-0"
       :style="{
+        [edge]: '0px',
         height: `${EXPANDED_HEIGHT}px`,
         clipPath: clip,
       }"
@@ -195,9 +199,7 @@ onBeforeUnmount(clearTimers);
     >
       <div
         class="absolute inset-x-0 top-0 flex transition-[opacity,translate] duration-300 ease-cladd-spring motion-reduce:transition-none"
-        :class="
-          expanded ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2 opacity-0'
-        "
+        :class="expanded ? 'translate-y-0 opacity-100' : lanesHidden"
         :inert="expanded ? undefined : true"
       >
         <TimelineLaneLabels
@@ -217,6 +219,7 @@ onBeforeUnmount(clearTimers);
           :logcat-off="logcatOff"
           :offset-note="offsetNote"
           :card-suppressed="momentOpen"
+          :selected="momentOpen ? momentSecond : null"
           @resize="laneWidth = $event"
           @pick="pick"
           @turn-on-logcat="drawer.open('logs')"
@@ -225,8 +228,8 @@ onBeforeUnmount(clearTimers);
       </div>
 
       <div
-        class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center"
-        :style="{ height: `${REST_HEIGHT}px` }"
+        class="pointer-events-none absolute inset-x-0 flex items-center"
+        :style="{ [edge]: '0px', height: `${REST_HEIGHT}px` }"
       >
         <TimelineDensity
           class="ml-2.5 transition-opacity duration-200 ease-in-out"
@@ -248,7 +251,7 @@ onBeforeUnmount(clearTimers);
       :second="momentSecond"
       :anchor-rect="momentRect"
       :muted="muted"
-      :palette="palette"
+      :position="edge === 'bottom' ? 'top' : 'bottom'"
       @update:open="onMomentOpen"
     />
   </section>

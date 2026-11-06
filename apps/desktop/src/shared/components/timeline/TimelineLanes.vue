@@ -9,8 +9,9 @@ import { AXIS_TOP, LANE_ROW_HEIGHT, LANE_TOP, secondToX, xToSecond } from "./str
 import { paintLanes, type PaintInput } from "./stripPainters";
 
 /**
- * The expanded strip's drawing: one row per lane, the time axis, and the pointer. Hovering a
- * second shows its counts; clicking it asks for the moment preview.
+ * The expanded strip's drawing: one row per lane, the time axis, a line under the pointer, and
+ * the second being previewed. Hovering a second shows its counts; clicking it asks for the
+ * moment preview.
  */
 const props = defineProps<{
   frame: number;
@@ -22,6 +23,8 @@ const props = defineProps<{
   logcatOff: boolean;
   offsetNote: string | null;
   cardSuppressed: boolean;
+  /** The second the moment preview shows, highlighted on the lanes. */
+  selected: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -32,6 +35,7 @@ const emit = defineEmits<{
 
 const box = ref<HTMLElement | null>(null);
 const hovered = shallowRef<number | null>(null);
+const pointerX = shallowRef<number | null>(null);
 const width = shallowRef(0);
 
 const pxPerSecond = computed(() => (1000 / props.input.scale.windowMs) * props.input.scale.width);
@@ -41,6 +45,13 @@ const cardX = computed(() =>
     : secondToX(hovered.value, props.input.scale) + Math.max(1, pxPerSecond.value) / 2,
 );
 const logcatRowTop = LANE_TOP + LANE_ROW_HEIGHT * 3;
+const SELECTED_MIN_WIDTH = 6;
+const selectedBand = computed(() => {
+  if (props.selected === null) return null;
+  const width = Math.max(SELECTED_MIN_WIDTH, pxPerSecond.value);
+  const left = secondToX(props.selected, props.input.scale) + pxPerSecond.value / 2 - width / 2;
+  return { left: `${Math.max(0, left)}px`, width: `${width}px` };
+});
 
 function paint(ctx: CanvasRenderingContext2D) {
   paintLanes(ctx, props.input);
@@ -61,6 +72,14 @@ function secondAt(event: PointerEvent | MouseEvent): number | null {
 
 function onMove(event: PointerEvent) {
   hovered.value = secondAt(event);
+  const element = box.value;
+  pointerX.value =
+    element && hovered.value !== null ? event.clientX - element.getBoundingClientRect().left : null;
+}
+
+function onLeave() {
+  hovered.value = null;
+  pointerX.value = null;
 }
 
 function rectOf(second: number): DOMRectReadOnly | null {
@@ -90,7 +109,7 @@ defineExpose({ rectOf });
       role="img"
       aria-label="Activity per second, by lane"
       @pointermove="onMove"
-      @pointerleave="hovered = null"
+      @pointerleave="onLeave"
       @click="onClick"
     >
       <TimelineCanvas :height="AXIS_TOP" :frame="props.frame" :paint="paint" @resize="onResize" />
@@ -109,6 +128,18 @@ defineExpose({ rectOf });
         <span class="text-2xs leading-none text-[var(--fg-subtle)]">Logcat is off</span>
         <Link class="pr-1 text-2xs leading-none" @click.stop="emit('turnOnLogcat')">Turn on</Link>
       </div>
+      <div
+        v-if="selectedBand"
+        class="pointer-events-none absolute inset-y-0 rounded-[3px] bg-signal-select/15 ring-1 ring-signal-select/60 ring-inset"
+        :style="selectedBand"
+        aria-hidden="true"
+      />
+      <div
+        v-if="pointerX !== null"
+        class="pointer-events-none absolute inset-y-0 left-0 w-px bg-foreground/45"
+        :style="{ transform: `translateX(${pointerX}px)` }"
+        aria-hidden="true"
+      />
       <div
         class="pointer-events-none absolute inset-y-0.5 right-0 w-px transition-colors duration-200"
         :class="props.live ? 'bg-signal-live/70' : 'bg-[var(--fg-subtle)]/25'"

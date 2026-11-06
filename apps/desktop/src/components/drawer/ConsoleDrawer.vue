@@ -10,10 +10,9 @@ import DrawerWindowActions from "./DrawerWindowActions.vue";
 
 /**
  * The console drawer: one surface that grows out of the timeline tray, with one header row
- * (view switch, the view's own controls, window actions) and one resize edge. `joined` squares
- * its foot onto the strip below it.
+ * (view switch, the view's own controls, window actions) and one resize edge. It is its own
+ * card, apart from the timeline strip.
  */
-const props = defineProps<{ joined: boolean }>();
 const emit = defineEmits<{ popout: [view: "logs" | "console"]; requestMainFocus: [] }>();
 
 const drawer = useDrawerStore();
@@ -76,10 +75,7 @@ defineExpose({
     tabindex="-1"
     aria-label="Console drawer"
     class="relative flex flex-col bg-surface-0 shadow-bevel outline-none"
-    :class="[
-      props.joined ? 'rounded-t-well' : 'rounded-well',
-      drawer.maximized ? 'min-h-0 flex-1' : 'shrink-0',
-    ]"
+    :class="drawer.maximized ? 'min-h-0 flex-1 rounded-well' : 'shrink-0 rounded-well'"
     :style="drawer.maximized ? undefined : { height: `${drawer.heightPx}px` }"
     @keydown="onKeydown"
     @focusin="drawer.setFocused(true)"
