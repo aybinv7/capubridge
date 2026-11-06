@@ -10,6 +10,7 @@ import {
   uneditableReason,
 } from "../sqliteChangeset";
 import { readBackChangeset } from "../sqliteReadBack";
+import { editorText, parseCellEdit } from "@/shared/components/data/grid/editors/cellEdit";
 
 const row = { id: "[1]", cells: { id: 1, name: "tea", price: 2.5 } };
 const wide = { __type: "Number", value: "9007199254740993" };
@@ -117,5 +118,26 @@ describe("reading saved rows back", () => {
     ]);
     expect(back.differences).toEqual([]);
     expect(back.inserted[0]?.row).toEqual({ id: 8, name: "scone" });
+  });
+});
+
+describe("a multi-line text cell (S1)", () => {
+  test("editing one other character saves every CRLF line break", () => {
+    const note = { id: "[1]", cells: { id: 1, note: "first\r\nsecond" } };
+    const parsed = parseCellEdit(
+      note.cells.note,
+      "multiline",
+      `${editorText(note.cells.note, "multiline")}!`,
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const staged = stageCell(EMPTY_STAGED, note, "note", parsed.value);
+    expect(changesetStatements("item", ["id"], staged)).toEqual([
+      `UPDATE "item" SET "note" = 'first\r\nsecond!' WHERE "id" IS 1`,
+    ]);
+  });
+
+  test("a text mixing two kinds of line break is not edited inline", () => {
+    expect(uneditableReason("a\r\nb\nc")).toMatch(/two kinds of line break/);
   });
 });

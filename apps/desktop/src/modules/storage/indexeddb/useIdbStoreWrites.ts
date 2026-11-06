@@ -4,7 +4,7 @@ import type { IDBDomain, IDBRecord } from "@capubridge/cdp-protocol";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
 import { buildStoreKey, serializeKey } from "@/modules/storage/changes/indexeddbChanges.service";
 import type { IndexedDBDecoratedRecord } from "@/modules/storage/changes/useIndexedDBChangeOverlay";
-import { editorKindFor } from "@/shared/components/data/grid/editors/cellEdit";
+import { editorKindFor, inlineEditRefusal } from "@/shared/components/data/grid/editors/cellEdit";
 import type { GridColumnType } from "@/shared/components/data/grid";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import { idbWrites } from "./idbWrites";
@@ -85,7 +85,7 @@ export function useIdbStoreWrites(options: {
       return record.readOnlyReason ?? "Read-only";
     if (editorKindFor(value, showAs, like) === null)
       return "Edit objects, lists and special values in the record pane.";
-    return null;
+    return inlineEditRefusal(value);
   }
 
   async function run<T>(task: () => Promise<T>): Promise<T> {

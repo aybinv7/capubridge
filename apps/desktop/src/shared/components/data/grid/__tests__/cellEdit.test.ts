@@ -2,6 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import {
   applyLocalDate,
   editorKindFor,
+  editorText,
+  inlineEditRefusal,
+  lineBreakStyle,
   parseCellEdit,
   toLocalDateInput,
 } from "../editors/cellEdit";
@@ -156,5 +159,32 @@ describe("parseCellEdit keeps the stored type", () => {
     expect(editorKindFor(true)).toBe("boolean");
     expect(editorKindFor({ a: 1 })).toBeNull();
     expect(editorKindFor({ __type: "Date", value: "2024-01-01T00:00:00.000Z" })).toBeNull();
+  });
+});
+
+describe("text with line breaks (S1)", () => {
+  test("opens the multi-line editor, and long text too", () => {
+    expect(editorKindFor("a\r\nb")).toBe("multiline");
+    expect(editorKindFor("a\nb")).toBe("multiline");
+    expect(editorKindFor("x".repeat(201))).toBe("multiline");
+    expect(editorKindFor("plain")).toBe("text");
+  });
+
+  test("an edit of one other character keeps CRLF, LF and CR line breaks", () => {
+    for (const original of ["one\r\ntwo", "one\ntwo", "one\rtwo"]) {
+      const shown = editorText(original, "multiline");
+      expect(shown).toBe("one\ntwo");
+      expect(parseCellEdit(original, "multiline", `${shown}!`)).toEqual({
+        ok: true,
+        value: `${original}!`,
+        changed: true,
+      });
+    }
+  });
+
+  test("text that mixes two kinds of line break is not edited inline", () => {
+    expect(lineBreakStyle("a\r\nb\nc")).toBe("mixed");
+    expect(inlineEditRefusal("a\r\nb\nc")).toMatch(/two kinds of line break/);
+    expect(inlineEditRefusal("a\r\nb")).toBeNull();
   });
 });

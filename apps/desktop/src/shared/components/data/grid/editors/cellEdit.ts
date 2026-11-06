@@ -1,7 +1,13 @@
 import type { GridColumnType } from "../types";
 
-/** The editor a cell opens with; `null` means the value is not edited inline. */
-export type CellEditorKind = "text" | "number" | "boolean" | "date";
+/**
+ * The editor a cell opens with; `null` means the value is not edited inline. `multiline` is a
+ * text area for text holding line breaks (or long text): a one-line field drops line breaks.
+ */
+export type CellEditorKind = "text" | "multiline" | "number" | "boolean" | "date";
+
+/** How a text ends its lines. A text area reads every kind back as a line feed. */
+export type LineBreakStyle = "none" | "lf" | "crlf" | "cr" | "mixed";
 
 export type ParsedCellEdit =
   | { ok: true; value: unknown; changed: boolean }
@@ -11,6 +17,7 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/;
 const ZONE = /(Z|[+-]\d{2}:?\d{2})$/;
 const EPOCH_MS_FROM = 1e11;
+const LONG_TEXT = 200;
 
 function pad(value: number, width = 2): string {
   return String(value).padStart(width, "0");
@@ -49,6 +56,34 @@ function isEmpty(value: unknown): value is null | undefined {
   return value === null || value === undefined;
 }
 
+/** Which line breaks a text uses: one kind, none, or a mix the editor cannot give back. */
+export function lineBreakStyle(text: string): LineBreakStyle {
+  const crlf = (text.match(/\r\n/g) ?? []).length;
+  const cr = (text.match(/\r/g) ?? []).length - crlf;
+  const lf = (text.match(/\n/g) ?? []).length - crlf;
+  const kinds = [crlf > 0, cr > 0, lf > 0].filter(Boolean).length;
+  if (kinds === 0) return "none";
+  if (kinds > 1) return "mixed";
+  return crlf > 0 ? "crlf" : cr > 0 ? "cr" : "lf";
+}
+
+/**
+ * Why a value cannot be edited in a grid cell although its type can, or `null`. A text that
+ * mixes two kinds of line break would come back from the editor with one kind only.
+ */
+export function inlineEditRefusal(value: unknown): string | null {
+  if (typeof value === "string" && lineBreakStyle(value) === "mixed") {
+    return "This text mixes two kinds of line break; editing it here would make them all one kind, so it is left as it is.";
+  }
+  return null;
+}
+
+function restoreLineBreaks(text: string, style: LineBreakStyle): string {
+  if (style === "crlf") return text.replace(/\n/g, "\r\n");
+  if (style === "cr") return text.replace(/\n/g, "\r");
+  return text;
+}
+
 /**
  * The editor for a stored value. Dates are recognised by the value itself (ISO text, a Date),
  * or by the column shown as a date for epoch numbers; never by the field's name. An empty cell
@@ -67,7 +102,10 @@ export function editorKindFor(
   if (typeof value === "boolean") return "boolean";
   if (typeof value === "number")
     return showAs === "date" && Number.isFinite(value) ? "date" : "number";
-  if (typeof value === "string") return isDateText(value) ? "date" : "text";
+  if (typeof value === "string") {
+    if (isDateText(value)) return "date";
+    return /[\r\n]/.test(value) || value.length > LONG_TEXT ? "multiline" : "text";
+  }
   return null;
 }
 
@@ -132,6 +170,7 @@ export function applyLocalDate(original: unknown, dateInput: string): unknown {
 export function editorText(value: unknown, kind: CellEditorKind): string {
   if (kind === "date") return toLocalDateInput(value);
   if (value === null || value === undefined) return "";
+  if (kind === "multiline" && typeof value === "string") return value.replace(/\r\n?/g, "\n");
   if (typeof value === "object") return JSON.stringify(value) ?? "";
   return String(value as string | number | boolean | bigint);
 }
@@ -177,6 +216,12 @@ export function parseCellEdit(
         return { ok: true, value: original, changed: false };
       }
       return { ok: true, value: text, changed: text !== original };
+    case "multiline": {
+      if (isEmpty(original) && text === "") return { ok: true, value: original, changed: false };
+      const style = lineBreakStyle(typeof original === "string" ? original : "");
+      const value = restoreLineBreaks(text, style === "mixed" ? "lf" : style);
+      return { ok: true, value, changed: value !== original };
+    }
     case "number": {
       const trimmed = text.trim();
       if (trimmed === "") return { ok: false, error: "Enter a number" };

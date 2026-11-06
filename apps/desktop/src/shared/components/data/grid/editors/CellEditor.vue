@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import KeyCaps from "@/components/command/KeyCaps.vue";
+import { bindingTokens } from "@/lib/commands/keymap";
 import { editorText, parseCellEdit, type CellEditorKind } from "./cellEdit";
 
 /**
  * The inline editor a grid cell opens with. Enter or leaving the field commits, Escape
  * cancels; nothing is emitted when the value did not change, so a stray click never writes.
+ * Text with line breaks opens a text area over the cell instead (a one-line field would drop
+ * them): Enter adds a line there, and Ctrl+Enter commits.
  */
 const props = defineProps<{
   value: unknown;
@@ -16,17 +20,53 @@ const props = defineProps<{
 
 const emit = defineEmits<{ commit: [value: unknown]; cancel: [] }>();
 
-const field = ref<HTMLInputElement | HTMLSelectElement | null>(null);
+const PANEL_MIN_WIDTH = 360;
+const PANEL_MARGIN = 8;
+
+const anchor = ref<HTMLElement | null>(null);
+const field = ref<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>(null);
 const text = ref(editorText(props.value, props.kind));
 const error = ref<string | null>(null);
+const panelBox = ref<{ left: number; top: number; width: number } | null>(null);
 let settled = false;
 
 const inputType = computed(() => (props.kind === "date" ? "date" : "text"));
+const multiline = computed(() => props.kind === "multiline");
+const panelStyle = computed(() =>
+  panelBox.value
+    ? {
+        left: `${panelBox.value.left}px`,
+        top: `${panelBox.value.top}px`,
+        width: `${panelBox.value.width}px`,
+      }
+    : { visibility: "hidden" as const },
+);
+
+function placePanel() {
+  const box = anchor.value?.getBoundingClientRect();
+  if (!box) return;
+  const width = Math.min(
+    Math.max(box.width, PANEL_MIN_WIDTH),
+    window.innerWidth - PANEL_MARGIN * 2,
+  );
+  const left = Math.min(Math.max(box.left, PANEL_MARGIN), window.innerWidth - width - PANEL_MARGIN);
+  panelBox.value = { left, top: Math.max(box.top, PANEL_MARGIN), width };
+}
 
 onMounted(async () => {
+  if (multiline.value) {
+    placePanel();
+    window.addEventListener("resize", placePanel);
+    window.addEventListener("scroll", placePanel, true);
+  }
   await nextTick();
   field.value?.focus();
   if (field.value instanceof HTMLInputElement && props.kind !== "date") field.value.select();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", placePanel);
+  window.removeEventListener("scroll", placePanel, true);
 });
 
 function finish(commitChange: boolean) {
@@ -48,7 +88,8 @@ function finish(commitChange: boolean) {
 
 function onKeydown(event: KeyboardEvent) {
   event.stopPropagation();
-  if (event.key === "Enter") {
+  const mod = event.ctrlKey || event.metaKey;
+  if (event.key === "Enter" && (!multiline.value || mod)) {
     event.preventDefault();
     finish(true);
   } else if (event.key === "Escape") {
@@ -75,6 +116,7 @@ function onBlur() {
 
 <template>
   <span
+    ref="anchor"
     data-grid-editor
     class="relative flex h-full w-full items-center"
     @pointerdown.stop
@@ -93,6 +135,38 @@ function onBlur() {
       <option value="true">true</option>
       <option value="false">false</option>
     </select>
+    <template v-else-if="multiline">
+      <span class="truncate text-cladd-xs text-cladd-fg-soft">Editing several lines…</span>
+      <Teleport to="body">
+        <div
+          data-grid-editor
+          class="fixed z-50 flex flex-col gap-1 rounded-cladd-xs bg-popover p-1 shadow-float"
+          :style="panelStyle"
+          @pointerdown.stop
+          @contextmenu.stop
+        >
+          <textarea
+            ref="field"
+            v-model="text"
+            rows="8"
+            :aria-label="label"
+            spellcheck="false"
+            class="block max-h-[60vh] min-h-24 w-full resize-y rounded-cladd-3xs bg-cladd-surface-cut px-1.5 py-1 text-cladd-xs text-cladd-fg outline-none shadow-[inset_0_0_0_1.5px_var(--cladd-primary)]"
+            @keydown="onKeydown"
+            @blur="onBlur"
+          />
+          <div
+            class="flex items-center gap-1.5 px-1 text-2xs text-muted-foreground"
+            @pointerdown.prevent
+          >
+            <KeyCaps :keys="bindingTokens('mod+enter')" quiet />
+            <span>keeps the change,</span>
+            <KeyCaps :keys="bindingTokens('escape')" quiet />
+            <span>drops it. Line breaks are kept as they were.</span>
+          </div>
+        </div>
+      </Teleport>
+    </template>
     <input
       v-else
       ref="field"

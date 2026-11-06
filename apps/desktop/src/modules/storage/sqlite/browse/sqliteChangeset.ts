@@ -1,3 +1,4 @@
+import { inlineEditRefusal } from "@/shared/components/data/grid/editors/cellEdit";
 import { quoteIdent, sqlLiteral, isSqliteBlob, isWideInteger } from "../sqlText";
 
 /** Cell edits of one existing row, kept until saved: the row as read, and the new values. */
@@ -40,7 +41,7 @@ export function uneditableReason(value: unknown): string | null {
     return "This integer is wider than the editor can hold without rounding it.";
   }
   if (typeof value === "object" && value !== null) return "This value cannot be edited here.";
-  return null;
+  return inlineEditRefusal(value);
 }
 
 /** Stages one cell of an existing row; setting a cell back to what was read unstages it. */
