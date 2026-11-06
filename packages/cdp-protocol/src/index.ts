@@ -112,6 +112,23 @@ export type {
   StorageTechId,
   StorageTechHint,
 } from "./cdp/domains/opfs.js";
+export {
+  OPFSFilesDomain,
+  OPFSGoneError,
+  OPFSWrongOriginError,
+  OPFS_FOLDER_READ_LIMIT,
+  OPFS_FOLDER_WALK_DEPTH,
+  OPFS_FOLDER_WALK_LIMIT,
+} from "./cdp/domains/opfs-files.js";
+export type {
+  OPFSDeleteFailure,
+  OPFSDeleteResult,
+  OPFSDeleteTarget,
+  OPFSFolderListing,
+  OPFSFolderNode,
+  OPFSFolderTree,
+  OPFSItem,
+} from "./cdp/domains/opfs-files.js";
 export { OpfsSqliteDiscovery } from "./cdp/domains/opfs-sqlite-discovery.js";
 export type {
   DiscoveredOpfsDatabase,
