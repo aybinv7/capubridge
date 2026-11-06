@@ -87,7 +87,11 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
   `yellow`/`orange` → warning, `blue` → info, `brand` → select, `lime` → live, `cyan`/`purple`/`pink` →
   categories). Cladd's surface levels, hover and press derive from those, so no Cladd colour is tuned by
   hand. Cladd type tokens are clamped to the 11 px floor.
-- **Neutral by default, one accent.** `App.vue` wraps everything in `CladdProvider accent-color="neutral"`.
+- **Accent for active states, neutral surfaces.** `App.vue` wraps everything in
+  `CladdProvider accent-color="brand"`: every control's active state (Switch on, Checkbox, Radio, the
+  selected Segmented/ToggleButton, Slider, Spinner, focus rings, input focus, a dialog's default
+  confirm) takes the selection blue. Buttons do not read the provider accent, so they follow the
+  hierarchy below.
   Button hierarchy:
   - **Primary** — `variant="solid-fill" color="brand"`: the one main action of a view or dialog
     (Save, Connect, Open, Apply, a non-destructive confirm).

@@ -26,7 +26,7 @@ const DockDetachedWindow = isDockWindow
 </script>
 
 <template>
-  <CladdProvider accent-color="neutral" :theme="themeStore.mode" overlays-root="body">
+  <CladdProvider accent-color="brand" :theme="themeStore.mode" overlays-root="body">
     <template v-if="isMirrorWindow && MirrorWindow">
       <MirrorWindow />
       <Toaster
