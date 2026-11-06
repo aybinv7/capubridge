@@ -396,3 +396,59 @@ capture owner, any number of views. Logs is not a route.
     the data. Worth adding later as a "maximised drawer" URL, not as a separate implementation.
   - **A side panel next to the screen column.** Narrow columns truncate log lines badly. Reject it
     for logs; it suits an inspector, not a stream.
+
+## Engine round notes
+
+Engine-only round on `feat/ui-ux-overhaul` (2026-11-06). Layout, colours and components were left
+alone; the only view changes are virtualisation and the wiring the engine needs.
+
+### Done
+
+| Items                                            | Commit     |
+| ------------------------------------------------ | ---------- |
+| S20 (unregister legacy commands; `lib.rs` alone) | `fdb956c0` |
+| S1, S3, S18, S20                                 | `02c85b72` |
+| F1, S5, S6, S2, logcat side of S13               | `7aca3a78` |
+| S7, S9, S8, S10                                  | `a65a8055` |
+| F2                                               | `b034b223` |
+| F4, F5, F6, F7, F8, F10, S10 (pause)             | `235d087c` |
+| F3                                               | `0d86f297` |
+| S4, S11, S12, S14, S15, S16, S17, S19            | `56262eba` |
+| Timeline foundation, WebSocket start time        | `3aed2f03` |
+| S13 (console replay on reconnect)                | `5cc945e5` |
+
+### Where the result differs from the review, and why
+
+- **Not checked against a real device.** The Pixel_10_Pro emulator was not running and the owner's
+  phone is off limits, so the parser tests use line shapes taken from logcat's own format
+  (`logprint.cpp`: `%19lld.%03ld` epoch, `%5s:`/`%5d:` uid glued to a `%5d` pid, `%-8s: ` tag), not
+  captured output. First thing to verify on the emulator: one crash, one multi-line JSON log, one
+  reconnect (`adb kill-server`).
+- **Android 7 and newer only.** `-v epoch -v uid` does not exist before Android 7. On an older
+  device the stream fails, and the store shows "Reconnecting" with logcat's own error text. There
+  is no fallback parser for the old `MM-DD` format.
+- **Multi-line entries.** logcat repeats the header on every line of a message, so consecutive
+  lines with the same millisecond, pid, tid, level and tag are joined into one entry. Two separate
+  calls with that exact header become one entry holding both texts; nothing is dropped.
+- **Retention lives in the webview, not Rust (F4).** The review suggested a 100k Rust ring with
+  paging. The store ring holds 50,000 lines; Rust keeps only a 5,000-line / 4 MB backlog so a
+  window that joins late (a pop-out) starts with recent lines, not the main window's full ring.
+- **Delivery is a Tauri channel per window (F2)**, not an event filtered by window label: Tauri's
+  default `listen` receives events emitted to any window, so only a channel is truly addressed.
+- **Console rows are still rebuilt per flush (F5)**, in one pass over at most 10,000 entries,
+  because group trees make an incremental build complex. Measured 0.29 ms median, 2.4 ms max.
+- **The 4 ms flush test asserts the 95th percentile.** Alone, the worst flush is 0.25 ms (logcat,
+  500 lines into a full 50,000 ring) and 2.4 ms (console with rows). Under the full parallel test
+  suite, garbage-collection pauses push single samples to 8 to 32 ms, which is not flush work.
+- **Not done, UI or bigger than described.** Synthetic "process started / ended" rows (S8);
+  `returnByValue: false` with previews and `objectGroup` release in the REPL (S15: only the 30 s
+  timeout); a buffer picker in the UI (S19: store and Rust only); follow-tail (U1).
+- **Clock.** The device offset is measured by adb on every logcat connect and every 5 minutes, and
+  reused for console, exception and network times of the same device. Chrome and local-preview
+  targets are taken as host time.
+- **Pause changed meaning (S10).** It freezes the views; the ring keeps every new line and the
+  header counts them, and past the cap says how many are gone. The old 400-line side buffer is gone.
+- **Pop-out errors without a toaster.** A popped-out window has no toast host, so a failed window
+  lookup there is logged, not shown (S16).
+- **Source-size baseline.** `commands/adb.rs` lost the 330 logcat lines (now about 1,650); its
+  2,045-line exception can be lowered.
