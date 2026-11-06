@@ -65,8 +65,30 @@ watch(isValid, (v) => emit("validity-change", v));
 
 // ─── Line data ─────────────────────────────────────────────────────────────────
 
+const LARGE_CHARS = 64 * 1024;
+const LARGE_LINES = 2000;
+
+function countLines(value: string): number {
+  let lines = 1;
+  let from = value.indexOf("\n");
+  while (from >= 0 && lines <= LARGE_LINES) {
+    lines += 1;
+    from = value.indexOf("\n", from + 1);
+  }
+  return lines;
+}
+
+/**
+ * Above 64 KiB or 2,000 lines the value is edited as plain text: no colours, folding or line
+ * numbers, which render one element per line and freeze on a large value. It is still checked
+ * as JSON (debounced) and find still works.
+ */
+const large = computed(
+  () => props.value.length > LARGE_CHARS || countLines(props.value) > LARGE_LINES,
+);
+
 const rawLines = computed(() =>
-  props.value.split("\n").map((line) => {
+  (large.value ? [] : props.value.split("\n")).map((line) => {
     const indent = line.search(/\S/);
     const trimmed = line.trimStart();
     const isCollapsible = trimmed.endsWith("{") || trimmed.endsWith("[");
@@ -155,6 +177,15 @@ const matchPositions = computed(() => {
   const term = filterText.value.toLowerCase();
   if (!term) return [];
   const out: { lineIdx: number; start: number; end: number }[] = [];
+  if (large.value) {
+    const lower = props.value.toLowerCase();
+    let at = lower.indexOf(term);
+    while (at !== -1 && out.length < 10_000) {
+      out.push({ lineIdx: -1, start: at, end: at + term.length });
+      at = lower.indexOf(term, at + term.length);
+    }
+    return out;
+  }
   for (let i = 0; i < rawLines.value.length; i++) {
     const lower = rawLines.value[i]!.raw.toLowerCase();
     let idx = lower.indexOf(term);
@@ -211,6 +242,12 @@ function scrollToMatch() {
   nextTick(() => {
     const ta = textareaRef.value;
     if (!ta) return;
+    if (m.lineIdx < 0) {
+      ta.setSelectionRange(m.start, m.end);
+      const line = props.value.slice(0, m.start).split("\n").length - 1;
+      ta.scrollTop = Math.max(0, line * LINE_HEIGHT - ta.clientHeight / 2);
+      return;
+    }
     const targetTop = m.lineIdx * LINE_HEIGHT;
     const center = Math.max(0, targetTop - ta.clientHeight / 2 + LINE_HEIGHT / 2);
     ta.scrollTop = center;
@@ -402,8 +439,9 @@ defineExpose({
       >
         <X :size="12" />
       </button>
-      <div class="w-px h-4 bg-border/30 mx-0.5" />
+      <div v-if="!large" class="w-px h-4 bg-border/30 mx-0.5" />
       <button
+        v-if="!large"
         class="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-foreground transition-colors shrink-0"
         @click="toggleAll()"
       >
@@ -418,7 +456,26 @@ defineExpose({
          Read-only. Clicking anywhere outside a toggle button → expandAll().
          Line numbers reflect only visible (display) lines, not raw line nums.
          ═══════════════════════════════════════════════════════════════════════ -->
-    <div v-if="isAnyCollapsed" class="flex flex-1 overflow-hidden text-sm font-mono leading-5">
+    <div v-if="large" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <p class="shrink-0 px-2 py-1 text-2xs text-muted-foreground">
+        A large value: shown as plain text, without colours or folding.
+        <span v-if="jsonError" class="text-error">{{ jsonError.message }}</span>
+      </p>
+      <textarea
+        ref="textareaRef"
+        :value="value"
+        :readonly="readonly"
+        class="min-h-0 w-full flex-1 resize-none overflow-auto bg-transparent px-2 py-0 font-mono text-sm leading-5 whitespace-pre text-foreground outline-none"
+        spellcheck="false"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        aria-label="JSON value"
+        @input="onTextareaInput"
+        @keydown="handleTab"
+      />
+    </div>
+    <div v-else-if="isAnyCollapsed" class="flex flex-1 overflow-hidden text-sm font-mono leading-5">
       <!-- line numbers (visible count only) -->
       <div
         class="flex-shrink-0 select-none text-right border-r border-border/20 overflow-y-auto overflow-x-hidden"

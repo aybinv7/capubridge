@@ -26,8 +26,16 @@ const json = ref<InstanceType<typeof JsonEditor> | null>(null);
 const text = ref<InstanceType<typeof KvTextEditor> | null>(null);
 
 const settled = refDebounced(draft, 200);
-const formatted = computed(() => (mode.value === "json" ? formatJson(settled.value) : null));
-const canFormat = computed(() => formatted.value !== null && formatted.value !== settled.value);
+const LARGE_DRAFT = 64 * 1024;
+const large = computed(() => settled.value.length > LARGE_DRAFT);
+const formatted = computed(() =>
+  mode.value === "json" && !large.value ? formatJson(settled.value) : null,
+);
+const canFormat = computed(() =>
+  large.value
+    ? mode.value === "json"
+    : formatted.value !== null && formatted.value !== settled.value,
+);
 
 function setMode(next: KvEditorMode) {
   if (next === mode.value) return;
