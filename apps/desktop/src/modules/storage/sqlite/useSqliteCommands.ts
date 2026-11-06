@@ -1,7 +1,26 @@
-import { Download, FileCode, PanelRight, RefreshCw, Search } from "lucide-vue-next";
+import {
+  Download,
+  FileCode,
+  Network,
+  PanelRight,
+  Plus,
+  RefreshCw,
+  Save,
+  Search,
+  Undo2,
+} from "lucide-vue-next";
 import type { Command } from "@/lib/commands/types";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import { useCommandsStore } from "@/stores/commands.store";
+
+/** What the open table's rows offer the palette while it can be edited. */
+export interface SqliteEditCommands {
+  canEdit: () => boolean;
+  pending: () => number;
+  addRow: () => void;
+  save: () => void;
+  discard: () => void;
+}
 
 interface SqliteCommandDeps {
   hasDatabase: () => boolean;
@@ -13,6 +32,9 @@ interface SqliteCommandDeps {
   togglePane: () => void;
   exportFile: () => void;
   exportDump: () => void;
+  /** The open table's edits, when its rows are shown. */
+  edits: () => SqliteEditCommands | null;
+  showDiagram: () => void;
 }
 
 /**
@@ -21,7 +43,50 @@ interface SqliteCommandDeps {
  */
 export function useSqliteCommands(deps: SqliteCommandDeps) {
   const commands = useCommandsStore();
+  const editable = () => deps.edits()?.canEdit() === true;
+  const pending = () => (deps.edits()?.pending() ?? 0) > 0;
   useCommandProvider("screen.storage", (): Command[] => [
+    {
+      id: "data.sqlite.add-row",
+      title: "Add a row",
+      group: "Data",
+      icon: Plus,
+      binding: "mod+shift+n",
+      screen: true,
+      keywords: ["insert", "new", "row", "sqlite"],
+      when: editable,
+      run: () => deps.edits()?.addRow(),
+    },
+    {
+      id: "data.sqlite.save",
+      title: "Save changes",
+      group: "Data",
+      icon: Save,
+      screen: true,
+      keywords: ["write", "commit", "sqlite"],
+      when: () => editable() && pending(),
+      run: () => deps.edits()?.save(),
+    },
+    {
+      id: "data.sqlite.discard",
+      title: "Discard changes",
+      group: "Data",
+      icon: Undo2,
+      screen: true,
+      keywords: ["drop", "revert", "cancel", "sqlite"],
+      when: () => editable() && pending(),
+      run: () => deps.edits()?.discard(),
+    },
+    {
+      id: "data.sqlite.diagram",
+      title: "Show the diagram",
+      group: "Data",
+      icon: Network,
+      screen: true,
+      keywords: ["graph", "schema", "relations", "tables"],
+      when: deps.hasDatabase,
+      run: deps.showDiagram,
+    },
     {
       id: "data.sqlite.refresh",
       title: "Read the database again",

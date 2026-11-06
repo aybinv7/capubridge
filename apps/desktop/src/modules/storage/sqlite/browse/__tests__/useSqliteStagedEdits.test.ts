@@ -1,8 +1,11 @@
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 import { effectScope, ref } from "vue";
 import type { GridColumn, GridRow } from "@/shared/components/data/grid";
 import { useSqliteStagedEdits } from "../useSqliteStagedEdits";
 import type { SqliteStaged } from "../sqliteChangeset";
+
+const toast = vi.hoisted(() => ({ info: vi.fn() }));
+vi.mock("vue-sonner", () => ({ toast }));
 
 const columns: GridColumn[] = [
   { id: "id", title: "id", type: "integer", primaryKey: true },
@@ -87,6 +90,23 @@ describe("deleting rows is staged like any edit (S6, U2)", () => {
     staging.deleteRows(["[2]"]);
     staging.discard();
     expect(staging.states.value.size).toBe(0);
+    scope.stop();
+  });
+});
+
+describe("Discard from the edit bar (U8)", () => {
+  test("drops every change, and Undo in its toast brings them back", () => {
+    const { staging, scope } = setup();
+    staging.startEdit("[1]", "name");
+    staging.commit("green tea");
+    staging.deleteRows(["[2]"]);
+    toast.info.mockReset();
+    staging.discardWithUndo();
+    expect(staging.pending.value).toBe(0);
+    const options = toast.info.mock.calls[0]?.[1] as { action: { onClick: () => void } };
+    expect(toast.info.mock.calls[0]?.[0]).toBe("Dropped 2 changes");
+    options.action.onClick();
+    expect(staging.pending.value).toBe(2);
     scope.stop();
   });
 });

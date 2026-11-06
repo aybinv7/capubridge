@@ -36,9 +36,10 @@ const fileName = computed(() => props.savesTo?.split(/[\\/]/).pop() ?? "the file
     role="toolbar"
     aria-label="Changes to the file"
   >
-    <Button size="sm" variant="solid" @click="emit('addRow')">
+    <Button size="sm" variant="solid" content-class-name="gap-1.5" @click="emit('addRow')">
       <Plus :size="14" :stroke-width="1.8" />
       Add a row
+      <KeyCaps :keys="bindingTokens('mod+shift+n')" quiet />
     </Button>
     <span v-if="note" class="min-w-0 truncate text-xs text-foreground" role="status">
       {{ note }}

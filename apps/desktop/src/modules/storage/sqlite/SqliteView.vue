@@ -15,7 +15,7 @@ import { openSqliteFile } from "./openSqliteFile";
 import SqliteDatabasePane from "./SqliteDatabasePane.vue";
 import SqliteTablePane from "./SqliteTablePane.vue";
 import { sqliteTreeActions } from "./sqliteTreeActions";
-import { useSqliteCommands } from "./useSqliteCommands";
+import { useSqliteCommands, type SqliteEditCommands } from "./useSqliteCommands";
 import { sqliteRouteTo } from "./useSqliteLocation";
 import { useSqliteTab } from "./useSqliteTab";
 import { useSqliteTreeHandlers } from "./useSqliteTreeHandlers";
@@ -27,7 +27,10 @@ const { location, current, address, tables } = tab;
 const handlers = useSqliteTreeHandlers(tab, confirm.askAsync);
 
 const root = ref<HTMLElement | null>(null);
-const pane = ref<{ focusSearch: () => void } | null>(null);
+const pane = ref<{
+  focusSearch: () => void;
+  edits?: () => SqliteEditCommands | null;
+} | null>(null);
 const search = ref("");
 
 const showHidden = computed({
@@ -127,6 +130,11 @@ useSqliteCommands({
   togglePane: toggleRecordPane,
   exportFile: () => current.value && handlers.exportFile(current.value.db),
   exportDump: () => current.value && handlers.exportDump(current.value.db),
+  edits: () => pane.value?.edits?.() ?? null,
+  showDiagram: () => {
+    const target = location.target.value;
+    if (target) void router.push(sqliteRouteTo(target, "", "diagram"));
+  },
 });
 </script>
 

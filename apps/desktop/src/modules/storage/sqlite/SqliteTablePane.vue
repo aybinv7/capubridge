@@ -124,6 +124,7 @@ const identity = computed(() => {
 });
 
 defineExpose({
+  edits: () => (props.view === "rows" ? (browse.value?.edits ?? null) : null),
   focusSearch: () => {
     if (props.view === "sql") sql.value?.focus();
     else {

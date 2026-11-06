@@ -47,6 +47,7 @@ import SqliteBrowseToolbar from "./SqliteBrowseToolbar.vue";
 import SqliteColumnFilter from "./SqliteColumnFilter.vue";
 import SqliteEditBar from "./SqliteEditBar.vue";
 import type { SqliteStaged } from "./sqliteChangeset";
+import type { SqliteEditCommands } from "../useSqliteCommands";
 import { useSqliteStagedEdits } from "./useSqliteStagedEdits";
 
 const SHOW_AS_KEY = "capubridge:sqlite-show-as";
@@ -365,7 +366,16 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
+defineExpose({
+  focusSearch: () => toolbar.value?.focusSearch(),
+  edits: {
+    canEdit: () => !readOnly.value,
+    pending: () => staging.pending.value,
+    addRow: () => void staging.addRow(),
+    save: () => void staging.save(),
+    discard: () => staging.discardWithUndo(),
+  } satisfies SqliteEditCommands,
+});
 </script>
 
 <template>
@@ -378,7 +388,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
       :saves-to="savesTo ?? null"
       :unsaved="unsaved === true"
       @add-row="staging.addRow()"
-      @discard="staging.discard()"
+      @discard="staging.discardWithUndo()"
       @save="staging.save()"
       @save-file="emit('fileAction', 'save-file')"
       @save-as="emit('fileAction', 'save-as')"

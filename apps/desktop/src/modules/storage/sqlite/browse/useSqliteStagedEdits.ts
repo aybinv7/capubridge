@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, ref, shallowRef, type Ref } from "vue";
+import { toast } from "vue-sonner";
 import type {
   GridColumn,
   GridColumnType,
@@ -196,6 +197,27 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     staged.value = EMPTY_STAGED;
   }
 
+  /** Discard from the edit bar: drops everything, with Undo in the toast (U8). */
+  function discardWithUndo() {
+    if (saving.value) return;
+    const dropped = staged.value;
+    const count = stagedCount(dropped);
+    if (count === 0) return;
+    discard();
+    toast.info(count === 1 ? "Dropped 1 change" : `Dropped ${count} changes`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          if (stagedCount(staged.value) > 0) {
+            say("New changes were made since; the dropped ones stay dropped.");
+            return;
+          }
+          staged.value = dropped;
+        },
+      },
+    });
+  }
+
   async function save() {
     if (saving.value || pending.value === 0) return;
     editing.value = null;
@@ -227,6 +249,7 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     keepRows,
     isDeleting,
     discard,
+    discardWithUndo,
     save,
   };
 }
