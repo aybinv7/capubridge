@@ -1,6 +1,6 @@
 import { computed, ref, type Ref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import { isNativeAppTarget } from "@/lib/app-target";
 import { appActionCommand, appActionOutcome, appActionRequest } from "@/shared/apps/appActions";

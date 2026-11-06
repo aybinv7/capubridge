@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { PanelBottomOpen } from "lucide-vue-next";
-import { Toaster } from "@/components/ui/sonner";
+import AppToasts from "@/components/feedback/AppToasts.vue";
 import WindowControls from "@/components/layout/WindowControls.vue";
 import { useDrawerWindowCapture } from "@/composables/useDrawerWindowCapture";
 import { emitEvent } from "@/runtime/ipc/client";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { provideDrawerHost, provideDrawerToolbarSlot } from "@/shared/drawer/toolbarSlot";
 import { useDrawerStore } from "@/stores/drawer.store";
-import { useThemeStore } from "@/stores/theme.store";
 import { drawerViewFor, drawerViewIds } from "@/types/drawer.types";
 import DrawerBody from "./DrawerBody.vue";
 import DrawerViewSwitch from "./DrawerViewSwitch.vue";
@@ -20,7 +19,6 @@ import DrawerViewSwitch from "./DrawerViewSwitch.vue";
 const params = new URLSearchParams(window.location.search);
 const initial = drawerViewFor(params.get("drawer") ?? params.get("dock"))?.view ?? "logs";
 
-const themeStore = useThemeStore();
 const drawer = useDrawerStore();
 drawer.setView(initial);
 const toolbarSlot = provideDrawerToolbarSlot();
@@ -69,6 +67,6 @@ async function returnToDrawer() {
       </span>
     </header>
     <DrawerBody :views="drawerViewIds" :current="drawer.currentView" />
-    <Toaster position="bottom-left" :theme="themeStore.mode" :visible-toasts="3" :duration="4000" />
+    <AppToasts />
   </div>
 </template>

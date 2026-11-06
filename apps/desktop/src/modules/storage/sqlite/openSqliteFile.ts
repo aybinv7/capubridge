@@ -1,5 +1,5 @@
 import type { Router } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useSqliteFilesStore } from "@/modules/storage/stores/useSqliteFilesStore";
 import { pickSqliteFile } from "./sqliteImportExport";
 import { sqliteRouteTo } from "./useSqliteLocation";

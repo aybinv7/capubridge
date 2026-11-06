@@ -5,7 +5,7 @@ import { RotationError } from "../deviceRotation";
 import { useDeviceRotation } from "../useDeviceRotation";
 
 const toastError = vi.hoisted(() => vi.fn());
-vi.mock("vue-sonner", () => ({ toast: { error: toastError } }));
+vi.mock("@/lib/toast", () => ({ toast: { error: toastError } }));
 vi.mock("@/composables/useAdb", () => ({ useAdb: () => ({ shellCommand: vi.fn() }) }));
 
 function controllerWith(initial: RotationSettings) {

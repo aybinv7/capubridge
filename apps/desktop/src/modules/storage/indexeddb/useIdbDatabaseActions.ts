@@ -1,6 +1,6 @@
 import type { Ref } from "vue";
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { IDBDomain, IdbBlockedError, type IDBDatabaseInfo } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";

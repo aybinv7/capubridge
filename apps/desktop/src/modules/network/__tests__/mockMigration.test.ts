@@ -8,7 +8,7 @@ import { useMockStore } from "../stores/useMockStore";
 import { mockRuleExport, parseMockRuleExport } from "../mockRuleTransfer";
 import { createStorage } from "./storage";
 
-vi.mock("vue-sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+vi.mock("@/lib/toast", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
 const OLD_RULE = {
   id: "5945ab16",

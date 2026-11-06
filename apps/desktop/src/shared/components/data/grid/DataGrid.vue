@@ -8,7 +8,7 @@ import {
   type VisibilityState,
 } from "@tanstack/vue-table";
 import { Copy } from "lucide-vue-next";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   ContextMenu,
   ContextMenuContent,

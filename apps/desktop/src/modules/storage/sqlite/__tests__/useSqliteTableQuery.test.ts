@@ -10,7 +10,7 @@ interface Pending {
 
 const device = vi.hoisted(() => ({ pending: [] as Pending[], sql: [] as string[] }));
 
-vi.mock("vue-sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../sqliteReads", () => ({
   runQuery: (_address: unknown, sql: string) => {
     device.sql.push(sql);

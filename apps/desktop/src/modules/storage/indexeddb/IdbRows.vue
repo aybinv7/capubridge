@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { refDebounced, useDocumentVisibility, useNow } from "@vueuse/core";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button, Chip } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   cellToText,
   DataGrid,

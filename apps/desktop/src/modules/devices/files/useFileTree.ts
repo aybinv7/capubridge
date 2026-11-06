@@ -1,5 +1,5 @@
 import { computed, ref, shallowRef, triggerRef, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { FileEntry } from "@/types/adb.types";
 import { compareText } from "@/shared/format/collator";

@@ -14,7 +14,7 @@ import {
   type NodeRemoveChange,
   type ViewportTransform,
 } from "@vue-flow/core";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   applySelectionAction,
   getSelectedCanvasNodes,

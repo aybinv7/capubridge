@@ -35,7 +35,7 @@ vi.mock("@capubridge/cdp-protocol", () => ({
   IdbKeyConflictError: class extends Error {},
 }));
 vi.mock("@/composables/useCDP", () => ({ useCDP: () => ({ getClient: () => ({}) }) }));
-vi.mock("vue-sonner", () => ({
+vi.mock("@/lib/toast", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 

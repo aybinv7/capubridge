@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { OPFSFilesDomain, OPFSInspection } from "@capubridge/cdp-protocol";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { OpfsRow } from "./opfsModel";

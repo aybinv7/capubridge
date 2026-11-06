@@ -5,7 +5,7 @@ import { computed, createApp, defineComponent, h, nextTick, ref, type App } from
 import { createMemoryHistory, createRouter, type Router } from "vue-router";
 import type { SqliteTableInfo } from "@/types/sqlite.types";
 
-vi.mock("vue-sonner", () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/toast", () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
 const { useSqliteTabs } = await import("../useSqliteTabs");
 const { useSqliteLocation } = await import("../../useSqliteLocation");

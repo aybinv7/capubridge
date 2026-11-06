@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { ArrowUp, RefreshCw, Trash2 } from "lucide-vue-next";
 import { Button, Segmented, SegmentedButton } from "@capubridge/cladd";
 import {

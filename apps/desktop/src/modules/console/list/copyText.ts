@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 
 /** Copies `text` and says so; a failure is shown, never swallowed. */
 export async function copyText(text: string, what: string): Promise<void> {

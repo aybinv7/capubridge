@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { Braces, ChevronsDownUp, ChevronsUpDown } from "lucide-vue-next";
 import {
   hasObjectArgs,

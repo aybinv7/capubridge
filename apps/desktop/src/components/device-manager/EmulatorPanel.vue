@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { MonitorSmartphone, Play, RefreshCw, Square } from "lucide-vue-next";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { Button, Spinner, StatusDot } from "@capubridge/cladd";
 import { useEmulators } from "@/composables/useEmulators";
 import type { AndroidVirtualDevice } from "@/types/emulator.types";

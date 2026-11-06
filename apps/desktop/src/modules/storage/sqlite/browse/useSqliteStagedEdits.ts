@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, ref, shallowRef, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type {
   GridColumn,
   GridColumnType,

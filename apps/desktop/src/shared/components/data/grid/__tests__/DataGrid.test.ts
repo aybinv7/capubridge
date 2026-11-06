@@ -4,7 +4,7 @@ import { createApp, h, nextTick, type App } from "vue";
 import DataGrid from "../DataGrid.vue";
 import type { GridColumn, GridRow, GridSort, GridSummary } from "../types";
 
-vi.mock("vue-sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 if (!document.getElementById("app")) {
   const host = document.createElement("div");

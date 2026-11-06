@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onDeactivated, ref, watch } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import ChangeSummary from "@/modules/storage/frame/ChangeSummary.vue";
 import type { DataAction, DataProvenance } from "@/modules/storage/frame/dataFrame.types";
 import { useSqliteTableChangeOverlay } from "@/modules/storage/changes/useSqliteChangeOverlay";

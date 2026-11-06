@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { ArrowUpRight, KeyRound } from "lucide-vue-next";
 import { Button, SearchField } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { cellToText, formatCell } from "@/shared/components/data/grid";

@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChangesStore";
 import {

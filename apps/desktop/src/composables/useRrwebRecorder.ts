@@ -1,7 +1,7 @@
 import { buildInjectionScript } from "@/lib/replay/rrweb-inject-script";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 import type { useSessionWriter } from "./useSessionWriter";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { recordingDeadline } from "./recordingDeadline";
 
 type Writer = ReturnType<typeof useSessionWriter>;

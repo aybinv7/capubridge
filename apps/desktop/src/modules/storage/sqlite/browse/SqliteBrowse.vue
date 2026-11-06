@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   DataGrid,
   DataGridStatus,

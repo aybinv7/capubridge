@@ -1,5 +1,5 @@
 import { Copy, Eye, EyeOff, Pin, PinOff, RefreshCw, Trash2 } from "lucide-vue-next";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { DataAction, DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
 import type { useDataSidebarSettings } from "@/modules/storage/frame/useDataSidebarSettings";
 

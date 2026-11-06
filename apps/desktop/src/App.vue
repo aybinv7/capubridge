@@ -5,7 +5,7 @@ import UpdaterBootstrap from "@/components/UpdaterBootstrap.vue";
 import McpBridgeBootstrap from "@/components/McpBridgeBootstrap.vue";
 import ObservabilityBootstrap from "@/components/ObservabilityBootstrap.vue";
 import { CladdProvider } from "@capubridge/cladd";
-import { Toaster } from "@/components/ui/sonner";
+import AppToasts from "@/components/feedback/AppToasts.vue";
 import { useThemeStore } from "@/stores/theme.store";
 import { useNativeContextMenuGuard } from "@/composables/useNativeContextMenuGuard";
 import { drawerViewFor } from "@/types/drawer.types";
@@ -30,13 +30,7 @@ const DrawerWindow = isDrawerWindow
   <CladdProvider accent-color="brand" :theme="themeStore.mode" overlays-root="body">
     <template v-if="isMirrorWindow && MirrorWindow">
       <MirrorWindow />
-      <Toaster
-        class="mirror-toaster"
-        position="bottom-center"
-        :theme="themeStore.mode"
-        :visible-toasts="3"
-        :duration="4000"
-      />
+      <AppToasts />
     </template>
 
     <DrawerWindow v-else-if="isDrawerWindow && DrawerWindow" />
@@ -46,13 +40,7 @@ const DrawerWindow = isDrawerWindow
       <UpdaterBootstrap />
       <McpBridgeBootstrap />
       <ObservabilityBootstrap />
-      <Toaster
-        position="bottom-left"
-        :theme="themeStore.mode"
-        :rich-colors="true"
-        :visible-toasts="5"
-        :duration="4000"
-      />
+      <AppToasts />
     </template>
   </CladdProvider>
 </template>

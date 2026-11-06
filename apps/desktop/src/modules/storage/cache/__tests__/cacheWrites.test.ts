@@ -3,7 +3,7 @@ import { ref } from "vue";
 import type { CacheStorageDeleteResult, CacheStorageDomain } from "@capubridge/cdp-protocol";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
-vi.mock("vue-sonner", () => ({ toast }));
+vi.mock("@/lib/toast", () => ({ toast }));
 vi.mock("@capubridge/cdp-protocol", () => ({
   CacheStorageGoneError: class extends Error {},
   CacheStorageChangedError: class extends Error {

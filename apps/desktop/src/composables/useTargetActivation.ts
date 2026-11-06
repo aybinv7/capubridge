@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useConnectionStore } from "@/stores/connection.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useMirrorStore } from "@/stores/mirror.store";

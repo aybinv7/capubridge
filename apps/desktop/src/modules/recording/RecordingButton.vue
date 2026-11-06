@@ -3,7 +3,7 @@ import { ref, watch, onUnmounted } from "vue";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useRecordingSession } from "@/composables/useRecordingSession";
 import RecordingConfigModal from "./RecordingConfigModal.vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@capubridge/cladd";
 
 const recordingStore = useRecordingStore();

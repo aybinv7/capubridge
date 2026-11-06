@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import type { AdbPackage } from "@/types/adb.types";
 import { appDisplayName } from "@/shared/apps/appIdentity";

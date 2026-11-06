@@ -1,5 +1,5 @@
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
 import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChangesStore";

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { RefreshCw } from "lucide-vue-next";
 import { Button, Segmented, SegmentedButton, StatusDot } from "@capubridge/cladd";
 import type { StoreInfo } from "@capubridge/cdp-protocol";

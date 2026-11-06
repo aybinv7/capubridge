@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { SqliteSavedOpenedFile } from "@/runtime/ipc/contracts/storage";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";

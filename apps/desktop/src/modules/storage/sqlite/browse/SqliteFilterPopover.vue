@@ -10,7 +10,7 @@ import {
   InputGroupInput,
   Select,
 } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import KeyCaps from "@/components/command/KeyCaps.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { FILTER_OPERATORS, chipLabel } from "./sqliteFilters";

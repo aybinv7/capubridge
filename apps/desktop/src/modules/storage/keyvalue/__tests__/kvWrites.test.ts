@@ -7,7 +7,7 @@ import type {
 } from "@capubridge/cdp-protocol";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
-vi.mock("vue-sonner", () => ({ toast }));
+vi.mock("@/lib/toast", () => ({ toast }));
 vi.mock("@capubridge/cdp-protocol", () => ({
   KeyValueDeleteError: class extends Error {},
   KeyValueConflictError: class extends Error {

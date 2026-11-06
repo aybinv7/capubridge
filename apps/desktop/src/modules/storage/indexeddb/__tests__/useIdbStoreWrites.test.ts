@@ -10,7 +10,7 @@ import {
 import { useIdbStoreWrites } from "../useIdbStoreWrites";
 import type { IdbOpenDatabase } from "../useIdbCatalog";
 
-vi.mock("vue-sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+vi.mock("@/lib/toast", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const open: IdbOpenDatabase = {
   mode: "live",

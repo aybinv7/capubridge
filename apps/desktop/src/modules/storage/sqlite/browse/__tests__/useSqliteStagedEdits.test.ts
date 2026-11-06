@@ -5,7 +5,7 @@ import { useSqliteStagedEdits } from "../useSqliteStagedEdits";
 import type { SqliteStaged } from "../sqliteChangeset";
 
 const toast = vi.hoisted(() => ({ info: vi.fn() }));
-vi.mock("vue-sonner", () => ({ toast }));
+vi.mock("@/lib/toast", () => ({ toast }));
 
 const columns: GridColumn[] = [
   { id: "id", title: "id", type: "integer", primaryKey: true },

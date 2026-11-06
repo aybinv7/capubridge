@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { IDBDomain, IDBRecord } from "@capubridge/cdp-protocol";
 import { useIndexedDBChangesStore } from "@/modules/storage/stores/useIndexedDBChangesStore";
 import { buildStoreKey, serializeKey } from "@/modules/storage/changes/indexeddbChanges.service";

@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { refDebounced, useStorage } from "@vueuse/core";
 import { Button, Spinner } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import { PACKAGE_CACHE_STALE_MS, useAppPackages } from "@/composables/useAppPackages";
 import { useDevicesStore } from "@/stores/devices.store";

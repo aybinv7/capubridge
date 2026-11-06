@@ -1,5 +1,5 @@
 import type { Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { buildRowKeyFromNames } from "@/modules/storage/changes/sqliteRowKey";
 import type { RowTarget } from "../quick/sqliteKeyInput";
 import type { SqliteAddress } from "../sqliteAddress";

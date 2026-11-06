@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { MockTargetConfig } from "@/types/mock.types";
 import { LEGACY_KEYS, migrateLegacyRules } from "./mockMigration";
 import { indexedDbMockPersistence, type MockRulesPersistence } from "./mockRulesDb";

@@ -1,5 +1,5 @@
 import { computed, ref, shallowRef, watch, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import {
   RotationError,

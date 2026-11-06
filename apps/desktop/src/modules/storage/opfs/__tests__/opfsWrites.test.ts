@@ -3,7 +3,7 @@ import { ref } from "vue";
 import type { OPFSDeleteResult, OPFSFilesDomain, OPFSInspection } from "@capubridge/cdp-protocol";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
-vi.mock("vue-sonner", () => ({ toast }));
+vi.mock("@/lib/toast", () => ({ toast }));
 
 const { deleteQuestion, opfsWrites } = await import("../opfsWrites");
 const { useOpfsWrites } = await import("../useOpfsWrites");

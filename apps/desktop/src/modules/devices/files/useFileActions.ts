@@ -1,5 +1,5 @@
 import { computed, shallowRef, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import { isFolderEntry, type DeviceFileListEntry } from "./filePaths";

@@ -44,7 +44,7 @@ vi.mock("@/composables/useAdb", () => ({
   }),
 }));
 
-vi.mock("vue-sonner", () => ({
+vi.mock("@/lib/toast", () => ({
   toast: {
     success: (title: string) => calls.toasts.push({ kind: "success", title }),
     error: (title: string) => calls.toasts.push({ kind: "error", title }),

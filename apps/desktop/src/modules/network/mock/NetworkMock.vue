@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useStorage } from "@vueuse/core";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useAppPackages } from "@/composables/useAppPackages";
 import { targetAppName } from "@/lib/target-app-name";

@@ -1,5 +1,5 @@
 import { ref, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import type {
   StorageGraphNodeAnnotation,

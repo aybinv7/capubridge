@@ -3,7 +3,7 @@ import { effectScope, ref } from "vue";
 import type { FileEntry } from "@/types/adb.types";
 
 const listings = vi.hoisted(() => new Map<string, FileEntry[]>());
-vi.mock("vue-sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("@/lib/toast", () => ({ toast: { error: vi.fn() } }));
 vi.mock("@/runtime/ipc/client", () => ({
   invokeCommand: async (_name: string, args: { path: string }) => listings.get(args.path) ?? [],
 }));

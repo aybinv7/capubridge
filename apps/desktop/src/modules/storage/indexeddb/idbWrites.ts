@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { IdbKeyConflictError, type IDBDomain } from "@capubridge/cdp-protocol";
 import type { IDBRecord } from "@/types/storage.types";
 

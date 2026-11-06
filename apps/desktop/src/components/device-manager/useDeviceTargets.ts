@@ -1,6 +1,6 @@
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useConnectionStore } from "@/stores/connection.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useTargetsStore } from "@/stores/targets.store";

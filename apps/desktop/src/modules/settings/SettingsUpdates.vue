@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 import { getVersion } from "@tauri-apps/api/app";
 import { RefreshCw, Download, CheckCircle2, AlertCircle, RotateCw } from "lucide-vue-next";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useUpdaterStore } from "@/stores/updater.store";

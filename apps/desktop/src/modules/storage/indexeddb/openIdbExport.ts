@@ -1,5 +1,5 @@
 import type { Router } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { pickIdbExport } from "./idbExportFile";
 import { useIdbSnapshotStore } from "./useIdbSnapshotStore";
 

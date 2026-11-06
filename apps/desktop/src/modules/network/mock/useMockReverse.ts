@@ -1,5 +1,5 @@
 import { computed, ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { invokeCommand } from "@/runtime/ipc/client";
 import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useDevicesStore } from "@/stores/devices.store";

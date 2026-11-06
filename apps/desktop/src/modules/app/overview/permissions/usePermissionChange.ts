@@ -1,5 +1,5 @@
 import { computed, ref, shallowRef, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { AppPermission, AppPermissionsData } from "@/types/app-inspector.types";

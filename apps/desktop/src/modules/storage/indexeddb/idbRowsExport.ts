@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { fileStem, saveFileAs } from "@/lib/download";
 import { toCsv, type GridColumn, type GridRow } from "@/shared/components/data/grid";
 import type { IDBRecord } from "@capubridge/cdp-protocol";

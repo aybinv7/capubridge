@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { Copy, RefreshCw } from "lucide-vue-next";
 import { Button, Spinner } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import { useCommandProvider } from "@/composables/useCommandProvider";
 import { useDevicesStore } from "@/stores/devices.store";

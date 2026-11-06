@@ -1,5 +1,5 @@
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   ArrowUpRight,
   CircleStop,

@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { utf8ToBase64 } from "@/lib/base64";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { NetworkEntry } from "@/types/network.types";

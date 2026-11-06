@@ -14,7 +14,7 @@ import type { RecordingConfig, SessionManifest, ConsoleArgRecord } from "@/types
 import type { ConsoleArg } from "@/types/console.types";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 import { recordingDeadline } from "./recordingDeadline";
 import { forwardConsoleTrack } from "@/lib/recording/consoleTrackFeed";

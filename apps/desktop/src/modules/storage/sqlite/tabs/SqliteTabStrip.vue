@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from "vue";
 import { useResizeObserver } from "@vueuse/core";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   ContextMenu,
   ContextMenuContent,

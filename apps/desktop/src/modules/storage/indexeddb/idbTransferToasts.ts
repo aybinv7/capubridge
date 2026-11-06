@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { formatBytes } from "@/shared/format/numbers";
 import type { IdbTransferProgress } from "./idbTransfer.types";
 

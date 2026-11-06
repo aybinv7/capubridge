@@ -3,7 +3,7 @@ import { IdbKeyConflictError, type IDBDomain } from "@capubridge/cdp-protocol";
 import { idbWrites } from "../idbWrites";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
-vi.mock("vue-sonner", () => ({ toast }));
+vi.mock("@/lib/toast", () => ({ toast }));
 
 const at = { origin: "https://app", database: "db", store: "items" };
 

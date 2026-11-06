@@ -1,5 +1,5 @@
 import { computed, onMounted, reactive, ref, watch, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";

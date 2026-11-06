@@ -1,6 +1,6 @@
 import { computed, watch } from "vue";
 import { useRouter, type RouteLocationRaw } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import { useSqliteTabsStore } from "@/modules/storage/stores/useSqliteTabsStore";
 import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";

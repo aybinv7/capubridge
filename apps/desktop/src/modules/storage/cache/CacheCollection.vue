@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { RefreshCw, Trash2 } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";

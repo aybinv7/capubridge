@@ -3,7 +3,7 @@
 // update becomes available. Mounted once in the main app window only.
 import { onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useUpdaterStore } from "@/stores/updater.store";
 
 const updater = useUpdaterStore();

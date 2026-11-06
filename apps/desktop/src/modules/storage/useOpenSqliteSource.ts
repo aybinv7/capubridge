@@ -1,6 +1,6 @@
 import { onScopeDispose, ref } from "vue";
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { invokeCommand, listenEvent } from "@/runtime/ipc/client";
 import { useSqlSessionStore } from "@/stores/sqlSession.store";
 import { useTargetsStore } from "@/stores/targets.store";

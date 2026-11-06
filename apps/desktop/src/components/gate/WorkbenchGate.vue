@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { Check, CircleX, Copy, TriangleAlert } from "lucide-vue-next";
 import { Button, Spinner } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   Empty,
   EmptyContent,

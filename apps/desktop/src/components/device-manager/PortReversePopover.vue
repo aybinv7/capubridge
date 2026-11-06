@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { ArrowLeftRight, ArrowRight, Plus, X } from "lucide-vue-next";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { Button, Input, Popover, Spinner } from "@capubridge/cladd";
 import { useAdb } from "@/composables/useAdb";
 import type { ReverseRule } from "@/types/adb.types";

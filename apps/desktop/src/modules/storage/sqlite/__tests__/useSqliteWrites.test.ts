@@ -18,7 +18,7 @@ const toast = vi.hoisted(() => ({
   dismiss: vi.fn(),
 }));
 
-vi.mock("vue-sonner", () => ({ toast }));
+vi.mock("@/lib/toast", () => ({ toast }));
 vi.mock("@/runtime/ipc/client", () => ({
   invokeCommand: vi.fn(async (command: string, args: Record<string, unknown>) => {
     ipc.calls.push({ command, args });

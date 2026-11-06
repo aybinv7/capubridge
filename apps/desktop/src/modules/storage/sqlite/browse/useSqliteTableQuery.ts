@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { toCsv, type GridSort } from "@/shared/components/data/grid";
 import { downloadText, fileStem } from "@/lib/download";
 import type { SqliteQueryResult } from "@/types/sqlite.types";

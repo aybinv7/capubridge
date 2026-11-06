@@ -1,6 +1,6 @@
 import { computed, ref, shallowRef } from "vue";
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { Command } from "@/lib/commands/types";
 import { resolveKeydown, type SequenceState } from "@/lib/commands/dispatch";
 import { isEditableTarget } from "@/lib/commands/editable";

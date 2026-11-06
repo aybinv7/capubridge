@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { ArrowUpRight } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import { useAdb } from "@/composables/useAdb";

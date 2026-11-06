@@ -1,5 +1,5 @@
 import type { Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import {
   ArrowLeftRight,
   ChartNoAxesGantt,

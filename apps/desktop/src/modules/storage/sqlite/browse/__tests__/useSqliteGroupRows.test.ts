@@ -6,7 +6,7 @@ import type { SqliteQueryResult } from "@/types/sqlite.types";
 
 const device = vi.hoisted(() => ({ sql: [] as string[], rows: new Map<string, unknown[][]>() }));
 
-vi.mock("vue-sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("../../sqliteReads", () => ({
   runQuery: (_address: unknown, sql: string): Promise<SqliteQueryResult> => {
     device.sql.push(sql);

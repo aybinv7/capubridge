@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useAdb } from "@/composables/useAdb";
 import type { ADBDevice } from "@/types/adb.types";

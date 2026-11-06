@@ -8,7 +8,7 @@ import {
 } from "@/modules/network/stores/useMockPersistence";
 import { createStorage } from "./storage";
 
-vi.mock("vue-sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+vi.mock("@/lib/toast", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
 let persistence: ReturnType<typeof memoryMockPersistence>;
 

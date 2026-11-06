@@ -1,5 +1,5 @@
 import { computed, ref, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { CacheExpectation, CacheStorageDomain } from "@capubridge/cdp-protocol";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { CacheRow } from "./cacheModel";

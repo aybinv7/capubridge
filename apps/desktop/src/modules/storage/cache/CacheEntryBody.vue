@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { CacheStorageEntryDetail } from "@capubridge/cdp-protocol";
 import BodyView from "@/shared/http/BodyView.vue";
 import DetailsState from "@/shared/http/DetailsState.vue";

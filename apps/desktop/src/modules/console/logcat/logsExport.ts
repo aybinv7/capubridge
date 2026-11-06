@@ -1,4 +1,4 @@
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { fileStem, saveFileAs } from "@/lib/download";
 import { formatLogcatLine } from "@/lib/logcat/logcatEntry";
 import type { RingBuffer } from "@/lib/ring-buffer";

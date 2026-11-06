@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef, watch } from "vue";
 import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { Button, Popover } from "@capubridge/cladd";
 import { useTimelineStore } from "@/stores/timeline.store";
 import {

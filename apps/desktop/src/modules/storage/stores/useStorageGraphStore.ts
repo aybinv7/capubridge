@@ -1,5 +1,5 @@
 import { ref, watch } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { defineStore } from "pinia";
 import type {
   StorageGraphGroupRecord,

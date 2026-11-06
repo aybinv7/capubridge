@@ -2,7 +2,7 @@
 import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
 import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import { refDebounced } from "@vueuse/core";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { Lock, PanelRight, Trash2 } from "lucide-vue-next";
 import { Button, SearchField } from "@capubridge/cladd";
 import type { OPFSDomain } from "@capubridge/cdp-protocol";

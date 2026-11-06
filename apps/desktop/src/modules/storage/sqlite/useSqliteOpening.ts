@@ -1,5 +1,5 @@
 import { ref, watch } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useJeepSqlite } from "@/composables/useStorage";
 import { useOpfsSnapshotCache } from "@/modules/storage/opfsSnapshotCache";
 import { useOpenSqliteSource } from "@/modules/storage/useOpenSqliteSource";

@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { MockRule } from "@/types/mock.types";
 import { exportMockRule, importMockRule } from "../mockRuleTransfer";
 import { useMockStore } from "../stores/useMockStore";

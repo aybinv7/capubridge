@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { ArrowRight, ArrowUpRight, Play } from "lucide-vue-next";
 import { Button, Surface } from "@capubridge/cladd";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import { PACKAGE_CACHE_STALE_MS, useAppPackages } from "@/composables/useAppPackages";
 import { targetAppName } from "@/lib/target-app-name";

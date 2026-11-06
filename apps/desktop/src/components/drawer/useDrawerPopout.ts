@@ -1,5 +1,5 @@
 import { onScopeDispose } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { listenEvent } from "@/runtime/ipc/client";
 import { useDrawerStore } from "@/stores/drawer.store";
 import { drawerViewIds, type DrawerView } from "@/types/drawer.types";

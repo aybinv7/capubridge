@@ -1,5 +1,5 @@
 import { computed, shallowRef, watch, type Ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { aggregateValues } from "./aggregates";
 import { toJsonRows, toTsv } from "./clipboard";
 import { isStructural } from "./gridSections";

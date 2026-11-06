@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import { invokeCommand, listenEvent } from "@/runtime/ipc/client";
 import { formatBytes } from "@/shared/format/numbers";
 import { useTargetsStore } from "@/stores/targets.store";

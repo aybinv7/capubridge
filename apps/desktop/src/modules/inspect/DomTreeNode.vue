@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, watch } from "vue";
 import { ChevronRight } from "lucide-vue-next";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import type { DOMNode, DOMAttribute } from "@/types/inspect.types";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useElementMutations } from "./useElementMutations";

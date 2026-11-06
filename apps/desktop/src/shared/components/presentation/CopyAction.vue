@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from "vue";
 import { Check, Copy } from "lucide-vue-next";
-import { toast } from "vue-sonner";
+import { toast } from "@/lib/toast";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 
 const props = defineProps<{ value: string; label: string }>();
