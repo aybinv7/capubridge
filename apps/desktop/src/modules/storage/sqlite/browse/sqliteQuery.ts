@@ -127,6 +127,18 @@ export function buildGroupQuery(
   return `SELECT ${ident}, COUNT(*) AS "rows" FROM ${quoteIdent(table)}${whereSql(where)} GROUP BY ${ident} ORDER BY "rows" DESC, ${ident} LIMIT ${Math.max(1, Math.floor(limit))} OFFSET ${Math.max(0, Math.floor(offset))}`;
 }
 
+/**
+ * The rows of one group under the current WHERE, sort and tie-break: NULL matches with
+ * `IS NULL`, wide integers keep every digit, and a BLOB read only in part throws
+ * (`SqlitePartialValueError`) instead of matching half a value.
+ */
+export function buildGroupRowsQuery(query: PageQuery & { column: string; value: unknown }): string {
+  return buildPageQuery({
+    ...query,
+    where: andWhere(query.where, predicate(query.column, "=", query.value)),
+  });
+}
+
 export function buildGroupCountQuery(table: string, where: string, column: string): string {
   return `SELECT COUNT(*) AS total FROM (SELECT 1 FROM ${quoteIdent(table)}${whereSql(where)} GROUP BY ${quoteIdent(column)})`;
 }
