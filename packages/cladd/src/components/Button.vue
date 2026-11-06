@@ -87,11 +87,16 @@ const surfaceProps = computed(() => ({
     ? { level: d.value.surfaceLevel, variant: d.value.variant }
     : undefined),
 }));
+const isNativeButton = computed(() => d.value.as === 'button');
 const rootProps = computed(() => {
   const { class: _consumerClass, ...rest } = attrs;
-  return { ...surfaceProps.value, ...rest };
+  const type = isNativeButton.value ? (rest.type ?? 'button') : rest.type;
+  return {
+    ...surfaceProps.value,
+    ...rest,
+    ...(type === undefined ? {} : { type }),
+  };
 });
-const isNativeButton = computed(() => d.value.as === 'button');
 const radii = computed(() =>
   roundedClasses(d.value.size, d.value.rounded, d.value.multiline),
 );

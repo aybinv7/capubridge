@@ -519,3 +519,28 @@ test('renders every pixel-contract fixture size and state', () => {
   ).toBeGreaterThan(1);
   mounted.app.unmount();
 });
+
+test('a native button never submits its form unless it asks to', () => {
+  const plain = mountTree(
+    h(Button, { 'data-testid': 'plain' }, { default: () => 'Open' }),
+  );
+  expect(byTestId(plain.root, 'plain').getAttribute('type')).toBe('button');
+
+  const submit = mountTree(
+    h(
+      Button,
+      { 'data-testid': 'submit', type: 'submit' },
+      { default: () => 'Save' },
+    ),
+  );
+  expect(byTestId(submit.root, 'submit').getAttribute('type')).toBe('submit');
+
+  const link = mountTree(
+    h(
+      Button,
+      { 'data-testid': 'link', as: 'a', href: '#' },
+      { default: () => 'Docs' },
+    ),
+  );
+  expect(byTestId(link.root, 'link').hasAttribute('type')).toBe(false);
+});
