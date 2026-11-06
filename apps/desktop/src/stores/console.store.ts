@@ -10,25 +10,27 @@ import { useDockStore } from "@/stores/dock.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
 import { createConsoleBuffer } from "@/lib/console/consoleBuffer";
-import {
-  buildSourceLabel,
-  formatTimestamp,
-  isRecord,
-  normalizeTimestamp,
-  readFrameSource,
-} from "@/lib/console/consoleFormat";
+import { formatTimestamp, isRecord } from "@/lib/console/consoleFormat";
 import { STREAM_CAPS } from "@/lib/stream-caps";
+import { withTimeout } from "@/lib/with-timeout";
 import type { CDPTarget } from "@/types/cdp.types";
 import type {
   ConsoleArg,
   ConsoleEntry,
-  ConsoleEntryLevel,
   ConsoleExceptionEntry,
   ReplHistoryEntry,
 } from "@/types/console.types";
-import { parseRemoteValue, flattenArgsForMessage } from "@/lib/console-parse";
+import { parseRemoteValue } from "@/lib/console-parse";
+import {
+  buildId,
+  exceptionEntry,
+  logEventEntry,
+  runtimeConsoleEntry,
+  type ConsoleEventContext,
+} from "@/lib/console/consoleEvents";
 
 const maxReplEntries = 80;
+const replTimeoutMs = 30_000;
 const initialRetryDelay = 500;
 const maximumRetryDelay = 8_000;
 
@@ -39,44 +41,8 @@ function trimList<T>(items: T[], maxItems: number): T[] {
   return items.length > maxItems ? items.slice(items.length - maxItems) : items;
 }
 
-function buildId(parts: Array<string | number | null | undefined>) {
-  return parts.map((part) => (part == null ? "null" : String(part))).join(":");
-}
-
-function runtimeLevelFromType(type: string): ConsoleEntryLevel {
-  if (type === "warning") {
-    return "warn";
-  }
-
-  if (type === "error" || type === "assert") {
-    return "error";
-  }
-
-  if (type === "info") {
-    return "info";
-  }
-
-  if (type === "debug" || type === "trace" || type === "dir" || type === "dirxml") {
-    return "debug";
-  }
-
-  return "log";
-}
-
-function logLevelFromType(type: string): ConsoleEntryLevel {
-  if (type === "verbose" || type === "info") {
-    return "info";
-  }
-
-  if (type === "warning") {
-    return "warn";
-  }
-
-  if (type === "error") {
-    return "error";
-  }
-
-  return "log";
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export const useConsoleStore = defineStore("console", () => {
@@ -117,13 +83,18 @@ export const useConsoleStore = defineStore("console", () => {
   let initializePromise: Promise<void> | null = null;
   let stopWatchHandle: WatchStopHandle | null = null;
   let clientCleanups: ClientCleanup[] = [];
-  let groupStack: string[] = [];
+
   let idCounter = 0;
   let bindingPromise: Promise<void> | null = null;
   let bindingTargetId: string | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retryDelay = initialRetryDelay;
   const pendingGroups = new Map<string, ConsoleEntry>();
+  const eventContext: ConsoleEventContext = {
+    nextSeq: () => ++idCounter,
+    groupStack: [],
+    findGroup: (id) => pendingGroups.get(id) ?? buffer.findGroup(id),
+  };
 
   /** Appends a batch to the console ring and tells subscribers. Exposed for measurement. */
   function flushEntries(batch: readonly ConsoleEntry[]) {
@@ -160,7 +131,7 @@ export const useConsoleStore = defineStore("console", () => {
     buffer.clearEntries();
     entryVersion.value += 1;
     levelCounts.value = buffer.counts();
-    groupStack = [];
+    eventContext.groupStack.length = 0;
   }
 
   function clearExceptions() {
@@ -222,154 +193,18 @@ export const useConsoleStore = defineStore("console", () => {
   }
 
   function handleRuntimeConsole(targetId: string, payload: unknown) {
-    const params = isRecord(payload) ? payload : {};
-    const runtimeType = typeof params.type === "string" ? params.type : "log";
-
-    if (runtimeType === "endGroup") {
-      groupStack.pop();
-      return;
-    }
-    if (runtimeType === "clear") return;
-
-    const isGroup = runtimeType === "startGroup" || runtimeType === "startGroupCollapsed";
-    const groupCollapsed = runtimeType === "startGroupCollapsed";
-    const rawParentId = groupStack[groupStack.length - 1] ?? null;
-
-    const timestamp = normalizeTimestamp(params.timestamp);
-    const rawArgs = Array.isArray(params.args) ? params.args : [];
-    const args = rawArgs.map((a) => parseRemoteValue(a));
-    const stackTrace = isRecord(params.stackTrace) ? params.stackTrace : null;
-    const callFrames = Array.isArray(stackTrace?.callFrames) ? stackTrace.callFrames : [];
-    const frame = isRecord(callFrames[0]) ? callFrames[0] : null;
-    const sourceDetails = readFrameSource(frame);
-    const message = flattenArgsForMessage(args) || runtimeType;
-
-    if (isGroup && rawParentId) {
-      const parent = pendingGroups.get(rawParentId) ?? buffer.findGroup(rawParentId);
-      if (
-        parent &&
-        parent.isGroup &&
-        parent.message === message &&
-        parent.source === sourceDetails.source
-      ) {
-        groupStack.push(rawParentId);
-        return;
-      }
-    }
-
-    const seq = ++idCounter;
-    const id = buildId([targetId, "runtime", timestamp, runtimeType, seq]);
-    const parentId = rawParentId === id ? null : rawParentId;
-
-    pushConsoleEntry({
-      seq,
-      id,
-      targetId,
-      timestamp,
-      timestampLabel: formatTimestamp(timestamp),
-      level: runtimeLevelFromType(runtimeType),
-      source: sourceDetails.source,
-      message,
-      args,
-      parentId,
-      isGroup,
-      groupCollapsed,
-      origin: "runtime",
-      type: runtimeType,
-      url: sourceDetails.url,
-      lineNumber: sourceDetails.lineNumber,
-      columnNumber: sourceDetails.columnNumber,
-    });
-
-    if (isGroup) {
-      groupStack.push(id);
+    const entry = runtimeConsoleEntry(targetId, payload, eventContext);
+    if (entry) {
+      pushConsoleEntry(entry);
     }
   }
 
   function handleLogEntry(targetId: string, payload: unknown) {
-    const params = isRecord(payload) ? payload : {};
-    const entry = isRecord(params.entry) ? params.entry : {};
-    const sourceType = typeof entry.source === "string" ? entry.source : "log";
-    const levelType = typeof entry.level === "string" ? entry.level : "info";
-    const timestamp = normalizeTimestamp(entry.timestamp);
-    const url = typeof entry.url === "string" && entry.url ? entry.url : null;
-    const lineNumber =
-      typeof entry.lineNumber === "number" && Number.isFinite(entry.lineNumber)
-        ? entry.lineNumber + 1
-        : null;
-    const source = buildSourceLabel(url, lineNumber, null) || sourceType;
-    const message = typeof entry.text === "string" && entry.text ? entry.text : sourceType;
-    const args: ConsoleArg[] = [{ kind: "primitive", text: message }];
-    const seq = ++idCounter;
-    const id = buildId([targetId, "log", timestamp, levelType, seq]);
-    const rawParentId = groupStack[groupStack.length - 1] ?? null;
-    const parentId = rawParentId === id ? null : rawParentId;
-
-    pushConsoleEntry({
-      seq,
-      id,
-      targetId,
-      timestamp,
-      timestampLabel: formatTimestamp(timestamp),
-      level: logLevelFromType(levelType),
-      source,
-      message,
-      args,
-      parentId,
-      isGroup: false,
-      groupCollapsed: false,
-      origin: "log",
-      type: levelType,
-      url,
-      lineNumber,
-      columnNumber: null,
-    });
+    pushConsoleEntry(logEventEntry(targetId, payload, eventContext));
   }
 
   function handleRuntimeException(targetId: string, payload: unknown) {
-    const params = isRecord(payload) ? payload : {};
-    const details = isRecord(params.exceptionDetails) ? params.exceptionDetails : {};
-    const timestamp = normalizeTimestamp(params.timestamp);
-    const stackTrace = isRecord(details.stackTrace) ? details.stackTrace : null;
-    const callFrames = Array.isArray(stackTrace?.callFrames) ? stackTrace.callFrames : [];
-    const frame = isRecord(callFrames[0]) ? callFrames[0] : null;
-    const sourceDetails = readFrameSource(frame);
-    const exception = isRecord(details.exception) ? details.exception : null;
-    const stack = callFrames
-      .filter((frameItem): frameItem is Record<string, unknown> => isRecord(frameItem))
-      .map((frameItem) => {
-        const fn =
-          typeof frameItem.functionName === "string" && frameItem.functionName
-            ? frameItem.functionName
-            : "(anonymous)";
-        const url =
-          typeof frameItem.url === "string" && frameItem.url
-            ? buildSourceLabel(
-                frameItem.url,
-                typeof frameItem.lineNumber === "number" ? frameItem.lineNumber + 1 : null,
-                typeof frameItem.columnNumber === "number" ? frameItem.columnNumber + 1 : null,
-              )
-            : "runtime";
-        return `${fn} @ ${url}`;
-      });
-    const message =
-      (typeof exception?.description === "string" && exception.description) ||
-      (typeof details.text === "string" && details.text) ||
-      "Unhandled exception";
-
-    pushException({
-      seq: ++idCounter,
-      id: buildId([targetId, "exception", timestamp, sourceDetails.source, message]),
-      targetId,
-      timestamp,
-      timestampLabel: formatTimestamp(timestamp),
-      message,
-      source: sourceDetails.source,
-      url: sourceDetails.url,
-      lineNumber: sourceDetails.lineNumber,
-      columnNumber: sourceDetails.columnNumber,
-      stack,
-    });
+    pushException(exceptionEntry(targetId, payload, () => ++idCounter));
   }
 
   function findTarget(targetId: string): CDPTarget | null {
@@ -533,9 +368,56 @@ export const useConsoleStore = defineStore("console", () => {
       await runSessionEffect(detachConsoleTargetEffect(serial), {
         operation: "session.detachConsoleTarget",
       });
-    } catch (error) {
-      console.warn("Failed to detach console session lease", error);
+    } catch (err) {
+      error.value = `Could not release the previous device's console: ${describeError(err)}`;
     }
+  }
+
+  async function attachLease(serial: string, targetId: string): Promise<boolean> {
+    try {
+      await runSessionEffect(attachConsoleTargetEffect(serial, targetId), {
+        operation: "session.attachConsoleTarget",
+      });
+      return true;
+    } catch (err) {
+      if (leasedTargetId.value !== targetId) {
+        return false;
+      }
+      error.value = `Could not attach the console: ${describeError(err)}`;
+      captureStatus.value = "error";
+      clearRetry();
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (leasedTargetId.value === targetId && leaseConsumers.value > 0) {
+          void attachAndBind(serial, targetId);
+        }
+      }, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, maximumRetryDelay);
+      return false;
+    }
+  }
+
+  async function attachAndBind(serial: string, targetId: string) {
+    if (await attachLease(serial, targetId)) {
+      await bindLeasedClient();
+    }
+  }
+
+  /** Tries to attach and connect again now, instead of waiting for the next automatic retry. */
+  async function retry() {
+    const targetId = leasedTargetId.value;
+    if (!targetId || leaseConsumers.value <= 0) {
+      return;
+    }
+    clearRetry();
+    retryDelay = initialRetryDelay;
+    error.value = null;
+    captureStatus.value = "connecting";
+    if (leasedSerial.value) {
+      await attachAndBind(leasedSerial.value, targetId);
+      return;
+    }
+    await bindLeasedClient();
   }
 
   async function syncLease(target: CDPTarget | null) {
@@ -568,9 +450,8 @@ export const useConsoleStore = defineStore("console", () => {
     }
 
     if (nextSerial) {
-      await runSessionEffect(attachConsoleTargetEffect(nextSerial, nextTargetId), {
-        operation: "session.attachConsoleTarget",
-      });
+      await attachAndBind(nextSerial, nextTargetId);
+      return;
     }
 
     await bindLeasedClient();
@@ -631,16 +512,17 @@ export const useConsoleStore = defineStore("console", () => {
     const timestamp = Date.now();
 
     try {
-      const result = await client.send<{ result?: unknown; exceptionDetails?: unknown }>(
-        "Runtime.evaluate",
-        {
+      const result = await withTimeout(
+        client.send<{ result?: unknown; exceptionDetails?: unknown }>("Runtime.evaluate", {
           expression: normalizedExpression,
           awaitPromise: true,
           returnByValue: true,
           replMode: true,
           userGesture: true,
           generatePreview: true,
-        },
+        }),
+        replTimeoutMs,
+        `No answer after ${replTimeoutMs / 1000} s. The expression may still be running in the app.`,
       );
 
       const response = isRecord(result) ? result : {};
@@ -751,6 +633,7 @@ export const useConsoleStore = defineStore("console", () => {
     clearConsole,
     clearExceptions,
     clearReplHistory,
+    retry,
     stopWatchHandle,
   };
 });

@@ -1,5 +1,6 @@
 import type { PerfMetrics } from "@/types/perf.types";
 import type { SessionEvent } from "@/types/session.types";
+import type { CDPTarget } from "@/types/cdp.types";
 import type { UpdaterProgressPayload } from "@/types/updater.types";
 import type { AutomationTaskEvent } from "@/types/automation.types";
 
@@ -41,7 +42,14 @@ export interface AutomationTaskEventPayload {
   event: AutomationTaskEvent;
 }
 
+/** The main window's selected target, sent to popped-out console windows. */
+export interface DockTargetEvent {
+  target: CDPTarget | null;
+}
+
 export interface IpcEventMap {
+  "capubridge:dock-target": DockTargetEvent;
+  "capubridge:dock-target-request": { requestedAt: number };
   "capubridge:session-event": SessionEvent;
   "capubridge:mirror-device-clipboard": MirrorClipboardEvent;
   "capubridge:set-inspect-mode": { enabled: boolean };

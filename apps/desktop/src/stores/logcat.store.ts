@@ -52,6 +52,7 @@ export const useLogcatStore = defineStore("logcat", () => {
   const isPaused = ref(false);
   const pausedCount = ref(0);
   const error = ref<string | null>(null);
+  const buffers = ref<string[] | null>(null);
 
   const isStreaming = computed(() => streamState.value === "live");
   const size = computed(() => {
@@ -184,6 +185,7 @@ export const useLogcatStore = defineStore("logcat", () => {
       await runSessionEffect(
         startLogcatLeaseEffect(targetSerial, (message) => handleMessage(token, message), {
           restart,
+          buffers: buffers.value ?? undefined,
         }),
         { operation: "session.startLogcatLease" },
       );
@@ -241,6 +243,23 @@ export const useLogcatStore = defineStore("logcat", () => {
     });
   }
 
+  /**
+   * Picks the logcat buffers to read (`main`, `system`, `crash`, `events`, `kernel`, ...);
+   * null goes back to the device default. Restarts the capture so the choice takes effect.
+   * The UI does not offer it yet.
+   */
+  function setBuffers(next: string[] | null) {
+    return leaseQueue.run(async () => {
+      buffers.value = next && next.length > 0 ? [...next] : ["default"];
+      const currentSerial = heldSerial;
+      if (!currentSerial) {
+        return;
+      }
+      clear();
+      await acquire(currentSerial, true);
+    });
+  }
+
   /** Freezes the views; capture goes on and every new line is kept in the ring. */
   function pause() {
     batcher.flushNow();
@@ -284,6 +303,8 @@ export const useLogcatStore = defineStore("logcat", () => {
     flush,
     follow,
     restart,
+    buffers,
+    setBuffers,
     pause,
     resume,
     togglePaused,

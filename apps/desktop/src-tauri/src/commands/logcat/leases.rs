@@ -13,6 +13,8 @@ pub(crate) const DEFAULT_LOGCAT_HOLDER: &str = "default";
 pub(crate) struct LogcatRun {
     pub generation: u64,
     pub stop: Arc<AtomicBool>,
+    /// The `-b` buffer list this run reads, or the device default.
+    pub buffers: Option<String>,
 }
 
 impl LogcatRun {
@@ -59,29 +61,46 @@ pub(crate) struct LogcatLeases {
 }
 
 impl LogcatLeases {
-    fn new_run(&mut self) -> LogcatRun {
+    fn new_run(&mut self, buffers: Option<String>) -> LogcatRun {
         self.next_generation += 1;
         LogcatRun {
             generation: self.next_generation,
             stop: Arc::new(AtomicBool::new(false)),
+            buffers,
         }
     }
 
-    /// Adds `holder` for `serial`. A run starts when none is live, or when
-    /// `restart` asks for a fresh one; otherwise the holder joins the live run.
-    pub fn acquire(&mut self, serial: &str, holder: &str, restart: bool) -> LogcatAcquire {
-        let joined = {
+    /// Adds `holder` for `serial`. A run starts when none is live, when
+    /// `restart` asks for a fresh one, or when `buffers` names other logcat
+    /// buffers than the live run reads; otherwise the holder joins the live
+    /// run. A holder that names no buffers keeps whatever the device reads.
+    pub fn acquire(
+        &mut self,
+        serial: &str,
+        holder: &str,
+        restart: bool,
+        buffers: Option<&str>,
+    ) -> LogcatAcquire {
+        let (joined, previous_buffers) = {
             let lease = self.by_serial.entry(serial.to_string()).or_default();
             lease.holders.insert(holder.to_string());
             match lease.run.as_ref() {
-                Some(run) if !restart && !run.is_stopped() => Some(run.generation),
-                _ => None,
+                Some(run)
+                    if !restart
+                        && !run.is_stopped()
+                        && buffers
+                            .map_or(true, |wanted| run.buffers.as_deref() == Some(wanted)) =>
+                {
+                    (Some(run.generation), None)
+                }
+                Some(run) => (None, run.buffers.clone()),
+                None => (None, None),
             }
         };
         if let Some(generation) = joined {
             return LogcatAcquire::Joined { generation };
         }
-        let run = self.new_run();
+        let run = self.new_run(buffers.map(str::to_string).or(previous_buffers));
         let lease = self.by_serial.entry(serial.to_string()).or_default();
         let replaced = lease.run.replace(run.clone());
         LogcatAcquire::Start { run, replaced }
@@ -197,9 +216,9 @@ mod tests {
     #[test]
     fn first_holder_starts_and_later_holders_join() {
         let mut leases = LogcatLeases::default();
-        let (run, replaced) = started(leases.acquire(SERIAL, "main", false));
+        let (run, replaced) = started(leases.acquire(SERIAL, "main", false, None));
         assert!(replaced.is_none());
-        match leases.acquire(SERIAL, "dock-logcat", false) {
+        match leases.acquire(SERIAL, "dock-logcat", false, None) {
             LogcatAcquire::Joined { generation } => assert_eq!(generation, run.generation),
             LogcatAcquire::Start { .. } => panic!("second holder must join"),
         }
@@ -209,8 +228,8 @@ mod tests {
     #[test]
     fn the_run_stops_only_with_the_last_holder() {
         let mut leases = LogcatLeases::default();
-        let (run, _) = started(leases.acquire(SERIAL, "main", false));
-        leases.acquire(SERIAL, "dock-logcat", false);
+        let (run, _) = started(leases.acquire(SERIAL, "main", false, None));
+        leases.acquire(SERIAL, "dock-logcat", false, None);
 
         let first = leases.release(SERIAL, "main");
         assert!(first.still_held && first.stopped.is_none());
@@ -227,9 +246,9 @@ mod tests {
     #[test]
     fn restart_replaces_the_run_and_keeps_holders() {
         let mut leases = LogcatLeases::default();
-        let (first, _) = started(leases.acquire(SERIAL, "main", false));
-        leases.acquire(SERIAL, "dock-logcat", false);
-        let (second, replaced) = started(leases.acquire(SERIAL, "main", true));
+        let (first, _) = started(leases.acquire(SERIAL, "main", false, None));
+        leases.acquire(SERIAL, "dock-logcat", false, None);
+        let (second, replaced) = started(leases.acquire(SERIAL, "main", true, None));
         assert_eq!(replaced.map(|run| run.generation), Some(first.generation));
         assert!(second.generation > first.generation);
         assert_eq!(leases.holders(SERIAL).len(), 2);
@@ -238,8 +257,8 @@ mod tests {
     #[test]
     fn a_stale_run_ending_changes_nothing() {
         let mut leases = LogcatLeases::default();
-        let (first, _) = started(leases.acquire(SERIAL, "main", false));
-        let (second, _) = started(leases.acquire(SERIAL, "main", true));
+        let (first, _) = started(leases.acquire(SERIAL, "main", false, None));
+        let (second, _) = started(leases.acquire(SERIAL, "main", true, None));
         assert!(!leases.ended(SERIAL, first.generation));
         assert!(leases.is_current(SERIAL, second.generation));
         assert!(leases.ended(SERIAL, second.generation));
@@ -250,9 +269,9 @@ mod tests {
     #[test]
     fn a_holder_after_a_run_ended_starts_a_new_one() {
         let mut leases = LogcatLeases::default();
-        let (first, _) = started(leases.acquire(SERIAL, "main", false));
+        let (first, _) = started(leases.acquire(SERIAL, "main", false, None));
         leases.ended(SERIAL, first.generation);
-        let (second, replaced) = started(leases.acquire(SERIAL, "dock-logcat", false));
+        let (second, replaced) = started(leases.acquire(SERIAL, "dock-logcat", false, None));
         assert!(replaced.is_none());
         assert!(second.generation > first.generation);
     }
@@ -260,18 +279,39 @@ mod tests {
     #[test]
     fn a_stopped_run_is_not_joined() {
         let mut leases = LogcatLeases::default();
-        let (first, _) = started(leases.acquire(SERIAL, "main", false));
+        let (first, _) = started(leases.acquire(SERIAL, "main", false, None));
         first.stop();
-        let (second, _) = started(leases.acquire(SERIAL, "main", false));
+        let (second, _) = started(leases.acquire(SERIAL, "main", false, None));
         assert_ne!(second.generation, first.generation);
+    }
+
+    #[test]
+    fn asking_for_other_buffers_restarts_and_silence_keeps_them() {
+        let mut leases = LogcatLeases::default();
+        let (first, _) = started(leases.acquire(SERIAL, "main", false, None));
+        assert_eq!(first.buffers, None);
+        let (events, replaced) =
+            started(leases.acquire(SERIAL, "main", false, Some("main,events")));
+        assert_eq!(replaced.map(|run| run.generation), Some(first.generation));
+        assert_eq!(events.buffers.as_deref(), Some("main,events"));
+        assert!(matches!(
+            leases.acquire(SERIAL, "dock-logcat", false, None),
+            LogcatAcquire::Joined { .. }
+        ));
+        assert!(matches!(
+            leases.acquire(SERIAL, "dock-logcat", false, Some("main,events")),
+            LogcatAcquire::Joined { .. }
+        ));
+        let (restarted, _) = started(leases.acquire(SERIAL, "main", true, None));
+        assert_eq!(restarted.buffers.as_deref(), Some("main,events"));
     }
 
     #[test]
     fn a_closed_window_lets_go_of_every_device() {
         let mut leases = LogcatLeases::default();
-        leases.acquire(SERIAL, "dock-logcat", false);
-        leases.acquire(SERIAL, "main", false);
-        leases.acquire("other", "dock-logcat", false);
+        leases.acquire(SERIAL, "dock-logcat", false, None);
+        leases.acquire(SERIAL, "main", false, None);
+        leases.acquire("other", "dock-logcat", false, None);
         let released = leases.release_everywhere("dock-logcat");
         assert_eq!(released.len(), 2);
         assert!(leases.is_held(SERIAL));

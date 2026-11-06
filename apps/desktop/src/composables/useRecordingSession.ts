@@ -1,4 +1,4 @@
-import { effectScope, watch } from "vue";
+import { watch } from "vue";
 import { invokeCommand } from "@/runtime/ipc/client";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useConsoleStore } from "@/stores/console.store";
@@ -17,6 +17,7 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { toast } from "vue-sonner";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 import { recordingDeadline } from "./recordingDeadline";
+import { forwardConsoleTrack } from "@/lib/recording/consoleTrackFeed";
 
 let writer: ReturnType<typeof useSessionWriter> | null = null;
 let rrwebRecorder: ReturnType<typeof useRrwebRecorder> | null = null;
@@ -31,8 +32,6 @@ let consoleLeasedByRecorder = false;
 let startedAt = 0;
 let activeSessionId = "";
 let captureErrors: string[] = [];
-
-const recordingScope = effectScope(true);
 
 function generateSessionId(): string {
   return `capu_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -167,31 +166,21 @@ export function useRecordingSession() {
         console.warn("[recording] console lease failed", err);
       }
 
-      let lastConsoleIndex = consoleStore.entries.length;
-      recordingScope.run(() => {
-        consoleUnwatch = watch(
-          () => consoleStore.entries.length,
-          () => {
-            const newEntries = consoleStore.entries.slice(lastConsoleIndex);
-            lastConsoleIndex = consoleStore.entries.length;
-            for (const entry of newEntries) {
-              writer?.pushAt(
-                "console",
-                {
-                  level: entry.level ?? "log",
-                  text: entry.message ?? "",
-                  source: entry.source ?? null,
-                  line: entry.lineNumber ?? null,
-                  id: entry.id,
-                  parentId: entry.parentId,
-                  isGroup: entry.isGroup,
-                  groupCollapsed: entry.groupCollapsed,
-                  args: (entry.args ?? []).map(argToRecord),
-                },
-                entry.timestamp ?? startedAt,
-              );
-            }
+      consoleUnwatch = forwardConsoleTrack(consoleStore.consoleSource.feed, (entry) => {
+        writer?.pushAt(
+          "console",
+          {
+            level: entry.level ?? "log",
+            text: entry.message ?? "",
+            source: entry.source ?? null,
+            line: entry.lineNumber ?? null,
+            id: entry.id,
+            parentId: entry.parentId,
+            isGroup: entry.isGroup,
+            groupCollapsed: entry.groupCollapsed,
+            args: (entry.args ?? []).map(argToRecord),
           },
+          entry.timestamp ?? startedAt,
         );
       });
     }

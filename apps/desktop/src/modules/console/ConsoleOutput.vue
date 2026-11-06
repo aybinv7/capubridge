@@ -70,6 +70,12 @@ function textClass(level: ConsoleEntryLevel): string {
   return "text-foreground/85";
 }
 
+function retryCapture() {
+  consoleStore.retry().catch((error: unknown) => {
+    toast.error("Could not reconnect the console", { description: String(error) });
+  });
+}
+
 function copyEntry(e: ConsoleEntry) {
   void navigator.clipboard.writeText(e.message).catch((error) => {
     toast.error("Failed to copy console entry", { description: String(error) });
@@ -145,7 +151,16 @@ const FILTER_LEVELS = [
       v-if="consoleStore.error"
       class="flex shrink-0 items-center gap-2 border-b border-warning/20 bg-warning/8 px-3 py-1.5 text-2xs text-warning"
     >
-      <span class="font-mono">{{ consoleStore.error }}</span>
+      <span class="min-w-0 flex-1 font-mono">{{ consoleStore.error }}</span>
+      <Button
+        v-if="consoleStore.captureStatus === 'error'"
+        variant="ghost"
+        size="sm"
+        class="h-6 px-2 text-2xs"
+        @click="retryCapture()"
+      >
+        Retry
+      </Button>
     </div>
 
     <div

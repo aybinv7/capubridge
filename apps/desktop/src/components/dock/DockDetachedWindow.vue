@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { Maximize2, Minimize2, Minus, X } from "lucide-vue-next";
 import DockTabContent from "./DockTabContent.vue";
 import DockLogcatCapture from "./DockLogcatCapture.vue";
+import DockConsoleCapture from "./DockConsoleCapture.vue";
 import { dockTabMeta } from "./dock-meta";
 import { isDockTab } from "@/types/dock.types";
 
@@ -26,8 +27,9 @@ onMounted(async () => {
     stopResized = await appWindow.onResized(async () => {
       isMaximized.value = await appWindow?.isMaximized();
     });
-  } catch {
+  } catch (error) {
     appWindow = null;
+    console.error("[dock] window controls are unavailable in this pop-out", error);
   }
 });
 
@@ -98,6 +100,7 @@ async function close() {
 
     <div class="min-h-0 flex-1 overflow-hidden" style="-webkit-app-region: no-drag">
       <DockLogcatCapture v-if="activeTab === 'logcat'" />
+      <DockConsoleCapture v-else />
       <DockTabContent :tab="activeTab" :gated="false" />
     </div>
   </div>

@@ -12,13 +12,13 @@ export type IpcErrorCategory =
   | "unknown";
 
 export interface IpcErrorContext {
-  operation: "invoke" | "listen";
+  operation: "invoke" | "listen" | "emit";
   name: string;
   signal?: AbortSignal;
 }
 
 interface IpcErrorDetails {
-  operation: "invoke" | "listen";
+  operation: "invoke" | "listen" | "emit";
   name: string;
   category: IpcErrorCategory;
   code: string;
@@ -29,7 +29,7 @@ interface IpcErrorDetails {
 
 export class IpcError extends Error {
   readonly _tag = "IpcError";
-  readonly operation: "invoke" | "listen";
+  readonly operation: "invoke" | "listen" | "emit";
   readonly command?: string;
   readonly eventName?: string;
   readonly category: IpcErrorCategory;
@@ -42,7 +42,7 @@ export class IpcError extends Error {
     this.name = "IpcError";
     this.operation = details.operation;
     this.command = details.operation === "invoke" ? details.name : undefined;
-    this.eventName = details.operation === "listen" ? details.name : undefined;
+    this.eventName = details.operation === "invoke" ? undefined : details.name;
     this.category = details.category;
     this.code = details.code;
     this.retryable = details.retryable;

@@ -94,12 +94,13 @@ export function refreshTargetsEffect(serial: string) {
 
 /**
  * Takes this window's hold on the device's logcat capture. Line batches and state changes
- * arrive on a channel only this window receives; `restart` begins a fresh run.
+ * arrive on a channel only this window receives; `restart` begins a fresh run, and `buffers`
+ * picks the logcat buffers (a different choice restarts the device's capture).
  */
 export function startLogcatLeaseEffect(
   serial: string,
   onMessage: (message: LogcatStreamMessage) => void,
-  options: { restart?: boolean } = {},
+  options: { restart?: boolean; buffers?: string[] } = {},
 ) {
   const onEvent = new Channel<LogcatStreamMessage>();
   onEvent.onmessage = onMessage;
@@ -107,6 +108,7 @@ export function startLogcatLeaseEffect(
     serial,
     onEvent,
     restart: options.restart,
+    buffers: options.buffers,
   });
 }
 

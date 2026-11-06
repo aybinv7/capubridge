@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import type {
   IpcArgsCommand,
   IpcCommandArgs,
@@ -54,5 +54,17 @@ export async function listenEvent<Name extends IpcEventName>(
     return await listen<IpcEventPayload<Name>>(eventName, (event) => onMessage(event.payload));
   } catch (cause) {
     throw normalizeIpcError(cause, { operation: "listen", name: eventName });
+  }
+}
+
+/** Broadcasts an app event to every window, including this one. */
+export async function emitEvent<Name extends IpcEventName>(
+  eventName: Name,
+  payload: IpcEventPayload<Name>,
+): Promise<void> {
+  try {
+    await emit(eventName, payload);
+  } catch (cause) {
+    throw normalizeIpcError(cause, { operation: "emit", name: eventName });
   }
 }

@@ -203,6 +203,18 @@ export const useDockStore = defineStore("dock", () => {
 
   const hasUnread = computed(() => Object.values(unreadByTab.value).some(Boolean));
 
+  /**
+   * Brings back tabs whose pop-out window no longer exists, such as one closed while the app
+   * was quitting, so a restored state never hides a tab for good.
+   */
+  async function reconcilePoppedOut(isWindowOpen: (tab: DockTab) => Promise<boolean>) {
+    for (const tab of Array.from(poppedOutTabs.value)) {
+      if (!(await isWindowOpen(tab))) {
+        setPoppedOut(tab, false);
+      }
+    }
+  }
+
   if (visibleTabs.value.length === 0) {
     isOpen.value = false;
   } else {
@@ -237,5 +249,6 @@ export const useDockStore = defineStore("dock", () => {
     setPoppedOut,
     markUnread,
     hasUnread,
+    reconcilePoppedOut,
   };
 });

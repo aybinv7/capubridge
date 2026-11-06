@@ -30,9 +30,12 @@ pub(crate) fn backoff_delay(attempt: u32) -> Duration {
     Duration::from_millis(BACKOFF_MS[index])
 }
 
-fn logcat_command(from: ResumeFrom) -> String {
+fn logcat_command(from: ResumeFrom, buffers: Option<&str>) -> String {
+    let buffers = buffers
+        .map(|names| format!(" -b {names}"))
+        .unwrap_or_default();
     format!(
-        "logcat -v threadtime -v epoch -v uid -T {}",
+        "logcat -v threadtime -v epoch -v uid{buffers} -T {}",
         from.argument()
     )
 }
@@ -264,35 +267,38 @@ fn run_loop(serial: String, run: LogcatRun, sink: Arc<dyn LogcatSink>) {
         let gap_ms = dropped_at.map_or(0, |at| at.elapsed().as_millis() as i64);
         let plan = resume_plan(cursor, device_now, gap_ms);
 
-        let failure =
-            match AdbShellStream::open(&serial, &logcat_command(plan.from), BATCH_INTERVAL) {
-                Ok(mut stream) => {
-                    reporter.status(
-                        LogcatStreamState::Live,
-                        attempt,
-                        None,
-                        None,
-                        plan.clock_went_back,
-                    );
-                    let connected_at = Instant::now();
-                    let end = pump(
-                        &mut stream,
-                        &run,
-                        &mut reporter,
-                        plan.from,
-                        &mut cursor,
-                        &identity,
-                    );
-                    dropped_at = Some(Instant::now());
-                    if end.lines_seen > 0 || connected_at.elapsed() >= STABLE_CONNECTION {
-                        attempt = 0;
-                    }
-                    end.error
-                        .or(end.last_other)
-                        .unwrap_or_else(|| "The device ended the logcat stream".to_string())
+        let failure = match AdbShellStream::open(
+            &serial,
+            &logcat_command(plan.from, run.buffers.as_deref()),
+            BATCH_INTERVAL,
+        ) {
+            Ok(mut stream) => {
+                reporter.status(
+                    LogcatStreamState::Live,
+                    attempt,
+                    None,
+                    None,
+                    plan.clock_went_back,
+                );
+                let connected_at = Instant::now();
+                let end = pump(
+                    &mut stream,
+                    &run,
+                    &mut reporter,
+                    plan.from,
+                    &mut cursor,
+                    &identity,
+                );
+                dropped_at = Some(Instant::now());
+                if end.lines_seen > 0 || connected_at.elapsed() >= STABLE_CONNECTION {
+                    attempt = 0;
                 }
-                Err(message) => message,
-            };
+                end.error
+                    .or(end.last_other)
+                    .unwrap_or_else(|| "The device ended the logcat stream".to_string())
+            }
+            Err(message) => message,
+        };
         if run.is_stopped() {
             break;
         }
@@ -339,15 +345,18 @@ mod tests {
     #[test]
     fn the_command_asks_for_epoch_and_uid_and_resumes_at_the_cursor() {
         assert_eq!(
-            logcat_command(ResumeFrom::Tail(256)),
+            logcat_command(ResumeFrom::Tail(256), None),
             "logcat -v threadtime -v epoch -v uid -T 256"
         );
         assert_eq!(
-            logcat_command(ResumeFrom::Since {
-                ts_ms: 1_730_000_000_005,
-                skip: 1
-            }),
-            "logcat -v threadtime -v epoch -v uid -T 1730000000.005"
+            logcat_command(
+                ResumeFrom::Since {
+                    ts_ms: 1_730_000_000_005,
+                    skip: 1
+                },
+                Some("main,events")
+            ),
+            "logcat -v threadtime -v epoch -v uid -b main,events -T 1730000000.005"
         );
     }
 

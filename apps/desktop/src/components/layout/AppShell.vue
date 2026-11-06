@@ -12,6 +12,7 @@ import { useDataAppCommands } from "@/modules/storage/public";
 import { useCommandsStore } from "@/stores/commands.store";
 import MirrorPanel from "@/modules/mirror/MirrorPanel.vue";
 import { clearDockOpenRequest, dockOpenEventName, readDockOpenRequest } from "@/lib/dock-events";
+import { isDockWindowOpen } from "@/lib/dock-windows";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useDockStore } from "@/stores/dock.store";
@@ -138,6 +139,9 @@ onMounted(() => {
   }
 
   void bootstrapRuntime();
+  dockStore.reconcilePoppedOut(isDockWindowOpen).catch((error: unknown) => {
+    console.error("[dock] could not check popped-out windows", error);
+  });
 
   // Best-effort cleanup of any malformed `.capu` files or orphaned `_work` dirs
   // left behind by a previous crashed/buggy recording session.

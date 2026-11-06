@@ -10,6 +10,7 @@ const runtime = vi.hoisted(() => ({
   channels: [] as Array<(message: LogcatStreamMessage) => void>,
   calls: [] as string[],
   failStart: false,
+  buffers: [] as Array<string[] | undefined>,
 }));
 
 vi.mock("@/stores/dock.store", () => ({
@@ -20,9 +21,10 @@ vi.mock("@/runtime/session", () => ({
   startLogcatLeaseEffect: (
     serial: string,
     onMessage: (message: LogcatStreamMessage) => void,
-    options: { restart?: boolean } = {},
+    options: { restart?: boolean; buffers?: string[] } = {},
   ) => {
     runtime.channels.push(onMessage);
+    runtime.buffers.push(options.buffers);
     return { kind: options.restart ? `restart:${serial}` : `start:${serial}` };
   },
   stopLogcatLeaseEffect: (serial: string) => ({ kind: `stop:${serial}` }),
@@ -97,6 +99,7 @@ describe("logcat store", () => {
     runtime.channels = [];
     runtime.calls = [];
     runtime.failStart = false;
+    runtime.buffers = [];
     vi.useFakeTimers();
   });
 
@@ -201,5 +204,37 @@ describe("logcat store", () => {
     expect(store.size).toBe(3);
     store.resume();
     expect(store.pausedCount).toBe(0);
+  });
+});
+
+describe("logcat buffer choice", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    runtime.channels = [];
+    runtime.calls = [];
+    runtime.buffers = [];
+  });
+
+  test("restarts the capture on the chosen buffers and keeps them across reconnects", async () => {
+    const store = useLogcatStore();
+    await store.follow("emulator-5554");
+    await store.setBuffers(["main", "events"]);
+    await store.follow("emulator-5554", false);
+    await store.follow("emulator-5554", true);
+    await store.setBuffers(null);
+
+    expect(runtime.calls).toEqual([
+      "start:emulator-5554",
+      "restart:emulator-5554",
+      "stop:emulator-5554",
+      "start:emulator-5554",
+      "restart:emulator-5554",
+    ]);
+    expect(runtime.buffers).toEqual([
+      undefined,
+      ["main", "events"],
+      ["main", "events"],
+      ["default"],
+    ]);
   });
 });

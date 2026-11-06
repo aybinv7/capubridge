@@ -52,7 +52,7 @@ export interface SessionBridgeService {
   startLogcatLease: (
     serial: string,
     onMessage: (message: LogcatStreamMessage) => void,
-    options?: { restart?: boolean },
+    options?: { restart?: boolean; buffers?: string[] },
   ) => Effect.Effect<SessionLeaseState, IpcError>;
   stopLogcatLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
   startPerfLease: (serial: string, holder?: string) => Effect.Effect<SessionLeaseState, IpcError>;

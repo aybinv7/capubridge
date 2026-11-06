@@ -41,6 +41,7 @@ export interface SessionCommandMap {
       onEvent: Channel<LogcatStreamMessage>;
       holder?: string;
       restart?: boolean;
+      buffers?: string[];
     },
     SessionLeaseState
   >;

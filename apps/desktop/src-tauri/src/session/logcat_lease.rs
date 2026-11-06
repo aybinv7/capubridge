@@ -5,6 +5,7 @@ use parking_lot::Mutex;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
+use crate::commands::logcat::buffers::normalize_buffers;
 use crate::commands::logcat::fanout::LOGCAT_FANOUT;
 use crate::commands::logcat::leases::{
     logcat_holder_name, LogcatAcquire, LogcatRelease, LogcatRun, LOGCAT_LEASES,
@@ -110,7 +111,9 @@ fn hook_window_close(app: &AppHandle, webview: &tauri::Webview, holder: &str) {
 /// 500 lines) and state changes, sent only to the windows that hold it. One
 /// capture runs per device, shared by every holder; a holder that joins a
 /// running capture first receives its recent backlog. `restart` replaces the
-/// capture with a fresh run without dropping anyone.
+/// capture with a fresh run without dropping anyone. `buffers` picks the
+/// logcat buffers (`-b`); a holder that names other buffers than the running
+/// capture restarts it, one that names none keeps what is running.
 #[tauri::command]
 pub async fn session_start_logcat_lease(
     app: AppHandle,
@@ -120,14 +123,22 @@ pub async fn session_start_logcat_lease(
     on_event: Channel<LogcatStreamMessage>,
     holder: Option<String>,
     restart: Option<bool>,
+    buffers: Option<Vec<String>>,
 ) -> AppResult<SessionLeaseState> {
     require_hot_session(&state, &serial).app_context("session_start_logcat_lease")?;
+    let buffers = match buffers {
+        Some(names) => normalize_buffers(&names).app_context("session_start_logcat_lease")?,
+        None => None,
+    };
 
     let registry = state.registry();
     let holder = logcat_holder_name(holder.or_else(|| Some(webview.label().to_string())));
-    let outcome = LOGCAT_LEASES
-        .lock()
-        .acquire(&serial, &holder, restart.unwrap_or(false));
+    let outcome = LOGCAT_LEASES.lock().acquire(
+        &serial,
+        &holder,
+        restart.unwrap_or(false),
+        buffers.as_deref(),
+    );
     let generation = match &outcome {
         LogcatAcquire::Start { run, .. } => run.generation,
         LogcatAcquire::Joined { generation } => *generation,

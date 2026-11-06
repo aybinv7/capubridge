@@ -13,6 +13,10 @@ export function useLogcatCapture() {
   const devicesStore = useDevicesStore();
   const logcatStore = useLogcatStore();
 
+  function report(error: unknown) {
+    logcatStore.error = `Logcat capture failed: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
   void sessionStore.initialize().catch((error: unknown) => {
     logcatStore.error = `Could not read the device list: ${error instanceof Error ? error.message : String(error)}`;
   });
@@ -23,12 +27,12 @@ export function useLogcatCapture() {
       return [device?.serial ?? null, device?.status === "online"] as const;
     },
     ([serial, online]) => {
-      void logcatStore.follow(serial, online);
+      logcatStore.follow(serial, online).catch(report);
     },
     { immediate: true },
   );
 
   onScopeDispose(() => {
-    void logcatStore.follow(null);
+    logcatStore.follow(null).catch(report);
   });
 }
