@@ -4,6 +4,7 @@ import {
   MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
   fillToWidth,
+  shrinkToWidth,
   measureColumnWidths,
 } from "../columnSizing";
 import {
@@ -309,5 +310,23 @@ describe("long text cells (F6)", () => {
   test("a short value keeps its exact line count", () => {
     expect(formatCell("a\nb\nc").badge).toBe("⏎2");
     expect(formatCell("plain").badge).toBeUndefined();
+  });
+});
+
+describe("columns that fit a narrow grid (U1)", () => {
+  test("growing columns give room back down to their minimum, others keep theirs", () => {
+    const widths = { key: 240, value: 420, type: 120, size: 90 };
+    const order = ["key", "value", "type", "size"];
+    const shrinkable = new Map([
+      ["key", 120],
+      ["value", 160],
+    ]);
+    const fitted = shrinkToWidth(widths, order, shrinkable, 600);
+    expect(fitted.type).toBe(120);
+    expect(fitted.size).toBe(90);
+    expect(fitted.key + fitted.value + 210).toBeLessThanOrEqual(600);
+    expect(fitted.key).toBeGreaterThanOrEqual(120);
+    const tiny = shrinkToWidth(widths, order, shrinkable, 300);
+    expect(tiny).toMatchObject({ key: 120, value: 160 });
   });
 });

@@ -58,7 +58,8 @@ const STATE_BAR: Record<GridRowState, string> = {
 };
 
 function format(entry: VisibleColumn) {
-  const formatted = formatCell(props.row.cells[entry.column.id], entry.column.type);
+  const cell = formatCell(props.row.cells[entry.column.id], entry.column.type);
+  const formatted = entry.column.align ? { ...cell, align: entry.column.align } : cell;
   const keyLike = entry.column.primaryKey || entry.column.type === "key";
   return { ...entry, formatted, keyLike };
 }

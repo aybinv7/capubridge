@@ -70,6 +70,37 @@ export function createCanvasMeasure(font: string): TextMeasure {
  * full-width table. Extra space is shared in proportion to each column's width and
  * only among `fillable` columns (never ones the user resized).
  */
+/**
+ * Takes room back from growing columns, down to their minimum, when the columns are wider than
+ * the viewport, so a narrow grid shows every column before it scrolls sideways.
+ */
+export function shrinkToWidth(
+  widths: Readonly<Record<string, number>>,
+  order: readonly string[],
+  shrinkable: ReadonlyMap<string, number>,
+  available: number,
+): Record<string, number> {
+  const total = order.reduce((sum, id) => sum + (widths[id] ?? 0), 0);
+  let excess = Math.ceil(total - available);
+  if (excess <= 0) return { ...widths };
+  const next: Record<string, number> = { ...widths };
+  const room = (id: string) => Math.max(0, (next[id] ?? 0) - (shrinkable.get(id) ?? 0));
+  for (let pass = 0; pass < 4 && excess > 0; pass += 1) {
+    const ids = order.filter((id) => shrinkable.has(id) && room(id) > 0);
+    const totalRoom = ids.reduce((sum, id) => sum + room(id), 0);
+    if (totalRoom <= 0) break;
+    const take = Math.min(excess, totalRoom);
+    let taken = 0;
+    for (const id of ids) {
+      const share = Math.min(room(id), Math.ceil((take * room(id)) / totalRoom), take - taken);
+      next[id] = (next[id] ?? 0) - share;
+      taken += share;
+    }
+    excess -= taken;
+  }
+  return next;
+}
+
 export function fillToWidth(
   widths: Readonly<Record<string, number>>,
   order: readonly string[],

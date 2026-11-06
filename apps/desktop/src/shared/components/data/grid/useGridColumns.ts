@@ -3,8 +3,10 @@ import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useResizeObserver } from "@vueuse/core";
 import {
   createCanvasMeasure,
+  MIN_COLUMN_WIDTH,
   fillToWidth,
   measureColumnWidths,
+  shrinkToWidth,
   type TextMeasure,
 } from "./columnSizing";
 import { readPersisted, writePersisted } from "@/lib/persisted";
@@ -91,12 +93,16 @@ export function useGridColumns(options: GridColumnsOptions) {
     return sans;
   }
 
-  /** Columns as displayed: visible, with any "show as" type applied. */
+  const viewportWidth = ref(0);
+
+  /** Columns as displayed: visible, wide enough for the grid, with any "show as" type applied. */
   const effective = computed<GridColumn[]>(() => {
     const hidden = options.visibility.value ?? {};
     const overrides = options.showAs.value ?? {};
+    const width = viewportWidth.value;
     return options.columns.value
       .filter((column) => hidden[column.id] !== false)
+      .filter((column) => !column.hideBelow || width === 0 || width >= column.hideBelow)
       .map((column) => (overrides[column.id] ? { ...column, type: overrides[column.id] } : column));
   });
 
@@ -143,7 +149,6 @@ export function useGridColumns(options: GridColumnsOptions) {
     pins.value = Object.fromEntries(Object.entries(pins.value).filter(([id]) => present.has(id)));
   });
 
-  const viewportWidth = ref(0);
   useResizeObserver(options.scroller, (entries) => {
     const width = entries[0]?.contentRect.width ?? 0;
     if (Math.abs(width - viewportWidth.value) >= 1) viewportWidth.value = width;
@@ -154,9 +159,20 @@ export function useGridColumns(options: GridColumnsOptions) {
     const order = ordered.value.map((column) => column.id);
     const base: Record<string, number> = {};
     for (const id of order) base[id] = userWidths.value[id] ?? autoWidths.value[id] ?? 120;
-    const fillable = new Set(order.filter((id) => userWidths.value[id] === undefined));
+    const free = ordered.value.filter((column) => userWidths.value[column.id] === undefined);
+    const growing = free.filter((column) => column.grow);
+    const fillable = new Set((growing.length > 0 ? growing : free).map((column) => column.id));
+    const shrinkable = new Map(
+      growing.map((column) => [column.id, column.minWidth ?? MIN_COLUMN_WIDTH] as const),
+    );
     const available = viewportWidth.value - options.gutterWidth.value - SUBPIXEL_MARGIN;
-    return available > 0 ? fillToWidth(base, order, fillable, available) : base;
+    if (available <= 0) return base;
+    return shrinkToWidth(
+      fillToWidth(base, order, fillable, available),
+      order,
+      shrinkable,
+      available,
+    );
   });
 
   function widthOf(id: string): number {

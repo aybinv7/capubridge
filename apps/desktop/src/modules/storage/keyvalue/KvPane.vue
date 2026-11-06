@@ -203,9 +203,11 @@ defineExpose({ discard, edit });
   >
     <header class="flex shrink-0 items-start gap-2 border-b border-border-subtle py-2 pr-2 pl-3">
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span class="truncate font-mono text-xs text-foreground select-text">
-          {{ entry ? entry.key : "New key" }}
-        </span>
+        <HintTooltip :text="entry && entry.key.length > 40 ? entry.key : null">
+          <span class="truncate font-mono text-xs text-foreground select-text">
+            {{ entry ? entry.key : "New key" }}
+          </span>
+        </HintTooltip>
         <span class="flex min-w-0 items-center gap-2 text-2xs text-[var(--fg-subtle)]">
           <span class="shrink-0 tabular-nums">{{ subtitle }}</span>
           <span v-if="stateText" class="truncate text-muted-foreground">{{ stateText }}</span>

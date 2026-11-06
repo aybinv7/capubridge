@@ -132,6 +132,7 @@ const style = computed(() => {
       @click="sortable && emit('sort')"
     >
       <component
+        v-if="column.primaryKey || column.glyph !== false"
         :is="column.primaryKey ? KeyRound : icon"
         :size="11"
         class="shrink-0"

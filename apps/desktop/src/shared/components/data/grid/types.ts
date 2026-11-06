@@ -27,6 +27,19 @@ export interface GridColumn {
   width?: number;
   /** Cells in this column cannot be edited (generated columns, key paths). */
   readOnly?: boolean;
+  /**
+   * The column takes the room the others leave (Name, Key, Value), and gives it back down to
+   * `minWidth` when the grid is narrow. When any column grows, only growing columns stretch.
+   */
+  grow?: boolean;
+  /** The narrowest a growing column becomes before the grid scrolls sideways. */
+  minWidth?: number;
+  /** Hides the column while the grid is narrower than this many pixels (a container query). */
+  hideBelow?: number;
+  /** Cell alignment, over the one the value's kind suggests (sizes and counts to the end). */
+  align?: "start" | "end";
+  /** `false` hides the type glyph in the header (a column of words, not stored values). */
+  glyph?: boolean;
 }
 
 export interface GridRow {

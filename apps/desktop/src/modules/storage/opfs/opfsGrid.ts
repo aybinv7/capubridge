@@ -5,10 +5,43 @@ import { formatBytes } from "@/shared/format/numbers";
 import type { OpfsRow } from "./opfsModel";
 
 export const OPFS_COLUMNS: readonly GridColumn[] = [
-  { id: "name", title: "Name", type: "key", primaryKey: true, readOnly: true, width: 280 },
-  { id: "kind", title: "Kind", type: "text", readOnly: true, width: 150 },
-  { id: "size", title: "Size", type: "text", readOnly: true, width: 90 },
-  { id: "modified", title: "Modified", type: "text", readOnly: true, width: 150 },
+  {
+    id: "name",
+    title: "Name",
+    type: "key",
+    primaryKey: true,
+    readOnly: true,
+    width: 280,
+    grow: true,
+    minWidth: 160,
+  },
+  {
+    id: "kind",
+    title: "Kind",
+    type: "text",
+    readOnly: true,
+    width: 140,
+    hideBelow: 560,
+    glyph: false,
+  },
+  {
+    id: "size",
+    title: "Size",
+    type: "text",
+    readOnly: true,
+    width: 80,
+    align: "end",
+    glyph: false,
+  },
+  {
+    id: "modified",
+    title: "Modified",
+    type: "text",
+    readOnly: true,
+    width: 170,
+    hideBelow: 440,
+    glyph: false,
+  },
 ];
 
 const rowCache = new WeakMap<OpfsRow, { now: number; grid: GridRow }>();
