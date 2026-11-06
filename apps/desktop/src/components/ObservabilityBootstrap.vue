@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from "vue";
-import { useDockTargetRelay } from "@/composables/useDockTargetRelay";
+import { useDrawerTargetRelay } from "@/composables/useDrawerTargetRelay";
 import { useLogcatCapture } from "@/composables/useLogcatCapture";
 import { useNetwork } from "@/composables/useNetwork";
 import { useTimelineFeeds } from "@/composables/useTimelineFeeds";
@@ -15,7 +15,7 @@ function report(prefix: string, error: unknown) {
 useNetwork();
 useLogcatCapture();
 useTimelineFeeds();
-useDockTargetRelay((message) => {
+useDrawerTargetRelay((message) => {
   consoleStore.error = message;
 });
 

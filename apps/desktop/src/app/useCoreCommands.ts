@@ -23,7 +23,7 @@ import {
 import { primaryNavigationFeatures, utilityNavigationFeatures } from "@/app/feature-registry";
 import { useCommandsStore } from "@/stores/commands.store";
 import { useUIStore } from "@/stores/ui.store";
-import { useDockStore } from "@/stores/dock.store";
+import { useDrawerStore } from "@/stores/drawer.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useTimelineStripStore } from "@/stores/timelineStrip.store";
 import { useThemeStore } from "@/stores/theme.store";
@@ -34,13 +34,49 @@ import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
 import { themes } from "@/themes/registry";
 import type { Command } from "@/lib/commands/types";
-import type { DockTab } from "@/types/dock.types";
+import type { ConsoleMode, DrawerView } from "@/types/drawer.types";
 
-const DOCK_TABS: Array<{ tab: DockTab; title: string; icon: Command["icon"] }> = [
-  { tab: "logcat", title: "Show Logcat", icon: ScrollText },
-  { tab: "console", title: "Show Console", icon: Terminal },
-  { tab: "repl", title: "Show REPL", icon: SquareTerminal },
-  { tab: "exceptions", title: "Show Exceptions", icon: TriangleAlert },
+const DRAWER_COMMANDS: Array<{
+  id: string;
+  title: string;
+  icon: Command["icon"];
+  view: DrawerView;
+  mode?: ConsoleMode;
+  prompt?: boolean;
+  keywords: string[];
+}> = [
+  {
+    id: "dock.logcat",
+    title: "Show Logs",
+    icon: ScrollText,
+    view: "logs",
+    keywords: ["logcat", "logs", "android"],
+  },
+  {
+    id: "dock.console",
+    title: "Show Console",
+    icon: Terminal,
+    view: "console",
+    mode: "stream",
+    keywords: ["console", "output"],
+  },
+  {
+    id: "dock.repl",
+    title: "Run JavaScript in the console",
+    icon: SquareTerminal,
+    view: "console",
+    mode: "stream",
+    prompt: true,
+    keywords: ["repl", "prompt", "evaluate", "javascript"],
+  },
+  {
+    id: "dock.exceptions",
+    title: "Show errors, grouped",
+    icon: TriangleAlert,
+    view: "console",
+    mode: "errors",
+    keywords: ["exceptions", "errors", "crash"],
+  },
 ];
 
 /** Registers the shell's own commands: navigation, view, appearance, devices and targets. */
@@ -57,7 +93,7 @@ export function useCoreCommands(): void {
   const router = useRouter();
   const commands = useCommandsStore();
   const ui = useUIStore();
-  const dock = useDockStore();
+  const drawer = useDrawerStore();
   const mirror = useMirrorStore();
   const timelineStrip = useTimelineStripStore();
   const theme = useThemeStore();
@@ -139,12 +175,13 @@ export function useCoreCommands(): void {
       },
       {
         id: "view.toggle-dock",
-        title: dock.isOpen ? "Hide console dock" : "Show console dock",
+        title: drawer.isOpen ? "Hide the console" : "Show the console",
         group: "View",
         icon: Terminal,
         binding: "mod+j",
         global: true,
-        run: () => dock.toggleDock(),
+        keywords: ["dock", "drawer", "logs", "logcat", "console"],
+        run: () => drawer.toggle(),
       },
       {
         id: "view.toggle-timeline",
@@ -164,13 +201,14 @@ export function useCoreCommands(): void {
         when: () => context.device?.status === "online" || context.target !== null,
         run: () => mirror.toggle(),
       },
-      ...DOCK_TABS.map<Command>(({ tab, title, icon }) => ({
-        id: `dock.${tab}`,
-        title,
+      ...DRAWER_COMMANDS.map<Command>((entry) => ({
+        id: entry.id,
+        title: entry.title,
         group: "View",
-        icon,
-        keywords: ["dock", tab],
-        run: () => dock.openDock(tab),
+        icon: entry.icon,
+        keywords: ["drawer", ...entry.keywords],
+        run: () =>
+          entry.prompt ? drawer.openPrompt() : drawer.open(entry.view, { mode: entry.mode }),
       })),
       {
         id: "help.shortcuts",

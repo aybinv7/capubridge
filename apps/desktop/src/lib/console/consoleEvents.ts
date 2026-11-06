@@ -1,4 +1,5 @@
-import { flattenArgsForMessage, parseRemoteValue } from "@/lib/console-parse";
+import { parseRemoteValue } from "@/lib/console-parse";
+import { consoleCallText } from "@/lib/console/consoleText";
 import {
   buildSourceLabel,
   formatTimestamp,
@@ -92,7 +93,7 @@ export function runtimeConsoleEntry(
   const callFrames = Array.isArray(stackTrace?.callFrames) ? stackTrace.callFrames : [];
   const frame = isRecord(callFrames[0]) ? callFrames[0] : null;
   const sourceDetails = readFrameSource(frame);
-  const message = flattenArgsForMessage(args) || runtimeType;
+  const message = consoleCallText(args) || runtimeType;
 
   if (isGroup && rawParentId) {
     const parent = context.findGroup(rawParentId);

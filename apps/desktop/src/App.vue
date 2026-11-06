@@ -8,11 +8,12 @@ import { CladdProvider } from "@capubridge/cladd";
 import { Toaster } from "@/components/ui/sonner";
 import { useThemeStore } from "@/stores/theme.store";
 import { useNativeContextMenuGuard } from "@/composables/useNativeContextMenuGuard";
-import { isDockTab } from "@/types/dock.types";
+import { drawerViewFor } from "@/types/drawer.types";
 
 const searchParams = new URLSearchParams(window.location.search);
 const isMirrorWindow = searchParams.get("mirror") === "1";
-const isDockWindow = !isMirrorWindow && isDockTab(searchParams.get("dock"));
+const isDrawerWindow =
+  !isMirrorWindow && drawerViewFor(searchParams.get("drawer") ?? searchParams.get("dock")) !== null;
 const themeStore = useThemeStore();
 useNativeContextMenuGuard();
 
@@ -20,8 +21,8 @@ const MirrorWindow = isMirrorWindow
   ? defineAsyncComponent(() => import("@/modules/mirror/MirrorWindow.vue"))
   : null;
 
-const DockDetachedWindow = isDockWindow
-  ? defineAsyncComponent(() => import("@/components/dock/DockDetachedWindow.vue"))
+const DrawerWindow = isDrawerWindow
+  ? defineAsyncComponent(() => import("@/components/drawer/DrawerWindow.vue"))
   : null;
 </script>
 
@@ -38,7 +39,7 @@ const DockDetachedWindow = isDockWindow
       />
     </template>
 
-    <DockDetachedWindow v-else-if="isDockWindow && DockDetachedWindow" />
+    <DrawerWindow v-else-if="isDrawerWindow && DrawerWindow" />
 
     <template v-else>
       <AppShell />

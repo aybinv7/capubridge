@@ -6,14 +6,20 @@ import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { useBindingHint } from "@/composables/useBindingHint";
 import { STRIP_WINDOWS } from "@/lib/timeline/stripWindows";
 import { useTimelineStripStore } from "@/stores/timelineStrip.store";
+import { useDrawerStore } from "@/stores/drawer.store";
+import { shellIcons } from "@/shared/icons/shell-icons";
 import { formatClock } from "./stripFormat";
 
 const props = defineProps<{ now: number }>();
 
 const strip = useTimelineStripStore();
+const drawer = useDrawerStore();
 const { keysOf } = useBindingHint();
 
 const clockText = computed(() => formatClock(props.now));
+const drawerIcon = computed(() =>
+  drawer.isOpen ? shellIcons.panelBottom.filled : shellIcons.panelBottom.regular,
+);
 </script>
 
 <template>
@@ -35,6 +41,18 @@ const clockText = computed(() => formatClock(props.now));
     >
       {{ clockText }}
     </time>
+    <IconAction
+      :label="drawer.isOpen ? 'Hide the console' : 'Show the console'"
+      hint="Logs and Console, grown out of this strip"
+      :keys="keysOf('view.toggle-dock') ?? undefined"
+      size="sm"
+      position="top"
+      toggle
+      :pressed="drawer.isOpen"
+      @click="drawer.toggle()"
+    >
+      <component :is="drawerIcon" />
+    </IconAction>
     <IconAction
       label="Hide the timeline"
       hint="Bring it back from the title bar"

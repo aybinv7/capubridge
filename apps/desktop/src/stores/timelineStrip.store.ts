@@ -1,8 +1,9 @@
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import {
   DEFAULT_STRIP_WINDOW,
+  STRIP_WINDOWS,
   STRIP_WINDOW_MS,
   isStripWindow,
   type StripWindow,
@@ -83,6 +84,29 @@ export const useTimelineStripStore = defineStore("timelineStrip", () => {
     setHidden(!hidden.value);
   }
 
+  /** A row asked the strip to show the second that holds host time `t`. */
+  const momentRequest = shallowRef<{ t: number; at: number } | null>(null);
+
+  /**
+   * Shows the second holding host time `t` in the moment preview: the strip comes back if it was
+   * hidden, and widens its window when `t` lies before it.
+   */
+  function showMoment(t: number) {
+    setHidden(false);
+    const age = Date.now() - t;
+    if (age > windowMs.value) {
+      const wider = STRIP_WINDOWS.find((option) => STRIP_WINDOW_MS[option] >= age);
+      if (wider) setWindow(wider);
+    }
+    momentRequest.value = { t, at: Date.now() };
+  }
+
+  function takeMomentRequest(): { t: number; at: number } | null {
+    const request = momentRequest.value;
+    momentRequest.value = null;
+    return request;
+  }
+
   return {
     hidden,
     span,
@@ -93,6 +117,9 @@ export const useTimelineStripStore = defineStore("timelineStrip", () => {
     setWindow,
     setHidden,
     toggleHidden,
+    momentRequest,
+    showMoment,
+    takeMomentRequest,
   };
 });
 

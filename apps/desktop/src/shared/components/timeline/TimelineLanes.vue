@@ -63,14 +63,22 @@ function onMove(event: PointerEvent) {
   hovered.value = secondAt(event);
 }
 
-function onClick(event: MouseEvent) {
-  const second = secondAt(event);
+function rectOf(second: number): DOMRectReadOnly | null {
   const element = box.value;
-  if (second === null || !element) return;
+  if (!element) return null;
   const bounds = element.getBoundingClientRect();
   const x = bounds.left + secondToX(second, props.input.scale);
-  emit("pick", second, new DOMRect(x, bounds.top, Math.max(2, pxPerSecond.value), AXIS_TOP));
+  return new DOMRect(x, bounds.top, Math.max(2, pxPerSecond.value), AXIS_TOP);
 }
+
+function onClick(event: MouseEvent) {
+  const second = secondAt(event);
+  const rect = second === null ? null : rectOf(second);
+  if (second === null || !rect) return;
+  emit("pick", second, rect);
+}
+
+defineExpose({ rectOf });
 </script>
 
 <template>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { useElementSize } from "@vueuse/core";
 import { useDevicesStore } from "@/stores/devices.store";
-import { useDockStore } from "@/stores/dock.store";
+import { useDrawerStore } from "@/stores/drawer.store";
 import { useLogcatStore } from "@/stores/logcat.store";
 import { useTimelineStore } from "@/stores/timeline.store";
 import { useTimelineStripStore } from "@/stores/timelineStrip.store";
@@ -28,14 +28,19 @@ const EXPAND_DELAY_MS = 90;
 const COLLAPSE_DELAY_MS = 260;
 const LIVE_WITHIN_MS = 2000;
 const RISE = EXPANDED_HEIGHT - REST_HEIGHT;
+const MOMENT_REQUEST_TTL_MS = 4000;
+
+/** `joined`: the console drawer sits on top, so the resting tray squares its top corners. */
+const props = withDefaults(defineProps<{ joined?: boolean }>(), { joined: false });
 
 const strip = useTimelineStripStore();
 const timeline = useTimelineStore();
 const logcat = useLogcatStore();
-const dock = useDockStore();
+const drawer = useDrawerStore();
 const devices = useDevicesStore();
 
 const cluster = ref<HTMLElement | null>(null);
+const lanes = ref<InstanceType<typeof TimelineLanes> | null>(null);
 const { width: clusterWidth } = useElementSize(cluster);
 const restWidth = shallowRef(0);
 const laneWidth = shallowRef(0);
@@ -141,21 +146,47 @@ function onMomentOpen(open: boolean) {
   if (!open && !pointerInside.value) collapseSoon();
 }
 
+async function showRequestedMoment() {
+  const request = strip.takeMomentRequest();
+  if (!request || Date.now() - request.at > MOMENT_REQUEST_TTL_MS) return;
+  clearTimers();
+  expanded.value = true;
+  await nextTick();
+  const second = Math.floor(request.t / 1000);
+  const rect = lanes.value?.rectOf(second);
+  if (rect) pick(second, rect);
+}
+
+watch(
+  () => strip.momentRequest,
+  (request) => {
+    if (request) void showRequestedMoment();
+  },
+  { immediate: true },
+);
+
+const clip = computed(() => {
+  if (expanded.value) return "inset(0 round 10px)";
+  return props.joined
+    ? `inset(${RISE}px 0 0 0 round 0 0 10px 10px)`
+    : `inset(${RISE}px 0 0 0 round 10px)`;
+});
+
 onBeforeUnmount(clearTimers);
 </script>
 
 <template>
   <section
-    class="relative z-20 mx-1.5 mt-1.5 mb-1.5 shrink-0"
+    class="relative z-20 shrink-0"
     :style="{ height: `${REST_HEIGHT}px` }"
     aria-label="Timeline"
   >
-    <TimelineTray :expanded="expanded" />
+    <TimelineTray :expanded="expanded" :joined="props.joined" />
     <div
       class="absolute inset-x-0 bottom-0"
       :style="{
         height: `${EXPANDED_HEIGHT}px`,
-        clipPath: expanded ? 'inset(0 round 10px)' : `inset(${RISE}px 0 0 0 round 10px)`,
+        clipPath: clip,
       }"
       @pointerenter="onPointerEnter"
       @pointerleave="onPointerLeave"
@@ -176,6 +207,7 @@ onBeforeUnmount(clearTimers);
           @toggle="strip.toggleLane"
         />
         <TimelineLanes
+          ref="lanes"
           :frame="paintFrame"
           :input="laneInput"
           :unkept="laneUnkept"
@@ -187,7 +219,7 @@ onBeforeUnmount(clearTimers);
           :card-suppressed="momentOpen"
           @resize="laneWidth = $event"
           @pick="pick"
-          @turn-on-logcat="dock.openDock('logcat')"
+          @turn-on-logcat="drawer.open('logs')"
         />
         <div class="shrink-0" :style="{ width: `${clusterWidth}px` }" aria-hidden="true" />
       </div>

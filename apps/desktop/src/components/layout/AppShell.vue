@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import BottomDock from "@/components/dock/BottomDock.vue";
-import TimelineStrip from "@/shared/components/timeline/TimelineStrip.vue";
+import WorkColumnFoot from "@/components/drawer/WorkColumnFoot.vue";
+import { isDrawerWindowOpen } from "@/components/drawer/drawerViews";
 import TitleBar from "./TitleBar.vue";
 import Sidebar from "./Sidebar.vue";
 import { useRailPeek } from "./useRailPeek";
@@ -13,27 +13,27 @@ import { useTimelineReveals } from "@/app/useTimelineReveals";
 import { useDataAppCommands } from "@/modules/storage/public";
 import { useCommandsStore } from "@/stores/commands.store";
 import MirrorPanel from "@/modules/mirror/MirrorPanel.vue";
-import { clearDockOpenRequest, dockOpenEventName, readDockOpenRequest } from "@/lib/dock-events";
-import { isDockWindowOpen } from "@/lib/dock-windows";
+import {
+  drawerOpenEventName,
+  takeDrawerOpenRequest,
+  type DrawerOpenRequest,
+} from "@/lib/drawer/drawerEvents";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useInspectStore } from "@/stores/inspect.store";
-import { useDockStore } from "@/stores/dock.store";
-import { useTimelineStripStore } from "@/stores/timelineStrip.store";
+import { useDrawerStore } from "@/stores/drawer.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
 import { useOverlayGuard } from "@/composables/useOverlayGuard";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import type { ADBDevice } from "@/types/adb.types";
-import type { DockTab } from "@/types/dock.types";
 import { invokeCommand, listenEvent } from "@/runtime/ipc";
 
 const mainContentRef = ref<HTMLElement | null>(null);
-const bottomDockRef = ref<InstanceType<typeof BottomDock> | null>(null);
+const footRef = ref<InstanceType<typeof WorkColumnFoot> | null>(null);
 const mirrorStore = useMirrorStore();
 const inspectStore = useInspectStore();
-const dockStore = useDockStore();
-const timelineStrip = useTimelineStripStore();
+const drawerStore = useDrawerStore();
 const devicesStore = useDevicesStore();
 const uiStore = useUIStore();
 const router = useRouter();
@@ -51,7 +51,7 @@ let unlistenInspectHover: (() => void) | null = null;
 let unlistenInspectSelect: (() => void) | null = null;
 let unlistenInspectLeave: (() => void) | null = null;
 let unlistenInspectClose: (() => void) | null = null;
-let removeDockOpenListener: (() => void) | null = null;
+let removeDrawerOpenListener: (() => void) | null = null;
 
 const showMirrorLeft = computed(
   () => mirrorStore.isOpen && !mirrorStore.isDetached && mirrorStore.side === "left",
@@ -73,20 +73,20 @@ function focusMainContent() {
   mainContentRef.value?.focus({ preventScroll: true });
 }
 
-async function focusDock() {
+async function focusDrawer() {
   await nextTick();
-  bottomDockRef.value?.focusDock();
+  footRef.value?.focusDrawer();
 }
 
-function openDock(tab?: DockTab) {
-  dockStore.openDock(tab);
-  clearDockOpenRequest();
-  void focusDock();
+function openDrawer(request: DrawerOpenRequest) {
+  drawerStore.open(request.view, { mode: request.mode });
+  void focusDrawer();
 }
 
-function handleDockOpenRequest(event: Event) {
-  const customEvent = event as CustomEvent<{ tab?: DockTab }>;
-  openDock(customEvent.detail?.tab);
+function handleDrawerOpenRequest(event: Event) {
+  takeDrawerOpenRequest();
+  const detail = (event as CustomEvent<DrawerOpenRequest>).detail;
+  if (detail) openDrawer(detail);
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -94,15 +94,15 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 watch(
-  () => dockStore.isOpen,
+  () => drawerStore.isOpen,
   (isOpen, wasOpen) => {
-    if (isOpen && !wasOpen) void focusDock();
+    if (isOpen && !wasOpen) void focusDrawer();
     if (!isOpen && wasOpen) focusMainContent();
   },
 );
 
 function onResize() {
-  dockStore.syncToViewport();
+  drawerStore.syncToViewport();
 }
 
 function pickStartupDevice(devices: ADBDevice[]) {
@@ -133,19 +133,19 @@ async function bootstrapRuntime() {
 onMounted(() => {
   window.addEventListener("keydown", onKeydown);
   window.addEventListener("resize", onResize);
-  window.addEventListener(dockOpenEventName, handleDockOpenRequest as EventListener);
-  removeDockOpenListener = () => {
-    window.removeEventListener(dockOpenEventName, handleDockOpenRequest as EventListener);
+  window.addEventListener(drawerOpenEventName, handleDrawerOpenRequest);
+  removeDrawerOpenListener = () => {
+    window.removeEventListener(drawerOpenEventName, handleDrawerOpenRequest);
   };
 
-  const pendingDockTab = readDockOpenRequest();
-  if (pendingDockTab) {
-    openDock(pendingDockTab);
+  const pendingRequest = takeDrawerOpenRequest();
+  if (pendingRequest) {
+    openDrawer(pendingRequest);
   }
 
   void bootstrapRuntime();
-  dockStore.reconcilePoppedOut(isDockWindowOpen).catch((error: unknown) => {
-    console.error("[dock] could not check popped-out windows", error);
+  drawerStore.reconcilePoppedOut(isDrawerWindowOpen).catch((error: unknown) => {
+    console.error("[drawer] could not check views in their own window", error);
   });
 
   // Best-effort cleanup of any malformed `.capu` files or orphaned `_work` dirs
@@ -197,9 +197,9 @@ watch(
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
   window.removeEventListener("resize", onResize);
-  if (removeDockOpenListener) {
-    removeDockOpenListener();
-    removeDockOpenListener = null;
+  if (removeDrawerOpenListener) {
+    removeDrawerOpenListener();
+    removeDrawerOpenListener = null;
   }
   if (unlistenInspectRequest) {
     unlistenInspectRequest();
@@ -254,32 +254,14 @@ onUnmounted(() => {
         <main
           ref="mainContentRef"
           tabindex="-1"
-          class="min-h-0 flex-1 overflow-hidden outline-none"
+          class="min-h-0 overflow-hidden outline-none"
+          :class="drawerStore.isOpen && drawerStore.maximized ? 'h-0 flex-none' : 'flex-1'"
+          :inert="drawerStore.isOpen && drawerStore.maximized ? true : undefined"
         >
           <RouterView />
         </main>
 
-        <Transition
-          enter-active-class="transition-opacity duration-200 ease-cladd-settle"
-          leave-active-class="transition-opacity duration-150 ease-in-out"
-          enter-from-class="opacity-0"
-          leave-to-class="opacity-0"
-        >
-          <BottomDock
-            v-if="dockStore.isOpen"
-            ref="bottomDockRef"
-            @request-main-focus="focusMainContent"
-          />
-        </Transition>
-
-        <Transition
-          enter-active-class="transition-[opacity,translate] duration-300 ease-cladd-settle"
-          leave-active-class="transition-[opacity,translate] duration-200 ease-in-out"
-          enter-from-class="translate-y-2 opacity-0"
-          leave-to-class="translate-y-2 opacity-0"
-        >
-          <TimelineStrip v-if="!timelineStrip.hidden" />
-        </Transition>
+        <WorkColumnFoot ref="footRef" @request-main-focus="focusMainContent" />
       </div>
 
       <Transition

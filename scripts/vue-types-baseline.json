@@ -2,12 +2,6 @@
   "apps/desktop/src/components/ai-elements/prompt-input/PromptInput.vue": {
     "errors": 2
   },
-  "apps/desktop/src/components/dock/DockDetachedWindow.vue": {
-    "errors": 1
-  },
-  "apps/desktop/src/components/dock/DockTabBar.vue": {
-    "errors": 1
-  },
   "apps/desktop/src/components/ui/chart/ChartLegendContent.vue": {
     "errors": 1
   },

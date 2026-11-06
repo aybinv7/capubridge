@@ -32,6 +32,8 @@ export const useDrawerStore = defineStore("drawer", () => {
   const consoleMode = ref<ConsoleMode>("stream");
   const poppedOut = shallowRef<ReadonlySet<DrawerView>>(new Set());
   const unread = ref<Record<DrawerView, number>>(zeroUnread());
+  /** Moves each time something asks for the Console prompt; the Console view focuses it. */
+  const promptRequest = shallowRef(0);
 
   const docked = computed(() => drawerViewIds.filter((id) => !poppedOut.value.has(id)));
   const currentView = computed<DrawerView>(() =>
@@ -83,6 +85,12 @@ export const useDrawerStore = defineStore("drawer", () => {
 
   function setConsoleMode(mode: ConsoleMode) {
     consoleMode.value = mode;
+  }
+
+  /** Opens the Console view and puts the caret in its prompt. */
+  function openPrompt() {
+    open("console", { mode: "stream" });
+    promptRequest.value += 1;
   }
 
   function setHeight(height: number) {
@@ -166,6 +174,8 @@ export const useDrawerStore = defineStore("drawer", () => {
     toggle,
     setView,
     setConsoleMode,
+    promptRequest,
+    openPrompt,
     setHeight,
     resizeBy,
     toggleHeightPreset,

@@ -90,13 +90,6 @@
   "apps/desktop/src/components/ai-elements/tool/ToolStatusBadge.vue": {
     "badge": 1
   },
-  "apps/desktop/src/components/dock/DockPopoutButton.vue": {
-    "button": 1
-  },
-  "apps/desktop/src/components/dock/DockTabBar.vue": {
-    "button": 1,
-    "tabs": 1
-  },
   "apps/desktop/src/modules/automation/AgentAppSelector.vue": {
     "button": 1,
     "popover": 1
@@ -162,27 +155,6 @@
   "apps/desktop/src/modules/browser-preview/BrowserPreviewPanel.vue": {
     "badge": 1,
     "button": 1
-  },
-  "apps/desktop/src/modules/console/ConsoleExceptions.vue": {
-    "badge": 1,
-    "button": 1,
-    "input": 1
-  },
-  "apps/desktop/src/modules/console/ConsoleOutput.vue": {
-    "badge": 1,
-    "button": 1,
-    "input": 1
-  },
-  "apps/desktop/src/modules/console/ConsoleRepl.vue": {
-    "badge": 1,
-    "button": 1,
-    "textarea": 1
-  },
-  "apps/desktop/src/modules/devices/DeviceLogcat.vue": {
-    "badge": 1,
-    "button": 1,
-    "input": 1,
-    "select": 1
   },
   "apps/desktop/src/modules/inspect/EditAsHtmlDialog.vue": {
     "button": 1,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useActiveContextStore } from "@/stores/activeContext.store";
-import { useDockStore } from "@/stores/dock.store";
+import { useDrawerStore } from "@/stores/drawer.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useTimelineStripStore } from "@/stores/timelineStrip.store";
 import { useBindingHint } from "@/composables/useBindingHint";
@@ -9,7 +9,7 @@ import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { shellIcons } from "@/shared/icons/shell-icons";
 
 const context = useActiveContextStore();
-const dockStore = useDockStore();
+const drawer = useDrawerStore();
 const mirrorStore = useMirrorStore();
 const timelineStrip = useTimelineStripStore();
 const { keysOf } = useBindingHint();
@@ -31,12 +31,15 @@ const screenIcon = computed(() => {
   return mirrorStore.isOpen ? pair.filled : pair.regular;
 });
 const consoleIcon = computed(() =>
-  dockStore.isOpen ? shellIcons.panelBottom.filled : shellIcons.panelBottom.regular,
+  drawer.isOpen ? shellIcons.panelBottom.filled : shellIcons.panelBottom.regular,
 );
 
-const consoleLabel = computed(() => (dockStore.isOpen ? "Hide the console" : "Show the console"));
+const unread = computed(() => (drawer.isOpen ? 0 : drawer.unreadTotal));
+const consoleLabel = computed(() => (drawer.isOpen ? "Hide the console" : "Show the console"));
 const consoleHint = computed(() =>
-  dockStore.hasUnread && !dockStore.isOpen ? "New messages since you last looked" : undefined,
+  unread.value > 0
+    ? `${unread.value.toLocaleString()} new ${unread.value === 1 ? "warning or error" : "warnings or errors"} since you last looked`
+    : "Logs and Console, joined to the timeline",
 );
 const timelineShown = computed(() => !timelineStrip.hidden);
 const timelineIcon = computed(() =>
@@ -45,7 +48,6 @@ const timelineIcon = computed(() =>
 const timelineLabel = computed(() =>
   timelineShown.value ? "Hide the timeline" : "Show the timeline",
 );
-const showUnread = computed(() => dockStore.hasUnread && !dockStore.isOpen);
 </script>
 
 <template>
@@ -66,17 +68,18 @@ const showUnread = computed(() => dockStore.hasUnread && !dockStore.isOpen);
       :hint="consoleHint"
       :keys="keysOf('view.toggle-dock') ?? undefined"
       toggle
-      :pressed="dockStore.isOpen"
-      class="relative"
-      @click="dockStore.toggleDock()"
+      :pressed="drawer.isOpen"
+      @click="drawer.toggle()"
     >
       <component :is="consoleIcon" />
-      <span
-        v-if="showUnread"
-        class="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-signal-select"
-        aria-hidden="true"
-      />
     </IconAction>
+    <span
+      v-if="unread > 0"
+      class="-ml-1.5 rounded-full bg-surface-2 px-1.5 font-mono text-2xs leading-4 text-foreground tabular-nums shadow-bevel"
+      aria-hidden="true"
+    >
+      {{ unread > 999 ? "999+" : unread }}
+    </span>
 
     <IconAction
       :label="screenLabel"

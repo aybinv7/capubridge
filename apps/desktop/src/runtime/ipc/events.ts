@@ -50,6 +50,7 @@ export interface DockTargetEvent {
 export interface IpcEventMap {
   "capubridge:dock-target": DockTargetEvent;
   "capubridge:dock-target-request": { requestedAt: number };
+  "capubridge:drawer-return": { view: "logs" | "console" };
   "capubridge:session-event": SessionEvent;
   "capubridge:mirror-device-clipboard": MirrorClipboardEvent;
   "capubridge:set-inspect-mode": { enabled: boolean };

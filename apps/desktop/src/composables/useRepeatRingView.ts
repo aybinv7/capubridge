@@ -1,8 +1,14 @@
 import { onScopeDispose, shallowRef, triggerRef, watch } from "vue";
 import type { Ref, ShallowRef } from "vue";
 import { RepeatRows, type RepeatRow, type RepeatRule } from "@/lib/stream-rows/repeatRows";
-import type { RingViewSource } from "@/composables/useRingView";
-import type { StreamChange } from "@/lib/stream-feed";
+import type { RingBuffer } from "@/lib/ring-buffer";
+import type { StreamChange, StreamFeed } from "@/lib/stream-feed";
+
+/** A ring-backed stream: the kept items and the feed that says what each flush changed. */
+export interface RingViewSource<T> {
+  ring: RingBuffer<T>;
+  feed: StreamFeed<T>;
+}
 
 export interface RepeatRingViewOptions<T> {
   rule: RepeatRule<T>;
@@ -17,6 +23,8 @@ export interface RepeatRingView<T> {
   pending: Ref<number>;
   /** Items the ring evicted while frozen, so the view can say they are no longer kept. */
   evictedWhileFrozen: Ref<number>;
+  /** How many kept items the filter keeps, repeats counted one by one. */
+  matched: Ref<number>;
   /** Re-runs the filter over the whole ring (for time-based filters). */
   rebuild(): void;
 }
@@ -35,15 +43,21 @@ export function useRepeatRingView<T>(
   const rows = shallowRef<RepeatRow<T>[]>(groups.rows);
   const pending = shallowRef(0);
   const evictedWhileFrozen = shallowRef(0);
+  const matched = shallowRef(0);
   let stale = false;
 
   function rebuild() {
     const test = predicate.value;
     groups.reset();
+    let kept = 0;
     source.ring.forEach((item) => {
-      if (!test || test(item)) groups.push(item);
+      if (!test || test(item)) {
+        groups.push(item);
+        kept += 1;
+      }
     });
     rows.value = groups.rows;
+    matched.value = kept;
     pending.value = 0;
     evictedWhileFrozen.value = 0;
     stale = false;
@@ -71,14 +85,20 @@ export function useRepeatRingView<T>(
     if (change.kind === "clear") {
       groups.reset();
       rows.value = groups.rows;
+      matched.value = 0;
       return;
     }
     const gone = countMatches(change.evicted);
     if (gone > 0) groups.evict(gone);
     const test = predicate.value;
+    let added = 0;
     for (const item of change.items) {
-      if (!test || test(item)) groups.push(item);
+      if (!test || test(item)) {
+        groups.push(item);
+        added += 1;
+      }
     }
+    matched.value += added - gone;
     triggerRef(rows);
   }
 
@@ -95,5 +115,5 @@ export function useRepeatRingView<T>(
   }
   onScopeDispose(unsubscribe);
 
-  return { rows, pending, evictedWhileFrozen, rebuild };
+  return { rows, pending, evictedWhileFrozen, matched, rebuild };
 }

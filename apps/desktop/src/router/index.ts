@@ -1,7 +1,11 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import type { RouteRecordRaw } from "vue-router";
 import { registeredFeatureRoutes } from "@/app/feature-registry";
-import { dispatchDockOpenRequest, queueDockOpenRequest } from "@/lib/dock-events";
+import {
+  dispatchDrawerOpenRequest,
+  drawerRequestFor,
+  queueDrawerOpenRequest,
+} from "@/lib/drawer/drawerEvents";
 
 const shellRoutes: RouteRecordRaw[] = [
   { path: "/", redirect: "/devices" },
@@ -11,15 +15,10 @@ const shellRoutes: RouteRecordRaw[] = [
     component: { render: () => null },
     beforeEnter: (to, from) => {
       const value = Array.isArray(to.params.tab) ? to.params.tab[0] : to.params.tab;
-      const tab =
-        value === "console" || value === "output"
-          ? "console"
-          : value === "repl" || value === "exceptions"
-            ? value
-            : "logcat";
+      const request = drawerRequestFor(value);
 
-      queueDockOpenRequest(tab);
-      dispatchDockOpenRequest(tab);
+      queueDrawerOpenRequest(request);
+      dispatchDrawerOpenRequest(request);
 
       return from.matched.length > 0 ? from.fullPath : "/devices";
     },
