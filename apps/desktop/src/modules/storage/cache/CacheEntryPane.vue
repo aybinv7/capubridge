@@ -190,7 +190,6 @@ function onKeydown(event: KeyboardEvent) {
         <Button
           size="sm"
           variant="transparent"
-          color="red"
           content-class-name="gap-1.5"
           :disabled="blockedReason !== null || gone"
           :loading="busy"

@@ -166,7 +166,6 @@ defineExpose({ focusFind });
       v-if="writes.blockedReason.value === null && summary.selectedRows > 1"
       :label="`Delete ${summary.selectedRows} selected`"
       hint="Asks first"
-      color="red"
       @click="requestDelete(summary.selectedRowIds)"
     >
       <Trash2 :stroke-width="1.8" />

@@ -94,7 +94,6 @@ defineExpose({
       <Button
         size="sm"
         variant="transparent"
-        color="red"
         content-class-name="gap-1.5"
         :disabled="writes.blockedReason.value !== null || writes.busy.value"
         @click="deleteCache"
@@ -119,7 +118,13 @@ defineExpose({
     title="Waiting for the app"
     :text="away"
   >
-    <Button size="sm" variant="solid-fill" :loading="bringing" @click="emit('bringToFront')">
+    <Button
+      size="sm"
+      variant="solid-fill"
+      color="brand"
+      :loading="bringing"
+      @click="emit('bringToFront')"
+    >
       Bring to front
     </Button>
   </DataState>
