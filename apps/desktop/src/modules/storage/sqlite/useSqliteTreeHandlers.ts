@@ -166,15 +166,6 @@ export function useSqliteTreeHandlers(
     }
   }
 
-  function deleteRows(
-    table: string,
-    keyColumns: readonly SqliteColumnInfo[],
-    records: Record<string, unknown>[],
-  ) {
-    const db = tab.current.value?.db;
-    if (db) void writes.deleteRows(db, table, keyColumns, records);
-  }
-
   /** Saves staged edits and new rows of a table of the open file; resolves whether it saved. */
   function saveChanges(
     table: string,
@@ -194,7 +185,6 @@ export function useSqliteTreeHandlers(
     exportDump,
     saveFile: writes.saveToFile,
     run,
-    deleteRows,
     saveChanges,
     unreadableReason,
   };

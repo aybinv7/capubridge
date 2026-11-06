@@ -109,7 +109,6 @@ describe("useSqliteWrites (M1)", () => {
     for (const db of [page, phone]) {
       await api.clearTable(db, "orders");
       await api.dropTable(db, "orders");
-      await api.deleteRows(db, "orders", key, [{ id: 1 }]);
       await api.replaceWithDump(db);
     }
     expect(confirm).not.toHaveBeenCalled();
@@ -121,10 +120,8 @@ describe("useSqliteWrites (M1)", () => {
     confirm.mockResolvedValueOnce(false);
     await api.clearTable(file, "orders");
     expect(writes).toEqual([]);
-    await api.deleteRows(file, "orders", key, [
-      { id: { __type: "Number", value: "9007199254740993" } },
-    ]);
-    expect(writes).toEqual([`DELETE FROM "orders" WHERE ("id" = 9007199254740993)`]);
+    await api.dropTable(file, "orders");
+    expect(writes).toEqual([`DROP TABLE "orders"`]);
   });
 });
 
@@ -134,6 +131,7 @@ describe("saving staged edits", () => {
       ["[1]", { rowId: "[1]", original: { id: 1, name: "tea" }, values: { name: "green tea" } }],
     ]),
     inserts: [{ id: "new:1", values: { name: "scone" } }],
+    deletes: new Map([["[2]", { id: { __type: "Number", value: "9007199254740993" } }]]),
   };
 
   test("a phone or page copy is refused before anything is sent", async () => {
@@ -151,6 +149,7 @@ describe("saving staged edits", () => {
     expect(await api.saveChanges(file, "item", key, staged)).toBe(true);
     expect(changesets).toEqual([
       [
+        `DELETE FROM "item" WHERE "id" IS 9007199254740993`,
         `UPDATE "item" SET "name" = 'green tea' WHERE "id" IS 1`,
         `INSERT INTO "item" ("name") VALUES ('scone')`,
       ],
@@ -164,6 +163,7 @@ describe("saving writes the file that was opened (S2)", () => {
       ["[1]", { rowId: "[1]", original: { id: 1, name: "tea" }, values: { name: "green tea" } }],
     ]),
     inserts: [],
+    deletes: new Map(),
   };
 
   test("the first save asks, naming the path and the backup, then writes the file", async () => {

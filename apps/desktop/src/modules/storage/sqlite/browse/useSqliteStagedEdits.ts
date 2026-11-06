@@ -13,6 +13,8 @@ import {
   addInsert,
   removeInserts,
   stageCell,
+  stageDeletes,
+  unstageDeletes,
   withoutSaved,
   stageInsertCell,
   stagedCount,
@@ -68,7 +70,8 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     const map = new Map<string, GridRowState>();
     for (const insert of staged.value.inserts) map.set(insert.id, "staged-insert");
     for (const row of input.rows.value) {
-      if (staged.value.edits.has(row.id)) map.set(row.id, "staged-edit");
+      if (staged.value.deletes.has(row.id)) map.set(row.id, "staged-delete");
+      else if (staged.value.edits.has(row.id)) map.set(row.id, "staged-edit");
     }
     return map;
   });
@@ -108,6 +111,10 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     if (!input.writable.value) return;
     if (saving.value) {
       say(SAVING_NOTE);
+      return;
+    }
+    if (staged.value.deletes.has(rowId)) {
+      say("This row is marked for deletion; keep it first to edit it.");
       return;
     }
     const value = displayed(rowId)?.cells[columnId];
@@ -154,15 +161,33 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     return id;
   }
 
-  /** Drops new rows among `ids`; returns the ids of rows that are already in the file. */
-  function dropNewRows(ids: readonly string[]): string[] {
+  /**
+   * Deletes rows: a new row is simply dropped, a row of the file is marked and deleted on
+   * Save, in the same transaction as the other changes (Discard keeps it).
+   */
+  function deleteRows(ids: readonly string[]) {
+    if (!input.writable.value) return;
     if (saving.value) {
       say(SAVING_NOTE);
-      return [];
+      return;
     }
     const fresh = new Set(ids.filter((id) => id.startsWith(NEW_ROW_PREFIX)));
-    if (fresh.size > 0) staged.value = removeInserts(staged.value, fresh);
-    return ids.filter((id) => !fresh.has(id));
+    let next = fresh.size > 0 ? removeInserts(staged.value, fresh) : staged.value;
+    const wanted = new Set(ids);
+    const read = input.rows.value.filter((row) => wanted.has(row.id) && !fresh.has(row.id));
+    if (read.length > 0) next = stageDeletes(next, read);
+    staged.value = next;
+  }
+
+  /** Keeps rows that were marked for deletion. */
+  function keepRows(ids: readonly string[]) {
+    if (saving.value) return;
+    staged.value = unstageDeletes(staged.value, ids);
+  }
+
+  /** Whether a row is marked for deletion. */
+  function isDeleting(rowId: string): boolean {
+    return staged.value.deletes.has(rowId);
   }
 
   function discard() {
@@ -197,7 +222,9 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     commit,
     cancel,
     addRow,
-    dropNewRows,
+    deleteRows,
+    keepRows,
+    isDeleting,
     discard,
     save,
   };

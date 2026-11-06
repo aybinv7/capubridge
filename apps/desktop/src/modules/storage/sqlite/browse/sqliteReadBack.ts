@@ -32,7 +32,7 @@ export interface SqliteReadBack {
 /**
  * Reads every saved row back from the file, by its key after the save (or by the rowid an
  * insert was given), and lists the values the database holds differently from what was
- * written: a trigger, a type affinity or a default changed them.
+ * written: a trigger, a type affinity or a default changed them. A deleted row must be gone.
  */
 export async function readBackChangeset(
   run: RunQuery,
@@ -57,6 +57,25 @@ export async function readBackChangeset(
     result.edited.push({ rowId: edit.rowId, row });
     for (const difference of readBackDifferences(edit.values, row)) {
       result.differences.push({ ...difference, row: edit.rowId });
+    }
+  }
+
+  for (const [rowId, row] of staged.deletes) {
+    if (budget <= 0) {
+      result.unchecked += 1;
+      continue;
+    }
+    budget -= 1;
+    const still = firstRecord(
+      await run(`SELECT 1 AS present FROM ${name} WHERE ${keyCondition(keyColumns, row)} LIMIT 1`),
+    );
+    if (still) {
+      result.differences.push({
+        column: "(row)",
+        wrote: "deleted",
+        reads: "still there",
+        row: rowId,
+      });
     }
   }
 

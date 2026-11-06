@@ -155,6 +155,21 @@ mod tests {
     }
 
     #[test]
+    fn a_delete_whose_row_is_gone_deletes_nothing() {
+        let mut conn = shop();
+        let error = apply_changeset(
+            &mut conn,
+            &[
+                statement("DELETE FROM item WHERE id IS 1"),
+                statement("DELETE FROM item WHERE id IS NULL"),
+            ],
+        )
+        .unwrap_err();
+        assert!(error.contains("touch 0 rows"), "{error}");
+        assert_eq!(names(&conn), vec!["tea", "cake"]);
+    }
+
+    #[test]
     fn a_statement_cannot_smuggle_a_second_one() {
         let mut conn = shop();
         let result = apply_changeset(

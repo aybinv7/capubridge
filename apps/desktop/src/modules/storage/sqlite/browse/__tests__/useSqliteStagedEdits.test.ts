@@ -70,3 +70,23 @@ describe("edits while a save is running (S5)", () => {
     scope.stop();
   });
 });
+
+describe("deleting rows is staged like any edit (S6, U2)", () => {
+  test("a deleted row is marked, cannot be edited, and Discard brings it back", () => {
+    const { staging, scope } = setup();
+    staging.startEdit("[1]", "name");
+    staging.commit("green tea");
+    staging.deleteRows(["[1]"]);
+    expect(staging.states.value.get("[1]")).toBe("staged-delete");
+    expect(staging.staged.value.edits.size).toBe(0);
+    expect(staging.pending.value).toBe(1);
+    staging.startEdit("[1]", "name");
+    expect(staging.editing.value).toBeNull();
+    staging.keepRows(["[1]"]);
+    expect(staging.pending.value).toBe(0);
+    staging.deleteRows(["[2]"]);
+    staging.discard();
+    expect(staging.states.value.size).toBe(0);
+    scope.stop();
+  });
+});

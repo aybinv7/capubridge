@@ -18,7 +18,7 @@ import {
   type SqliteStaged,
 } from "./browse/sqliteChangeset";
 import { readBackChangeset } from "./browse/sqliteReadBack";
-import { quoteIdent, sqlLiteral } from "./sqlText";
+import { quoteIdent } from "./sqlText";
 import { firstSaveText, useSqliteFileSave } from "./useSqliteFileSave";
 
 export interface SqliteWriteDeps {
@@ -41,8 +41,8 @@ function changesText(count: number): string {
 }
 
 /**
- * Changes to a file opened on this computer: clear a table, drop it, delete rows, replace the
- * whole file with an SQL dump, save staged edits. Each asks first and each checks the database
+ * Changes to a file opened on this computer: clear a table, drop it, replace the whole file
+ * with an SQL dump, save staged edits, new rows and deletes. Each asks first and each checks the database
  * it acts on, never the one that happens to be open; a phone or page copy is refused before
  * anything runs (M1). Each change is made in the working copy, then written over the picked
  * file (S2): the confirmation names that path, and the toast says where it was saved.
@@ -151,67 +151,8 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
     }
   }
 
-  /** Deletes rows by primary key; a table without one has no row to address. */
-  async function deleteRows(
-    db: SqliteDbFile,
-    table: string,
-    keyColumns: readonly SqliteColumnInfo[],
-    records: readonly Record<string, unknown>[],
-  ) {
-    if (records.length === 0) return;
-    const at = target(db);
-    if (!at) return;
-    if (keyColumns.length === 0) {
-      toast.error("These rows cannot be deleted", {
-        description: "The table has no primary key, so a row cannot be told apart.",
-      });
-      return;
-    }
-    let where: string;
-    try {
-      where = records
-        .map(
-          (record) =>
-            `(${keyColumns.map((column) => `${quoteIdent(column.name)} = ${sqlLiteral(record[column.name])}`).join(" AND ")})`,
-        )
-        .join(" OR ");
-    } catch (error) {
-      toast.error("These rows cannot be deleted", { description: describe(error) });
-      return;
-    }
-    const single = records.length === 1;
-    const confirmed = await deps.confirm({
-      title: single ? "Delete this row?" : `Delete ${records.length} rows?`,
-      text: `${single ? "The row is" : `${records.length} rows are`} deleted from “${table}”. ${firstSaveText(at.file)}`,
-      confirmLabel: single ? "Delete row" : `Delete ${records.length} rows`,
-      danger: true,
-    });
-    if (!confirmed) return;
-    files.confirmSave(at.file.id);
-    try {
-      await runWrite(at.address, `DELETE FROM ${quoteIdent(table)} WHERE ${where}`);
-      for (const record of records) {
-        changes.recordChange({
-          operation: "delete",
-          serial: deps.changeSerial(),
-          packageName: deps.changePackage(),
-          dbPath: db.path,
-          tableName: table,
-          rowKey: buildRowKey([...keyColumns], record),
-          beforeValue: { ...record },
-          afterValue: null,
-        });
-      }
-      await saveFile(at.file, single ? "Deleted the row" : `Deleted ${records.length} rows`);
-    } catch (error) {
-      toast.error("Could not delete the rows", { description: describe(error) });
-    } finally {
-      deps.afterWrite(db);
-    }
-  }
-
   /**
-   * Saves staged cell edits and new rows of one table to an opened file: all in one transaction
+   * Saves staged cell edits, new rows and deletes of one table to an opened file: all in one transaction
    * in the working copy, read back, then written over the picked file (asked once, naming the
    * path). Returns whether the changes left the staging (they are in the working copy).
    */
@@ -251,6 +192,18 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
         staged,
         inserted,
       );
+      for (const row of staged.deletes.values()) {
+        changes.recordChange({
+          operation: "delete",
+          serial: deps.changeSerial(),
+          packageName: deps.changePackage(),
+          dbPath: db.path,
+          tableName: table,
+          rowKey: buildRowKey([...keyColumns], row),
+          beforeValue: { ...row },
+          afterValue: null,
+        });
+      }
       for (const edit of staged.edits.values()) {
         changes.recordChange({
           operation: "update",
@@ -353,5 +306,5 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
     if (file) await fileSave.saveAs(file);
   }
 
-  return { clearTable, dropTable, deleteRows, saveChanges, replaceWithDump, saveToFile, saveAs };
+  return { clearTable, dropTable, saveChanges, replaceWithDump, saveToFile, saveAs };
 }

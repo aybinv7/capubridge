@@ -17,9 +17,11 @@ export interface StagedRowInsert {
 export interface SqliteStaged {
   edits: ReadonlyMap<string, StagedRowEdit>;
   inserts: readonly StagedRowInsert[];
+  /** Rows to delete, by row id, each as it was read (its key finds it). */
+  deletes: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
 }
 
-export const EMPTY_STAGED: SqliteStaged = { edits: new Map(), inserts: [] };
+export const EMPTY_STAGED: SqliteStaged = { edits: new Map(), inserts: [], deletes: new Map() };
 
 export const NEW_ROW_PREFIX = "new:";
 
@@ -62,6 +64,30 @@ export function stageCell(
   return { ...staged, edits };
 }
 
+/**
+ * Marks rows of the file for deletion. A row with staged edits is deleted by the key it was
+ * read with, and its edits are dropped: they would change a row that is going away.
+ */
+export function stageDeletes(
+  staged: SqliteStaged,
+  rows: readonly { id: string; cells: Readonly<Record<string, unknown>> }[],
+): SqliteStaged {
+  const edits = new Map(staged.edits);
+  const deletes = new Map(staged.deletes);
+  for (const row of rows) {
+    deletes.set(row.id, edits.get(row.id)?.original ?? row.cells);
+    edits.delete(row.id);
+  }
+  return { ...staged, edits, deletes };
+}
+
+/** Keeps rows that were marked for deletion. */
+export function unstageDeletes(staged: SqliteStaged, ids: readonly string[]): SqliteStaged {
+  const deletes = new Map(staged.deletes);
+  for (const id of ids) deletes.delete(id);
+  return { ...staged, deletes };
+}
+
 export function addInsert(staged: SqliteStaged, id: string): SqliteStaged {
   return { ...staged, inserts: [{ id, values: {} }, ...staged.inserts] };
 }
@@ -91,11 +117,18 @@ export function withoutSaved(current: SqliteStaged, saved: SqliteStaged): Sqlite
     [...current.edits].filter(([rowId, edit]) => saved.edits.get(rowId) !== edit),
   );
   const savedInserts = new Set(saved.inserts);
-  return { edits, inserts: current.inserts.filter((insert) => !savedInserts.has(insert)) };
+  const deletes = new Map(
+    [...current.deletes].filter(([rowId, row]) => saved.deletes.get(rowId) !== row),
+  );
+  return {
+    edits,
+    inserts: current.inserts.filter((insert) => !savedInserts.has(insert)),
+    deletes,
+  };
 }
 
 export function stagedCount(staged: SqliteStaged): number {
-  return staged.edits.size + staged.inserts.length;
+  return staged.edits.size + staged.inserts.length + staged.deletes.size;
 }
 
 /** `"a" IS 1 AND "b" IS 'x'`: the row as it was read, by its primary key (NULL-safe). */
@@ -110,9 +143,11 @@ export function keyCondition(
 }
 
 /**
- * The statements that save a changeset: one `UPDATE` per edited row, found by the key it had
- * when it was read (so editing the key itself still reaches the same row), then one `INSERT`
- * per new row. Every value goes through `sqlLiteral`, so it reads back as written.
+ * The statements that save a changeset: one `DELETE` per row marked for deletion and one
+ * `UPDATE` per edited row, each found NULL-safely by the key it had when it was read (so
+ * editing the key itself still reaches the same row), then one `INSERT` per new row. Each
+ * must change exactly one row (Rust checks), so a row that is gone fails the whole save.
+ * Every value goes through `sqlLiteral`, so it reads back as written.
  */
 export function changesetStatements(
   table: string,
@@ -120,6 +155,9 @@ export function changesetStatements(
   staged: SqliteStaged,
 ): string[] {
   const name = quoteIdent(table);
+  const deletes = [...staged.deletes.values()].map(
+    (row) => `DELETE FROM ${name} WHERE ${keyCondition(keyColumns, row)}`,
+  );
   const updates = [...staged.edits.values()].map((edit) => {
     const sets = Object.entries(edit.values)
       .map(([column, value]) => `${quoteIdent(column)} = ${sqlLiteral(value)}`)
@@ -133,7 +171,7 @@ export function changesetStatements(
     const values = entries.map(([, value]) => sqlLiteral(value)).join(", ");
     return `INSERT INTO ${name} (${columns}) VALUES (${values})`;
   });
-  return [...updates, ...inserts];
+  return [...deletes, ...updates, ...inserts];
 }
 
 /** One saved value that the database holds differently (a trigger, a type affinity). */

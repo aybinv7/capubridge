@@ -81,7 +81,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   followForeignKey: [target: string, value: unknown];
-  delete: [records: Record<string, unknown>[]];
   openRowDiff: [rowKey: string];
   retry: [];
   fileAction: [action: "save-file" | "save-as"];
@@ -236,13 +235,22 @@ function contextActions(target: GridContextTarget): GridContextAction[] {
     separatorBefore: true,
   });
   if (!readOnly.value) {
-    actions.push({
-      id: "delete",
-      label: target.rowIds.length > 1 ? `Delete ${target.rowIds.length} rows…` : "Delete row…",
-      binding: "delete",
-      danger: true,
-      separatorBefore: true,
-    });
+    const many = target.rowIds.length > 1;
+    if (target.rowIds.length > 0 && target.rowIds.every((id) => staging.isDeleting(id))) {
+      actions.push({
+        id: "keep",
+        label: many ? `Keep these ${target.rowIds.length} rows` : "Keep this row",
+        separatorBefore: true,
+      });
+    } else {
+      actions.push({
+        id: "delete",
+        label: many ? `Delete ${target.rowIds.length} rows` : "Delete row",
+        binding: "delete",
+        danger: true,
+        separatorBefore: true,
+      });
+    }
   }
   return actions;
 }
@@ -266,6 +274,7 @@ function runContextAction(actionId: string, target: GridContextTarget) {
   } else if (actionId === "copy-insert") void props.query.copyAsInsert(recordsFor(target.rowIds));
   else if (actionId === "row-diff" && target.rowId) emit("openRowDiff", target.rowId);
   else if (actionId === "delete") requestDelete([...target.rowIds]);
+  else if (actionId === "keep") staging.keepRows(target.rowIds);
 }
 
 function openGroupRow(rowId: string) {
@@ -274,8 +283,7 @@ function openGroupRow(rowId: string) {
 
 function requestDelete(rowIds: string[]) {
   if (readOnly.value) return;
-  const saved = staging.dropNewRows(rowIds);
-  if (saved.length > 0) emit("delete", recordsFor(saved));
+  staging.deleteRows(rowIds);
 }
 
 function exportRows(format: SqliteExportFormat, scope: SqliteExportScope) {

@@ -37,7 +37,6 @@ const props = defineProps<{
   actions: readonly DataAction[];
   changeSerial: string;
   changePackage: string;
-  deleteRows: (keyColumns: readonly SqliteColumnInfo[], records: Record<string, unknown>[]) => void;
   saveChanges: (keyColumns: readonly SqliteColumnInfo[], staged: SqliteStaged) => Promise<boolean>;
 }>();
 
@@ -194,7 +193,6 @@ defineExpose({
     :unsaved="db.unsavedToSource === true"
     @file-action="emit('fileAction', $event)"
     @follow-foreign-key="followForeignKey"
-    @delete="deleteRows(keyColumns, $event)"
     @open-row-diff="openRowDiff"
     @retry="rows.refetch()"
   />

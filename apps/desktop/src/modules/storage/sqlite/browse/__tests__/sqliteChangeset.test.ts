@@ -5,6 +5,7 @@ import {
   changesetStatements,
   readBackDifferences,
   stageCell,
+  stageDeletes,
   stageInsertCell,
   stagedCount,
   uneditableReason,
@@ -184,5 +185,48 @@ describe("a typed integer past 2^53 (S4)", () => {
     expect(parseCellEdit(1, "number", "9007199254740993.0", 1, { exactIntegers: true }).ok).toBe(
       false,
     );
+  });
+});
+
+describe("deleting rows (S6)", () => {
+  test("a row with a NULL key is found with IS, one statement per row", () => {
+    const rows = [
+      { id: "[null]", cells: { id: null, name: "orphan" } },
+      { id: "[1]", cells: { id: 1, name: "tea" } },
+    ];
+    expect(changesetStatements("item", ["id"], stageDeletes(EMPTY_STAGED, rows))).toEqual([
+      `DELETE FROM "item" WHERE "id" IS NULL`,
+      `DELETE FROM "item" WHERE "id" IS 1`,
+    ]);
+  });
+
+  test("a thousand rows are a thousand one-row statements, not one OR chain", () => {
+    const rows = Array.from({ length: 1000 }, (_, i) => ({ id: `[${i}]`, cells: { id: i } }));
+    const statements = changesetStatements("item", ["id"], stageDeletes(EMPTY_STAGED, rows));
+    expect(statements).toHaveLength(1000);
+    expect(statements.every((sql) => !sql.includes(" OR "))).toBe(true);
+  });
+
+  test("the edits of a deleted row are dropped, and it is deleted by the key it was read with", () => {
+    const edited = stageCell(EMPTY_STAGED, row, "id", 7);
+    const staged = stageDeletes(edited, [{ id: row.id, cells: { ...row.cells, id: 7 } }]);
+    expect(staged.edits.size).toBe(0);
+    expect(changesetStatements("item", ["id"], staged)).toEqual([
+      `DELETE FROM "item" WHERE "id" IS 1`,
+    ]);
+  });
+
+  test("a deleted row still in the file reads back as a difference", async () => {
+    const staged = stageDeletes(EMPTY_STAGED, [row]);
+    const back = await readBackChangeset(
+      async () => ({ columns: ["present"], rows: [[1]], rowCount: 1, changes: 0, durationMs: 0 }),
+      "item",
+      ["id"],
+      staged,
+      [null],
+    );
+    expect(back.differences).toEqual([
+      { column: "(row)", wrote: "deleted", reads: "still there", row: "[1]" },
+    ]);
   });
 });
