@@ -50,8 +50,11 @@ export function useTimelineFeeds() {
     logcatStore.feed.subscribe((change) => {
       if (change.kind !== "append") return;
       const markers: TimelineMarkerInput[] = [];
+      const appPackage = targetsStore.selectedTarget?.packageName ?? null;
       for (const entry of change.items) {
-        markers.push(...logcatMarkers(entry, timeline.toHostMs(entry.serial, entry.tsMs)));
+        markers.push(
+          ...logcatMarkers(entry, timeline.toHostMs(entry.serial, entry.tsMs), appPackage),
+        );
       }
       timeline.pushMany(markers);
     }),

@@ -38,8 +38,14 @@ describe("marker mappers", () => {
       processName: null,
       packageName: "com.example.shop",
     });
-    const markers = logcatMarkers(entry, 1_730_000_000_000);
+    const markers = logcatMarkers(entry, 1_730_000_000_000, "com.example.shop");
     expect(markers.map((marker) => marker.lane)).toEqual(["logcat", "errors"]);
+    expect(
+      logcatMarkers(entry, 1_730_000_000_000, "com.other.app").map((marker) => marker.lane),
+    ).toEqual(["logcat"]);
+    expect(logcatMarkers(entry, 1_730_000_000_000, null).map((marker) => marker.lane)).toEqual([
+      "logcat",
+    ]);
     expect(markers[0]).toMatchObject({
       t: 1_730_000_000_000,
       severity: "error",

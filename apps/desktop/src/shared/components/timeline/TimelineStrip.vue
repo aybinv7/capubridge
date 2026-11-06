@@ -53,16 +53,17 @@ const interval = computed(() =>
   tickInterval(strip.windowMs, Math.max(restWidth.value, laneWidth.value)),
 );
 const now = useStripTicker(ref(true), interval);
+const muted = computed<ReadonlySet<(typeof strip.mutedLanes)[number]>>(
+  () => new Set(strip.mutedLanes),
+);
 const { geometry, frame, totals, restScale, laneScale, since } = useStripFrame({
   now,
   windowMs: computed(() => strip.windowMs),
   restWidth,
   laneWidth,
+  muted,
 });
 const palette = useStripPalette();
-const muted = computed<ReadonlySet<(typeof strip.mutedLanes)[number]>>(
-  () => new Set(strip.mutedLanes),
-);
 
 function paintInput(rects: PaintInput["rects"], scale: PaintInput["scale"]): PaintInput {
   return {

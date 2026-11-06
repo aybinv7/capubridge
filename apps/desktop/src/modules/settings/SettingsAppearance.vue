@@ -45,7 +45,7 @@ const EDGES: readonly { value: StripEdge; label: string }[] = [
       </SettingsRow>
       <SettingsRow
         label="Position"
-        description="At the top it sits under the title bar; at the bottom, under the console."
+        description="Its own card on the window, above or below the page."
       >
         <Segmented size="xs" aria-label="Where the timeline sits">
           <SegmentedButton

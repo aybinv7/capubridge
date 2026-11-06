@@ -54,7 +54,7 @@ const timelineLabel = computed(() =>
   <div class="flex items-center gap-1">
     <IconAction
       :label="timelineLabel"
-      hint="Every second of the session, at the foot of the window"
+      hint="Every second of the session, beside the page"
       :keys="keysOf('view.toggle-timeline') ?? undefined"
       toggle
       :pressed="timelineShown"
@@ -73,13 +73,6 @@ const timelineLabel = computed(() =>
     >
       <component :is="consoleIcon" />
     </IconAction>
-    <span
-      v-if="unread > 0"
-      class="-ml-1.5 rounded-full bg-surface-2 px-1.5 font-mono text-2xs leading-4 text-foreground tabular-nums shadow-bevel"
-      aria-hidden="true"
-    >
-      {{ unread > 999 ? "999+" : unread }}
-    </span>
 
     <IconAction
       :label="screenLabel"

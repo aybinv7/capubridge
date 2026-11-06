@@ -17,13 +17,21 @@ function consoleSeverity(level: ConsoleEntry["level"]): TimelineSeverity {
   return "verbose";
 }
 
-/** One logcat marker, plus an Errors marker for E and F lines. `hostMs` is already converted. */
-export function logcatMarkers(entry: LogcatEntry, hostMs: number): TimelineMarkerInput[] {
+/**
+ * One logcat marker, plus an Errors marker for E and F lines of the app being inspected
+ * (`appPackage`). The rest of the device's errors stay on the Logcat lane only, so the Errors
+ * lane is about the app, not the phone. `hostMs` is already converted.
+ */
+export function logcatMarkers(
+  entry: LogcatEntry,
+  hostMs: number,
+  appPackage: string | null,
+): TimelineMarkerInput[] {
   const severity = logcatSeverity(entry.level);
   const label = `${entry.tag}: ${entry.message.split("\n", 1)[0] ?? ""}`;
   const ref = { kind: "logcat", id: entry.id } as const;
   const markers: TimelineMarkerInput[] = [{ t: hostMs, lane: "logcat", severity, ref, label }];
-  if (severity === "error") {
+  if (severity === "error" && appPackage !== null && entry.packageName === appPackage) {
     markers.push({ t: hostMs, lane: "errors", severity, ref, label });
   }
   return markers;

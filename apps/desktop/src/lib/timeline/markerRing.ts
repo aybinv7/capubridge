@@ -45,6 +45,7 @@ export class MarkerRing {
   private length = 0;
   private nextSeq = 1;
   private newest = Number.NEGATIVE_INFINITY;
+  private started = Date.now();
 
   constructor(options: MarkerRingOptions = {}) {
     this.capacity = options.capacity ?? TIMELINE_MAX_MARKERS;
@@ -58,6 +59,11 @@ export class MarkerRing {
     this.bucketSlots = Math.ceil(this.maxAgeMs / 1000) + 1;
     this.bucketSeconds = new Float64Array(this.bucketSlots).fill(Number.NaN);
     this.bucketCounts = new Uint32Array(this.bucketSlots * LANE_COUNT);
+  }
+
+  /** Host time from which this ring holds every marker: its creation, or its last clear. */
+  get startedAt(): number {
+    return this.started;
   }
 
   get size(): number {
@@ -195,5 +201,6 @@ export class MarkerRing {
     this.head = 0;
     this.length = 0;
     this.newest = Number.NEGATIVE_INFINITY;
+    this.started = Date.now();
   }
 }

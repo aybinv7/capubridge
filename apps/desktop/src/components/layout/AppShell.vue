@@ -37,6 +37,10 @@ const mirrorStore = useMirrorStore();
 const inspectStore = useInspectStore();
 const drawerStore = useDrawerStore();
 const timelineStrip = useTimelineStripStore();
+
+function stripOn(edge: "top" | "bottom"): boolean {
+  return !timelineStrip.hidden && timelineStrip.edge === edge;
+}
 const devicesStore = useDevicesStore();
 const uiStore = useUIStore();
 const router = useRouter();
@@ -251,33 +255,40 @@ onUnmounted(() => {
         @pointerleave="railPeek.hold"
       />
 
-      <div
-        class="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
-      >
+      <div class="relative order-2 flex min-w-0 flex-1 flex-col gap-2">
         <Transition
           enter-active-class="transition-[opacity,translate,scale] duration-500 ease-cladd-spring motion-reduce:transition-none"
           leave-active-class="transition-[opacity,translate,scale] duration-200 ease-in motion-reduce:transition-none"
           enter-from-class="-translate-y-full scale-x-[0.96] opacity-0"
           leave-to-class="-translate-y-full scale-x-[0.96] opacity-0"
         >
-          <div
-            v-if="!timelineStrip.hidden && timelineStrip.edge === 'top'"
-            class="shrink-0 px-1.5 pt-1.5"
-          >
-            <TimelineStrip />
-          </div>
+          <TimelineStrip v-if="stripOn('top')" class="origin-top" />
         </Transition>
-        <main
-          ref="mainContentRef"
-          tabindex="-1"
-          class="min-h-0 overflow-hidden outline-none"
-          :class="drawerStore.isOpen && drawerStore.maximized ? 'h-0 flex-none' : 'flex-1'"
-          :inert="drawerStore.isOpen && drawerStore.maximized ? true : undefined"
-        >
-          <RouterView />
-        </main>
 
-        <WorkColumnFoot ref="footRef" @request-main-focus="focusMainContent" />
+        <div
+          class="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
+        >
+          <main
+            ref="mainContentRef"
+            tabindex="-1"
+            class="min-h-0 overflow-hidden outline-none"
+            :class="drawerStore.isOpen && drawerStore.maximized ? 'h-0 flex-none' : 'flex-1'"
+            :inert="drawerStore.isOpen && drawerStore.maximized ? true : undefined"
+          >
+            <RouterView />
+          </main>
+
+          <WorkColumnFoot ref="footRef" @request-main-focus="focusMainContent" />
+        </div>
+
+        <Transition
+          enter-active-class="transition-[opacity,translate,scale] duration-500 ease-cladd-spring motion-reduce:transition-none"
+          leave-active-class="transition-[opacity,translate,scale] duration-200 ease-in motion-reduce:transition-none"
+          enter-from-class="translate-y-full scale-x-[0.96] opacity-0"
+          leave-to-class="translate-y-full scale-x-[0.96] opacity-0"
+        >
+          <TimelineStrip v-if="stripOn('bottom')" class="origin-bottom" />
+        </Transition>
       </div>
 
       <Transition

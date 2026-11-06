@@ -15,11 +15,14 @@ export interface StripFrameInput {
   windowMs: Ref<number>;
   restWidth: Ref<number>;
   laneWidth: Ref<number>;
+  /** Lanes the person turned off: counted in the labels, left out of the drawing. */
+  muted: Ref<ReadonlySet<TimelineLane>>;
 }
 
 export type LaneTotals = Record<TimelineLane, number>;
 
 const MAX_SECONDS = Math.ceil(STRIP_WINDOW_MS["15m"] / 1000) + 1;
+const EMPTY = new Uint32Array(0);
 
 function zeroTotals(): LaneTotals {
   return { errors: 0, network: 0, console: 0, logcat: 0 };
@@ -57,20 +60,26 @@ export function useStripFrame(input: StripFrameInput) {
     const toSecond = Math.floor(now / 1000) + 1;
     const counts = {} as Record<TimelineLane, Uint32Array>;
     const nextTotals = zeroTotals();
+    const muted = input.muted.value;
     for (const lane of TIMELINE_LANES) {
-      counts[lane] = timeline.ring.bucketRange(fromSecond, toSecond, lane);
-      nextTotals[lane] = sum(counts[lane]);
+      const laneCounts = timeline.ring.bucketRange(fromSecond, toSecond, lane);
+      nextTotals[lane] = sum(laneCounts);
+      counts[lane] = muted.has(lane) ? EMPTY : laneCounts;
     }
     const buckets: BucketWindow = { fromSecond, counts };
     restScale.value = { startMs, windowMs, width: input.restWidth.value };
     laneScale.value = { startMs, windowMs, width: input.laneWidth.value };
     buildStripGeometry(buckets, restScale.value, laneScale.value, geometry);
-    since.value = Math.max(timeline.collectingSince, now - TIMELINE_MAX_AGE_MS);
+    since.value = Math.max(
+      timeline.collectingSince,
+      timeline.ring.startedAt,
+      now - TIMELINE_MAX_AGE_MS,
+    );
     if (!sameTotals(totals.value, nextTotals)) totals.value = nextTotals;
     frame.value += 1;
   }
 
-  watch([input.now, input.windowMs, input.restWidth, input.laneWidth], rebuild, {
+  watch([input.now, input.windowMs, input.restWidth, input.laneWidth, input.muted], rebuild, {
     immediate: true,
   });
 
