@@ -18,7 +18,8 @@ import ViewerBody from "@/shared/file-viewer/ViewerBody.vue";
 import ViewerStatus from "@/shared/file-viewer/ViewerStatus.vue";
 import type { ViewerActions } from "@/shared/file-viewer/viewerActions";
 import type { ViewerState } from "@/shared/file-viewer/viewerContent";
-import { formatDateWords } from "@/shared/format/dates";
+import { useMinuteClock } from "@/shared/composables/useMinuteClock";
+import { formatExactTime, formatStampWords } from "@/shared/format/dates";
 import { formatBytes } from "@/shared/format/numbers";
 import type { OpfsRow } from "./opfsModel";
 
@@ -53,12 +54,16 @@ const emit = defineEmits<{
 const findSignal = ref(0);
 
 const isFolder = computed(() => props.row.kind === "directory");
+const clock = useMinuteClock();
+const exactTime = computed(() =>
+  props.row.lastModified === null ? undefined : formatExactTime(props.row.lastModified),
+);
 const subtitle = computed(() =>
   [
     props.position,
     props.row.kindLabel,
     isFolder.value || props.row.size === null ? null : formatBytes(props.row.size),
-    props.row.lastModified === null ? null : formatDateWords(props.row.lastModified),
+    props.row.lastModified === null ? null : formatStampWords(props.row.lastModified, clock.value),
   ]
     .filter(Boolean)
     .join(" · "),
@@ -109,7 +114,11 @@ function onKeydown(event: KeyboardEvent) {
             /{{ row.path }}
           </p>
         </HintTooltip>
-        <span v-if="subtitle" class="text-2xs text-[var(--fg-subtle)] tabular-nums">
+        <span
+          v-if="subtitle"
+          class="text-2xs text-[var(--fg-subtle)] tabular-nums"
+          :title="exactTime"
+        >
           {{ subtitle }}
         </span>
       </div>

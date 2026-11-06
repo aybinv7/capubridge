@@ -33,6 +33,8 @@ export interface GridRow {
   /** Stable identity (primary key, rowid or IDB key) — never a row index. */
   id: string;
   cells: Readonly<Record<string, unknown>>;
+  /** A cell's hover text by column id, when the cell shows less than it knows (an exact time). */
+  titles?: Readonly<Record<string, string>>;
 }
 
 /**

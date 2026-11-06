@@ -16,6 +16,7 @@ import {
 } from "@/shared/components/data/grid";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import { useMinuteClock } from "@/shared/composables/useMinuteClock";
 import { OPFS_COLUMNS, gridRowOf, shownRows } from "./opfsGrid";
 import type { OpfsRow } from "./opfsModel";
 import OpfsFilePane from "./OpfsFilePane.vue";
@@ -61,7 +62,11 @@ const summary = shallowRef<GridSummary>({
 });
 
 const shown = computed(() => shownRows(props.rows, findText.value, sort.value));
-const gridRows = computed(() => shown.value.map((row) => gridRowOf(row)));
+const clock = useMinuteClock();
+const gridRows = computed(() => {
+  const now = clock.value;
+  return shown.value.map((row) => gridRowOf(row, now));
+});
 const order = computed(() => shown.value.map((row) => row.id));
 const byId = computed(() => new Map(props.rows.map((row) => [row.id, row])));
 const narrowed = computed(() => findText.value.trim() !== "");

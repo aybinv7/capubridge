@@ -149,6 +149,7 @@ function cellStyle(cell: ReturnType<typeof format>) {
           dir="auto"
           class="truncate"
           :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
+          :title="row.titles?.[cell.column.id]"
           >{{ cell.formatted.text }}</span
         >
       </template>
@@ -178,6 +179,7 @@ function cellStyle(cell: ReturnType<typeof format>) {
           dir="auto"
           class="truncate"
           :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
+          :title="row.titles?.[cell.column.id]"
           >{{ cell.formatted.text }}</span
         >
       </template>
@@ -207,6 +209,7 @@ function cellStyle(cell: ReturnType<typeof format>) {
           dir="auto"
           class="truncate"
           :class="[KIND_CLASS[cell.formatted.kind], cell.keyLike && 'font-mono']"
+          :title="row.titles?.[cell.column.id]"
           >{{ cell.formatted.text }}</span
         >
       </template>

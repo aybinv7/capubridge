@@ -87,3 +87,33 @@ export function updateDateWords(
   if (installedAt !== null && updatedAt <= installedAt) return null;
   return isFactoryDate(updatedAt) ? null : formatDateWords(updatedAt, now);
 }
+
+const exactFormat = new Intl.DateTimeFormat(undefined, {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+/**
+ * A file's time, with the time of day always kept: "Today at 14:05", "Yesterday at 09:12",
+ * "3 Nov at 14:05", "3 Nov 2025 at 14:05".
+ */
+export function formatStampWords(time: number, now = Date.now()): string {
+  const date = new Date(time);
+  const today = new Date(now);
+  const clock = timeFormat.format(date);
+  if (sameDay(date, today)) return `Today at ${clock}`;
+  if (sameDay(date, new Date(now - 86_400_000))) return `Yesterday at ${clock}`;
+  const day = date.getFullYear() === today.getFullYear() ? dayFormat : yearFormat;
+  return `${day.format(date)} at ${clock}`;
+}
+
+/** The exact time, to the second, for a tooltip. */
+export function formatExactTime(time: number): string {
+  return exactFormat.format(new Date(time));
+}

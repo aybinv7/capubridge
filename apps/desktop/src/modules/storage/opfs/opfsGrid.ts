@@ -1,6 +1,6 @@
 import type { GridColumn, GridRow, GridSort } from "@/shared/components/data/grid";
 import { compareText } from "@/shared/format/collator";
-import { formatDateWords } from "@/shared/format/dates";
+import { formatExactTime, formatStampWords } from "@/shared/format/dates";
 import { formatBytes } from "@/shared/format/numbers";
 import type { OpfsRow } from "./opfsModel";
 
@@ -11,7 +11,7 @@ export const OPFS_COLUMNS: readonly GridColumn[] = [
   { id: "modified", title: "Modified", type: "text", readOnly: true, width: 150 },
 ];
 
-const rowCache = new WeakMap<OpfsRow, GridRow>();
+const rowCache = new WeakMap<OpfsRow, { now: number; grid: GridRow }>();
 
 function sizeText(row: OpfsRow): string {
   if (row.kind === "directory") return "—";
@@ -19,20 +19,25 @@ function sizeText(row: OpfsRow): string {
   return formatBytes(row.size);
 }
 
-/** The grid row of an entry, built once per read. */
+/**
+ * The grid row of an entry, built once per read and per minute of `now` (so "Today at" turns
+ * into "Yesterday at" without a new read); the exact time shows on hover.
+ */
 export function gridRowOf(row: OpfsRow, now = Date.now()): GridRow {
   const cached = rowCache.get(row);
-  if (cached) return cached;
+  if (cached && (row.lastModified === null || cached.now === now)) return cached.grid;
+  const modified = row.lastModified;
   const grid: GridRow = {
     id: row.id,
     cells: {
       name: row.name,
       kind: row.kindLabel,
       size: sizeText(row),
-      modified: row.lastModified === null ? "—" : formatDateWords(row.lastModified, now),
+      modified: modified === null ? "—" : formatStampWords(modified, now),
     },
+    ...(modified === null ? {} : { titles: { modified: formatExactTime(modified) } }),
   };
-  rowCache.set(row, grid);
+  rowCache.set(row, { now, grid });
   return grid;
 }
 
