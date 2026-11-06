@@ -22,6 +22,8 @@ export const useTimelineStore = defineStore("timeline", () => {
   const version = shallowRef(0);
   const overlays = shallowRef<TimelineOverlay[]>([]);
   const clockOffsets = ref<Record<string, DeviceClockOffset>>({});
+  /** Host time from which markers are complete: store creation, or the last {@link clear}. */
+  const collectingSince = shallowRef(Date.now());
   let overlayCounter = 0;
 
   /** Adds markers and bumps the version once; returns how many were kept. */
@@ -116,6 +118,7 @@ export const useTimelineStore = defineStore("timeline", () => {
   function clear() {
     ring.clear();
     overlays.value = [];
+    collectingSince.value = Date.now();
     version.value += 1;
   }
 
@@ -124,6 +127,7 @@ export const useTimelineStore = defineStore("timeline", () => {
     version,
     overlays,
     clockOffsets,
+    collectingSince,
     push,
     pushMany,
     setClockOffset,
