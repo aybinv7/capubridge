@@ -1,0 +1,121 @@
+import { describe, expect, test } from "vite-plus/test";
+import {
+  EMPTY_STAGED,
+  addInsert,
+  changesetStatements,
+  readBackDifferences,
+  stageCell,
+  stageInsertCell,
+  stagedCount,
+  uneditableReason,
+} from "../sqliteChangeset";
+import { readBackChangeset } from "../sqliteReadBack";
+
+const row = { id: "[1]", cells: { id: 1, name: "tea", price: 2.5 } };
+const wide = { __type: "Number", value: "9007199254740993" };
+
+describe("staged SQLite edits", () => {
+  test("an edited key still saves to the row it was read as", () => {
+    let staged = stageCell(EMPTY_STAGED, row, "id", 7);
+    staged = stageCell(staged, row, "name", "green tea");
+    expect(changesetStatements("item", ["id"], staged)).toEqual([
+      `UPDATE "item" SET "id" = 7, "name" = 'green tea' WHERE "id" IS 1`,
+    ]);
+  });
+
+  test("a second edit of a row keeps the key it was first read with", () => {
+    const first = stageCell(EMPTY_STAGED, row, "id", 7);
+    const shown = { id: "[1]", cells: { ...row.cells, id: 7 } };
+    const second = stageCell(first, shown, "price", 3);
+    expect(changesetStatements("item", ["id"], second)).toEqual([
+      `UPDATE "item" SET "id" = 7, "price" = 3 WHERE "id" IS 1`,
+    ]);
+  });
+
+  test("keys and values wider than a JavaScript number are written in full", () => {
+    const staged = stageCell(
+      EMPTY_STAGED,
+      { id: "k", cells: { id: wide, note: null } },
+      "note",
+      "x",
+    );
+    expect(changesetStatements("t", ["id"], staged)).toEqual([
+      `UPDATE "t" SET "note" = 'x' WHERE "id" IS 9007199254740993`,
+    ]);
+  });
+
+  test("setting a cell back to what was read leaves nothing to save", () => {
+    const changed = stageCell(EMPTY_STAGED, row, "name", "green tea");
+    expect(stagedCount(changed)).toBe(1);
+    expect(stagedCount(stageCell(changed, row, "name", "tea"))).toBe(0);
+  });
+
+  test("a row read only in part cannot be addressed, so nothing is built", () => {
+    const partial = { __type: "Blob", size: 9000, hex: "00", complete: false };
+    const staged = stageCell(EMPTY_STAGED, { id: "b", cells: { id: partial, n: 1 } }, "n", 2);
+    expect(() => changesetStatements("t", ["id"], staged)).toThrow(/only partly read/);
+    expect(() => changesetStatements("t", [], stageCell(EMPTY_STAGED, row, "name", "x"))).toThrow(
+      /no primary key/,
+    );
+  });
+
+  test("new rows are inserted oldest first, an untouched one with its defaults", () => {
+    let staged = addInsert(EMPTY_STAGED, "new:1");
+    staged = stageInsertCell(staged, "new:1", "name", "scone");
+    staged = addInsert(staged, "new:2");
+    expect(changesetStatements("item", ["id"], staged)).toEqual([
+      `INSERT INTO "item" ("name") VALUES ('scone')`,
+      `INSERT INTO "item" DEFAULT VALUES`,
+    ]);
+  });
+
+  test("BLOBs and wide integers are not edited as text", () => {
+    expect(uneditableReason({ __type: "Blob", size: 3, hex: "00ff10", complete: true })).toMatch(
+      /BLOB/,
+    );
+    expect(uneditableReason(wide)).toMatch(/wider/);
+    expect(uneditableReason("tea")).toBeNull();
+    expect(uneditableReason(null)).toBeNull();
+  });
+});
+
+describe("reading saved rows back", () => {
+  test("a value the file holds differently is reported", () => {
+    expect(readBackDifferences({ price: "12" }, { price: 12 })).toEqual([
+      { column: "price", wrote: "'12'", reads: "12" },
+    ]);
+    expect(readBackDifferences({ price: 12 }, { price: 12 })).toEqual([]);
+    expect(readBackDifferences({ price: 12 }, null)[0]?.reads).toBe("no row with that key");
+  });
+
+  test("edited rows are read by their key after the save, new rows by their rowid", async () => {
+    const queries: string[] = [];
+    let staged = stageCell(EMPTY_STAGED, row, "id", 7);
+    staged = addInsert(staged, "new:1");
+    staged = stageInsertCell(staged, "new:1", "name", "scone");
+    const back = await readBackChangeset(
+      async (sql) => {
+        queries.push(sql);
+        return sql.includes("rowid")
+          ? {
+              columns: ["id", "name"],
+              rows: [[8, "scone"]],
+              rowCount: 1,
+              changes: 0,
+              durationMs: 0,
+            }
+          : { columns: ["id", "name"], rows: [[7, "tea"]], rowCount: 1, changes: 0, durationMs: 0 };
+      },
+      "item",
+      ["id"],
+      staged,
+      [null, 8],
+    );
+    expect(queries).toEqual([
+      `SELECT * FROM "item" WHERE "id" IS 7 LIMIT 1`,
+      `SELECT * FROM "item" WHERE rowid = 8 LIMIT 1`,
+    ]);
+    expect(back.differences).toEqual([]);
+    expect(back.inserted[0]?.row).toEqual({ id: 8, name: "scone" });
+  });
+});

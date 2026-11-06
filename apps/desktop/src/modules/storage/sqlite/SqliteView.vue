@@ -217,6 +217,7 @@ useSqliteCommands({
           :change-serial="tab.changeSerial.value"
           :change-package="tab.changePackage.value"
           :delete-rows="(keys, records) => handlers.deleteRows(location.table.value, keys, records)"
+          :save-changes="(keys, staged) => handlers.saveChanges(location.table.value, keys, staged)"
           @set-view="location.setView"
           @open-table="handlers.openTable"
           @action="headerAction"

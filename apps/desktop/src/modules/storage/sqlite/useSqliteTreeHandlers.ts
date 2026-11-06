@@ -9,6 +9,7 @@ import { addressOf } from "./sqliteAddress";
 import { exportSqlDump, exportSqliteFile } from "./sqliteImportExport";
 import type { useSqliteTab } from "./useSqliteTab";
 import { useSqliteWrites } from "./useSqliteWrites";
+import type { SqliteStaged } from "./browse/sqliteChangeset";
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -155,6 +156,16 @@ export function useSqliteTreeHandlers(
     if (db) void writes.deleteRows(db, table, keyColumns, records);
   }
 
+  /** Saves staged edits and new rows of a table of the open file; resolves whether it saved. */
+  function saveChanges(
+    table: string,
+    keyColumns: readonly SqliteColumnInfo[],
+    staged: SqliteStaged,
+  ): Promise<boolean> {
+    const db = tab.current.value?.db;
+    return db ? writes.saveChanges(db, table, keyColumns, staged) : Promise.resolve(false);
+  }
+
   return {
     select,
     toggle,
@@ -164,6 +175,7 @@ export function useSqliteTreeHandlers(
     exportDump,
     run,
     deleteRows,
+    saveChanges,
     unreadableReason,
   };
 }

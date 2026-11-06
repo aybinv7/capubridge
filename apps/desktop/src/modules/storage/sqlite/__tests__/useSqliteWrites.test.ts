@@ -3,15 +3,32 @@ import { createPinia, setActivePinia } from "pinia";
 import type { SqliteDbFile } from "@/types/sqlite.types";
 
 const writes = vi.hoisted(() => [] as string[]);
+const changesets = vi.hoisted(() => [] as string[][]);
+const reads = vi.hoisted(() => ({ rows: [] as unknown[][], columns: [] as string[] }));
 
 vi.mock("vue-sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), loading: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), loading: vi.fn(), warning: vi.fn() },
 }));
 vi.mock("../sqliteReads", () => ({
   runWrite: vi.fn(async (_address: unknown, sql: string) => {
     writes.push(sql);
     return { columns: [], rows: [], rowCount: 0, changes: 1, durationMs: 0 };
   }),
+  applyChangeset: vi.fn(async (_address: unknown, statements: string[]) => {
+    changesets.push([...statements]);
+    return {
+      insertedRowIds: statements.map((sql, index) =>
+        sql.startsWith("INSERT") ? 10 + index : null,
+      ),
+      durationMs: 0,
+    };
+  }),
+  runQuery: vi.fn(async () => ({
+    ...reads,
+    rowCount: reads.rows.length,
+    changes: 0,
+    durationMs: 0,
+  })),
 }));
 
 const { useSqliteWrites } = await import("../useSqliteWrites");
@@ -47,6 +64,9 @@ function setup() {
 beforeEach(() => {
   setActivePinia(createPinia());
   writes.length = 0;
+  changesets.length = 0;
+  reads.rows = [];
+  reads.columns = [];
 });
 
 describe("useSqliteWrites (M1)", () => {
@@ -71,5 +91,35 @@ describe("useSqliteWrites (M1)", () => {
       { id: { __type: "Number", value: "9007199254740993" } },
     ]);
     expect(writes).toEqual([`DELETE FROM "orders" WHERE ("id" = 9007199254740993)`]);
+  });
+});
+
+describe("saving staged edits", () => {
+  const staged = {
+    edits: new Map([
+      ["[1]", { rowId: "[1]", original: { id: 1, name: "tea" }, values: { name: "green tea" } }],
+    ]),
+    inserts: [{ id: "new:1", values: { name: "scone" } }],
+  };
+
+  test("a phone or page copy is refused before anything is sent", async () => {
+    const { api } = setup();
+    for (const db of [page, phone]) {
+      expect(await api.saveChanges(db, "item", key, staged)).toBe(false);
+    }
+    expect(changesets).toEqual([]);
+  });
+
+  test("an opened file gets every change in one changeset, then reads them back", async () => {
+    const { api } = setup();
+    reads.columns = ["id", "name"];
+    reads.rows = [[1, "green tea"]];
+    expect(await api.saveChanges(file, "item", key, staged)).toBe(true);
+    expect(changesets).toEqual([
+      [
+        `UPDATE "item" SET "name" = 'green tea' WHERE "id" IS 1`,
+        `INSERT INTO "item" ("name") VALUES ('scone')`,
+      ],
+    ]);
   });
 });

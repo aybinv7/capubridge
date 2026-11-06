@@ -6,7 +6,14 @@ import type { SqliteColumnInfo, SqliteDbFile } from "@/types/sqlite.types";
 import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
 import type { SqliteAddress } from "./sqliteAddress";
 import { importSqlDump, pickSqlDump } from "./sqliteImportExport";
-import { runWrite } from "./sqliteReads";
+import { applyChangeset, runQuery, runWrite } from "./sqliteReads";
+import {
+  changesetStatements,
+  savedKey,
+  stagedCount,
+  type SqliteStaged,
+} from "./browse/sqliteChangeset";
+import { readBackChangeset } from "./browse/sqliteReadBack";
 import { quoteIdent, sqlLiteral } from "./sqlText";
 
 export interface SqliteWriteDeps {
@@ -154,6 +161,96 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
     }
   }
 
+  /**
+   * Saves staged cell edits and new rows of one table to an opened file, all in one transaction,
+   * then reads every saved row back and says which values the file holds differently. Returns
+   * whether the changes were saved (the staging is kept when they were not).
+   */
+  async function saveChanges(
+    db: SqliteDbFile,
+    table: string,
+    keyColumns: readonly SqliteColumnInfo[],
+    staged: SqliteStaged,
+  ): Promise<boolean> {
+    const count = stagedCount(staged);
+    if (count === 0) return true;
+    const address = writableAddress(db);
+    if (!address) return false;
+    const keyNames = keyColumns.map((column) => column.name);
+    let statements: string[];
+    try {
+      statements = changesetStatements(table, keyNames, staged);
+    } catch (error) {
+      toast.error("These changes cannot be saved", { description: describe(error) });
+      return false;
+    }
+    let inserted: (number | null)[];
+    try {
+      inserted = (await applyChangeset(address, statements)).insertedRowIds;
+    } catch (error) {
+      toast.error("Nothing was saved", { description: describe(error) });
+      return false;
+    }
+    try {
+      const back = await readBackChangeset(
+        (sql) => runQuery(address, sql),
+        table,
+        keyNames,
+        staged,
+        inserted,
+      );
+      for (const edit of staged.edits.values()) {
+        changes.recordChange({
+          operation: "update",
+          serial: deps.changeSerial(),
+          packageName: deps.changePackage(),
+          dbPath: db.path,
+          tableName: table,
+          rowKey: buildRowKey([...keyColumns], savedKey(edit)),
+          beforeValue: { ...edit.original },
+          afterValue: savedKey(edit),
+        });
+      }
+      for (const insert of back.inserted) {
+        const after = insert.row ?? {
+          ...staged.inserts.find((entry) => entry.id === insert.id)?.values,
+        };
+        changes.recordChange({
+          operation: "add",
+          serial: deps.changeSerial(),
+          packageName: deps.changePackage(),
+          dbPath: db.path,
+          tableName: table,
+          rowKey: buildRowKey([...keyColumns], after),
+          beforeValue: null,
+          afterValue: after,
+        });
+      }
+      const saved = `Saved ${count === 1 ? "1 change" : `${count} changes`} to “${db.name}”`;
+      if (back.differences.length > 0) {
+        const shown = back.differences
+          .slice(0, 3)
+          .map((entry) => `${entry.column}: wrote ${entry.wrote}, reads ${entry.reads}`)
+          .join("; ");
+        toast.warning(saved, {
+          description: `${back.differences.length} ${back.differences.length === 1 ? "value reads" : "values read"} back differently: ${shown}`,
+        });
+      } else {
+        toast.success(saved, {
+          description:
+            back.unchecked > 0
+              ? `Read back and checked, except ${back.unchecked} ${back.unchecked === 1 ? "row" : "rows"}.`
+              : "Read back and checked.",
+        });
+      }
+    } catch (error) {
+      toast.warning("Saved, but the rows could not be read back", { description: describe(error) });
+    } finally {
+      deps.afterWrite(db);
+    }
+    return true;
+  }
+
   /** Replaces an opened file with an SQL dump picked from this computer, all or nothing. */
   async function replaceWithDump(db: SqliteDbFile) {
     const address = writableAddress(db);
@@ -185,5 +282,5 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
     }
   }
 
-  return { clearTable, dropTable, deleteRows, replaceWithDump };
+  return { clearTable, dropTable, deleteRows, saveChanges, replaceWithDump };
 }

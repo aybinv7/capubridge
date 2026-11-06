@@ -12,6 +12,7 @@ import { orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
 import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChangesStore";
 import type { SqliteColumnInfo, SqliteDbFile, SqliteTableInfo } from "@/types/sqlite.types";
 import SqliteBrowse from "./browse/SqliteBrowse.vue";
+import type { SqliteStaged } from "./browse/sqliteChangeset";
 import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
 import { useSqliteRows } from "./browse/useSqliteRows";
 import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
@@ -37,6 +38,7 @@ const props = defineProps<{
   changeSerial: string;
   changePackage: string;
   deleteRows: (keyColumns: readonly SqliteColumnInfo[], records: Record<string, unknown>[]) => void;
+  saveChanges: (keyColumns: readonly SqliteColumnInfo[], staged: SqliteStaged) => Promise<boolean>;
 }>();
 
 const emit = defineEmits<{
@@ -186,6 +188,7 @@ defineExpose({
     :read-only-reason="sqliteReadOnlyReason(db)"
     :changes-only="changesOnly"
     :query="query"
+    :save-changes="(staged) => saveChanges(keyColumns, staged)"
     @follow-foreign-key="followForeignKey"
     @delete="deleteRows(keyColumns, $event)"
     @open-row-diff="openRowDiff"

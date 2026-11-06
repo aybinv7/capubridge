@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from "vue";
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
@@ -16,11 +17,14 @@ import {
   type GridSort,
   type GridSummary,
 } from "@/shared/components/data/grid";
+import CellEditor from "@/shared/components/data/grid/editors/CellEditor.vue";
+import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import DataPager from "@/modules/storage/frame/DataPager.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
 import { recordPaneOpen } from "@/modules/storage/frame/recordPaneOpen";
+import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
 import { downloadText, fileStem } from "@/lib/download";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import type {
@@ -40,6 +44,9 @@ import {
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 import SqliteBrowseToolbar from "./SqliteBrowseToolbar.vue";
 import SqliteColumnFilter from "./SqliteColumnFilter.vue";
+import SqliteEditBar from "./SqliteEditBar.vue";
+import type { SqliteStaged } from "./sqliteChangeset";
+import { useSqliteStagedEdits } from "./useSqliteStagedEdits";
 
 const SHOW_AS_KEY = "capubridge:sqlite-show-as";
 
@@ -63,6 +70,8 @@ const props = defineProps<{
   /** Show only rows the app changed while this table was watched. */
   changesOnly?: boolean;
   query: SqliteTableQuery;
+  /** Saves staged edits and new rows to the opened file; resolves whether it saved. */
+  saveChanges: (staged: SqliteStaged) => Promise<boolean>;
 }>();
 
 const emit = defineEmits<{
@@ -90,23 +99,36 @@ const mapped = computed(() =>
     : { rows: [], identified: true },
 );
 
+const readOnly = computed(
+  () => grouped.value !== null || props.readOnlyReason !== null || !mapped.value.identified,
+);
+
+const staging = useSqliteStagedEdits({
+  rows: computed(() => mapped.value.rows),
+  columns,
+  showAs: computed(() => showAs.value),
+  writable: computed(() => !readOnly.value),
+  save: (staged) => props.saveChanges(staged),
+});
+
 const rowStates = computed(() => {
   const states = new Map<string, GridRowState>();
-  if (!props.changesByRowKey || grouped.value) return states;
-  for (const row of mapped.value.rows) {
-    if (props.changesByRowKey.has(row.id)) states.set(row.id, "recent");
+  if (grouped.value) return states;
+  if (props.changesByRowKey) {
+    for (const row of mapped.value.rows) {
+      if (props.changesByRowKey.has(row.id)) states.set(row.id, "recent");
+    }
   }
+  for (const [rowId, state] of staging.states.value) states.set(rowId, state);
   return states;
 });
 
+const shownRows = computed(() => (grouped.value ? mapped.value.rows : staging.rows.value));
+
 const visibleRows = computed(() =>
   props.changesOnly && !grouped.value
-    ? mapped.value.rows.filter((row) => rowStates.value.has(row.id))
-    : mapped.value.rows,
-);
-
-const readOnly = computed(
-  () => grouped.value !== null || props.readOnlyReason !== null || !mapped.value.identified,
+    ? shownRows.value.filter((row) => rowStates.value.has(row.id))
+    : shownRows.value,
 );
 const lockReason = computed(() => {
   if (grouped.value) return null;
@@ -225,7 +247,7 @@ function runContextAction(actionId: string, target: GridContextTarget) {
     }
   } else if (actionId === "copy-insert") void props.query.copyAsInsert(recordsFor(target.rowIds));
   else if (actionId === "row-diff" && target.rowId) emit("openRowDiff", target.rowId);
-  else if (actionId === "delete") emit("delete", recordsFor(target.rowIds));
+  else if (actionId === "delete") requestDelete([...target.rowIds]);
 }
 
 function openGroupRow(rowId: string) {
@@ -233,7 +255,9 @@ function openGroupRow(rowId: string) {
 }
 
 function requestDelete(rowIds: string[]) {
-  if (!readOnly.value) emit("delete", recordsFor(rowIds));
+  if (readOnly.value) return;
+  const saved = staging.dropNewRows(rowIds);
+  if (saved.length > 0) emit("delete", recordsFor(saved));
 }
 
 function exportRows(format: SqliteExportFormat, scope: SqliteExportScope) {
@@ -260,7 +284,7 @@ function exportRows(format: SqliteExportFormat, scope: SqliteExportScope) {
 
 const activeRowId = ref<string | null>(null);
 const activeRow = computed(
-  () => mapped.value.rows.find((row) => row.id === activeRowId.value) ?? null,
+  () => shownRows.value.find((row) => row.id === activeRowId.value) ?? null,
 );
 const summary = shallowRef<GridSummary>({
   rowCount: 0,
@@ -278,11 +302,46 @@ function inspect(rowId: string) {
 const sort = computed<GridSort | null>(() => (grouped.value ? null : props.query.gridSort.value));
 const where = computed(() => props.query.whereClause.value);
 
+const confirm = useDataConfirm();
+
+async function leaveWithChanges(): Promise<boolean> {
+  const count = staging.pending.value;
+  if (count === 0) return true;
+  const leave = await confirm.askAsync({
+    title: count === 1 ? "Leave 1 change unsaved?" : `Leave ${count} changes unsaved?`,
+    text: `The changes to “${props.tableName}” are not in the file yet. Leaving drops them.`,
+    confirmLabel: "Drop the changes",
+    danger: true,
+  });
+  if (leave) staging.discard();
+  return leave;
+}
+
+onBeforeRouteLeave(leaveWithChanges);
+onBeforeRouteUpdate(leaveWithChanges);
+
+function onKeydown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "s") {
+    if (staging.pending.value === 0) return;
+    event.preventDefault();
+    void staging.save();
+  }
+}
+
 defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
+  <div class="flex min-h-0 flex-1 flex-col" @keydown="onKeydown">
+    <SqliteEditBar
+      v-if="!readOnly"
+      :pending="staging.pending.value"
+      :saving="staging.saving.value"
+      :note="staging.note.value"
+      @add-row="staging.addRow()"
+      @discard="staging.discard()"
+      @save="staging.save()"
+    />
     <SqliteBrowseToolbar
       ref="toolbar"
       v-model:visibility="visibility"
@@ -323,6 +382,8 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
           :context-actions="contextActions"
           :activate-rows="grouped !== null"
           :layout-key="`sqlite:${databaseId}/${tableName}`"
+          :editing="staging.editing.value"
+          @edit="staging.startEdit"
           @update:sort="query.setSort($event)"
           @column-action="onColumnAction"
           @active-row="activeRowId = $event"
@@ -332,6 +393,17 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
           @delete="requestDelete"
           @context-action="runContextAction"
         >
+          <template #editor="{ rowId, column, value }">
+            <CellEditor
+              :key="`${rowId}:${column.id}`"
+              :value="value"
+              :like="staging.sampleOf(column.id)"
+              :kind="staging.editorKind(column.id, value)"
+              :label="`Edit ${column.title}`"
+              @commit="staging.commit"
+              @cancel="staging.cancel()"
+            />
+          </template>
           <template #empty>
             <div v-if="query.needsQuery.value" class="flex flex-col items-start gap-2">
               <span>
@@ -396,5 +468,10 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
         <PanelRight :stroke-width="1.8" />
       </IconAction>
     </DataGridStatus>
+    <ConfirmDialog
+      v-model:open="confirm.open.value"
+      :request="confirm.request.value"
+      @confirm="confirm.confirm()"
+    />
   </div>
 </template>

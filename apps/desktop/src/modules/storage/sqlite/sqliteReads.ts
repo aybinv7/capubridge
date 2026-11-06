@@ -1,4 +1,5 @@
 import { invokeCommand } from "@/runtime/ipc/client";
+import type { SqliteChangesetResult } from "@/runtime/ipc/contracts/storage";
 import type {
   SqliteColumnInfo,
   SqliteForeignKeyInfo,
@@ -98,6 +99,20 @@ export function readTablePage(
     offset,
     limit,
     ...(orderBy && orderDir ? { orderBy, orderDir } : {}),
+  });
+}
+
+/**
+ * Saves staged changes to a file opened on this computer in one transaction: every statement
+ * changes exactly one row, or nothing is saved. Returns each INSERT's rowid (`null` for UPDATEs).
+ */
+export function applyChangeset(
+  address: SqliteAddress,
+  statements: readonly string[],
+): Promise<SqliteChangesetResult> {
+  return invokeCommand("sqlite_apply_changeset", {
+    ...addressArgs(address),
+    statements: statements.map((sql) => ({ sql })),
   });
 }
 
