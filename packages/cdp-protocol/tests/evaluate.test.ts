@@ -8,7 +8,6 @@ import {
   jsLiteral,
   singleQuotedContent,
 } from "../src/cdp/evaluate.ts";
-import { LocalForageDomain } from "../src/cdp/domains/localforage.ts";
 
 const hostile = [
   "plain",
@@ -72,25 +71,5 @@ describe("assertNoDeviceError", () => {
       "QuotaExceededError",
     );
     expect(() => assertNoDeviceError({ ok: true })).not.toThrow();
-  });
-});
-
-describe("LocalForageDomain writes", () => {
-  test("ships key and value as JSON data, not as code", async () => {
-    const { client, expressions } = fakeClient(() => ({ result: { value: '{"ok":true}' } }));
-    const domain = new LocalForageDomain(client);
-    const key = "'); globalThis.pwned = true; ('";
-    const value = "alert(document.cookie)";
-    await domain.setItem("https://app", key, value);
-    const sent = expressions[0] ?? "";
-    expect(sent).toContain(jsLiteral({ op: "set", key, raw: value }));
-    expect(sent).not.toContain(`const value = ${value}`);
-  });
-
-  test("rejects when the device reports an error", async () => {
-    const { client } = fakeClient(() => ({ result: { value: '{"error":"QuotaExceededError"}' } }));
-    await expect(new LocalForageDomain(client).deleteItem("o", "k")).rejects.toThrow(
-      "QuotaExceededError",
-    );
   });
 });

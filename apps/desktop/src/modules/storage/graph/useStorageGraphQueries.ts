@@ -1,6 +1,6 @@
 import { computed, type ComputedRef } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { IDBDomain, LocalForageDomain } from "@capubridge/cdp-protocol";
+import { IDBDomain, KeyValueDomain } from "@capubridge/cdp-protocol";
 import type { useCDP } from "@/composables/useCDP";
 import type { useSQLite } from "@/composables/useSQLite";
 import {
@@ -97,15 +97,15 @@ export function useStorageGraphQueries({
         return [] as StorageGraphEntityDescriptor[];
       }
 
-      const domain = new LocalForageDomain(client);
-      const origins = await domain.getOrigins();
-      if (!origins.includes(selectedOrigin.value)) {
-        return [] as StorageGraphEntityDescriptor[];
-      }
-
-      const entries = await domain.getEntries(selectedOrigin.value);
-      return entries.map((entry) =>
-        buildLocalForageDescriptor(selectedOrigin.value, entry.key, entry.value),
+      const stores = await new KeyValueDomain(client).readAllForage(selectedOrigin.value);
+      return stores.flatMap((store) =>
+        store.page.entries.map((entry) =>
+          buildLocalForageDescriptor(
+            selectedOrigin.value,
+            typeof entry.key === "string" ? entry.key : (JSON.stringify(entry.key) ?? ""),
+            JSON.stringify(entry.value) ?? "null",
+          ),
+        ),
       );
     },
   });

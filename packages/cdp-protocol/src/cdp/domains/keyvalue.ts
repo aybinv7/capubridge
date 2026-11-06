@@ -60,6 +60,11 @@ export interface KeyValueForagePage {
   total: number;
 }
 
+/** Every entry of one LocalForage store, with where it came from. */
+export interface KeyValueForageStoreEntries extends KeyValueForageStore {
+  page: KeyValueForagePage;
+}
+
 /** What made the device refuse a write; nothing was changed. */
 export type KeyValueConflict = "exists" | "changed" | "gone";
 
@@ -201,6 +206,24 @@ export class KeyValueDomain {
       more: reply.more,
       total: reply.total,
     };
+  }
+
+  /**
+   * The entries of every LocalForage store of the page, found by `discover` and read with
+   * `readForage`: no database is created or upgraded and LocalForage itself is never called.
+   * Resolves nothing when the page no longer shows `origin` (when given).
+   */
+  async readAllForage(origin?: string): Promise<KeyValueForageStoreEntries[]> {
+    const found = await this.discover();
+    if (origin !== undefined && found.pageOrigin !== origin) return [];
+    const out: KeyValueForageStoreEntries[] = [];
+    for (const store of found.forage) {
+      out.push({
+        ...store,
+        page: await this.readForage(found.pageOrigin, store.database, store.store),
+      });
+    }
+    return out;
   }
 
   /** The frame context to write `origin`'s storage in: the page itself, or an isolated world of a frame. */

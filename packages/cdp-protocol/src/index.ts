@@ -147,13 +147,12 @@ export type {
   KeyValueForageEntry,
   KeyValueForagePage,
   KeyValueForageStore,
+  KeyValueForageStoreEntries,
   KeyValueStorageEntry,
   KeyValueTarget,
   KeyValueWriteInput,
   KeyValueWriteResult,
 } from "./cdp/domains/keyvalue.js";
-export { LocalForageDomain } from "./cdp/domains/localforage.js";
-export type { LocalForageEntry } from "./cdp/domains/localforage.js";
 export { JeepSqliteDomain } from "./cdp/domains/jeep-sqlite.js";
 export type { JeepSqliteDatabase } from "./cdp/domains/jeep-sqlite.js";
 export { DOMDomain } from "./cdp/domains/dom.js";
