@@ -7,15 +7,18 @@ import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import TargetAppGroup from "./TargetAppGroup.vue";
+import DebuggableAppList from "./DebuggableAppList.vue";
 import type { TargetGroup } from "./targetGroups";
 
 const props = defineProps<{
   serial: string;
   deviceName: string;
   groups: TargetGroup[];
+  appTargets: CDPTarget[];
   selectedTargetId: string | null;
   link: LinkPresentation;
   scanning: boolean;
+  scanningApps: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -55,7 +58,7 @@ const decorated = computed(() =>
       <Spinner v-if="props.scanning && targetCount" size="xs" />
       <span class="flex-1" />
       <IconAction
-        label="Scan for WebViews"
+        label="Scan for WebViews and debuggable apps"
         size="sm"
         position="top"
         :disabled="props.scanning"
@@ -66,10 +69,13 @@ const decorated = computed(() =>
     </div>
 
     <div
-      v-if="props.groups.length"
+      v-if="props.groups.length || props.appTargets.length"
       class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-4"
       data-target-list
     >
+      <p v-if="!props.groups.length" class="px-2 text-xs text-muted-foreground">
+        No WebView is open on {{ props.deviceName }} right now.
+      </p>
       <TargetAppGroup
         v-for="entry in decorated"
         :key="entry.group.packageName ?? 'unknown'"
@@ -83,6 +89,15 @@ const decorated = computed(() =>
         @select="emit('select', $event)"
         @inspect="emit('inspect', $event)"
         @detach="emit('detach', $event)"
+      />
+      <DebuggableAppList
+        v-if="props.appTargets.length"
+        :serial="props.serial"
+        :targets="props.appTargets"
+        :selected-target-id="props.selectedTargetId"
+        :link="props.link"
+        :scanning="props.scanningApps"
+        @select="emit('select', $event)"
       />
     </div>
 

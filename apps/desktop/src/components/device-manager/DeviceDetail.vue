@@ -19,9 +19,11 @@ const props = defineProps<{
   forgetting: boolean;
   refreshingDevices: boolean;
   groups: TargetGroup[];
+  appTargets: CDPTarget[];
   selectedTargetId: string | null;
   link: LinkPresentation;
   scanning: boolean;
+  scanningApps: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -67,9 +69,11 @@ const state = computed(() => describeDeviceState(props.device, Date.now(), name.
       :serial="props.device.serial"
       :device-name="name"
       :groups="props.groups"
+      :app-targets="props.appTargets"
       :selected-target-id="props.selectedTargetId"
       :link="props.link"
       :scanning="props.scanning"
+      :scanning-apps="props.scanningApps"
       @rescan="emit('rescanTargets')"
       @select="emit('select', $event)"
       @inspect="emit('inspect', $event)"

@@ -8,6 +8,7 @@ import { useTargetActivation } from "@/composables/useTargetActivation";
 import { useCDP } from "@/composables/useCDP";
 import { useLocalPageHistoryStore } from "@/stores/localPageHistory.store";
 import { normalizeInspectableUrl } from "@/lib/inspect-url";
+import { isNativeAppTarget } from "@/lib/app-target";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { DeviceManagerState } from "./useDeviceManager";
 import { groupTargetsByApp } from "./targetGroups";
@@ -27,16 +28,23 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
   const creatingLocal = ref(false);
 
   const selectedTargetId = computed(() => targetsStore.selectedTarget?.id ?? null);
-  const deviceTargets = computed(() =>
+  const viewedTargets = computed(() =>
     targetsStore.targets.filter(
       (target) => target.source === "adb" && target.deviceSerial === manager.viewedSerial.value,
     ),
   );
+  const deviceTargets = computed(() =>
+    viewedTargets.value.filter((target) => !isNativeAppTarget(target)),
+  );
+  const appTargets = computed(() => viewedTargets.value.filter(isNativeAppTarget));
   const groups = computed(() => groupTargetsByApp(deviceTargets.value, selectedTargetId.value));
   const localTargets = computed(() =>
     targetsStore.targets.filter((target) => target.source === "local"),
   );
   const isScanning = computed(() => scanning.value || targetsStore.fetchingSources.size > 0);
+  const isScanningApps = computed(() =>
+    targetsStore.scanningApps.has(manager.viewedSerial.value ?? ""),
+  );
 
   async function refreshTargets() {
     const current = manager.viewedSerial.value;
@@ -130,9 +138,11 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
   return {
     selectedTargetId,
     deviceTargets,
+    appTargets,
     groups,
     localTargets,
     isScanning,
+    isScanningApps,
     creatingLocal,
     refreshTargets,
     selectTarget,
