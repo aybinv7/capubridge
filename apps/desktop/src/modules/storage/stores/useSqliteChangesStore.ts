@@ -46,6 +46,7 @@ export const useSqliteChangesStore = defineStore("sqlite-changes", () => {
       rowKey: input.rowKey,
       beforeValue: input.beforeValue,
       afterValue: input.afterValue,
+      source: input.source ?? "external",
     };
     changes.value = [entry, ...changes.value].slice(0, MAX_FEED_ENTRIES);
     if (!selectedChangeId.value) selectedChangeId.value = entry.id;

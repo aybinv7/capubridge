@@ -5,7 +5,7 @@ import JsonDiffViewer from "@/shared/code-viewer/JsonDiff.vue";
 import { formatExactTime } from "@/shared/format/dates";
 import type { SqliteRecordChange } from "@/types/sqliteChanges.types";
 
-/** What the app changed in one row: the row before and after, side by side. */
+/** What changed in one row (by the app, or saved here): the row before and after. */
 const props = defineProps<{ change: SqliteRecordChange | null }>();
 
 const open = defineModel<boolean>("open", { required: true });
@@ -37,7 +37,9 @@ const observed = computed(() => {
         <span class="min-w-0 truncate font-mono text-2xs text-[var(--fg-subtle)]">
           key {{ change.rowKey }}
         </span>
-        <span class="ml-auto shrink-0 text-2xs text-muted-foreground">Seen {{ observed }}</span>
+        <span class="ml-auto shrink-0 text-2xs text-muted-foreground">
+          {{ change.source === "capubridge" ? "Changed here" : "Seen" }} {{ observed }}
+        </span>
       </header>
       <div class="min-h-0 flex-1 overflow-hidden p-4">
         <JsonDiffViewer :before-value="change.beforeValue" :after-text="afterText" readonly />

@@ -223,8 +223,14 @@ function contextActions(target: GridContextTarget): GridContextAction[] {
       }),
     );
   }
-  if (target.rowId && rowStates.value.has(target.rowId)) {
-    actions.push({ id: "row-diff", label: "Show what the app changed", separatorBefore: true });
+  const change = target.rowId ? props.changesByRowKey?.get(target.rowId) : undefined;
+  if (change) {
+    actions.push({
+      id: "row-diff",
+      label:
+        change.source === "capubridge" ? "Show what changed here" : "Show what the app changed",
+      separatorBefore: true,
+    });
   }
   actions.push({
     id: "copy-insert",

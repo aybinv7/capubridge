@@ -20,6 +20,8 @@ export interface SqliteRecordChange {
   beforeValue: Record<string, unknown> | null;
   afterValue: Record<string, unknown> | null;
   observedAt: string;
+  /** Who made it: the app (seen by the snapshot diff) or Capubridge (a save made here). */
+  source?: "external" | "capubridge";
 }
 
 export interface SqliteSystemChange {

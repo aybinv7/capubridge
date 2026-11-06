@@ -233,3 +233,24 @@ describe("sidebar writes and the table's staged edits (S10)", () => {
     expect(writes).toEqual([`DROP TABLE "orders"`]);
   });
 });
+
+describe("changes saved here are not the app's (B4)", () => {
+  test("a saved edit is recorded as made by Capubridge", async () => {
+    const { api } = setup();
+    const { useSqliteChangesStore } =
+      await import("@/modules/storage/stores/useSqliteChangesStore");
+    reads.columns = ["id", "name"];
+    reads.rows = [[1, "green tea"]];
+    await api.saveChanges(file, "item", key, {
+      edits: new Map([
+        ["[1]", { rowId: "[1]", original: { id: 1, name: "tea" }, values: { name: "green tea" } }],
+      ]),
+      inserts: [],
+      deletes: new Map(),
+    });
+    const recorded = useSqliteChangesStore().changes.filter((entry) => entry.kind === "record");
+    expect(recorded.map((entry) => entry.kind === "record" && entry.source)).toEqual([
+      "capubridge",
+    ]);
+  });
+});
