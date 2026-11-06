@@ -2,6 +2,7 @@ import { ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import { useDockStore } from "@/stores/dock.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
+import { createSerialQueue } from "@/lib/serial-queue";
 import {
   runSessionEffect,
   startLogcatLeaseEffect,
@@ -26,8 +27,17 @@ function trimPausedEntries(entries: LogcatEntry[]): LogcatEntry[] {
     : entries;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Logcat of the active device, captured at app level. The window holds one lease on the
+ * device's capture (Rust shares one run between every window that holds it); views only read.
+ */
 export const useLogcatStore = defineStore("logcat", () => {
   const dockStore = useDockStore();
+  const leaseQueue = createSerialQueue();
 
   const entries = shallowRef<LogcatEntry[]>([]);
   const serial = ref<string | null>(null);
@@ -41,6 +51,7 @@ export const useLogcatStore = defineStore("logcat", () => {
 
   let initializePromise: Promise<void> | null = null;
   let lastQueuedId: LogcatEntry["id"] | null = null;
+  let heldSerial: string | null = null;
 
   const batcher = createFrameBatcher<LogcatEntry>((batch) => {
     if (isPaused.value) {
@@ -93,26 +104,24 @@ export const useLogcatStore = defineStore("logcat", () => {
         return;
       }
 
-      isStreaming.value = event.lease.active;
+      isStreaming.value = event.lease.active && heldSerial === event.lease.serial;
     }
   }
 
   async function initialize() {
+    if (isReady.value) {
+      return;
+    }
     if (initializePromise) {
       return initializePromise;
     }
 
     initializePromise = (async () => {
-      if (isReady.value) {
-        return;
-      }
-
       if (!unlisten.value) {
         unlisten.value = await runSessionEffect(subscribeSessionEventsEffect(handleSessionEvent), {
           operation: "session.subscribeLogcat",
         });
       }
-
       isReady.value = true;
     })().finally(() => {
       initializePromise = null;
@@ -121,75 +130,82 @@ export const useLogcatStore = defineStore("logcat", () => {
     return initializePromise;
   }
 
-  async function stopLease(targetSerial: string | null) {
-    if (!targetSerial) {
+  async function releaseHeld() {
+    const previous = heldSerial;
+    if (!previous) {
       return;
     }
-
+    heldSerial = null;
+    isStreaming.value = false;
     try {
-      await runSessionEffect(stopLogcatLeaseEffect(targetSerial), {
+      await runSessionEffect(stopLogcatLeaseEffect(previous), {
         operation: "session.stopLogcatLease",
       });
-    } catch (error) {
-      console.warn("Failed to release logcat session lease", error);
-    }
-
-    if (serial.value === targetSerial) {
-      isStreaming.value = false;
+    } catch (err) {
+      error.value = `Could not release the logcat stream: ${errorMessage(err)}`;
     }
   }
 
-  async function startLease(targetSerial: string) {
+  async function acquire(targetSerial: string, restart: boolean) {
     error.value = null;
-    serial.value = targetSerial;
-    clear();
-
     try {
-      await runSessionEffect(startLogcatLeaseEffect(targetSerial), {
+      await runSessionEffect(startLogcatLeaseEffect(targetSerial, { restart }), {
         operation: "session.startLogcatLease",
       });
-      isStreaming.value = true;
+      heldSerial = targetSerial;
+      isStreaming.value = serial.value === targetSerial;
     } catch (err) {
-      error.value = err instanceof Error ? err.message : String(err);
+      heldSerial = null;
       isStreaming.value = false;
-      throw err;
+      error.value = errorMessage(err);
     }
   }
 
-  async function syncLease(
-    nextSerial: string | null,
-    previousSerial: string | null = serial.value,
-  ) {
-    await initialize();
+  /**
+   * Follows `nextSerial`: holds its capture and lets go of the previous device's. While the
+   * device is offline the lease is released but its lines are kept. Calls are queued, so fast
+   * switching cannot interleave a stop with a start.
+   */
+  function follow(nextSerial: string | null, online = true) {
+    return leaseQueue.run(async () => {
+      await initialize();
+      const wanted = online ? nextSerial : null;
+      if (wanted && wanted === heldSerial && wanted === serial.value && isStreaming.value) {
+        return;
+      }
 
-    if (previousSerial && previousSerial !== nextSerial) {
-      await stopLease(previousSerial);
-    }
+      if (heldSerial && heldSerial !== wanted) {
+        await releaseHeld();
+      }
 
-    if (!nextSerial) {
-      serial.value = null;
+      if (serial.value !== nextSerial) {
+        serial.value = nextSerial;
+        clear();
+      }
+
+      if (!wanted) {
+        if (!nextSerial) {
+          error.value = null;
+        }
+        isStreaming.value = false;
+        return;
+      }
+
+      await acquire(wanted, false);
+    });
+  }
+
+  /** Starts a fresh capture run for the current device and clears the view. */
+  function restart() {
+    return leaseQueue.run(async () => {
+      await initialize();
+      const currentSerial = serial.value;
+      if (!currentSerial) {
+        return;
+      }
       clear();
-      error.value = null;
-      isStreaming.value = false;
-      return;
-    }
-
-    if (serial.value === nextSerial && isStreaming.value) {
-      return;
-    }
-
-    await startLease(nextSerial);
-  }
-
-  async function restart() {
-    await initialize();
-    if (!serial.value) {
-      return;
-    }
-
-    const currentSerial = serial.value;
-    await stopLease(currentSerial);
-    await startLease(currentSerial);
+      await acquire(currentSerial, true);
+    });
   }
 
   function resume() {
@@ -221,7 +237,7 @@ export const useLogcatStore = defineStore("logcat", () => {
   }
 
   async function dispose() {
-    await stopLease(serial.value);
+    await follow(null);
     const stopListening = unlisten.value;
     unlisten.value = null;
     if (stopListening) {
@@ -239,7 +255,7 @@ export const useLogcatStore = defineStore("logcat", () => {
     pausedCount,
     error,
     initialize,
-    syncLease,
+    follow,
     restart,
     pause,
     resume,

@@ -48,7 +48,10 @@ export interface SessionBridgeService {
   listWebViewSockets: (serial: string) => Effect.Effect<WebViewSocket[], IpcError>;
   listTargets: (serial: string) => Effect.Effect<SessionTargetSnapshot[], IpcError>;
   refreshTargets: (serial: string) => Effect.Effect<SessionTargetSnapshot[], IpcError>;
-  startLogcatLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
+  startLogcatLease: (
+    serial: string,
+    options?: { restart?: boolean },
+  ) => Effect.Effect<SessionLeaseState, IpcError>;
   stopLogcatLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;
   startPerfLease: (serial: string, holder?: string) => Effect.Effect<SessionLeaseState, IpcError>;
   stopPerfLease: (serial: string, holder?: string) => Effect.Effect<SessionLeaseState, IpcError>;

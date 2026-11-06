@@ -90,10 +90,12 @@ export function refreshTargetsEffect(serial: string) {
   return invokeCommandEffect("session_refresh_targets", { serial });
 }
 
-export function startLogcatLeaseEffect(serial: string) {
-  return invokeCommandEffect("session_start_logcat_lease", { serial });
+/** Takes this window's hold on the device's logcat capture; `restart` begins a fresh run. */
+export function startLogcatLeaseEffect(serial: string, options: { restart?: boolean } = {}) {
+  return invokeCommandEffect("session_start_logcat_lease", { serial, restart: options.restart });
 }
 
+/** Gives this window's hold back; the capture stops when no window holds it. */
 export function stopLogcatLeaseEffect(serial: string) {
   return invokeCommandEffect("session_stop_logcat_lease", { serial });
 }

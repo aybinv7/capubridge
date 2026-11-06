@@ -77,8 +77,3 @@ export interface LogcatEntry {
   message: string;
   raw: string;
 }
-
-export interface LogcatErrorPayload {
-  serial: string;
-  message: string;
-}

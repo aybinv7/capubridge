@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Emitter};
 
-use crate::commands::adb::LogcatEntryPayload;
+use crate::commands::logcat::LogcatEntryPayload;
 use crate::commands::perf::PerfMetrics;
 use crate::session::types::{SessionEvent, SessionLeaseState, SessionRegistrySnapshot};
 

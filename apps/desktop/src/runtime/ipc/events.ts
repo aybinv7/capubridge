@@ -1,4 +1,3 @@
-import type { LogcatEntry, LogcatErrorPayload } from "@/types/console.types";
 import type { PerfMetrics } from "@/types/perf.types";
 import type { SessionEvent } from "@/types/session.types";
 import type { UpdaterProgressPayload } from "@/types/updater.types";
@@ -51,9 +50,6 @@ export interface IpcEventMap {
   "capubridge:inspect-select": MirrorPointEvent;
   "capubridge:inspect-leave": void;
   "capubridge:close-inspect": void;
-  "logcat:line": LogcatEntry;
-  "logcat:error": LogcatErrorPayload;
-  "logcat:stopped": string;
   "perf:metrics": PerfMetrics;
   "perf:error": string;
   "perf:stopped": string;

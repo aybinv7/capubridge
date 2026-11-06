@@ -5,16 +5,17 @@ pub mod events;
 pub mod guards;
 pub mod job_queue;
 pub mod live_features;
+pub mod logcat_lease;
 pub(crate) mod perf_holders;
 pub mod registry;
 pub mod types;
 
 pub use device_tracker::start_device_tracker;
 pub use live_features::{
-    session_attach_console_target, session_detach_console_target, session_start_logcat_lease,
-    session_start_mirror_lease, session_start_perf_lease, session_stop_logcat_lease,
-    session_stop_mirror_lease, session_stop_perf_lease,
+    session_attach_console_target, session_detach_console_target, session_start_mirror_lease,
+    session_start_perf_lease, session_stop_mirror_lease, session_stop_perf_lease,
 };
+pub use logcat_lease::{session_start_logcat_lease, session_stop_logcat_lease};
 pub use registry::{
     session_cancel_list_packages, session_get_device_info, session_get_registry_state,
     session_list_devices, session_list_packages, session_list_reverse,

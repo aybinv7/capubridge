@@ -48,8 +48,6 @@ export interface DeviceCommandMap {
   adb_reverse: IpcCommand<{ serial: string; remotePort: number; localPort: number }, void>;
   adb_remove_reverse: IpcCommand<{ serial: string; remotePort: number }, void>;
   adb_list_reverse: IpcCommand<{ serial: string }, ReverseRule[]>;
-  start_logcat: IpcCommand<{ serial: string }, void>;
-  stop_logcat: IpcCommand<{ serial: string }, void>;
   adb_list_dir: IpcCommand<{ serial: string; path: string }, FileEntry[]>;
   adb_pull_file: IpcCommand<{ serial: string; path: string }, string>;
   adb_read_file: IpcCommand<{ serial: string; path: string }, DeviceFileContent>;

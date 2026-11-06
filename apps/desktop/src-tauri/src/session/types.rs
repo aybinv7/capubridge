@@ -1,4 +1,5 @@
-use crate::commands::adb::{DeviceKind, LogcatEntryPayload};
+use crate::commands::adb::DeviceKind;
+use crate::commands::logcat::LogcatEntryPayload;
 use crate::commands::perf::PerfMetrics;
 use serde::{Deserialize, Serialize};
 

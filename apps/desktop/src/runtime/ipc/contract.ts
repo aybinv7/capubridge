@@ -86,8 +86,6 @@ export const IPC_COMMAND_NAMES = [
   "adb_reverse",
   "adb_remove_reverse",
   "adb_list_reverse",
-  "start_logcat",
-  "stop_logcat",
   "adb_forward_cdp",
   "adb_remove_forward",
   "adb_fetch_json_targets",

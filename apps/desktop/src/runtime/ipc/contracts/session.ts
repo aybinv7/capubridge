@@ -33,8 +33,11 @@ export interface SessionCommandMap {
   session_list_webview_sockets: IpcCommand<{ serial: string }, WebViewSocket[]>;
   session_list_targets: IpcCommand<{ serial: string }, SessionTargetSnapshot[]>;
   session_refresh_targets: IpcCommand<{ serial: string }, SessionTargetSnapshot[]>;
-  session_start_logcat_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
-  session_stop_logcat_lease: IpcCommand<{ serial: string }, SessionLeaseState>;
+  session_start_logcat_lease: IpcCommand<
+    { serial: string; holder?: string; restart?: boolean },
+    SessionLeaseState
+  >;
+  session_stop_logcat_lease: IpcCommand<{ serial: string; holder?: string }, SessionLeaseState>;
   session_start_perf_lease: IpcCommand<{ serial: string; holder?: string }, SessionLeaseState>;
   session_stop_perf_lease: IpcCommand<{ serial: string; holder?: string }, SessionLeaseState>;
   session_start_mirror_lease: IpcCommand<{ serial: string }, SessionLeaseState>;

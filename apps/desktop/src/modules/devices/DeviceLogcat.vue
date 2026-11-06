@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { Download, Pause, Play, RefreshCw, Search, Trash2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,22 +25,6 @@ const textFilter = ref("");
 const tagFilter = ref("");
 const packageFilter = ref("__all__");
 const activeLevels = ref<LogcatEntry["level"][]>(["V", "D", "I", "W", "E", "F"]);
-
-onMounted(() => {
-  void logcatStore.initialize();
-});
-
-watch(
-  () => devicesStore.selectedDevice?.serial ?? null,
-  (nextSerial, previousSerial) => {
-    void logcatStore.syncLease(nextSerial, previousSerial ?? null);
-  },
-  { immediate: true },
-);
-
-onUnmounted(() => {
-  void logcatStore.syncLease(null);
-});
 
 const selectedDevice = computed(() => devicesStore.selectedDevice);
 const selectedTargetPackage = computed(() => targetsStore.selectedTarget?.packageName ?? null);

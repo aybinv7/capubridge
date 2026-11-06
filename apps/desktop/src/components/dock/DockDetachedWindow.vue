@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { Maximize2, Minimize2, Minus, X } from "lucide-vue-next";
 import DockTabContent from "./DockTabContent.vue";
+import DockLogcatCapture from "./DockLogcatCapture.vue";
 import { dockTabMeta } from "./dock-meta";
 import { isDockTab } from "@/types/dock.types";
 
@@ -90,6 +91,7 @@ async function close() {
     </div>
 
     <div class="min-h-0 flex-1 overflow-hidden" style="-webkit-app-region: no-drag">
+      <DockLogcatCapture v-if="activeTab === 'logcat'" />
       <DockTabContent :tab="activeTab" :gated="false" />
     </div>
   </div>
