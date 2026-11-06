@@ -51,7 +51,7 @@ use commands::mock_server::{
     mock_server_start, mock_server_status, mock_server_stop, mock_server_sync_rules,
     MockServerManager,
 };
-use commands::opfs_pull::{opfs_pull_sqlite, opfs_save_file, opfs_stat_file};
+use commands::opfs_pull::{opfs_cancel_save, opfs_pull_sqlite, opfs_save_file, opfs_stat_file};
 use commands::perf::{adb_perf_start, adb_perf_stop};
 use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
 use commands::reasoning::{
@@ -364,6 +364,7 @@ pub fn run() {
             sqlite_overwrite_local_bytes,
             opfs_pull_sqlite,
             opfs_save_file,
+            opfs_cancel_save,
             opfs_stat_file,
             sqlite_table_columns,
             sqlite_table_indexes,

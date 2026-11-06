@@ -255,7 +255,29 @@ impl OpfsSource for CdpSession {
     }
 }
 
-fn emit_progress<'a>(window: &'a tauri::Webview, path: &str) -> impl FnMut(u64, u64) + 'a {
+/// Saves the person can still cancel, by the id the window gave each one.
+static CANCELLED_SAVES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+fn take_cancelled(save_id: &str) -> bool {
+    let Ok(mut cancelled) = CANCELLED_SAVES.lock() else {
+        return false;
+    };
+    match cancelled.iter().position(|id| id == save_id) {
+        Some(index) => {
+            cancelled.swap_remove(index);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Reports progress to the window; resolves `false` (stop) once the save `save_id`, when
+/// given, was cancelled.
+fn emit_progress<'a>(
+    window: &'a tauri::Webview,
+    path: &str,
+    save_id: Option<String>,
+) -> impl FnMut(u64, u64) -> bool + 'a {
     let path = path.to_string();
     move |loaded, total| {
         let _ = window.emit(
@@ -266,7 +288,21 @@ fn emit_progress<'a>(window: &'a tauri::Webview, path: &str) -> impl FnMut(u64, 
                 total,
             },
         );
+        !save_id.as_deref().is_some_and(take_cancelled)
     }
+}
+
+/// Cancels the save `save_id`: it stops after the chunk in flight, removes its part file and
+/// leaves the destination as it was.
+#[tauri::command]
+pub fn opfs_cancel_save(save_id: String) -> Result<(), String> {
+    let mut cancelled = CANCELLED_SAVES
+        .lock()
+        .map_err(|_| "The save could not be cancelled".to_string())?;
+    if !cancelled.contains(&save_id) {
+        cancelled.push(save_id);
+    }
+    Ok(())
 }
 
 fn temp_target(label: &str) -> PathBuf {
@@ -313,7 +349,7 @@ pub async fn opfs_pull_sqlite(
 ) -> Result<OpfsPullResult, String> {
     validate_upstream_url(&ws_url)?;
     let mut session = CdpSession::open(&ws_url).await?;
-    let mut progress = emit_progress(&window, &path);
+    let mut progress = emit_progress(&window, &path, None);
     let result = pull_into_file(
         &mut session,
         &mut progress,
@@ -337,11 +373,15 @@ pub async fn opfs_save_file(
     ws_url: String,
     path: String,
     destination: String,
+    save_id: Option<String>,
 ) -> Result<OpfsSaveResult, String> {
     validate_upstream_url(&ws_url)?;
     let mut session = CdpSession::open(&ws_url).await?;
-    let mut progress = emit_progress(&window, &path);
+    let mut progress = emit_progress(&window, &path, save_id.clone());
     let result = save_into(&mut session, &mut progress, &path, Path::new(&destination)).await;
+    if let Some(id) = save_id.as_deref() {
+        take_cancelled(id);
+    }
     let _ = session.socket.close(None).await;
     result
 }
@@ -383,7 +423,7 @@ fn finish_save(
 
 async fn save_into<S: OpfsSource>(
     source: &mut S,
-    progress: &mut impl FnMut(u64, u64),
+    progress: &mut impl FnMut(u64, u64) -> bool,
     path: &str,
     destination: &Path,
 ) -> Result<OpfsSaveResult, String> {
@@ -415,7 +455,7 @@ async fn save_into<S: OpfsSource>(
 /// written, which is less than `total` when the file got shorter meanwhile.
 async fn copy_range<S: OpfsSource>(
     source: &mut S,
-    progress: &mut impl FnMut(u64, u64),
+    progress: &mut impl FnMut(u64, u64) -> bool,
     path: &str,
     offset: u64,
     total: u64,
@@ -432,7 +472,7 @@ async fn copy_range<S: OpfsSource>(
 
 async fn copy_range_inner<S: OpfsSource>(
     source: &mut S,
-    progress: &mut impl FnMut(u64, u64),
+    progress: &mut impl FnMut(u64, u64) -> bool,
     path: &str,
     offset: u64,
     total: u64,
@@ -456,7 +496,9 @@ async fn copy_range_inner<S: OpfsSource>(
         file.write_all(&chunk)
             .map_err(|error| format!("Failed to write the local copy: {error}"))?;
         written += chunk.len() as u64;
-        progress(written, total);
+        if !progress(written, total) {
+            return Err("The save was cancelled; the file on disk was left as it was.".to_string());
+        }
     }
     file.flush()
         .map_err(|error| format!("Failed to flush the local copy: {error}"))?;
@@ -467,7 +509,7 @@ async fn copy_range_inner<S: OpfsSource>(
 
 async fn pull_into_file<S: OpfsSource>(
     source: &mut S,
-    progress: &mut impl FnMut(u64, u64),
+    progress: &mut impl FnMut(u64, u64) -> bool,
     path: &str,
     label: &str,
     strip_sah_pool_header: bool,
@@ -568,7 +610,7 @@ mod tests {
         let (_dir, destination) = destination_with(b"the copy saved last week");
         let mut source = FakeSource::new(b"0123456789");
         source.short_after = Some(4);
-        let error = save_into(&mut source, &mut |_, _| {}, "app.sqlite3", &destination)
+        let error = save_into(&mut source, &mut |_, _| true, "app.sqlite3", &destination)
             .await
             .expect_err("a short copy is an error");
         assert!(error.contains("4 of 10"), "{error}");
@@ -584,7 +626,7 @@ mod tests {
         let (_dir, destination) = destination_with(b"old");
         let mut source = FakeSource::new(b"0123456789");
         source.fail_stat_after = Some(1);
-        let error = save_into(&mut source, &mut |_, _| {}, "app.sqlite3", &destination)
+        let error = save_into(&mut source, &mut |_, _| true, "app.sqlite3", &destination)
             .await
             .expect_err("an unchecked copy is an error");
         assert!(error.contains("could not be checked"), "{error}");
@@ -599,7 +641,10 @@ mod tests {
         let mut seen = Vec::new();
         let saved = save_into(
             &mut source,
-            &mut |loaded, total| seen.push((loaded, total)),
+            &mut |loaded, total| {
+                seen.push((loaded, total));
+                true
+            },
             "app.sqlite3",
             &destination,
         )
@@ -611,10 +656,24 @@ mod tests {
 
         let mut growing = FakeSource::new(b"0123456789");
         growing.grow_on_read = true;
-        let saved = save_into(&mut growing, &mut |_, _| {}, "app.sqlite3", &destination)
+        let saved = save_into(&mut growing, &mut |_, _| true, "app.sqlite3", &destination)
             .await
             .expect("saved");
         assert!(saved.changed);
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_save_leaves_the_destination_and_no_part_file() {
+        let (_dir, destination) = destination_with(b"old");
+        let mut source = FakeSource::new(&vec![7u8; (CHUNK_BYTES * 2) as usize]);
+        opfs_cancel_save("save-1".to_string()).expect("cancel");
+        let mut progress = |_: u64, _: u64| !take_cancelled("save-1");
+        let error = save_into(&mut source, &mut progress, "app.sqlite3", &destination)
+            .await
+            .expect_err("a cancelled save is an error");
+        assert!(error.contains("cancelled"), "{error}");
+        assert_eq!(std::fs::read(&destination).unwrap(), b"old");
+        assert!(!partial_path(&destination).exists());
     }
 
     #[tokio::test]
@@ -623,7 +682,7 @@ mod tests {
         bytes.extend_from_slice(&[0u8; 64]);
         let mut source = FakeSource::new(&bytes);
         source.short_after = Some(20);
-        let error = pull_into_file(&mut source, &mut |_, _| {}, "app.sqlite3", "app", false)
+        let error = pull_into_file(&mut source, &mut |_, _| true, "app.sqlite3", "app", false)
             .await
             .expect_err("a short pull is an error");
         assert!(error.contains("20 of 80"), "{error}");

@@ -149,6 +149,7 @@ export const IPC_COMMAND_NAMES = [
   "opfs_stat_file",
   "opfs_pull_sqlite",
   "opfs_save_file",
+  "opfs_cancel_save",
   "sqlite_table_columns",
   "sqlite_table_indexes",
   "sqlite_table_foreign_keys",

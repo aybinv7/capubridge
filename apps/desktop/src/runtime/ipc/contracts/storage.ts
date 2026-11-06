@@ -63,7 +63,11 @@ export interface StorageCommandMap {
     },
     OpfsPullResult
   >;
-  opfs_save_file: IpcCommand<{ wsUrl: string; path: string; destination: string }, OpfsSaveResult>;
+  opfs_save_file: IpcCommand<
+    { wsUrl: string; path: string; destination: string; saveId?: string },
+    OpfsSaveResult
+  >;
+  opfs_cancel_save: IpcCommand<{ saveId: string }, void>;
   sqlite_table_columns: IpcCommand<SqliteTableArgs, SqliteColumnInfo[]>;
   sqlite_table_indexes: IpcCommand<SqliteTableArgs, SqliteIndexInfo[]>;
   sqlite_table_foreign_keys: IpcCommand<SqliteTableArgs, SqliteForeignKeyInfo[]>;
