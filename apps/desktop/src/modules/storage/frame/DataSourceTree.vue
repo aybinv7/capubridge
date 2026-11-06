@@ -38,7 +38,7 @@ const emit = defineEmits<{
   retry: [];
 }>();
 
-defineSlots<{ tools?: () => unknown; empty?: () => unknown }>();
+defineSlots<{ lead?: () => unknown; tools?: () => unknown; empty?: () => unknown }>();
 
 const listId = useId();
 const scroller = ref<HTMLElement | null>(null);
@@ -159,6 +159,17 @@ function onKeydown(event: KeyboardEvent) {
 
 const menuFor = ref<string | null>(null);
 
+const NO_ACTIONS: readonly DataAction[] = [];
+/** Each visible row's menu, built once per change of the rows instead of on every render (F4). */
+const itemActions = computed(() => {
+  const map = new Map<string, readonly DataAction[]>();
+  for (const item of items.value) {
+    const row = item.data;
+    if (row.kind === "source" || row.kind === "collection") map.set(row.key, props.actionsFor(row));
+  }
+  return map;
+});
+
 function setMenu(key: string, open: boolean) {
   if (open) menuFor.value = key;
   else if (menuFor.value === key) {
@@ -176,6 +187,9 @@ function onFocus() {
 
 <template>
   <aside class="flex h-full min-h-0 flex-col" :aria-label="searchLabel">
+    <div v-if="$slots.lead" class="shrink-0 px-2 pt-2">
+      <slot name="lead" />
+    </div>
     <div class="flex shrink-0 items-center gap-1 px-2 pt-2 pb-1.5">
       <SearchField
         v-model="search"
@@ -222,11 +236,7 @@ function onFocus() {
           :row="item.data"
           :selected="item.data.key === selectedKey"
           :active="treeFocused && item.data.key === activeKey && item.data.key !== selectedKey"
-          :actions="
-            item.data.kind === 'source' || item.data.kind === 'collection'
-              ? actionsFor(item.data)
-              : []
-          "
+          :actions="itemActions.get(item.data.key) ?? NO_ACTIONS"
           :source-icon="sourceIcon"
           :collection-icon="collectionIcon"
           :menu-open="menuFor === item.data.key"

@@ -6,6 +6,7 @@ import JsonEditor from "@/shared/components/data/JsonEditor.vue";
 import JsonDiff from "@/shared/code-viewer/JsonDiff.vue";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import { bindingTokens } from "@/lib/commands/keymap";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import type { GridColumn } from "@/shared/components/data/grid";
 import DataPaneFooter from "./DataPaneFooter.vue";
@@ -188,7 +189,7 @@ defineExpose({
         :label="
           maximized ? 'Put the record back beside the rows' : 'Fill the workspace with this record'
         "
-        keys="shift+space"
+        :keys="bindingTokens('shift+space')"
         size="sm"
         :pressed="maximized"
         @click="emit('maximize', !maximized)"

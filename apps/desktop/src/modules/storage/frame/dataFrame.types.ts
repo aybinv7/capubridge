@@ -61,6 +61,10 @@ export interface DataSourceNode {
   note?: string;
   /** Keep `collections` in the given order (a folder tree) instead of pins first, then by name. */
   ordered?: boolean;
+  /** Show pinned collections under a "Pinned" heading, the rest under "<collectionsLabel> (n)". */
+  groupPinned?: boolean;
+  /** What the collections are called in that heading, e.g. "Tables". */
+  collectionsLabel?: string;
 }
 
 export interface DataSection {

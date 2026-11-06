@@ -58,6 +58,8 @@ function sourceNode(sourceId: string, db: SqliteDbFile, input: SqliteTreeInput):
     hidden: settings.hidden,
     changes: input.databaseChanges(db),
     collections,
+    groupPinned: true,
+    collectionsLabel: "Tables",
     ...(note ? { note } : {}),
   };
 }

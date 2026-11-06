@@ -751,6 +751,31 @@ are relative to `modules/storage/sqlite/`.
       the rows' provenance and "read 12 s ago" sit in the status bar beside the query time. Structure
       and SQL keep a slim bar with the switch and the same actions
 
+### Step 4 — hot access
+
+- [x] New: "Go to a table…" (`mod+p`, palette, the button above the sidebar search,
+      `quick/SqliteQuickOpen.vue` on a Cladd `Popup` with the Reka listbox of the palette): with nothing
+      typed, this database's recent tables, then its pinned ones, then the other databases; typing ranks
+      tables and views, then columns (`product_product · barcode`, all columns in one read the first
+      time it opens, `quick/useSqliteAllColumns.ts`), then databases; `table:key` offers the row first.
+      Enter opens, Ctrl+Enter the structure, Alt+Enter the table's SQL (`quick/sqliteQuickOpenModel.ts`,
+      tested). Other databases' tables are not listed: they are never read without being opened (N8)
+- [x] New: recent tables, the last 10 per database (`stores/useSqliteTabsStore.ts`,
+      `capubridge:sqlite-tabs:v1`, saved after 400 ms, 30 databases kept, a corrupt value dropped;
+      `workspace/sqliteWorkspace.ts`, tested)
+- [x] Pins: unchanged storage; the open database now lists them under "Pinned", the rest under
+      "Tables (n)" (`frame/dataTreeModel.ts` `groupPinned`, tested); no heading while searching. The
+      sidebar builds each visible row's menu once per change instead of on every render (F4)
+- [x] New: "Go to a row…" (`mod+g`, palette, the status-bar `#` button, `browse/SqliteGoToRow.vue`):
+      one field per key column, or `#40` for a row number; the row is found under the current order and
+      filters in one read-only query (`browse/sqliteRowLocate.ts`, tested on a real SQLite through
+      sql.js: ascending, descending, NULLs, ties, filters, a composite WITHOUT ROWID key, a missing key,
+      a hidden one), its page is read and the record pane opens on it. A row the filters hide says so
+      with "Clear them and go"; a view goes by row number only
+- [x] Foreign-key link (record pane "Open the linked row in t.c", Structure's links unchanged) → opens
+      the target table and lands on the row the value points at (`sqliteLanding.ts`,
+      `browse/useSqliteGoToRow.ts`); it was page 1 of the table before (N5)
+
 ### Pending live checks (SQLite redesign)
 
 Not checked: the owner's app was not driven (screenshots only), and no data was written on a phone.
@@ -763,3 +788,8 @@ Not checked: the owner's app was not driven (screenshots only), and no data was 
 - [ ] Filters: a context-menu "equals" chip, a column condition chip, a WHERE chip; a refused WHERE turns
       red with the database's words and the search still works; Ctrl+Shift+F opens on the WHERE (AZERTY);
       Esc in the WHERE reverts, a second Esc closes; toolbar wrapping at 1280 px with three chips
+- [ ] Ctrl+P and Ctrl+G reach the page in the Tauri WebView2 (Ctrl+P is the browser's print), on AZERTY;
+      quick open with 121 tables, a column search, `res_partner:4182`, Ctrl+Enter and Alt+Enter
+- [ ] Go to row on a sorted, filtered phone table (a status column): the row lands on the right page;
+      a hidden row's "Clear them and go"; a foreign-key link (if Presalio declares any) lands on the row
+- [ ] The sidebar's Pinned / Tables (n) headings with a pinned table; recents after an app restart

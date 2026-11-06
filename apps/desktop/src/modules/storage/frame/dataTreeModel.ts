@@ -99,7 +99,24 @@ export function buildDataTree(
           sectionId: section.id,
         });
       }
-      for (const collection of collections) {
+      const grouped = source.groupPinned && !needle && collections.some((entry) => entry.pinned);
+      collections.forEach((collection, index) => {
+        if (grouped && index === 0) {
+          sectionRows.push({
+            kind: "note",
+            key: `gp:${source.id}`,
+            text: "Pinned",
+            sectionId: section.id,
+          });
+        }
+        if (grouped && !collection.pinned && collections[index - 1]?.pinned) {
+          sectionRows.push({
+            kind: "note",
+            key: `gt:${source.id}`,
+            text: `${source.collectionsLabel ?? "Collections"} (${collections.length})`,
+            sectionId: section.id,
+          });
+        }
         sectionRows.push({
           kind: "collection",
           key: `c:${source.id}\u0000${collection.id}`,
@@ -107,7 +124,7 @@ export function buildDataTree(
           collection,
           sectionId: section.id,
         });
-      }
+      });
     }
     if (needle && sectionRows.length === 0) continue;
     if (showHeadings) rows.push({ kind: "section", key: `h:${section.id}`, section });

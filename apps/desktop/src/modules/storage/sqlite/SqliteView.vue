@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { Database, FolderOpen, Table2 } from "lucide-vue-next";
+import { Database, FolderOpen, Search, Table2 } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
+import KeyCaps from "@/components/command/KeyCaps.vue";
+import { bindingTokens } from "@/lib/commands/keymap";
 import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import DataSourceTree from "@/modules/storage/frame/DataSourceTree.vue";
@@ -19,6 +21,13 @@ import { useSqliteCommands, type SqliteEditCommands } from "./useSqliteCommands"
 import { sqliteRouteTo } from "./useSqliteLocation";
 import { useSqliteTab } from "./useSqliteTab";
 import { useSqliteTreeHandlers } from "./useSqliteTreeHandlers";
+import { useSqliteTabsStore } from "@/modules/storage/stores/useSqliteTabsStore";
+import SqliteQuickOpen, { type QuickOpenMode } from "./quick/SqliteQuickOpen.vue";
+import type { QuickOpenItem } from "./quick/sqliteQuickOpenModel";
+import { useSqliteAllColumns } from "./quick/useSqliteAllColumns";
+import type { SqliteLanding } from "./sqliteLanding";
+import { sqliteWorkspaceKey } from "./workspace/sqliteWorkspace";
+import type { SqliteTableView } from "./useSqliteLocation";
 
 const router = useRouter();
 const confirm = useDataConfirm();
@@ -30,6 +39,7 @@ const root = ref<HTMLElement | null>(null);
 const pane = ref<{
   focusSearch: () => void;
   openWhere?: () => void;
+  openGoToRow?: () => void;
   edits?: () => SqliteEditCommands | null;
 } | null>(null);
 const search = ref("");
@@ -114,6 +124,61 @@ function fileAction(action: "save-file" | "save-as") {
   else void handlers.saveFile(db);
 }
 
+const workspaces = useSqliteTabsStore();
+const workspaceKey = computed(() => {
+  const open = current.value;
+  return open ? sqliteWorkspaceKey(tab.scope.value, open.sourceId, open.db) : null;
+});
+
+watch(
+  () => [workspaceKey.value, location.table.value, tableInfo.value !== undefined] as const,
+  ([key, table, listed]) => {
+    if (key && table && listed) workspaces.recordRecent(key, table);
+  },
+  { immediate: true },
+);
+
+const landing = ref<SqliteLanding | null>(null);
+const quickOpen = ref(false);
+const wantColumns = ref(false);
+const allColumns = useSqliteAllColumns(address, wantColumns);
+
+const pinnedTables = computed(() =>
+  current.value ? tab.settings.source(tab.scope.value, current.value.sourceId).pinnedItems : [],
+);
+const otherDatabases = computed(() =>
+  tab.sections.value.flatMap((section) =>
+    section.sources
+      .filter((source) => source.id !== current.value?.sourceId && !source.hidden)
+      .map((source) => ({ sourceId: source.id, name: source.label, detail: source.detail ?? "" })),
+  ),
+);
+
+function openTableAs(table: string, view: SqliteTableView = "rows") {
+  const target = location.target.value;
+  if (!target || !table) return;
+  void router.push(sqliteRouteTo(target, table, view === "rows" ? null : view));
+}
+
+function followLink(next: SqliteLanding) {
+  landing.value = next;
+  if (location.table.value !== next.table || location.tableView.value !== "rows") {
+    openTableAs(next.table);
+  }
+}
+
+function chooseQuick(item: QuickOpenItem, mode: QuickOpenMode) {
+  if (item.kind === "database") {
+    handlers.select(item.sourceId, null);
+    return;
+  }
+  if (item.kind === "row") {
+    followLink({ kind: "key", table: item.table, key: item.key });
+    return;
+  }
+  openTableAs(item.table, mode === "open" ? "rows" : mode);
+}
+
 function findHere(): boolean {
   const element = root.value;
   const active = document.activeElement;
@@ -127,6 +192,8 @@ useSqliteCommands({
   canExport: () => address.value !== null,
   refresh: () => void handlers.refresh(),
   focusFind: () => pane.value?.focusSearch(),
+  goToTable: () => (quickOpen.value = true),
+  goToRow: () => pane.value?.openGoToRow?.(),
   filterWithSql: () => pane.value?.openWhere?.(),
   hasTable: () => current.value !== null && location.table.value !== "",
   findHere,
@@ -161,6 +228,20 @@ useSqliteCommands({
           @action="handlers.run"
           @retry="tab.sources.refetch()"
         >
+          <template #lead>
+            <Button
+              v-if="current"
+              size="sm"
+              variant="transparent"
+              class="w-full"
+              content-class-name="w-full justify-start gap-2 text-muted-foreground"
+              @click="quickOpen = true"
+            >
+              <Search :size="13" aria-hidden="true" />
+              <span class="flex-1 text-left">Go to a table…</span>
+              <KeyCaps :keys="bindingTokens('mod+p')" quiet />
+            </Button>
+          </template>
           <template #tools>
             <IconAction
               label="Open a SQLite file…"
@@ -235,8 +316,11 @@ useSqliteCommands({
           :change-serial="tab.changeSerial.value"
           :change-package="tab.changePackage.value"
           :save-changes="(keys, staged) => handlers.saveChanges(location.table.value, keys, staged)"
+          :landing="landing"
           @set-view="location.setView"
           @open-table="handlers.openTable"
+          @follow-link="followLink"
+          @landed="landing = null"
           @action="headerAction"
           @refresh="handlers.refresh()"
           @file-action="fileAction"
@@ -284,6 +368,18 @@ useSqliteCommands({
       <DataState v-else kind="loading" title="Looking for databases" />
     </DataWorkbench>
 
+    <SqliteQuickOpen
+      v-if="current"
+      v-model:open="quickOpen"
+      :tables="tables.tables.value"
+      :columns="allColumns"
+      :recents="workspaceKey ? workspaces.recents(workspaceKey) : []"
+      :pinned="pinnedTables"
+      :databases="otherDatabases"
+      :database-name="current.db.name"
+      @want-columns="wantColumns = true"
+      @choose="chooseQuick"
+    />
     <ConfirmDialog
       v-model:open="confirm.open.value"
       :request="confirm.request.value"

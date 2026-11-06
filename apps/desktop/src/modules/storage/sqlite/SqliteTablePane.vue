@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import { toast } from "vue-sonner";
 import ChangeSummary from "@/modules/storage/frame/ChangeSummary.vue";
 import type { DataAction, DataProvenance } from "@/modules/storage/frame/dataFrame.types";
 import { useSqliteTableChangeOverlay } from "@/modules/storage/changes/useSqliteChangeOverlay";
@@ -19,6 +20,10 @@ import type { SqliteAddress } from "./sqliteAddress";
 import { runQuery } from "./sqliteReads";
 import { useSqliteColumns, useSqliteStructure } from "./useSqliteCatalog";
 import type { SqliteTableView } from "./useSqliteLocation";
+import { parseRowTarget } from "./quick/sqliteKeyInput";
+import { predicate } from "./browse/sqliteQuery";
+import { useSqliteGoToRow, type SqliteRowReveal } from "./browse/useSqliteGoToRow";
+import { linkLanding, type SqliteLanding } from "./sqliteLanding";
 
 /**
  * One table of the open database: its rows, its structure, or free SQL. The table's name is not
@@ -38,11 +43,15 @@ const props = defineProps<{
   changeSerial: string;
   changePackage: string;
   saveChanges: (keyColumns: readonly SqliteColumnInfo[], staged: SqliteStaged) => Promise<boolean>;
+  /** A row to land on once the table is read: from a link, or `table:key` in quick open. */
+  landing?: SqliteLanding | null;
 }>();
 
 const emit = defineEmits<{
   setView: [view: SqliteTableView];
   openTable: [table: string];
+  followLink: [landing: SqliteLanding];
+  landed: [];
   action: [id: string];
   refresh: [];
   fileAction: [action: "save-file" | "save-as"];
@@ -99,10 +108,61 @@ watch(
   },
 );
 
-function followForeignKey(target: string) {
-  const name = target.split(".")[0];
-  if (name && props.tableNames.has(name)) emit("openTable", name);
+function reveal(target: SqliteRowReveal) {
+  if (props.view !== "rows") emit("setView", "rows");
+  void nextTick(() => browse.value?.reveal(target));
 }
+
+const goToRow = useSqliteGoToRow({
+  address,
+  table,
+  query,
+  rowOrder,
+  keyColumns: computed(() => keyColumns.value.map((column) => column.name)),
+  reveal,
+});
+
+/** `table.column` of a link, split on a table this database has (names may hold dots). */
+function linkTarget(target: string): { table: string; column: string } | null {
+  let best: string | null = null;
+  for (const name of props.tableNames) {
+    if (target.startsWith(`${name}.`) && (!best || name.length > best.length)) best = name;
+  }
+  return best ? { table: best, column: target.slice(best.length + 1) } : null;
+}
+
+function followForeignKey(target: string, value: unknown) {
+  const link = linkTarget(target);
+  if (link) emit("followLink", linkLanding(link.table, link.column, value));
+}
+
+async function land(landing: SqliteLanding) {
+  if (landing.kind === "key") {
+    const target = parseRowTarget(landing.key, keyColumns.value.length);
+    if (target) await goToRow.goTo(target);
+    return;
+  }
+  try {
+    await goToRow.goToMatch(
+      predicate(landing.column, "=", landing.value),
+      `${landing.column} ${landing.label}`,
+    );
+  } catch (error) {
+    toast.error("Could not follow the link", {
+      description: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+watch(
+  () => [props.landing, columns.value.length > 0, props.info !== undefined] as const,
+  ([landing, read, listed]) => {
+    if (!landing || !read || !listed || landing.table !== props.table) return;
+    emit("landed");
+    void land(landing);
+  },
+  { immediate: true },
+);
 
 defineExpose({
   edits: () => (props.view === "rows" ? (browse.value?.edits ?? null) : null),
@@ -112,6 +172,10 @@ defineExpose({
       emit("setView", "rows");
       browse.value?.focusSearch();
     }
+  },
+  openGoToRow: () => {
+    if (props.view !== "rows") emit("setView", "rows");
+    void nextTick(() => browse.value?.openGoToRow());
   },
   openWhere: () => {
     if (props.view !== "rows") emit("setView", "rows");
@@ -145,8 +209,10 @@ defineExpose({
     :unsaved="db.unsavedToSource === true"
     :provenance="provenance"
     :read-at="rows.readAt.value"
+    :stale="rows.placeholder.value"
     @file-action="emit('fileAction', $event)"
     @follow-foreign-key="followForeignKey"
+    @go-to-row="goToRow.goTo"
     @retry="rows.refetch()"
   >
     <template #lead>

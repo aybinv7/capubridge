@@ -49,6 +49,9 @@ import {
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 import SqliteBrowseToolbar from "./SqliteBrowseToolbar.vue";
 import SqliteEditBar from "./SqliteEditBar.vue";
+import SqliteGoToRow from "./SqliteGoToRow.vue";
+import type { RowTarget } from "../quick/sqliteKeyInput";
+import type { SqliteRowReveal } from "./useSqliteGoToRow";
 import type { SqliteStaged } from "./sqliteChangeset";
 import type { SqliteEditCommands } from "../useSqliteCommands";
 import { useSqliteStagedEdits } from "./useSqliteStagedEdits";
@@ -91,12 +94,15 @@ const props = defineProps<{
   readAt: number | null;
   /** The change watcher keeps the copy current. */
   watched?: boolean;
+  /** The rows on screen are an older page while the asked one is read. */
+  stale?: boolean;
 }>();
 
 defineSlots<{ lead?: () => unknown; changes?: () => unknown; trail?: () => unknown }>();
 
 const emit = defineEmits<{
   followForeignKey: [target: string, value: unknown];
+  goToRow: [target: RowTarget];
   retry: [];
   fileAction: [action: "save-file" | "save-as"];
 }>();
@@ -394,6 +400,33 @@ const paneBefore = computed(() =>
   paneChange.value ? { value: paneChange.value.beforeValue } : null,
 );
 
+const goToRow = ref<InstanceType<typeof SqliteGoToRow> | null>(null);
+const pendingReveal = ref<SqliteRowReveal | null>(null);
+
+function revealNow() {
+  const target = pendingReveal.value;
+  if (!target || grouped.value) return;
+  let rowId: string | undefined;
+  if ("rowId" in target) {
+    rowId = mapped.value.rows.some((row) => row.id === target.rowId) ? target.rowId : undefined;
+  } else if (!props.stale && !props.loading) {
+    rowId = mapped.value.rows[target.index]?.id;
+  }
+  if (!rowId) return;
+  pendingReveal.value = null;
+  const found = rowId;
+  pane.show(found);
+  void nextTick(() => grid.value?.focusRow(found));
+}
+
+watch([() => mapped.value.rows, () => props.stale, () => props.loading], revealNow);
+
+/** Lands on a row once its page is on screen, and opens it in the record pane. */
+function reveal(target: SqliteRowReveal) {
+  pendingReveal.value = target;
+  revealNow();
+}
+
 function showRowChanges(rowId: string) {
   pane.show(rowId);
   void nextTick(() => paneView.value?.showChanges());
@@ -467,6 +500,8 @@ function onKeydown(event: KeyboardEvent) {
 defineExpose({
   focusSearch: () => toolbar.value?.focusSearch(),
   openWhere: () => toolbar.value?.openWhere(),
+  openGoToRow: () => goToRow.value?.open(),
+  reveal,
   edits: {
     canEdit: () => !readOnly.value,
     pending: () => staging.pending.value,
@@ -626,6 +661,12 @@ defineExpose({
         </span>
       </HintTooltip>
       <span v-if="result" class="tabular-nums">{{ result.durationMs }} ms</span>
+      <SqliteGoToRow
+        ref="goToRow"
+        :key-columns="keyColumnNames"
+        :blocked="null"
+        @go="emit('goToRow', $event)"
+      />
       <DataFreshness :provenance="provenance" :read-at="readAt" :watched="watched" />
       <IconAction
         :label="pane.open.value ? 'Hide the record pane' : 'Show the record pane'"

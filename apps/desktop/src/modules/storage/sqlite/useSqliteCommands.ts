@@ -1,6 +1,8 @@
 import {
   Download,
   FileCode,
+  Hash,
+  TableProperties,
   ListFilter,
   Network,
   PanelRight,
@@ -28,6 +30,8 @@ interface SqliteCommandDeps {
   canExport: () => boolean;
   refresh: () => void;
   focusFind: () => void;
+  goToTable: () => void;
+  goToRow: () => void;
   /** Opens the Filter popover on its WHERE clause (a table's rows). */
   filterWithSql: () => void;
   hasTable: () => boolean;
@@ -111,6 +115,28 @@ export function useSqliteCommands(deps: SqliteCommandDeps) {
       keywords: ["search", "filter", "sqlite"],
       when: () => deps.hasDatabase() && (commands.paletteOpen || deps.findHere()),
       run: deps.focusFind,
+    },
+    {
+      id: "data.sqlite.go-to-table",
+      title: "Go to a table…",
+      group: "Data",
+      icon: TableProperties,
+      binding: "mod+p",
+      screen: true,
+      keywords: ["quick open", "table", "column", "find", "jump", "sqlite"],
+      when: () => deps.hasDatabase() && (commands.paletteOpen || deps.findHere()),
+      run: deps.goToTable,
+    },
+    {
+      id: "data.sqlite.go-to-row",
+      title: "Go to a row…",
+      group: "Data",
+      icon: Hash,
+      binding: "mod+g",
+      screen: true,
+      keywords: ["key", "row", "jump", "id", "sqlite"],
+      when: () => deps.hasTable() && (commands.paletteOpen || deps.findHere()),
+      run: deps.goToRow,
     },
     {
       id: "data.sqlite.filter-sql",
