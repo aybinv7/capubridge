@@ -118,3 +118,23 @@ test("the inferred strategy partitions oversized connected components", () => {
   expect(Math.max(...clusters.map((cluster) => cluster.length))).toBe(9);
   expect(new Set(clusters.flat()).size).toBe(25);
 });
+
+test("field matching looks only at entities that share a name (F12)", () => {
+  const entities = Array.from({ length: 6000 }, (_, index) =>
+    entity(`table-${index}`, "sqlite", [
+      field(`own_${index}`),
+      field(index % 3000 === 0 ? "tenant_ref" : `other_${index}`),
+    ]),
+  );
+  const started = performance.now();
+  const relationships = buildFieldMatchRelationships(entities);
+  expect(performance.now() - started).toBeLessThan(250);
+  expect(relationships.map((edge) => edge.label)).toEqual(["tenant_ref"]);
+});
+
+test("a name held by too many entities never links them", () => {
+  const relationships = buildFieldMatchRelationships(
+    Array.from({ length: 9 }, (_, index) => entity(`t${index}`, "sqlite", [field("shared_ref")])),
+  );
+  expect(relationships).toEqual([]);
+});

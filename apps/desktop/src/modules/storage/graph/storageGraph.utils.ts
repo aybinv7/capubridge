@@ -241,40 +241,58 @@ function buildPairRelationship(
   };
 }
 
+/**
+ * The entity pairs that share at least one name worth matching, in the order a pair-by-pair
+ * scan meets them (first index, then second). A name counts only when 2 to 8 entities hold it,
+ * so each name adds at most 28 pairs and the work follows the links, not the square of the
+ * entity count.
+ */
+function sharedNamePairs(
+  buckets: ReadonlyArray<Map<string, StorageGraphField[]>>,
+  popularity: Map<string, number>,
+): Array<[number, number]> {
+  const holders = new Map<string, number[]>();
+  buckets.forEach((bucket, index) => {
+    for (const name of bucket.keys()) {
+      if (shouldIgnoreFieldName(name, popularity.get(name) ?? 0)) continue;
+      const list = holders.get(name);
+      if (list) list.push(index);
+      else holders.set(name, [index]);
+    }
+  });
+  const count = buckets.length;
+  const codes = new Set<number>();
+  for (const list of holders.values()) {
+    for (let left = 0; left < list.length; left += 1) {
+      for (let right = left + 1; right < list.length; right += 1) {
+        codes.add((list[left] ?? 0) * count + (list[right] ?? 0));
+      }
+    }
+  }
+  return [...codes].sort((a, b) => a - b).map((code) => [Math.floor(code / count), code % count]);
+}
+
 export function buildFieldMatchRelationships(
   entities: StorageGraphEntityDescriptor[],
 ): StorageGraphRelationship[] {
   const popularity = buildFieldPopularity(entities);
-  const bucketsByEntityId = new Map(
-    entities.map((entity) => [entity.id, buildFieldBuckets(entity.fields)]),
-  );
+  const buckets = entities.map((entity) => buildFieldBuckets(entity.fields));
   const pairCandidates: Array<{ edge: StorageGraphRelationship; score: number }> = [];
 
-  for (let index = 0; index < entities.length; index += 1) {
+  for (const [index, otherIndex] of sharedNamePairs(buckets, popularity)) {
     const source = entities[index];
-    const sourceBuckets = bucketsByEntityId.get(source.id);
-    if (!sourceBuckets) {
-      continue;
-    }
-
-    for (let otherIndex = index + 1; otherIndex < entities.length; otherIndex += 1) {
-      const target = entities[otherIndex];
-      const targetBuckets = bucketsByEntityId.get(target.id);
-      if (!targetBuckets) {
-        continue;
-      }
-
-      const candidate = buildPairRelationship(
-        source,
-        target,
-        sourceBuckets,
-        targetBuckets,
-        popularity,
-      );
-      if (candidate) {
-        pairCandidates.push(candidate);
-      }
-    }
+    const target = entities[otherIndex];
+    const sourceBuckets = buckets[index];
+    const targetBuckets = buckets[otherIndex];
+    if (!source || !target || !sourceBuckets || !targetBuckets) continue;
+    const candidate = buildPairRelationship(
+      source,
+      target,
+      sourceBuckets,
+      targetBuckets,
+      popularity,
+    );
+    if (candidate) pairCandidates.push(candidate);
   }
 
   pairCandidates.sort((left, right) => right.score - left.score);

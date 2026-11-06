@@ -57,25 +57,23 @@ export function useStorageGraphRelationships(
     );
   });
 
-  const manualRelationships = computed<StorageGraphRelationship[]>(() =>
-    persistedScope.value.manualEdges
-      .filter((edge) => {
-        const knownNodeIds = new Set([
-          ...entities.value.map((entity) => entity.id),
-          ...persistedScope.value.notes.map((note) => note.id),
-        ]);
-        return knownNodeIds.has(edge.source) && knownNodeIds.has(edge.target);
-      })
+  const manualRelationships = computed<StorageGraphRelationship[]>(() => {
+    const knownNodeIds = new Set([
+      ...entities.value.map((entity) => entity.id),
+      ...persistedScope.value.notes.map((note) => note.id),
+    ]);
+    return persistedScope.value.manualEdges
+      .filter((edge) => knownNodeIds.has(edge.source) && knownNodeIds.has(edge.target))
       .map((edge) => ({
         id: edge.id,
-        kind: "manual",
+        kind: "manual" as const,
         source: edge.source,
         target: edge.target,
         label: edge.label,
-        confidence: "high",
+        confidence: "high" as const,
         userDefined: true,
-      })),
-  );
+      }));
+  });
 
   const relationships = computed<StorageGraphRelationship[]>(() => {
     const merged = new Map<string, StorageGraphRelationship>();
