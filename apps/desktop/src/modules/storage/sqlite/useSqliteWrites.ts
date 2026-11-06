@@ -5,6 +5,7 @@ import {
   useSqliteFilesStore,
   type SqliteOpenedFile,
 } from "@/modules/storage/stores/useSqliteFilesStore";
+import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
 import { buildRowKey } from "@/modules/storage/changes/sqliteRowKey";
 import type { SqliteColumnInfo, SqliteDbFile } from "@/types/sqlite.types";
 import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
@@ -20,6 +21,8 @@ import {
 import { readBackChangeset } from "./browse/sqliteReadBack";
 import { quoteIdent } from "./sqlText";
 import { firstSaveText, useSqliteFileSave } from "./useSqliteFileSave";
+import { fileSourceId } from "./sqliteTree";
+import { droppedLine } from "./sqliteUnsavedQuestion";
 
 export interface SqliteWriteDeps {
   confirm: (request: ConfirmRequest) => Promise<boolean>;
@@ -50,6 +53,7 @@ function changesText(count: number): string {
 export function useSqliteWrites(deps: SqliteWriteDeps) {
   const changes = useSqliteChangesStore();
   const files = useSqliteFilesStore();
+  const unsaved = useSqliteUnsavedStore();
   const fileSave = useSqliteFileSave(deps.confirm);
 
   function writableAddress(db: SqliteDbFile): SqliteAddress | null {
@@ -75,6 +79,13 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
     if (!address) return null;
     const file = openedFile(db);
     return file ? { address, file } : null;
+  }
+
+  /** Staged edits a sidebar write would make stale (S10), and how to drop them. */
+  function stagedFor(file: SqliteOpenedFile, table?: string) {
+    const sourceId = fileSourceId(file.id);
+    const staged = unsaved.stagedIn(sourceId, table);
+    return { line: droppedLine(staged), drop: () => unsaved.discardIn(sourceId, table) };
   }
 
   /**
@@ -109,13 +120,15 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
   async function clearTable(db: SqliteDbFile, table: string) {
     const at = target(db);
     if (!at) return;
+    const staged = stagedFor(at.file, table);
     const confirmed = await deps.confirm({
       title: `Delete every row of “${table}”?`,
-      text: `Every row of “${table}” is deleted; the table stays. ${firstSaveText(at.file)}`,
+      text: `Every row of “${table}” is deleted; the table stays.${staged.line} ${firstSaveText(at.file)}`,
       confirmLabel: "Delete every row",
       danger: true,
     });
     if (!confirmed) return;
+    staged.drop();
     files.confirmSave(at.file.id);
     try {
       await runWrite(at.address, `DELETE FROM ${quoteIdent(table)}`);
@@ -131,13 +144,15 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
   async function dropTable(db: SqliteDbFile, table: string) {
     const at = target(db);
     if (!at) return;
+    const staged = stagedFor(at.file, table);
     const confirmed = await deps.confirm({
       title: `Drop the table “${table}”?`,
-      text: `The table “${table}” and all its rows leave the file. ${firstSaveText(at.file)}`,
+      text: `The table “${table}” and all its rows leave the file.${staged.line} ${firstSaveText(at.file)}`,
       confirmLabel: "Drop the table",
       danger: true,
     });
     if (!confirmed) return;
+    staged.drop();
     files.confirmSave(at.file.id);
     try {
       await runWrite(at.address, `DROP TABLE ${quoteIdent(table)}`);
@@ -273,13 +288,15 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
       return;
     }
     if (!picked) return;
+    const staged = stagedFor(at.file);
     const confirmed = await deps.confirm({
       title: `Replace “${db.name}” with “${picked.name}”?`,
-      text: `Every table, view and trigger is replaced by what “${picked.name}” builds. If the SQL fails part way, nothing changes. ${firstSaveText(at.file)}`,
+      text: `Every table, view and trigger is replaced by what “${picked.name}” builds. If the SQL fails part way, nothing changes.${staged.line} ${firstSaveText(at.file)}`,
       confirmLabel: "Replace the file",
       danger: true,
     });
     if (!confirmed) return;
+    staged.drop();
     files.confirmSave(at.file.id);
     const toastId = toast.loading(`Replaying “${picked.name}”…`);
     try {
