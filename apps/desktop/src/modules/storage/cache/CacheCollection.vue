@@ -65,12 +65,6 @@ watch(
   { immediate: true },
 );
 
-const sizeText = computed(() => {
-  if (read.pending.value) return null;
-  const total = read.total.value ?? 0;
-  return `${total.toLocaleString("en-US")} ${total === 1 ? "entry" : "entries"}`;
-});
-
 const whenRead = useWhenRead(read.pending, read.error, () =>
   toast.info("Nothing was deleted", {
     description: `The cache “${props.cacheName}” could not be read, so it was not deleted.`,
@@ -101,20 +95,15 @@ defineExpose({
     :read-at="read.readAt.value"
     :busy="read.fetching.value && !read.loading.value"
   >
-    <span v-if="sizeText" class="font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">
-      {{ sizeText }}
-    </span>
     <template #actions>
-      <Button
-        size="sm"
-        variant="transparent"
-        content-class-name="gap-1.5"
+      <IconAction
+        :label="`Delete the cache “${cacheName}”…`"
+        :hint="writes.blockedReason.value ?? 'Asks first, with what it holds'"
         :disabled="writes.blockedReason.value !== null || writes.busy.value"
         @click="deleteCache"
       >
-        <Trash2 :size="12" aria-hidden="true" />
-        Delete cache…
-      </Button>
+        <Trash2 :stroke-width="1.8" />
+      </IconAction>
       <IconAction
         label="Read again"
         hint="Reads this cache from the phone again"

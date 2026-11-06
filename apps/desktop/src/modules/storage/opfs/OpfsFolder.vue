@@ -138,11 +138,6 @@ watch(
   { immediate: true },
 );
 
-const sizeText = computed(() => {
-  if (read.pending.value || total.value === null) return null;
-  return `${total.value.toLocaleString("en-US")} ${total.value === 1 ? "item" : "items"}`;
-});
-
 function selfRow(): OpfsRow {
   return {
     id: props.path,
@@ -206,9 +201,6 @@ defineExpose({
     :read-at="read.readAt.value"
     :busy="read.fetching.value && !read.loading.value"
   >
-    <span v-if="sizeText" class="font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">
-      {{ sizeText }}
-    </span>
     <template #actions>
       <Segmented v-if="poolHere" size="sm" active-variant="solid" aria-label="Show the folder as">
         <SegmentedButton :active="view === 'files'" class="text-xs" @click="view = 'files'">
@@ -218,17 +210,15 @@ defineExpose({
           Databases in the pool
         </SegmentedButton>
       </Segmented>
-      <Button
+      <IconAction
         v-if="path"
-        size="sm"
-        variant="transparent"
-        content-class-name="gap-1.5"
+        :label="`Delete the folder “${label}”…`"
+        :hint="folderWrites.blockedReason.value ?? 'Looks inside and asks first'"
         :disabled="folderWrites.blockedReason.value !== null || folderWrites.busy.value"
         @click="deleteFolder"
       >
-        <Trash2 :size="12" aria-hidden="true" />
-        Delete folder…
-      </Button>
+        <Trash2 :stroke-width="1.8" />
+      </IconAction>
       <IconAction
         label="Read again"
         hint="Reads this folder from the phone again"
