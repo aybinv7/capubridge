@@ -32,11 +32,23 @@ function readAtOf(updatedAt: number): number | null {
   return updatedAt > 0 ? updatedAt : null;
 }
 
-/** Every folder of the page's OPFS, for the sidebar. Reads wait while `paused`. */
-export function useOpfsFolders(targetId: Ref<string>, paused: Ref<boolean>) {
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Every folder of the page's OPFS, for the sidebar, kept per target and per origin the page
+ * shows (`pageUrl`), so a page that moved to another origin never shows the old one's folders.
+ * Reads wait while `paused`.
+ */
+export function useOpfsFolders(targetId: Ref<string>, pageUrl: Ref<string>, paused: Ref<boolean>) {
   const domains = useOpfsDomains(targetId);
   const query = useQuery({
-    queryKey: computed(() => ["opfs-folders", targetId.value]),
+    queryKey: computed(() => ["opfs-folders", targetId.value, originOf(pageUrl.value)]),
     queryFn: () => withReadTimeout(domains.files().folders(), WALK_TIMEOUT_MS),
     enabled: computed(() => Boolean(targetId.value) && !paused.value),
     retry: false,

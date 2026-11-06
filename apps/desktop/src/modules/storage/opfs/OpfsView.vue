@@ -33,6 +33,7 @@ const targetId = computed(() => targets.cdpTargetId);
 const away = computed(() => presence.away.value);
 const walk = useOpfsFolders(
   targetId,
+  computed(() => targets.selectedTarget?.url ?? ""),
   computed(() => away.value !== null),
 );
 
