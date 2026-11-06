@@ -84,6 +84,7 @@ function install(origin: string, storage: FakeOrigin | undefined) {
 export function pageClient(
   origins: Record<string, FakeOrigin>,
   frames: { id: string; origin: string }[] = [{ id: "main", origin: PAGE }],
+  options: { domStorage?: Record<string, FakeOrigin> } = {},
 ): CDPClient & { calls: string[] } {
   const calls: string[] = [];
   const contexts = new Map<number, string>();
@@ -116,7 +117,7 @@ export function pageClient(
           securityOrigin: string;
           isLocalStorage: boolean;
         };
-        const storage = origins[storageId.securityOrigin];
+        const storage = (options.domStorage ?? origins)[storageId.securityOrigin];
         const area = storageId.isLocalStorage ? storage?.local : storage?.session;
         return { entries: area?.entries() ?? [] };
       }

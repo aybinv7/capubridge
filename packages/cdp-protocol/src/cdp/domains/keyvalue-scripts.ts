@@ -98,6 +98,31 @@ export function storageWriteScript(
 }
 
 /**
+ * Every key of one origin's Local or Session storage with its value as stored, read in the same
+ * frame context the writes run in, so reads and writes see one storage partition.
+ */
+export function storageReadScript(origin: string, area: "local" | "session"): string {
+  return `(() => {
+    ${REPLY_HELPERS}
+    const origin = ${jsLiteral(origin)};
+    try {
+      if (location.origin !== origin) {
+        return JSON.stringify({ error: 'This frame belongs to another origin (' + location.origin + ') than ' + origin, wrongOrigin: true });
+      }
+      const area = ${area === "session" ? "sessionStorage" : "localStorage"};
+      const entries = [];
+      for (let index = 0; index < area.length; index++) {
+        const key = area.key(index);
+        if (key !== null) entries.push([key, area.getItem(key)]);
+      }
+      return JSON.stringify({ entries });
+    } catch (e) {
+      return __kvFailure(e);
+    }
+  })()`;
+}
+
+/**
  * Counts of the page's own Local and Session storage, and every LocalForage store it keeps in
  * IndexedDB: a database is LocalForage's when it holds LocalForage's blob-support store, or is
  * named `localforage`. Databases are opened only if they exist (never created or upgraded) and

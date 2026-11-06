@@ -8,6 +8,7 @@ import {
   forageReadScript,
   forageWriteScript,
   storageDeleteScript,
+  storageReadScript,
   storageWriteScript,
   type KeyValueDeleteItem,
   type KeyValueWriteInput,
@@ -160,8 +161,9 @@ function parseReply<T>(raw: unknown): T & DeviceReply {
 
 /**
  * Local storage, Session storage and LocalForage of a page, read and written on the phone.
- * Reads of Local and Session storage go through `DOMStorage`; every write is a script that
- * checks what the phone holds before it changes anything (see `KeyValueWriteInput`).
+ * Reads and writes of Local and Session storage run in the same frame context; every write
+ * is a script that checks what the phone holds before it changes anything (see
+ * `KeyValueWriteInput`).
  */
 export class KeyValueDomain {
   constructor(private client: CDPClient) {}
@@ -185,7 +187,6 @@ export class KeyValueDomain {
 
   /** Lists the page's origins, its storage counts and its LocalForage stores. */
   async discover(): Promise<KeyValueDiscovery> {
-    await this.client.send("DOMStorage.enable");
     const page = parseReply<{
       origin: string;
       local: number | null;
@@ -210,13 +211,16 @@ export class KeyValueDomain {
     };
   }
 
-  /** Every key of one origin's Local or Session storage, values as stored. */
+  /**
+   * Every key of one origin's Local or Session storage, values as stored, read in the frame
+   * context the writes use (see `contextFor`).
+   */
   async readArea(origin: string, area: KeyValueArea): Promise<KeyValueStorageEntry[]> {
-    const result = await this.client.send<{ entries?: [string, string][] }>(
-      "DOMStorage.getDOMStorageItems",
-      { storageId: { securityOrigin: origin, isLocalStorage: area === "local" } },
+    const contextId = await this.contextFor(origin);
+    const reply = parseReply<{ entries: [string, string | null][] }>(
+      await this.evaluate(storageReadScript(origin, area), contextId),
     );
-    return (result.entries ?? []).map(([key, value]) => ({ key, value }));
+    return reply.entries.map(([key, value]) => ({ key, value: value ?? "" }));
   }
 
   /** The entries of one LocalForage store, up to `FORAGE_READ_LIMIT`. */

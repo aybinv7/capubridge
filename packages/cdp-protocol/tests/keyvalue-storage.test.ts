@@ -138,6 +138,28 @@ describe("writes land in the origin they were read from", () => {
 });
 
 describe("reads", () => {
+  test("a frame's storage is read where it is written, not in another partition", async () => {
+    const frame = fakeOrigin({ k: "the frame's own" });
+    const unpartitioned = fakeOrigin({ k: "another partition" });
+    const client = pageClient(
+      { [PAGE]: fakeOrigin(), [FRAME]: frame },
+      [
+        { id: "main", origin: PAGE },
+        { id: "child", origin: FRAME },
+      ],
+      { domStorage: { [FRAME]: unpartitioned } },
+    );
+    const domain = new KeyValueDomain(client);
+    expect(await domain.readArea(FRAME, "local")).toEqual([{ key: "k", value: "the frame's own" }]);
+    expect(client.calls).not.toContain("DOMStorage.enable");
+  });
+
+  test("discovery leaves DOMStorage alone", async () => {
+    const client = pageClient({ [PAGE]: fakeOrigin({ a: "1" }) });
+    await new KeyValueDomain(client).discover();
+    expect(client.calls).not.toContain("DOMStorage.enable");
+  });
+
   test("lists the page origin first, then its frames, with the page's counts", async () => {
     const client = pageClient({ [PAGE]: fakeOrigin({ a: "1", b: "2" }, { s: "1" }) }, [
       { id: "main", origin: PAGE },
