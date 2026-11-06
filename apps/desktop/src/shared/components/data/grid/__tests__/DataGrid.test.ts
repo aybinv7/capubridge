@@ -6,6 +6,12 @@ import type { GridColumn, GridRow, GridSort, GridSummary } from "../types";
 
 vi.mock("vue-sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+if (!document.getElementById("app")) {
+  const host = document.createElement("div");
+  host.id = "app";
+  document.body.append(host);
+}
+
 for (const [property, value] of [
   ["offsetWidth", 1200],
   ["offsetHeight", 720],

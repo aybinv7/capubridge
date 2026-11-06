@@ -26,6 +26,7 @@ import { gridIntent } from "./gridKeys";
 import { gutterNumbers, isStructural, sectionIntent } from "./gridSections";
 import { useGridColumns } from "./useGridColumns";
 import { useGridSelection } from "./useGridSelection";
+import DataGridSelectionBar from "./DataGridSelectionBar.vue";
 import {
   ROW_HEIGHT,
   type GridColumn,
@@ -360,6 +361,28 @@ function startDrag(cell: { row: number; col: number }) {
 }
 
 onBeforeUnmount(stopDrag);
+
+const block = computed(() => {
+  const range = grid.range.value;
+  if (!range || grid.selection.value.rows.size > 0) return null;
+  const rows = range.bottom - range.top + 1;
+  const columns = range.right - range.left + 1;
+  if (rows * columns < 2) return null;
+  const total = displayRows.value.length;
+  return {
+    rows,
+    columns,
+    wholeColumns: total > 1 && range.top === 0 && range.bottom === total - 1,
+  };
+});
+
+function hideBlockColumns() {
+  const range = grid.range.value;
+  if (!range) return;
+  const ids = orderedColumns.value.slice(range.left, range.right + 1).map((column) => column.id);
+  grid.clear();
+  for (const id of ids) emit("columnAction", id, { kind: "hide" });
+}
 
 function selectColumn(columnId: string, extend: boolean) {
   const col = orderedColumns.value.findIndex((column) => column.id === columnId);
@@ -711,6 +734,31 @@ defineExpose({
           <div v-else class="pointer-events-auto text-cladd-xs text-cladd-fg-soft">
             <slot name="empty">No rows</slot>
           </div>
+        </div>
+        <div class="pointer-events-none sticky bottom-0 left-0 z-30 h-0 w-full">
+          <Transition
+            enter-active-class="transition-[opacity,translate,scale] duration-300 ease-cladd-spring motion-reduce:transition-none"
+            leave-active-class="transition-[opacity,translate,scale] duration-150 ease-in motion-reduce:transition-none"
+            enter-from-class="translate-y-6 scale-90 opacity-0"
+            leave-to-class="translate-y-4 scale-95 opacity-0"
+          >
+            <div
+              v-if="block"
+              class="absolute bottom-3 left-1/2 -translate-x-1/2"
+              @pointerdown.stop
+              @click.stop
+              @contextmenu.stop
+            >
+              <DataGridSelectionBar
+                :rows="block.rows"
+                :columns="block.columns"
+                :whole-columns="block.wholeColumns"
+                @copy="(format, withHeader) => grid.copy(format, withHeader)"
+                @hide="hideBlockColumns"
+                @clear="grid.clear()"
+              />
+            </div>
+          </Transition>
         </div>
       </div>
     </ContextMenuTrigger>
