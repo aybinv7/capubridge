@@ -11,7 +11,8 @@ import type {
 
 const STORAGE_KEY = "capubridge:storage-graph:v1";
 const SCOPE_PREFIX = "storage-graph:v2:";
-const MAX_SCOPES = 60;
+const DIAGRAM_PREFIX = "diagram:v3:";
+const MAX_SCOPES = 100;
 const PERSIST_DELAY_MS = 400;
 
 type StorageGraphScopes = Record<string, StorageGraphPersistedScope>;
@@ -22,6 +23,56 @@ type StorageGraphScopes = Record<string, StorageGraphPersistedScope>;
  */
 export function graphScopeKey(serial: string, origin: string, packageName: string): string {
   return `${SCOPE_PREFIX}${serial || "no-serial"}:${origin || "no-origin"}:${packageName || "no-package"}`;
+}
+
+/** Which kind of database a diagram draws. */
+export type DiagramKind = "sqlite" | "indexeddb";
+
+/**
+ * Where one database's diagram is kept: the phone, the app, the kind and the database's own
+ * path (a phone file, `opfs:…`, `jeep-sqlite:…`, an IndexedDB `origin/name`, or `file:name` for a
+ * file opened on this computer). Two databases of one app never share a layout (C4).
+ */
+export function diagramScopeKey(
+  serial: string,
+  packageName: string,
+  kind: DiagramKind,
+  databasePath: string,
+): string {
+  return `${DIAGRAM_PREFIX}${serial || "no-serial"}::${packageName || "no-package"}::${kind}::${databasePath}`;
+}
+
+/** What a diagram knows of the app-wide Graph layout it may start from. */
+export interface LegacyGraphScope {
+  serial: string;
+  packageName: string;
+  origin: string;
+}
+
+/**
+ * The app-wide Graph layout (`storage-graph:v2:serial:origin:package`) a database's diagram
+ * starts from: the one of the same origin, else the fullest one of the same phone and app.
+ */
+export function legacyScopeFor(
+  scopes: Readonly<Record<string, StorageGraphPersistedScope>>,
+  legacy: LegacyGraphScope,
+): string | null {
+  const head = `${SCOPE_PREFIX}${legacy.serial || "no-serial"}:`;
+  const tail = `:${legacy.packageName || "no-package"}`;
+  const exact = graphScopeKey(legacy.serial, legacy.origin, legacy.packageName);
+  let best: string | null = null;
+  let bestWeight = 0;
+  for (const [key, scope] of Object.entries(scopes)) {
+    if (!key.startsWith(head) || !key.endsWith(tail)) continue;
+    const weight = scopeWeight(scope);
+    if (weight === 0) continue;
+    if (key === exact) return key;
+    if (weight > bestWeight) {
+      best = key;
+      bestWeight = weight;
+    }
+  }
+  return best;
 }
 
 /**
@@ -369,6 +420,20 @@ export const useStorageGraphStore = defineStore("storage-graph", () => {
     return scopes.value[scopeKey]?.annotations[nodeId];
   }
 
+  /**
+   * Starts a database's diagram from the app-wide Graph layout saved before diagrams were per
+   * database, once: a diagram that already has a layout keeps it. The old layout stays for the
+   * app's other databases. Returns whether anything was copied.
+   */
+  function adoptLegacyScope(scopeKey: string, legacy: LegacyGraphScope): boolean {
+    if (scopes.value[scopeKey]) return false;
+    const source = legacyScopeFor(scopes.value, legacy);
+    const scope = source ? scopes.value[source] : undefined;
+    if (!scope) return false;
+    scopes.value = pruneScopes({ ...scopes.value, [scopeKey]: cloneScope(scope) });
+    return true;
+  }
+
   function clearScope(scopeKey: string) {
     const nextScopes = { ...scopes.value };
     delete nextScopes[scopeKey];
@@ -385,6 +450,7 @@ export const useStorageGraphStore = defineStore("storage-graph", () => {
   return {
     scopes,
     getScope,
+    adoptLegacyScope,
     setNodePositions,
     getNodePosition,
     setNodePosition,
