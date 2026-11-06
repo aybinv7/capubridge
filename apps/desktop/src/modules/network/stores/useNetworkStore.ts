@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, markRaw, ref } from "vue";
+import { createEventFeed } from "@/lib/event-feed";
 import type { NetworkEntry, NetworkTypeFilter } from "@/types/network.types";
 import {
   NETWORK_MAX_BODY_BYTES,
@@ -14,6 +15,12 @@ import {
 import { estimateEntryBytes } from "./networkEntrySize";
 import { networkFlushScheduler } from "./networkFlush";
 import { headerText, matchesAddress, matchesType } from "./requestMatch";
+
+/** What the store tells subscribers, such as the timeline: request starts, failures, navigations. */
+export type NetworkActivity =
+  | { kind: "request"; entry: NetworkEntry }
+  | { kind: "failed"; entry: NetworkEntry }
+  | { kind: "navigation"; url: string; at: number };
 
 interface CachedBody {
   text: string;
@@ -50,6 +57,7 @@ export const useNetworkStore = defineStore("network", () => {
   let _resourceTotal = 0;
 
   const _version = ref(0);
+  const activity = markRaw(createEventFeed<NetworkActivity>("network"));
   const schedule = networkFlushScheduler();
   const bump = () => {
     _version.value++;
@@ -215,14 +223,28 @@ export const useNetworkStore = defineStore("network", () => {
     _order.push(retained.requestId);
     enforceEntryRetention();
     schedule(bump);
+    activity.emit({ kind: "request", entry: retained });
+  }
+
+  function hasFailed(entry: NetworkEntry): boolean {
+    return entry.state === "failed" || (entry.httpStatus !== null && entry.httpStatus >= 400);
   }
 
   function patchEntry(requestId: string, patch: Partial<NetworkEntry>) {
     const existing = _entries.get(requestId);
     if (!existing) return;
-    put(boundedEntry({ ...existing, ...patch }), true);
+    const next = boundedEntry({ ...existing, ...patch });
+    put(next, true);
     enforceEntryRetention();
     schedule(bump);
+    if (!hasFailed(existing) && hasFailed(next)) {
+      activity.emit({ kind: "failed", entry: next });
+    }
+  }
+
+  /** Tells subscribers the main frame navigated; `at` is when it was observed (host time). */
+  function noteNavigation(url: string, at: number = Date.now()) {
+    activity.emit({ kind: "navigation", url, at });
   }
 
   /** A cheap update of counters only (frames, bytes): no strings change, so nothing is re-measured. */
@@ -364,7 +386,9 @@ export const useNetworkStore = defineStore("network", () => {
     retainedBodyCount,
     transferredBytes,
     resourceBytes,
+    activity,
     addEntry,
+    noteNavigation,
     patchEntry,
     countFrame,
     addReceived,

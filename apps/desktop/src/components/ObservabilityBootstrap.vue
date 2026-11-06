@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, watch } from "vue";
 import { useDockTargetRelay } from "@/composables/useDockTargetRelay";
 import { useLogcatCapture } from "@/composables/useLogcatCapture";
 import { useNetwork } from "@/composables/useNetwork";
+import { useTimelineFeeds } from "@/composables/useTimelineFeeds";
 import { useConsoleStore } from "@/stores/console.store";
 
 const consoleStore = useConsoleStore();
@@ -13,6 +14,7 @@ function report(prefix: string, error: unknown) {
 
 useNetwork();
 useLogcatCapture();
+useTimelineFeeds();
 useDockTargetRelay((message) => {
   consoleStore.error = message;
 });

@@ -31,6 +31,15 @@ export function useNetwork() {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retryDelay = initialRetryDelay;
   let revision = 0;
+  let monoToWallMs: number | null = null;
+
+  /**
+   * Wall-clock ms for a CDP monotonic timestamp (seconds), using the offset every HTTP request
+   * reports (`wallTime - timestamp`). Before the first request, the time it was received.
+   */
+  function wallTimeOf(monotonicSeconds: number): number {
+    return monoToWallMs === null ? Date.now() : monotonicSeconds * 1000 + monoToWallMs;
+  }
 
   function clearRetry() {
     if (retryTimer) {
@@ -64,16 +73,20 @@ export function useNetwork() {
   }
 
   function attachListeners(client: CDPClient, domain: NetworkDomain, targetId: string) {
+    monoToWallMs = null;
     unsubscribers = [
       client.on("Page.frameNavigated", (payload) => {
-        if (activeTargetId !== targetId || store.preserveLog) return;
+        if (activeTargetId !== targetId) return;
         const params = isRecord(payload) ? payload : {};
         const frame = isRecord(params.frame) ? params.frame : {};
-        if (!frame.parentId) {
+        if (frame.parentId) return;
+        store.noteNavigation(typeof frame.url === "string" ? frame.url : "");
+        if (!store.preserveLog) {
           store.clear();
         }
       }),
       domain.onRequestWillBeSent((event) => {
+        monoToWallMs = event.wallTime * 1000 - event.timestamp * 1000;
         if (activeTargetId !== targetId || !store.isRecording) return;
 
         if (event.redirectResponse) {
@@ -180,7 +193,7 @@ export function useNetwork() {
           mimeType: "",
           protocol: "websocket",
           remoteAddress: "",
-          startedAt: event.timestamp * 1000,
+          startedAt: wallTimeOf(event.timestamp),
           startTimestamp: event.timestamp,
           responseTimestamp: null,
           finishedTimestamp: null,
