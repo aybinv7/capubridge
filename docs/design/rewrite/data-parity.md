@@ -20,16 +20,16 @@ home (e.g. "→ Key-value, LocalForage source").
 Round 1 owns the IndexedDB lines, the change-tracking line and the links into IndexedDB. Lines owned by
 R2/R3 are unchanged and still work on today's code paths (marked _R2_ / _R3_).
 
-- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; the Cache rename and the Graph merge are still to come (R2b/R3)
+- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; R2b: Cache is renamed **Cache storage** (`/storage/cache-storage`, route `storage-cache-storage`), so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite · Graph; the Graph merge is still to come (R3)
 - [x] `/storage` redirects to `/storage/indexeddb` → unchanged (`routes.ts`)
-- [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`); R2a: `storage-localstorage` and `storage-localforage` (and their paths) now redirect to `storage-keyvalue` with `?source=local` / `?source=forage`, hidden from the tabs (`navigation: false`)
+- [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`); R2a: `storage-localstorage` and `storage-localforage` (and their paths) now redirect to `storage-keyvalue` with `?source=local` / `?source=forage`, hidden from the tabs (`navigation: false`); R2b: `storage-cache` (`/storage/cache`) redirects to `storage-cache-storage` with its query kept, hidden from the tabs
 - [x] `indexeddb/:db?/:store?` and `indexeddb-snapshot/:db?/:store?` both render the IndexedDB tab; snapshot has `navigation: false` → both render `indexeddb/IndexedDBView.vue`; the file route carries `meta.tabPath` so the IndexedDB tab stays selected (`SubNavTabs.vue` `activePath`, `src/router/route-meta.d.ts`)
-- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`)
+- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`). R2b: Cache storage keeps `requires: "target"` and owns Bring to front too
 - [x] Target change remounts the tab; a lost link keeps it under the stale strip → unchanged (`GatedView.vue`)
 - [x] App in background: gate notice strip only → unchanged; the change watcher now also pauses (`changes/useIndexedDBChangesTracking.ts` `paused`)
 - [x] IndexedDB change tracking runs for the whole route ⚠ F2 → fixed: a lease (`useIndexedDBChangesLease`) held by the IndexedDB tab and Graph only, paused while the window is hidden or the app is in the background, one flush at a time, at most 40 stores watched plus any the person asks for ("Watch this store"), flushes spaced by max(1 s, 2 × last flush), 8 s per store read with two retries (`changes/indexeddbChangeTracker.ts`, tests in `changes/__tests__/indexeddbChanges.test.ts`). Round 1 fixes (P3): when the last holder leaves, the feed and baselines stay (reset only on target or origin change) and the watcher only listens (`indexeddbChangesLease.test.ts`); `StoragePanel.vue` no longer starts it
 - [x] Palette `Go to Data` / `g s` → unchanged
-- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). Cache, OPFS, SQLite: none yet (R2b/R3)
+- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). R2b: Cache storage registers the same provider: Read Cache storage again, Find cached entries (`mod+f`, same focus guard), Show or hide the record pane, Delete this cache… (`cache/useCacheCommands.ts`). OPFS, SQLite: none yet (R2/R3)
 - [x] Lazy route chunks per tab → unchanged
 
 Inbound and outbound links that must keep working:
@@ -46,7 +46,7 @@ Inbound and outbound links that must keep working:
 
 - [x] Selected origin per target, in memory (`stores/useStorageContextStore.ts`) → unchanged; written by `indexeddb/useIdbCatalog.ts` for live databases only, never a file id (⚠ C6), read by the change watcher
 - [x] Query defaults `retry: 1`, `refetchOnWindowFocus: false`, `staleTime` 0 → unchanged; IndexedDB pages use `keepPreviousData`
-- [ ] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded). R2a: Key-value reads pause while the app is away and run again on its return, with 10 s read timeouts (`useDataPresence`); Cache and OPFS still wait (R2b)
+- [ ] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded). R2a: Key-value reads pause while the app is away and run again on its return, with 10 s read timeouts (`useDataPresence`); R2b: Cache storage does the same (catalog and entries pause while the app is away, 10 s and 15 s read timeouts, entry reads 10 s); OPFS still waits
 - [x] Every device script goes through `evaluateChecked` and host data enters only as `jsLiteral` — except IDB export/import ⚠ M8 → fixed: export and import run through `packages/cdp-protocol/src/cdp/domains/indexeddb-transfer.ts` (checked, literal)
 - [ ] _R2_ OPFS snapshot cache in memory, keyed `targetId::path` → unchanged
 
@@ -310,17 +310,46 @@ checks never write on the phone:
 - [ ] The old addresses `/storage/localstorage` and `/storage/localforage` and the IndexedDB link land on the right list
 - [ ] Dark and light first paint; the pane at 280 and 560 px
 
-## Cache (`cache/CacheExplorer.vue`)
+## Cache storage (→ `cache/CacheStorageView.vue` on the Data frame; R2b)
 
-- [ ] Cache names from `caches.keys()` (`cdp:storage.ts:88-107`)
-- [ ] Click cache name → expand; single child "View entries" → select and load (`CacheExplorer.vue:61-71,110-136`)
-- [ ] Entries from `caches.open(name).keys()` → `{ url, method, cacheName }` (`cdp:storage.ts:109-135`)
-- [ ] Filter in the sidebar "Filter by URL or type…" filters the entries table on URL or method (`:42-48,84-93`)
-- [ ] "Refresh" → names and entries (`:73-76,162-165`)
-- [ ] Table URL / Method; count ignores the filter (`:158-160,178-179`) ⚠ C31
-- [ ] Row click highlights only; no detail, headers or body (`:56-59,189`) ⚠ C31
-- [ ] States: names spinner (`:95-97`), "No Cache API caches found" for empty and error (`:99-105`), "Select a cache from the sidebar" (`:147-152`), entries spinner (`:169-171`), empty/error → empty table (`:173`)
-- [ ] Read-only today; `CacheAPIDomain.deleteCache` / `deleteEntry` exist but are not wired (`cdp:storage.ts:137-162`)
+Was `cache/CacheExplorer.vue` (removed). Renamed **Cache storage** (`data-plan.md` §3, §5.3). Paths below
+are relative to `modules/storage/cache/`; the device side is `cdp:cache-storage.ts` and
+`cdp:cache-storage-scripts.ts`. Every read and delete is a script through `evaluateChecked` with host
+data only as `jsLiteral`; each checks the page still shows the origin that was read and never creates a
+cache (`caches.has` before `open`). The cached request/response presentation is Network's, lifted to
+`src/shared/http/` (body viewers, header groups, key-value list, details section and states). Device
+tests: `packages/cdp-protocol/tests/cache-storage.test.ts`; screen tests: `cache/__tests__/`.
+
+- [x] Cache names from `caches.keys()` (`cdp:storage.ts:88-107`) → `CacheStorageDomain.catalog`: names and the entry count of each (`cache.keys()` length, never the bodies, F16); a page without `caches` (not a secure page) says so instead of failing; sidebar "This page" (host quiet beside it) with its caches and counts (`cacheSources.buildCacheSections`)
+- [x] Click cache name → expand; single child "View entries" → select and load (`CacheExplorer.vue:61-71,110-136`) → one click on the cache opens it (the two-level expand for one child is gone); the page row opens an overview: caches, entries, the fullest caches, what Cache storage is (`CacheOverview.vue`). The open cache is in the address (`?cache=`, `useCacheLocation`); a link to a cache that is gone says so with a way back (`resolveCache`)
+- [x] Entries from `caches.open(name).keys()` → `{ url, method, cacheName }` (`cdp:storage.ts:109-135`) → `entries`: up to 2,000 per read ("First 2,000 of N entries read"), each with status, response type, the headers that matter and the body size, within a 5 s budget (entries past it show dashes and the status bar says how many). Entries are named by method, address and their stored request headers, so Vary variants are two rows ⚠ C31 fixed
+- [x] Filter in the sidebar "Filter by URL or type…" filters the entries table on URL or method (`:42-48,84-93`) → "Find an address, status or type" above the grid (no longer in the sidebar), any case, debounced 150 ms, on lower-case text built once per read; the sidebar has its own "Find a cache"
+- [x] "Refresh" → names and entries (`:73-76,162-165`) → "Read again" in the header (the cache) and in the overview (the caches), the sidebar row menus, and the palette's "Read Cache storage again" (both)
+- [x] Table URL / Method; count ignores the filter (`:158-160,178-179`) ⚠ C31 → `DataGrid` Name · Method · Status · Type · Size · Served · Address (`cacheGrid.ts`), name first like Network, virtualised, sortable (unknown sizes and dates last); the status bar says "N rows", or "3 of 40 rows" while find narrows ⚠ C31 fixed
+- [x] Row click highlights only; no detail, headers or body (`:56-59,189`) ⚠ C31 → the pane follows the focused row by id (`useCachePane`): method, name, status, the address quiet; Headers (General: status, response type in words, size, served and how old, what the HTTP headers say about its lifetime, that Cache storage keeps it until the app deletes it; response headers; stored request headers) and Response (the body through the shared viewers: JSON, text, picture, SVG, Base64, up to 1 MiB with "Showing the first 1 MB of 4 MB.", a cut JSON shown as text). Opaque responses say the browser hides them. Copy the address; Previous / Next (Ctrl+↑/↓); Ctrl+F finds in the body; Escape closes. When the app saved a new response after the list read, the pane says so with "Read the list again"; an entry gone says so ⚠ C31 fixed
+- [x] States: names spinner (`:95-97`), "No Cache API caches found" for empty and error (`:99-105`), "Select a cache from the sidebar" (`:147-152`), entries spinner (`:169-171`), empty/error → empty table (`:173`) → "Reading the page's Cache storage"; errors with the phone's words and Try again, a failed re-read keeps the last rows under a compact error; "This page has no Cache storage" (not a secure page) and "The app has saved no responses here" with what fills it; the overview instead of "Select a cache"; "The cache “x” is empty."; "No entry matches" with Clear find; "Waiting for the app" with Bring to front (rows kept, deletes wait with the reason)
+- [x] Read-only today; `CacheAPIDomain.deleteCache` / `deleteEntry` exist but are not wired (`cdp:storage.ts:137-162`) → wired, both **MUTATES**, both confirmed with the cache named and what goes: "Delete entry…" in the pane, the context menu, the Delete key and "Delete N selected"; "Delete cache…" in the header, the sidebar row menu and the palette. The phone keeps an entry the app replaced since the read, and a cache that holds another number of entries than was seen, until the person agrees ("… changed on the phone"); an entry or cache already gone is said. The old `deleteEntry` opened the cache with `caches.open`, which creates a missing one: removed with `deleteCache` and `getEntries` (`cacheWrites.ts`, `useCacheWrites.ts`). Responses are not edited here; the status bar lock says so
+- [x] No persisted preferences (new) → sidebar pins and hidden caches per phone and app (`useDataSidebarSettings`, kind `cache`), the pane shown or hidden and its width, the pane's tab and its folded header sections
+
+### Not carried over, or not possible here
+
+- When an entry was stored: the Cache API does not keep it. "Served" is the response's `Date` header and
+  its age; the CDP `CacheStorage` domain's `responseTime` would give the fetch time, but it would be a
+  second read path beside the scripts, so it is left for a later round.
+- Editing a cached response, or adding one: not offered (the plan asks only for deletes).
+- Caches of iframes on another origin: only the page's own origin is read.
+
+### Pending live checks (Cache storage)
+
+Not checked on a phone in this round: the emulator was in use (its screen changed between two
+screenshots a minute apart), and checks never delete on the phone.
+
+- [ ] A Workbox app (precache and runtime caches): counts, Vary variants as two rows, sizes, served dates and lifetimes
+- [ ] The pane on a JSON, a script, a picture, an SVG, a 5 MB body (cut notice) and an opaque CDN font
+- [ ] A cache of more than 2,000 entries (limit line) and a slow phone (entries past the 5 s budget)
+- [ ] Deleting a test entry and a test cache (never the app's own), and the "changed on the phone" questions
+- [ ] "Waiting for the app" and Bring to front with the app in the background; reads again on return
+- [ ] `/storage/cache` redirects to Cache storage; the palette commands; first paint dark and light, the pane at 280 and 560 px
 
 ## OPFS (`opfs/OPFSExplorer.vue`, `opfsSnapshotCache.ts`, `useOpenSqliteSource.ts`)
 
