@@ -633,7 +633,10 @@ overview and dialogs) and about 1,600 lines of Graph Vue. The Graph composables 
 
 #### Round 3 status (2026-11-06)
 
-SQLite is done on the frame; Diagram is split off as **R3b** (below). Commits: `530afd9e` (gate),
+**Code complete, not verified live** (corrected 2026-11-07 by the round 3 review): none of the live checks
+in `data-parity.md` has run, so its SQLite lines are unticked until they do.
+
+SQLite is done in code on the frame; Diagram is split off as **R3b** (below). Commits: `530afd9e` (gate),
 `60ba3bf5` + `0dc43ebf` (Rust values, dumps, registration), `5d8f6cb8` + `c3018f57` (jeep chunks),
 `f321f121` (SQLite on the frame), `249811d6` (Graph fixes in place). M13, C18, C19 and C35 were run
 red on the code before the fix, then green. M1's old bug lived in the explorer's template, which is gone,
@@ -676,8 +679,10 @@ only (§5.5), labelled as such.
 
 #### Round 3b status (2026-11-06)
 
-Diagram is done (`data-parity.md` Diagram section, every line ticked) and the last SQLite line (cell
-edit and add row) is ticked. Commits: `170309fe` (field matching), `995ec7a2` (per-database layout keys),
+**Code complete, not verified live** (corrected 2026-11-07): the Diagram lines and the cell-edit line were
+ticked from code only and are unticked in `data-parity.md` until the live checks run.
+
+Diagram is done in code (`data-parity.md` Diagram section) with cell edit and add row. Commits: `170309fe` (field matching), `995ec7a2` (per-database layout keys),
 `589fe603` (move), `e2a6268c` (Diagram view), `e0a95dd9` (Rust changeset), `69cfff9b` (cell edit and add
 row). F12's field matching and the changeset's atomicity and key tests were run red first (the old pair
 scan at 1.1 s against a 250 ms budget; an `execute_batch` write; a WHERE built from edited values).
@@ -694,6 +699,16 @@ no sidebar store of its own; `useStorageGraphStore` is the layout store the Diag
 shadcn import is left in `modules/storage`: the `@/components/ui/` imports there are Reka resizable and
 the dropdown menu, which stay until Cladd has them (`DESIGN.md` §5). Still deferred from R2: C15, C36,
 C37, F5, F6 rest, F7 (see above).
+
+#### Round 3 review fixes (2026-11-07)
+
+`data-r3-review.md` found that an opened file was saved only to a temp copy, that line breaks and wide
+integers were changed by the editor, that staged edits could vanish (closing the file or the window, a
+save in flight, a sidebar write), that deletes could report what did not happen, and that two Rust write
+commands trusted any local path. All twelve data-safety items are fixed with tests that failed first;
+see "Round 3 review fixes" in `data-parity.md`. Opened files now save back to the picked file (atomic,
+one `.bak`, asked once), deletes are staged with the edits, and every Rust write accepts only a
+registered opened file. Open owner question: SAH-Pool release and force-release (B1).
 
 ### Why this split, and its balance
 
