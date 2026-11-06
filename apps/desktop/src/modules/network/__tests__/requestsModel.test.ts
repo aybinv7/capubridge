@@ -209,7 +209,7 @@ describe("columns", () => {
     const order = REQUEST_COLUMNS.filter((column) => column.dropOrder !== undefined)
       .sort((a, b) => (a.dropOrder ?? 0) - (b.dropOrder ?? 0))
       .map((column) => column.id);
-    expect(order).toEqual(["initiator", "waterfall", "path", "host", "type", "size"]);
+    expect(order).toEqual(["initiator", "waterfall", "path", "type", "size", "host"]);
   });
 
   test("methods take a quiet neutral by verb, never a hue", () => {

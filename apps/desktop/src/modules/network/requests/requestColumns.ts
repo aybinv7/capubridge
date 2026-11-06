@@ -23,8 +23,8 @@ export const REQUEST_ROW_HEIGHT = 30;
 
 /**
  * The request list's columns, each fact in its own. Name takes the room the others leave; when
- * the list narrows, Initiator steps aside first, then the waterfall, Path, Host, Type and Size.
- * Method, Status, Name and Time always stay.
+ * the list narrows, Initiator steps aside first, then the waterfall, Path, Type, Size and Host,
+ * so the backend a request went to stays longest. Method, Status, Name and Time always stay.
  */
 export const REQUEST_COLUMNS: readonly RequestColumn[] = [
   { id: "method", label: "Method", sortKey: "method", width: 68, minWidth: 52, align: "start" },
@@ -54,7 +54,7 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
     width: 168,
     minWidth: 64,
     align: "start",
-    dropOrder: 4,
+    dropOrder: 6,
   },
   {
     id: "type",
@@ -63,7 +63,7 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
     width: 88,
     minWidth: 56,
     align: "start",
-    dropOrder: 5,
+    dropOrder: 4,
   },
   {
     id: "initiator",
@@ -81,7 +81,7 @@ export const REQUEST_COLUMNS: readonly RequestColumn[] = [
     width: 120,
     minWidth: 64,
     align: "end",
-    dropOrder: 6,
+    dropOrder: 5,
   },
   { id: "time", label: "Time", sortKey: "time", width: 80, minWidth: 64, align: "end" },
   {
