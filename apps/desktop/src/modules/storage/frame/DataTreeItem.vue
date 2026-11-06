@@ -118,7 +118,7 @@ const menuLabel = computed(() => {
       aria-hidden="true"
     />
     <span
-      class="min-w-0 flex-1 truncate"
+      class="min-w-0 flex-auto truncate"
       :class="[
         selected ? 'text-foreground' : 'text-foreground/85',
         (row.kind === 'source' ? row.source.hidden : row.collection.hidden) && 'opacity-50',
@@ -140,7 +140,7 @@ const menuLabel = computed(() => {
     />
     <span
       v-if="row.kind === 'source' && row.source.detail"
-      class="shrink-0 font-mono text-2xs text-[var(--fg-subtle)] tabular-nums"
+      class="min-w-0 shrink-[100] truncate font-mono text-2xs text-[var(--fg-subtle)] tabular-nums"
     >
       {{ row.source.detail }}
     </span>
