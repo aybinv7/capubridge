@@ -169,14 +169,28 @@ export class JeepSqliteDomain {
     return parsed as JeepSqliteDatabase[];
   }
 
-  async hashDatabaseBytes(params: {
-    key: string;
-    idbName?: string;
-    storeName?: string;
-  }): Promise<string | null> {
+  /** SHA-256 of a jeep-sqlite database's bytes, or `null` when there is none. */
+  hashDatabaseBytes(params: { key: string; idbName?: string; storeName?: string }) {
+    return this.probeDatabase(params, "hash");
+  }
+
+  /**
+   * A cheap signature of a jeep-sqlite database: its size and the header's file change counter
+   * (bytes 24 to 27), read without hashing the whole file. A Blob is read only for its first
+   * 100 bytes. `null` when there is no database.
+   */
+  headerSignature(params: { key: string; idbName?: string; storeName?: string }) {
+    return this.probeDatabase(params, "header");
+  }
+
+  private async probeDatabase(
+    params: { key: string; idbName?: string; storeName?: string },
+    mode: "hash" | "header",
+  ): Promise<string | null> {
     const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
+          const mode = ${JSON.stringify(mode)};
           const idbName = ${JSON.stringify(params.idbName ?? "jeepSQLiteStore")};
           const storeName = ${JSON.stringify(params.storeName ?? "databases")};
           const key = ${JSON.stringify(params.key)};
@@ -222,8 +236,18 @@ export class JeepSqliteDomain {
               if (!db.objectStoreNames.contains(storeName)) return JSON.stringify({ hash: null });
               const tx = db.transaction(storeName, "readonly");
               const value = await request(tx.objectStore(storeName).get(key));
+              const counterOf = (head) =>
+                Array.from(head.subarray(24, 28), (b) => b.toString(16).padStart(2, '0')).join('');
+              if (mode === 'header' && value instanceof Blob) {
+                if (value.size === 0) return JSON.stringify({ hash: null });
+                const head = new Uint8Array(await value.slice(0, 100).arrayBuffer());
+                return JSON.stringify({ hash: value.size + ':' + counterOf(head) });
+              }
               const bytes = await asBytes(value);
               if (!bytes || bytes.byteLength === 0) return JSON.stringify({ hash: null });
+              if (mode === 'header') {
+                return JSON.stringify({ hash: bytes.byteLength + ':' + counterOf(bytes.subarray(0, 100)) });
+              }
               const digest = await crypto.subtle.digest('SHA-256', bytes);
               const view = new Uint8Array(digest);
               let hex = '';

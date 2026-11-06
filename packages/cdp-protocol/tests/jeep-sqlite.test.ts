@@ -68,3 +68,17 @@ describe("jeep-sqlite reads (C35)", () => {
     );
   });
 });
+
+describe("jeep-sqlite change checks (P2)", () => {
+  test("the signature is the size and the header's change counter, and follows a write", async () => {
+    const bytes = database(4096);
+    bytes.set([0, 0, 0, 7], 24);
+    await seedJeep("signed.db", bytes);
+    const domain = new JeepSqliteDomain(pageClient({ [PAGE]: fakeOrigin() }));
+    expect(await domain.headerSignature({ key: "signed.db" })).toBe("4096:00000007");
+    bytes.set([0, 0, 0, 8], 24);
+    await seedJeep("signed.db", bytes);
+    expect(await domain.headerSignature({ key: "signed.db" })).toBe("4096:00000008");
+    expect(await domain.headerSignature({ key: "missing.db" })).toBeNull();
+  });
+});

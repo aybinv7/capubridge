@@ -12,6 +12,7 @@ import { diffSqliteSnapshots } from "./diffSqliteSnapshots";
 import { addressArgs, type SqliteAddress } from "./sqliteAddress";
 
 const POLL_MS = 5000;
+const JEEP_FULL_CHECK_EVERY = 12;
 
 function base64ToBytes(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -49,6 +50,7 @@ export function useSqliteSnapshotSync(subject: SqliteSyncSubject) {
   let baselinePath = "";
   let baselineBytes: Uint8Array | null = null;
   const statSignatures = new Map<string, string>();
+  const jeepSignatures = new Map<string, { signature: string; unchanged: number }>();
   const reportedSkipped = new Map<string, string>();
 
   function kindOf(db: SqliteDbFile | null) {
@@ -111,7 +113,30 @@ export function useSqliteSnapshotSync(subject: SqliteSyncSubject) {
     return true;
   }
 
+  /**
+   * Whether a jeep database may have changed, from its size and header change counter instead
+   * of hashing every byte each check (P2). Every twelfth unchanged check reads in full anyway,
+   * in case a writer left the counter as it was.
+   */
+  async function jeepDirty(session: LocalSqlSession, key: string): Promise<boolean> {
+    const signature = await jeepDomain().headerSignature({
+      key,
+      idbName: session.sourceIdbName,
+      storeName: session.sourceStoreName,
+    });
+    const seen = jeepSignatures.get(session.dbPath);
+    if (signature && seen?.signature === signature && seen.unchanged < JEEP_FULL_CHECK_EVERY) {
+      jeepSignatures.set(session.dbPath, { signature, unchanged: seen.unchanged + 1 });
+      return false;
+    }
+    jeepSignatures.set(session.dbPath, { signature: signature ?? "", unchanged: 0 });
+    return true;
+  }
+
   async function pageDirty(session: LocalSqlSession): Promise<boolean> {
+    if (session.sourceKind === "jeep-sqlite" && session.sourceKey) {
+      return jeepDirty(session, session.sourceKey);
+    }
     const wsUrl = targets.selectedTarget?.webSocketDebuggerUrl;
     if (session.sourceKind !== "opfs" || !session.sourceOpfsPath || !wsUrl) return true;
     const stat = await invokeCommand("opfs_stat_file", { wsUrl, path: session.sourceOpfsPath });
@@ -246,6 +271,7 @@ export function useSqliteSnapshotSync(subject: SqliteSyncSubject) {
     () => subject.db.value?.path ?? "",
     () => {
       statSignatures.clear();
+      jeepSignatures.clear();
       schedule();
     },
     { immediate: true },
