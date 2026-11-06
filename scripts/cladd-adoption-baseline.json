@@ -273,16 +273,6 @@
     "button": 1,
     "tooltip": 1
   },
-  "apps/desktop/src/modules/storage/localforage/LocalForageExplorer.vue": {
-    "button": 1,
-    "dialog": 1,
-    "input": 1
-  },
-  "apps/desktop/src/modules/storage/localstorage/LSExplorer.vue": {
-    "button": 1,
-    "dialog": 1,
-    "input": 1
-  },
   "apps/desktop/src/modules/storage/opfs/OPFSExplorer.vue": {
     "badge": 1,
     "button": 1,

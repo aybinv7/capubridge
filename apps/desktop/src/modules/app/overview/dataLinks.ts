@@ -6,7 +6,7 @@ export interface DataLink {
 
 export const DATA_LINKS: readonly DataLink[] = [
   { route: "storage-indexeddb", label: "IndexedDB" },
-  { route: "storage-localstorage", label: "Local storage" },
+  { route: "storage-keyvalue", label: "Key-value" },
   { route: "storage-sqlite", label: "SQLite" },
   { route: "storage-opfs", label: "OPFS" },
 ];

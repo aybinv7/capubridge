@@ -296,7 +296,7 @@ useIdbCommands({
         :title="hasPhone ? 'This page keeps nothing in IndexedDB' : 'No export is open'"
         :text="
           hasPhone
-            ? 'Its data may be in Local storage or in SQLite. An IndexedDB export can be opened here too.'
+            ? 'Its data may be in Key-value (Local storage, LocalForage) or in SQLite. An IndexedDB export can be opened here too.'
             : 'Open an IndexedDB export to read it here, with no phone connected.'
         "
       >
@@ -307,9 +307,9 @@ useIdbCommands({
           v-if="hasPhone"
           size="sm"
           variant="transparent"
-          @click="router.push({ name: 'storage-localstorage' })"
+          @click="router.push({ name: 'storage-keyvalue' })"
         >
-          Local storage
+          Key-value
         </Button>
         <Button
           v-if="hasPhone"

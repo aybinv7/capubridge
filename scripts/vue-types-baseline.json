@@ -47,9 +47,6 @@
   "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
     "errors": 5
   },
-  "apps/desktop/src/modules/storage/localstorage/LSExplorer.vue": {
-    "errors": 1
-  },
   "apps/desktop/src/modules/storage/opfs/OPFSExplorer.vue": {
     "errors": 3
   },

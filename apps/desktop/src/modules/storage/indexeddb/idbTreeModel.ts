@@ -12,7 +12,10 @@ import type { IdbMode } from "./useIdbLocation";
 
 /** Databases other Data tabs read for you; they stay listed here with a way there. */
 const OWNED_ELSEWHERE: Record<string, DataSourceLink> = {
-  localforage: { label: "Read as key-value pairs in LocalForage", to: "/storage/localforage" },
+  localforage: {
+    label: "Read as key-value pairs in Key-value",
+    to: "/storage/keyvalue?source=forage&db=localforage",
+  },
   jeepSQLiteStore: { label: "Used by SQLite (jeep) · open in SQLite", to: "/storage/sqlite" },
   jeepSqliteStore: { label: "Used by SQLite (jeep) · open in SQLite", to: "/storage/sqlite" },
 };

@@ -29,16 +29,22 @@ export const storageRoutes = [
         meta: { label: "IndexedDB", navigation: false, tabPath: "/storage/indexeddb" },
       },
       {
+        path: "keyvalue",
+        name: "storage-keyvalue",
+        component: () => import("./keyvalue/KeyValueView.vue"),
+        meta: { label: "Key-value", requires: "target", ownsBringToFront: true },
+      },
+      {
         path: "localstorage",
         name: "storage-localstorage",
-        component: () => import("./localstorage/LSExplorer.vue"),
-        meta: { label: "Local storage", requires: "target" },
+        redirect: (to) => ({ name: "storage-keyvalue", query: { ...to.query, source: "local" } }),
+        meta: { navigation: false },
       },
       {
         path: "localforage",
         name: "storage-localforage",
-        component: () => import("./localforage/LocalForageExplorer.vue"),
-        meta: { label: "LocalForage", requires: "target" },
+        redirect: (to) => ({ name: "storage-keyvalue", query: { ...to.query, source: "forage" } }),
+        meta: { navigation: false },
       },
       {
         path: "cache",

@@ -1,0 +1,85 @@
+import { computed, type Ref } from "vue";
+import { useQuery } from "@tanstack/vue-query";
+import { KeyValueDomain } from "@capubridge/cdp-protocol";
+import { useCDP } from "@/composables/useCDP";
+import { withReadTimeout } from "@/modules/storage/frame/useDataPresence";
+import { areaEntries, forageEntries, type KvReadResult, type KvSource } from "./kvModel";
+
+const ENTRIES_CACHE_MS = 30_000;
+
+function errorText(error: unknown): string | null {
+  if (!error) return null;
+  if (error instanceof Error) return error.message;
+  return typeof error === "string" ? error : JSON.stringify(error);
+}
+
+/** The key-value domain of a target, or a plain error when its DevTools link is gone. */
+export function useKvDomain(targetId: Ref<string>) {
+  const { getClient } = useCDP();
+  return function domain(): KeyValueDomain {
+    const client = getClient(targetId.value);
+    if (!client) throw new Error("The DevTools link to this page is closed");
+    return new KeyValueDomain(client);
+  };
+}
+
+/** Every key-value source of the page, read again on demand. Reads wait while `paused`. */
+export function useKvCatalog(targetId: Ref<string>, paused: Ref<boolean>) {
+  const domain = useKvDomain(targetId);
+  const query = useQuery({
+    queryKey: computed(() => ["kv-sources", targetId.value]),
+    queryFn: () => withReadTimeout(domain().discover()),
+    enabled: computed(() => Boolean(targetId.value) && !paused.value),
+    retry: false,
+  });
+  return {
+    discovery: computed(() => query.data.value),
+    loading: computed(() => query.isLoading.value),
+    error: computed(() => errorText(query.error.value)),
+    refetch: () => query.refetch(),
+  };
+}
+
+async function readSource(domain: KeyValueDomain, source: KvSource): Promise<KvReadResult> {
+  if (source.kind === "forage") {
+    const page = await domain.readForage(source.origin, source.database ?? "", source.store ?? "");
+    return { entries: forageEntries(page), more: page.more, total: page.total };
+  }
+  const entries = areaEntries(await domain.readArea(source.origin, source.kind));
+  return { entries, more: false, total: entries.length };
+}
+
+/**
+ * The keys of one list. The rows of another list never stay on screen while this one is read,
+ * so an edit can only be made to the list it was read from.
+ */
+export function useKvEntries(
+  targetId: Ref<string>,
+  source: Ref<KvSource | null>,
+  paused: Ref<boolean>,
+) {
+  const domain = useKvDomain(targetId);
+  const query = useQuery({
+    queryKey: computed(() => ["kv-entries", targetId.value, source.value?.id ?? ""]),
+    queryFn: () => {
+      const current = source.value;
+      if (!current) throw new Error("No list is open");
+      return withReadTimeout(readSource(domain(), current));
+    },
+    enabled: computed(() => Boolean(targetId.value && source.value) && !paused.value),
+    gcTime: ENTRIES_CACHE_MS,
+    retry: false,
+  });
+  return {
+    entries: computed(() => query.data.value?.entries ?? []),
+    more: computed(() => query.data.value?.more ?? false),
+    total: computed(() => query.data.value?.total ?? null),
+    loading: computed(() => query.isLoading.value),
+    fetching: computed(() => query.isFetching.value),
+    /** No rows of this list are on screen yet. */
+    pending: computed(() => query.data.value === undefined),
+    error: computed(() => errorText(query.error.value)),
+    readAt: computed(() => (query.dataUpdatedAt.value > 0 ? query.dataUpdatedAt.value : null)),
+    refetch: () => query.refetch(),
+  };
+}

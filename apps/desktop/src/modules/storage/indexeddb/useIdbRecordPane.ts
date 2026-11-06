@@ -1,16 +1,8 @@
 import { computed, nextTick, ref, watch, type Ref } from "vue";
 import type { GridRow } from "@/shared/components/data/grid";
-import { readPersisted, writePersisted } from "@/lib/persisted";
+import { recordPaneOpen as paneOpen } from "@/modules/storage/frame/recordPaneOpen";
 
-const PANE_KEY = "capubridge:data-record-pane";
-
-const paneOpen = ref(readPersisted<boolean>(PANE_KEY, true, (value) => typeof value === "boolean"));
-watch(paneOpen, (value) => writePersisted(PANE_KEY, value));
-
-/** Shows or hides the record pane wherever it is mounted (palette command). */
-export function toggleRecordPane() {
-  paneOpen.value = !paneOpen.value;
-}
+export { toggleRecordPane } from "@/modules/storage/frame/recordPaneOpen";
 
 interface GridHandle {
   focusRow: (rowId: string) => void;
