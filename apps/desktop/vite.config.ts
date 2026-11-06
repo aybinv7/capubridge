@@ -11,6 +11,9 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  test: {
+    maxWorkers: process.env.CI ? 2 : undefined,
+  },
   server: {
     watch: {
       // Never watch the Rust build output. Chokidar recursively walks the

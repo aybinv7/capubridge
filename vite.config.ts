@@ -54,7 +54,8 @@ export default defineConfig({
         env: ["CARGO_TARGET_DIR"],
       },
       "test:all": {
-        command: "vp run -r test -- --run && vp test run scripts && vp run test:rust",
+        command:
+          "vp run -r --concurrency-limit 1 test -- --run && vp test run scripts && vp run test:rust",
       },
       ready: {
         command:
