@@ -863,8 +863,9 @@ are relative to `modules/storage/sqlite/`.
       its own), each opening its table (`overview/SqliteOverviewChanges.vue`); "Schema checks": tables
       with no primary key, links with no index, empty tables, no foreign key declared (links only
       inferred, see the Diagram), more than 20 % free pages, each with "Show" narrowing the grid (a chip
-      says so), and on demand "Check the file" (`PRAGMA quick_check`) and "Check the links" (`PRAGMA
-  foreign_key_check`, first 100) (`overview/sqliteHealth.ts`, tested); "Sync columns (detected)"
+      says so), and on demand "Check the file" (`PRAGMA quick_check`) and "Check the links"
+      (`PRAGMA foreign_key_check`, first 100) (`overview/sqliteHealth.ts`, tested); "Sync columns
+      (detected)"
       (`overview/sqliteSyncColumns.ts`: `write_date`, `create_date`, `*_at`, `modified*`, `_ruid`,
       `*sync*`, `dirty`; `active`, `deleted`, `last_*` only beside one of those, tested). Not done: a
       cancel for the two deep checks (an IPC read cannot be stopped), "Choose…" to correct the sync
