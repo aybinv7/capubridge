@@ -84,6 +84,16 @@ export function removeInserts(staged: SqliteStaged, ids: ReadonlySet<string>): S
   return { ...staged, inserts: staged.inserts.filter((insert) => !ids.has(insert.id)) };
 }
 
+/** What is left staged after `saved` was saved: anything staged or changed since then. */
+export function withoutSaved(current: SqliteStaged, saved: SqliteStaged): SqliteStaged {
+  if (current === saved) return EMPTY_STAGED;
+  const edits = new Map(
+    [...current.edits].filter(([rowId, edit]) => saved.edits.get(rowId) !== edit),
+  );
+  const savedInserts = new Set(saved.inserts);
+  return { edits, inserts: current.inserts.filter((insert) => !savedInserts.has(insert)) };
+}
+
 export function stagedCount(staged: SqliteStaged): number {
   return staged.edits.size + staged.inserts.length;
 }

@@ -13,6 +13,7 @@ import {
   addInsert,
   removeInserts,
   stageCell,
+  withoutSaved,
   stageInsertCell,
   stagedCount,
   uneditableReason,
@@ -20,6 +21,7 @@ import {
 } from "./sqliteChangeset";
 
 const NOTE_MS = 4000;
+const SAVING_NOTE = "Saving the changes; edit again once it is done.";
 
 interface StagedEditsInput {
   /** The rows of the page as read from the file. */
@@ -104,6 +106,10 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
 
   function startEdit(rowId: string, columnId: string) {
     if (!input.writable.value) return;
+    if (saving.value) {
+      say(SAVING_NOTE);
+      return;
+    }
     const value = displayed(rowId)?.cells[columnId];
     const reason = uneditableReason(value);
     if (reason) {
@@ -117,6 +123,10 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     const target = editing.value;
     editing.value = null;
     if (!target) return;
+    if (saving.value) {
+      say(SAVING_NOTE);
+      return;
+    }
     if (target.rowId.startsWith(NEW_ROW_PREFIX)) {
       staged.value = stageInsertCell(staged.value, target.rowId, target.columnId, value);
       return;
@@ -132,6 +142,10 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
   /** Adds a new row at the top and opens its first column for typing. */
   function addRow(): string | null {
     if (!input.writable.value) return null;
+    if (saving.value) {
+      say(SAVING_NOTE);
+      return null;
+    }
     counter += 1;
     const id = `${NEW_ROW_PREFIX}${counter}`;
     staged.value = addInsert(staged.value, id);
@@ -142,12 +156,17 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
 
   /** Drops new rows among `ids`; returns the ids of rows that are already in the file. */
   function dropNewRows(ids: readonly string[]): string[] {
+    if (saving.value) {
+      say(SAVING_NOTE);
+      return [];
+    }
     const fresh = new Set(ids.filter((id) => id.startsWith(NEW_ROW_PREFIX)));
     if (fresh.size > 0) staged.value = removeInserts(staged.value, fresh);
     return ids.filter((id) => !fresh.has(id));
   }
 
   function discard() {
+    if (saving.value) return;
     editing.value = null;
     staged.value = EMPTY_STAGED;
   }
@@ -156,8 +175,9 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     if (saving.value || pending.value === 0) return;
     editing.value = null;
     saving.value = true;
+    const snapshot = staged.value;
     try {
-      if (await input.save(staged.value)) staged.value = EMPTY_STAGED;
+      if (await input.save(snapshot)) staged.value = withoutSaved(staged.value, snapshot);
     } finally {
       saving.value = false;
     }
