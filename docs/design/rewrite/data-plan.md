@@ -631,6 +631,53 @@ overview and dialogs) and about 1,600 lines of Graph Vue. The Graph composables 
   - `SqliteExplorer.vue`, `StorageGraphExplorer.vue` and both sidebar stores gone;
   - zero shadcn imports left in `modules/storage`.
 
+#### Round 3 status (2026-11-06)
+
+SQLite is done on the frame; Diagram is split off as **R3b** (below). Commits: `530afd9e` (gate),
+`60ba3bf5` + `0dc43ebf` (Rust values, dumps, registration), `5d8f6cb8` + `c3018f57` (jeep chunks),
+`f321f121` (SQLite on the frame), `249811d6` (Graph fixes in place). Each data-safety fix has a test
+that failed on the code before it (run red, then green).
+
+| Id  | Status | Where, and the proving test                                                                                                                                                                        |
+| --- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1  | fixed  | Writes decided by the database they act on (`browse/sqliteWriteAccess.ts`, `useSqliteWrites.ts`); a file is closed, never "deleted at the source". `useSqliteWrites.test.ts`, `sqliteTree.test.ts` |
+| M13 | fixed  | `sqlite_import_dump`: replay on a `VACUUM INTO` copy, views and triggers dropped, `quick_check`, swap. Rust `sqlite_dump::tests`; `sqliteImportExport.test.ts` (one atomic call)                   |
+| C1  | fixed  | In place in Graph (`updateZoomPercent` returned); vue-types ratchet 3 → 2. No unit test: the error was in the component's watcher                                                                  |
+| C2  | fixed  | In place. `graph/storageGraphSqliteDiagnostics.test.ts`                                                                                                                                            |
+| C3  | fixed  | In place. `stores/__tests__/useStorageGraphStore.test.ts`                                                                                                                                          |
+| C4  | part   | In place: scope without the page id, old keys migrated, 60 scopes. The per-database key `serial::package::kind::databasePath` comes with the Diagram view (R3b)                                    |
+| C5  | fixed  | SQLite params used as decoded once (`sqliteDatabaseRef.ts`, test with `%`)                                                                                                                         |
+| C16 | fixed  | `sqliteAddress.ts`. `sqliteTree.test.ts` "addressOf"                                                                                                                                               |
+| C17 | fixed  | Keyed row queries (`browse/useSqliteRows.ts`). `useSqliteTableQuery.test.ts` "a slow answer for an older page…"                                                                                    |
+| C18 | fixed  | Rust markers for integers past 2^53, `sqlText.sqlLiteral` writes them in full. Rust `sqlite::tests`, `sqliteQuery.test.ts`, `useSqliteWrites.test.ts`                                              |
+| C19 | fixed  | BLOB markers with hex (4 KiB per cell, all bytes for exports), `X'…'` in INSERTs and dumps, refusal for a part-read BLOB. Same tests                                                               |
+| C20 | fixed  | Structure always from the pulled copy (`read_table_meta`); no device test possible                                                                                                                 |
+| C21 | fixed  | `SqliteOverview.vue` error state with Try again                                                                                                                                                    |
+| C22 | fixed  | Path in `:db`, `storage-sqlite-file/:file/:table?`, name links resolved once. `sqliteTree.test.ts` "findDatabase"                                                                                  |
+| C23 | fixed  | Only the open database lists tables; settings keyed by path. `sqliteTree.test.ts`                                                                                                                  |
+| C24 | fixed  | `sqliteOpenPlan.ts`: a copy already pulled opens, else "cannot be read yet", never a stat first                                                                                                    |
+| C25 | fixed  | Any read query, said plainly; Ctrl+Enter; history per database                                                                                                                                     |
+| C35 | fixed  | 2 MiB per evaluate with progress; discovery reads only a Blob's header. `packages/cdp-protocol/tests/jeep-sqlite.test.ts`                                                                          |
+| F8  | fixed  | Count once per filter (keyed query, tested); the dump reads each table once in Rust                                                                                                                |
+| F12 | part   | In place: ELK on demand in a worker, families split out, Vue Flow CSS in the graph chunk, search debounced, batched positions, debounced shallow persistence. O(n²) field matching remains         |
+| F13 | part   | In place: one bad database no longer blanks the SQLite graph, schema kept 60 s. "Uses the open database session" needs the per-database Diagram (R3b)                                              |
+
+Deferred again (R2 moved them to R3 with the SQLite screen; they were not in this round's list): C15 (WAL),
+C36 (temp files), C37 (recorder reuse), F5 (one pull per refresh, views not counted), F6 rest (stat-failure
+backoff; the in-flight guard and pause landed), F7 (diff in Rust). `stash@{0}` keeps the earlier unfinished
+Rust rework for them.
+
+**R3b, not started:** the Graph moves to `modules/storage/diagram/` and mounts lazily as a database view in
+SQLite (beside Overview · SQL) and IndexedDB, scoped to the open database's session (F13), with "Include the
+app's other data"; per-database scope key and migration (rest of C4); `/storage/graph` redirect; the Graph
+Vue files on Cladd (the last retiring shadcn imports of `modules/storage`: `StorageGraphExplorer`,
+`Inspector`, `CanvasDock`, `EntityNode`, `SelectionToolbar`, `ViewportToolbar`); O(n²) field matching.
+Also R3b: cell editing and row insert on opened files only (§5.5), labelled as such.
+
+Exit check: `SqliteExplorer.vue` and both sidebar stores are gone; `StorageGraphExplorer.vue` remains (R3b).
+The other `@/components/ui/` imports left in `modules/storage` are Reka resizable and menus, which stay
+until Cladd has them (`DESIGN.md` §5).
+
 ### Why this split, and its balance
 
 R1 is the largest UI round because it builds the frame. R3 has the most lines but the least new

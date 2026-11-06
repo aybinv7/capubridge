@@ -20,23 +20,23 @@ home (e.g. "→ Key-value, LocalForage source").
 Round 1 owns the IndexedDB lines, the change-tracking line and the links into IndexedDB. Lines owned by
 R2/R3 are unchanged and still work on today's code paths (marked _R2_ / _R3_).
 
-- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; R2b: Cache is renamed **Cache storage** (`/storage/cache-storage`, route `storage-cache-storage`), so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite · Graph; R2c: OPFS keeps its name and route (`/storage/opfs`, `storage-opfs`); the Graph merge is still to come (R3)
+- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; R2b: Cache is renamed **Cache storage** (`/storage/cache-storage`, route `storage-cache-storage`), so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite · Graph; R2c: OPFS keeps its name and route (`/storage/opfs`, `storage-opfs`); R3: SQLite keeps its name and route, plus the hidden opened-file route `storage-sqlite-file` (`navigation: false`, `tabPath` keeps the SQLite tab selected); the Graph merge into a Diagram view is R3b, so the tabs still end with Graph
 - [x] `/storage` redirects to `/storage/indexeddb` → unchanged (`routes.ts`)
 - [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`); R2a: `storage-localstorage` and `storage-localforage` (and their paths) now redirect to `storage-keyvalue` with `?source=local` / `?source=forage`, hidden from the tabs (`navigation: false`); R2b: `storage-cache` (`/storage/cache`) redirects to `storage-cache-storage` with its query kept, hidden from the tabs
 - [x] `indexeddb/:db?/:store?` and `indexeddb-snapshot/:db?/:store?` both render the IndexedDB tab; snapshot has `navigation: false` → both render `indexeddb/IndexedDBView.vue`; the file route carries `meta.tabPath` so the IndexedDB tab stays selected (`SubNavTabs.vue` `activePath`, `src/router/route-meta.d.ts`)
-- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`). R2b: Cache storage keeps `requires: "target"` and owns Bring to front too. R2c: OPFS keeps `requires: "target"` and owns Bring to front too
+- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`). R2b: Cache storage keeps `requires: "target"` and owns Bring to front too. R2c: OPFS keeps `requires: "target"` and owns Bring to front too R3: SQLite requires the new `data` gate (an app target on an online device, no DevTools link needed; any other target with its link), with "Open a SQLite file…" as its secondary action; its opened-file route is ungated; Graph stays ungated until R3b
 - [x] Target change remounts the tab; a lost link keeps it under the stale strip → unchanged (`GatedView.vue`)
 - [x] App in background: gate notice strip only → unchanged; the change watcher now also pauses (`changes/useIndexedDBChangesTracking.ts` `paused`)
 - [x] IndexedDB change tracking runs for the whole route ⚠ F2 → fixed: a lease (`useIndexedDBChangesLease`) held by the IndexedDB tab and Graph only, paused while the window is hidden or the app is in the background, one flush at a time, at most 40 stores watched plus any the person asks for ("Watch this store"), flushes spaced by max(1 s, 2 × last flush), 8 s per store read with two retries (`changes/indexeddbChangeTracker.ts`, tests in `changes/__tests__/indexeddbChanges.test.ts`). Round 1 fixes (P3): when the last holder leaves, the feed and baselines stay (reset only on target or origin change) and the watcher only listens (`indexeddbChangesLease.test.ts`); `StoragePanel.vue` no longer starts it
 - [x] Palette `Go to Data` / `g s` → unchanged
-- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). R2b: Cache storage registers the same provider: Read Cache storage again, Find cached entries (`mod+f`, same focus guard), Show or hide the record pane, Delete this cache… (`cache/useCacheCommands.ts`). R2c: OPFS registers the same provider: Read OPFS again, Find files in this folder (`mod+f`, same focus guard), Show or hide the record pane, Open the folder above, Delete this folder… (`opfs/useOpfsCommands.ts`). SQLite: none yet (R3)
+- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). R2b: Cache storage registers the same provider: Read Cache storage again, Find cached entries (`mod+f`, same focus guard), Show or hide the record pane, Delete this cache… (`cache/useCacheCommands.ts`). R2c: OPFS registers the same provider: Read OPFS again, Find files in this folder (`mod+f`, same focus guard), Show or hide the record pane, Open the folder above, Delete this folder… (`opfs/useOpfsCommands.ts`). R3: SQLite registers the same provider: Read the database again, Find rows (`mod+f`, same focus guard), Show or hide the record pane, Save a copy of the database file…, Save the database as SQL… (`sqlite/useSqliteCommands.ts`); "Open a SQLite file…" is app-wide (`useDataAppCommands.ts`) and offered by the SQLite gate
 - [x] Lazy route chunks per tab → unchanged
 
 Inbound and outbound links that must keep working:
 
 - [x] App › Overview "Data" links by route name → unchanged (`storage-indexeddb` still resolves); R2a: its "Local storage" link is "Key-value" (`storage-keyvalue`, `app/overview/dataLinks.ts`)
-- [ ] _R3_ Device › Files viewer opens a SQLite file in Data → unchanged
-- [ ] _R3_ SQLite source badge "Show in OPFS explorer" → unchanged; R2c: it lands on that folder in the new OPFS tab (`?path=`)
+- [x] _R3_ Device › Files viewer opens a SQLite file in Data → unchanged link (`storage-sqlite` with the file name); R3: a name link is matched once to the phone database and the address bar corrected to its path (`sqlite/sqliteDatabaseRef.ts`)
+- [x] _R3_ SQLite source badge "Show in OPFS explorer" → unchanged; R2c: it lands on that folder in the new OPFS tab (`?path=`); R3: "Show in OPFS" in the database's menu
 - [x] _R2_ OPFS file click → SQLite tab with the pulled copy → R2c: Enter or double-click on a SQLite row, the context menu and the pane's database card, through the unchanged `useOpenSqliteSource`
 - [x] Graph inspector "Open data" → `/storage/indexeddb/:db/:store` still opens the store (route shape kept); Graph now holds the change-tracking lease so its change badges keep working
 - [x] Automation reads `useIndexedDBChangesStore().lastEventAt` ⚠ C33 → fixed: bumped only when a flush found changes made by the app, never for Capubridge's own writes (tagged `source: "capubridge"` through `noteOwnWrite` in `stores/useIndexedDBChangesStore.ts`) and never for empty flushes (tested). Round 1 fixes (P3): once IndexedDB or Graph has been opened, device events keep bumping it while another tab is shown (stores Capubridge wrote to in the last seconds excepted)
@@ -46,7 +46,7 @@ Inbound and outbound links that must keep working:
 
 - [x] Selected origin per target, in memory (`stores/useStorageContextStore.ts`) → unchanged; written by `indexeddb/useIdbCatalog.ts` for live databases only, never a file id (⚠ C6), read by the change watcher
 - [x] Query defaults `retry: 1`, `refetchOnWindowFocus: false`, `staleTime` 0 → unchanged; IndexedDB pages use `keepPreviousData`
-- [x] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded). R2a: Key-value reads pause while the app is away and run again on its return, with 10 s read timeouts (`useDataPresence`); R2b: Cache storage does the same (catalog and entries pause while the app is away, 10 s and 15 s read timeouts, entry reads 10 s); R2c: OPFS does the same (the folder walk 15 s, a folder 10 s, the pool 10 s, a preview read 30 s, all paused while the app is away). SQLite and Graph: R3
+- [x] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded). R2a: Key-value reads pause while the app is away and run again on its return, with 10 s read timeouts (`useDataPresence`); R2b: Cache storage does the same (catalog and entries pause while the app is away, 10 s and 15 s read timeouts, entry reads 10 s); R2c: OPFS does the same (the folder walk 15 s, a folder 10 s, the pool 10 s, a preview read 30 s, all paused while the app is away). R3: SQLite reads its open copy without the app (a phone database is read over ADB), so only its 5 s check pauses while the app is away (page databases) or the window is hidden; Graph: R3b
 - [x] Every device script goes through `evaluateChecked` and host data enters only as `jsLiteral` — except IDB export/import ⚠ M8 → fixed: export and import run through `packages/cdp-protocol/src/cdp/domains/indexeddb-transfer.ts` (checked, literal)
 - [x] _R2_ OPFS snapshot cache in memory, keyed `targetId::path` → unchanged; R2c: a delete in the OPFS tab forgets the copies of what went (`forget`, `forgetUnder` for a folder)
 
@@ -422,109 +422,144 @@ import on the phone. Each needs a test key, entry or folder made for it, never t
 - [ ] Dark and light: the shared pane footer, the hollow "read once" dot, the hex view of a
       cached body
 
-## SQLite (`sqlite/SqliteExplorer.vue` and children)
+## SQLite (→ `sqlite/SqliteView.vue` on the Data frame; R3)
+
+Was `sqlite/SqliteExplorer.vue` (2,052 lines, removed with `SqliteTableToolbar.vue`,
+`SqliteDatabaseOverview.vue`, `stores/useSqliteSidebarSettings.ts` and the shared `VirtualDataTable.vue`).
+Paths below are relative to `modules/storage/sqlite/`. The tab is behind the new `data` gate
+(`src/lib/gates/resolve.ts`, tests in `gates.test.ts`): an Android app target on an online device opens it
+without a DevTools link; any other target needs its link. Every read goes to one **address** per database
+(`sqliteAddress.ts`): a phone file through the selected app, a page database through its pulled copy, an
+opened file through itself. Tests: `__tests__/sqliteTree.test.ts`, `useSqliteTableQuery.test.ts`,
+`useSqliteWrites.test.ts`, `sqliteImportExport.test.ts`, `sqliteQuery.test.ts`, `sqliteGrid.test.ts`,
+`browse/__tests__/sqliteWriteAccess.test.ts`; Rust `sqlite::tests`, `sqlite_dump::tests`; protocol
+`packages/cdp-protocol/tests/jeep-sqlite.test.ts`.
 
 ### Sources and opening
 
-- [ ] Native databases: `sqlite_list_databases` (`run-as <pkg> ls -la /data/data/<pkg>/databases`, skips -wal/-shm/-journal) when an adb target of the selected device is selected (`RS:441-500`, `SqliteExplorer.vue:132-143,426-430`)
-- [ ] jeep-sqlite databases from IndexedDB `jeepSQLiteStore`/`jeepSqliteStore` → `databases`, path `jeep-sqlite:<idb>/<store>/<key>` (`cdp:jeep-sqlite.ts:22-117`, `SqliteExplorer.vue:389-409`)
-- [ ] OPFS databases: one-evaluate walk (5,000 entries, depth 8), tagged `sqlite-wasm-opfsdb`, `wa-sqlite-opfs`, `sqlite-wasm-sah-pool` (`cdp:opfs-sqlite-discovery.ts:22-139`, `sqlite/useOpfsSqliteDiscovery.ts:15-35`)
-- [ ] Imported file: Upload / empty-state button → Tauri open (sqlite, db, db3, sqlite3) → `sqlite_save_local_bytes` temp copy, magic checked (`sqlite/sqliteImportExport.ts:138-149`, `src/stores/sqlSession.store.ts:45-85`, `RS:1074-1114`). Toasts "Could not read file", `Opened "X" as a local session`, "Import failed"
-- [ ] Lists merged with `Promise.allSettled`; failed WebView sources kept as unreachable (`SqliteExplorer.vue:427-433`, `sqlite/sqliteDatabaseList.ts:43-81`)
-- [ ] Rediscovery when the DevTools link comes up or the app returns to the foreground (`sqlite/useSqliteRediscovery.ts:24-46`)
-- [ ] Native open: `sqlite_open_database` (forced pull via `run-as cat` → `/data/local/tmp` → `adb pull` → `rm`, -wal/-shm best effort, read-only connection, `COUNT(*)` per table and view) (`RS:296-383,504-562`) ⚠ F5 C15
-- [ ] OPFS open: see OPFS tab; jeep open: `readDatabaseBytes` (whole file in one evaluate) → `startLocalSession` (`cdp:jeep-sqlite.ts:259-349`, `SqliteExplorer.vue:536-558`) ⚠ C35. Toast "Failed to open jeep-sqlite database"
-- [ ] Local session dropped and route reset when `cdpTargetId` changes (`SqliteExplorer.vue:379-387,412-420,851-858,1460-1470`)
-- [ ] Columns/indexes/FKs from the live phone database through `run-as sqlite3` when present, else from the copy (`RS:575-795`) ⚠ C20
+- [x] Native databases: `sqlite_list_databases` … when an adb target of the selected device is selected (`RS:441-500`) → unchanged command, listed under "In the app's files" (`useSqliteSources.ts`, `sqliteTree.ts`); an app with none says "The app keeps no SQLite file in its databases folder"
+- [x] jeep-sqlite databases from IndexedDB `jeepSQLiteStore`/`jeepSqliteStore` → `databases`, path `jeep-sqlite:<idb>/<store>/<key>` → unchanged, under "In the page"; discovery reads only the 16-byte header of a Blob value (`cdp:jeep-sqlite.ts`)
+- [x] OPFS databases: one-evaluate walk … tagged `sqlite-wasm-opfsdb`, `wa-sqlite-opfs`, `sqlite-wasm-sah-pool` → unchanged (`useOpfsSqliteDiscovery.ts`), under "In the page"
+- [x] Imported file: Upload / empty-state button → Tauri open → `sqlite_save_local_bytes` temp copy, magic checked … Toasts → "Open a SQLite file…" in the sidebar tools, the empty state, the SQLite gate (secondary action) and the palette, app-wide (`openSqliteFile.ts`, `useDataAppCommands.ts`). Files open in their own store (`stores/useSqliteFilesStore.ts`), several at once, beside the phone's databases, under "Opened files", on the ungated route `storage-sqlite-file` (`/storage/sqlite-file/:file/:table?`). Toasts "Could not read the file", "Could not open “x”" (no success toast: the file opens on screen)
+- [x] Lists merged with `Promise.allSettled`; failed WebView sources kept as unreachable → unchanged (`useSqliteSources.ts`, `sqliteDatabaseList.ts`); a newer scan always wins over a late older one
+- [x] Rediscovery when the DevTools link comes up or the app returns → unchanged (`useSqliteRediscovery.ts`)
+- [x] Native open: `sqlite_open_database` (forced pull …, `COUNT(*)` per table and view) ⚠ F5 C15 → unchanged command behind the tables query (`useSqliteCatalog.ts`); F5 and C15 stay deferred (see `data-plan.md` R3 status)
+- [x] OPFS open … jeep open: `readDatabaseBytes` (whole file in one evaluate) ⚠ C35 → fixed: jeep reads go 2 MiB per evaluate with progress in the toast ("Reading “x” — 2 MB of 9 MB"), the page drops its copy afterwards (`cdp:jeep-sqlite.ts`, test with a 4 MiB database). OPFS opens through the unchanged `useOpenSqliteSource`, now routed by path. Toast "Could not read “x”"
+- [x] Local session dropped and route reset when `cdpTargetId` changes → the pulled copy is let go when its page is no longer selected (`useSqliteOpening.ts`); the database stays selected and says "“x” is not read yet" with "Copy it from the page"
+- [x] Columns/indexes/FKs from the live phone database through `run-as sqlite3` when present, else from the copy ⚠ C20 → fixed: always from the pulled copy the rows come from (`RS` `read_table_meta`); the on-device `sqlite3` path is gone
 
-### Sidebar
+### Sidebar (→ `frame/DataSourceTree.vue`, `sqliteTree.ts`, `sqliteTreeActions.ts`)
 
-- [ ] Search database names/paths and tables of expanded databases (`SqliteExplorer.vue:1490,597-630`) ⚠ C23
-- [ ] Import `.sqlite` (`:1495-1501,1571-1577,1200-1219`)
-- [ ] Show/Hide hidden databases and tables banners (`:1504-1534`)
-- [ ] Expand/collapse database, persisted (`:1603-1611`)
-- [ ] Click database → `navigateToDb` (`:1612-1619,560-577`)
-- [ ] Database row: name, source badge (native / opfs / sah-pool / wa-sqlite / jeep / file) with tooltip (title, description, npm package, OPFS path, jeep store), size in KB, "app in background" label, opening spinner, change stripe (`:1591-1641`, `sqlite/sqliteSources.ts:3-49`, `SqliteSourceBadge.vue:24-58`) ⚠ C24
-- [ ] Database menu: Pin/Unpin, Hide/Unhide (`:1656-1669`)
-- [ ] Database menu: Export .sqlite file (`:1671-1674`) ⚠ C16 C15
-- [ ] Database menu: Export SQL dump (`:1675-1678`) ⚠ C16 C19
-- [ ] Database menu: Import SQL dump (replace), writable only — local copy (`:1679-1685,1221-1260`) ⚠ M13 M1
-- [ ] Database menu: Clear DB changes (`:1687-1695`)
-- [ ] Database menu: Delete database, writable only — **MUTATES** for jeep (IDB delete) and OPFS (`removeEntry`, then SAH-Pool header release, then `about:blank` force-release of the local WebView) (`:1697-1704,1262-1292,1075-1154`, `cdp:jeep-sqlite.ts:120-176`, `cdp:opfs.ts:288-320,568-615`) ⚠ M1. Confirm `Permanently delete <source>? This removes it at the source and cannot be undone.`; toasts "Delete failed", `Deleted "X"`, "Released SAH-Pool slot — …", "Cleared SAH-Pool header via writable handle — …", "Force-released via about:blank — source webview restored.", "Failed to restore source webview"
-- [ ] Click table → `navigateToTable` (`:1736-1739,579-581`); row: pin dot, name, row count, change stripe (`:1724-1753`)
-- [ ] Table menu: Pin, Hide, Clear changes (`:1766-1794`)
-- [ ] Table menu: Clear all rows, writable only — `DELETE FROM` on the local copy; confirm `Delete every row in "T"? This cannot be undone.`; toast `Cleared "T"` (`:1796-1803,998-1016`)
-- [ ] Table menu: Drop table, writable only — local copy; confirm `Permanently drop the table "T" and all its data? …`; toast `Dropped "T"` (`:1804-1811,1018-1039`)
-- [ ] Failure toast for confirmed actions "Action failed" (`:969-977`); read-only guard toast "This database is read-only here" (`sqlite/browse/sqliteWriteAccess.ts:34-38`)
-- [ ] Source badge "Show in OPFS explorer" (`SqliteSourceBadge.vue:46-53`)
-- [ ] Empty: "No target selected" / "Pick a debuggable app target — or import a .sqlite file to explore", "No SQLite databases found" / "The selected target package does not expose databases/" (`:1556-1578`); error + Retry (`:1542-1554`); spinner (`:1538-1540`)
-- [ ] Resizable layout persisted `capubridge:sqlite-explorer` (`:1477`)
+- [x] Search database names/paths and tables of expanded databases ⚠ C23 → "Find a database or table"; only the open database lists its tables, so a search never shows another database's tables; expand, pins and hidden entries are keyed by the database's path (a file by its id), never the temp copy (tested)
+- [x] Import `.sqlite` → the folder icon "Open a SQLite file…" beside the search
+- [x] Show/Hide hidden databases and tables banners → the frame's "N hidden · Show them"
+- [x] Expand/collapse database, persisted → frame chevron and ←/→, `capubridge:data-sidebar:v1` (scope `serial::package::sqlite`); the old `sqlite-sidebar-settings` seeds it once and is removed (`frame/useDataSidebarSettings.ts`, tested)
+- [x] Click database → `navigateToDb` → opens it (`useSqliteOpening.ts`: a phone file or an opened file opens at once, a page database is copied first)
+- [x] Database row: name, source badge with tooltip, size in KB, "app in background" label, opening spinner, change stripe ⚠ C24 → name, quiet detail "opfs · 1.2 MB" (`formatBytes`), change stripe; the source chip with its explanation (title, description, package, where it is stored) sits in the database header (`SqliteSourceBadge.vue`, Cladd `Chip` + `HintTooltip`). Unreachable: provenance `stale` and the note "The page is not answering (app in the background). Its copy is read again when it is back."; opening it uses a copy already pulled, else says it cannot be read yet, and never asks the page first (`sqliteOpenPlan.ts`, C24 fixed). The opening spinner became the toast and the "Copying “x” from the page" state
+- [x] Database menu: Pin/Unpin, Hide/Unhide → "Pin to the top" / "Unpin", "Hide from the list" / "Show in the list"
+- [x] Database menu: Export .sqlite file ⚠ C16 C15 → "Save a copy of the file…" (row menu, header menu, palette); C16 fixed: read at the database's own address, so OPFS, jeep (once opened) and phone databases with a copy open all work (tested); a page database not opened yet says why it cannot be saved yet. C15 (WAL) deferred
+- [x] Database menu: Export SQL dump ⚠ C16 C19 → "Save as SQL…": written by Rust in one pass (`sqlite_export_dump`, `sqlite_dump.rs`), every value exact (integers in full, reals keep their fraction, BLOBs `X'…'`), AUTOINCREMENT counters, then indexes, views and triggers; a `.capubridge-part` file renamed only when complete; toast "Saved N rows of “x” to …" (Rust tests)
+- [x] Database menu: Import SQL dump (replace), writable only ⚠ M13 M1 → "Replace with an SQL file…", opened files only; M13 fixed: Rust replays the dump on a `VACUUM INTO` copy after dropping triggers, views and tables, checks `quick_check`, and swaps the file only then, so a dump that fails part way changes nothing ("Nothing was changed" + the database's words) (`sqlite_import_dump`, Rust tests; a TS test proves one atomic call)
+- [x] Database menu: Clear DB changes → "Forget the change marks"
+- [x] Database menu: Delete database, writable only — **MUTATES** for jeep and OPFS ⚠ M1 → M1 fixed: no row offers a delete; an opened file offers "Close the file" (it never says "removes it at the source"), and every write is decided by the database it acts on (`canWriteDatabase(db)`, tested with a file open). Deleting a page database stays in OPFS, with its checks ("Show in OPFS" in the menu). It was already unreachable for jeep and OPFS before this round (`canWriteDatabase`), so nothing that worked is gone
+- [x] Click table → `navigateToTable`; row: pin dot, name, row count, change stripe → frame collection row with count, pin dot, change stripe
+- [x] Table menu: Pin, Hide, Clear changes → same words as the database menu
+- [x] Table menu: Clear all rows, writable only — local copy; confirm …; toast → "Delete every row…", opened files only, Cladd confirm naming the table and the file "on this computer", toast "Deleted every row of “T”" (`useSqliteWrites.ts`)
+- [x] Table menu: Drop table, writable only … → "Drop the table…", same rules; leaves the table if it was open; toast "Dropped “T”"
+- [x] Failure toast "Action failed"; read-only guard toast "This database is read-only here" → per action ("Could not clear “T”", "Could not drop “T”", "Could not delete the rows") with the database's words; the read-only guard toast is kept
+- [x] Source badge "Show in OPFS explorer" → "Show in OPFS" in the database's menu (sidebar and header), landing on its folder (`?path=`)
+- [x] Empty: "No target selected" / …, "No SQLite databases found" …; error + Retry; spinner → the gate when nothing is selected; "This app has no SQLite database" with "Open a SQLite file…"; "Choose a database" with the count when nothing is open; the frame's sidebar loading and error with Try again
+- [x] Resizable layout persisted `capubridge:sqlite-explorer` → `capubridge:data-layout:v2:sqlite` (sidebar 200–360 px)
 
-### Database overview (`sqlite/SqliteDatabaseOverview.vue`)
+### Database overview (→ `SqliteOverview.vue` on `frame/DataOverview.vue`)
 
-- [ ] Name, size, package; stats Tables, Views, Rows (tables + views), Size (`:22-28,93-120`)
-- [ ] Top-10 "By row count" bars, click → table (`:157-161`)
-- [ ] Table list with expandable CREATE SQL, click → table (`:212-227,268-284`)
-- [ ] Refresh → `handleRefresh(true)` (`:83-89`)
-- [ ] "No tables found" (`:142-148`); loader (`:125-127`); error state never fed (⚠ C21)
+- [x] Name, size, package; stats Tables, Views, Rows (tables + views), Size → the header (name, path or "opened on this computer", source chip, freshness); tiles Tables, Views, Rows (tables only now, "in tables"), Size
+- [x] Top-10 "By row count" bars, click → table → "Most rows", ten bars, each opens its table
+- [x] Table list with expandable CREATE SQL, click → table → "Tables and views", a chevron shows the SQL, the name opens it
+- [x] Refresh → `handleRefresh(true)` → "Read again" in the header and the sidebar menu
+- [x] "No tables found"; loader; error state never fed ⚠ C21 → fixed: "Could not open the database" with the error and Try again; "This database has no tables"; "Opening the database"
 
 ### Table view tabs
 
-- [ ] Browse · Structure · SQL, reset to Browse on route change (`SqliteExplorer.vue:1857-1897,1360`)
-- [ ] Table toolbar: `table · db`, `N rows`, change badges toggle changed-only, page size 50/100/500, prev/next (limit+1), refresh (`sqlite/SqliteTableToolbar.vue:37-138`, `SqliteExplorer.vue:513-521`)
+- [x] Browse · Structure · SQL, reset to Browse on route change → Rows · Structure · SQL (`Segmented` in the table header, `?view=` in the address, so Back returns to it); another table opens on Rows. The database itself has Overview · SQL
+- [x] Table toolbar: `table · db`, `N rows`, change badges toggle changed-only, page size 50/100/500, prev/next (limit+1), refresh → header (table, "table in db"), `ChangeSummary` (changed-only), freshness; `DataPager` in the status bar (range and total, 50/100/500, prev/next); "Read again" `IconAction`
 
-### Browse (`sqlite/browse/*`, DataGrid)
+### Browse (`browse/*`, DataGrid)
 
-- [ ] SQL WHERE bar: Enter applies, Esc reverts, × clears; error under the bar (`SqliteFilterBar.vue:22-76`)
-- [ ] Search all columns, debounced 250 ms, `CAST(col AS TEXT) LIKE … ESCAPE '!'` (`SqliteBrowseToolbar.vue:23-30`, `sqliteQuery.ts:122-127`) ⚠ F8
-- [ ] Group chip clears grouping (`SqliteBrowseToolbar.vue:65-76`)
-- [ ] Columns menu (`:77`)
-- [ ] Export popover: all / rows matching the filter / selected × CSV / JSON / SQL INSERT; toasts `Exported N rows`, "Export failed" (`:78-119`, `useSqliteTableQuery.ts:157-184`, `SqliteBrowse.vue:223-237`)
-- [ ] Header menu: sort asc → desc → none (server), Filter (11 operators + preview, `SqliteColumnFilter.vue:14-59`), Group by (server `GROUP BY … COUNT(*)`), Show as (persisted), Hide, Pin left/right, Autosize all, Copy name ("Copied column name") (`DG DataGridHeaderCell.vue`, `useSqliteTableQuery.ts:107-147`, `SqliteBrowse.vue:131-137`)
-- [ ] Grouped view: Enter / double-click / "Show the rows in this group" drills in (`SqliteBrowse.vue:163-166,215-217`)
-- [ ] Row context menu: Copy, Copy with header, Copy as JSON; Filter equals / not this value / is NULL / is not NULL; "Show what the device changed" (diff dialog); "Copy row as INSERT" / "Copy N rows as INSERT" (toasts "Copied INSERT", "Copied N INSERT statements", "Could not copy"); "Delete row(s)" writable only (`SqliteBrowse.vue:163-213`, `DG DataGrid.vue:478-484`)
-- [ ] Delete rows: needs a primary key ("Cannot delete" / "Table has no primary key."); confirm `Permanently delete N row(s)? …`; local copy; toast `N row(s) deleted` (`SqliteExplorer.vue:1306-1352`)
-- [ ] Inspector (Space or status-bar button; persisted `capubridge:sqlite-inspector`): Fields / JSON (persisted `capubridge:inspector-view`), field search, copy field ("Copied value"), copy row ("Copied row as JSON"), FK link (`SqliteBrowse.vue:239-259,352-363`, `DG DataGridInspector.vue`)
-- [ ] Grid keys: arrows, PageUp/Down, Home/End, Tab, Ctrl+arrows, Shift range, Space inspect, Delete, Esc, Ctrl+A, Ctrl+C, Ctrl+Shift+C; gutter Shift/Ctrl (`DG gridKeys.ts:27-51`, `DataGrid.vue:195-207`)
-- [ ] Recently changed rows highlighted (`SqliteBrowse.vue:85-92`)
-- [ ] Status bar: x of y rows, selection, Σ/avg/min/max, nulls, groups, read-only lock, `ProvenanceTag`, query ms, inspector toggle (`SqliteBrowse.vue:344-364`)
-- [ ] Empty: `"T" has no rows`, "No rows loaded", "No rows match … and the search …" + "Clear filters" (`SqliteBrowse.vue:307-330`); skeleton (`DG DataGrid.vue:462-469`)
-- [ ] Read-only reasons: native "Native Android databases are read-only: they are pulled to this computer as a copy."; others "Read-only for now: this is a copy pulled from the device, and edits are not written back to it yet."; no-PK "This table has no primary key, so rows cannot be addressed." (`sqliteWriteAccess.ts:13-22`, `SqliteBrowse.vue:100-109`)
-- [ ] Cell edit and add row: not implemented (grid emits `edit`, unhandled)
+- [x] SQL WHERE bar: Enter applies, Esc reverts, × clears; error under the bar → unchanged (`SqliteFilterBar.vue`); the error comes from the keyed query
+- [x] Search all columns, debounced 250 ms, `CAST … LIKE … ESCAPE '!'` ⚠ F8 → unchanged search; F8 fixed: the count is its own query keyed by the filter, so it runs once per filter and not on every page (tested); pages are keyed too, so a late answer never replaces a newer page (C17, tested)
+- [x] Group chip clears grouping → unchanged
+- [x] Columns menu → unchanged
+- [x] Export popover … toasts `Exported N rows`, "Export failed" → unchanged choices; "all rows" now reads BLOBs in full (`fullValues`) and SQL INSERT writes `X'…'`; selected rows with a BLOB read only in part are refused with the reason ("Could not export the rows")
+- [x] Header menu: sort (server), Filter, Group by, Show as (persisted), Hide, Pin left/right, Autosize all, Copy name → unchanged; Show as is keyed by the database's identity, widths and pins persist per table (`layoutKey`)
+- [x] Grouped view: Enter / double-click / "Show the rows in this group" drills in → unchanged
+- [x] Row context menu … "Show what the device changed" …; "Copy row as INSERT" …; "Delete row(s)" writable only → unchanged items; "Show what the app changed"; INSERT copies use `sqlText.toSqliteInserts` (exact integers, `X'…'`, refusal for a part-read BLOB); "Delete row…" only on opened files; filtering on a part-read BLOB says why it cannot
+- [x] Delete rows: needs a primary key …; confirm …; local copy; toast → `useSqliteWrites.deleteRows`: Cladd confirm naming the table and the file, keys written exactly (C18 tested), toast "Deleted the row" / "Deleted N rows"
+- [x] Inspector (Space or status-bar button; persisted `capubridge:sqlite-inspector`): Fields / JSON …, FK link → unchanged `DataGridInspector`; Space opens it on the row; its toggle is the shared record-pane toggle (`capubridge:data-record-pane`, palette "Show or hide the record pane"); the old inspector key is not carried over
+- [x] Grid keys → unchanged (`DG gridKeys.ts`)
+- [x] Recently changed rows highlighted → unchanged
+- [x] Status bar: x of y rows, selection, Σ/avg/min/max, nulls, groups, read-only lock, `ProvenanceTag`, query ms, inspector toggle → pager range, selection and aggregates, groups, the lock with its reason on hover (`HintTooltip`), query ms, the pane toggle; provenance moved to the header
+- [x] Empty: `"T" has no rows`, "No rows loaded", "No rows match … and the search …" + "Clear filters"; skeleton → same words with curly quotes; a failed read shows "Could not read “T”" with Try again
+- [x] Read-only reasons → one function of the database alone (`browse/sqliteWriteAccess.ts`): "A copy pulled from the phone: changes here would never reach the app's database, so it is read-only." / "A copy read from the page: …"; no-PK "This table has no primary key, so a row cannot be told apart."
+- [ ] Cell edit and add row: not implemented (grid emits `edit`, unhandled) → still not implemented; planned for opened files only (`data-plan.md` §5.5), phased to R3b
 
-### Structure
+### Structure (→ `SqliteStructure.vue`)
 
-- [ ] Columns (#, Column, Type, Not null, Default, PK n), Indexes (Name, Unique, Columns), Foreign keys (From, →, To, On update, On delete; target opens the table), CREATE statement (`SqliteExplorer.vue:1943-2112,308-336`)
-- [ ] "Loading structure…", error box, "No columns reported." (`:1946-1959,2019`)
+- [x] Columns (#, Column, Type, Not null, Default, PK n), Indexes (Name, Unique, Columns), Foreign keys (…; target opens the table), CREATE statement → Columns (#, Column, Type, Required, Default, Primary key "Yes" / "Yes, part n"); Indexes with "unique / not unique · on …" and their SQL, or why an automatic index has none; Foreign keys (target opens the table); **Triggers** (new) with their SQL; CREATE statement. Read from the copy (C20)
+- [x] "Loading structure…", error box, "No columns reported." → "Reading how the table is built", `DataState` error with Try again, "The database reported no columns."
 
-### SQL
+### SQL (→ `SqliteSqlPane.vue`)
 
-- [ ] Textarea seeded `SELECT * FROM "T" LIMIT 100;`, Run, "Running…", inline error, "N row(s)", results in `VirtualDataTable`, "Run a query to see results." (`SqliteExplorer.vue:2114-2157,338-373,1368`) ⚠ C25
-- [ ] Only SELECT on the current table (client regex), read-only connection (`:343-357`)
+- [x] Textarea seeded `SELECT * FROM "T" LIMIT 100;`, Run, "Running…", inline error, "N row(s)", results in `VirtualDataTable`, "Run a query to see results." ⚠ C25 → seeded with the last query run on this database, else the table's SELECT; Run (primary) and Ctrl+Enter; "The query did not run" with the database's words; results in `DataGrid` with its status bar (rows, ms); "Run a query to see its rows". "Earlier queries": the last 20 per database, kept across runs (`useSqliteSqlHistory.ts`). Also on the database (no table)
+- [x] Only SELECT on the current table (client regex), read-only connection ⚠ C25 → fixed: the regex is gone; any read across any table runs, and the pane says plainly "Read-only: the database refuses statements that change data."
 
 ### Refresh, polling and change tracking
 
-- [ ] Refresh: native `sqlite_refresh_database` + `sqlite_export_bytes` + diff + `openDb`; OPFS hash + read + diff + overwrite + stat; jeep hash + read (`SqliteExplorer.vue:848-947`) ⚠ F5 F7
-- [ ] Background poll every 5 s, always on: native `sqlite_stat_database`, OPFS `opfs_stat_file`, compare and refresh when changed (`:952,740-816`, `RS:410-439`) ⚠ F6 C15
-- [ ] Snapshot diff with sql.js into the changes store (1,000 cap), change overlay and stripes (`sqlite/diffSqliteSnapshots.ts`, `stores/useSqliteChangesStore.ts:10`, `changes/useSqliteChangeOverlay.ts`)
-- [ ] Diff dialog: table, operation, row key, observed at, before/after (`sqlite/SqliteChangeDiffDialog.vue`)
-- [ ] System change messages ("Snapshot diff truncated", "Change tracking unavailable … no primary key", Cleared/Dropped/Deleted) recorded but not shown here
+- [x] Refresh: native `sqlite_refresh_database` + `sqlite_export_bytes` + diff + `openDb`; OPFS hash + read + diff + overwrite + stat; jeep hash + read ⚠ F5 F7 → unchanged steps (`useSqliteSnapshotSync.ts`), then every query of the database is read again; F5/F7 deferred
+- [x] Background poll every 5 s, always on … ⚠ F6 C15 → a self-scheduling 5 s check, one at a time, paused while the window is hidden and, for a page database, while the app is away (F6 in part; the stat-failure backoff and C15 deferred)
+- [x] Snapshot diff with sql.js into the changes store …, change overlay and stripes → unchanged
+- [x] Diff dialog: table, operation, row key, observed at, before/after → Cladd `Dialog` ("Changed in T", key, "Seen …", the JSON diff) (`SqliteChangeDiffDialog.vue`)
+- [x] System change messages recorded but not shown here → unchanged
 
 ### Persisted preferences and URL
 
-- [ ] `localStorage["sqlite-sidebar-settings"]`: pinned/hidden databases and tables, showHidden flags, expanded databases, keyed by path (`stores/useSqliteSidebarSettings.ts:3,50-69`)
-- [ ] `capubridge:sqlite-explorer`, `capubridge:sqlite-inspector`, `capubridge:sqlite-show-as` (`"<db>/<table>"`), `capubridge:inspector-view`
-- [ ] `:db` / `:table` carry names, decoded twice (`SqliteExplorer.vue:170-174`) ⚠ C5 C22
-- [ ] Deep link / reload re-opens native databases; OPFS/jeep re-pull; imported sessions are lost (`:1395-1458,466-468`)
+- [x] `localStorage["sqlite-sidebar-settings"]` … keyed by path → moved into `capubridge:data-sidebar:v1` (see Sidebar)
+- [x] `capubridge:sqlite-explorer`, `capubridge:sqlite-inspector`, `capubridge:sqlite-show-as`, `capubridge:inspector-view` → `capubridge:data-layout:v2:sqlite`, `capubridge:data-record-pane`, `capubridge:sqlite-show-as` (keyed by database identity now), `capubridge:inspector-view`; new `capubridge:sqlite-sql-history:v1`
+- [x] `:db` / `:table` carry names, decoded twice ⚠ C5 C22 → fixed: `:db` is the database's path (phone, `opfs:…`, `jeep-sqlite:…`), an opened file has its own route and id; params are used as vue-router decodes them, once; a link by name (Device › Files, old bookmarks, the Graph's "Open data") is matched once and the address bar corrected (`sqliteDatabaseRef.ts`, tested)
+- [x] Deep link / reload re-opens native databases; OPFS/jeep re-pull; imported sessions are lost → unchanged; a reloaded file route says "Files opened here last only while Capubridge runs" with "Open a SQLite file…" (keeping files across runs is out of scope, `data-plan.md` §8)
 
 ### Import / export formats
 
-- [ ] Export .sqlite/.db: Tauri save + `sqlite_export_bytes` (main file only) (`sqliteImportExport.ts:42-58`, `RS:1157-1158`)
-- [ ] Export SQL dump: `PRAGMA foreign_keys=OFF; BEGIN; DDL; INSERT…; COMMIT;`, pages of 1,000, BLOB → NULL (`sqliteImportExport.ts:14,60-130`)
-- [ ] Import .sql/.txt (replace): drop user tables, then replay (`:176-193`)
-- [ ] Browse export CSV / JSON / INSERT via `downloadText` (`DG exportFormats.ts`, `src/lib/download.ts:2-9`)
+- [x] Export .sqlite/.db: Tauri save + `sqlite_export_bytes` (main file only) → unchanged (WAL C15 deferred)
+- [x] Export SQL dump … pages of 1,000, BLOB → NULL → Rust, one pass, BLOBs and wide integers exact (C19, F8)
+- [x] Import .sql/.txt (replace): drop user tables, then replay → all or nothing on a copy, views and triggers dropped too (M13)
+- [x] Browse export CSV / JSON / INSERT via `downloadText` → unchanged; INSERT through `sqlText`
+
+### Pending live checks (Data round 3)
+
+Not checked: Capubridge was not running during the round, and checks never write on a phone.
+
+- [ ] The `data` gate: SQLite opens for Presalio on the Redmi with the DevTools link down; a local or
+      Chrome target waits for its link; "Open a SQLite file…" on the gate with no phone
+- [ ] A phone database: tables, rows, paging to the end, sort, filter, search, group; the count does not
+      run again on the next page; a change on the phone shows its stripes; Structure with triggers
+- [ ] Presalio's OPFS / SAH-Pool databases from the sidebar and from the OPFS tab; the app put in the
+      background (stale note, the copy stays readable, "not read yet" when nothing was pulled)
+- [ ] A jeep-sqlite database over 12 MB (progress toast), if a test app has one
+- [ ] An opened file: delete rows, clear a table, drop a table, replace it with a dump that fails half
+      way (nothing changes) and with one that works; two files open at once; close one
+- [ ] Save a copy and Save as SQL for a phone, an OPFS and an opened database; open the dump again
+- [ ] A wide integer key and a BLOB column: cell, inspector, filter, copy as INSERT, export
+- [ ] Device › Files "Open in Data" and the Graph's "Open data" land on the database (name link corrected)
+- [ ] SQL pane: Ctrl+Enter, "Earlier queries" after a restart, a query across two tables, an UPDATE refused
+- [ ] Dark and light first paint of the overview, the structure and the diff dialog; the sidebar at 200 px
+- [ ] Graph: zoom after a rebuild, layout kept after an app reload, Auto layout through the ELK worker,
+      Vue Flow styles now loaded with the graph chunk (no flash, nodes look as before)
 
 ## Graph (`graph/StorageGraphExplorer.vue` and children)
+
+Still the Graph tab: its move into a Diagram view of a database is **R3b** (`data-plan.md`, R3 status).
+R3 fixed its bugs in place (`249811d6`), noted on the lines below; the lines stay unticked until the move.
 
 ### What it shows
 
@@ -532,7 +567,7 @@ import on the phone. Each needs a test key, entry or folder made for it, never t
 - [ ] LocalForage: one node per key (`useStorageGraphQueries.ts:100-109`, `storageGraphEntityBuilders.ts:170-200`)
 - [ ] Native SQLite tables of every database of the package: columns, indexes, FKs (`useStorageGraphQueries.ts:113-216`, `storageGraphEntityBuilders.ts:202-249`)
 - [ ] Foreign-key links (solid) from `PRAGMA foreign_key_list` (`useStorageGraphRelationships.ts:22-47`, `useStorageGraphCanvasNodes.ts:466-475`)
-- [ ] Logical SQLite links (dashed): indexed non-PK `*_id` columns matched by name, checked by SQL (≥ 80 % of 40 values) (`storageGraphSqliteDiagnostics.ts:111-203`) ⚠ C2
+- [ ] Logical SQLite links (dashed): indexed non-PK `*_id` columns matched by name, checked by SQL (≥ 80 % of 40 values) (`storageGraphSqliteDiagnostics.ts:111-203`) ⚠ C2 R3: ⚠ C2 fixed in place: a column with a declared foreign key is not guessed again, and edge ids carry their kind (`storageGraphSqliteDiagnostics.test.ts`)
 - [ ] Guessed field-match links with confidence, ≤ 180 total, ≤ 6 per node (`storageGraph.utils.ts:10-309`)
 - [ ] Manual links (`useStorageGraphRelationships.ts:59-77`)
 - [ ] Strategies inferred (all links, petal layout, clusters ≤ 9) and schema (explicit + manual, ranked grid per database) (`StorageGraphExplorer.vue:65,93-98`, `storageGraph.utils.ts:311-540`)
@@ -545,17 +580,17 @@ import on the phone. Each needs a test key, entry or folder made for it, never t
 ### Actions (none writes to the phone; loads read IndexedDB, LocalForage and pull native SQLite)
 
 - [ ] Origin select (shared storage-context store), first auto-picked (`StorageGraphExplorer.vue:381-389,448-463`)
-- [ ] Search on title, subtitle, container, fields, annotation (`:100-125,468-472`)
+- [ ] Search on title, subtitle, container, fields, annotation (`:100-125,468-472`) R3: debounced 200 ms (F12)
 - [ ] Source filter all / IndexedDB / LocalForage / SQLite (`:475-485`)
 - [ ] Strategy inferred / schema (`:487-495`)
 - [ ] Pan / Select mode (`StorageGraphCanvasDock.vue:19-44`)
 - [ ] Add note (`StorageGraphExplorer.vue:252-265`)
-- [ ] Auto layout (ELK layered, orthogonal routes), undoable (`:223-250`, `storageGraphElkLayout.ts:104-222`) ⚠ F12
+- [ ] Auto layout (ELK layered, orthogonal routes), undoable (`:223-250`, `storageGraphElkLayout.ts:104-222`) ⚠ F12 R3: F12 in place: ELK loads on the first layout, in a worker in the app; the canvas no longer imports it (`storageGraphNamingFamilies.ts`)
 - [ ] Toggle guessed links (`StorageGraphCanvasDock.vue:76-90`)
-- [ ] Zoom −/+, % = fit view, first fit per scope, range 0.01–2 (`StorageGraphViewportToolbar.vue:28-70`, `StorageGraphExplorer.vue:369-379,432-435,541-542`) ⚠ C1
+- [ ] Zoom −/+, % = fit view, first fit per scope, range 0.01–2 (`StorageGraphViewportToolbar.vue:28-70`, `StorageGraphExplorer.vue:369-379,432-435,541-542`) ⚠ C1 R3: ⚠ C1 fixed in place (`updateZoomPercent` returned by the interactions composable)
 - [ ] Undo / Redo (80 steps) (`:349-367`, `useStorageGraphHistory.ts`)
 - [ ] Click node / edge / frame selects; empty canvas clears; Shift multi-select; box select (`useStorageGraphCanvasInteractions.ts:363-382`, `StorageGraphExplorer.vue:545-561`)
-- [ ] Drag nodes and frames (members follow), positions saved (`useStorageGraphCanvasInteractions.ts:230-275,384-393`)
+- [ ] Drag nodes and frames (members follow), positions saved (`useStorageGraphCanvasInteractions.ts:230-275,384-393`) R3: positions saved in one write per drag (F12)
 - [ ] Connect handles → manual link; duplicate refused with a toast (`:324-361`)
 - [ ] Backspace deletes selected notes and manual links (`:277-322`)
 - [ ] Selection toolbar (≥ 2 nodes): group, ungroup, pack, align ×6, distribute ×2 (`StorageGraphSelectionToolbar.vue:27-43`, `useStorageGraphCanvasInteractions.ts:399-453`)
@@ -568,5 +603,5 @@ import on the phone. Each needs a test key, entry or folder made for it, never t
 
 - [ ] No gate; queries disabled without target/origin or adb package → "No graphable schema for current origin or package." (`StorageGraphExplorer.vue:527-532`)
 - [ ] First error string in a banner, no retry (`useStorageGraphData.ts:193-197`, `StorageGraphExplorer.vue:501-506`)
-- [ ] One unreadable SQLite file fails the whole SQLite graph (`useStorageGraphQueries.ts:119-172`)
-- [ ] `localStorage["capubridge:storage-graph:v1"]`: positions, notes, manual links, annotations, groups per scope `storage-graph:{serial}:{cdpTargetId}:{origin}:{package}` (`useStorageGraphStore.ts:12,82-88`, `useStorageGraphData.ts:80-88`) ⚠ C4
+- [ ] One unreadable SQLite file fails the whole SQLite graph (`useStorageGraphQueries.ts:119-172`) R3: fixed in place: the others still show, the failures are logged; the schema is kept 60 s (F13 in part)
+- [ ] `localStorage["capubridge:storage-graph:v1"]`: positions, notes, manual links, annotations, groups per scope `storage-graph:{serial}:{cdpTargetId}:{origin}:{package}` (`useStorageGraphStore.ts:12,82-88`, `useStorageGraphData.ts:80-88`) ⚠ C4 R3: ⚠ C4 fixed in place: scopes keyed `storage-graph:v2:{serial}:{origin}:{package}` (no page id), old keys migrated on load, 60 scopes at most, writes debounced, reading never writes (C3) (`stores/__tests__/useStorageGraphStore.test.ts`)
