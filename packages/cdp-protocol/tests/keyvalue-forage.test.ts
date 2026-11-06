@@ -158,3 +158,17 @@ describe("LocalForage deletes keep what the person did not see", () => {
     expect(await readForage(name)).toEqual({ a: 2 });
   });
 });
+
+describe("LocalForage reads in short transactions (F2)", () => {
+  test("a store larger than one batch is read whole, in key order", async () => {
+    const rows: [IDBValidKey, unknown][] = Array.from({ length: 450 }, (_, index) => [
+      `k${String(index).padStart(3, "0")}`,
+      { index },
+    ]);
+    await seedForage(name, rows);
+    const page = await domain.readForage(PAGE, name, "keyvaluepairs");
+    expect(page.entries).toHaveLength(450);
+    expect(page.more).toBe(false);
+    expect(page.entries[449]).toMatchObject({ key: "k449", value: { index: 449 } });
+  });
+});

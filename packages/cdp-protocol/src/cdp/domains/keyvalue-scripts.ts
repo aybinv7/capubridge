@@ -7,6 +7,12 @@ export const FORAGE_DETECT_STORE = "local-forage-detect-blob-support";
 /** How many LocalForage entries one read returns at most. */
 export const FORAGE_READ_LIMIT = 5000;
 
+/**
+ * How many values one short read-only transaction reads: a long read is split so the app's own
+ * writes to the store are never held up for the whole read.
+ */
+const FORAGE_READ_BATCH = 200;
+
 /** How long discovery waits for the databases to open before it skips those still opening. */
 const FORAGE_OPEN_WAIT_MS = 2500;
 
@@ -190,7 +196,11 @@ export function discoveryScript(skip: readonly string[] = []): string {
   })()`;
 }
 
-/** Reads up to `FORAGE_READ_LIMIT` entries of one LocalForage store, encoded like IndexedDB records. */
+/**
+ * Reads up to `FORAGE_READ_LIMIT` entries of one LocalForage store, encoded like IndexedDB
+ * records: the keys in one transaction, then the values `FORAGE_READ_BATCH` at a time in short
+ * transactions. A key the app deleted in between is left out.
+ */
 export function forageReadScript(origin: string, database: string, store: string): string {
   return `(async () => {
     ${IDB_DEVICE_CODEC_SOURCE}
@@ -201,23 +211,21 @@ export function forageReadScript(origin: string, database: string, store: string
       try {
         const name = ${jsLiteral(store)};
         if (!db.objectStoreNames.contains(name)) throw new Error('The store "' + name + '" is not in this database any more');
-        const tx = db.transaction(name, 'readonly');
-        const objectStore = tx.objectStore(name);
         const encode = __cbRecordEncoder(${jsLiteral(IDB_VIEW_LIMITS)});
+        const listed = await __cbRequest(db.transaction(name, 'readonly').objectStore(name).getAllKeys(null, ${FORAGE_READ_LIMIT + 1}));
+        const more = listed.length > ${FORAGE_READ_LIMIT};
+        const keys = more ? listed.slice(0, ${FORAGE_READ_LIMIT}) : listed;
         const records = [];
-        let more = false;
-        await new Promise(function (resolve, reject) {
-          const req = objectStore.openCursor();
-          req.onsuccess = function () {
-            const cursor = req.result;
-            if (!cursor) return resolve(true);
-            if (records.length >= ${FORAGE_READ_LIMIT}) { more = true; return resolve(true); }
-            records.push(encode(cursor.primaryKey, cursor.primaryKey, cursor.value));
-            cursor.continue();
-          };
-          req.onerror = function () { reject(new Error(req.error && req.error.message ? req.error.message : 'read failed')); };
-        });
-        const total = more ? await __cbRequest(objectStore.count()) : records.length;
+        for (let start = 0; start < keys.length; start += ${FORAGE_READ_BATCH}) {
+          const part = keys.slice(start, start + ${FORAGE_READ_BATCH});
+          const objectStore = db.transaction(name, 'readonly').objectStore(name);
+          const values = await Promise.all(part.map(function (key) { return __cbRequest(objectStore.get(key)); }));
+          for (let index = 0; index < part.length; index++) {
+            if (values[index] === undefined) continue;
+            records.push(encode(part[index], part[index], values[index]));
+          }
+        }
+        const total = more ? await __cbRequest(db.transaction(name, 'readonly').objectStore(name).count()) : records.length;
         return JSON.stringify({ records: records, more: more, total: total });
       } finally {
         db.close();

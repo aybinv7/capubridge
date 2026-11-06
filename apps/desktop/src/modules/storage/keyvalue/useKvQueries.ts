@@ -1,9 +1,16 @@
 import { computed, type Ref } from "vue";
-import { useQuery } from "@tanstack/vue-query";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { KeyValueDomain } from "@capubridge/cdp-protocol";
 import { useCDP } from "@/composables/useCDP";
 import { withReadTimeout } from "@/modules/storage/frame/useDataPresence";
-import { areaEntries, forageEntries, type KvReadResult, type KvSource } from "./kvModel";
+import {
+  areaEntries,
+  forageEntries,
+  patchEntries,
+  type KvChange,
+  type KvReadResult,
+  type KvSource,
+} from "./kvModel";
 
 const ENTRIES_CACHE_MS = 30_000;
 const CATALOG_FRESH_MS = 10_000;
@@ -74,8 +81,10 @@ export function useKvEntries(
   paused: Ref<boolean>,
 ) {
   const domain = useKvDomain(targetId);
+  const queryClient = useQueryClient();
+  const key = computed(() => ["kv-entries", targetId.value, source.value?.id ?? ""]);
   const query = useQuery({
-    queryKey: computed(() => ["kv-entries", targetId.value, source.value?.id ?? ""]),
+    queryKey: key,
     queryFn: () => {
       const current = source.value;
       if (!current) throw new Error("No list is open");
@@ -96,5 +105,24 @@ export function useKvEntries(
     error: computed(() => errorText(query.error.value)),
     readAt: computed(() => (query.dataUpdatedAt.value > 0 ? query.dataUpdatedAt.value : null)),
     refetch: () => query.refetch(),
+    /**
+     * Follows a write on the list on screen without reading every value again; reads again
+     * only when the list cannot be patched (a LocalForage save, or a partial read).
+     */
+    apply: (change: KvChange) => {
+      const current = query.data.value;
+      const kind = source.value?.kind;
+      const next =
+        current && kind && !current.more ? patchEntries(current.entries, change, kind) : null;
+      if (!current || !next) {
+        void query.refetch();
+        return;
+      }
+      queryClient.setQueryData<KvReadResult>(key.value, {
+        entries: next,
+        more: false,
+        total: next.length,
+      });
+    },
   };
 }

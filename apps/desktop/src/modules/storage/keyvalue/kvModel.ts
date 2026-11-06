@@ -227,3 +227,33 @@ export function forageEntries(page: KeyValueForagePage): KvEntry[] {
     };
   });
 }
+
+/** What a write changed on the phone, for the list on screen to follow without a new read. */
+export type KvChange =
+  | { kind: "saved"; previous: KvEntry | null; key: string; value: unknown }
+  | { kind: "removed"; ids: readonly string[] };
+
+/**
+ * The list after `change`, or `null` when only a new read can tell (a LocalForage value is
+ * stored through the app's encoder, so its row is read again). A saved key takes the place of
+ * the row it came from; a new key goes last.
+ */
+export function patchEntries(
+  entries: readonly KvEntry[],
+  change: KvChange,
+  sourceKind: KvSourceKind,
+): KvEntry[] | null {
+  if (change.kind === "removed") {
+    const gone = new Set(change.ids);
+    return entries.filter((entry) => !gone.has(entry.id));
+  }
+  if (sourceKind === "forage") return null;
+  const [next] = areaEntries([{ key: change.key, value: String(change.value) }]);
+  if (!next) return null;
+  const replaced = change.previous?.id ?? next.id;
+  const at = entries.findIndex((entry) => entry.id === replaced);
+  const kept = entries.filter((entry) => entry.id !== next.id && entry.id !== replaced);
+  if (at < 0) return [...kept, next];
+  const before = entries.slice(0, at).filter((entry) => entry.id !== next.id).length;
+  return [...kept.slice(0, before), next, ...kept.slice(before)];
+}

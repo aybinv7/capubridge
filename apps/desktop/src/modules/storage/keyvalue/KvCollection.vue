@@ -44,7 +44,7 @@ const writes = useKvWrites({
   pending: read.pending,
   away,
   confirm: props.confirm,
-  afterWrite: () => void read.refetch(),
+  afterWrite: (change) => read.apply(change),
 });
 
 watch(

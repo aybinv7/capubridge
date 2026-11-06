@@ -2,7 +2,7 @@ import { computed, ref, type Ref } from "vue";
 import { toast } from "vue-sonner";
 import type { KeyValueDomain } from "@capubridge/cdp-protocol";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
-import type { KvEntry, KvSource } from "./kvModel";
+import type { KvChange, KvEntry, KvSource } from "./kvModel";
 import { deleteQuestion, kvWrites, type KvSaveOutcome, type KvSaveRequest } from "./kvWrites";
 
 /**
@@ -18,7 +18,8 @@ export function useKvWrites(options: {
   /** Why the phone cannot answer now, or `null`. */
   away: Ref<string | null>;
   confirm: (request: ConfirmRequest) => Promise<boolean>;
-  afterWrite: () => void;
+  /** What changed on the phone, so the list can follow it. */
+  afterWrite: (change: KvChange) => void;
 }) {
   const saving = ref(false);
   /** Keys handled so far by a long delete, or `null`. */
@@ -59,20 +60,32 @@ export function useKvWrites(options: {
     const writes = writer("Nothing was saved");
     if (!writes) return "kept";
     const outcome = await run(() => writes.save(request));
-    if (outcome === "saved") options.afterWrite();
+    if (outcome === "saved") {
+      options.afterWrite({
+        kind: "saved",
+        previous: request.entry,
+        key: request.key,
+        value: request.value,
+      });
+    }
     return outcome;
   }
 
   async function remove(entries: readonly KvEntry[]): Promise<number> {
     const writes = writer("Nothing was deleted");
     if (!writes || entries.length === 0) return 0;
+    let removedIds: readonly string[] = [];
     try {
       const removed = await run(() =>
-        writes.remove(entries, (done, total) => {
-          progress.value = done < total ? { done, total } : null;
-        }),
+        writes.remove(
+          entries,
+          (done, total) => {
+            progress.value = done < total ? { done, total } : null;
+          },
+          (ids) => (removedIds = ids),
+        ),
       );
-      if (removed > 0) options.afterWrite();
+      if (removedIds.length > 0) options.afterWrite({ kind: "removed", ids: removedIds });
       return removed;
     } finally {
       progress.value = null;

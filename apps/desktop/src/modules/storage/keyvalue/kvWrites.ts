@@ -175,7 +175,15 @@ export function kvWrites(
   async function remove(
     entries: readonly KvEntry[],
     onProgress?: (done: number, total: number) => void,
+    onRemoved?: (ids: readonly string[]) => void,
   ): Promise<number> {
+    const removedIds: string[] = [];
+    const note = (indexes: readonly number[], from: readonly KvEntry[]) => {
+      for (const index of indexes) {
+        const entry = from[index];
+        if (entry) removedIds.push(entry.id);
+      }
+    };
     const items = entries.map((entry) => ({ key: entry.rawKey, expected: entry.stored }));
     let deleted = 0;
     let gone = 0;
@@ -185,24 +193,33 @@ export function kvWrites(
       deleted = first.deleted.length;
       gone = first.gone.length;
       kept = first.changed.length;
+      note([...first.deleted, ...first.gone], entries);
       if (kept > 0 && (await confirm(changedQuestion(entries, first.changed)))) {
-        const again = first.changed
-          .map((index) => items[index])
-          .filter((item) => item !== undefined);
+        const changedEntries = first.changed
+          .map((index) => entries[index])
+          .filter((entry): entry is KvEntry => entry !== undefined);
+        const again = changedEntries.map((entry) => ({
+          key: entry.rawKey,
+          expected: entry.stored,
+        }));
         const forced = await domain.deleteMany(target, again, { force: true });
         deleted += forced.deleted.length;
         gone += forced.gone.length;
         kept = forced.changed.length;
+        note([...forced.deleted, ...forced.gone], changedEntries);
       }
     } catch (error) {
       if (error instanceof KeyValueDeleteError) {
         deleted += error.done.deleted.length;
         gone += error.done.gone.length;
+        note([...error.done.deleted, ...error.done.gone], entries);
       }
       reportFailure(entries.length, deleted + gone, error);
+      onRemoved?.(removedIds);
       return deleted + gone;
     }
     reportDeletes(entries, deleted, gone, kept);
+    onRemoved?.(removedIds);
     return deleted + gone;
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { areaEntries, describeText, forageEntries, utf8Length } from "../kvModel";
+import { areaEntries, describeText, forageEntries, patchEntries, utf8Length } from "../kvModel";
 import { initialDraft, initialMode, switchDraft, valueToWrite } from "../kvEdit";
 
 describe("reading stored text", () => {
@@ -84,5 +84,47 @@ describe("editing keeps the stored format (M11, C29)", () => {
     expect(valueToWrite("forage", "json", "42")).toBe(42);
     expect(switchDraft("forage", "json", "hello")).toBe('"hello"');
     expect(switchDraft("forage", "text", '"hello"')).toBe("hello");
+  });
+});
+
+describe("the list follows a write without a new read (F2)", () => {
+  const list = areaEntries([
+    { key: "a", value: "1" },
+    { key: "b", value: "2" },
+    { key: "c", value: "3" },
+  ]);
+
+  test("a save replaces the row in place, a rename keeps its place, a new key goes last", () => {
+    const [a, b] = list;
+    const saved = patchEntries(
+      list,
+      { kind: "saved", previous: b ?? null, key: "b", value: "9" },
+      "local",
+    );
+    expect(saved?.map((entry) => [entry.key, entry.stored])).toEqual([
+      ["a", "1"],
+      ["b", "9"],
+      ["c", "3"],
+    ]);
+    const renamed = patchEntries(
+      list,
+      { kind: "saved", previous: a ?? null, key: "z", value: "1" },
+      "local",
+    );
+    expect(renamed?.map((entry) => entry.key)).toEqual(["z", "b", "c"]);
+    const added = patchEntries(
+      list,
+      { kind: "saved", previous: null, key: "d", value: "4" },
+      "session",
+    );
+    expect(added?.map((entry) => entry.key)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  test("deleted rows go; a LocalForage save asks for a new read", () => {
+    const [, b] = list;
+    expect(patchEntries(list, { kind: "removed", ids: [b?.id ?? ""] }, "forage")?.length).toBe(2);
+    expect(
+      patchEntries(list, { kind: "saved", previous: null, key: "x", value: 1 }, "forage"),
+    ).toBeNull();
   });
 });
