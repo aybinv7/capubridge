@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Eraser, Pause, Play } from "lucide-vue-next";
-import { Segmented, SegmentedButton } from "@capubridge/cladd";
+import { Eraser, ListTree, Pause, Play } from "lucide-vue-next";
 import { CONSOLE_LEVELS, CONSOLE_LEVEL_NAMES } from "@/lib/console/consoleQuery";
 import type { ConsoleLevelCounts } from "@/lib/console/consoleBuffer";
 import type { SuggestSource } from "@/lib/stream-query/querySuggest";
@@ -14,7 +13,10 @@ import StreamQueryField from "../list/StreamQueryField.vue";
 import StreamStatus from "../list/StreamStatus.vue";
 import type { StreamStatusView } from "../list/streamView.types";
 
-/** The Console controls in the drawer's header: query, levels, Stream or Errors, state, actions. */
+/**
+ * The Console controls in the drawer's header: query, levels as words, state, then quiet
+ * actions. Grouping errors is a toggle among the actions, not a second segmented control.
+ */
 const props = defineProps<{
   suggest: SuggestSource;
   problems: readonly QueryProblem[];
@@ -52,31 +54,10 @@ const levels = computed<LevelOption[]>(() =>
 const floorValue = computed(() =>
   props.floor === null ? null : (CONSOLE_LEVELS[props.floor] ?? null),
 );
-const count = new Intl.NumberFormat();
 </script>
 
 <template>
   <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-    <Segmented
-      size="xs"
-      active-variant="solid"
-      aria-label="What the console lists"
-      class="shrink-0"
-    >
-      <SegmentedButton :active="props.mode === 'stream'" @click="emit('mode', 'stream')">
-        Stream
-      </SegmentedButton>
-      <SegmentedButton
-        :active="props.mode === 'errors'"
-        content-class-name="gap-1"
-        @click="emit('mode', 'errors')"
-      >
-        Errors
-        <span v-if="props.errorCount > 0" class="font-mono text-2xs text-error tabular-nums">
-          {{ count.format(props.errorCount) }}
-        </span>
-      </SegmentedButton>
-    </Segmented>
     <StreamQueryField
       v-model="query"
       class="min-w-48 flex-1 basis-64"
@@ -95,6 +76,19 @@ const count = new Intl.NumberFormat();
     />
     <StreamStatus :status="props.status" :tally="props.tally" />
     <span class="ml-auto flex shrink-0 items-center gap-0.5">
+      <IconAction
+        :label="props.mode === 'errors' ? 'Show every message' : 'Group the errors'"
+        :hint="
+          props.mode === 'errors'
+            ? undefined
+            : `${props.errorCount.toLocaleString()} errors, grouped by message and the app's frame`
+        "
+        toggle
+        :pressed="props.mode === 'errors'"
+        @click="emit('mode', props.mode === 'errors' ? 'stream' : 'errors')"
+      >
+        <ListTree :stroke-width="1.8" />
+      </IconAction>
       <IconAction
         v-if="props.mode === 'stream'"
         :label="props.following ? 'Stop following new messages' : 'Follow new messages'"

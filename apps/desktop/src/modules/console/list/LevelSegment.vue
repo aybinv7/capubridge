@@ -3,8 +3,9 @@ import { Segmented, SegmentedButton, Tooltip } from "@capubridge/cladd";
 import type { LevelOption } from "./streamView.types";
 
 /**
- * Level chips that mirror the query's `level:` floor: the chip of the floor is pressed, and
- * picking one rewrites the query. The lowest level means every level.
+ * Levels as words with quiet counts, mirroring the query's `level:` floor: the floor's word is
+ * pressed, and picking one rewrites the query. The first word is "All". The pressed word is
+ * neutral, so a dense toolbar keeps one accent at most.
  */
 const props = defineProps<{
   options: readonly LevelOption[];
@@ -22,6 +23,11 @@ const TONES: Record<LevelOption["tone"], string> = {
   plain: "text-foreground",
   muted: "text-[var(--fg-subtle)]",
 };
+
+function wordOf(option: LevelOption, index: number): string {
+  if (index === 0) return "All";
+  return option.name === "Warning" ? "Warn" : option.name;
+}
 
 function isActive(option: LevelOption, index: number): boolean {
   return props.floor === null ? index === 0 : option.value === props.floor;
@@ -41,7 +47,13 @@ function pick(option: LevelOption, index: number) {
 </script>
 
 <template>
-  <Segmented size="xs" active-variant="solid" :aria-label="props.label" class="shrink-0">
+  <Segmented
+    size="xs"
+    active-variant="solid"
+    active-color="neutral"
+    :aria-label="props.label"
+    class="shrink-0"
+  >
     <Tooltip
       v-for="(option, index) in props.options"
       :key="option.value"
@@ -53,13 +65,15 @@ function pick(option: LevelOption, index: number) {
         <SegmentedButton
           :active="isActive(option, index)"
           :aria-label="index === 0 ? `Every level` : `${option.name} and above`"
-          content-class-name="gap-1 px-1.5 font-mono"
+          content-class-name="gap-1.5 px-2"
           @click="pick(option, index)"
         >
-          <span :class="TONES[option.tone]">{{ option.glyph }}</span>
+          <span :class="index === 0 ? 'text-foreground' : TONES[option.tone]">{{
+            wordOf(option, index)
+          }}</span>
           <span
             v-if="countAt(index) > 0"
-            class="text-2xs tabular-nums"
+            class="font-mono text-2xs tabular-nums"
             :class="option.tone === 'error' ? 'text-error' : 'text-[var(--fg-subtle)]'"
           >
             {{ count.format(countAt(index)) }}
