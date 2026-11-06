@@ -41,6 +41,8 @@ export function useSqliteRows(options: {
   tableRowCount: Ref<number | null>;
   /** Breaks ties of the sort, so pages never repeat or skip a row. */
   rowOrder: Ref<SqliteRowOrder>;
+  /** `false` while the table's tab is kept alive but not shown: nothing is read for it. */
+  active?: Ref<boolean>;
 }) {
   const { address, table, query } = options;
 
@@ -59,7 +61,9 @@ export function useSqliteRows(options: {
 
   const rows = useQuery({
     queryKey: rowsKey,
-    enabled: computed(() => address.value !== null && table.value !== ""),
+    enabled: computed(
+      () => address.value !== null && table.value !== "" && options.active?.value !== false,
+    ),
     staleTime: Infinity,
     gcTime: 15_000,
     retry: false,
@@ -109,7 +113,13 @@ export function useSqliteRows(options: {
       query.effectiveWhere.value,
       query.groupBy.value,
     ]),
-    enabled: computed(() => address.value !== null && table.value !== "" && query.needsQuery.value),
+    enabled: computed(
+      () =>
+        address.value !== null &&
+        table.value !== "" &&
+        query.needsQuery.value &&
+        options.active?.value !== false,
+    ),
     staleTime: Infinity,
     gcTime: 60_000,
     retry: false,

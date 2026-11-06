@@ -23,6 +23,7 @@ const menuOpen = defineModel<boolean>("menuOpen", { default: false });
 
 const emit = defineEmits<{
   select: [];
+  keep: [];
   toggle: [];
   action: [actionId: string];
   link: [to: string];
@@ -90,6 +91,7 @@ const menuLabel = computed(() => {
     ]"
     :style="depth > 0 ? { paddingLeft: `${28 + depth * 12}px` } : undefined"
     @click="emit('select')"
+    @dblclick="emit('keep')"
     @contextmenu.prevent="actions.length > 0 && (menuOpen = true)"
   >
     <ChangeStripe v-if="changes && changes.total > 0" :changes="changes" />

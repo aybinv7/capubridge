@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import { EMPTY_TABS } from "../sqliteTabs";
 import {
   pruneWorkspaces,
   pushRecent,
@@ -16,9 +17,9 @@ describe("recent tables", () => {
   test("the databases used least recently are pruned first", () => {
     const kept = pruneWorkspaces(
       {
-        old: { recents: [], touchedAt: 1 },
-        mid: { recents: [], touchedAt: 2 },
-        new: { recents: [], touchedAt: 3 },
+        old: { recents: [], tabs: EMPTY_TABS, touchedAt: 1 },
+        mid: { recents: [], tabs: EMPTY_TABS, touchedAt: 2 },
+        new: { recents: [], tabs: EMPTY_TABS, touchedAt: 3 },
       },
       2,
     );
@@ -29,7 +30,7 @@ describe("recent tables", () => {
     expect(readWorkspaces("nope")).toEqual({});
     expect(
       readWorkspaces({ a: { recents: ["x"], touchedAt: 5 }, b: { recents: [3] }, c: null }),
-    ).toEqual({ a: { recents: ["x"], touchedAt: 5 } });
+    ).toEqual({ a: { recents: ["x"], tabs: EMPTY_TABS, touchedAt: 5 } });
   });
 
   test("an opened file keeps its workspace under its own path, a phone database under its scope", () => {

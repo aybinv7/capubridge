@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onActivated, onDeactivated, ref, watch } from "vue";
 import { toast } from "vue-sonner";
 import ChangeSummary from "@/modules/storage/frame/ChangeSummary.vue";
 import type { DataAction, DataProvenance } from "@/modules/storage/frame/dataFrame.types";
@@ -24,6 +24,7 @@ import { parseRowTarget } from "./quick/sqliteKeyInput";
 import { predicate } from "./browse/sqliteQuery";
 import { useSqliteGoToRow, type SqliteRowReveal } from "./browse/useSqliteGoToRow";
 import { linkLanding, type SqliteLanding } from "./sqliteLanding";
+import type { SqliteQueryState } from "./workspace/sqliteTabs";
 
 /**
  * One table of the open database: its rows, its structure, or free SQL. The table's name is not
@@ -45,6 +46,8 @@ const props = defineProps<{
   saveChanges: (keyColumns: readonly SqliteColumnInfo[], staged: SqliteStaged) => Promise<boolean>;
   /** A row to land on once the table is read: from a link, or `table:key` in quick open. */
   landing?: SqliteLanding | null;
+  /** What the tab kept of the query when it was last shown. */
+  initialQuery?: SqliteQueryState;
 }>();
 
 const emit = defineEmits<{
@@ -52,8 +55,8 @@ const emit = defineEmits<{
   openTable: [table: string];
   followLink: [landing: SqliteLanding];
   landed: [];
+  queryChange: [state: SqliteQueryState];
   action: [id: string];
-  refresh: [];
   fileAction: [action: "save-file" | "save-as"];
 }>();
 
@@ -84,12 +87,20 @@ const query = useSqliteTableQuery({
   allColumns: () => columns.value.map((column) => column.name),
   rowOrder: () => rowOrder.value,
 });
+if (props.initialQuery) query.restore(props.initialQuery);
+watch(query.state, (state) => emit("queryChange", state));
+
+const shown = ref(true);
+onActivated(() => (shown.value = true));
+onDeactivated(() => (shown.value = false));
+
 const rows = useSqliteRows({
   address,
   table,
   query,
   tableRowCount: computed(() => props.info?.rowCount ?? null),
   rowOrder,
+  active: shown,
 });
 
 const keyColumns = computed(() => orderKeyColumns([...columns.value]));
@@ -222,25 +233,13 @@ defineExpose({
       <ChangeSummary v-model:changes-only="changesOnly" :changes="tableSummary" />
     </template>
     <template #trail>
-      <SqliteTableActions
-        :table="table"
-        :actions="actions"
-        :opened="db.sourceKind === 'imported'"
-        @refresh="emit('refresh')"
-        @action="emit('action', $event)"
-      />
+      <SqliteTableActions :table="table" :actions="actions" @action="emit('action', $event)" />
     </template>
   </SqliteBrowse>
   <div v-else class="flex shrink-0 items-center gap-2 border-b border-cladd-outline px-2 py-1.5">
     <SqliteTableViewSwitch :view="view" @set-view="emit('setView', $event)" />
     <span class="flex-1" />
-    <SqliteTableActions
-      :table="table"
-      :actions="actions"
-      :opened="db.sourceKind === 'imported'"
-      @refresh="emit('refresh')"
-      @action="emit('action', $event)"
-    />
+    <SqliteTableActions :table="table" :actions="actions" @action="emit('action', $event)" />
   </div>
   <SqliteStructure
     v-if="view === 'structure'"

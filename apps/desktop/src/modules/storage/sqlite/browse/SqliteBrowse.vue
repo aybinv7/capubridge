@@ -168,7 +168,10 @@ const lockReason = computed(() => {
   );
 });
 
-const visibility = ref<Record<string, boolean>>({});
+const visibility = computed({
+  get: () => props.query.columnVisibility.value,
+  set: (next: Record<string, boolean>) => (props.query.columnVisibility.value = next),
+});
 
 const showAsTable = computed(() => `${props.stateKey}/${props.tableName}`);
 const showAsAll = ref(
@@ -179,13 +182,6 @@ const showAsAll = ref(
   ),
 );
 const showAs = computed(() => showAsAll.value[showAsTable.value] ?? {});
-
-watch(
-  () => props.tableName,
-  () => {
-    visibility.value = {};
-  },
-);
 
 function setShowAs(columnId: string, type: GridColumnType | null) {
   const current = { ...showAs.value };

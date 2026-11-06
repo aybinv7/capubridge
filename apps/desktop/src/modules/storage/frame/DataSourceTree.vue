@@ -31,7 +31,8 @@ const search = defineModel<string>("search", { required: true });
 const showHidden = defineModel<boolean>("showHidden", { required: true });
 
 const emit = defineEmits<{
-  select: [sourceId: string, collectionId: string | null];
+  /** `keep`: a double-click or Enter, which a tabbed host keeps open instead of previewing. */
+  select: [sourceId: string, collectionId: string | null, keep: boolean];
   toggle: [sourceId: string, expanded: boolean];
   action: [actionId: string, row: DataTreeRow];
   link: [to: string];
@@ -88,13 +89,13 @@ watch(
   { immediate: true },
 );
 
-function open(row: DataTreeRow) {
+function open(row: DataTreeRow, keep = false) {
   activeKey.value = row.key;
   if (row.kind === "source") {
-    emit("select", row.source.id, null);
+    emit("select", row.source.id, null, keep);
     if (!row.source.expanded) emit("toggle", row.source.id, true);
   } else if (row.kind === "collection") {
-    emit("select", row.source.id, row.collection.id);
+    emit("select", row.source.id, row.collection.id, keep);
   } else if (row.kind === "link") {
     emit("link", row.link.to);
   }
@@ -148,6 +149,8 @@ function onKeydown(event: KeyboardEvent) {
       } else return;
       break;
     case "Enter":
+      if (current) open(current, true);
+      break;
     case " ":
       if (current) open(current);
       break;
@@ -242,6 +245,7 @@ function onFocus() {
           :menu-open="menuFor === item.data.key"
           @update:menu-open="setMenu(item.data.key, $event)"
           @select="open(item.data)"
+          @keep="open(item.data, true)"
           @toggle="
             item.data.kind === 'source' &&
             emit('toggle', item.data.source.id, !item.data.source.expanded)

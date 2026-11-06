@@ -1,8 +1,13 @@
 import {
   Download,
   FileCode,
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  Code2,
   Hash,
+  RotateCcw,
   TableProperties,
+  X,
   ListFilter,
   Network,
   PanelRight,
@@ -25,6 +30,18 @@ export interface SqliteEditCommands {
   discard: () => void;
 }
 
+/** The open database's tabs, for the tab keys. */
+export interface SqliteTabCommands {
+  has: () => boolean;
+  canClose: () => boolean;
+  canReopen: () => boolean;
+  close: () => void;
+  reopen: () => void;
+  next: () => void;
+  previous: () => void;
+  sql: () => void;
+}
+
 interface SqliteCommandDeps {
   hasDatabase: () => boolean;
   canExport: () => boolean;
@@ -43,6 +60,7 @@ interface SqliteCommandDeps {
   /** The open table's edits, when its rows are shown. */
   edits: () => SqliteEditCommands | null;
   showDiagram: () => void;
+  tabs: SqliteTabCommands;
 }
 
 /**
@@ -115,6 +133,63 @@ export function useSqliteCommands(deps: SqliteCommandDeps) {
       keywords: ["search", "filter", "sqlite"],
       when: () => deps.hasDatabase() && (commands.paletteOpen || deps.findHere()),
       run: deps.focusFind,
+    },
+    {
+      id: "data.sqlite.tab-close",
+      title: "Close the tab",
+      group: "Data",
+      icon: X,
+      binding: "mod+w",
+      screen: true,
+      keywords: ["tab", "close", "sqlite"],
+      when: () =>
+        deps.tabs.has() && deps.tabs.canClose() && (commands.paletteOpen || deps.findHere()),
+      run: deps.tabs.close,
+    },
+    {
+      id: "data.sqlite.tab-reopen",
+      title: "Reopen the closed tab",
+      group: "Data",
+      icon: RotateCcw,
+      binding: "mod+shift+t",
+      screen: true,
+      keywords: ["tab", "undo", "restore", "sqlite"],
+      when: () =>
+        deps.tabs.has() && deps.tabs.canReopen() && (commands.paletteOpen || deps.findHere()),
+      run: deps.tabs.reopen,
+    },
+    {
+      id: "data.sqlite.tab-next",
+      title: "Next tab",
+      group: "Data",
+      icon: ArrowRightToLine,
+      binding: "mod+pagedown",
+      screen: true,
+      keywords: ["tab", "switch", "sqlite"],
+      when: () => deps.tabs.has() && (commands.paletteOpen || deps.findHere()),
+      run: deps.tabs.next,
+    },
+    {
+      id: "data.sqlite.tab-previous",
+      title: "Previous tab",
+      group: "Data",
+      icon: ArrowLeftToLine,
+      binding: "mod+pageup",
+      screen: true,
+      keywords: ["tab", "switch", "sqlite"],
+      when: () => deps.tabs.has() && (commands.paletteOpen || deps.findHere()),
+      run: deps.tabs.previous,
+    },
+    {
+      id: "data.sqlite.tab-sql",
+      title: "Open the SQL tab",
+      group: "Data",
+      icon: Code2,
+      binding: "mod+t",
+      screen: true,
+      keywords: ["query", "console", "tab", "sqlite"],
+      when: () => deps.tabs.has() && (commands.paletteOpen || deps.findHere()),
+      run: deps.tabs.sql,
     },
     {
       id: "data.sqlite.go-to-table",

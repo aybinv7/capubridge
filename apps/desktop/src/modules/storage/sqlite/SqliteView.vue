@@ -19,8 +19,8 @@ import { toggleRecordPane } from "@/modules/storage/frame/recordPaneOpen";
 import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
 import type { DataProvenance, DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
 import { openSqliteFile } from "./openSqliteFile";
-import SqliteDatabasePane from "./SqliteDatabasePane.vue";
-import SqliteTablePane from "./SqliteTablePane.vue";
+import SqliteWorkspace from "./SqliteWorkspace.vue";
+import { useSqliteTabs } from "./workspace/useSqliteTabs";
 import { sqliteTreeActions } from "./sqliteTreeActions";
 import { useSqliteCommands, type SqliteEditCommands } from "./useSqliteCommands";
 import { sqliteRouteTo } from "./useSqliteLocation";
@@ -71,7 +71,6 @@ const provenance = computed<DataProvenance>(() => {
   return db.unreachable ? "stale" : "local";
 });
 
-const tableNames = computed(() => new Set(tables.tables.value.map((table) => table.name)));
 const tableInfo = computed(() =>
   tables.tables.value.find((table) => table.name === location.table.value),
 );
@@ -116,14 +115,28 @@ function headerRow(table: string): DataTreeRow | null {
   return { kind: "collection", key: "", source, collection, sectionId: "" };
 }
 
-const headerActions = computed(() => {
-  const row = headerRow(location.table.value);
+function rowActions(table: string) {
+  const row = headerRow(table);
   return row ? actionsFor(row).filter((action) => action.id !== "refresh") : [];
-});
+}
 
-function headerAction(actionId: string) {
-  const row = headerRow(location.table.value);
+const databaseActions = computed(() => rowActions(""));
+const tableActions = computed(() => (location.table.value ? rowActions(location.table.value) : []));
+
+function headerAction(actionId: string, table: string | null) {
+  const row = headerRow(table ?? "");
   if (row) handlers.run(actionId, row);
+}
+
+const tabs = useSqliteTabs({ tab, confirm: confirm.askAsync });
+
+/** A sidebar click on a table of the open database previews it; a double-click or Enter keeps it. */
+function onTreeSelect(sourceId: string, collectionId: string | null, keep: boolean) {
+  if (collectionId && current.value?.sourceId === sourceId) {
+    tabs.openTable(collectionId, { keep });
+    return;
+  }
+  handlers.select(sourceId, collectionId);
 }
 
 function fileAction(action: "save-file" | "save-as") {
@@ -164,9 +177,7 @@ const otherDatabases = computed(() =>
 );
 
 function openTableAs(table: string, view: SqliteTableView = "rows") {
-  const target = location.target.value;
-  if (!target || !table) return;
-  void router.push(sqliteRouteTo(target, table, view === "rows" ? null : view));
+  tabs.openTable(table, { keep: true, view });
 }
 
 function followLink(next: SqliteLanding) {
@@ -235,9 +246,16 @@ useSqliteCommands({
   exportFile: () => current.value && handlers.exportFile(current.value.db),
   exportDump: () => current.value && handlers.exportDump(current.value.db),
   edits: () => pane.value?.edits?.() ?? null,
-  showDiagram: () => {
-    const target = location.target.value;
-    if (target) void router.push(sqliteRouteTo(target, "", "diagram"));
+  showDiagram: () => tabs.openDatabaseTab("diagram"),
+  tabs: {
+    has: () => current.value !== null && address.value !== null,
+    canClose: () => tabs.activeId.value !== "overview",
+    canReopen: () => tabs.state.value.closed.length > 0,
+    close: () => tabs.closeActive(),
+    reopen: () => tabs.reopen(),
+    next: () => tabs.cycle(1),
+    previous: () => tabs.cycle(-1),
+    sql: () => tabs.openDatabaseTab("sql"),
   },
 });
 </script>
@@ -257,7 +275,7 @@ useSqliteCommands({
           :source-icon="Database"
           :collection-icon="Table2"
           :actions-for="actionsFor"
-          @select="handlers.select"
+          @select="onTreeSelect"
           @toggle="handlers.toggle"
           @action="handlers.run"
           @retry="tab.sources.refetch()"
@@ -334,53 +352,37 @@ useSqliteCommands({
             Copy it from the page
           </Button>
         </DataState>
-        <SqliteTablePane
-          v-else-if="location.table.value"
+        <SqliteWorkspace
+          v-else
           ref="pane"
-          :key="`${current.sourceId}::${location.table.value}`"
           :db="current.db"
-          :database-id="current.sourceId"
+          :source-id="current.sourceId"
           :address="address"
+          :tables="tables.tables.value"
+          :tables-loading="tables.loading.value"
+          :tables-loaded="tables.loaded.value"
+          :tables-fetching="tables.fetching.value"
+          :tables-error="tables.error.value"
+          :tables-read-at="tables.readAt.value"
           :table="location.table.value"
-          :info="tableInfo"
-          :table-names="tableNames"
-          :view="location.tableView.value"
+          :table-view="location.tableView.value"
+          :database-view="location.databaseView.value"
           :provenance="provenance"
-          :actions="headerActions"
+          :database-actions="databaseActions"
+          :table-actions="tableActions"
           :change-serial="tab.changeSerial.value"
           :change-package="tab.changePackage.value"
-          :save-changes="(keys, staged) => handlers.saveChanges(location.table.value, keys, staged)"
+          :owner="owner"
+          :table-path="tablePath"
+          :save-changes="handlers.saveChanges"
           :landing="landing"
+          :tabs="tabs"
           @set-view="location.setView"
-          @open-table="handlers.openTable"
           @follow-link="followLink"
           @landed="landing = null"
           @action="headerAction"
           @refresh="handlers.refresh()"
           @file-action="fileAction"
-        />
-        <SqliteDatabasePane
-          v-else
-          ref="pane"
-          :key="current.sourceId"
-          :db="current.db"
-          :database-id="current.sourceId"
-          :address="address"
-          :tables="tables.tables.value"
-          :loading="tables.loading.value"
-          :loaded="tables.loaded.value"
-          :fetching="tables.fetching.value"
-          :error="tables.error.value"
-          :read-at="tables.readAt.value"
-          :view="location.databaseView.value"
-          :provenance="provenance"
-          :actions="headerActions"
-          :owner="owner"
-          :table-path="tablePath"
-          @set-view="location.setView"
-          @open-table="handlers.openTable"
-          @action="headerAction"
-          @refresh="handlers.refresh()"
         />
       </template>
       <DataState

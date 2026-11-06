@@ -1,7 +1,10 @@
-/** What Capubridge keeps per SQLite database between runs: the tables opened last. */
+import { EMPTY_TABS, readTabs, type SqliteTabsState } from "./sqliteTabs";
+
+/** What Capubridge keeps per SQLite database between runs: its tabs and the tables opened last. */
 export interface SqliteWorkspace {
   /** Tables opened most recently first. */
   recents: string[];
+  tabs: SqliteTabsState;
   /** When the database was last used here (ms), to prune the oldest first. */
   touchedAt: number;
 }
@@ -12,7 +15,7 @@ export const RECENTS_CAP = 10;
 export const WORKSPACES_CAP = 30;
 
 export function emptyWorkspace(now: number): SqliteWorkspace {
-  return { recents: [], touchedAt: now };
+  return { recents: [], tabs: EMPTY_TABS, touchedAt: now };
 }
 
 /** The table first, without its earlier place, capped. */
@@ -44,7 +47,11 @@ export function readWorkspaces(value: unknown): SqliteWorkspaces {
     const recents: unknown = Reflect.get(entry, "recents");
     const touchedAt: unknown = Reflect.get(entry, "touchedAt");
     if (!isStringList(recents) || typeof touchedAt !== "number") continue;
-    kept[key] = { recents: recents.slice(0, RECENTS_CAP), touchedAt };
+    kept[key] = {
+      recents: recents.slice(0, RECENTS_CAP),
+      tabs: readTabs(Reflect.get(entry, "tabs")),
+      touchedAt,
+    };
   }
   return kept;
 }

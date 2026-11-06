@@ -803,6 +803,42 @@ are relative to `modules/storage/sqlite/`.
       sidebar writes (S10) and closing the window ask as before, from the same store. One
       `ConfirmDialog` per view: the browse one is gone (C5)
 
+### Step 5 — tabs (VS Code preview tabs)
+
+- [x] Database view switch Overview · SQL (+ Diagram), `?view=sql|diagram` → tabs on a strip
+      (`tabs/SqliteTabStrip.vue`, `tabs/SqliteTabItem.vue`, Cladd `Surface` tabs, the active one raised
+      with a 2 px selection line): Overview fixed first (icon, named in its tooltip), then tables, SQL and
+      Diagram; `?view=` still opens them. The database header is gone: the source chip, freshness, the
+      reading spinner, Read again and the database's ⋯ menu sit at the strip's right end
+      (`SqliteWorkspace.vue`); the opaque SAH-Pool path is no longer an identity line (R6). Read again
+      left the table toolbar (`SqliteTableActions.vue` keeps the table's ⋯)
+- [x] Preview rule (`workspace/sqliteTabs.ts`, pure, tested): a single click on a table (sidebar,
+      overview) opens it in the one italic preview tab, replacing it in place; a double-click (sidebar
+      row or tab), Enter on a sidebar row, quick open, following a link, a staged edit, or a search /
+      filter / WHERE / sort / grouping / page size / hidden column keeps it (`investedIn`); an open
+      table is activated, never duplicated; new tabs open right of the active one; 12 tabs at most
+      (the least used goes, never the active one nor one with staged edits)
+- [x] Close: × on hover or on the active tab, middle-click, Delete on a focused tab, `mod+w`; the focus
+      goes right, else left, else Overview. A tab with staged edits asks first ("Leave N changes
+      unsaved?" … "Closing the tab drops them."), switching never asks. Tab menu (right-click, Shift+F10):
+      Keep open, Close, Close the others, Close the tabs to the right, Close every tab, Reopen the closed
+      tab (`mod+shift+t`, 10 kept), Copy the name. `mod+pagedown` / `mod+pageup` next / previous,
+      `mod+t` the SQL tab. Past the strip's width it scrolls, keeps the active tab in view, and "N more"
+      lists every tab in a searchable, closable list (`tabs/SqliteTabOverflow.vue`)
+- [x] Address bar ⇄ tabs (`workspace/useSqliteTabs.ts`, tested with a memory router): the active tab is
+      the URL; a deep link or Back lands on a tab (as the preview); opening a table or a database tab
+      pushes a history entry and switching replaces it, so Back goes to the table you came from. A
+      database opened again comes back on the tab it was left on; tabs of tables that are gone are
+      dropped once, with "N tabs closed: their tables are gone"; a table gone after Read again shows
+      "“t” is not in the database any more" with Close the tab
+- [x] State per tab: search, chips, WHERE, sort, grouping, page, page size and hidden columns are kept
+      in the tab (`useSqliteTableQuery.state` / `restore`, `capubridge:sqlite-tabs:v1`) and come back when
+      the tab is shown again; up to four table tabs and three database tabs stay mounted (`KeepAlive`),
+      and a kept-alive table reads nothing while hidden (`useSqliteRows` `active`)
+- [ ] Not done (owner's review): several SQL tabs per database (one SQL tab, `mod+t` opens or shows
+      it); `Ctrl+Tab` most-recently-used switcher; `F6` focus regions; "Show in the sidebar" in the tab
+      menu (the sidebar selection already follows the active tab)
+
 ### Pending live checks (SQLite redesign)
 
 Not checked: the owner's app was not driven (screenshots only), and no data was written on a phone.
@@ -825,3 +861,7 @@ Not checked: the owner's app was not driven (screenshots only), and no data was 
       the Diagram canvas and the SQL pane on the workspace surface
 - [ ] An opened file: stage edits in two tables, switch between them (no question, edits still there),
       then open another database (asked once, with both tables), close the file, close the window
+- [ ] Tabs: single click replaces the italic preview, double-click keeps; a search or sort keeps it;
+      Ctrl+W, Ctrl+Shift+T, Ctrl+PageDown/PageUp and Ctrl+T reach the page in WebView2 (Ctrl+W and Ctrl+T
+      are browser accelerators in Edge; fall back to Ctrl+F4 if not); Back after three tables; restart the
+      app and reopen the database on its tabs; 15 tabs (overflow list, the cap); dark and light

@@ -4,6 +4,7 @@ import { toCsv, type GridSort } from "@/shared/components/data/grid";
 import { downloadText, fileStem } from "@/lib/download";
 import type { SqliteQueryResult } from "@/types/sqlite.types";
 import { toSqliteInserts } from "../sqlText";
+import type { SqliteQueryState } from "../workspace/sqliteTabs";
 import { combineWhere, makeChip, type SqliteFilterChip } from "./sqliteFilters";
 import { buildPageQuery, type ColumnFilterOperator, type SqliteExportFormat } from "./sqliteQuery";
 import type { SqliteRowOrder } from "./sqliteRowOrder";
@@ -39,6 +40,8 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
   const orderDir = ref<"ASC" | "DESC" | null>(null);
   const page = ref(0);
   const pageSize = ref(50);
+  /** Columns hidden from the grid (`false`), by id. */
+  const columnVisibility = ref<Record<string, boolean>>({});
 
   /** The chips, the free WHERE and "search all columns", joined with AND. */
   const effectiveWhere = computed(() =>
@@ -130,6 +133,45 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
     orderBy.value = null;
     orderDir.value = null;
     page.value = 0;
+    columnVisibility.value = {};
+  }
+
+  /** Everything a tab keeps of the query, to bring it back as it was left. */
+  const state = computed<SqliteQueryState>(() => ({
+    search: search.value,
+    where: whereClause.value,
+    filters: filters.value.map((chip) => ({
+      column: chip.column,
+      operator: chip.operator,
+      ...(chip.value !== undefined ? { value: chip.value } : {}),
+    })),
+    orderBy: orderBy.value,
+    orderDir: orderDir.value,
+    groupBy: groupBy.value,
+    page: page.value,
+    pageSize: pageSize.value,
+    hidden: Object.entries(columnVisibility.value)
+      .filter(([, shown]) => !shown)
+      .map(([column]) => column),
+  }));
+
+  /** Brings back a kept query; a filter that can no longer be written as SQL is left out. */
+  function restore(saved: SqliteQueryState) {
+    search.value = saved.search;
+    whereClause.value = saved.where;
+    filters.value = saved.filters.flatMap((entry) => {
+      try {
+        return [makeChip(entry.column, entry.operator, entry.value)];
+      } catch {
+        return [];
+      }
+    });
+    orderBy.value = saved.orderBy;
+    orderDir.value = saved.orderBy ? saved.orderDir : null;
+    groupBy.value = saved.groupBy;
+    pageSize.value = saved.pageSize;
+    page.value = Math.max(0, Math.floor(saved.page));
+    columnVisibility.value = Object.fromEntries(saved.hidden.map((column) => [column, false]));
   }
 
   async function exportTable(format: SqliteExportFormat) {
@@ -202,6 +244,9 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
     orderDir,
     page,
     pageSize,
+    columnVisibility,
+    state,
+    restore,
     effectiveWhere,
     needsQuery,
     setSearch,
