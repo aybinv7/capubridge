@@ -7,6 +7,7 @@ import { useTargetsStore } from "../targets.store";
 import { useConnectionStore } from "../connection.store";
 import type { CDPTarget } from "@/types/cdp.types";
 import { installMemoryStorage } from "@/test/memory-storage";
+import { createAppTarget } from "@/lib/app-target";
 
 function adbTarget(id: string, serial: string): CDPTarget {
   return { id, type: "page", title: id, url: `https://${id}`, source: "adb", deviceSerial: serial };
@@ -94,5 +95,14 @@ describe("active context", () => {
     await settle();
     expect(context.kind).toBe("local");
     expect(context.targetStatus).toBe("idle");
+  });
+
+  test("an app target reads as native and names the app, not an address", async () => {
+    const context = useActiveContextStore();
+    targets.selectTarget(createAppTarget("phone-a", "com.example.notes", "Notes"));
+    await settle();
+    expect(context.kind).toBe("adb-target");
+    expect(context.link).toMatchObject({ health: "native", label: "native" });
+    expect(context.gateInput.target).toMatchObject({ title: "Notes", native: true });
   });
 });
