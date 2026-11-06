@@ -568,6 +568,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
                 :label="`Edit ${column.title}`"
                 @commit="commitEdit"
                 @cancel="cancelEdit"
+                @rejected="note"
               />
             </template>
             <template #empty>

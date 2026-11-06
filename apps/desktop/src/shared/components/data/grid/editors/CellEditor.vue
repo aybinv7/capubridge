@@ -20,7 +20,14 @@ const props = defineProps<{
   exactIntegers?: boolean;
 }>();
 
-const emit = defineEmits<{ commit: [value: unknown]; cancel: [] }>();
+const emit = defineEmits<{
+  commit: [value: unknown];
+  cancel: [];
+  /** What was typed cannot be stored; the host shows `reason` where it cannot be missed. */
+  rejected: [reason: string];
+  /** Ctrl+S committed the cell; the host saves. */
+  save: [];
+}>();
 
 const PANEL_MIN_WIDTH = 360;
 const PANEL_MARGIN = 8;
@@ -71,29 +78,39 @@ onBeforeUnmount(() => {
   window.removeEventListener("scroll", placePanel, true);
 });
 
-function finish(commitChange: boolean) {
-  if (settled) return;
+function parse() {
+  return parseCellEdit(props.value, props.kind, text.value, props.like, {
+    exactIntegers: props.exactIntegers === true,
+  });
+}
+
+/** Commits or cancels; resolves whether the editor is done (an invalid value keeps it open). */
+function finish(commitChange: boolean): boolean {
+  if (settled) return false;
   if (!commitChange) {
     settled = true;
     emit("cancel");
-    return;
+    return true;
   }
-  const parsed = parseCellEdit(props.value, props.kind, text.value, props.like, {
-    exactIntegers: props.exactIntegers === true,
-  });
+  const parsed = parse();
   if (!parsed.ok) {
     error.value = parsed.error;
-    return;
+    emit("rejected", parsed.error);
+    return false;
   }
   settled = true;
   if (parsed.changed) emit("commit", parsed.value);
   else emit("cancel");
+  return true;
 }
 
 function onKeydown(event: KeyboardEvent) {
   event.stopPropagation();
   const mod = event.ctrlKey || event.metaKey;
-  if (event.key === "Enter" && (!multiline.value || mod)) {
+  if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    if (finish(true)) emit("save");
+  } else if (event.key === "Enter" && (!multiline.value || mod)) {
     event.preventDefault();
     finish(true);
   } else if (event.key === "Escape") {
@@ -110,8 +127,12 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 function onBlur() {
-  if (error.value) {
-    finish(false);
+  if (settled) return;
+  const parsed = parse();
+  if (!parsed.ok) {
+    settled = true;
+    emit("cancel");
+    emit("rejected", `Not changed: ${parsed.error}`);
     return;
   }
   finish(true);

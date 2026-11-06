@@ -218,6 +218,7 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     note,
     editorKind,
     sampleOf,
+    say,
     startEdit,
     commit,
     cancel,
