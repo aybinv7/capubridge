@@ -2,6 +2,7 @@ import { computed, shallowRef, watch, type Ref } from "vue";
 import { toast } from "vue-sonner";
 import { aggregateValues } from "./aggregates";
 import { toJsonRows, toTsv } from "./clipboard";
+import { isStructural } from "./gridSections";
 import { cellToText } from "./valueFormat";
 import {
   EMPTY_SELECTION,
@@ -29,6 +30,13 @@ export interface GridSelectionOptions {
 export function useGridSelection(options: GridSelectionOptions) {
   const selection = shallowRef<GridSelection>(EMPTY_SELECTION);
   const rowIds = computed(() => options.rows.value.map((row) => row.id));
+  /** Rows that hold data: section headers and notes are passed over by every action. */
+  const dataRows = computed(() => options.rows.value.filter((row) => !isStructural(row)));
+  const dataIds = computed(() =>
+    dataRows.value.length === options.rows.value.length
+      ? null
+      : new Set(dataRows.value.map((row) => row.id)),
+  );
   const bounds = computed<GridBounds>(() => ({
     rows: options.rows.value.length,
     cols: options.columns.value.length,
@@ -81,7 +89,7 @@ export function useGridSelection(options: GridSelectionOptions) {
     selection.value = {
       focus: selection.value.focus ?? { row: 0, col: 0 },
       anchor: selection.value.anchor ?? { row: 0, col: 0 },
-      rows: new Set(rowIds.value),
+      rows: new Set(dataRows.value.map((row) => row.id)),
     };
   }
 
@@ -91,7 +99,9 @@ export function useGridSelection(options: GridSelectionOptions) {
 
   /** Rows an action targets, in display order. */
   function targetIds(): string[] {
-    return targetRowIds(selection.value, rowIds.value);
+    const ids = targetRowIds(selection.value, rowIds.value);
+    const data = dataIds.value;
+    return data ? ids.filter((id) => data.has(id)) : ids;
   }
 
   /** The selection as a value matrix (rows × columns) plus the column ids it spans. */
@@ -99,7 +109,7 @@ export function useGridSelection(options: GridSelectionOptions) {
     const columns = options.columns.value;
     const rows = options.rows.value;
     if (selection.value.rows.size > 0) {
-      const chosen = rows.filter((row) => selection.value.rows.has(row.id));
+      const chosen = rows.filter((row) => selection.value.rows.has(row.id) && !isStructural(row));
       return {
         columns: [...columns],
         values: chosen.map((row) => columns.map((column) => row.cells[column.id])),
@@ -112,6 +122,7 @@ export function useGridSelection(options: GridSelectionOptions) {
       columns: spanned,
       values: rows
         .slice(area.top, area.bottom + 1)
+        .filter((row) => !isStructural(row))
         .map((row) => spanned.map((column) => row.cells[column.id])),
     };
   }
@@ -136,7 +147,7 @@ export function useGridSelection(options: GridSelectionOptions) {
   }
 
   const summary = computed<GridSummary>(() => {
-    const rowCount = options.rows.value.length;
+    const rowCount = dataRows.value.length;
     const ids = targetIds();
     if (ids.length === 0) {
       return { rowCount, selectedRows: 0, selectedRowIds: [], selectedCells: 0, aggregate: null };

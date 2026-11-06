@@ -178,3 +178,114 @@ describe("DataGrid row activation", () => {
     expect(events.edit).toBeUndefined();
   });
 });
+
+describe("DataGrid sections", () => {
+  const sectioned: GridRow[] = [
+    {
+      id: "s:a",
+      cells: {},
+      section: { key: "a", label: "name", value: "a", count: 2, open: true },
+    },
+    rows[0] as GridRow,
+    rows[1] as GridRow,
+    { id: "n:a", cells: {}, note: { text: "8 more rows", action: "Show 100 more" } },
+    {
+      id: "s:b",
+      cells: {},
+      section: { key: "b", label: "name", value: null, count: 4, open: false },
+    },
+  ];
+
+  async function mountSections() {
+    const handlers: Record<string, unknown[][]> = {};
+    const record =
+      (name: string) =>
+      (...args: unknown[]) => {
+        (handlers[name] ??= []).push(args);
+      };
+    const view = await mount({
+      rows: sectioned,
+      readOnly: true,
+      onToggleSection: record("toggle"),
+      onNoteAction: record("note"),
+      onActiveRow: record("active"),
+    });
+    return { ...view, handlers };
+  }
+
+  function header(grid: HTMLElement, index: number): HTMLElement {
+    const element = grid.querySelector<HTMLElement>(`[data-section-row="${index}"]`);
+    if (!element) throw new Error(`header ${index} not rendered`);
+    return element;
+  }
+
+  test("a header spans the row, names its value honestly and counts its rows", async () => {
+    const { grid } = await mountSections();
+    expect(header(grid, 0).getAttribute("aria-expanded")).toBe("true");
+    expect(header(grid, 4).getAttribute("aria-expanded")).toBe("false");
+    expect(header(grid, 4).textContent).toContain("NULL");
+    expect(header(grid, 4).textContent).toContain("4 rows");
+    expect(header(grid, 4).querySelector("[data-col]")).toBeNull();
+  });
+
+  test("click, Enter, Space and the arrows open and close a header", async () => {
+    const { grid, handlers } = await mountSections();
+    header(grid, 4).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+    header(grid, 4).dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0, detail: 1 }));
+    await nextTick();
+    press(grid, "Enter");
+    press(grid, " ");
+    press(grid, "ArrowRight");
+    press(grid, "ArrowLeft");
+    expect(handlers.toggle).toEqual([
+      ["s:b", true],
+      ["s:b", true],
+      ["s:b", true],
+      ["s:b", true],
+    ]);
+    header(grid, 0).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+    await nextTick();
+    press(grid, "ArrowLeft");
+    press(grid, "ArrowRight");
+    await nextTick();
+    expect(handlers.toggle?.slice(4)).toEqual([["s:a", false]]);
+    expect(grid.getAttribute("aria-activedescendant")).toMatch(/-r1-c0$/);
+  });
+
+  test("arrows pass through headers; only data rows become the active row", async () => {
+    const { grid, handlers } = await mountSections();
+    cell(grid, 1, 1).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+    await nextTick();
+    press(grid, "ArrowUp");
+    await nextTick();
+    expect(grid.getAttribute("aria-activedescendant")).toMatch(/-r0-c1$/);
+    expect(handlers.active?.map(([id]) => id)).toEqual(["pk:1", null]);
+  });
+
+  test("Enter on a note runs its action", async () => {
+    const { grid, handlers } = await mountSections();
+    cell(grid, 2, 0).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+    press(grid, "ArrowDown");
+    await nextTick();
+    press(grid, "Enter");
+    expect(handlers.note).toEqual([["n:a"]]);
+  });
+
+  test("copy, select all and the row targets skip headers and notes", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const { grid, events } = await mountSections();
+    header(grid, 0).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+    for (let i = 0; i < 4; i++) press(grid, "ArrowDown", { shiftKey: true });
+    await nextTick();
+    press(grid, "c", { ctrlKey: true });
+    await nextTick();
+    expect(writeText).toHaveBeenCalledWith("1\n2");
+    press(grid, "a", { ctrlKey: true });
+    await nextTick();
+    const summaries = events.summary ?? [];
+    const last = summaries[summaries.length - 1]?.[0] as GridSummary;
+    expect(last.rowCount).toBe(2);
+    expect(last.selectedRowIds).toEqual(["pk:1", "pk:2"]);
+  });
+});

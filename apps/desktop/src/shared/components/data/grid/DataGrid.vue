@@ -19,8 +19,11 @@ import {
 } from "@/components/ui/context-menu";
 import { bindingLabel } from "@/lib/commands/keymap";
 import DataGridHeaderCell from "./DataGridHeaderCell.vue";
+import DataGridNoteRow from "./DataGridNoteRow.vue";
 import DataGridRow from "./DataGridRow.vue";
+import DataGridSectionRow from "./DataGridSectionRow.vue";
 import { gridIntent } from "./gridKeys";
+import { gutterNumbers, isStructural, sectionIntent } from "./gridSections";
 import { useGridColumns } from "./useGridColumns";
 import { useGridSelection } from "./useGridSelection";
 import {
@@ -103,7 +106,12 @@ const emit = defineEmits<{
   delete: [rowIds: string[]];
   contextAction: [actionId: string, target: GridContextTarget];
   summary: [summary: GridSummary];
+  /** The focused data row; `null` on a section header or a note. */
   activeRow: [rowId: string | null];
+  /** A section header asks to open (`true`) or close. */
+  toggleSection: [rowId: string, open: boolean];
+  /** A note row's action was chosen (a click, Enter or Space). */
+  noteAction: [rowId: string];
 }>();
 
 defineSlots<{
@@ -147,16 +155,40 @@ const visibleColumns = computed<GridColumn[]>(() =>
     .filter((column): column is GridColumn => column !== undefined),
 );
 const displayRows = computed<GridRow[]>(() => table.getRowModel().rows.map((row) => row.original));
+const dataRows = computed<GridRow[]>(() => {
+  const rows = displayRows.value;
+  return rows.some(isStructural) ? rows.filter((row) => !isStructural(row)) : rows;
+});
+const rowNumbers = computed(() => gutterNumbers(displayRows.value, props.rowNumberOffset));
 
 const rowHeight = computed(() => ROW_HEIGHT[props.density]);
 const lastRowNumber = computed(() => props.rowNumberOffset + Math.max(1, displayRows.value.length));
 const gutterWidth = computed(() => Math.max(40, String(lastRowNumber.value).length * 7 + 20));
 
+/** Room above every section header but the first, so each group starts as its own block. */
+const SECTION_GAP = 8;
+
+function rowSize(index: number): number {
+  return index > 0 && displayRows.value[index]?.section
+    ? rowHeight.value + SECTION_GAP
+    : rowHeight.value;
+}
+
+/** Keys the virtualizer by row id, so a new row list with the same length is laid out again. */
+function rowKeyOf(rows: readonly GridRow[]): (index: number) => string | number {
+  return (index) => rows[index]?.id ?? index;
+}
+
+const groupedType = computed(() => {
+  const id = props.groupedColumn;
+  return id ? (props.showAs?.[id] ?? columnsById.value.get(id)?.type) : undefined;
+});
+
 const layout = useGridColumns({
   columns: visibleColumns,
   visibility: computed(() => undefined),
   showAs: computed(() => props.showAs),
-  rows: displayRows,
+  rows: dataRows,
   gutterWidth,
   scroller,
   layoutKey: computed(() => props.layoutKey),
@@ -167,7 +199,8 @@ const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: displayRows.value.length,
     getScrollElement: () => scroller.value,
-    estimateSize: () => rowHeight.value,
+    estimateSize: rowSize,
+    getItemKey: rowKeyOf(displayRows.value),
     paddingStart: HEADER_HEIGHT,
     scrollPaddingStart: HEADER_HEIGHT,
     overscan: 12,
@@ -177,6 +210,21 @@ const rowVirtualizer = useVirtualizer(
 watch(rowHeight, () => rowVirtualizer.value.measure());
 
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize());
+
+const EMPTY_ROW: GridRow = { id: "", cells: {} };
+const virtualRows = computed(() =>
+  rowVirtualizer.value
+    .getVirtualItems()
+    .map((item) => ({ item, row: displayRows.value[item.index] ?? EMPTY_ROW })),
+);
+
+function rowStyle(item: { start: number; size: number }) {
+  return {
+    top: `${item.start}px`,
+    height: `${item.size}px`,
+    width: `${layout.totalWidth.value}px`,
+  };
+}
 
 const grid = useGridSelection({
   rows: displayRows,
@@ -188,7 +236,12 @@ const grid = useGridSelection({
 });
 
 watch(grid.summary, (summary) => emit("summary", summary), { immediate: true });
-watch(grid.focusedRowId, (rowId) => emit("activeRow", rowId));
+const focusedDataRowId = computed(() => {
+  const focus = grid.selection.value.focus;
+  const row = focus ? displayRows.value[focus.row] : undefined;
+  return row && !isStructural(row) ? row.id : null;
+});
+watch(focusedDataRowId, (rowId) => emit("activeRow", rowId));
 
 function rowRangeCols(index: number): readonly [number, number] | null {
   const area = grid.range.value;
@@ -216,10 +269,46 @@ function fromEditor(event: Event): boolean {
   return event.target instanceof Element && event.target.closest("[data-grid-editor]") !== null;
 }
 
+/** Display index of the section header or note row under the event. */
+function structuralFromEvent(event: Event): number | null {
+  const target =
+    event.target instanceof Element
+      ? event.target.closest("[data-section-row],[data-note-row]")
+      : null;
+  if (!target) return null;
+  const row = Number(
+    target.getAttribute("data-section-row") ?? target.getAttribute("data-note-row"),
+  );
+  return Number.isInteger(row) ? row : null;
+}
+
+function focusedCol(): number {
+  return grid.selection.value.focus?.col ?? 0;
+}
+
+/** Opens or closes a header, or runs a note's action. */
+function actOnStructural(index: number) {
+  const row = displayRows.value[index];
+  if (!row) return;
+  if (row.section) emit("toggleSection", row.id, !row.section.open);
+  else if (row.note?.action && !row.note.busy) emit("noteAction", row.id);
+}
+
+function onClick(event: MouseEvent) {
+  if (event.button !== 0 || event.detail > 1 || fromEditor(event)) return;
+  const index = structuralFromEvent(event);
+  if (index !== null) actOnStructural(index);
+}
+
 function onPointerDown(event: PointerEvent) {
   if (event.button !== 0 || fromEditor(event)) return;
   if (event.target instanceof Element && event.target.closest('[role="columnheader"]')) return;
   scroller.value?.focus({ preventScroll: true });
+  const structural = structuralFromEvent(event);
+  if (structural !== null) {
+    grid.focusAt(structural, focusedCol());
+    return;
+  }
   const gutter = gutterFromEvent(event);
   if (gutter !== null) {
     const mode = event.shiftKey ? "extend" : event.ctrlKey || event.metaKey ? "toggle" : "replace";
@@ -302,6 +391,16 @@ function onKeydown(event: KeyboardEvent) {
   const intent = gridIntent(event);
   if (!intent) return;
   const focus = grid.selection.value.focus;
+  const structural = focus ? sectionIntent(displayRows.value[focus.row], intent) : null;
+  if (structural && focus) {
+    const rowId = displayRows.value[focus.row]?.id;
+    if (structural.kind === "toggle" && rowId) emit("toggleSection", rowId, structural.open);
+    else if (structural.kind === "action") actOnStructural(focus.row);
+    else if (structural.kind === "down") grid.move("down", visibleRowCount(), false);
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   switch (intent.kind) {
     case "move":
       grid.move(intent.move, visibleRowCount(), intent.extend);
@@ -399,6 +498,19 @@ function onContextMenu(event: MouseEvent) {
   if (fromEditor(event)) return;
   const focus = grid.selection.value.focus;
   const fromKeyboard = event.target === scroller.value;
+  const structural = fromKeyboard
+    ? focus && isStructural(displayRows.value[focus.row])
+      ? focus.row
+      : null
+    : structuralFromEvent(event);
+  if (structural !== null) {
+    const row = displayRows.value[structural];
+    if (!fromKeyboard) grid.focusAt(structural, focusedCol());
+    menuTarget.value = row?.section
+      ? { rowId: row.id, columnId: null, value: row.section.value, rowIds: [] }
+      : null;
+    return;
+  }
   const cell = fromKeyboard && focus ? { row: focus.row, col: focus.col } : cellFromEvent(event);
   const gutter = gutterFromEvent(event);
   const rowIndex = cell?.row ?? gutter;
@@ -467,6 +579,7 @@ defineExpose({
         :style="frame === 'none' ? WELL_FILL : undefined"
         class="relative h-full min-h-0 text-cladd-fg outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
         @pointerdown="onPointerDown"
+        @click="onClick"
         @dblclick="onDoubleClick"
         @keydown="onKeydown"
         @contextmenu="onContextMenu"
@@ -521,41 +634,61 @@ defineExpose({
             </template>
           </div>
 
-          <DataGridRow
-            v-for="item in rowVirtualizer.getVirtualItems()"
-            :key="displayRows[item.index]?.id ?? item.index"
-            class="absolute left-0"
-            :style="{
-              top: `${item.start}px`,
-              height: `${item.size}px`,
-              width: `${layout.totalWidth.value}px`,
-            }"
-            :grid-id="gridId"
-            :row="displayRows[item.index] ?? { id: '', cells: {} }"
-            :index="item.index"
-            :row-number="rowNumberOffset + item.index + 1"
-            :pinned-left="layout.pinnedLeft.value"
-            :columns="layout.scrolling.value"
-            :pinned-right="layout.pinnedRight.value"
-            :leading-space="layout.leadingSpace.value"
-            :gutter-width="gutterWidth"
-            :state="rowStates?.get(displayRows[item.index]?.id ?? '')"
-            :row-selected="grid.selection.value.rows.has(displayRows[item.index]?.id ?? '')"
-            :focus-col="
-              grid.selection.value.focus?.row === item.index ? grid.selection.value.focus.col : null
-            "
-            :range-cols="rowRangeCols(item.index)"
-            :editing-col="editingColFor(displayRows[item.index]?.id)"
-          >
-            <template v-if="editing && editingColumn" #editor>
-              <slot
-                name="editor"
-                :rowId="editing.rowId"
-                :column="editingColumn"
-                :value="displayRows[item.index]?.cells[editing.columnId]"
-              />
-            </template>
-          </DataGridRow>
+          <template v-for="{ item, row } in virtualRows" :key="String(item.key)">
+            <DataGridSectionRow
+              v-if="row.section"
+              class="absolute left-0"
+              :style="rowStyle(item)"
+              :cell-id="`${gridId}-r${item.index}-c${grid.selection.value.focus?.col ?? 0}`"
+              :section="row.section"
+              :index="item.index"
+              :band-height="rowHeight"
+              :focused="grid.selection.value.focus?.row === item.index"
+              :value-type="groupedType"
+            />
+            <DataGridNoteRow
+              v-else-if="row.note"
+              class="absolute left-0"
+              :style="rowStyle(item)"
+              :cell-id="`${gridId}-r${item.index}-c${grid.selection.value.focus?.col ?? 0}`"
+              :note="row.note"
+              :index="item.index"
+              :gutter-width="gutterWidth"
+              :focused="grid.selection.value.focus?.row === item.index"
+            />
+            <DataGridRow
+              v-else
+              class="absolute left-0"
+              :style="rowStyle(item)"
+              :grid-id="gridId"
+              :row="row"
+              :index="item.index"
+              :row-number="rowNumbers[item.index] ?? item.index + 1"
+              :pinned-left="layout.pinnedLeft.value"
+              :columns="layout.scrolling.value"
+              :pinned-right="layout.pinnedRight.value"
+              :leading-space="layout.leadingSpace.value"
+              :gutter-width="gutterWidth"
+              :state="rowStates?.get(row.id)"
+              :row-selected="grid.selection.value.rows.has(row.id)"
+              :focus-col="
+                grid.selection.value.focus?.row === item.index
+                  ? grid.selection.value.focus.col
+                  : null
+              "
+              :range-cols="rowRangeCols(item.index)"
+              :editing-col="editingColFor(row.id)"
+            >
+              <template v-if="editing && editingColumn" #editor>
+                <slot
+                  name="editor"
+                  :rowId="editing.rowId"
+                  :column="editingColumn"
+                  :value="row.cells[editing.columnId]"
+                />
+              </template>
+            </DataGridRow>
+          </template>
         </div>
 
         <div
@@ -584,8 +717,12 @@ defineExpose({
         Copy
         <ContextMenuShortcut>{{ bindingLabel("mod+c") }}</ContextMenuShortcut>
       </ContextMenuItem>
-      <ContextMenuItem @select="grid.copy('tsv', true)">Copy with header</ContextMenuItem>
-      <ContextMenuItem @select="grid.copy('json')">Copy as JSON</ContextMenuItem>
+      <ContextMenuItem :disabled="menuTarget.rowIds.length === 0" @select="grid.copy('tsv', true)"
+        >Copy with header</ContextMenuItem
+      >
+      <ContextMenuItem :disabled="menuTarget.rowIds.length === 0" @select="grid.copy('json')"
+        >Copy as JSON</ContextMenuItem
+      >
       <template v-for="action in extraActions" :key="action.id">
         <ContextMenuSeparator v-if="action.separatorBefore" />
         <ContextMenuItem

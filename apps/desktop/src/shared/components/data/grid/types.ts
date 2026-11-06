@@ -48,6 +48,34 @@ export interface GridRow {
   cells: Readonly<Record<string, unknown>>;
   /** A cell's hover text by column id, when the cell shows less than it knows (an exact time). */
   titles?: Readonly<Record<string, string>>;
+  /** Makes the row a collapsible section header that spans the grid; it holds no data. */
+  section?: GridSection;
+  /** Makes the row a full-width note inside a section (loading, an error, "show more"). */
+  note?: GridNote;
+}
+
+/** A section header: the rows after it, up to the next header, belong to it. */
+export interface GridSection {
+  /** Stable identity of the section, the same while it is open or closed. */
+  key: string;
+  /** What the section is named after, such as the grouped column. */
+  label: string;
+  value: unknown;
+  /** Rows in the section, or `null` while unknown. */
+  count: number | null;
+  open: boolean;
+  /** Nesting level; `0` for a top section. */
+  depth?: number;
+}
+
+/** A note row in a section; `action` makes Enter and a click on it ask the host to act. */
+export interface GridNote {
+  text: string;
+  action?: string;
+  tone?: "quiet" | "error";
+  /** The note waits on a read (shows a spinner and takes no action). */
+  busy?: boolean;
+  depth?: number;
 }
 
 /**
