@@ -60,6 +60,11 @@ const summary = shallowRef<GridSummary>({
 });
 
 const shown = computed(() => shownRows(props.rows, findText.value, sort.value));
+const columns = computed(() =>
+  props.rows.some((row) => row.servedAt !== null)
+    ? CACHE_COLUMNS
+    : CACHE_COLUMNS.filter((column) => column.id !== "served"),
+);
 const gridRows = computed(() => shown.value.map((row) => gridRowOf(row)));
 const order = computed(() => shown.value.map((row) => row.id));
 const byId = computed(() => new Map(props.rows.map((row) => [row.id, row])));
@@ -194,7 +199,7 @@ defineExpose({ focusFind });
         <DataGrid
           ref="grid"
           :label="`Cache ${cacheName}`"
-          :columns="CACHE_COLUMNS"
+          :columns="columns"
           :rows="gridRows"
           :loading="loading"
           :read-only="writes.blockedReason.value !== null"
