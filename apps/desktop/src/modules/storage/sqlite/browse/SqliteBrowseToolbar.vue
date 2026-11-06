@@ -94,7 +94,7 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
     />
     <slot name="changes" />
     <DataGridColumnsMenu v-model:visibility="visibility" :columns="columns" />
-    <Popover position="bottom-end" content-class-name="w-60 p-1">
+    <Popover position="bottom-end" class="w-60" content-class-name="p-1">
       <template #trigger>
         <Button size="sm" variant="transparent" :outline="false" content-class-name="gap-1.5">
           <Download :size="13" aria-hidden="true" />

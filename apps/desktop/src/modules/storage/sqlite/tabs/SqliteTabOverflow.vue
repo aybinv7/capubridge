@@ -22,7 +22,7 @@ function choose(id: string) {
 </script>
 
 <template>
-  <Popover v-model:open="open" position="bottom-end" content-class-name="w-72 p-1.5">
+  <Popover v-model:open="open" position="bottom-end" class="w-72" content-class-name="p-1.5">
     <template #trigger>
       <Button
         size="xs"

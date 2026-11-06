@@ -51,7 +51,7 @@ function shortType(label: string | undefined): string {
 </script>
 
 <template>
-  <Popover position="bottom-end" content-class-name="w-80 p-1.5">
+  <Popover position="bottom-end" class="w-80" content-class-name="p-1.5">
     <template #trigger>
       <Button size="sm" variant="transparent" :outline="false" content-class-name="gap-1.5">
         <Columns3 :size="13" aria-hidden="true" />

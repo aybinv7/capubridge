@@ -136,7 +136,12 @@ defineExpose({ focus: () => editor.value?.focus() });
           Run
           <KeyCaps :keys="bindingTokens('mod+enter')" quiet />
         </Button>
-        <Popover v-if="earlier.length" position="bottom-start" content-class-name="w-96 p-1">
+        <Popover
+          v-if="earlier.length"
+          position="bottom-start"
+          class="w-96"
+          content-class-name="p-1"
+        >
           <template #trigger>
             <Button size="sm" variant="transparent" :outline="false" content-class-name="gap-1.5">
               <History :size="13" aria-hidden="true" />

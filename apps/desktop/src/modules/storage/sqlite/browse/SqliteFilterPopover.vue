@@ -120,7 +120,7 @@ defineExpose({ openFor });
 </script>
 
 <template>
-  <Popover v-model:open="open" position="bottom-end" content-class-name="w-96 p-3">
+  <Popover v-model:open="open" position="bottom-end" class="w-96" content-class-name="p-3">
     <template #trigger>
       <Button
         size="sm"

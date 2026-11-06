@@ -26,7 +26,7 @@ function run(action: () => void, close: () => void) {
 </script>
 
 <template>
-  <Popover position="bottom-start" content-class-name="w-56 p-1">
+  <Popover position="bottom-start" class="w-56" content-class-name="p-1">
     <template #trigger>
       <Button
         size="sm"

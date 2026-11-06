@@ -60,7 +60,7 @@ defineExpose({ open: show });
 </script>
 
 <template>
-  <Popover v-model:open="open" position="top-end" content-class-name="w-80 p-3">
+  <Popover v-model:open="open" position="top-end" class="w-80" content-class-name="p-3">
     <template #trigger>
       <IconAction
         label="Go to a row"
