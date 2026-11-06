@@ -17,6 +17,12 @@ const props = defineProps<{
   readAt: number | null;
   verb?: string;
   watched?: boolean;
+  /**
+   * A copy compared with its source on a timer: when it was last checked and last found a
+   * change. It then reads "checked 3 s ago" with the live dot, never as stale (S1).
+   */
+  checkedAt?: number | null;
+  changedAt?: number | null;
 }>();
 
 const oneTime = computed(() => props.provenance === "live" && !props.watched);
@@ -26,6 +32,17 @@ const { now, pause, resume } = useNow({ interval: 5000, controls: true });
 
 watch(visibility, (state) => (state === "hidden" ? pause() : resume()), { immediate: true });
 
+const checking = computed(
+  () => props.checkedAt != null && props.provenance !== "stale" && props.provenance !== "imported",
+);
+const checkHint = computed(() => {
+  const change =
+    props.changedAt != null
+      ? `Last change ${formatAge(now.value.getTime() - props.changedAt)}.`
+      : "No change since it was opened.";
+  return `A copy, compared with its source every few seconds. ${change}`;
+});
+
 const detail = computed(() => {
   if (props.readAt === null) return undefined;
   return `${props.verb ?? "read"} ${formatAge(now.value.getTime() - props.readAt)}`;
@@ -33,8 +50,18 @@ const detail = computed(() => {
 </script>
 
 <template>
+  <HintTooltip v-if="checking" :text="checkHint">
+    <span
+      class="inline-flex h-5 shrink-0 items-center gap-1.5 px-1 font-mono text-2xs text-muted-foreground"
+      tabindex="0"
+      data-provenance="checked"
+    >
+      <StatusDot color="lime" size="xs" />
+      checked {{ formatAge(now.getTime() - (checkedAt ?? now.getTime())) }}
+    </span>
+  </HintTooltip>
   <HintTooltip
-    v-if="oneTime"
+    v-else-if="oneTime"
     text="Read once from the phone. The app may have changed it since; read again to see."
   >
     <span

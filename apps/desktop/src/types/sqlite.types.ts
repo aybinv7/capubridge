@@ -75,6 +75,40 @@ export interface SqliteForeignKeyInfo {
   matchClause: string | null;
 }
 
+/** A foreign-key column of a table and whether an index starts with it. */
+export interface SqliteForeignKeyFact {
+  column: string;
+  targetTable: string;
+  indexed: boolean;
+}
+
+/** What the overview needs of one table or view (`sqlite_database_facts`). */
+export interface SqliteTableFacts {
+  name: string;
+  kind: string;
+  withoutRowid: boolean;
+  columns: string[];
+  hasPrimaryKey: boolean;
+  indexCount: number;
+  /** Bytes on disk of the table and its indexes; `null` when `dbstat` cannot be read. */
+  bytes: number | null;
+  foreignKeys: SqliteForeignKeyFact[];
+}
+
+/** The database at a glance: the file, how SQLite keeps it, and every table's facts. */
+export interface SqliteDatabaseFacts {
+  fileBytes: number;
+  walBytes: number | null;
+  pageSize: number;
+  pageCount: number;
+  freelistCount: number;
+  journalMode: string;
+  userVersion: number;
+  encoding: string;
+  sizesKnown: boolean;
+  tables: SqliteTableFacts[];
+}
+
 export interface SqliteQueryResult {
   columns: string[];
   rows: unknown[][];

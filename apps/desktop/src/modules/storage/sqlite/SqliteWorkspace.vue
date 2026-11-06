@@ -53,6 +53,10 @@ const props = defineProps<{
   ) => Promise<boolean>;
   landing: SqliteLanding | null;
   tabs: ReturnType<typeof useSqliteTabs>;
+  /** The 5 s check keeps this copy current; when it last checked and last saw a change. */
+  watched: boolean;
+  checkedAt: number | null;
+  changedAt: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -114,7 +118,12 @@ defineExpose({
   >
     <template #end>
       <SqliteSourceBadge :db="db" />
-      <DataFreshness :provenance="provenance" :read-at="tablesReadAt" />
+      <DataFreshness
+        :provenance="provenance"
+        :read-at="tablesReadAt"
+        :checked-at="watched ? checkedAt : null"
+        :changed-at="changedAt"
+      />
       <Spinner v-if="tablesFetching && !tablesLoading" size="xs" aria-label="Reading again" />
       <IconAction
         label="Read again"
@@ -195,6 +204,9 @@ defineExpose({
         :view="databaseView"
         :owner="owner"
         :table-path="tablePath"
+        :change-serial="changeSerial"
+        :change-package="changePackage"
+        :watched="watched"
         @open-table="(name, keep) => tabs.openTable(name, { keep })"
         @refresh="emit('refresh')"
       />

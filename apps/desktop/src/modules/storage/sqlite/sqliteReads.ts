@@ -2,6 +2,7 @@ import { invokeCommand } from "@/runtime/ipc/client";
 import type { SqliteChangesetResult } from "@/runtime/ipc/contracts/storage";
 import type {
   SqliteColumnInfo,
+  SqliteDatabaseFacts,
   SqliteForeignKeyInfo,
   SqliteIndexInfo,
   SqliteQueryResult,
@@ -87,6 +88,11 @@ export async function readStructure(
       sql: typeof sql === "string" ? sql : "",
     })),
   };
+}
+
+/** The overview's facts: pragmas, the WAL beside the copy, and every table's size, keys and links. */
+export function readFacts(address: SqliteAddress): Promise<SqliteDatabaseFacts> {
+  return invokeCommand("sqlite_database_facts", addressArgs(address));
 }
 
 /** Plain rows of a table, one page (with one extra row to learn whether another page exists). */

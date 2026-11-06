@@ -26,6 +26,9 @@ const props = defineProps<{
   owner: { serial: string; packageName: string };
   /** The address of one of its tables, for the diagram's "Open data". */
   tablePath: (table: string) => string;
+  changeSerial: string;
+  changePackage: string;
+  watched: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -80,11 +83,15 @@ defineExpose({ focusSearch: () => sql.value?.focus() });
   <SqliteOverview
     v-else
     :tables="tables"
-    :size="db.size"
+    :db="db"
+    :address="address"
+    :change-serial="changeSerial"
+    :change-package="changePackage"
+    :watched="watched"
     :loading="loading"
     :loaded="loaded"
     :error="error"
-    @open="emit('openTable', $event, false)"
+    @open="(name, keep) => emit('openTable', name, keep)"
     @retry="emit('refresh')"
   />
 </template>

@@ -79,6 +79,7 @@ use commands::sqlite::{
 };
 use commands::sqlite_changeset::sqlite_apply_changeset;
 use commands::sqlite_dump::{sqlite_export_dump, sqlite_import_dump};
+use commands::sqlite_facts::sqlite_database_facts;
 use commands::sqlite_opened::{
     sqlite_close_opened_file, sqlite_open_local_file, sqlite_save_opened_file,
     sqlite_save_opened_file_as,
@@ -374,6 +375,7 @@ pub fn run() {
             sqlite_table_indexes,
             sqlite_table_foreign_keys,
             sqlite_table_rows,
+            sqlite_database_facts,
             sqlite_execute_query,
             sqlite_execute_write,
             sqlite_export_bytes,

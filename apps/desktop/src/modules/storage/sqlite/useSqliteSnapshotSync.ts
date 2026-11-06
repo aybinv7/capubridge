@@ -1,4 +1,4 @@
-import { onScopeDispose, watch, type Ref } from "vue";
+import { computed, onScopeDispose, ref, watch, type Ref } from "vue";
 import { useDocumentVisibility } from "@vueuse/core";
 import { useJeepSqlite, useOPFS } from "@/composables/useStorage";
 import { useOpfsSnapshotCache } from "@/modules/storage/opfsSnapshotCache";
@@ -224,6 +224,15 @@ export function useSqliteSnapshotSync(subject: SqliteSyncSubject) {
     takeBaseline(db.path, await exportBytes(address));
   }
 
+  /** When the source was last checked, and when a check last found a change (ms). */
+  const checkedAt = ref<number | null>(null);
+  const changedAt = ref<number | null>(null);
+  /** A copy the 5 s check keeps current; an opened file is only read again when asked. */
+  const watched = computed(() => {
+    const db = subject.db.value;
+    return db !== null && kindOf(db) !== "imported";
+  });
+
   let inFlight: Promise<boolean> | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
@@ -235,7 +244,11 @@ export function useSqliteSnapshotSync(subject: SqliteSyncSubject) {
     inFlight = run;
     try {
       const changed = await run;
-      if (changed) subject.onChanged();
+      checkedAt.value = Date.now();
+      if (changed) {
+        changedAt.value = checkedAt.value;
+        subject.onChanged();
+      }
       return changed;
     } finally {
       inFlight = null;
@@ -272,6 +285,8 @@ export function useSqliteSnapshotSync(subject: SqliteSyncSubject) {
     () => {
       statSignatures.clear();
       jeepSignatures.clear();
+      checkedAt.value = null;
+      changedAt.value = null;
       schedule();
     },
     { immediate: true },
@@ -282,5 +297,5 @@ export function useSqliteSnapshotSync(subject: SqliteSyncSubject) {
     if (timer !== null) clearTimeout(timer);
   });
 
-  return { refresh, prime };
+  return { refresh, prime, checkedAt, changedAt, watched };
 }

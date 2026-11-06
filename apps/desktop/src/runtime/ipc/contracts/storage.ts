@@ -1,5 +1,6 @@
 import type {
   SqliteColumnInfo,
+  SqliteDatabaseFacts,
   SqliteDbFile,
   SqliteForeignKeyInfo,
   SqliteIndexInfo,
@@ -106,6 +107,7 @@ export interface StorageCommandMap {
     },
     SqliteQueryResult
   >;
+  sqlite_database_facts: IpcCommand<SqliteDatabaseArgs, SqliteDatabaseFacts>;
   sqlite_execute_query: IpcCommand<
     SqliteDatabaseArgs & { sql: string; fullValues?: boolean; maxRows?: number },
     SqliteQueryResult

@@ -839,6 +839,41 @@ are relative to `modules/storage/sqlite/`.
       it); `Ctrl+Tab` most-recently-used switcher; `F6` focus regions; "Show in the sidebar" in the tab
       menu (the sidebar selection already follows the active tab)
 
+### Step 6 — the overview as a health page, and honest freshness
+
+- [x] Overview name, size, package, tiles, "Most rows", "Tables and views" with CREATE SQL, Read again,
+      states → name in the sidebar and the tab strip; size, pages, free pages ("VACUUM would give back
+      …", wording only), journal mode and the WAL beside the copy, `user_version` as "schema v n", the
+      encoding and the source chip (its tooltip says where the file lives) as small wells
+      (`overview/SqliteOverviewFacts.vue`); "Most rows" and the table list are one sortable `DataGrid`
+      in a well, largest on disk first (rows, size from `dbstat` with the table's indexes, share of the
+      file, indexes, "no key", detected sync columns, changes while watched;
+      `overview/SqliteOverviewTables.vue`, `overview/sqliteOverviewRows.ts`), segments All · Changed ·
+      Sync · No key · Empty and a filter; Enter or a double-click opens the table (kept tab). CREATE SQL
+      lives in Structure (the table's tab, Structure). Read again at the strip's end. The three states keep
+      their words (tested). The share is a percentage, not a bar (the grid shows values); single-click
+      preview from the grid is not offered (a click selects, as in every Data grid)
+- [x] New: one read for all of it, `sqlite_database_facts` (Rust `commands/sqlite_facts.rs`: pragmas,
+      `-wal` size, `dbstat` bytes per table plus its indexes, columns, key, WITHOUT ROWID, index count,
+      foreign keys and whether an index starts with them; `null` sizes when `dbstat` refuses; Rust tests:
+      the facts, sizes adding up to the file, a WAL reported), under the database's query root so Read
+      again reads it again (`overview/useSqliteFacts.ts`); it also gives the Diagram (review P4) a
+      one-call schema source for later
+- [x] New: "Changed while watched", newest first, from the change index the 5 s check keeps (no read of
+      its own), each opening its table (`overview/SqliteOverviewChanges.vue`); "Schema checks": tables
+      with no primary key, links with no index, empty tables, no foreign key declared (links only
+      inferred, see the Diagram), more than 20 % free pages, each with "Show" narrowing the grid (a chip
+      says so), and on demand "Check the file" (`PRAGMA quick_check`) and "Check the links" (`PRAGMA
+  foreign_key_check`, first 100) (`overview/sqliteHealth.ts`, tested); "Sync columns (detected)"
+      (`overview/sqliteSyncColumns.ts`: `write_date`, `create_date`, `*_at`, `modified*`, `_ruid`,
+      `*sync*`, `dirty`; `active`, `deleted`, `last_*` only beside one of those, tested). Not done: a
+      cancel for the two deep checks (an IPC read cannot be stopped), "Choose…" to correct the sync
+      columns, "Mark now" (innovation I1)
+- [x] Freshness honesty (S1): a watched copy reads "checked 3 s ago" with the live dot and "Last change
+      7 min ago" on hover, instead of "local copy · read 7 min ago" (`useSqliteSnapshotSync` now keeps
+      `checkedAt`, `changedAt`, `watched`; `frame/DataFreshness.vue` `checkedAt`); a stale or opened file
+      keeps its own provenance
+
 ### Pending live checks (SQLite redesign)
 
 Not checked: the owner's app was not driven (screenshots only), and no data was written on a phone.
@@ -865,3 +900,7 @@ Not checked: the owner's app was not driven (screenshots only), and no data was 
       Ctrl+W, Ctrl+Shift+T, Ctrl+PageDown/PageUp and Ctrl+T reach the page in WebView2 (Ctrl+W and Ctrl+T
       are browser accelerators in Edge; fall back to Ctrl+F4 if not); Back after three tables; restart the
       app and reopen the database on its tabs; 15 tabs (overflow list, the cap); dark and light
+- [ ] Overview of Presalio's 121 tables: `dbstat` sizes on the SAH-Pool copy (and its speed on a large
+      copy), journal mode and WAL shown as the file says, schema version, sync columns detected (check
+      `write_date` / `_ruid` with a read-only look at `pragma_foreign_key_list`), the two deep checks;
+      "checked 3 s ago" ticking while watched, "stale" when the app is in the background

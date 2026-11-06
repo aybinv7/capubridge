@@ -152,6 +152,7 @@ export const IPC_COMMAND_NAMES = [
   "sqlite_table_indexes",
   "sqlite_table_foreign_keys",
   "sqlite_table_rows",
+  "sqlite_database_facts",
   "sqlite_execute_query",
   "sqlite_execute_write",
   "sqlite_export_bytes",
