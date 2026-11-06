@@ -178,7 +178,7 @@ Each device session runs at one of three temperatures:
 
 ## Status
 
-**v2.7.0** — active beta. Core session model, ADB management, CDP inspection, storage explorer, framework DevTools (Vue and React), logcat, performance monitor, screen mirror, recording, replay, in-app updates (stable/pre-release channels), and an embedded MCP server for AI-assisted device control are functional. Experimental surfaces remain hidden until their complete workflows are ready.
+**v3.0.0** — active beta. A rewritten interface on the Cladd design system: one context bar, a global live timeline, a console drawer with streamed logcat, a Data workbench (IndexedDB, Key-value, Cache storage, OPFS, SQLite with tabs and a Diagram view), Network in real columns with mocking, debuggable native apps without a WebView, screen mirror, recording, replay, in-app updates and an embedded MCP server. Experimental surfaces, such as Flows, stay hidden until their workflows are ready.
 
 ---
 
