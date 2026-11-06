@@ -12,7 +12,12 @@ import KvTextEditor from "./KvTextEditor.vue";
  * The value editor: Text saves exactly what is typed; JSON checks it first and can indent it
  * on request ("Format JSON"), never on its own.
  */
-const props = defineProps<{ kind: KvSourceKind; keyLabel: string }>();
+const props = defineProps<{
+  kind: KvSourceKind;
+  keyLabel: string;
+  /** What Save does with the value's line breaks, when that needs saying. */
+  lineNote?: string | null;
+}>();
 
 const mode = defineModel<KvEditorMode>("mode", { required: true });
 const draft = defineModel<string>("draft", { required: true });
@@ -23,7 +28,6 @@ const text = ref<InstanceType<typeof KvTextEditor> | null>(null);
 const settled = refDebounced(draft, 200);
 const formatted = computed(() => (mode.value === "json" ? formatJson(settled.value) : null));
 const canFormat = computed(() => formatted.value !== null && formatted.value !== settled.value);
-const hasCarriageReturns = computed(() => props.kind !== "forage" && draft.value.includes("\r"));
 
 function setMode(next: KvEditorMode) {
   if (next === mode.value) return;
@@ -66,9 +70,7 @@ defineExpose({
         Format JSON
       </Button>
     </div>
-    <p v-if="hasCarriageReturns" class="shrink-0 text-2xs text-muted-foreground">
-      This value has Windows line breaks; lines you edit are saved with plain line breaks.
-    </p>
+    <p v-if="lineNote" class="shrink-0 text-2xs text-muted-foreground">{{ lineNote }}</p>
     <div class="min-h-0 flex-1">
       <JsonEditor v-if="mode === 'json'" ref="json" v-model:value="draft" />
       <KvTextEditor v-else ref="text" v-model="draft" :label="`Value of ${keyLabel}`" />

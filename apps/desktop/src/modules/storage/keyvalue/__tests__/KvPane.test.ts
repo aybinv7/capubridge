@@ -113,4 +113,29 @@ describe("the key-value pane", () => {
       ?.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true }));
     expect(view.saves).toEqual([{ key: "prefs", value: "  two  spaces ", mode: "text" }]);
   });
+
+  test("Windows line breaks survive an edit of another line (S7)", async () => {
+    const view = await mount("line one\r\nline two");
+    await view.pane()?.edit("value");
+    await nextTick();
+    const textarea = view.root.querySelector("textarea");
+    if (!textarea) throw new Error("no editor");
+    typeInto(textarea, "line one\nline 2");
+    await nextTick();
+    view.root
+      .querySelector("section")
+      ?.dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true }));
+    expect(view.saves).toEqual([{ key: "prefs", value: "line one\r\nline 2", mode: "text" }]);
+  });
+
+  test("opening a value with Windows line breaks does not mark it changed (S7)", async () => {
+    const view = await mount("a\r\nb");
+    await view.pane()?.edit("value");
+    await nextTick();
+    const textarea = view.root.querySelector("textarea");
+    if (!textarea) throw new Error("no editor");
+    typeInto(textarea, "a\nb");
+    await nextTick();
+    expect(view.dirty.at(-1)).toBe(false);
+  });
 });

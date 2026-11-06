@@ -6,7 +6,16 @@ import { Button, Input, Segmented, SegmentedButton } from "@capubridge/cladd";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { formatBytes } from "@/shared/format/numbers";
-import { draftProblem, initialDraft, initialMode, keyProblem, type KvEditorMode } from "./kvEdit";
+import {
+  draftProblem,
+  initialDraft,
+  initialMode,
+  keyProblem,
+  lineBreakNote,
+  originalText,
+  restoreLineBreaks,
+  type KvEditorMode,
+} from "./kvEdit";
 import type { KvEntry, KvSourceKind } from "./kvModel";
 import KvValueEditor from "./KvValueEditor.vue";
 import KvValueRead from "./KvValueRead.vue";
@@ -48,6 +57,8 @@ const editor = ref<InstanceType<typeof KvValueEditor> | null>(null);
 
 const baseMode = computed(() => initialMode(props.kind, props.entry));
 const baseDraft = computed(() => initialDraft(props.kind, props.entry, baseMode.value));
+const original = computed(() => originalText(props.kind, props.entry, baseMode.value));
+const lineNote = computed(() => lineBreakNote(original.value));
 const baseKey = computed(() => props.entry?.key ?? "");
 
 const mode = ref<KvEditorMode>(baseMode.value);
@@ -105,7 +116,11 @@ function save() {
     view.value = "edit";
     return;
   }
-  emit("save", { key: keyDraft.value, value: draft.value, mode: mode.value });
+  emit("save", {
+    key: keyDraft.value,
+    value: restoreLineBreaks(original.value, draft.value),
+    mode: mode.value,
+  });
 }
 
 function focusKey() {
@@ -238,6 +253,7 @@ defineExpose({ discard, edit });
         v-model:draft="draft"
         :kind="kind"
         :key-label="keyDraft || 'the new key'"
+        :line-note="lineNote"
       />
     </div>
 
