@@ -2,6 +2,7 @@ import type { Component } from "vue";
 import {
   Cable,
   Cpu,
+  Database,
   Monitor,
   Plug,
   RefreshCw,
@@ -29,6 +30,7 @@ export const GATE_ACTIONS: Record<GateActionId, GateActionMeta> = {
   "start-adb": { label: "Start ADB", icon: Plug },
   "rescan-devices": { label: "Rescan devices", icon: RefreshCw },
   "scan-targets": { label: "Scan targets", icon: ScanSearch },
+  "open-sqlite": { label: "Open Data › SQLite", icon: Database },
   connect: { label: "Attach", icon: Plug },
   reconnect: { label: "Reconnect", icon: RotateCw },
   "bring-to-front": { label: "Bring app to front", icon: SquareArrowUpRight },

@@ -117,6 +117,13 @@ export function gateCopy(
         "neutral",
         ["choose-target"],
       );
+    case "needs-webview":
+      return copy(
+        `${targetName(input)} has no WebView`,
+        "This screen reads a WebView. For this app use Data › SQLite, App, Logs, the screen and Device.",
+        "neutral",
+        ["open-sqlite", "scan-targets"],
+      );
     case "idle":
       return copy(
         `Not attached to ${targetName(input)}`,

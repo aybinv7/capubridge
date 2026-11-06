@@ -35,6 +35,8 @@ export interface GateInput {
     source: GateTargetSource;
     title: string;
     packageName?: string;
+    /** An app picked without a WebView: read over ADB, never attached to DevTools. */
+    native?: boolean;
   } | null;
   link: GateLinkStatus;
   linkError: string | null;
@@ -50,6 +52,7 @@ export type GateKind =
   | "needs-device"
   | "no-target"
   | "needs-app-target"
+  | "needs-webview"
   | "idle"
   | "connecting"
   | "gone"
@@ -75,6 +78,7 @@ export type GateActionId =
   | "start-adb"
   | "rescan-devices"
   | "scan-targets"
+  | "open-sqlite"
   | "connect"
   | "reconnect"
   | "bring-to-front";

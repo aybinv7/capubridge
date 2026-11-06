@@ -65,3 +65,21 @@ export function buildAppTargets(input: AppTargetsInput): CDPTarget[] {
     .filter((name) => !withWebView.has(name) || name === input.keepPackage)
     .map((name) => createAppTarget(input.serial, name, input.labels[name] ?? null));
 }
+
+/** The first live WebView page of `packageName` on `serial`, or null while it has none. */
+export function webviewPageOf(
+  targets: readonly CDPTarget[],
+  serial: string,
+  packageName: string,
+): CDPTarget | null {
+  return (
+    targets.find(
+      (target) =>
+        target.type === "page" &&
+        target.source === "adb" &&
+        target.deviceSerial === serial &&
+        target.packageName?.split(":")[0] === packageName &&
+        hasDevToolsEndpoint(target),
+    ) ?? null
+  );
+}

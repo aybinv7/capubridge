@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import { useUIStore } from "@/stores/ui.store";
 import { useDevicesStore } from "@/stores/devices.store";
@@ -7,11 +8,13 @@ import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
 import { useAdb } from "@/composables/useAdb";
+import { isNativeAppTarget, webviewPageOf } from "@/lib/app-target";
 import type { GateActionId } from "@/lib/gates/types";
 
 /** Runs the next step a gate offers. One action at a time; failures surface as toasts. */
 export function useGateActions() {
   const ui = useUIStore();
+  const router = useRouter();
   const devicesStore = useDevicesStore();
   const targetsStore = useTargetsStore();
   const presenceStore = useTargetPresenceStore();
@@ -29,6 +32,21 @@ export function useGateActions() {
     await targetsStore.fetchTargetsForSource({ type: "adb", serial });
     presenceStore.probeNow();
     if (targetsStore.error) throw new Error(targetsStore.error);
+    const selected = context.target;
+    if (selected && isNativeAppTarget(selected) && selected.packageName) {
+      await switchToWebView(serial, selected.title, selected.packageName);
+    }
+  }
+
+  async function switchToWebView(serial: string, title: string, packageName: string) {
+    const page = webviewPageOf(targetsStore.targets, serial, packageName);
+    if (page) {
+      await activateTarget(page);
+      return;
+    }
+    toast.info(`${title} still has no WebView`, {
+      description: "Open a screen of the app that shows web content, then scan again.",
+    });
   }
 
   async function attach() {
@@ -57,6 +75,9 @@ export function useGateActions() {
     "start-adb": () => devicesStore.refreshDevices(),
     "rescan-devices": () => devicesStore.refreshDevices(),
     "scan-targets": scanTargets,
+    "open-sqlite": async () => {
+      await router.push({ name: "storage-sqlite" });
+    },
     connect: attach,
     reconnect: attach,
     "bring-to-front": bringToFront,

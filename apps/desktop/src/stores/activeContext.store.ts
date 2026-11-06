@@ -9,6 +9,7 @@ import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { deriveLinkHealth, presentLink } from "@/lib/gates/link";
 import type { GateInput, GateLinkStatus } from "@/lib/gates/types";
 import type { CDPConnection } from "@/types/cdp.types";
+import { isNativeAppTarget } from "@/lib/app-target";
 
 export type ActiveContextKind = "none" | "device" | "adb-target" | "local" | "chrome";
 export type ActiveTargetStatus = "none" | "idle" | CDPConnection["status"];
@@ -60,7 +61,12 @@ export const useActiveContextStore = defineStore("active-context", () => {
 
   const link = computed(() =>
     presentLink(
-      deriveLinkHealth(target.value?.source ?? null, linkStatus.value, presenceStore.presence),
+      deriveLinkHealth(
+        target.value?.source ?? null,
+        linkStatus.value,
+        presenceStore.presence,
+        isNativeAppTarget(target.value),
+      ),
     ),
   );
 
@@ -86,6 +92,7 @@ export const useActiveContextStore = defineStore("active-context", () => {
             source: selected.source,
             title: selected.title?.trim() || selected.url,
             packageName: selected.packageName,
+            native: isNativeAppTarget(selected),
           }
         : null,
       link: linkStatus.value,

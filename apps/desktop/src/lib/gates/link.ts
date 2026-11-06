@@ -4,6 +4,7 @@ import type { GateLinkStatus, GateTargetSource } from "@/lib/gates/types";
 /** The one answer to "is the selected target live?", shared by every surface. */
 export type LinkHealth =
   | "none"
+  | "native"
   | "idle"
   | "attaching"
   | "live"
@@ -26,8 +27,10 @@ export function deriveLinkHealth(
   source: GateTargetSource | null,
   status: GateLinkStatus,
   presence: AppPresence,
+  native = false,
 ): LinkHealth {
   if (!source) return "none";
+  if (native) return "native";
   if (source === "adb" && presence === "gone") return "gone";
   switch (status) {
     case "none":
@@ -49,6 +52,11 @@ export function deriveLinkHealth(
 
 const PRESENTATION: Record<LinkHealth, Omit<LinkPresentation, "health">> = {
   none: { label: "no target", tone: "muted", description: "No target selected" },
+  native: {
+    label: "native",
+    tone: "muted",
+    description: "App picked without a WebView, read over ADB",
+  },
   idle: { label: "not attached", tone: "muted", description: "Selected, no DevTools session yet" },
   attaching: { label: "attaching", tone: "waiting", description: "Opening a DevTools session" },
   live: { label: "live", tone: "live", description: "DevTools session open, app on screen" },

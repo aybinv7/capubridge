@@ -87,6 +87,10 @@ export function resolveGate(requirement: GateRequirement, input: GateInput): Gat
     return block ? blocked(block) : { kind: "open", notice: noticeFor(input) };
   }
 
+  if (target.native) {
+    return blocked(deviceBlock(input) ?? "needs-webview");
+  }
+
   if (target.source === "adb") {
     const block = deviceBlock(input);
     if (block) return blocked(block);

@@ -138,6 +138,52 @@ describe("resolveGate", () => {
   });
 });
 
+describe("native app targets", () => {
+  const appTarget = { ...adbTarget, id: "app:phone-a:com.shop", native: true };
+
+  function picked(overrides: Partial<GateInput> = {}): GateInput {
+    return live({ target: appTarget, link: "none", presence: "unknown", ...overrides });
+  }
+
+  test("app and data screens open without a DevTools link", () => {
+    expect(resolveGate("app-target", picked())).toEqual({ kind: "open", notice: null });
+    expect(resolveGate("data", picked())).toEqual({ kind: "open", notice: null });
+    expect(resolveGate("device", picked()).kind).toBe("open");
+  });
+
+  test("WebView screens say the app has none instead of waiting to attach", () => {
+    expect(resolveGate("target", picked()).kind).toBe("needs-webview");
+    expect(resolveGate("target", picked({ link: "error" })).kind).toBe("needs-webview");
+  });
+
+  test("a broken device still wins over the missing WebView", () => {
+    const offline = picked({ device: { ...onlineDevice, status: "offline" } });
+    expect(resolveGate("target", offline).kind).toBe("device-offline");
+  });
+
+  test("the chain shows the app and breaks at DevTools", () => {
+    const chain = buildChain("target", picked());
+    expect(chain.map((link) => [link.key, link.label, link.value, link.state])).toEqual([
+      ["adb", "ADB", "running", "ok"],
+      ["host", "Device", "Pixel 8", "ok"],
+      ["target", "App", "com.shop", "ok"],
+      ["link", "DevTools", "no WebView", "broken"],
+    ]);
+  });
+
+  test("the gate names the app and offers SQLite and a rescan", () => {
+    const content = gateCopy("needs-webview", picked(), "target");
+    expect(content.title).toBe("Shop has no WebView");
+    expect(content.detail).toContain("Data › SQLite");
+    expect(content.actions).toEqual(["open-sqlite", "scan-targets"]);
+  });
+
+  test("the link reads native, never not attached", () => {
+    expect(deriveLinkHealth("adb", "none", "unknown", true)).toBe("native");
+    expect(presentLink("native")).toMatchObject({ label: "native", tone: "muted" });
+  });
+});
+
 describe("buildChain", () => {
   test("marks the first break and quiets what follows", () => {
     const chain = buildChain("target", input({ device: onlineDevice }));
@@ -180,6 +226,7 @@ describe("gate copy", () => {
       "needs-device",
       "no-target",
       "needs-app-target",
+      "needs-webview",
       "idle",
       "gone",
       "disconnected",

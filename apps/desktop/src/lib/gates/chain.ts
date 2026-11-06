@@ -39,13 +39,19 @@ function targetLink(input: GateInput, requirement: GateRequirement): ChainLink {
   if (target.source === "adb" && input.presence === "gone") {
     return { key: "target", label: "Target", value: `${target.title} · gone`, state: "broken" };
   }
-  const app = requirement === "app-target" || (requirement === "data" && isAppTarget(input));
+  const app =
+    requirement === "app-target" ||
+    (requirement === "data" && isAppTarget(input)) ||
+    Boolean(target.native);
   const label = app ? "App" : "Target";
   const value = app ? (target.packageName ?? target.title) : target.title;
   return { key: "target", label, value, state: "ok" };
 }
 
 function devtoolsLink(input: GateInput): ChainLink {
+  if (input.target?.native) {
+    return { key: "link", label: "DevTools", value: "no WebView", state: "broken" };
+  }
   switch (input.link) {
     case "connected":
       return { key: "link", label: "DevTools", value: "live", state: "ok" };

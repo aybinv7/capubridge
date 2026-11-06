@@ -5,6 +5,7 @@ import {
   createAppTarget,
   hasDevToolsEndpoint,
   isNativeAppTarget,
+  webviewPageOf,
 } from "@/lib/app-target";
 import type { CDPTarget } from "@/types/cdp.types";
 
@@ -91,5 +92,17 @@ describe("buildAppTargets", () => {
       "com.native.app",
       "com.hybrid.app",
     ]);
+  });
+});
+
+describe("webviewPageOf", () => {
+  test("finds the app's live page on the same device", () => {
+    const page = webview("com.hybrid.app");
+    const worker = { ...webview("com.hybrid.app"), id: "w", type: "worker" as const };
+    expect(webviewPageOf([worker, page], "S1", "com.hybrid.app")).toBe(page);
+    expect(webviewPageOf([page], "S2", "com.hybrid.app")).toBeNull();
+    expect(webviewPageOf([createAppTarget("S1", "com.hybrid.app")], "S1", "com.hybrid.app")).toBe(
+      null,
+    );
   });
 });
