@@ -32,6 +32,8 @@ export function useDeviceManager(options: DeviceManagerOptions) {
 
   const activePanel = ref<DeviceManagerPanel>("device");
   const viewedSerial = ref<string | null>(null);
+  /** Moves each time the manager opens, so views can refresh what they show. */
+  const openings = ref(0);
   const deviceInfo = reactive<Record<string, DeviceOverview>>({});
   const loadingInfoFor = ref<string | null>(null);
   const isRefreshingDevices = ref(false);
@@ -126,6 +128,7 @@ export function useDeviceManager(options: DeviceManagerOptions) {
 
   /** Opens where the work is: the page on This PC, or the device the selected target runs on. */
   function onOpen() {
+    openings.value += 1;
     void localWebviewStore.hideAll();
     const target = targetsStore.selectedTarget;
     const current = devicesStore.selectedDevice;
@@ -196,6 +199,7 @@ export function useDeviceManager(options: DeviceManagerOptions) {
 
   return {
     activePanel,
+    openings,
     viewedSerial,
     viewedDevice,
     viewedDeviceInfo,

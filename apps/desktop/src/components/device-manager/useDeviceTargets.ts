@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import { useConnectionStore } from "@/stores/connection.store";
@@ -60,6 +60,23 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
       scanning.value = false;
     }
   }
+
+  /**
+   * Every time the manager opens on a device, and whenever another device is viewed, its
+   * WebViews are scanned again: the list must never show yesterday's WebViews, or only the
+   * debuggable apps, while a WebView is open on the phone.
+   */
+  watch(
+    () => {
+      const device = manager.viewedDevice.value;
+      const ready = device && device.status === "online" && !device.isStale;
+      return [ready ? device.serial : null, manager.openings.value] as const;
+    },
+    ([serial]) => {
+      if (serial) void refreshTargets();
+    },
+    { immediate: true },
+  );
 
   async function selectTarget(target: CDPTarget) {
     try {
