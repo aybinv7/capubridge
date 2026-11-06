@@ -55,6 +55,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   sort: [];
+  /** Ctrl+click picks the column, Shift+click extends the pick to it. */
+  select: [extend: boolean];
   action: [action: GridColumnMenuAction];
   resizeStart: [event: PointerEvent];
   autosize: [];
@@ -109,6 +111,14 @@ const style = computed(() => {
   if (props.stick) value[props.stick.side] = `${props.stick.offset}px`;
   return value;
 });
+
+function onHeaderClick(event: MouseEvent) {
+  if (event.ctrlKey || event.metaKey || event.shiftKey) {
+    emit("select", event.shiftKey);
+    return;
+  }
+  if (props.sortable) emit("sort");
+}
 </script>
 
 <template>
@@ -129,7 +139,7 @@ const style = computed(() => {
       tabindex="-1"
       class="flex h-full min-w-0 flex-1 items-center gap-1.5 pl-2 text-left text-cladd-2xs font-semibold tracking-wide text-cladd-fg-soft uppercase transition-colors duration-200"
       :class="sortable ? 'cursor-pointer hover:text-cladd-fg' : 'cursor-default'"
-      @click="sortable && emit('sort')"
+      @click="onHeaderClick"
     >
       <component
         v-if="column.primaryKey || column.glyph !== false"

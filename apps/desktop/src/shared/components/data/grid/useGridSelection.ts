@@ -61,6 +61,21 @@ export function useGridSelection(options: GridSelectionOptions) {
     set(selectRows(selection.value, rowIds.value, index, mode));
   }
 
+  /**
+   * Whole columns as the range: `col` alone, or from the anchor's column to `col` when
+   * `extend` (Shift+click on headers). The view does not jump to the last row.
+   */
+  function selectColumns(col: number, extend: boolean) {
+    const last = bounds.value.rows - 1;
+    if (last < 0) return;
+    const from = extend && selection.value.anchor ? selection.value.anchor.col : col;
+    selection.value = {
+      focus: { row: last, col },
+      anchor: { row: 0, col: from },
+      rows: new Set(),
+    };
+  }
+
   function selectAll() {
     if (bounds.value.rows === 0) return;
     selection.value = {
@@ -140,6 +155,7 @@ export function useGridSelection(options: GridSelectionOptions) {
     range,
     focusedRowId,
     focusAt,
+    selectColumns,
     move,
     pickRow,
     selectAll,

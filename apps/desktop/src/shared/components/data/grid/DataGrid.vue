@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, useId, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import {
   getCoreRowModel,
@@ -227,7 +227,52 @@ function onPointerDown(event: PointerEvent) {
     return;
   }
   const cell = cellFromEvent(event);
-  if (cell) grid.focusAt(cell.row, cell.col, event.shiftKey);
+  if (!cell) return;
+  grid.focusAt(cell.row, cell.col, event.shiftKey);
+  startDrag(cell);
+}
+
+let dragLast: { row: number; col: number } | null = null;
+
+function cellAtPoint(x: number, y: number): { row: number; col: number } | null {
+  const element = document.elementFromPoint(x, y);
+  const target = element?.closest("[data-col]");
+  if (!target || !scroller.value?.contains(target)) return null;
+  const row = Number(target.getAttribute("data-row"));
+  const col = Number(target.getAttribute("data-col"));
+  return Number.isInteger(row) && Number.isInteger(col) ? { row, col } : null;
+}
+
+function onDragMove(event: PointerEvent) {
+  const cell = cellAtPoint(event.clientX, event.clientY);
+  if (!cell || (dragLast && dragLast.row === cell.row && dragLast.col === cell.col)) return;
+  dragLast = cell;
+  grid.focusAt(cell.row, cell.col, true);
+}
+
+function stopDrag() {
+  dragLast = null;
+  window.removeEventListener("pointermove", onDragMove);
+  window.removeEventListener("pointerup", stopDrag);
+  window.removeEventListener("pointercancel", stopDrag);
+}
+
+/** Dragging across cells extends the selection, so a block of rows and columns is one gesture. */
+function startDrag(cell: { row: number; col: number }) {
+  stopDrag();
+  dragLast = cell;
+  window.addEventListener("pointermove", onDragMove);
+  window.addEventListener("pointerup", stopDrag);
+  window.addEventListener("pointercancel", stopDrag);
+}
+
+onBeforeUnmount(stopDrag);
+
+function selectColumn(columnId: string, extend: boolean) {
+  const col = orderedColumns.value.findIndex((column) => column.id === columnId);
+  if (col < 0) return;
+  scroller.value?.focus({ preventScroll: true });
+  grid.selectColumns(col, extend);
 }
 
 function requestEdit(row: number, col: number) {
@@ -468,6 +513,7 @@ defineExpose({
                 :pinned="layout.pins.value[entry.column.id] ?? null"
                 :show-as="showAs?.[entry.column.id] ?? null"
                 @sort="toggleSort(entry.column.id)"
+                @select="selectColumn(entry.column.id, $event)"
                 @action="onColumnAction(entry.column.id, $event)"
                 @resize-start="layout.startResize(entry.column.id, $event)"
                 @autosize="layout.autosize(entry.column.id)"
