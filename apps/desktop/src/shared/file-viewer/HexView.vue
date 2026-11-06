@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { AppWindow, Binary, Download, ExternalLink } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
-import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
-import { hexRows } from "./hexDump";
+import HexDump from "./HexDump.vue";
 import { formatBudget, truncationNote, type Truncation } from "./readPlan";
 import { primaryFileAction, type ViewerActions } from "./viewerActions";
 import { noPreviewTitle } from "./viewerCopy";
 import { extensionOf } from "./viewerKinds";
-
-const ROW_HEIGHT = 20;
 
 const props = defineProps<{
   name: string;
@@ -20,13 +17,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ openOnComputer: []; chooseApp: []; download: [] }>();
-
-const scroller = ref<HTMLElement | null>(null);
-const rows = computed(() => hexRows(props.head));
-const { items, topSpacerHeight, bottomSpacerHeight } = useFixedVirtualList(rows, scroller, {
-  itemHeight: ROW_HEIGHT,
-  overscan: 8,
-});
 
 const heading = computed(() => props.title ?? noPreviewTitle(props.name, extensionOf(props.name)));
 const shown = computed(() => {
@@ -100,36 +90,6 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         </Button>
       </div>
     </section>
-    <div
-      v-if="rows.length > 0"
-      ref="scroller"
-      class="min-h-0 flex-1 overflow-auto px-5 py-3 font-mono text-xs leading-5"
-      role="table"
-      aria-label="First bytes of the file"
-    >
-      <div
-        class="flex gap-6 pb-1 text-2xs text-[var(--fg-subtle)] uppercase select-none"
-        role="row"
-      >
-        <span class="w-[8ch] shrink-0" role="columnheader">Offset</span>
-        <span class="w-[48ch] shrink-0" role="columnheader">Bytes</span>
-        <span role="columnheader">Text</span>
-      </div>
-      <div :style="{ height: `${topSpacerHeight}px` }" aria-hidden="true" />
-      <div
-        v-for="item in items"
-        :key="item.index"
-        class="flex gap-6 whitespace-pre"
-        role="row"
-        :style="{ height: `${ROW_HEIGHT}px` }"
-      >
-        <span class="w-[8ch] shrink-0 text-[var(--fg-subtle)] select-none" role="cell">{{
-          item.data.offset
-        }}</span>
-        <span class="w-[48ch] shrink-0 text-foreground" role="cell">{{ item.data.hex }}</span>
-        <span class="text-muted-foreground" role="cell">{{ item.data.ascii }}</span>
-      </div>
-      <div :style="{ height: `${bottomSpacerHeight}px` }" aria-hidden="true" />
-    </div>
+    <HexDump :bytes="props.head" label="First bytes of the file" />
   </div>
 </template>
