@@ -1,4 +1,6 @@
-use crate::commands::sqlite::{hex_of, is_local, obtain_local_path, open_db, quote_ident};
+use crate::commands::sqlite::{hex_of, obtain_local_path, open_db, quote_ident};
+use crate::commands::sqlite_opened::opened_file_path;
+use rusqlite::limits::Limit;
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags};
 use std::fs::File;
@@ -181,6 +183,8 @@ pub(crate) fn replace_with_dump(target: &Path, dump: &str) -> Result<(), String>
             OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .map_err(|e| e.to_string())?;
+        conn.set_limit(Limit::SQLITE_LIMIT_ATTACHED, 0)
+            .map_err(|e| e.to_string())?;
         drop_everything(&conn)?;
         conn.execute_batch(dump)
             .map_err(|e| format!("The dump did not run: {e}"))?;
@@ -228,8 +232,8 @@ pub async fn sqlite_export_dump(
     .map_err(|e| e.to_string())?
 }
 
-/// Replays an SQL dump over a file opened on this computer, all or nothing. Device copies are
-/// refused: they are read-only here.
+/// Replays an SQL dump over the working copy of a file opened on this computer, all or
+/// nothing. Phone and page copies are refused: they are read-only here.
 #[tauri::command]
 pub async fn sqlite_import_dump(
     serial: String,
@@ -237,11 +241,8 @@ pub async fn sqlite_import_dump(
     db_path: String,
     sql: String,
 ) -> Result<(), String> {
-    if !is_local(&serial) {
-        return Err("Only a file opened on this computer can be replaced".to_string());
-    }
     tokio::task::spawn_blocking(move || {
-        let target = obtain_local_path(&serial, &package, &db_path, false)?;
+        let target = opened_file_path(&serial, &package, &db_path)?;
         replace_with_dump(&target, &sql)
     })
     .await
@@ -345,6 +346,23 @@ mod tests {
             .unwrap();
         replace_with_dump(&path, &dump).unwrap();
         assert_eq!(rows(&path).len(), 2);
+    }
+
+    #[test]
+    fn a_dump_cannot_write_outside_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path());
+        let before = rows(&path);
+        let outside = dir.path().join("outside.db");
+        let outside_sql = outside.to_string_lossy().replace('\'', "''");
+        for dump in [
+            format!("ATTACH '{outside_sql}' AS other; CREATE TABLE other.t (x);"),
+            format!("VACUUM INTO '{outside_sql}';"),
+        ] {
+            assert!(replace_with_dump(&path, &dump).is_err(), "{dump}");
+            assert!(!outside.exists(), "{dump} created a file");
+        }
+        assert_eq!(rows(&path), before);
     }
 
     #[test]

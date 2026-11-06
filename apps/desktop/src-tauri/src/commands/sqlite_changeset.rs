@@ -1,10 +1,7 @@
-use crate::commands::sqlite::{is_local, obtain_local_path};
+use crate::commands::sqlite_opened::{checkpoint, opened_file_path};
 use rusqlite::fallible_iterator::FallibleIterator;
 use rusqlite::{Batch, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
-
-/// The package name every file opened on this computer is read under.
-const OPENED_FILE_PACKAGE: &str = "file";
 
 /// One staged change: an `UPDATE` of one row, or an `INSERT` of one row.
 #[derive(Debug, Clone, Deserialize)]
@@ -85,17 +82,16 @@ pub async fn sqlite_apply_changeset(
     db_path: String,
     statements: Vec<SqliteChangeStatement>,
 ) -> Result<SqliteChangesetResult, String> {
-    if !is_local(&serial) || package != OPENED_FILE_PACKAGE {
-        return Err("Only a file opened on this computer can be changed here".to_string());
-    }
     tokio::task::spawn_blocking(move || {
-        let path = obtain_local_path(&serial, &package, &db_path, false)?;
+        let path = opened_file_path(&serial, &package, &db_path)?;
         let mut conn = Connection::open_with_flags(
             &path,
             OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .map_err(|e| format!("Failed to open database (rw): {e}"))?;
-        apply_changeset(&mut conn, &statements)
+        let result = apply_changeset(&mut conn, &statements)?;
+        checkpoint(&conn)?;
+        Ok(result)
     })
     .await
     .map_err(|e| e.to_string())?

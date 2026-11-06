@@ -96,7 +96,7 @@ fn cache_key(serial: &str, package: &str, db_path: &str) -> String {
     format!("{serial}::{package}::{db_path}")
 }
 
-fn temp_dir() -> PathBuf {
+pub(crate) fn sqlite_temp_dir() -> PathBuf {
     let dir = std::env::temp_dir().join("capubridge-sqlite");
     let _ = std::fs::create_dir_all(&dir);
     dir
@@ -249,7 +249,7 @@ fn pull_db_to_temp(
         .trim_start_matches('_')
         .to_string();
     let filename = format!("{}_{}_{}", serial, package, safe_name);
-    let local_path = temp_dir().join(filename);
+    let local_path = sqlite_temp_dir().join(filename);
     std::fs::write(&local_path, &bytes).map_err(|e| format!("Failed to write temp DB: {e}"))?;
 
     // Best-effort: pull WAL and SHM
@@ -637,8 +637,8 @@ pub async fn sqlite_table_rows(
                 Ok(vals)
             })
             .map_err(|e| format!("Failed to read rows: {e}"))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("A row could not be read: {e}"))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let row_count = rows.len();
@@ -700,8 +700,8 @@ pub async fn sqlite_execute_query(
                 Ok(vals)
             })
             .map_err(|e| format!("Query failed: {e}"))?
-            .filter_map(|r| r.ok())
-            .collect();
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("A row could not be read: {e}"))?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let row_count = rows.len();
@@ -900,12 +900,24 @@ pub async fn sqlite_save_local_bytes(name: String, base64_data: String) -> Resul
             .map(|d| d.as_secs())
             .unwrap_or(0);
         let filename = format!("opfs-{now}-{id}-{safe}.db");
-        let path = temp_dir().join(filename);
+        let path = sqlite_temp_dir().join(filename);
         std::fs::write(&path, &bytes).map_err(|e| format!("write failed: {e}"))?;
         Ok(path.to_string_lossy().to_string())
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// A page copy may be refreshed only inside Capubridge's own temp folder, and never over a
+/// file opened on this computer, whose working copy holds the person's changes.
+fn refresh_target_allowed(path: &std::path::Path) -> Result<(), String> {
+    let inside = path
+        .parent()
+        .is_some_and(|parent| parent == sqlite_temp_dir().as_path());
+    if !inside || crate::commands::sqlite_opened::is_opened_file(path) {
+        return Err("Only a copy read from a page can be refreshed here".to_string());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -923,10 +935,7 @@ pub async fn sqlite_overwrite_local_bytes(path: String, base64_data: String) -> 
             return Err("Not a valid SQLite database (magic header mismatch)".to_string());
         }
         let p = std::path::PathBuf::from(&path);
-        let parent = p.parent().ok_or_else(|| "Invalid path".to_string())?;
-        if parent != std::path::Path::new("") && !parent.exists() {
-            std::fs::create_dir_all(parent).map_err(|e| format!("create_dir_all failed: {e}"))?;
-        }
+        refresh_target_allowed(&p)?;
         std::fs::write(&p, &bytes).map_err(|e| format!("write failed: {e}"))?;
         Ok(())
     })
@@ -953,10 +962,9 @@ pub async fn sqlite_export_bytes(
     .map_err(|e| e.to_string())?
 }
 
-/// Execute one or more SQL statements against the database with write
-/// permissions. For native android targets this writes to the pulled cache
-/// file only — changes are NOT pushed back to the device. For local sessions
-/// it mutates the live temp file used by the explorer.
+/// Runs a write (clear or drop a table) on the working copy of a file opened on this
+/// computer. A copy pulled from a phone or read from a page is refused: a change there would
+/// never reach the app.
 #[tauri::command]
 pub async fn sqlite_execute_write(
     serial: String,
@@ -965,7 +973,7 @@ pub async fn sqlite_execute_write(
     sql: String,
 ) -> Result<SqliteQueryResult, String> {
     tokio::task::spawn_blocking(move || {
-        let local = obtain_local_path(&serial, &package, &db_path, false)?;
+        let local = crate::commands::sqlite_opened::opened_file_path(&serial, &package, &db_path)?;
         let conn = Connection::open_with_flags(
             &local,
             rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -977,6 +985,7 @@ pub async fn sqlite_execute_write(
             .map_err(|e| format!("SQL error: {e}"))?;
         let duration_ms = start.elapsed().as_millis() as u64;
         let changes = conn.changes();
+        crate::commands::sqlite_opened::checkpoint(&conn)?;
 
         Ok(SqliteQueryResult {
             columns: Vec::new(),
@@ -1009,6 +1018,26 @@ mod tests {
             sqlite_value_to_json(&Sql::Integer(i64::MIN), None),
             serde_json::json!({ "__type": "Number", "value": i64::MIN.to_string() })
         );
+    }
+
+    #[tokio::test]
+    async fn a_row_that_fails_to_read_fails_the_query_instead_of_vanishing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("shop.db");
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("CREATE TABLE item (id INTEGER PRIMARY KEY); INSERT INTO item VALUES (1), (2), (3);")
+            .unwrap();
+        let result = sqlite_execute_query(
+            LOCAL_SERIAL.to_string(),
+            "file".to_string(),
+            path.to_string_lossy().to_string(),
+            "SELECT CASE WHEN id = 2 THEN abs(-9223372036854775808) ELSE id END FROM item ORDER BY id"
+                .to_string(),
+            None,
+        )
+        .await;
+        assert!(result.is_err(), "{result:?}");
     }
 
     #[test]

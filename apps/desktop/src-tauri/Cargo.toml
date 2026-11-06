@@ -43,7 +43,7 @@ futures-util = "0.3"
 base64 = "0.22"
 regex = "1"
 prost = "0.13"
-rusqlite = { version = "0.34", features = ["bundled"] }
+rusqlite = { version = "0.34", features = ["bundled", "limits"] }
 tempfile = "3"
 axum = { version = "0.8", default-features = false, features = [
   "http1",

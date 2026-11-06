@@ -25,6 +25,7 @@ pub mod port_forward;
 pub mod sqlite;
 pub mod sqlite_changeset;
 pub mod sqlite_dump;
+pub mod sqlite_opened;
 pub mod recording;
 pub mod recording_export;
 pub mod recording_db;
