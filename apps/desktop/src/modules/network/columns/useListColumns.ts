@@ -28,7 +28,7 @@ export interface ListColumnsOptions<Id extends string> {
   key: string;
   columns: readonly ListColumn<Id>[];
   /** The header row: its content box is the width every row lays its columns out in. */
-  measure: Ref<HTMLElement | null>;
+  measure: Readonly<Ref<HTMLElement | null>>;
   /** Columns the context hides for now, with the reason the Columns menu gives. */
   blocked?: MaybeRefOrGetter<Partial<Record<Id, string>>>;
 }

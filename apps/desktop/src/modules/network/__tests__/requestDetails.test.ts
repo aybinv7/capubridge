@@ -228,7 +228,7 @@ describe("facts said once", () => {
     expect(headerFacts(entry)).toEqual({
       method: "GET",
       name: "orders?page=2",
-      status: { text: "404 Not Found", tone: "warning" },
+      status: { text: "404 Not Found", tone: "error" },
       address: "https://api.test/v1/orders?page=2",
     });
     expect(headerFacts(networkEntry({ httpStatus: 200, statusText: "" })).status.text).toBe("200");

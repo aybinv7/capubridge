@@ -8,6 +8,8 @@ import { TYPE_FILTERS } from "./requestFilters";
 const props = defineProps<{ summary: string }>();
 
 const store = useNetworkStore();
+
+defineSlots<{ default?: () => unknown }>();
 </script>
 
 <template>
@@ -33,5 +35,6 @@ const store = useNetworkStore();
     <span class="shrink-0 font-mono text-2xs text-[var(--fg-subtle)] tabular-nums">
       {{ props.summary }}
     </span>
+    <slot />
   </div>
 </template>

@@ -1,23 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, useId, watch } from "vue";
-import { getCoreRowModel, useVueTable, type ColumnDef } from "@tanstack/vue-table";
-import SortHeader from "@/shared/components/presentation/SortHeader.vue";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import { scrollTopToReveal } from "@/shared/list/grid";
 import { optionId, rowStateClass } from "@/shared/list/rowState";
 import type { NetworkEntry } from "@/types/network.types";
+import ListHeader from "../columns/ListHeader.vue";
+import TruncateStart from "../columns/TruncateStart.vue";
+import type { ListColumnsLayout } from "../columns/useListColumns";
 import PendingTime from "./PendingTime.vue";
-import RequestNameCell from "./RequestNameCell.vue";
 import RequestWaterfall from "./RequestWaterfall.vue";
 import WaterfallAxis from "./WaterfallAxis.vue";
-import {
-  REQUEST_COLUMNS,
-  REQUEST_ROW_HEIGHT,
-  columnDisplay,
-  type RequestColumn,
-  type RequestColumnId,
-} from "./requestColumns";
-import { rowCells } from "./requestRowCells";
+import { REQUEST_COLUMNS, REQUEST_ROW_HEIGHT, type RequestColumnId } from "./requestColumns";
+import { rowCells, type RowCell, type RowCells } from "./requestRowCells";
 import { nextSort, type RequestSort } from "./requestSort";
 import { waterfallBar, type WaterfallRange } from "./waterfall";
 
@@ -25,8 +19,8 @@ const props = defineProps<{
   entries: readonly NetworkEntry[];
   selectedId: string | null;
   range: WaterfallRange | null;
-  /** Optional columns switched on or off (`columnVisibility`); width rules apply on top. */
-  visibility: Partial<Record<RequestColumnId, boolean>>;
+  /** The column layout, shared with the Columns menu. */
+  layout: ListColumnsLayout<RequestColumnId>;
   /** Changes when the filters change, so the selected row is brought back into view. */
   revealKey: string;
 }>();
@@ -41,29 +35,11 @@ const emit = defineEmits<{
 }>();
 
 const listId = useId();
-const columnDefs: ColumnDef<NetworkEntry>[] = REQUEST_COLUMNS.map((column) => ({
-  id: column.id,
-  header: column.label,
-  meta: column,
-}));
-const table = useVueTable({
-  get data() {
-    return props.entries as NetworkEntry[];
-  },
-  columns: columnDefs,
-  manualSorting: true,
-  state: {
-    get columnVisibility() {
-      return props.visibility;
-    },
-  },
-  getCoreRowModel: getCoreRowModel(),
-});
-const showWaterfall = computed(() => props.visibility.waterfall !== false);
-const columns = computed(() => {
-  void props.visibility;
-  return table.getVisibleLeafColumns().map((column) => column.columnDef.meta as RequestColumn);
-});
+const header = ref<{ root: HTMLElement | null } | null>(null);
+const headerElement = computed(() => header.value?.root ?? null);
+const columns = computed(() => props.layout.shown.value);
+const showWaterfall = computed(() => columns.value.some((column) => column.id === "waterfall"));
+const SORT_KEYS = new Map(REQUEST_COLUMNS.map((column) => [column.id, column.sortKey] as const));
 
 const scroller = ref<HTMLElement | null>(null);
 const source = computed(() => props.entries);
@@ -86,13 +62,20 @@ const rows = computed(() => {
 
 const activeId = computed(() => rows.value.find((row) => row.selected)?.id);
 
-function sortState(column: RequestColumn): "asc" | "desc" | false {
-  if (sort.value?.key !== column.sortKey) return false;
-  return sort.value.desc ? "desc" : "asc";
+function sortState(id: RequestColumnId): "asc" | "desc" | false {
+  const current = sort.value;
+  if (!current || current.key !== SORT_KEYS.get(id)) return false;
+  return current.desc ? "desc" : "asc";
 }
 
-function toggleSort(column: RequestColumn) {
-  sort.value = nextSort(sort.value, column.sortKey);
+function toggleSort(id: RequestColumnId) {
+  const key = SORT_KEYS.get(id);
+  if (key) sort.value = nextSort(sort.value, key);
+}
+
+/** The text cell of a column; the waterfall draws a bar instead. */
+function cellOf(cells: RowCells, id: RequestColumnId): RowCell | null {
+  return id === "waterfall" ? null : cells[id];
 }
 
 function reveal(index: number) {
@@ -184,30 +167,25 @@ watch(
 watch(() => props.revealKey, revealSelected, { flush: "post" });
 onMounted(revealSelected);
 
-defineExpose({ move, focus: () => scroller.value?.focus() });
+defineExpose({ move, focus: () => scroller.value?.focus(), header: headerElement });
 </script>
 
 <template>
-  <div class="@container flex h-full min-h-0 flex-col">
-    <div
-      class="flex h-8 shrink-0 items-center gap-4 overflow-hidden border-b border-border-subtle px-4 [scrollbar-gutter:stable]"
+  <div class="flex h-full min-h-0 flex-col" :style="{ '--list-cols': props.layout.template.value }">
+    <ListHeader
+      ref="header"
+      :columns="columns"
+      :edge-of="props.layout.edgeOf"
+      :sort-of="sortState"
+      :resizing="props.layout.resizing.value"
+      @sort="toggleSort"
+      @resize-start="props.layout.startResize"
+      @reset-width="props.layout.resetWidth"
     >
-      <span
-        v-for="column in columns"
-        :key="column.id"
-        class="relative items-center"
-        :class="[columnDisplay(column), column.className]"
-      >
+      <template #extra="{ column }">
         <WaterfallAxis v-if="column.id === 'waterfall'" :range="props.range" />
-        <SortHeader
-          :label="column.label"
-          :state="sortState(column)"
-          :align="column.align"
-          class="w-full"
-          @toggle="toggleSort(column)"
-        />
-      </span>
-    </div>
+      </template>
+    </ListHeader>
     <div
       ref="scroller"
       class="min-h-0 flex-1 overflow-y-auto py-1 outline-none [scrollbar-gutter:stable] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
@@ -226,7 +204,7 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
         :key="row.entry.requestId"
         role="option"
         :aria-selected="row.selected"
-        class="mx-1.5 flex cursor-default items-center gap-4 rounded-control px-2.5 text-xs leading-4 whitespace-nowrap"
+        class="mx-1.5 grid cursor-default items-center rounded-control px-0.5 text-xs leading-4 whitespace-nowrap [grid-template-columns:var(--list-cols)]"
         :class="rowStateClass(row.selected)"
         :style="{ height: `${REQUEST_ROW_HEIGHT}px` }"
         @click="onClick($event, row.entry)"
@@ -235,24 +213,29 @@ defineExpose({ move, focus: () => scroller.value?.focus() });
         <span
           v-for="column in columns"
           :key="column.id"
-          class="min-w-0 items-center"
-          :class="[columnDisplay(column), column.className]"
+          class="flex min-w-0 items-center px-2"
+          :class="column.align === 'end' && 'justify-end'"
         >
-          <RequestNameCell v-if="column.id === 'name'" :cells="row.cells" />
           <PendingTime
-            v-else-if="column.id === 'time' && row.cells.pendingSince !== null"
+            v-if="column.id === 'time' && row.cells.pendingSince !== null"
             :since="row.cells.pendingSince"
           />
           <template v-else-if="column.id === 'waterfall'">
             <RequestWaterfall v-if="row.bar" :bar="row.bar" :failed="row.failed" />
           </template>
+          <TruncateStart
+            v-else-if="column.id === 'path'"
+            :text="row.cells.path.text"
+            :class="row.cells.path.className"
+            :title="row.cells.path.title"
+          />
           <span
             v-else
             class="truncate"
-            :class="row.cells[column.id].className"
-            :title="row.cells[column.id].title"
+            :class="cellOf(row.cells, column.id)?.className"
+            :title="cellOf(row.cells, column.id)?.title"
           >
-            {{ row.cells[column.id].text }}
+            {{ cellOf(row.cells, column.id)?.text }}
           </span>
         </span>
       </div>

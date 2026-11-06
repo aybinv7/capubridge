@@ -10,8 +10,8 @@ import {
   timeCell,
 } from "../requests/requestCells";
 import { requestName, requestNameParts } from "../requests/requestNames";
-import { rowCells } from "../requests/requestRowCells";
-import { REQUEST_ROW_HEIGHT, columnVisibility } from "../requests/requestColumns";
+import { methodTone, rowCells } from "../requests/requestRowCells";
+import { REQUEST_COLUMNS, REQUEST_ROW_HEIGHT, hiddenByContext } from "../requests/requestColumns";
 import { requestsSummary } from "../requests/requestFilters";
 import { nextSort, sortRequests } from "../requests/requestSort";
 import { waterfallBar, waterfallRange, waterfallTicks } from "../requests/waterfall";
@@ -29,11 +29,12 @@ describe("request cells", () => {
   });
 
   test("status says what happened when there is no code", () => {
-    expect(statusCell(networkEntry({ httpStatus: 204 }))).toEqual({ text: "204", tone: "muted" });
+    expect(statusCell(networkEntry({ httpStatus: 204 }))).toEqual({ text: "204", tone: "subtle" });
+    expect(statusCell(networkEntry({ httpStatus: 301 })).tone).toBe("muted");
     expect(
       statusCell(networkEntry({ state: "failed", interrupted: true, errorText: "restarted" })),
     ).toMatchObject({ text: "Unknown", tone: "subtle" });
-    expect(statusCell(networkEntry({ httpStatus: 404 })).tone).toBe("warning");
+    expect(statusCell(networkEntry({ httpStatus: 404 })).tone).toBe("error");
     expect(statusCell(networkEntry({ httpStatus: 503 })).tone).toBe("error");
     expect(statusCell(networkEntry({ httpStatus: null, state: "pending" })).text).toBe("Pending");
     expect(statusCell(networkEntry({ state: "failed", canceled: true })).text).toBe("Cancelled");
@@ -104,48 +105,52 @@ describe("request cells", () => {
     ).toBe("index.html:10");
   });
 
-  test("a row is named by what tells it apart, the host quiet, the folder left to the tooltip", () => {
+  test("a row's address splits into name, folder and host, each said once", () => {
     expect(requestNameParts("https://api.test/v1/orders?page=2")).toEqual({
       main: "orders?page=2",
-      detail: "api.test",
+      path: "/v1/",
+      host: "api.test",
     });
-    expect(requestNameParts("https://api.test/")).toEqual({ main: "api.test", detail: "" });
+    expect(requestNameParts("https://api.test/")).toEqual({
+      main: "/",
+      path: "",
+      host: "api.test",
+    });
     expect(
       requestNameParts(
         "https://localhost/_capacitor_http_interceptor_?u=https%3A%2F%2Fodoo.test%2Fweb%2Fdataset%2Fcall_kw",
       ),
-    ).toEqual({ main: "call_kw", detail: "odoo.test" });
+    ).toEqual({ main: "call_kw", path: "/web/dataset/", host: "odoo.test" });
   });
 
   test("the app's own files carry no host, since their size already says App", () => {
     expect(requestNameParts("https://localhost/assets/index-abc.js")).toEqual({
       main: "index-abc.js",
-      detail: "",
+      path: "/assets/",
+      host: "",
     });
-    expect(requestNameParts("https://appassets.androidplatform.net/assets/app.css")).toEqual({
-      main: "app.css",
-      detail: "",
-    });
-    expect(requestNameParts("file:///android_asset/public/index.html").detail).toBe("");
+    expect(requestNameParts("https://appassets.androidplatform.net/assets/app.css").host).toBe("");
+    expect(requestNameParts("file:///android_asset/public/index.html").host).toBe("");
   });
 
   test("a path ending in an id is named by what it fetches and a short id", () => {
     expect(
       requestNameParts("https://api.test/v1/snapshot/3f2a9c4e-1b7d-4e8a-9f00-5c6d7e8f0001"),
-    ).toEqual({ main: "snapshot/…0001", detail: "api.test" });
+    ).toEqual({ main: "snapshot/…0001", path: "/v1/", host: "api.test" });
     expect(requestNameParts("https://api.test/orders/42?full=1")).toEqual({
       main: "orders/42?full=1",
-      detail: "api.test",
+      path: "",
+      host: "api.test",
     });
-    expect(requestNameParts("https://api.test/v1/orders/1234567890")).toEqual({
-      main: "orders/…7890",
-      detail: "api.test",
+    expect(requestNameParts("https://api.test/v1/orders/1234567890").main).toBe("orders/…7890");
+    expect(requestNameParts("https://cdn.test/assets/0123456789abcdef0123").main).toBe(
+      "assets/…0123",
+    );
+    expect(requestNameParts("https://api.test/42")).toEqual({
+      main: "42",
+      path: "",
+      host: "api.test",
     });
-    expect(requestNameParts("https://cdn.test/assets/0123456789abcdef0123")).toEqual({
-      main: "assets/…0123",
-      detail: "cdn.test",
-    });
-    expect(requestNameParts("https://api.test/42")).toEqual({ main: "42", detail: "api.test" });
   });
 
   test("the summary says the count once, as shown of total while filtering", () => {
@@ -166,7 +171,17 @@ describe("request cells", () => {
 
   test("every text cell shares the row's one text size", () => {
     const cells = rowCells(networkEntry({ initiatorUrl: "https://app.test/main.js" }));
-    for (const cell of [cells.status, cells.type, cells.initiator, cells.size, cells.time]) {
+    for (const cell of [
+      cells.method,
+      cells.status,
+      cells.name,
+      cells.path,
+      cells.host,
+      cells.type,
+      cells.initiator,
+      cells.size,
+      cells.time,
+    ]) {
       expect(cell.className).not.toMatch(/text-(2xs|xs|sm|base)/);
     }
   });
@@ -178,17 +193,29 @@ describe("columns", () => {
   });
 
   test("Type steps aside while the filter keeps a single type, and the waterfall with the details", () => {
-    expect(columnVisibility({ waterfall: true, typeFilter: "All" })).toEqual({
-      waterfall: true,
-      type: true,
-    });
-    expect(columnVisibility({ waterfall: false, typeFilter: "Img" })).toEqual({
-      waterfall: false,
-      type: false,
-    });
-    expect(columnVisibility({ waterfall: true, typeFilter: "XHR/Fetch" }).type).toBe(true);
-    expect(columnVisibility({ waterfall: true, typeFilter: "Other" }).type).toBe(true);
-    expect(columnVisibility({ waterfall: true, typeFilter: "WS" }).type).toBe(false);
+    expect(hiddenByContext({ detailsOpen: false, typeFilter: "All" })).toEqual({});
+    expect(Object.keys(hiddenByContext({ detailsOpen: true, typeFilter: "Img" })).sort()).toEqual([
+      "type",
+      "waterfall",
+    ]);
+    expect(hiddenByContext({ detailsOpen: false, typeFilter: "XHR/Fetch" }).type).toBeUndefined();
+    expect(hiddenByContext({ detailsOpen: false, typeFilter: "Other" }).type).toBeUndefined();
+    expect(hiddenByContext({ detailsOpen: false, typeFilter: "WS" }).type).toBeDefined();
+  });
+
+  test("Method, Status, Name and Time never step aside; Initiator goes first", () => {
+    const stays = REQUEST_COLUMNS.filter((column) => column.dropOrder === undefined);
+    expect(stays.map((column) => column.id)).toEqual(["method", "status", "name", "time"]);
+    const order = REQUEST_COLUMNS.filter((column) => column.dropOrder !== undefined)
+      .sort((a, b) => (a.dropOrder ?? 0) - (b.dropOrder ?? 0))
+      .map((column) => column.id);
+    expect(order).toEqual(["initiator", "waterfall", "path", "host", "type", "size"]);
+  });
+
+  test("methods take a quiet neutral by verb, never a hue", () => {
+    expect(methodTone("GET")).toBe("subtle");
+    expect(methodTone("POST")).toBe("muted");
+    expect(methodTone("DELETE")).toBe("default");
   });
 });
 

@@ -1,70 +1,97 @@
 import type { NetworkTypeFilter } from "@/types/network.types";
+import type { ListColumn } from "../columns/listColumns";
 import type { RequestSortKey } from "./requestSort";
 
 export type RequestColumnId =
-  | "name"
+  | "method"
   | "status"
+  | "name"
+  | "path"
+  | "host"
   | "type"
   | "initiator"
   | "size"
   | "time"
   | "waterfall";
 
-export interface RequestColumn {
-  id: RequestColumnId;
-  label: string;
+export interface RequestColumn extends ListColumn<RequestColumnId> {
   sortKey: RequestSortKey;
-  /** Width and alignment of the cell, shared by the header and every row. */
-  className: string;
-  /** Classes that show the cell from a container width up; the column hides below it. */
-  showAt?: string;
-  align: "start" | "end";
 }
 
 /** Row height in pixels: the roomy row of the density scale, one line per request. */
 export const REQUEST_ROW_HEIGHT = 30;
 
+/**
+ * The request list's columns, each fact in its own. Name takes the room the others leave; when
+ * the list narrows, Initiator steps aside first, then the waterfall, Path, Host, Type and Size.
+ * Method, Status, Name and Time always stay.
+ */
 export const REQUEST_COLUMNS: readonly RequestColumn[] = [
-  { id: "name", label: "Name", sortKey: "name", className: "min-w-0 flex-1", align: "start" },
-  { id: "status", label: "Status", sortKey: "status", className: "w-20 shrink-0", align: "start" },
+  { id: "method", label: "Method", sortKey: "method", width: 68, minWidth: 52, align: "start" },
+  { id: "status", label: "Status", sortKey: "status", width: 80, minWidth: 56, align: "start" },
+  {
+    id: "name",
+    label: "Name",
+    sortKey: "name",
+    width: 0,
+    minWidth: 140,
+    flex: true,
+    align: "start",
+  },
+  {
+    id: "path",
+    label: "Path",
+    sortKey: "path",
+    width: 160,
+    minWidth: 64,
+    align: "start",
+    dropOrder: 3,
+  },
+  {
+    id: "host",
+    label: "Host",
+    sortKey: "host",
+    width: 168,
+    minWidth: 64,
+    align: "start",
+    dropOrder: 4,
+  },
   {
     id: "type",
     label: "Type",
     sortKey: "type",
-    className: "w-20 shrink-0",
-    showAt: "@2xl:flex",
+    width: 88,
+    minWidth: 56,
     align: "start",
+    dropOrder: 5,
   },
   {
     id: "initiator",
     label: "Initiator",
     sortKey: "initiator",
-    className: "w-36 shrink-0",
-    showAt: "@5xl:flex",
+    width: 140,
+    minWidth: 64,
     align: "start",
+    dropOrder: 1,
   },
   {
     id: "size",
     label: "Size",
     sortKey: "size",
-    className: "w-32 shrink-0 justify-end",
-    showAt: "@lg:flex",
+    width: 120,
+    minWidth: 64,
     align: "end",
+    dropOrder: 6,
   },
-  {
-    id: "time",
-    label: "Time",
-    sortKey: "time",
-    className: "w-18 shrink-0 justify-end",
-    align: "end",
-  },
+  { id: "time", label: "Time", sortKey: "time", width: 80, minWidth: 64, align: "end" },
   {
     id: "waterfall",
     label: "Waterfall",
     sortKey: "start",
-    className: "w-[24%] min-w-32 shrink-0",
-    showAt: "@3xl:flex",
+    width: 200,
+    minWidth: 96,
     align: "start",
+    dropOrder: 2,
   },
 ];
 
@@ -80,24 +107,18 @@ const SINGLE_TYPE_FILTERS: ReadonlySet<NetworkTypeFilter> = new Set([
 
 export interface ColumnContext {
   /** The waterfall steps aside while the details pane takes the width. */
-  waterfall: boolean;
+  detailsOpen: boolean;
   typeFilter: NetworkTypeFilter;
 }
 
 /**
- * Which optional columns are on. Type is off while the type filter keeps a single type, since
- * every row would repeat the selected segment; filters that mix types (Fetch/XHR, Other) keep it.
+ * Columns the context hides for now, with the reason the Columns menu gives. Type steps aside
+ * while the type filter keeps a single type, since every row would repeat the selected segment;
+ * filters that mix types (Fetch/XHR, Other) keep it.
  */
-export function columnVisibility(
-  context: ColumnContext,
-): Partial<Record<RequestColumnId, boolean>> {
-  return {
-    waterfall: context.waterfall,
-    type: !SINGLE_TYPE_FILTERS.has(context.typeFilter),
-  };
-}
-
-/** The display classes of a column: always shown, or shown from its container width up. */
-export function columnDisplay(column: RequestColumn): string {
-  return column.showAt ? `hidden ${column.showAt}` : "flex";
+export function hiddenByContext(context: ColumnContext): Partial<Record<RequestColumnId, string>> {
+  const hidden: Partial<Record<RequestColumnId, string>> = {};
+  if (context.detailsOpen) hidden.waterfall = "While details are open";
+  if (SINGLE_TYPE_FILTERS.has(context.typeFilter)) hidden.type = "One type is filtered";
+  return hidden;
 }

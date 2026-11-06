@@ -4,6 +4,8 @@ import { requestNameParts } from "./requestNames";
 
 export type RequestSortKey =
   | "name"
+  | "path"
+  | "host"
   | "method"
   | "status"
   | "type"
@@ -23,6 +25,8 @@ type SortValue = number | string | null;
 
 const VALUE: Record<RequestSortKey, (entry: NetworkEntry) => SortValue> = {
   name: (entry) => requestNameParts(entry.url).main,
+  path: (entry) => requestNameParts(entry.url).path || null,
+  host: (entry) => requestNameParts(entry.url).host || null,
   method: (entry) => entry.method,
   status: (entry) => entry.httpStatus,
   type: (entry) => typeWord(entry),
@@ -32,7 +36,7 @@ const VALUE: Record<RequestSortKey, (entry: NetworkEntry) => SortValue> = {
   start: (entry) => entry.startTimestamp,
 };
 
-const CACHED_KEYS = new Set<RequestSortKey>(["name", "type", "initiator"]);
+const CACHED_KEYS = new Set<RequestSortKey>(["name", "path", "host", "type", "initiator"]);
 const keyCache = new WeakMap<NetworkEntry, Partial<Record<RequestSortKey, SortValue>>>();
 
 /** A sort value; the string ones are kept per entry object, which is replaced on every update. */

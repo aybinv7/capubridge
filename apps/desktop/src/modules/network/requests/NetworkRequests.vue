@@ -6,6 +6,8 @@ import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import type { NetworkEntry } from "@/types/network.types";
+import ColumnsMenu from "../columns/ColumnsMenu.vue";
+import { useListColumns } from "../columns/useListColumns";
 import { useNetworkStore } from "../stores/useNetworkStore";
 import RequestContextMenu from "./RequestContextMenu.vue";
 import RequestsEmpty from "./RequestsEmpty.vue";
@@ -17,7 +19,7 @@ import RequestDetails from "./details/RequestDetails.vue";
 import { asDetailTab, cycleTab, type DetailTab } from "./details/detailTabs";
 import { useRequestActions } from "./details/useRequestActions";
 import { useRequestBodies } from "./details/useRequestBodies";
-import { columnVisibility } from "./requestColumns";
+import { REQUEST_COLUMNS, hiddenByContext } from "./requestColumns";
 import { requestsSummary } from "./requestFilters";
 import { sortRequests, type RequestSort } from "./requestSort";
 import { usePageReload } from "./usePageReload";
@@ -47,9 +49,16 @@ const menuEntry = computed(() => store.entryById(menuId.value));
 
 const shown = computed(() => sortRequests(store.filteredEntries, sort.value));
 const selected = computed(() => store.selectedEntry);
-const range = computed(() => (selected.value ? null : waterfallRange(store.filteredEntries)));
-const visibility = computed(() =>
-  columnVisibility({ waterfall: !selected.value, typeFilter: store.typeFilter }),
+const columns = useListColumns({
+  key: "requests",
+  columns: REQUEST_COLUMNS,
+  measure: computed(() => table.value?.header ?? null),
+  blocked: () => hiddenByContext({ detailsOpen: !!selected.value, typeFilter: store.typeFilter }),
+});
+const range = computed(() =>
+  columns.shown.value.some((column) => column.id === "waterfall")
+    ? waterfallRange(store.filteredEntries)
+    : null,
 );
 const revealKey = computed(
   () =>
@@ -144,7 +153,16 @@ onMounted(() => {
       :can-reload="page.canReload.value"
       @reload="page.reload()"
     />
-    <RequestsFilterBar :summary="summary" />
+    <RequestsFilterBar :summary="summary">
+      <ColumnsMenu
+        :columns="REQUEST_COLUMNS"
+        :is-hidden="columns.isHidden"
+        :dropped="columns.dropped.value"
+        :reasons="columns.reasons.value"
+        @toggle="(id, visible) => columns.setHidden(id, !visible)"
+        @show-all="columns.showAll()"
+      />
+    </RequestsFilterBar>
     <ResizablePanelGroup
       direction="horizontal"
       auto-save-id="capubridge:network-requests"
@@ -166,7 +184,7 @@ onMounted(() => {
                 :entries="shown"
                 :selected-id="store.selectedId"
                 :range="range"
-                :visibility="visibility"
+                :layout="columns"
                 :reveal-key="revealKey"
                 @select="select"
                 @clear="closeDetails"
