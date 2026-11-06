@@ -51,8 +51,9 @@ const writes = useCacheWrites({
   pending: read.pending,
   away,
   confirm: props.confirm,
-  afterEntries: () => {
-    void read.refetch();
+  afterEntries: (removed, exact) => {
+    if (exact) read.drop(removed);
+    else void read.refetch();
     emit("changed");
   },
   afterCache: () => emit("deleted"),

@@ -4,7 +4,7 @@ import type {
   CacheStorageEntry,
   CacheStorageEntryDetail,
 } from "@capubridge/cdp-protocol";
-import { cacheBodyView } from "../cacheBody";
+import { cacheBodyView, readsBodyAtOnce } from "../cacheBody";
 import { freshnessOf, freshnessWords } from "../cacheFreshness";
 import { gridRowOf, shownRows } from "../cacheGrid";
 import { entryName, responseChanged, toRow } from "../cacheModel";
@@ -207,5 +207,18 @@ describe("the pane's changed banner", () => {
     expect(responseChanged(row, detail)).toBe(false);
     expect(responseChanged({ ...row, version: "v-old" }, detail)).toBe(true);
     expect(responseChanged({ ...row, version: "v-now" }, detail)).toBe(false);
+  });
+});
+
+describe("which bodies the pane reads at once (F1)", () => {
+  test("text, JSON, scripts and pictures at once; fonts, WebAssembly and bytes on request", () => {
+    expect(readsBodyAtOnce("application/json")).toBe(true);
+    expect(readsBodyAtOnce("text/html")).toBe(true);
+    expect(readsBodyAtOnce("image/svg+xml")).toBe(true);
+    expect(readsBodyAtOnce("image/png")).toBe(true);
+    expect(readsBodyAtOnce("font/woff2")).toBe(false);
+    expect(readsBodyAtOnce("application/wasm")).toBe(false);
+    expect(readsBodyAtOnce("application/octet-stream")).toBe(false);
+    expect(readsBodyAtOnce(null)).toBe(false);
   });
 });

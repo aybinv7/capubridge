@@ -2,6 +2,18 @@ import type { CacheStorageEntryDetail } from "@capubridge/cdp-protocol";
 import { languageForMime, responseContent, type BodyContent } from "@/shared/http/bodyContent";
 import { formatBytes } from "@/shared/format/numbers";
 
+const SHOWN_BY_DEFAULT =
+  /^(text\/|image\/|application\/(json|.*\+json|javascript|ecmascript|xml|.*\+xml|x-www-form-urlencoded|graphql))/i;
+
+/**
+ * Whether the pane reads a body as soon as the entry is shown: text, JSON, scripts, XML and
+ * pictures (SVG included). Anything else (fonts, WebAssembly, bytes) waits until asked for, so
+ * stepping through a cache never pulls megabytes the person does not look at.
+ */
+export function readsBodyAtOnce(mediaType: string | null): boolean {
+  return mediaType !== null && SHOWN_BY_DEFAULT.test(mediaType);
+}
+
 export interface CacheBodyView {
   content: BodyContent;
   /** Said above the body when only its start was read. */

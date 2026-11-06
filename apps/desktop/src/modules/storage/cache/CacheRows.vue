@@ -4,7 +4,7 @@ import { refDebounced } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { Lock, PanelRight, Trash2 } from "lucide-vue-next";
 import { Button, SearchField } from "@capubridge/cladd";
-import { CacheStorageGoneError } from "@capubridge/cdp-protocol";
+import { CACHE_BODY_PREVIEW_BYTES, CacheStorageGoneError } from "@capubridge/cdp-protocol";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   DataGrid,
@@ -16,12 +16,15 @@ import {
 } from "@/shared/components/data/grid";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import { readsBodyAtOnce } from "./cacheBody";
 import { CACHE_COLUMNS, gridRowOf, shownRows } from "./cacheGrid";
 import type { CacheRow } from "./cacheModel";
 import CacheEntryPane from "./CacheEntryPane.vue";
 import { errorText, useCacheEntry } from "./useCacheQueries";
 import { useCachePane } from "./useCachePane";
 import type { useCacheWrites } from "./useCacheWrites";
+
+const PANE_SETTLE_MS = 140;
 
 const READ_ONLY_TEXT =
   "Cached responses are read here, not edited. An entry or the whole cache can be deleted.";
@@ -70,11 +73,23 @@ const unread = computed(() =>
 );
 
 const pane = useCachePane({ rows: computed(() => props.rows), order, grid });
+const shownId = computed(() => (pane.visible.value ? (pane.row.value?.id ?? null) : null));
+const settledId = refDebounced(shownId, PANE_SETTLE_MS);
+const bodyAskedFor = ref<string | null>(null);
+const bodyBytes = computed(() => {
+  const row = pane.row.value;
+  if (!row || row.opaque) return 0;
+  if (readsBodyAtOnce(row.mediaType) || bodyAskedFor.value === row.id) {
+    return CACHE_BODY_PREVIEW_BYTES;
+  }
+  return 0;
+});
 const entry = useCacheEntry(
   computed(() => props.targetId),
   computed(() => props.origin),
   computed(() => props.cacheName),
-  computed(() => (pane.visible.value ? (pane.row.value?.id ?? null) : null)),
+  settledId,
+  bodyBytes,
   computed(() => props.paused),
 );
 const entryGone = computed(() => entry.error.value instanceof CacheStorageGoneError);
@@ -230,7 +245,7 @@ defineExpose({ focusFind });
               :key="`${cacheName}::${pane.row.value.id}`"
               :row="pane.row.value"
               :detail="detail"
-              :loading="entry.loading.value"
+              :loading="entry.loading.value || settledId !== shownId"
               :error="entryError"
               :gone="entryGone"
               :position="panePosition"
@@ -243,6 +258,7 @@ defineExpose({ focusFind });
               @next="pane.step(1)"
               @close="pane.close()"
               @retry="entry.refetch()"
+              @read-body="bodyAskedFor = pane.row.value?.id ?? null"
               @read-list="emit('readList')"
             />
           </div>

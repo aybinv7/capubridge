@@ -102,6 +102,8 @@ export function cacheWrites(
   origin: string,
   cacheName: string,
   confirm: (request: ConfirmRequest) => Promise<boolean>,
+  /** Told which entries are no longer on the phone, and whether that is all that changed. */
+  onRemoved?: (ids: readonly string[], exact: boolean) => void,
 ) {
   /** Deletes `rows`; resolves how many are no longer in the cache (deleted or already gone). */
   async function removeEntries(rows: readonly CacheRow[]): Promise<number> {
@@ -140,6 +142,7 @@ export function cacheWrites(
       }
     }
     reportEntries(rows, done);
+    onRemoved?.([...done.deleted, ...done.gone], done.extra === 0);
     return done.deleted.length + done.gone.length;
   }
 

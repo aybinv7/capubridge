@@ -4,6 +4,7 @@ import { toast } from "vue-sonner";
 import type { CacheStorageEntryDetail } from "@capubridge/cdp-protocol";
 import BodyView from "@/shared/http/BodyView.vue";
 import DetailsState from "@/shared/http/DetailsState.vue";
+import { formatBytes } from "@/shared/format/numbers";
 import { cacheBodyView } from "./cacheBody";
 import type { CacheRow } from "./cacheModel";
 
@@ -18,9 +19,15 @@ const props = defineProps<{
   findSignal: number;
 }>();
 
-const emit = defineEmits<{ retry: [] }>();
+const emit = defineEmits<{ retry: []; readBody: [] }>();
 
 const view = computed(() => (props.detail ? cacheBodyView(props.detail) : null));
+const skippedText = computed(() => {
+  const size = props.detail?.response.size;
+  const amount = size === null || size === undefined ? "" : ` (${formatBytes(size)})`;
+  const what = props.row.kind === "—" ? "Bodies of an unknown type" : `${props.row.kind} bodies`;
+  return `${what}${amount} are read only when asked for, so stepping through the cache stays quick.`;
+});
 
 async function copyBase64() {
   const content = view.value?.content;
@@ -52,6 +59,13 @@ async function copyBase64() {
     v-else-if="props.loading && !props.detail"
     loading
     title="Reading the response from the phone"
+  />
+  <DetailsState
+    v-else-if="props.detail && !props.detail.body && props.detail.response.size !== 0"
+    title="The body was not read"
+    :text="skippedText"
+    action-label="Read the body"
+    @action="emit('readBody')"
   />
   <div v-else-if="view" class="flex h-full min-h-0 flex-col">
     <p

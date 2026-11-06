@@ -45,6 +45,7 @@ const emit = defineEmits<{
   next: [];
   close: [];
   retry: [];
+  readBody: [];
   readList: [];
 }>();
 
@@ -179,6 +180,7 @@ function onKeydown(event: KeyboardEvent) {
           :error="error"
           :find-signal="findSignal"
           @retry="emit('retry')"
+          @read-body="emit('readBody')"
         />
       </div>
     </template>

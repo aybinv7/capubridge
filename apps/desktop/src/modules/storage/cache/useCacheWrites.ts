@@ -24,7 +24,8 @@ export function useCacheWrites(options: {
   /** Why the phone cannot answer now, or `null`. */
   away: Ref<string | null>;
   confirm: (request: ConfirmRequest) => Promise<boolean>;
-  afterEntries: () => void;
+  /** After entries were deleted: which are gone, and whether the list can be patched (`exact`). */
+  afterEntries: (removed: readonly string[], exact: boolean) => void;
   afterCache: () => void;
 }) {
   const busy = ref(false);
@@ -35,14 +36,20 @@ export function useCacheWrites(options: {
     return null;
   });
 
-  function writer() {
+  function writer(onRemoved?: (ids: readonly string[], exact: boolean) => void) {
     const blocked = blockedReason.value;
     if (blocked) {
       toast.info("Nothing was deleted", { description: blocked });
       return null;
     }
     try {
-      return cacheWrites(options.domain(), options.origin, options.cacheName, options.confirm);
+      return cacheWrites(
+        options.domain(),
+        options.origin,
+        options.cacheName,
+        options.confirm,
+        onRemoved,
+      );
     } catch (error) {
       toast.error("Nothing was deleted", {
         description: error instanceof Error ? error.message : String(error),
@@ -79,10 +86,15 @@ export function useCacheWrites(options: {
       return 0;
     }
     if (!(await options.confirm(deleteEntriesQuestion(seen, options.cacheName)))) return 0;
-    const writes = writer();
+    let removedIds: readonly string[] = [];
+    let exact = false;
+    const writes = writer((ids, complete) => {
+      removedIds = ids;
+      exact = complete;
+    });
     if (!writes) return 0;
     const removed = await run(() => writes.removeEntries(seen));
-    options.afterEntries();
+    options.afterEntries(removedIds, exact);
     return removed;
   }
 
@@ -99,7 +111,7 @@ export function useCacheWrites(options: {
     if (!writes) return false;
     const removed = await run(() => writes.removeCache(expected));
     if (removed) options.afterCache();
-    else options.afterEntries();
+    else options.afterEntries([], false);
     return removed;
   }
 
