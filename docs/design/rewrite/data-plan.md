@@ -668,16 +668,32 @@ C36 (temp files), C37 (recorder reuse), F5 (one pull per refresh, views not coun
 backoff; the in-flight guard and pause landed), F7 (diff in Rust). `stash@{0}` keeps the earlier unfinished
 Rust rework for them.
 
-**R3b, not started:** the Graph moves to `modules/storage/diagram/` and mounts lazily as a database view in
-SQLite (beside Overview · SQL) and IndexedDB, scoped to the open database's session (F13), with "Include the
-app's other data"; per-database scope key and migration (rest of C4); `/storage/graph` redirect; the Graph
-Vue files on Cladd (the last retiring shadcn imports of `modules/storage`: `StorageGraphExplorer`,
-`Inspector`, `CanvasDock`, `EntityNode`, `SelectionToolbar`, `ViewportToolbar`); O(n²) field matching.
-Also R3b: cell editing and row insert on opened files only (§5.5), labelled as such.
+**R3b** was planned here as: the Graph moves to `modules/storage/diagram/` and mounts lazily as a database
+view in SQLite (beside Overview · SQL) and IndexedDB, scoped to the open database's session (F13), with
+"Include the app's other data"; per-database scope key and migration (rest of C4); `/storage/graph`
+redirect; the Graph Vue files on Cladd; O(n²) field matching; cell editing and row insert on opened files
+only (§5.5), labelled as such.
 
-Exit check: `SqliteExplorer.vue` and both sidebar stores are gone; `StorageGraphExplorer.vue` remains (R3b).
-The other `@/components/ui/` imports left in `modules/storage` are Reka resizable and menus, which stay
-until Cladd has them (`DESIGN.md` §5).
+#### Round 3b status (2026-11-06)
+
+Diagram is done (`data-parity.md` Diagram section, every line ticked) and the last SQLite line (cell
+edit and add row) is ticked. Commits: `170309fe` (field matching), `995ec7a2` (per-database layout keys),
+`589fe603` (move), `e2a6268c` (Diagram view), `e0a95dd9` (Rust changeset), `69cfff9b` (cell edit and add
+row). F12's field matching and the changeset's atomicity and key tests were run red first (the old pair
+scan at 1.1 s against a 250 ms budget; an `execute_batch` write; a WHERE built from edited values).
+
+| Id   | Status | Where, and the proving test                                                                                                                                                                                            |
+| ---- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C4   | fixed  | Per database: `diagramScopeKey(serial, package, kind, path)`; the app-wide v2 layout is adopted once per database and kept for the others (`stores/useStorageGraphStore.ts`, `useStorageGraphStore.test.ts`)           |
+| F12  | fixed  | Field matching through an index of shared names, same links as the pair scan (`diagram/storageGraph.utils.ts`, `storageGraph.utils.test.ts`); manual links build their id set once                                     |
+| F13  | fixed  | SQLite draws the open copy through its address, never `sqlite_open_database`; IndexedDB uses the tab's store info and one 12-record sample per store (`diagram/useOwnDiagramEntities.ts`, `readSqliteDiagram.test.ts`) |
+| §5.5 | done   | Cell edit and add row on opened files: staged, one transaction, read back (`sqlite/browse/sqliteChangeset.ts`, `sqlite_changeset.rs`; `sqliteChangeset.test.ts`, `useSqliteWrites.test.ts`, Rust tests)                |
+
+Exit check: `SqliteExplorer.vue`, `StorageGraphExplorer.vue` and both sidebar stores are gone (the Graph had
+no sidebar store of its own; `useStorageGraphStore` is the layout store the Diagram keeps). No retiring
+shadcn import is left in `modules/storage`: the `@/components/ui/` imports there are Reka resizable and
+the dropdown menu, which stay until Cladd has them (`DESIGN.md` §5). Still deferred from R2: C15, C36,
+C37, F5, F6 rest, F7 (see above).
 
 ### Why this split, and its balance
 

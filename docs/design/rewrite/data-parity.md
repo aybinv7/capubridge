@@ -20,14 +20,14 @@ home (e.g. "→ Key-value, LocalForage source").
 Round 1 owns the IndexedDB lines, the change-tracking line and the links into IndexedDB. Lines owned by
 R2/R3 are unchanged and still work on today's code paths (marked _R2_ / _R3_).
 
-- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; R2b: Cache is renamed **Cache storage** (`/storage/cache-storage`, route `storage-cache-storage`), so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite · Graph; R2c: OPFS keeps its name and route (`/storage/opfs`, `storage-opfs`); R3: SQLite keeps its name and route, plus the hidden opened-file route `storage-sqlite-file` (`navigation: false`, `tabPath` keeps the SQLite tab selected); the Graph merge into a Diagram view is R3b, so the tabs still end with Graph
+- [x] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; R2b: Cache is renamed **Cache storage** (`/storage/cache-storage`, route `storage-cache-storage`), so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite · Graph; R2c: OPFS keeps its name and route (`/storage/opfs`, `storage-opfs`); R3: SQLite keeps its name and route, plus the hidden opened-file route `storage-sqlite-file` (`navigation: false`, `tabPath` keeps the SQLite tab selected); the Graph merge into a Diagram view is R3b, so the tabs still end with Graph; R3b: Graph is a **Diagram** view of a database inside SQLite and IndexedDB, so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite
 - [x] `/storage` redirects to `/storage/indexeddb` → unchanged (`routes.ts`)
-- [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`); R2a: `storage-localstorage` and `storage-localforage` (and their paths) now redirect to `storage-keyvalue` with `?source=local` / `?source=forage`, hidden from the tabs (`navigation: false`); R2b: `storage-cache` (`/storage/cache`) redirects to `storage-cache-storage` with its query kept, hidden from the tabs
+- [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`); R2a: `storage-localstorage` and `storage-localforage` (and their paths) now redirect to `storage-keyvalue` with `?source=local` / `?source=forage`, hidden from the tabs (`navigation: false`); R2b: `storage-cache` (`/storage/cache`) redirects to `storage-cache-storage` with its query kept, hidden from the tabs; R3b: `storage-graph` (`/storage/graph`) redirects to the last diagram shown, else SQLite, hidden from the tabs (`diagram/diagramPlaces.ts`, tested)
 - [x] `indexeddb/:db?/:store?` and `indexeddb-snapshot/:db?/:store?` both render the IndexedDB tab; snapshot has `navigation: false` → both render `indexeddb/IndexedDBView.vue`; the file route carries `meta.tabPath` so the IndexedDB tab stays selected (`SubNavTabs.vue` `activePath`, `src/router/route-meta.d.ts`)
-- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`). R2b: Cache storage keeps `requires: "target"` and owns Bring to front too. R2c: OPFS keeps `requires: "target"` and owns Bring to front too R3: SQLite requires the new `data` gate (an app target on an online device, no DevTools link needed; any other target with its link), with "Open a SQLite file…" as its secondary action; its opened-file route is ungated; Graph stays ungated until R3b
+- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`). R2b: Cache storage keeps `requires: "target"` and owns Bring to front too. R2c: OPFS keeps `requires: "target"` and owns Bring to front too R3: SQLite requires the new `data` gate (an app target on an online device, no DevTools link needed; any other target with its link), with "Open a SQLite file…" as its secondary action; its opened-file route is ungated; Graph stays ungated until R3b; R3b: the gate-less Graph tab is gone, its Diagram sits behind its tab's gate (SQLite `data`, IndexedDB `target`), and an opened SQLite file or IndexedDB export draws with no phone
 - [x] Target change remounts the tab; a lost link keeps it under the stale strip → unchanged (`GatedView.vue`)
 - [x] App in background: gate notice strip only → unchanged; the change watcher now also pauses (`changes/useIndexedDBChangesTracking.ts` `paused`)
-- [x] IndexedDB change tracking runs for the whole route ⚠ F2 → fixed: a lease (`useIndexedDBChangesLease`) held by the IndexedDB tab and Graph only, paused while the window is hidden or the app is in the background, one flush at a time, at most 40 stores watched plus any the person asks for ("Watch this store"), flushes spaced by max(1 s, 2 × last flush), 8 s per store read with two retries (`changes/indexeddbChangeTracker.ts`, tests in `changes/__tests__/indexeddbChanges.test.ts`). Round 1 fixes (P3): when the last holder leaves, the feed and baselines stay (reset only on target or origin change) and the watcher only listens (`indexeddbChangesLease.test.ts`); `StoragePanel.vue` no longer starts it
+- [x] IndexedDB change tracking runs for the whole route ⚠ F2 → fixed: a lease (`useIndexedDBChangesLease`) held by the IndexedDB tab and Graph only, paused while the window is hidden or the app is in the background, one flush at a time, at most 40 stores watched plus any the person asks for ("Watch this store"), flushes spaced by max(1 s, 2 × last flush), 8 s per store read with two retries (`changes/indexeddbChangeTracker.ts`, tests in `changes/__tests__/indexeddbChanges.test.ts`). Round 1 fixes (P3): when the last holder leaves, the feed and baselines stay (reset only on target or origin change) and the watcher only listens (`indexeddbChangesLease.test.ts`); `StoragePanel.vue` no longer starts it; R3b: the Diagram holds the lease for an IndexedDB database, or for SQLite with the app's other data shown
 - [x] Palette `Go to Data` / `g s` → unchanged
 - [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). R2b: Cache storage registers the same provider: Read Cache storage again, Find cached entries (`mod+f`, same focus guard), Show or hide the record pane, Delete this cache… (`cache/useCacheCommands.ts`). R2c: OPFS registers the same provider: Read OPFS again, Find files in this folder (`mod+f`, same focus guard), Show or hide the record pane, Open the folder above, Delete this folder… (`opfs/useOpfsCommands.ts`). R3: SQLite registers the same provider: Read the database again, Find rows (`mod+f`, same focus guard), Show or hide the record pane, Save a copy of the database file…, Save the database as SQL… (`sqlite/useSqliteCommands.ts`); "Open a SQLite file…" is app-wide (`useDataAppCommands.ts`) and offered by the SQLite gate
 - [x] Lazy route chunks per tab → unchanged
@@ -38,7 +38,7 @@ Inbound and outbound links that must keep working:
 - [x] _R3_ Device › Files viewer opens a SQLite file in Data → unchanged link (`storage-sqlite` with the file name); R3: a name link is matched once to the phone database and the address bar corrected to its path (`sqlite/sqliteDatabaseRef.ts`)
 - [x] _R3_ SQLite source badge "Show in OPFS explorer" → unchanged; R2c: it lands on that folder in the new OPFS tab (`?path=`); R3: "Show in OPFS" in the database's menu
 - [x] _R2_ OPFS file click → SQLite tab with the pulled copy → R2c: Enter or double-click on a SQLite row, the context menu and the pane's database card, through the unchanged `useOpenSqliteSource`
-- [x] Graph inspector "Open data" → `/storage/indexeddb/:db/:store` still opens the store (route shape kept); Graph now holds the change-tracking lease so its change badges keep working
+- [x] Graph inspector "Open data" → `/storage/indexeddb/:db/:store` still opens the store (route shape kept); Graph now holds the change-tracking lease so its change badges keep working; R3b: the Diagram's Open data goes to that database's own store or table address (`openStore` / `openTable`: a SQLite table by its path, an export by its file route)
 - [x] Automation reads `useIndexedDBChangesStore().lastEventAt` ⚠ C33 → fixed: bumped only when a flush found changes made by the app, never for Capubridge's own writes (tagged `source: "capubridge"` through `noteOwnWrite` in `stores/useIndexedDBChangesStore.ts`) and never for empty flushes (tested). Round 1 fixes (P3): once IndexedDB or Graph has been opened, device events keep bumping it while another tab is shown (stores Capubridge wrote to in the last seconds excepted)
 - [ ] _R2_ Session recorder shares `orderKeyColumns` and the SQLite pull cache ⚠ C37 → unchanged
 
@@ -501,7 +501,7 @@ opened file through itself. Tests: `__tests__/sqliteTree.test.ts`, `useSqliteTab
 - [x] Status bar: x of y rows, selection, Σ/avg/min/max, nulls, groups, read-only lock, `ProvenanceTag`, query ms, inspector toggle → pager range, selection and aggregates, groups, the lock with its reason on hover (`HintTooltip`), query ms, the pane toggle; provenance moved to the header
 - [x] Empty: `"T" has no rows`, "No rows loaded", "No rows match … and the search …" + "Clear filters"; skeleton → same words with curly quotes; a failed read shows "Could not read “T”" with Try again
 - [x] Read-only reasons → one function of the database alone (`browse/sqliteWriteAccess.ts`): "A copy pulled from the phone: changes here would never reach the app's database, so it is read-only." / "A copy read from the page: …"; no-PK "This table has no primary key, so a row cannot be told apart."
-- [ ] Cell edit and add row: not implemented (grid emits `edit`, unhandled) → still not implemented; planned for opened files only (`data-plan.md` §5.5), phased to R3b
+- [x] Cell edit and add row: not implemented (grid emits `edit`, unhandled) → R3b, opened files only (a phone or page copy keeps no edit bar, `sqliteWriteAccess.ts`): Enter or double-click edits a cell (`CellEditor`, the editor chosen by the value, another value of the column, or the column's type); "Add a row" adds one at the top; changes are staged on the grid (`staged-edit` / `staged-insert`) under "N changes not saved", saved together by **Save changes** or Ctrl+S, or dropped by Discard (`browse/useSqliteStagedEdits.ts`, `SqliteEditBar.vue`). Saving is one transaction (`sqlite_apply_changeset`: one statement and exactly one row each, or nothing is saved; a phone or page copy is refused in Rust too), rows are found by the key they were read with, wide integers and BLOBs are not edited as text; every saved row is read back and a value the file holds differently is named (`browse/sqliteChangeset.ts`, `sqliteReadBack.ts`, `useSqliteWrites.saveChanges`). Leaving the table with unsaved changes asks first. Tests: `browse/__tests__/sqliteChangeset.test.ts`, `useSqliteWrites.test.ts`, Rust `sqlite_changeset::tests`
 
 ### Structure (→ `SqliteStructure.vue`)
 
@@ -556,52 +556,83 @@ Not checked: Capubridge was not running during the round, and checks never write
 - [ ] Graph: zoom after a rebuild, layout kept after an app reload, Auto layout through the ELK worker,
       Vue Flow styles now loaded with the graph chunk (no flash, nodes look as before)
 
-## Graph (`graph/StorageGraphExplorer.vue` and children)
+## Diagram (was Graph, `graph/StorageGraphExplorer.vue` and children; → `diagram/DiagramView.vue`; R3b)
 
-Still the Graph tab: its move into a Diagram view of a database is **R3b** (`data-plan.md`, R3 status).
-R3 fixed its bugs in place (`249811d6`), noted on the lines below; the lines stay unticked until the move.
+The Graph tab is gone: each SQLite and IndexedDB database has a **Diagram** view beside Overview (and
+SQL), mounted lazily with Vue Flow and its CSS in its own chunk (`SqliteDatabasePane.vue`,
+`IdbDatabaseView.vue`, `?view=diagram`). It draws the database from what its tab has open:
+SQLite from the open copy's address (`useOwnDiagramEntities.ts`; no second pull, so OPFS, jeep and
+opened files work), IndexedDB from the stores the tab read plus 12 sampled records each (an opened
+export with no phone). "Include the app's other data" (a switch, kept per kind) brings back the
+app-wide map: the origin's other IndexedDB databases, LocalForage and the app's other SQLite files,
+never pulling the open database again (`useDiagramModel.ts`, `useStorageGraphQueries.ts`). The canvas
+composables and utilities moved unchanged. Paths below are relative to `modules/storage/diagram/`.
+Tests: `__tests__/` (`readSqliteDiagram`, `sqliteDiagramEntities`, `diagramPlaces`, `mapLimited`),
+`storageGraph.utils.test.ts`, `storageGraphSqliteDiagnostics.test.ts`, `storageGraphElkLayout.test.ts`,
+`stores/__tests__/useStorageGraphStore.test.ts`.
 
 ### What it shows
 
-- [ ] IndexedDB stores of the selected origin (except `localforage`) as nodes: key path, index paths, top-level keys of 12 sampled records (`graph/useStorageGraphQueries.ts:62-87`, `storageGraphEntityBuilders.ts:143-168`)
-- [ ] LocalForage: one node per key (`useStorageGraphQueries.ts:100-109`, `storageGraphEntityBuilders.ts:170-200`)
-- [ ] Native SQLite tables of every database of the package: columns, indexes, FKs (`useStorageGraphQueries.ts:113-216`, `storageGraphEntityBuilders.ts:202-249`)
-- [ ] Foreign-key links (solid) from `PRAGMA foreign_key_list` (`useStorageGraphRelationships.ts:22-47`, `useStorageGraphCanvasNodes.ts:466-475`)
-- [ ] Logical SQLite links (dashed): indexed non-PK `*_id` columns matched by name, checked by SQL (≥ 80 % of 40 values) (`storageGraphSqliteDiagnostics.ts:111-203`) ⚠ C2 R3: ⚠ C2 fixed in place: a column with a declared foreign key is not guessed again, and edge ids carry their kind (`storageGraphSqliteDiagnostics.test.ts`)
-- [ ] Guessed field-match links with confidence, ≤ 180 total, ≤ 6 per node (`storageGraph.utils.ts:10-309`)
-- [ ] Manual links (`useStorageGraphRelationships.ts:59-77`)
-- [ ] Strategies inferred (all links, petal layout, clusters ≤ 9) and schema (explicit + manual, ranked grid per database) (`StorageGraphExplorer.vue:65,93-98`, `storageGraph.utils.ts:311-540`)
-- [ ] Frames: naming families (inferred), database container and FK components (schema), manual groups (`useStorageGraphCanvasNodes.ts:142-413`, `storageGraphElkLayout.ts:54-102`)
-- [ ] Notes (title, body, accent) (`StorageGraphNoteNode.vue`, `stores/useStorageGraphStore.ts:126-175`)
-- [ ] Annotations (alias + note) per entity or cluster; alias on the card (`useStorageGraphStore.ts:216-232`, `StorageGraphEntityNode.vue:9`)
-- [ ] IndexedDB change count badge per store (`useStorageGraphData.ts:106-119`, `StorageGraphEntityNode.vue:55-60`)
-- [ ] Field table (name, type, PK, IX, FK, jump to referenced table) (`StorageGraphFieldSettings.vue`)
+- [x] IndexedDB stores of the selected origin (except `localforage`) as nodes: key path, index paths, top-level keys of 12 sampled records → the database's own stores (shape from the tab's store info, 12 records sampled once a minute, or the first 12 of an opened export); the origin's other databases with "Include the app's other data" (`useOwnDiagramEntities.ts`, `useStorageGraphQueries.ts`)
+- [x] LocalForage: one node per key → with "Include the app's other data" (a phone app's SQLite or IndexedDB diagram)
+- [x] Native SQLite tables of every database of the package: columns, indexes, FKs → the open database's tables and views read from its copy (`readTableSchema`, 6 at a time, `sqliteDiagramEntities.ts`); the app's other native files with "Include the app's other data" (still pulled, kept 60 s)
+- [x] Foreign-key links (solid) from `PRAGMA foreign_key_list` → unchanged
+- [x] Logical SQLite links (dashed): indexed non-PK `*_id` columns matched by name, checked by SQL (≥ 80 % of 40 values) ⚠ C2 → C2 fixed (R3); the check runs on the open copy (`runQuery(address)`)
+- [x] Guessed field-match links with confidence, ≤ 180 total, ≤ 6 per node ⚠ F12 → same links, found through an index of shared names instead of every pair (equal to the old scan on 200 random sets; 6,000 tables under 250 ms, tested red at 1.1 s)
+- [x] Manual links → unchanged
+- [x] Strategies inferred and schema → "Schema · Inferred" in the toolbar, with what each draws on hover; a SQLite diagram opens on Schema, an IndexedDB one on Inferred (no declared keys there)
+- [x] Frames: naming families (inferred), database container and FK components (schema), manual groups → unchanged (`DiagramFrameNode.vue`, theme colours)
+- [x] Notes (title, body, accent) → unchanged; the accent is one of six theme colours (`diagramAccents.ts`) instead of a free colour picker; notes saved with a hex accent still draw with it
+- [x] Annotations (alias + note) per entity or cluster; alias on the card → "Describe…" (Cladd dialog), note shown on the card and in the pane
+- [x] IndexedDB change count badge per store → "N changes" in the warning tone; the diagram holds the change-tracking lease while it shows IndexedDB stores
+- [x] Field table (name, type, PK, IX, FK, jump to referenced table) → `DiagramFieldTable.vue`; the jump ("Show …") centres the linked table
 
-### Actions (none writes to the phone; loads read IndexedDB, LocalForage and pull native SQLite)
+### Actions (none writes to the database; IndexedDB and LocalForage are read, SQLite from its open copy)
 
-- [ ] Origin select (shared storage-context store), first auto-picked (`StorageGraphExplorer.vue:381-389,448-463`)
-- [ ] Search on title, subtitle, container, fields, annotation (`:100-125,468-472`) R3: debounced 200 ms (F12)
-- [ ] Source filter all / IndexedDB / LocalForage / SQLite (`:475-485`)
-- [ ] Strategy inferred / schema (`:487-495`)
-- [ ] Pan / Select mode (`StorageGraphCanvasDock.vue:19-44`)
-- [ ] Add note (`StorageGraphExplorer.vue:252-265`)
-- [ ] Auto layout (ELK layered, orthogonal routes), undoable (`:223-250`, `storageGraphElkLayout.ts:104-222`) ⚠ F12 R3: F12 in place: ELK loads on the first layout, in a worker in the app; the canvas no longer imports it (`storageGraphNamingFamilies.ts`)
-- [ ] Toggle guessed links (`StorageGraphCanvasDock.vue:76-90`)
-- [ ] Zoom −/+, % = fit view, first fit per scope, range 0.01–2 (`StorageGraphViewportToolbar.vue:28-70`, `StorageGraphExplorer.vue:369-379,432-435,541-542`) ⚠ C1 R3: ⚠ C1 fixed in place (`updateZoomPercent` returned by the interactions composable)
-- [ ] Undo / Redo (80 steps) (`:349-367`, `useStorageGraphHistory.ts`)
-- [ ] Click node / edge / frame selects; empty canvas clears; Shift multi-select; box select (`useStorageGraphCanvasInteractions.ts:363-382`, `StorageGraphExplorer.vue:545-561`)
-- [ ] Drag nodes and frames (members follow), positions saved (`useStorageGraphCanvasInteractions.ts:230-275,384-393`) R3: positions saved in one write per drag (F12)
-- [ ] Connect handles → manual link; duplicate refused with a toast (`:324-361`)
-- [ ] Backspace deletes selected notes and manual links (`:277-322`)
-- [ ] Selection toolbar (≥ 2 nodes): group, ungroup, pack, align ×6, distribute ×2 (`StorageGraphSelectionToolbar.vue:27-43`, `useStorageGraphCanvasInteractions.ts:399-453`)
-- [ ] Inspector, cluster: name, description, Save, members focus (`StorageGraphInspector.vue:139-201`)
-- [ ] Inspector, entity: Open data, Edit metadata dialog (alias, note), field map, related tables (`:284-354,440-478`)
-- [ ] Inspector, note: title, body, accent, Save, Delete (`:239-280`)
-- [ ] Inspector, edge: label; Save/Delete for manual links (`:358-426`)
+- [x] Origin select (shared storage-context store), first auto-picked → with "Include the app's other data" when the page has more than one origin; an IndexedDB diagram uses its database's origin
+- [x] Search on title, subtitle, container, fields, annotation → "Find a table, field or note", 200 ms after typing stops, text per table built once (`useDiagramFilters.ts`); "Nothing matches" with Clear the search
+- [x] Source filter all / IndexedDB / LocalForage / SQLite → shown with "Include the app's other data" (one source otherwise)
+- [x] Strategy inferred / schema → see above
+- [x] Pan / Select mode → "Move around" / "Select" in the canvas dock (`DiagramCanvasDock.vue`, `IconAction`)
+- [x] Add note → "Add a note"
+- [x] Auto layout (ELK layered, orthogonal routes), undoable ⚠ F12 → "Lay out again" with its busy state; ELK in a worker by dynamic import (R3); toast "Laid out again" with "Undo brings the earlier positions back"
+- [x] Toggle guessed links → "Show / Hide guessed links"
+- [x] Zoom −/+, % = fit view, first fit per scope, range 0.01–2 ⚠ C1 → `DiagramViewportBar.vue`; C1 fixed (R3)
+- [x] Undo / Redo (80 steps) → unchanged
+- [x] Click node / edge / frame selects; empty canvas clears; Shift multi-select; box select → unchanged; a selected node is ringed in the selection colour
+- [x] Drag nodes and frames (members follow), positions saved → unchanged, one write per drag (R3)
+- [x] Connect handles → manual link; duplicate refused with a toast → unchanged
+- [x] Backspace deletes selected notes and manual links → unchanged (Vue Flow's delete key)
+- [x] Selection toolbar (≥ 2 nodes): group, ungroup, pack, align ×6, distribute ×2 → a bar at the top with "N selected" (`DiagramSelectionBar.vue`)
+- [x] Inspector, cluster: name, description, Save, members focus → `DiagramClusterPanel.vue` ("Save group")
+- [x] Inspector, entity: Open data, Edit metadata dialog (alias, note), field map, related tables → `DiagramEntityPanel.vue`: Open data, Describe…, Fields, Linked (direction and kind in words)
+- [x] Inspector, note: title, body, accent, Save, Delete → `DiagramNotePanel.vue`; Delete is undoable and says so
+- [x] Inspector, edge: label; Save/Delete for manual links → `DiagramEdgePanel.vue`: from, to and kind as facts; label, Save and Delete for your links, the others say why they cannot change. The pane shows only while something is selected (no "Nothing selected" placeholder)
 
 ### States and persistence
 
-- [ ] No gate; queries disabled without target/origin or adb package → "No graphable schema for current origin or package." (`StorageGraphExplorer.vue:527-532`)
-- [ ] First error string in a banner, no retry (`useStorageGraphData.ts:193-197`, `StorageGraphExplorer.vue:501-506`)
-- [ ] One unreadable SQLite file fails the whole SQLite graph (`useStorageGraphQueries.ts:119-172`) R3: fixed in place: the others still show, the failures are logged; the schema is kept 60 s (F13 in part)
-- [ ] `localStorage["capubridge:storage-graph:v1"]`: positions, notes, manual links, annotations, groups per scope `storage-graph:{serial}:{cdpTargetId}:{origin}:{package}` (`useStorageGraphStore.ts:12,82-88`, `useStorageGraphData.ts:80-88`) ⚠ C4 R3: ⚠ C4 fixed in place: scopes keyed `storage-graph:v2:{serial}:{origin}:{package}` (no page id), old keys migrated on load, 60 scopes at most, writes debounced, reading never writes (C3) (`stores/__tests__/useStorageGraphStore.test.ts`)
+- [x] No gate; queries disabled without target/origin or adb package → behind its tab's gate; "Reading how the tables are built", "Nothing to draw" for an empty database
+- [x] First error string in a banner, no retry → the database's error with Try again (`DataState`), or, once drawn, "Could not read the database again; this is the last read"; the app's other data fails on its own line
+- [x] One unreadable SQLite file fails the whole SQLite graph → fixed (R3); the open database is read apart from the others (F13)
+- [x] `localStorage["capubridge:storage-graph:v1"]`: positions, notes, manual links, annotations, groups per scope ⚠ C4 → per database: `diagram:v3:{serial}::{package}::{kind}::{path}` (`diagramScopeKey`; a file opened here by `file:{name}`); a diagram with no layout yet starts from the app-wide Graph layout once (same origin, else the fullest of the phone and app), which stays for the app's other databases; 100 scopes at most; reading never writes (C3) (`stores/__tests__/useStorageGraphStore.test.ts`)
+- [x] _new_ The last diagram shown is where `/storage/graph` leads (`capubridge:diagram-last-place:v1`; files opened here are not remembered)
+
+### Pending live checks (Data round 3b)
+
+Not checked: Capubridge was not driven during the round (the owner's app, no keys or clicks), and checks
+never write on a phone.
+
+- [ ] A phone SQLite database (Presalio on the Redmi): Diagram beside Overview · SQL, no second pull
+      (one `adb pull` in the log), Read again redraws, a layout dragged then the app reloaded keeps it
+- [ ] An OPFS or SAH-Pool database and a jeep database drawn from their copies; an opened file with no
+      phone
+- [ ] IndexedDB: a live database's diagram with change badges; an opened export with no phone
+- [ ] "Include the app's other data": origin select, source filter, LocalForage nodes, the app's other
+      SQLite files; the open database not pulled again
+- [ ] The old Graph layout adopted on the first open of each database; `/storage/graph` lands on the last
+      diagram; no Graph tab
+- [ ] Lay out again through the ELK worker; Vue Flow styles with the diagram chunk (no flash); nodes,
+      frames and notes (an old hex-accent note too) in dark and light
+- [ ] An opened file: edit a cell, a key, a NULL cell; add a row; Save (Ctrl+S) and the read-back toast
+      (a text typed into an INTEGER column reads back as a number); Discard; leave the table with
+      changes (asked); a BLOB and a wide integer refuse inline edit; a phone copy shows no edit bar
