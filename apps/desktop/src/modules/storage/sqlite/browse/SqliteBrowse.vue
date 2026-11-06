@@ -220,6 +220,12 @@ function contextActions(target: GridContextTarget): GridContextAction[] {
     return [{ id: "open-group", label: "Show the rows in this group", separatorBefore: true }];
   }
   const actions: GridContextAction[] = [];
+  if (target.columnId && target.rowId && !readOnly.value && !staging.isDeleting(target.rowId)) {
+    if (staging.cellChanged(target.rowId, target.columnId)) {
+      actions.push({ id: "undo-cell", label: "Undo this change" });
+    }
+    if (target.value !== null) actions.push({ id: "set-null", label: "Set to NULL" });
+  }
   if (target.columnId) {
     FILTER_ACTIONS.forEach((action, index) =>
       actions.push({
@@ -287,6 +293,11 @@ function runContextAction(actionId: string, target: GridContextTarget) {
   else if (actionId === "row-diff" && target.rowId) emit("openRowDiff", target.rowId);
   else if (actionId === "delete") requestDelete([...target.rowIds]);
   else if (actionId === "keep") staging.keepRows(target.rowIds);
+  else if (actionId === "undo-cell" && target.rowId && target.columnId) {
+    staging.undoCell(target.rowId, target.columnId);
+  } else if (actionId === "set-null" && target.rowId && target.columnId) {
+    staging.setNull(target.rowId, target.columnId);
+  }
 }
 
 function openGroupRow(rowId: string) {

@@ -127,10 +127,7 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     editing.value = { rowId, columnId };
   }
 
-  function commit(value: unknown) {
-    const target = editing.value;
-    editing.value = null;
-    if (!target) return;
+  function stageValue(target: GridEditingCell, value: unknown) {
     if (saving.value) {
       say(SAVING_NOTE);
       return;
@@ -141,6 +138,29 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     }
     const row = input.rows.value.find((entry) => entry.id === target.rowId);
     if (row) staged.value = stageCell(staged.value, row, target.columnId, value);
+  }
+
+  function commit(value: unknown) {
+    const target = editing.value;
+    editing.value = null;
+    if (target) stageValue(target, value);
+  }
+
+  /** Whether a cell holds a staged value that differs from what was read. */
+  function cellChanged(rowId: string, columnId: string): boolean {
+    return Object.hasOwn(staged.value.edits.get(rowId)?.values ?? {}, columnId);
+  }
+
+  /** Puts one edited cell back to the value read from the file (U3). */
+  function undoCell(rowId: string, columnId: string) {
+    const original = staged.value.edits.get(rowId)?.original;
+    if (original) stageValue({ rowId, columnId }, original[columnId]);
+  }
+
+  /** Stages NULL in a cell (U3); a row marked for deletion is left alone. */
+  function setNull(rowId: string, columnId: string) {
+    if (!input.writable.value || staged.value.deletes.has(rowId)) return;
+    stageValue({ rowId, columnId }, null);
   }
 
   function cancel() {
@@ -241,6 +261,9 @@ export function useSqliteStagedEdits(input: StagedEditsInput) {
     editorKind,
     sampleOf,
     say,
+    cellChanged,
+    undoCell,
+    setNull,
     startEdit,
     commit,
     cancel,

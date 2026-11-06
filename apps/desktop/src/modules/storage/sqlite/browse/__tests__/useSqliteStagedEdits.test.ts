@@ -110,3 +110,17 @@ describe("Discard from the edit bar (U8)", () => {
     scope.stop();
   });
 });
+
+describe("one cell at a time (U3)", () => {
+  test("a cell can be set to NULL and one edited cell put back", () => {
+    const { staging, scope } = setup();
+    staging.startEdit("[1]", "name");
+    staging.commit("green tea");
+    expect(staging.cellChanged("[1]", "name")).toBe(true);
+    staging.undoCell("[1]", "name");
+    expect(staging.pending.value).toBe(0);
+    staging.setNull("[2]", "name");
+    expect(staging.staged.value.edits.get("[2]")?.values).toEqual({ name: null });
+    scope.stop();
+  });
+});
