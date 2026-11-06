@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
 import {
   DataGrid,
-  DataGridInspector,
   DataGridStatus,
   toCsv,
   type GridColumnMenuAction,
@@ -23,7 +22,10 @@ import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import DataPager from "@/modules/storage/frame/DataPager.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
-import { recordPaneOpen } from "@/modules/storage/frame/recordPaneOpen";
+import RecordPane from "@/modules/storage/frame/RecordPane.vue";
+import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
+import { useRecordPane } from "@/modules/storage/frame/useRecordPane";
+import { formatExactTime } from "@/shared/format/dates";
 import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
 import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
 import { downloadText, fileStem } from "@/lib/download";
@@ -36,6 +38,7 @@ import type {
 import type { SqliteRecordChange } from "@/types/sqliteChanges.types";
 import { toSqliteInserts } from "../sqlText";
 import { toGridColumns, toGridRows } from "./sqliteGrid";
+import { recordKeyLabel, recordStateWords } from "./sqliteRecordTitle";
 import {
   predicate,
   type PredicateOperator,
@@ -52,7 +55,7 @@ import { useSqliteStagedEdits } from "./useSqliteStagedEdits";
 
 const SHOW_AS_KEY = "capubridge:sqlite-show-as";
 
-/** The rows of one table: filter bar, search, the grid with its inspector, and the pager. */
+/** The rows of one table: filter bar, search, the grid with its record pane, and the pager. */
 const props = defineProps<{
   tableName: string;
   /** The database's sidebar id (its path, or `file:<id>`), for its staged edits. */
@@ -87,7 +90,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   followForeignKey: [target: string, value: unknown];
-  openRowDiff: [rowKey: string];
   retry: [];
   fileAction: [action: "save-file" | "save-as"];
 }>();
@@ -290,7 +292,7 @@ function runContextAction(actionId: string, target: GridContextTarget) {
       });
     }
   } else if (actionId === "copy-insert") void props.query.copyAsInsert(recordsFor(target.rowIds));
-  else if (actionId === "row-diff" && target.rowId) emit("openRowDiff", target.rowId);
+  else if (actionId === "row-diff" && target.rowId) showRowChanges(target.rowId);
   else if (actionId === "delete") requestDelete([...target.rowIds]);
   else if (actionId === "keep") staging.keepRows(target.rowIds);
   else if (actionId === "undo-cell" && target.rowId && target.columnId) {
@@ -331,10 +333,88 @@ function exportRows(format: SqliteExportFormat, scope: SqliteExportScope) {
   }
 }
 
-const activeRowId = ref<string | null>(null);
-const activeRow = computed(
-  () => shownRows.value.find((row) => row.id === activeRowId.value) ?? null,
+const grid = ref<InstanceType<typeof DataGrid> | null>(null);
+const paneView = ref<InstanceType<typeof RecordPane> | null>(null);
+const pane = useRecordPane({
+  rows: shownRows,
+  grid,
+  page: computed(() => props.query.page.value),
+  hasMore: computed(() => props.hasMore),
+  pagingEnabled: computed(() => grouped.value === null),
+  setPage: (page) => (props.query.page.value = page),
+});
+const maximized = ref(false);
+const paneShown = computed(() => pane.visible.value && paneRow.value !== null && !grouped.value);
+watch(paneShown, (shown) => {
+  if (!shown) maximized.value = false;
+});
+
+const keyColumnNames = computed(() =>
+  props.columnInfo
+    .filter((column) => column.pk > 0)
+    .sort((a, b) => a.pk - b.pk)
+    .map((column) => column.name),
 );
+const paneRow = computed(() => shownRows.value.find((row) => row.id === pane.rowId.value) ?? null);
+const paneChange = computed(() =>
+  pane.rowId.value ? (props.changesByRowKey?.get(pane.rowId.value) ?? null) : null,
+);
+const paneTitle = computed(() => {
+  const row = paneRow.value;
+  if (!row) return "";
+  return (
+    recordKeyLabel(keyColumnNames.value, row.cells) ?? `row ${offset.value + pane.index.value + 1}`
+  );
+});
+const paneSubtitle = computed(() =>
+  pane.index.value >= 0 ? `row ${offset.value + pane.index.value + 1}` : "not in the rows shown",
+);
+const paneState = computed(() => {
+  const change = paneChange.value;
+  const seen = change ? Date.parse(change.observedAt) : Number.NaN;
+  return recordStateWords(
+    pane.rowId.value ? rowStates.value.get(pane.rowId.value) : undefined,
+    change
+      ? { source: change.source, seen: Number.isNaN(seen) ? "" : formatExactTime(seen) }
+      : null,
+  );
+});
+const paneDocument = computed(() => {
+  const row = paneRow.value;
+  return row
+    ? Object.fromEntries(columns.value.map((column) => [column.id, row.cells[column.id]]))
+    : null;
+});
+const paneBefore = computed(() =>
+  paneChange.value ? { value: paneChange.value.beforeValue } : null,
+);
+
+function showRowChanges(rowId: string) {
+  pane.show(rowId);
+  void nextTick(() => paneView.value?.showChanges());
+}
+
+function closePane() {
+  maximized.value = false;
+  pane.close();
+}
+
+function onPaneKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  event.stopPropagation();
+  closePane();
+}
+
+function onGridKeydown(event: KeyboardEvent) {
+  if (event.key !== " " || !event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)
+    return;
+  if (grouped.value || !pane.rowId.value) return;
+  event.preventDefault();
+  event.stopPropagation();
+  pane.show(pane.rowId.value);
+  maximized.value = !maximized.value;
+}
+
 const summary = shallowRef<GridSummary>({
   rowCount: 0,
   selectedRows: 0,
@@ -342,11 +422,6 @@ const summary = shallowRef<GridSummary>({
   selectedCells: 0,
   aggregate: null,
 });
-
-function inspect(rowId: string) {
-  activeRowId.value = rowId;
-  recordPaneOpen.value = true;
-}
 
 const sort = computed<GridSort | null>(() => (grouped.value ? null : props.query.gridSort.value));
 const where = computed(() => props.query.whereClause.value);
@@ -426,86 +501,115 @@ defineExpose({
       :detail="error"
       @retry="emit('retry')"
     />
-    <div v-else class="flex min-h-0 flex-1 gap-2 p-2">
-      <div class="min-w-0 flex-1">
-        <DataGrid
-          :label="tableName"
-          :columns="columns"
-          :rows="visibleRows"
-          :loading="loading"
-          :read-only="readOnly"
-          :row-states="rowStates"
-          :sort="sort"
-          :row-number-offset="offset"
-          :column-visibility="visibility"
-          :show-as="showAs"
-          :grouped-column="grouped"
-          :column-features="{ filter: !grouped, group: true, showAs: true }"
-          :context-actions="contextActions"
-          :activate-rows="grouped !== null"
-          :layout-key="`sqlite:${stateKey}/${tableName}`"
-          :editing="staging.editing.value"
-          @edit="staging.startEdit"
-          @update:sort="query.setSort($event)"
-          @column-action="onColumnAction"
-          @active-row="activeRowId = $event"
-          @inspect="inspect"
-          @activate="openGroupRow"
-          @summary="summary = $event"
-          @delete="requestDelete"
-          @context-action="runContextAction"
-        >
-          <template #editor="{ rowId, column, value }">
-            <CellEditor
-              :key="`${rowId}:${column.id}`"
-              :value="value"
-              :like="staging.sampleOf(column.id)"
-              :kind="staging.editorKind(column.id, value)"
-              exact-integers
-              :label="`Edit ${column.title}`"
-              @commit="staging.commit"
-              @cancel="staging.cancel()"
-              @rejected="staging.say"
-              @save="staging.save()"
-            />
-          </template>
-          <template #empty>
-            <div v-if="query.needsQuery.value" class="flex flex-col items-start gap-2">
-              <span>
-                No rows match
-                <code v-if="where" class="font-mono text-cladd-fg">{{ where }}</code>
-                <template v-if="query.search.value">
-                  {{ where ? " and " : "" }}the search “{{ query.search.value }}”</template
+    <RecordSplit v-else :pane-open="paneShown" :maximized="maximized">
+      <template #grid>
+        <div class="h-full min-h-0 p-2" @keydown.capture="onGridKeydown">
+          <DataGrid
+            ref="grid"
+            :label="tableName"
+            :columns="columns"
+            :rows="visibleRows"
+            :loading="loading"
+            :read-only="readOnly"
+            :row-states="rowStates"
+            :sort="sort"
+            :row-number-offset="offset"
+            :column-visibility="visibility"
+            :show-as="showAs"
+            :grouped-column="grouped"
+            :column-features="{ filter: !grouped, group: true, showAs: true }"
+            :context-actions="contextActions"
+            :activate-rows="grouped !== null"
+            :layout-key="`sqlite:${stateKey}/${tableName}`"
+            :editing="staging.editing.value"
+            @edit="staging.startEdit"
+            @update:sort="query.setSort($event)"
+            @column-action="onColumnAction"
+            @active-row="$event && !grouped && (pane.activeRowId.value = $event)"
+            @inspect="pane.show"
+            @activate="openGroupRow"
+            @summary="summary = $event"
+            @delete="requestDelete"
+            @context-action="runContextAction"
+          >
+            <template #editor="{ rowId, column, value }">
+              <CellEditor
+                :key="`${rowId}:${column.id}`"
+                :value="value"
+                :like="staging.sampleOf(column.id)"
+                :kind="staging.editorKind(column.id, value)"
+                exact-integers
+                :label="`Edit ${column.title}`"
+                @commit="staging.commit"
+                @cancel="staging.cancel()"
+                @rejected="staging.say"
+                @save="staging.save()"
+              />
+            </template>
+            <template #empty>
+              <div v-if="query.needsQuery.value" class="flex flex-col items-start gap-2">
+                <span>
+                  No rows match
+                  <code v-if="where" class="font-mono text-cladd-fg">{{ where }}</code>
+                  <template v-if="query.search.value">
+                    {{ where ? " and " : "" }}the search “{{ query.search.value }}”</template
+                  >
+                </span>
+                <Button
+                  size="sm"
+                  variant="transparent"
+                  @click="
+                    query.setWhere('');
+                    query.setSearch('');
+                  "
                 >
-              </span>
-              <Button
-                size="sm"
-                variant="transparent"
-                @click="
-                  query.setWhere('');
-                  query.setSearch('');
-                "
-              >
-                Clear filters
-              </Button>
-            </div>
-            <template v-else>{{
-              result ? `“${tableName}” has no rows` : "No rows read yet"
-            }}</template>
-          </template>
-        </DataGrid>
-      </div>
-      <DataGridInspector
-        v-if="recordPaneOpen && !grouped"
-        class="w-80 shrink-0"
-        :columns="columns"
-        :row="activeRow"
-        :title="tableName"
-        :state="activeRowId ? rowStates.get(activeRowId) : undefined"
-        @close="recordPaneOpen = false"
-        @follow-foreign-key="(target, value) => emit('followForeignKey', target, value)"
-      />
-    </div>
+                  Clear filters
+                </Button>
+              </div>
+              <template v-else>{{
+                result ? `“${tableName}” has no rows` : "No rows read yet"
+              }}</template>
+            </template>
+          </DataGrid>
+        </div>
+      </template>
+      <template #pane="{ maximized: filling }">
+        <div
+          class="h-full min-h-0 py-2 pr-2"
+          :class="filling ? 'pl-2' : ''"
+          @keydown="onPaneKeydown"
+        >
+          <div
+            v-if="paneRow"
+            class="h-full min-h-0 overflow-hidden rounded-cladd-md border border-cladd-outline bg-cladd-bg"
+          >
+            <RecordPane
+              ref="paneView"
+              :key="`${stateKey}/${tableName}`"
+              :title="paneTitle"
+              :subtitle="paneSubtitle"
+              :state-text="paneState"
+              :columns="columns"
+              :cells="paneRow.cells"
+              :value="paneDocument"
+              :read-only-reason="lockReason"
+              :json-editable="false"
+              :can-delete="false"
+              :before="paneBefore"
+              :can-prev="pane.canPrev.value"
+              :can-next="pane.canNext.value"
+              maximizable
+              :maximized="maximized"
+              @prev="pane.step(-1)"
+              @next="pane.step(1)"
+              @close="closePane"
+              @maximize="maximized = $event"
+              @follow-foreign-key="(target, value) => emit('followForeignKey', target, value)"
+            />
+          </div>
+        </div>
+      </template>
+    </RecordSplit>
     <DataGridStatus :summary="summary" :total="total" hide-count>
       <DataPager
         :page="query.page.value"
@@ -525,10 +629,10 @@ defineExpose({
       </HintTooltip>
       <span v-if="result" class="tabular-nums">{{ result.durationMs }} ms</span>
       <IconAction
-        :label="recordPaneOpen ? 'Hide the record pane' : 'Show the record pane'"
+        :label="pane.open.value ? 'Hide the record pane' : 'Show the record pane'"
         size="sm"
-        :pressed="recordPaneOpen"
-        @click="recordPaneOpen = !recordPaneOpen"
+        :pressed="pane.open.value"
+        @click="pane.open.value ? closePane() : (pane.open.value = true)"
       >
         <PanelRight :stroke-width="1.8" />
       </IconAction>

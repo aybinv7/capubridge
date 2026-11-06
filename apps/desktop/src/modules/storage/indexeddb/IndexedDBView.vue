@@ -33,7 +33,7 @@ import { useIdbCatalog } from "./useIdbCatalog";
 import { useIdbCommands } from "./useIdbCommands";
 import { useIdbDatabaseActions } from "./useIdbDatabaseActions";
 import { useIdbLocation } from "./useIdbLocation";
-import { toggleRecordPane } from "./useIdbRecordPane";
+import { toggleRecordPane } from "@/modules/storage/frame/recordPaneOpen";
 
 const router = useRouter();
 const location = useIdbLocation();

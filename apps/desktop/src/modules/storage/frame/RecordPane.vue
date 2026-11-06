@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ChevronDown, ChevronUp, Lock, X } from "lucide-vue-next";
+import { ChevronDown, ChevronUp, Lock, Maximize2, Minimize2, X } from "lucide-vue-next";
 import { Button, Segmented, SegmentedButton } from "@capubridge/cladd";
 import JsonEditor from "@/shared/components/data/JsonEditor.vue";
 import JsonDiff from "@/shared/code-viewer/JsonDiff.vue";
@@ -19,6 +19,8 @@ const VIEW_KEY = "capubridge:inspector-view";
  * The record the grid points at, beside the grid instead of over it. Fields to read, JSON to
  * read and edit (Save writes to the source), Changes when the device changed it. While an
  * edit is unsaved the pane stays on its record (`dirty`), so moving in the grid never drops it.
+ * A `maximizable` pane can fill the workspace (Shift+Space, Esc restores): a layout change,
+ * never a dialog.
  */
 const props = defineProps<{
   title: string;
@@ -34,6 +36,10 @@ const props = defineProps<{
   canPrev: boolean;
   canNext: boolean;
   saving?: boolean;
+  /** `false` keeps the JSON view read-only where edits happen elsewhere (SQLite's grid). */
+  jsonEditable?: boolean;
+  maximizable?: boolean;
+  maximized?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -43,6 +49,8 @@ const emit = defineEmits<{
   next: [];
   close: [];
   dirty: [dirty: boolean];
+  maximize: [maximized: boolean];
+  followForeignKey: [target: string, value: unknown];
 }>();
 
 const editor = ref<InstanceType<typeof JsonEditor> | null>(null);
@@ -67,7 +75,7 @@ const original = computed(() => pretty(props.value));
 const draft = ref(original.value);
 const valid = ref(true);
 const dirty = computed(() => draft.value !== original.value);
-const editable = computed(() => props.readOnlyReason === null);
+const editable = computed(() => props.readOnlyReason === null && props.jsonEditable !== false);
 
 watch(original, (next, previous) => {
   if (draft.value === previous) draft.value = next;
@@ -93,7 +101,26 @@ function save() {
   }
 }
 
+function typing(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      target.closest("input, textarea, select, [role='textbox']") !== null)
+  );
+}
+
 function onKeydown(event: KeyboardEvent) {
+  if (props.maximizable && event.key === " " && event.shiftKey && !typing(event.target)) {
+    event.preventDefault();
+    emit("maximize", !props.maximized);
+    return;
+  }
+  if (props.maximized && event.key === "Escape" && !event.defaultPrevented) {
+    event.preventDefault();
+    event.stopPropagation();
+    emit("maximize", false);
+    return;
+  }
   const mod = event.ctrlKey || event.metaKey;
   if (!mod || event.altKey) return;
   if (event.key === "s" || event.key === "S") {
@@ -113,7 +140,13 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-defineExpose({ discard });
+defineExpose({
+  discard,
+  /** Opens the Changes view, when the record has a before. */
+  showChanges: () => {
+    if (props.before) view.value = "changes";
+  },
+});
 </script>
 
 <template>
@@ -150,6 +183,19 @@ defineExpose({ discard });
       >
         <ChevronDown :stroke-width="1.8" />
       </IconAction>
+      <IconAction
+        v-if="maximizable"
+        :label="
+          maximized ? 'Put the record back beside the rows' : 'Fill the workspace with this record'
+        "
+        keys="shift+space"
+        size="sm"
+        :pressed="maximized"
+        @click="emit('maximize', !maximized)"
+      >
+        <Minimize2 v-if="maximized" :stroke-width="1.8" />
+        <Maximize2 v-else :stroke-width="1.8" />
+      </IconAction>
       <CopyAction :value="original" label="Copy as stored (JSON)" />
       <IconAction label="Close the record" keys="Escape" size="sm" @click="emit('close')">
         <X :stroke-width="1.8" />
@@ -178,7 +224,13 @@ defineExpose({ discard });
       <span>{{ readOnlyReason }}</span>
     </p>
 
-    <RecordFields v-if="view === 'fields'" ref="fieldsView" :columns="columns" :cells="cells" />
+    <RecordFields
+      v-if="view === 'fields'"
+      ref="fieldsView"
+      :columns="columns"
+      :cells="cells"
+      @follow-foreign-key="(target, value) => emit('followForeignKey', target, value)"
+    />
     <div v-else-if="view === 'json'" class="min-h-0 flex-1 px-2 pb-2">
       <JsonEditor
         ref="editor"

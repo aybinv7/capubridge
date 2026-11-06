@@ -35,7 +35,7 @@ import { buildIdbGrid, keyLabelOf, KEY_COLUMN } from "./idbGridModel";
 import { GROUP_COUNT_COLUMN, GROUP_ROW_PREFIX, groupRows, pipeRows } from "./idbRowPipeline";
 import { formatBytes } from "@/shared/format/numbers";
 import { exportRows } from "./idbRowsExport";
-import { useIdbRecordPane } from "./useIdbRecordPane";
+import { useRecordPane } from "@/modules/storage/frame/useRecordPane";
 import type { useIdbPage } from "./useIdbPage";
 import type { useIdbStoreWrites } from "./useIdbStoreWrites";
 
@@ -147,7 +147,7 @@ function openGroup(rowId: string) {
 }
 
 const inStoreSearch = computed(() => props.pager.storeSearch.value !== null);
-const pane = useIdbRecordPane({
+const pane = useRecordPane({
   rows: shown,
   grid,
   page: props.pager.page,
@@ -605,7 +605,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
           size-unit="px"
           :default-size="360"
           :min-size="280"
-          :max-size="560"
+          :max-size="960"
           class="min-h-0"
         >
           <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">

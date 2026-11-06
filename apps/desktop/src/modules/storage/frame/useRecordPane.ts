@@ -1,8 +1,8 @@
 import { computed, nextTick, ref, watch, type Ref } from "vue";
 import type { GridRow } from "@/shared/components/data/grid";
-import { recordPaneOpen as paneOpen } from "@/modules/storage/frame/recordPaneOpen";
+import { recordPaneOpen as paneOpen } from "./recordPaneOpen";
 
-export { toggleRecordPane } from "@/modules/storage/frame/recordPaneOpen";
+export { toggleRecordPane } from "./recordPaneOpen";
 
 interface GridHandle {
   focusRow: (rowId: string) => void;
@@ -14,7 +14,7 @@ interface GridHandle {
  * record being edited. Prev/next move the grid's focus, and cross into the next or previous
  * page at the edges.
  */
-export function useIdbRecordPane(options: {
+export function useRecordPane(options: {
   rows: Ref<readonly GridRow[]>;
   grid: Ref<GridHandle | null>;
   page: Ref<number>;

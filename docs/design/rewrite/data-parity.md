@@ -707,9 +707,32 @@ are relative to `modules/storage/sqlite/`.
       order". The bundled SQLite did not repeat a row in a probe of 60,000 rows; the fix makes the order
       defined rather than relying on that.
 
+### Step 1 — the shared record pane
+
+- [x] Inspector (Space or status-bar button, Fields / JSON, FK link, `capubridge:data-record-pane`,
+      `capubridge:inspector-view`) → the shared `frame/RecordPane.vue` in `frame/RecordSplit.vue`
+      (`browse/SqliteBrowse.vue`): resizable 280–960 px under the one Data width
+      (`capubridge:data-record-pane-size:v2`, panel ids `data-rows-*`), double-click on the handle for
+      380 px; shown only with a row (the toggle remembers); titled by the row's key (`id 4182`,
+      `order_id 12 · line 3`, `code NULL`, else `row n`), with the row number and its state in plain
+      words (`browse/sqliteRecordTitle.ts`, tested); `Ctrl+↑/↓` step rows across pages
+      (`frame/useRecordPane.ts`, moved from `indexeddb/useIdbRecordPane.ts`); Fields with Find, JSON
+      read-only (cells are edited in the grid, as before); a foreign key opens its table
+      ("Open the linked row in t.c"); TEXT holding JSON is shown parsed, "stored as text", with the raw
+      text one click away (`frame/jsonInText.ts`); two columns of fields in a wide pane. New: "Fill the
+      workspace with this record" (`Shift+Space`, `Maximize2`; Esc puts it back first): a layout change
+      over the rows, never a dialog, never kept. `G/DataGridInspector.vue` is gone (no user left)
+- [x] Diff dialog (`SqliteChangeDiffDialog.vue`, removed) → the record pane's Changes view (same JSON
+      diff); "Show what the app changed" / "Show what changed here" opens the pane on it; "changed by the
+      app · seen T" / "changed here · T" is the pane's quiet line, the key is its title
+- [x] The record pane's maximum width is 960 px in IndexedDB, Key-value, Cache storage and OPFS too
+
 ### Pending live checks (SQLite redesign)
 
 Not checked: the owner's app was not driven (screenshots only), and no data was written on a phone.
 
 - [ ] A sorted phone table (a status or date column with repeats): page to the end, every row once, ties
       in key order
+- [ ] The record pane: drag 280–960 px, the width shared with IndexedDB, double-click the handle; no
+      pane until a row is chosen; `Ctrl+↑/↓` across a page edge; Shift+Space and Esc with the motion
+      (dark and light); a TEXT JSON column parsed; "Show what the app changed" opens Changes

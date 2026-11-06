@@ -9,7 +9,6 @@ import DataRowMenu from "@/modules/storage/frame/DataRowMenu.vue";
 import type { DataAction, DataProvenance } from "@/modules/storage/frame/dataFrame.types";
 import { useSqliteTableChangeOverlay } from "@/modules/storage/changes/useSqliteChangeOverlay";
 import { orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
-import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChangesStore";
 import type { SqliteColumnInfo, SqliteDbFile, SqliteTableInfo } from "@/types/sqlite.types";
 import SqliteBrowse from "./browse/SqliteBrowse.vue";
 import type { SqliteStaged } from "./browse/sqliteChangeset";
@@ -17,7 +16,6 @@ import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
 import { useSqliteRows } from "./browse/useSqliteRows";
 import { rowOrderOf } from "./browse/sqliteRowOrder";
 import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
-import SqliteChangeDiffDialog from "./SqliteChangeDiffDialog.vue";
 import SqliteSqlPane from "./SqliteSqlPane.vue";
 import SqliteStructure from "./SqliteStructure.vue";
 import type { SqliteAddress } from "./sqliteAddress";
@@ -99,23 +97,6 @@ watch(
     if (total === 0) changesOnly.value = false;
   },
 );
-
-const changes = useSqliteChangesStore();
-const diffId = ref<string | null>(null);
-const diffChange = computed(() => {
-  const found = changes.changes.find((entry) => entry.id === diffId.value);
-  return found && found.kind === "record" ? found : null;
-});
-const diffOpen = computed({
-  get: () => diffChange.value !== null,
-  set: (open: boolean) => {
-    if (!open) diffId.value = null;
-  },
-});
-
-function openRowDiff(rowKey: string) {
-  diffId.value = changesByRowKey.value.get(rowKey)?.id ?? null;
-}
 
 function followForeignKey(target: string) {
   const name = target.split(".")[0];
@@ -204,7 +185,6 @@ defineExpose({
     :unsaved="db.unsavedToSource === true"
     @file-action="emit('fileAction', $event)"
     @follow-foreign-key="followForeignKey"
-    @open-row-diff="openRowDiff"
     @retry="rows.refetch()"
   />
   <SqliteStructure
@@ -225,6 +205,4 @@ defineExpose({
     :database-name="db.name"
     :table="table"
   />
-
-  <SqliteChangeDiffDialog v-model:open="diffOpen" :change="diffChange" />
 </template>

@@ -309,7 +309,7 @@ defineExpose({ guardDiscard, startCreate, focusFind });
         size-unit="px"
         :default-size="380"
         :min-size="280"
-        :max-size="560"
+        :max-size="960"
         class="min-h-0"
       >
         <div class="h-full min-h-0 pr-2 pb-2" @keydown="onPaneKeydown">
