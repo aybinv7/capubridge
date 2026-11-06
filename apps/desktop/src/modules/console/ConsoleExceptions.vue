@@ -21,6 +21,8 @@ const filteredEntries = computed(() => {
     `${entry.message} ${entry.source} ${entry.stack.join(" ")}`.toLowerCase().includes(query),
   );
 });
+
+const renderedEntries = computed(() => filteredEntries.value.slice(-160));
 </script>
 
 <template>
@@ -76,7 +78,7 @@ const filteredEntries = computed(() => {
     <ScrollArea v-else class="min-h-0 flex-1">
       <div class="space-y-2 p-3">
         <section
-          v-for="entry in filteredEntries"
+          v-for="entry in renderedEntries"
           :key="entry.id"
           class="rounded-xl border border-error/20 bg-error/6 p-3"
         >

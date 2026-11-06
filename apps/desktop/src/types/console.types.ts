@@ -22,6 +22,7 @@ export interface ConsoleProp {
 }
 
 export interface ConsoleEntry {
+  seq: number;
   id: string;
   targetId: string;
   timestamp: number;
@@ -41,6 +42,7 @@ export interface ConsoleEntry {
 }
 
 export interface ConsoleExceptionEntry {
+  seq: number;
   id: string;
   targetId: string;
   timestamp: number;

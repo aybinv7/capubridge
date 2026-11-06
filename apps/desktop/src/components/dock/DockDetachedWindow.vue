@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { Maximize2, Minimize2, Minus, X } from "lucide-vue-next";
 import DockTabContent from "./DockTabContent.vue";
 import DockLogcatCapture from "./DockLogcatCapture.vue";
@@ -16,18 +16,24 @@ const isMaximized = ref(false);
 let appWindow: Awaited<
   ReturnType<typeof import("@tauri-apps/api/webviewWindow").getCurrentWebviewWindow>
 > | null = null;
+let stopResized: (() => void) | null = null;
 
 onMounted(async () => {
   try {
     const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     appWindow = getCurrentWebviewWindow();
     isMaximized.value = await appWindow.isMaximized();
-    appWindow.onResized(async () => {
+    stopResized = await appWindow.onResized(async () => {
       isMaximized.value = await appWindow?.isMaximized();
     });
   } catch {
     appWindow = null;
   }
+});
+
+onUnmounted(() => {
+  stopResized?.();
+  stopResized = null;
 });
 
 async function minimize() {

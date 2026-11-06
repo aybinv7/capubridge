@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch, type WatchStopHandle } from "vue";
+import { computed, markRaw, ref, shallowRef, watch, type WatchStopHandle } from "vue";
 import { defineStore } from "pinia";
 import {
   attachConsoleTargetEffect,
@@ -9,6 +9,15 @@ import { useConnectionStore } from "@/stores/connection.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
+import { createConsoleBuffer } from "@/lib/console/consoleBuffer";
+import {
+  buildSourceLabel,
+  formatTimestamp,
+  isRecord,
+  normalizeTimestamp,
+  readFrameSource,
+} from "@/lib/console/consoleFormat";
+import { STREAM_CAPS } from "@/lib/stream-caps";
 import type { CDPTarget } from "@/types/cdp.types";
 import type {
   ConsoleArg,
@@ -19,8 +28,6 @@ import type {
 } from "@/types/console.types";
 import { parseRemoteValue, flattenArgsForMessage } from "@/lib/console-parse";
 
-const maxConsoleEntries = 500;
-const maxExceptionEntries = 160;
 const maxReplEntries = 80;
 const initialRetryDelay = 500;
 const maximumRetryDelay = 8_000;
@@ -28,89 +35,12 @@ const maximumRetryDelay = 8_000;
 type ClientCleanup = () => void;
 type ConsoleCaptureStatus = "idle" | "connecting" | "live" | "error";
 
-function normalizeTimestamp(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return Date.now();
-  }
-
-  if (value > 100_000_000_000) {
-    return value;
-  }
-
-  if (value > 100_000_000) {
-    return value * 1000;
-  }
-
-  return Date.now();
-}
-
-function formatTimestamp(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(timestamp);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function trimList<T>(items: T[], maxItems: number): T[] {
   return items.length > maxItems ? items.slice(items.length - maxItems) : items;
 }
 
 function buildId(parts: Array<string | number | null | undefined>) {
   return parts.map((part) => (part == null ? "null" : String(part))).join(":");
-}
-
-function buildSourceLabel(
-  url: string | null,
-  lineNumber: number | null,
-  columnNumber: number | null,
-) {
-  if (!url) {
-    return "runtime";
-  }
-
-  let label = url;
-  try {
-    const parsed = new URL(url);
-    label = parsed.pathname.split("/").filter(Boolean).at(-1) ?? parsed.host ?? url;
-  } catch {
-    label = url;
-  }
-
-  if (lineNumber == null) {
-    return label;
-  }
-
-  if (columnNumber == null) {
-    return `${label}:${lineNumber}`;
-  }
-
-  return `${label}:${lineNumber}:${columnNumber}`;
-}
-
-function readFrameSource(frame: Record<string, unknown> | null | undefined) {
-  const url = typeof frame?.url === "string" && frame.url ? frame.url : null;
-  const lineNumber =
-    typeof frame?.lineNumber === "number" && Number.isFinite(frame.lineNumber)
-      ? frame.lineNumber + 1
-      : null;
-  const columnNumber =
-    typeof frame?.columnNumber === "number" && Number.isFinite(frame.columnNumber)
-      ? frame.columnNumber + 1
-      : null;
-  const source = buildSourceLabel(url, lineNumber, columnNumber);
-
-  return {
-    source,
-    url,
-    lineNumber,
-    columnNumber,
-  };
 }
 
 function runtimeLevelFromType(type: string): ConsoleEntryLevel {
@@ -154,8 +84,22 @@ export const useConsoleStore = defineStore("console", () => {
   const targetsStore = useTargetsStore();
   const dockStore = useDockStore();
 
-  const entries = shallowRef<ConsoleEntry[]>([]);
-  const exceptions = shallowRef<ConsoleExceptionEntry[]>([]);
+  const buffer = markRaw(createConsoleBuffer());
+  const entryVersion = shallowRef(0);
+  const exceptionVersion = shallowRef(0);
+  const levelCounts = shallowRef(buffer.counts());
+  const entries = computed<ConsoleEntry[]>(() => {
+    void entryVersion.value;
+    return buffer.entries.toArray();
+  });
+  const exceptions = computed<ConsoleExceptionEntry[]>(() => {
+    void exceptionVersion.value;
+    return buffer.exceptions.toArray();
+  });
+  const exceptionCount = computed(() => {
+    void exceptionVersion.value;
+    return buffer.exceptions.size;
+  });
   const replHistory = ref<ReplHistoryEntry[]>([]);
   const boundTargetId = ref<string | null>(null);
   const leasedTargetId = ref<string | null>(null);
@@ -179,16 +123,24 @@ export const useConsoleStore = defineStore("console", () => {
   let bindingTargetId: string | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retryDelay = initialRetryDelay;
+  const pendingGroups = new Map<string, ConsoleEntry>();
 
-  const entryBatcher = createFrameBatcher<ConsoleEntry>((batch) => {
-    entries.value = trimList(entries.value.concat(batch), maxConsoleEntries);
+  /** Appends a batch to the console ring and tells subscribers. Exposed for measurement. */
+  function flushEntries(batch: readonly ConsoleEntry[]) {
+    buffer.appendEntries(batch);
+    pendingGroups.clear();
+    entryVersion.value += 1;
+    levelCounts.value = buffer.counts();
     maybeMarkConsoleUnread();
-  }, maxConsoleEntries);
+  }
+
+  const entryBatcher = createFrameBatcher<ConsoleEntry>(flushEntries, STREAM_CAPS.console);
 
   const exceptionBatcher = createFrameBatcher<ConsoleExceptionEntry>((batch) => {
-    exceptions.value = trimList(exceptions.value.concat(batch), maxExceptionEntries);
+    buffer.appendExceptions(batch);
+    exceptionVersion.value += 1;
     maybeMarkExceptionsUnread();
-  }, maxExceptionEntries);
+  }, STREAM_CAPS.exceptions);
 
   function clearRetry() {
     if (retryTimer) {
@@ -202,29 +154,30 @@ export const useConsoleStore = defineStore("console", () => {
     clientCleanups = [];
   }
 
-  function resetTargetState(targetId: string | null) {
-    clearRetry();
-    retryDelay = initialRetryDelay;
-    boundTargetId.value = targetId;
-    entryBatcher.clear();
-    exceptionBatcher.clear();
-    entries.value = [];
-    exceptions.value = [];
-    replHistory.value = [];
-    error.value = null;
-    captureStatus.value = targetId ? "connecting" : "idle";
-    groupStack = [];
-  }
-
   function clearConsole() {
     entryBatcher.clear();
-    entries.value = [];
+    pendingGroups.clear();
+    buffer.clearEntries();
+    entryVersion.value += 1;
+    levelCounts.value = buffer.counts();
     groupStack = [];
   }
 
   function clearExceptions() {
     exceptionBatcher.clear();
-    exceptions.value = [];
+    buffer.clearExceptions();
+    exceptionVersion.value += 1;
+  }
+
+  function resetTargetState(targetId: string | null) {
+    clearRetry();
+    retryDelay = initialRetryDelay;
+    boundTargetId.value = targetId;
+    clearConsole();
+    clearExceptions();
+    replHistory.value = [];
+    error.value = null;
+    captureStatus.value = targetId ? "connecting" : "idle";
   }
 
   function clearReplHistory() {
@@ -241,7 +194,7 @@ export const useConsoleStore = defineStore("console", () => {
 
   function pushConsoleEntry(entry: ConsoleEntry) {
     if (!entry.isGroup) {
-      const lastEntry = entryBatcher.last() ?? entries.value.at(-1);
+      const lastEntry = entryBatcher.last() ?? buffer.entries.last();
       if (
         lastEntry &&
         lastEntry.origin === entry.origin &&
@@ -253,6 +206,8 @@ export const useConsoleStore = defineStore("console", () => {
       ) {
         return;
       }
+    } else {
+      pendingGroups.set(entry.id, entry);
     }
 
     entryBatcher.push(entry);
@@ -290,7 +245,7 @@ export const useConsoleStore = defineStore("console", () => {
     const message = flattenArgsForMessage(args) || runtimeType;
 
     if (isGroup && rawParentId) {
-      const parent = entries.value.find((e) => e.id === rawParentId);
+      const parent = pendingGroups.get(rawParentId) ?? buffer.findGroup(rawParentId);
       if (
         parent &&
         parent.isGroup &&
@@ -307,6 +262,7 @@ export const useConsoleStore = defineStore("console", () => {
     const parentId = rawParentId === id ? null : rawParentId;
 
     pushConsoleEntry({
+      seq,
       id,
       targetId,
       timestamp,
@@ -350,6 +306,7 @@ export const useConsoleStore = defineStore("console", () => {
     const parentId = rawParentId === id ? null : rawParentId;
 
     pushConsoleEntry({
+      seq,
       id,
       targetId,
       timestamp,
@@ -401,6 +358,7 @@ export const useConsoleStore = defineStore("console", () => {
       "Unhandled exception";
 
     pushException({
+      seq: ++idCounter,
       id: buildId([targetId, "exception", timestamp, sourceDetails.source, message]),
       targetId,
       timestamp,
@@ -757,9 +715,25 @@ export const useConsoleStore = defineStore("console", () => {
       }));
   }
 
+  const consoleSource = markRaw({
+    ring: markRaw(buffer.entries),
+    feed: markRaw(buffer.entryFeed),
+  });
+  const exceptionSource = markRaw({
+    ring: markRaw(buffer.exceptions),
+    feed: markRaw(buffer.exceptionFeed),
+  });
+
   return {
     entries,
     exceptions,
+    exceptionCount,
+    levelCounts,
+    entryVersion,
+    exceptionVersion,
+    consoleSource,
+    exceptionSource,
+    flushEntries,
     replHistory,
     boundTargetId,
     leasedTargetId,

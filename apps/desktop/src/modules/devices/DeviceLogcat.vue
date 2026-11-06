@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, toRef } from "vue";
+import { refDebounced } from "@vueuse/core";
 import { Download, Pause, Play, RefreshCw, Search, Trash2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,11 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useLogcatStore } from "@/stores/logcat.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { formatLogcatLine } from "@/lib/logcat/logcatEntry";
+import { compileLogcatFilter } from "@/lib/logcat/logcatFilter";
+import { useRingView } from "@/composables/useRingView";
 import type { LogcatEntry } from "@/types/logcat.types";
+
+const renderedRowLimit = 900;
 
 const devicesStore = useDevicesStore();
 const logcatStore = useLogcatStore();
@@ -26,64 +31,32 @@ const textFilter = ref("");
 const tagFilter = ref("");
 const packageFilter = ref("__all__");
 const activeLevels = ref<LogcatEntry["level"][]>(["V", "D", "I", "W", "E", "F"]);
+const debouncedText = refDebounced(textFilter, 150);
+const debouncedTag = refDebounced(tagFilter, 150);
+const isPaused = toRef(logcatStore, "isPaused");
 
 const selectedDevice = computed(() => devicesStore.selectedDevice);
 const selectedTargetPackage = computed(() => targetsStore.selectedTarget?.packageName ?? null);
 const packageOptions = computed(() => {
-  const values = new Set<string>();
-
+  const values = new Set(logcatStore.packages);
   if (selectedTargetPackage.value) {
     values.add(selectedTargetPackage.value);
   }
-
-  for (const entry of logcatStore.entries) {
-    if (entry.packageName) {
-      values.add(entry.packageName);
-    }
-  }
-
   return Array.from(values).sort((a, b) => a.localeCompare(b));
 });
 
-const levelCounts = computed(() => ({
-  V: logcatStore.entries.filter((entry) => entry.level === "V").length,
-  D: logcatStore.entries.filter((entry) => entry.level === "D").length,
-  I: logcatStore.entries.filter((entry) => entry.level === "I").length,
-  W: logcatStore.entries.filter((entry) => entry.level === "W").length,
-  E: logcatStore.entries.filter((entry) => entry.level === "E").length,
-  F: logcatStore.entries.filter((entry) => entry.level === "F").length,
-}));
+const levelCounts = computed(() => logcatStore.levelCounts);
 
-const filteredEntries = computed(() => {
-  const query = textFilter.value.trim().toLowerCase();
-  const tag = tagFilter.value.trim().toLowerCase();
-  const packageName = packageFilter.value === "__all__" ? "" : packageFilter.value;
-
-  return logcatStore.entries.filter((entry) => {
-    if (!activeLevels.value.includes(entry.level)) {
-      return false;
-    }
-
-    if (tag && !entry.tag.toLowerCase().includes(tag)) {
-      return false;
-    }
-
-    if (packageName && entry.packageName !== packageName) {
-      return false;
-    }
-
-    if (!query) {
-      return true;
-    }
-
-    const message = [entry.packageName, entry.processName, entry.tag, entry.message]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    return message.includes(query);
-  });
-});
+const predicate = computed(() =>
+  compileLogcatFilter({
+    text: debouncedText.value,
+    tag: debouncedTag.value,
+    packageName: packageFilter.value === "__all__" ? null : packageFilter.value,
+    levels: activeLevels.value,
+  }),
+);
+const { rows: filteredEntries } = useRingView(logcatStore, predicate, { frozen: isPaused });
+const renderedEntries = computed(() => filteredEntries.value.slice(-renderedRowLimit));
 
 function toggleLevel(level: LogcatEntry["level"]) {
   activeLevels.value = activeLevels.value.includes(level)
@@ -151,12 +124,12 @@ function exportTxt() {
             }}
           </div>
           <div class="text-2xs text-muted-foreground/60">
-            Android stream · {{ filteredEntries.length }} visible · {{ logcatStore.entries.length }}
+            Android stream · {{ filteredEntries.length }} visible · {{ logcatStore.size }}
             total
             <span v-if="logcatStore.pausedCount" class="text-warning">
-              · {{ logcatStore.pausedCount }} buffered
+              · {{ logcatStore.pausedCount }} new lines kept while paused
               <template v-if="logcatStore.pausedDropped">
-                · {{ logcatStore.pausedDropped }} older lines not kept
+                · the oldest {{ logcatStore.pausedDropped }} are no longer kept
               </template>
             </span>
           </div>
@@ -294,7 +267,7 @@ function exportTxt() {
     <ScrollArea v-else class="min-h-0 flex-1">
       <div class="font-mono text-2xs leading-5">
         <div
-          v-for="entry in filteredEntries"
+          v-for="entry in renderedEntries"
           :key="entry.id"
           class="grid grid-cols-[44px_84px_54px_160px_96px_minmax(0,1fr)] gap-2 border-b border-border/15 px-3 py-2 hover:bg-surface-2/60"
         >

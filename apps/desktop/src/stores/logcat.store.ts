@@ -1,9 +1,13 @@
-import { computed, ref, shallowRef } from "vue";
+import { computed, markRaw, ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import { useDockStore } from "@/stores/dock.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
 import { createSerialQueue } from "@/lib/serial-queue";
+import { RingBuffer } from "@/lib/ring-buffer";
+import { STREAM_CAPS } from "@/lib/stream-caps";
+import { createStreamFeed } from "@/lib/stream-feed";
 import { toLogcatEntry } from "@/lib/logcat/logcatEntry";
+import { createLogcatTally } from "@/lib/logcat/logcatTally";
 import { runSessionEffect, startLogcatLeaseEffect, stopLogcatLeaseEffect } from "@/runtime/session";
 import type {
   LogcatBatchPayload,
@@ -13,21 +17,6 @@ import type {
   LogcatStreamMessage,
   LogcatStreamState,
 } from "@/types/logcat.types";
-
-const maxLogcatEntries = 900;
-const maxPausedBufferEntries = maxLogcatEntries;
-
-function trimEntries(entries: LogcatEntry[]): LogcatEntry[] {
-  return entries.length > maxLogcatEntries
-    ? entries.slice(entries.length - maxLogcatEntries)
-    : entries;
-}
-
-function trimPausedEntries(entries: LogcatEntry[]): LogcatEntry[] {
-  return entries.length > maxPausedBufferEntries
-    ? entries.slice(entries.length - maxPausedBufferEntries)
-    : entries;
-}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -39,12 +28,21 @@ function errorMessage(error: unknown): string {
  * Rust streams one long-running logcat per device, reconnects on its own and sends batches on a
  * channel only this window receives; this store shows the state it reports, and ignores reports
  * from a run or channel that was replaced.
+ *
+ * Lines live in a ring of {@link STREAM_CAPS.logcat}; each flush appends without copying and
+ * updates the level and package tallies incrementally. Consumers subscribe to `feed`.
  */
 export const useLogcatStore = defineStore("logcat", () => {
   const dockStore = useDockStore();
   const leaseQueue = createSerialQueue();
 
-  const entries = shallowRef<LogcatEntry[]>([]);
+  const ring = markRaw(new RingBuffer<LogcatEntry>(STREAM_CAPS.logcat));
+  const feed = markRaw(createStreamFeed<LogcatEntry>("logcat"));
+  const tally = createLogcatTally();
+  const version = shallowRef(0);
+  const levelCounts = shallowRef(tally.levels());
+  const packages = shallowRef<string[]>([]);
+
   const serial = ref<string | null>(null);
   const streamState = ref<LogcatStreamState>("stopped");
   const attempt = ref(0);
@@ -52,36 +50,58 @@ export const useLogcatStore = defineStore("logcat", () => {
   const clock = ref<LogcatClockSample | null>(null);
   const clockWentBack = ref(false);
   const isPaused = ref(false);
-  const pausedEntries = shallowRef<LogcatEntry[]>([]);
   const pausedCount = ref(0);
-  const pausedDropped = ref(0);
   const error = ref<string | null>(null);
 
   const isStreaming = computed(() => streamState.value === "live");
+  const size = computed(() => {
+    void version.value;
+    return ring.size;
+  });
+  const pausedDropped = computed(() => Math.max(0, pausedCount.value - ring.capacity));
+  const entries = computed<LogcatEntry[]>(() => {
+    void version.value;
+    return ring.toArray();
+  });
 
   let heldSerial: string | null = null;
   let generation = 0;
   let channelToken = 0;
 
-  const batcher = createFrameBatcher<LogcatEntry>((batch) => {
-    if (isPaused.value) {
-      const combined = pausedEntries.value.concat(batch);
-      const kept = trimPausedEntries(combined);
-      pausedDropped.value += combined.length - kept.length;
-      pausedEntries.value = kept;
-      pausedCount.value = kept.length;
-    } else {
-      entries.value = trimEntries(entries.value.concat(batch));
+  function publish() {
+    version.value += 1;
+    levelCounts.value = tally.levels();
+    if (tally.takePackagesChanged()) {
+      packages.value = tally.packages();
     }
+  }
+
+  /** Appends a batch to the ring and tells subscribers. Exposed for measurement. */
+  function flush(batch: readonly LogcatEntry[]) {
+    if (batch.length === 0) {
+      return;
+    }
+    const evicted = ring.pushAll(batch);
+    tally.add(batch);
+    tally.remove(evicted);
+    if (isPaused.value) {
+      pausedCount.value += batch.length;
+    }
+    publish();
+    feed.emit({ kind: "append", items: batch, evicted });
     dockStore.markUnread("logcat");
-  }, maxLogcatEntries);
+  }
+
+  const batcher = createFrameBatcher<LogcatEntry>(flush, STREAM_CAPS.logcat);
 
   function clear() {
     batcher.clear();
-    entries.value = [];
-    pausedEntries.value = [];
+    ring.clear();
+    tally.reset();
     pausedCount.value = 0;
-    pausedDropped.value = 0;
+    publish();
+    packages.value = [];
+    feed.emit({ kind: "clear" });
   }
 
   function acceptsGeneration(reported: number): boolean {
@@ -221,24 +241,17 @@ export const useLogcatStore = defineStore("logcat", () => {
     });
   }
 
-  function resume() {
-    if (!isPaused.value) {
-      return;
-    }
-
-    batcher.flushNow();
-    isPaused.value = false;
-    pausedDropped.value = 0;
-    if (pausedEntries.value.length > 0) {
-      entries.value = trimEntries(entries.value.concat(pausedEntries.value));
-      pausedEntries.value = [];
-      pausedCount.value = 0;
-    }
-  }
-
+  /** Freezes the views; capture goes on and every new line is kept in the ring. */
   function pause() {
     batcher.flushNow();
+    pausedCount.value = 0;
     isPaused.value = true;
+  }
+
+  function resume() {
+    batcher.flushNow();
+    isPaused.value = false;
+    pausedCount.value = 0;
   }
 
   function togglePaused() {
@@ -246,12 +259,17 @@ export const useLogcatStore = defineStore("logcat", () => {
       resume();
       return;
     }
-
     pause();
   }
 
   return {
+    ring,
+    feed,
+    version,
+    size,
     entries,
+    levelCounts,
+    packages,
     serial,
     streamState,
     attempt,
@@ -263,6 +281,7 @@ export const useLogcatStore = defineStore("logcat", () => {
     pausedCount,
     pausedDropped,
     error,
+    flush,
     follow,
     restart,
     pause,

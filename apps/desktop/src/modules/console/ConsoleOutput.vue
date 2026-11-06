@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { refDebounced } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { ChevronRight, Search, Ban } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
@@ -9,50 +10,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConsoleStore } from "@/stores/console.store";
 import type { ConsoleEntry, ConsoleEntryLevel } from "@/types/console.types";
 import ConsoleArgsView from "@/components/console/ConsoleArgsView.vue";
+import { buildConsoleRows, type ConsoleFilterLevel } from "@/lib/console/consoleRows";
 
-type FilterLevel = ConsoleEntryLevel | "all" | "verbose";
+type FilterLevel = ConsoleFilterLevel;
 
 const consoleStore = useConsoleStore();
 
 const searchQuery = ref("");
+const debouncedQuery = refDebounced(searchQuery, 150);
 const activeLevel = ref<FilterLevel>("all");
 const groupOverride = ref(new Map<string, boolean>());
 
-const levelCounts = computed(() => ({
-  all: consoleStore.entries.length,
-  error: consoleStore.entries.filter((e) => e.level === "error").length,
-  warn: consoleStore.entries.filter((e) => e.level === "warn").length,
-  info: consoleStore.entries.filter((e) => e.level === "info").length,
-  verbose: consoleStore.entries.filter((e) => e.level === "log" || e.level === "debug").length,
-}));
-
-const matchedSet = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase();
-  const matched = new Set<string>();
-  for (const e of consoleStore.entries) {
-    if (activeLevel.value !== "all") {
-      const levelMatch =
-        activeLevel.value === "verbose"
-          ? e.level === "log" || e.level === "debug"
-          : e.level === activeLevel.value;
-      if (!levelMatch) continue;
-    }
-    if (q && !`${e.source} ${e.message}`.toLowerCase().includes(q)) continue;
-    matched.add(e.id);
-  }
-  return matched;
-});
-
-const childrenByParent = computed(() => {
-  const map = new Map<string, ConsoleEntry[]>();
-  for (const e of consoleStore.entries) {
-    if (e.parentId) {
-      if (!map.has(e.parentId)) map.set(e.parentId, []);
-      map.get(e.parentId)!.push(e);
-    }
-  }
-  return map;
-});
+const levelCounts = computed(() => consoleStore.levelCounts);
 
 function isExpanded(entry: ConsoleEntry): boolean {
   const o = groupOverride.value.get(entry.id);
@@ -67,44 +36,15 @@ function toggleGroup(entry: ConsoleEntry) {
 }
 
 const visibleRows = computed(() => {
-  const rows: Array<{ entry: ConsoleEntry; depth: number }> = [];
-  const matched = matchedSet.value;
-  const filterActive = searchQuery.value.trim() !== "" || activeLevel.value !== "all";
-  const visited = new Set<string>();
-
-  function shouldShow(e: ConsoleEntry, seen: Set<string>): boolean {
-    if (!filterActive) return true;
-    if (matched.has(e.id)) return true;
-    if (seen.has(e.id)) return false;
-    seen.add(e.id);
-    if (e.isGroup) {
-      const kids = childrenByParent.value.get(e.id) ?? [];
-      return kids.some((k) => shouldShow(k, seen));
-    }
-    return false;
-  }
-
-  function visit(entry: ConsoleEntry, depth: number) {
-    if (visited.has(entry.id)) return;
-    visited.add(entry.id);
-    if (!shouldShow(entry, new Set())) return;
-    rows.push({ entry, depth });
-    if (entry.isGroup && isExpanded(entry)) {
-      const kids = childrenByParent.value.get(entry.id) ?? [];
-      for (const k of kids) {
-        if (k.id === entry.id) continue;
-        visit(k, depth + 1);
-      }
-    }
-  }
-
-  for (const e of consoleStore.entries) {
-    if (e.parentId) continue;
-    visit(e, 0);
-  }
-
-  return rows;
+  void consoleStore.entryVersion;
+  return buildConsoleRows(consoleStore.consoleSource.ring, {
+    query: debouncedQuery.value,
+    level: activeLevel.value,
+    isExpanded,
+  });
 });
+
+const renderedRows = computed(() => visibleRows.value.slice(-500));
 
 function rowClass(level: ConsoleEntryLevel): string {
   if (level === "error") return "bg-error/[0.07] border-l-2 border-error/60 hover:bg-error/[0.12]";
@@ -216,7 +156,7 @@ const FILTER_LEVELS = [
     <ScrollArea v-else class="min-h-0 flex-1">
       <div class="font-mono text-xs">
         <div
-          v-for="{ entry, depth } in visibleRows"
+          v-for="{ entry, depth } in renderedRows"
           :key="entry.id"
           class="group select-text"
           :class="rowClass(entry.level)"

@@ -9,8 +9,9 @@ const hiddenFlushDelayMs = 250;
 
 /**
  * Coalesces high-frequency items into one flush per animation frame, falling back to a
- * timer while the document is hidden (rAF is paused there). `maxPending` bounds memory
- * when the consumer cannot keep up; the oldest items are dropped first.
+ * timer while the document is hidden (rAF is paused there). `maxPending` bounds what one
+ * flush receives; the oldest items are dropped first. Overflow is trimmed in amortised
+ * chunks, never by copying the queue on every push.
  */
 export function createFrameBatcher<T>(
   flush: (batch: T[]) => void,
@@ -37,7 +38,8 @@ export function createFrameBatcher<T>(
     if (pending.length === 0) {
       return;
     }
-    const batch = pending;
+    const batch =
+      pending.length > maxPending ? pending.slice(pending.length - maxPending) : pending;
     pending = [];
     flush(batch);
   }
@@ -57,8 +59,8 @@ export function createFrameBatcher<T>(
   return {
     push(item) {
       pending.push(item);
-      if (pending.length > maxPending) {
-        pending = pending.slice(pending.length - maxPending);
+      if (pending.length >= maxPending * 2) {
+        pending.splice(0, pending.length - maxPending);
       }
       schedule();
     },
