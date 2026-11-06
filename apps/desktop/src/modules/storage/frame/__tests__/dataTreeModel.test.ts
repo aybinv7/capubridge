@@ -38,6 +38,33 @@ describe("buildDataTree", () => {
     ]);
   });
 
+  test("an ordered source keeps its collections as given (a folder tree)", () => {
+    const tree = buildDataTree(
+      [
+        {
+          ...live,
+          sources: [
+            source("opfs", {
+              ordered: true,
+              collections: [
+                { id: "z", label: "z", depth: 0 },
+                { id: "z/a", label: "a", depth: 1, pinned: true },
+                { id: "b", label: "b", depth: 0 },
+              ],
+            }),
+          ],
+        },
+      ],
+      { search: "", showHidden: false },
+    );
+    expect(tree.rows.map((row) => row.key)).toEqual([
+      "s:opfs",
+      "c:opfs\u0000z",
+      "c:opfs\u0000z/a",
+      "c:opfs\u0000b",
+    ]);
+  });
+
   test("search keeps matching collections and opens their source", () => {
     const tree = buildDataTree(
       [{ ...live, sources: [source("shop", { expanded: false }), source("auth")] }],

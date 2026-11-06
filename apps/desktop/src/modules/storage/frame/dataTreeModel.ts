@@ -30,11 +30,12 @@ function visibleCollections(
   showHidden: boolean,
 ): { collections: DataCollectionNode[]; matched: boolean } {
   const kept = source.collections.filter((collection) => showHidden || !collection.hidden);
-  if (!needle) return { collections: kept.sort(byPinThenName), matched: true };
+  const order = (list: DataCollectionNode[]) => (source.ordered ? list : list.sort(byPinThenName));
+  if (!needle) return { collections: order(kept), matched: true };
   const matching = kept.filter((collection) => collection.label.toLowerCase().includes(needle));
-  if (matching.length > 0) return { collections: matching.sort(byPinThenName), matched: true };
+  if (matching.length > 0) return { collections: order(matching), matched: true };
   const sourceMatches = source.label.toLowerCase().includes(needle);
-  return { collections: sourceMatches ? kept.sort(byPinThenName) : [], matched: sourceMatches };
+  return { collections: sourceMatches ? order(kept) : [], matched: sourceMatches };
 }
 
 /**

@@ -61,8 +61,8 @@ export const storageRoutes = [
       {
         path: "opfs",
         name: "storage-opfs",
-        component: () => import("./opfs/OPFSExplorer.vue"),
-        meta: { label: "OPFS", requires: "target" },
+        component: () => import("./opfs/OpfsView.vue"),
+        meta: { label: "OPFS", requires: "target", ownsBringToFront: true },
       },
       {
         path: "sqlite/:db?/:table?",

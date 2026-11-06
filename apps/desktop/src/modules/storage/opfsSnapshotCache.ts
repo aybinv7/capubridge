@@ -40,11 +40,20 @@ export const useOpfsSnapshotCache = defineStore("opfs-snapshot-cache", () => {
     entries.value.delete(cacheKey(targetId, opfsPath));
   }
 
+  /** Forgets a path and everything under it (a deleted folder). */
+  function forgetUnder(targetId: string, opfsPath: string) {
+    const exact = cacheKey(targetId, opfsPath);
+    const below = `${exact}/`;
+    for (const key of entries.value.keys()) {
+      if (key === exact || key.startsWith(below)) entries.value.delete(key);
+    }
+  }
+
   function clearTarget(targetId: string) {
     for (const key of entries.value.keys()) {
       if (key.startsWith(`${targetId}::`)) entries.value.delete(key);
     }
   }
 
-  return { entries, get, isFresh, remember, forget, clearTarget };
+  return { entries, get, isFresh, remember, forget, forgetUnder, clearTarget };
 });

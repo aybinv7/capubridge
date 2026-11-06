@@ -44,9 +44,6 @@
   "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
     "errors": 5
   },
-  "apps/desktop/src/modules/storage/opfs/OPFSExplorer.vue": {
-    "errors": 3
-  },
   "apps/desktop/src/modules/storage/sqlite/SqliteDatabaseOverview.vue": {
     "errors": 2
   },

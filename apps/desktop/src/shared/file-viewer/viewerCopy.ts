@@ -2,11 +2,12 @@ import { formatSize } from "@/shared/format/fileSize";
 import { formatBudget } from "./readPlan";
 import type { ViewerKind } from "./viewerKinds";
 
-const MISSING = "File not found or is a directory";
+const MISSING = ["File not found or is a directory", "could not be found"];
 
 /** The plain sentence above a raw read error. */
 export function readErrorSentence(message: string): string {
-  if (message.includes(MISSING)) return "The file is no longer on the phone, or it is a folder.";
+  if (MISSING.some((words) => message.includes(words)))
+    return "The file is no longer on the phone, or it is a folder.";
   return "The file could not be read from the phone.";
 }
 

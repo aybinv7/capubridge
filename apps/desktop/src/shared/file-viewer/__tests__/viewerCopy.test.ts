@@ -22,6 +22,9 @@ describe("viewerCopy", () => {
     expect(readErrorSentence("File not found or is a directory")).toBe(
       "The file is no longer on the phone, or it is a folder.",
     );
+    expect(
+      readErrorSentence("NotFoundError: A requested file or directory could not be found"),
+    ).toBe("The file is no longer on the phone, or it is a folder.");
     expect(readErrorSentence("Shell command failed: closed")).toBe(
       "The file could not be read from the phone.",
     );

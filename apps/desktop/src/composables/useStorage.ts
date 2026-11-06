@@ -1,4 +1,4 @@
-import { computed, type Ref } from "vue";
+import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { OPFSDomain, JeepSqliteDomain } from "@capubridge/cdp-protocol";
 import { useCDP } from "./useCDP";
@@ -15,29 +15,7 @@ export function useOPFS() {
     return new OPFSDomain(client);
   }
 
-  function useDirectory(path: Ref<string>) {
-    return useQuery({
-      queryKey: computed(() => ["opfs-dir", targetId.value, path.value]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.listDirectory(path.value);
-      },
-      enabled: computed(() => !!targetId.value),
-    });
-  }
-
-  function useSahPoolDatabases(path: Ref<string>, enabled: Ref<boolean>) {
-    return useQuery({
-      queryKey: computed(() => ["opfs-sah-pool", targetId.value, path.value]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.listSahPoolDatabases(path.value);
-      },
-      enabled: computed(() => !!targetId.value && enabled.value),
-    });
-  }
-
-  return { targetId, useDirectory, useSahPoolDatabases, getDomain };
+  return { targetId, getDomain };
 }
 
 export function useJeepSqlite() {

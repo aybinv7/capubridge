@@ -34,6 +34,10 @@ const changes = computed(() => {
   return undefined;
 });
 
+const depth = computed(() =>
+  props.row.kind === "collection" ? (props.row.collection.depth ?? 0) : 0,
+);
+
 const menuLabel = computed(() => {
   if (props.row.kind === "source") return `Actions for ${props.row.source.label}`;
   if (props.row.kind === "collection") return `Actions for ${props.row.collection.label}`;
@@ -75,7 +79,7 @@ const menuLabel = computed(() => {
     v-else
     :id="id"
     role="treeitem"
-    :aria-level="row.kind === 'source' ? 1 : 2"
+    :aria-level="row.kind === 'source' ? 1 : 2 + depth"
     :aria-selected="selected"
     :aria-expanded="row.kind === 'source' ? row.source.expanded : undefined"
     class="group/row relative mx-1.5 flex h-7 cursor-default items-center gap-1.5 rounded-control pr-1 text-xs"
@@ -84,6 +88,7 @@ const menuLabel = computed(() => {
       active && !selected ? 'ring-1 ring-ring ring-inset' : '',
       row.kind === 'source' ? 'pl-1' : 'pl-7',
     ]"
+    :style="depth > 0 ? { paddingLeft: `${28 + depth * 12}px` } : undefined"
     @click="emit('select')"
     @contextmenu.prevent="actions.length > 0 && (menuOpen = true)"
   >

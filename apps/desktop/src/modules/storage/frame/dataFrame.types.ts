@@ -41,6 +41,8 @@ export interface DataCollectionNode {
   hidden?: boolean;
   /** `false` when the change watcher does not watch it (only so many stores are). */
   watched?: boolean;
+  /** Nesting below the source, from 0; indents the row (folders of a folder tree). */
+  depth?: number;
 }
 
 export interface DataSourceNode {
@@ -57,6 +59,8 @@ export interface DataSourceNode {
   link?: DataSourceLink;
   /** A line under the source when it is expanded (for example why it could not be read). */
   note?: string;
+  /** Keep `collections` in the given order (a folder tree) instead of pins first, then by name. */
+  ordered?: boolean;
 }
 
 export interface DataSection {
