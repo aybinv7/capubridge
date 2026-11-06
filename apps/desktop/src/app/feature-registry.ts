@@ -119,7 +119,7 @@ export const featureRegistry = [
     path: "/automation",
     icon: Bot,
     railIcon: "flows",
-    maturity: "experimental",
+    maturity: "hidden",
     placement: "primary",
     commandPalette: true,
     routes: automationRoutes,
