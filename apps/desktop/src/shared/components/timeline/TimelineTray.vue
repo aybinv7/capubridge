@@ -35,7 +35,7 @@ const slide = computed(() => {
       />
     </div>
     <div
-      class="absolute inset-x-0 overflow-hidden transition-transform duration-300 ease-cladd-spring motion-reduce:transition-none"
+      class="absolute inset-x-0 overflow-hidden transition-transform duration-500 ease-cladd-spring motion-reduce:transition-none"
       :style="{
         [near]: `${CAP}px`,
         height: `${RISE}px`,
@@ -49,7 +49,7 @@ const slide = computed(() => {
       />
     </div>
     <div
-      class="absolute inset-x-0 overflow-hidden transition-transform duration-300 ease-cladd-spring motion-reduce:transition-none"
+      class="absolute inset-x-0 overflow-hidden transition-transform duration-500 ease-cladd-spring motion-reduce:transition-none"
       :style="{ [far]: '0px', height: `${CAP}px`, transform: slide }"
     >
       <div

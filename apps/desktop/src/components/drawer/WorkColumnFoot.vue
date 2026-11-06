@@ -37,27 +37,35 @@ defineExpose({
     ]"
   >
     <Transition
-      enter-active-class="transition-[clip-path,opacity] duration-300 ease-cladd-spring motion-reduce:transition-none"
-      enter-from-class="opacity-0 [clip-path:inset(100%_0_0_0)]"
-      enter-to-class="opacity-100 [clip-path:inset(0_0_0_0)]"
-      leave-active-class="transition-[clip-path,opacity] duration-200 ease-in-out motion-reduce:transition-none"
-      leave-from-class="opacity-100 [clip-path:inset(0_0_0_0)]"
-      leave-to-class="opacity-0 [clip-path:inset(100%_0_0_0)]"
+      enter-active-class="transition-[grid-template-rows,opacity] duration-500 ease-cladd-settle motion-reduce:transition-none"
+      enter-from-class="reveal-from grid-rows-[0fr] opacity-0"
+      enter-to-class="grid-rows-[1fr] opacity-100"
+      leave-active-class="transition-[grid-template-rows,opacity] duration-200 ease-in motion-reduce:transition-none"
+      leave-from-class="grid-rows-[1fr] opacity-100"
+      leave-to-class="reveal-to grid-rows-[0fr] opacity-0"
     >
-      <ConsoleDrawer
+      <div
         v-if="drawer.isOpen"
-        ref="consoleDrawer"
-        @popout="popOut"
-        @request-main-focus="emit('requestMainFocus')"
-      />
+        class="group/reveal grid grid-rows-[1fr]"
+        :class="fills ? 'min-h-0 flex-1' : 'shrink-0'"
+      >
+        <div class="flex min-h-0 flex-col overflow-hidden">
+          <ConsoleDrawer
+            ref="consoleDrawer"
+            class="origin-bottom transition-[translate,scale] duration-500 ease-cladd-spring group-[.reveal-from]/reveal:translate-y-10 group-[.reveal-from]/reveal:scale-x-[0.97] group-[.reveal-to]/reveal:translate-y-6 motion-reduce:transition-none"
+            @popout="popOut"
+            @request-main-focus="emit('requestMainFocus')"
+          />
+        </div>
+      </div>
     </Transition>
     <Transition
-      enter-active-class="transition-[opacity,translate] duration-300 ease-cladd-settle"
-      leave-active-class="transition-[opacity,translate] duration-200 ease-in-out"
-      enter-from-class="translate-y-2 opacity-0"
-      leave-to-class="translate-y-2 opacity-0"
+      enter-active-class="transition-[opacity,translate,scale] duration-500 ease-cladd-spring motion-reduce:transition-none"
+      leave-active-class="transition-[opacity,translate,scale] duration-200 ease-in motion-reduce:transition-none"
+      enter-from-class="translate-y-full scale-x-[0.96] opacity-0"
+      leave-to-class="translate-y-full scale-x-[0.96] opacity-0"
     >
-      <TimelineStrip v-if="stripShown" />
+      <TimelineStrip v-if="stripShown" class="origin-bottom" />
     </Transition>
   </div>
 </template>

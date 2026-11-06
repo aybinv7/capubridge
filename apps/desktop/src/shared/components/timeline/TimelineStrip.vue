@@ -198,7 +198,7 @@ onBeforeUnmount(clearTimers);
       @focusout="onFocusOut"
     >
       <div
-        class="absolute inset-x-0 top-0 flex transition-[opacity,translate] duration-300 ease-cladd-spring motion-reduce:transition-none"
+        class="absolute inset-x-0 top-0 flex transition-[opacity,translate] duration-500 ease-cladd-spring motion-reduce:transition-none"
         :class="expanded ? 'translate-y-0 opacity-100' : lanesHidden"
         :inert="expanded ? undefined : true"
       >

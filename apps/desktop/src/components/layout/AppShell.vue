@@ -255,10 +255,10 @@ onUnmounted(() => {
         class="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
       >
         <Transition
-          enter-active-class="transition-[opacity,translate] duration-300 ease-cladd-settle motion-reduce:transition-none"
-          leave-active-class="transition-[opacity,translate] duration-200 ease-in-out motion-reduce:transition-none"
-          enter-from-class="-translate-y-2 opacity-0"
-          leave-to-class="-translate-y-2 opacity-0"
+          enter-active-class="transition-[opacity,translate,scale] duration-500 ease-cladd-spring motion-reduce:transition-none"
+          leave-active-class="transition-[opacity,translate,scale] duration-200 ease-in motion-reduce:transition-none"
+          enter-from-class="-translate-y-full scale-x-[0.96] opacity-0"
+          leave-to-class="-translate-y-full scale-x-[0.96] opacity-0"
         >
           <div
             v-if="!timelineStrip.hidden && timelineStrip.edge === 'top'"
