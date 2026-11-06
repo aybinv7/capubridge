@@ -97,6 +97,24 @@ export type {
   DiscoveredOpfsDatabase,
   OpfsSqliteTech,
 } from "./cdp/domains/opfs-sqlite-discovery.js";
+export {
+  FORAGE_READ_LIMIT,
+  KeyValueConflictError,
+  KeyValueDomain,
+  KeyValueWrongOriginError,
+} from "./cdp/domains/keyvalue.js";
+export type {
+  KeyValueArea,
+  KeyValueConflict,
+  KeyValueDiscovery,
+  KeyValueForageEntry,
+  KeyValueForagePage,
+  KeyValueForageStore,
+  KeyValueStorageEntry,
+  KeyValueTarget,
+  KeyValueWriteInput,
+  KeyValueWriteResult,
+} from "./cdp/domains/keyvalue.js";
 export { LocalForageDomain } from "./cdp/domains/localforage.js";
 export type { LocalForageEntry } from "./cdp/domains/localforage.js";
 export { JeepSqliteDomain } from "./cdp/domains/jeep-sqlite.js";
