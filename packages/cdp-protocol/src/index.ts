@@ -71,6 +71,26 @@ export type {
 export { LocalStorageDomain, CacheAPIDomain } from "./cdp/domains/storage.js";
 export type { LSOrigin, CacheName, CacheEntry } from "./cdp/domains/storage.js";
 export {
+  CACHE_BODY_PREVIEW_BYTES,
+  CACHE_DETAIL_BUDGET_MS,
+  CACHE_ENTRY_READ_LIMIT,
+  CacheStorageChangedError,
+  CacheStorageDomain,
+  CacheStorageGoneError,
+  CacheStorageWrongOriginError,
+} from "./cdp/domains/cache-storage.js";
+export type {
+  CacheEntryTarget,
+  CacheStorageBody,
+  CacheStorageCache,
+  CacheStorageCatalog,
+  CacheStorageDeleteResult,
+  CacheStorageEntriesPage,
+  CacheStorageEntry,
+  CacheStorageEntryDetail,
+  CacheStorageResponse,
+} from "./cdp/domains/cache-storage.js";
+export {
   OPFSDomain,
   SQLITE_MAGIC,
   SAH_POOL_HEADER_PATH_MAX,
