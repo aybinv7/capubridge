@@ -13,7 +13,6 @@ import {
 } from "lucide-vue-next";
 import type { RailIconKey } from "@/shared/icons/shell-icons";
 import { appRoutes } from "../modules/app/public";
-import { automationRoutes } from "../modules/automation/public";
 import { browserPreviewRoutes } from "../modules/browser-preview/public";
 import { deviceRoutes } from "../modules/devices/public";
 import { inspectRoutes } from "../modules/inspect/public";
@@ -122,7 +121,7 @@ export const featureRegistry = [
     maturity: "hidden",
     placement: "primary",
     commandPalette: true,
-    routes: automationRoutes,
+    routes: [],
   },
   {
     id: "preview",
