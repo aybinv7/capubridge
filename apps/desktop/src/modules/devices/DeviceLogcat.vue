@@ -19,9 +19,8 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { formatLogcatLine } from "@/lib/logcat/logcatEntry";
 import { compileLogcatFilter } from "@/lib/logcat/logcatFilter";
 import { useRingView } from "@/composables/useRingView";
+import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
 import type { LogcatEntry } from "@/types/logcat.types";
-
-const renderedRowLimit = 900;
 
 const devicesStore = useDevicesStore();
 const logcatStore = useLogcatStore();
@@ -56,7 +55,15 @@ const predicate = computed(() =>
   }),
 );
 const { rows: filteredEntries } = useRingView(logcatStore, predicate, { frozen: isPaused });
-const renderedEntries = computed(() => filteredEntries.value.slice(-renderedRowLimit));
+const {
+  bindScrollArea,
+  visible: virtualItems,
+  totalSize,
+  measure,
+} = useScrollAreaVirtualizer(filteredEntries, {
+  estimateSize: 37,
+  itemKey: (entry) => entry.id,
+});
 
 function toggleLevel(level: LogcatEntry["level"]) {
   activeLevels.value = activeLevels.value.includes(level)
@@ -264,30 +271,33 @@ function exportTxt() {
       No log lines for current filters.
     </div>
 
-    <ScrollArea v-else class="min-h-0 flex-1">
-      <div class="font-mono text-2xs leading-5">
+    <ScrollArea v-else :ref="bindScrollArea" class="min-h-0 flex-1">
+      <div class="relative font-mono text-2xs leading-5" :style="{ height: `${totalSize}px` }">
         <div
-          v-for="entry in renderedEntries"
-          :key="entry.id"
-          class="grid grid-cols-[44px_84px_54px_160px_96px_minmax(0,1fr)] gap-2 border-b border-border/15 px-3 py-2 hover:bg-surface-2/60"
+          v-for="item in virtualItems"
+          :key="item.key"
+          :ref="measure"
+          :data-index="item.index"
+          class="absolute top-0 left-0 grid w-full grid-cols-[44px_84px_54px_160px_96px_minmax(0,1fr)] gap-2 border-b border-border/15 px-3 py-2 hover:bg-surface-2/60"
+          :style="{ transform: `translateY(${item.start}px)` }"
         >
-          <div class="text-muted-foreground/65">{{ entry.level }}</div>
-          <div class="text-muted-foreground/55">{{ entry.time }}</div>
-          <div class="text-muted-foreground/55">{{ entry.pid ?? "—" }}</div>
-          <div class="truncate text-cyan-300/85">{{ packageLabel(entry) }}</div>
-          <div class="truncate text-info/90">{{ entry.tag }}</div>
+          <div class="text-muted-foreground/65">{{ item.item.level }}</div>
+          <div class="text-muted-foreground/55">{{ item.item.time }}</div>
+          <div class="text-muted-foreground/55">{{ item.item.pid ?? "—" }}</div>
+          <div class="truncate text-cyan-300/85">{{ packageLabel(item.item) }}</div>
+          <div class="truncate text-info/90">{{ item.item.tag }}</div>
           <pre
             class="whitespace-pre-wrap break-words"
             :class="
-              entry.level === 'E' || entry.level === 'F'
+              item.item.level === 'E' || item.item.level === 'F'
                 ? 'text-error'
-                : entry.level === 'W'
+                : item.item.level === 'W'
                   ? 'text-warning'
-                  : entry.level === 'I'
+                  : item.item.level === 'I'
                     ? 'text-success'
                     : 'text-foreground/85'
             "
-            >{{ entry.message }}</pre
+            >{{ item.item.message }}</pre
           >
         </div>
       </div>

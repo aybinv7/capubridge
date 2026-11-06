@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConsoleStore } from "@/stores/console.store";
+import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
 
 const consoleStore = useConsoleStore();
 
@@ -22,7 +23,15 @@ const filteredEntries = computed(() => {
   );
 });
 
-const renderedEntries = computed(() => filteredEntries.value.slice(-160));
+const {
+  bindScrollArea,
+  visible: virtualEntries,
+  totalSize,
+  measure,
+} = useScrollAreaVirtualizer(filteredEntries, {
+  estimateSize: 120,
+  itemKey: (entry) => entry.id,
+});
 </script>
 
 <template>
@@ -75,34 +84,39 @@ const renderedEntries = computed(() => filteredEntries.value.slice(-160));
       No exceptions captured yet.
     </div>
 
-    <ScrollArea v-else class="min-h-0 flex-1">
-      <div class="space-y-2 p-3">
-        <section
-          v-for="entry in renderedEntries"
-          :key="entry.id"
-          class="rounded-xl border border-error/20 bg-error/6 p-3"
+    <ScrollArea v-else :ref="bindScrollArea" class="min-h-0 flex-1">
+      <div class="relative" :style="{ height: `${totalSize + 24}px` }">
+        <div
+          v-for="{ key, index, start, item: entry } in virtualEntries"
+          :key="key"
+          :ref="measure"
+          :data-index="index"
+          class="absolute top-3 right-3 left-3 pb-2"
+          :style="{ transform: `translateY(${start}px)` }"
         >
-          <div class="flex items-start gap-2">
-            <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0 text-error" />
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-foreground">{{ entry.message }}</span>
-                <span class="font-mono text-2xs text-muted-foreground/60">{{
-                  entry.timestampLabel
-                }}</span>
+          <section class="rounded-xl border border-error/20 bg-error/6 p-3">
+            <div class="flex items-start gap-2">
+              <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0 text-error" />
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-foreground">{{ entry.message }}</span>
+                  <span class="font-mono text-2xs text-muted-foreground/60">{{
+                    entry.timestampLabel
+                  }}</span>
+                </div>
+                <div class="mt-1 text-2xs text-muted-foreground/70">
+                  {{ entry.source }}
+                  <span v-if="entry.url" class="font-mono"> · {{ entry.url }}</span>
+                </div>
+                <pre
+                  v-if="entry.stack.length"
+                  class="mt-3 overflow-x-auto rounded-lg border border-border/20 bg-surface-3 p-3 font-mono text-2xs leading-5 text-foreground/80"
+                  >{{ entry.stack.join("\n") }}</pre
+                >
               </div>
-              <div class="mt-1 text-2xs text-muted-foreground/70">
-                {{ entry.source }}
-                <span v-if="entry.url" class="font-mono"> · {{ entry.url }}</span>
-              </div>
-              <pre
-                v-if="entry.stack.length"
-                class="mt-3 overflow-x-auto rounded-lg border border-border/20 bg-surface-3 p-3 font-mono text-2xs leading-5 text-foreground/80"
-                >{{ entry.stack.join("\n") }}</pre
-              >
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </ScrollArea>
   </div>

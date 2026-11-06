@@ -6,8 +6,20 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useConsoleStore } from "@/stores/console.store";
+import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
 
 const consoleStore = useConsoleStore();
+
+const newestFirst = computed(() => [...consoleStore.replHistory].reverse());
+const {
+  bindScrollArea,
+  visible: virtualHistory,
+  totalSize,
+  measure,
+} = useScrollAreaVirtualizer(newestFirst, {
+  estimateSize: 140,
+  itemKey: (entry) => entry.id,
+});
 
 const expression = ref("");
 const isRunning = ref(false);
@@ -73,7 +85,7 @@ function onKeydown(event: KeyboardEvent) {
     </div>
 
     <div class="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto]">
-      <ScrollArea class="min-h-0">
+      <ScrollArea :ref="bindScrollArea" class="min-h-0">
         <div
           v-if="consoleStore.replHistory.length === 0"
           class="flex h-full min-h-[180px] items-center justify-center text-sm text-muted-foreground/45"
@@ -81,43 +93,50 @@ function onKeydown(event: KeyboardEvent) {
           Run expression against active CDP target.
         </div>
 
-        <div v-else class="space-y-2 p-3">
-          <section
-            v-for="entry in [...consoleStore.replHistory].reverse()"
-            :key="entry.id"
-            class="rounded-xl border p-3"
-            :class="
-              entry.status === 'error'
-                ? 'border-error/20 bg-error/6'
-                : 'border-border/25 bg-surface-2'
-            "
+        <div v-else class="relative" :style="{ height: `${totalSize + 24}px` }">
+          <div
+            v-for="{ key, index, start, item: entry } in virtualHistory"
+            :key="key"
+            :ref="measure"
+            :data-index="index"
+            class="absolute top-3 right-3 left-3 pb-2"
+            :style="{ transform: `translateY(${start}px)` }"
           >
-            <div class="flex items-center justify-between gap-3">
-              <span class="font-mono text-2xs text-muted-foreground/60">{{
-                entry.timestampLabel
-              }}</span>
-              <Badge
-                variant="outline"
-                class="h-5 rounded-full border px-1.5 font-mono text-2xs"
-                :class="
-                  entry.status === 'error'
-                    ? 'border-error/30 bg-error/10 text-error'
-                    : 'border-success/30 bg-success/10 text-success'
-                "
+            <section
+              class="rounded-xl border p-3"
+              :class="
+                entry.status === 'error'
+                  ? 'border-error/20 bg-error/6'
+                  : 'border-border/25 bg-surface-2'
+              "
+            >
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-mono text-2xs text-muted-foreground/60">{{
+                  entry.timestampLabel
+                }}</span>
+                <Badge
+                  variant="outline"
+                  class="h-5 rounded-full border px-1.5 font-mono text-2xs"
+                  :class="
+                    entry.status === 'error'
+                      ? 'border-error/30 bg-error/10 text-error'
+                      : 'border-success/30 bg-success/10 text-success'
+                  "
+                >
+                  {{ entry.status }}
+                </Badge>
+              </div>
+              <pre
+                class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-2xs text-info"
+                >{{ entry.expression }}</pre
               >
-                {{ entry.status }}
-              </Badge>
-            </div>
-            <pre
-              class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-2xs text-info"
-              >{{ entry.expression }}</pre
-            >
-            <pre
-              class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-2xs"
-              :class="entry.status === 'error' ? 'text-error' : 'text-foreground/85'"
-              >{{ entry.result }}</pre
-            >
-          </section>
+              <pre
+                class="mt-2 overflow-x-auto rounded-lg bg-background/70 p-3 font-mono text-2xs"
+                :class="entry.status === 'error' ? 'text-error' : 'text-foreground/85'"
+                >{{ entry.result }}</pre
+              >
+            </section>
+          </div>
         </div>
       </ScrollArea>
 

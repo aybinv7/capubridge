@@ -11,6 +11,7 @@ import { useConsoleStore } from "@/stores/console.store";
 import type { ConsoleEntry, ConsoleEntryLevel } from "@/types/console.types";
 import ConsoleArgsView from "@/components/console/ConsoleArgsView.vue";
 import { buildConsoleRows, type ConsoleFilterLevel } from "@/lib/console/consoleRows";
+import { useScrollAreaVirtualizer } from "@/composables/useScrollAreaVirtualizer";
 
 type FilterLevel = ConsoleFilterLevel;
 
@@ -44,7 +45,15 @@ const visibleRows = computed(() => {
   });
 });
 
-const renderedRows = computed(() => visibleRows.value.slice(-500));
+const {
+  bindScrollArea,
+  visible: virtualRows,
+  totalSize,
+  measure,
+} = useScrollAreaVirtualizer(visibleRows, {
+  estimateSize: 26,
+  itemKey: (row) => row.entry.id,
+});
 
 function rowClass(level: ConsoleEntryLevel): string {
   if (level === "error") return "bg-error/[0.07] border-l-2 border-error/60 hover:bg-error/[0.12]";
@@ -153,13 +162,16 @@ const FILTER_LEVELS = [
       No console entries.
     </div>
 
-    <ScrollArea v-else class="min-h-0 flex-1">
-      <div class="font-mono text-xs">
+    <ScrollArea v-else :ref="bindScrollArea" class="min-h-0 flex-1">
+      <div class="relative font-mono text-xs" :style="{ height: `${totalSize}px` }">
         <div
-          v-for="{ entry, depth } in renderedRows"
-          :key="entry.id"
-          class="group select-text"
+          v-for="{ key, index, start, item: { entry, depth } } in virtualRows"
+          :key="key"
+          :ref="measure"
+          :data-index="index"
+          class="group absolute top-0 left-0 w-full select-text"
           :class="rowClass(entry.level)"
+          :style="{ transform: `translateY(${start}px)` }"
           @dblclick="copyEntry(entry)"
         >
           <div
