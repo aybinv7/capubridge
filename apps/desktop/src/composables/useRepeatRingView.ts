@@ -25,6 +25,8 @@ export interface RepeatRingView<T> {
   evictedWhileFrozen: Ref<number>;
   /** How many kept items the filter keeps, repeats counted one by one. */
   matched: Ref<number>;
+  /** Moves on every change of `rows`, which is updated in place. */
+  revision: Ref<number>;
   /** Re-runs the filter over the whole ring (for time-based filters). */
   rebuild(): void;
 }
@@ -44,6 +46,7 @@ export function useRepeatRingView<T>(
   const pending = shallowRef(0);
   const evictedWhileFrozen = shallowRef(0);
   const matched = shallowRef(0);
+  const revision = shallowRef(0);
   let stale = false;
 
   function rebuild() {
@@ -58,6 +61,7 @@ export function useRepeatRingView<T>(
     });
     rows.value = groups.rows;
     matched.value = kept;
+    revision.value += 1;
     pending.value = 0;
     evictedWhileFrozen.value = 0;
     stale = false;
@@ -86,6 +90,7 @@ export function useRepeatRingView<T>(
       groups.reset();
       rows.value = groups.rows;
       matched.value = 0;
+      revision.value += 1;
       return;
     }
     const gone = countMatches(change.evicted);
@@ -99,6 +104,7 @@ export function useRepeatRingView<T>(
       }
     }
     matched.value += added - gone;
+    revision.value += 1;
     triggerRef(rows);
   }
 
@@ -115,5 +121,5 @@ export function useRepeatRingView<T>(
   }
   onScopeDispose(unsubscribe);
 
-  return { rows, pending, evictedWhileFrozen, matched, rebuild };
+  return { rows, pending, evictedWhileFrozen, matched, revision, rebuild };
 }

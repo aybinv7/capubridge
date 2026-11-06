@@ -42,7 +42,7 @@ const prefs = useConsolePrefs();
 
 const query = prefs.query;
 const following = ref(true);
-const { rows, pending, compiled, floor, isExpanded, toggleGroup } = useConsoleRows(
+const { rows, revision, pending, compiled, floor, isExpanded, toggleGroup } = useConsoleRows(
   query,
   following,
 );
@@ -243,6 +243,7 @@ function copyGroups(groups: ErrorGroup[]) {
         <StreamList
           ref="list"
           :rows="rows"
+          :revision="revision"
           :key-of="keyOf"
           :following="following"
           :expanded="expanded"

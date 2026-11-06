@@ -12,6 +12,8 @@ import { useStreamSelection } from "./useStreamSelection";
 const props = withDefaults(
   defineProps<{
     rows: readonly R[];
+    /** Moves whenever `rows` changed in place; lists rebuilt as new arrays may leave it at 0. */
+    revision?: number;
     keyOf: (row: R) => string;
     following: boolean;
     expanded: ReadonlySet<string>;
@@ -22,7 +24,7 @@ const props = withDefaults(
     /** False for lists that do not grow at the end (grouped errors): no following, no pill. */
     tail?: boolean;
   }>(),
-  { pending: 0, pendingLabel: "new lines", flashKey: null, tail: true },
+  { revision: 0, pending: 0, pendingLabel: "new lines", flashKey: null, tail: true },
 );
 
 const emit = defineEmits<{
@@ -43,6 +45,7 @@ const rows = toRef(props, "rows");
 const following = computed(() => props.tail && props.following);
 const list = useStreamList({
   rows,
+  revision: toRef(props, "revision"),
   keyOf: props.keyOf,
   following,
   onLeaveTail: () => emit("leaveTail"),

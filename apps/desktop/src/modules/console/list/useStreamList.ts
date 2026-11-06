@@ -9,6 +9,8 @@ const END_SLACK = 6;
 
 export interface StreamListOptions<R> {
   rows: Ref<readonly R[]>;
+  /** Moves whenever `rows` changes in place, so the list sees appends to the same array. */
+  revision: Ref<number>;
   keyOf: (row: R) => string;
   /** True while the list follows new rows at the end. */
   following: Ref<boolean>;
@@ -30,6 +32,7 @@ export function useStreamList<R>(options: StreamListOptions<R>) {
   const virtualizer = useVirtualizer(
     computed(() => {
       const list = options.rows.value;
+      void options.revision.value;
       return {
         count: list.length,
         getScrollElement: () => scroller.value,
@@ -45,6 +48,7 @@ export function useStreamList<R>(options: StreamListOptions<R>) {
 
   const items = computed(() => {
     const list = options.rows.value;
+    void options.revision.value;
     return virtualizer.value.getVirtualItems().flatMap((virtual) => {
       const row = list[virtual.index];
       return row === undefined
@@ -88,7 +92,7 @@ export function useStreamList<R>(options: StreamListOptions<R>) {
   useEventListener(scroller, "scroll", onScroll, { passive: true });
 
   watch(
-    [options.rows, totalSize],
+    [options.rows, options.revision, totalSize],
     () => {
       if (options.following.value) void nextTick(scrollToEnd);
     },

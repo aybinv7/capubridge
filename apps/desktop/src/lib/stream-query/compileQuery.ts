@@ -39,8 +39,12 @@ function textMatcher(
     const value = term.value;
     return (text) => text === value;
   }
-  const needle = term.value.toLowerCase();
-  return (text) => text.toLowerCase().includes(needle);
+  const pattern = new RegExp(escapeRegExp(term.value), "i");
+  return (text) => pattern.test(text);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function anyOf<T>(checks: Check<T>[]): Check<T> {
@@ -50,12 +54,20 @@ function anyOf<T>(checks: Check<T>[]): Check<T> {
 
 interface Groups<T> {
   positive: Map<string, Check<T>[]>;
-  negative: Check<T>[];
+  negative: Array<{ key: string; check: Check<T> }>;
+}
+
+/** Cheap checks run first, so most items are rejected before any text is searched. */
+function costOf(key: string): number {
+  if (key === "level" || key === "age") return 0;
+  if (key === "is") return 2;
+  if (key.startsWith("text:")) return 3;
+  return 1;
 }
 
 function add<T>(groups: Groups<T>, key: string, negate: boolean, check: Check<T>) {
   if (negate) {
-    groups.negative.push(check);
+    groups.negative.push({ key, check });
     return;
   }
   const list = groups.positive.get(key);
@@ -161,9 +173,14 @@ export function compileQuery<T>(
     if (check) add(groups, key, term.negate, check);
   }
 
-  const checks: Check<T>[] = [];
-  for (const list of groups.positive.values()) checks.push(anyOf(list));
-  for (const negated of groups.negative) checks.push((item) => !negated(item));
+  const ordered: Array<{ cost: number; check: Check<T> }> = [];
+  for (const [key, list] of groups.positive)
+    ordered.push({ cost: costOf(key), check: anyOf(list) });
+  for (const negated of groups.negative) {
+    const test = negated.check;
+    ordered.push({ cost: costOf(negated.key), check: (item) => !test(item) });
+  }
+  const checks = ordered.sort((a, b) => a.cost - b.cost).map((entry) => entry.check);
 
   return {
     predicate:

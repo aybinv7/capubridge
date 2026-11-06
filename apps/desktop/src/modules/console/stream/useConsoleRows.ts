@@ -26,6 +26,7 @@ export function useConsoleRows(query: Ref<string>, following: Ref<boolean>) {
   const settled = refDebounced(query, 150);
   const groupOverride = shallowRef<ReadonlyMap<string, boolean>>(new Map());
   const pending = shallowRef(0);
+  const revision = shallowRef(0);
   let stale = false;
 
   function serial(): string | null {
@@ -57,11 +58,13 @@ export function useConsoleRows(query: Ref<string>, following: Ref<boolean>) {
     rows.value = view.rows;
     pending.value = 0;
     stale = false;
+    revision.value += 1;
   }
 
   function settle() {
     if (view.rows !== rows.value) rows.value = view.rows;
     else triggerRef(rows);
+    revision.value += 1;
   }
 
   function arrived(count: number) {
@@ -132,5 +135,5 @@ export function useConsoleRows(query: Ref<string>, following: Ref<boolean>) {
 
   const floor = computed(() => compiled.value.levelFloor);
 
-  return { rows, pending, compiled, floor, isExpanded, toggleGroup, rebuild };
+  return { rows, revision, pending, compiled, floor, isExpanded, toggleGroup, rebuild };
 }
