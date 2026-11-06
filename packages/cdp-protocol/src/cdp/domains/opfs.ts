@@ -19,11 +19,30 @@ export const SAH_POOL_HEADER_DIGEST_SIZE = 8;
 export const SAH_POOL_HEADER_DATA_OFFSET = 4096;
 
 /**
- * Bytes pulled per `Runtime.evaluate` when reading an OPFS file. Base64 inflates
- * a chunk by 4/3, so 8 MiB stays under the 16 MiB frame ceiling a stock WebSocket
- * peer enforces, and caps what the device holds in memory at once.
+ * Bytes pulled per `Runtime.evaluate` when reading an OPFS file. Small enough that the app's
+ * page never stalls for long on one chunk (the page encodes it while the app runs), and
+ * between chunks a read can be cancelled; base64 keeps a chunk far under a WebSocket frame.
  */
-export const OPFS_READ_CHUNK_BYTES = 8 * 1024 * 1024;
+export const OPFS_READ_CHUNK_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Device-side reader of one byte range as Base64: `FileReader.readAsDataURL` encodes in the
+ * browser instead of a JavaScript string loop on the app's main thread.
+ */
+export const OPFS_CHUNK_READER_SOURCE = String.raw`
+function __opfsChunkBase64(blob) {
+  return new Promise(function (resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      const url = String(reader.result || '');
+      const comma = url.indexOf(',');
+      resolve(comma >= 0 ? url.slice(comma + 1) : '');
+    };
+    reader.onerror = function () { reject(reader.error || new Error('The file could not be read')); };
+    reader.readAsDataURL(blob);
+  });
+}
+`;
 
 export interface SahPoolHeader {
   path: string;
@@ -34,6 +53,8 @@ export interface ReadFileRange {
   offset?: number;
   length?: number;
   onProgress?: (loadedBytes: number, totalBytes: number) => void;
+  /** Stops the read between chunks; the promise rejects with an `AbortError`. */
+  signal?: AbortSignal;
 }
 
 export interface SahPoolDatabase {
@@ -373,6 +394,8 @@ export class OPFSDomain {
     const offset = range?.offset ?? 0;
     const requested = range?.length ?? -1;
 
+    const signal = range?.signal;
+    signal?.throwIfAborted();
     if (requested >= 0 && requested <= OPFS_READ_CHUNK_BYTES) {
       return this.readFileChunk(path, offset, requested);
     }
@@ -384,6 +407,7 @@ export class OPFSDomain {
     const out = new Uint8Array(total);
     let loaded = 0;
     while (loaded < total) {
+      signal?.throwIfAborted();
       const chunk = await this.readFileChunk(
         path,
         offset + loaded,
@@ -402,6 +426,7 @@ export class OPFSDomain {
     const result = await evaluateChecked(this.client, {
       expression: `
         (async () => {
+          ${OPFS_CHUNK_READER_SOURCE}
           try {
             const root = await navigator.storage.getDirectory();
             const parts = '${escaped}'.split('/').filter(Boolean);
@@ -414,13 +439,7 @@ export class OPFSDomain {
             const off = ${offset};
             const end = Math.min(file.size, off + ${length});
             const blob = (off === 0 && end === file.size) ? file : file.slice(off, end);
-            const buf = new Uint8Array(await blob.arrayBuffer());
-            let s = '';
-            const CHUNK = 32768;
-            for (let i = 0; i < buf.length; i += CHUNK) {
-              s += String.fromCharCode.apply(null, buf.subarray(i, Math.min(i + CHUNK, buf.length)));
-            }
-            return btoa(s);
+            return await __opfsChunkBase64(blob);
           } catch (e) {
             return JSON.stringify({ __opfsError: e && e.message ? e.message : String(e) });
           }

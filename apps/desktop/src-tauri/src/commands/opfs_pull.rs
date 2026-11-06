@@ -20,9 +20,9 @@ use tokio_tungstenite::tungstenite::Message;
 use crate::commands::cdp_proxy::validate_upstream_url;
 use crate::mcp::cdp::{connect, CdpSocket};
 
-/// Matches `OPFS_READ_CHUNK_BYTES` in the protocol package: base64 inflates a
-/// chunk by 4/3, so 8 MiB stays under a stock 16 MiB WebSocket frame ceiling.
-const CHUNK_BYTES: u64 = 8 * 1024 * 1024;
+/// Matches `OPFS_READ_CHUNK_BYTES` in the protocol package: small enough that the
+/// app's page never stalls for long on one chunk, far under a WebSocket frame.
+const CHUNK_BYTES: u64 = 2 * 1024 * 1024;
 const SAH_POOL_HEADER_DATA_OFFSET: u64 = 4096;
 const SQLITE_MAGIC: &[u8] = b"SQLite format 3\0";
 const CHUNK_TIMEOUT: Duration = Duration::from_secs(60);
@@ -209,13 +209,17 @@ impl CdpSession {
                 const file = await (await dir.getFileHandle(name)).getFile();
                 const off = {offset};
                 const end = Math.min(file.size, off + {length});
-                const buf = new Uint8Array(await file.slice(off, end).arrayBuffer());
-                let s = '';
-                const STEP = 32768;
-                for (let i = 0; i < buf.length; i += STEP) {{
-                  s += String.fromCharCode.apply(null, buf.subarray(i, Math.min(i + STEP, buf.length)));
-                }}
-                return btoa(s);
+                const blob = file.slice(off, end);
+                return await new Promise((resolve, reject) => {{
+                  const reader = new FileReader();
+                  reader.onload = () => {{
+                    const url = String(reader.result || '');
+                    const comma = url.indexOf(',');
+                    resolve(comma >= 0 ? url.slice(comma + 1) : '');
+                  }};
+                  reader.onerror = () => reject(reader.error || new Error('The file could not be read'));
+                  reader.readAsDataURL(blob);
+                }});
               }} catch (e) {{
                 return JSON.stringify({{ __opfsError: e && e.message ? e.message : String(e) }});
               }}

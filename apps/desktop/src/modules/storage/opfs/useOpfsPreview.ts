@@ -50,13 +50,26 @@ export function useOpfsPreview(options: {
   const state = shallowRef<ViewerState>(IDLE);
   let requestId = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let reading: AbortController | null = null;
+
+  function cancelRead() {
+    reading?.abort();
+    reading = null;
+  }
 
   async function load(row: OpfsRow, id: number) {
+    cancelRead();
+    const controller = new AbortController();
+    reading = controller;
     try {
       const domain = options.domain();
       const outcome = await loadViewerContent(row.name, row.size ?? 0, async (maxBytes) => {
         const bytes = await withReadTimeout(
-          domain.readFileBytes(row.path, { offset: 0, length: maxBytes }),
+          domain.readFileBytes(row.path, {
+            offset: 0,
+            length: maxBytes,
+            signal: controller.signal,
+          }),
           READ_TIMEOUT_MS,
         );
         if (id !== requestId) throw new Error("Another file was opened");
@@ -71,6 +84,7 @@ export function useOpfsPreview(options: {
 
   function start(row: OpfsRow | null, settle: boolean) {
     clearTimeout(timer);
+    cancelRead();
     const id = ++requestId;
     if (!row || row.kind === "directory" || row.locked) {
       state.value = IDLE;
@@ -108,6 +122,7 @@ export function useOpfsPreview(options: {
   onScopeDispose(() => {
     requestId += 1;
     clearTimeout(timer);
+    cancelRead();
     state.value = IDLE;
   });
 

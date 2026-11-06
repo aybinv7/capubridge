@@ -38,7 +38,10 @@ describe("OPFS preview", () => {
     const scope = effectScope();
     const preview = scope.run(() => useOpfsPreview({ row: current, paused: ref(false), domain }));
     await settle();
-    expect(readFileBytes).toHaveBeenCalledWith("notes.txt", { offset: 0, length: 5 });
+    expect(readFileBytes).toHaveBeenCalledWith(
+      "notes.txt",
+      expect.objectContaining({ offset: 0, length: 5 }),
+    );
     expect(preview?.state.value).toMatchObject({
       status: "ready",
       content: { kind: "text", text: "hello" },
@@ -91,6 +94,25 @@ describe("OPFS preview", () => {
     release(text("slow"));
     await settle();
     expect(preview?.state.value).toMatchObject({ content: { text: "fast" } });
+    scope.stop();
+  });
+
+  test("moving to another file cancels the read still running (F3)", async () => {
+    const signals: AbortSignal[] = [];
+    const readFileBytes = vi.fn(
+      (_path: string, range?: { signal?: AbortSignal }) =>
+        new Promise<Uint8Array>(() => {
+          if (range?.signal) signals.push(range.signal);
+        }),
+    );
+    const domain = () => ({ readFileBytes }) as unknown as OPFSDomain;
+    const current = ref<OpfsRow | null>(row(file("a.txt", 5)));
+    const scope = effectScope();
+    scope.run(() => useOpfsPreview({ row: current, paused: ref(false), domain }));
+    await settle();
+    current.value = null;
+    await settle();
+    expect(signals[0]?.aborted).toBe(true);
     scope.stop();
   });
 });
