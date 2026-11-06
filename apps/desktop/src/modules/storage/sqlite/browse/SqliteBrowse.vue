@@ -54,8 +54,13 @@ const SHOW_AS_KEY = "capubridge:sqlite-show-as";
 /** The rows of one table: filter bar, search, the grid with its inspector, and the pager. */
 const props = defineProps<{
   tableName: string;
-  /** Identity of the database (its path, or an opened file's id), for per-table choices. */
+  /** The database's sidebar id (its path, or `file:<id>`), for its staged edits. */
   databaseId: string;
+  /**
+   * What per-table choices (show as, widths) are kept under: the database's path, or an opened
+   * file's own path, so they survive opening the file again (P9).
+   */
+  stateKey: string;
   databaseName: string;
   result: SqliteQueryResult | null;
   hasMore: boolean;
@@ -159,7 +164,7 @@ const lockReason = computed(() => {
 
 const visibility = ref<Record<string, boolean>>({});
 
-const showAsTable = computed(() => `${props.databaseId}/${props.tableName}`);
+const showAsTable = computed(() => `${props.stateKey}/${props.tableName}`);
 const showAsAll = ref(
   readPersisted<Record<string, Record<string, GridColumnType>>>(
     SHOW_AS_KEY,
@@ -417,7 +422,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
           :column-features="{ filter: !grouped, group: true, showAs: true }"
           :context-actions="contextActions"
           :activate-rows="grouped !== null"
-          :layout-key="`sqlite:${databaseId}/${tableName}`"
+          :layout-key="`sqlite:${stateKey}/${tableName}`"
           :editing="staging.editing.value"
           @edit="staging.startEdit"
           @update:sort="query.setSort($event)"

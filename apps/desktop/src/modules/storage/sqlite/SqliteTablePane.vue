@@ -51,6 +51,11 @@ const emit = defineEmits<{
 const address = computed(() => props.address);
 const table = computed(() => props.table);
 const changesOnly = ref(false);
+const stateKey = computed(() =>
+  props.db.sourceKind === "imported"
+    ? `file:${props.db.sourceFilePath ?? props.db.name}`
+    : props.databaseId,
+);
 const browse = ref<InstanceType<typeof SqliteBrowse> | null>(null);
 const sql = ref<InstanceType<typeof SqliteSqlPane> | null>(null);
 
@@ -175,6 +180,7 @@ defineExpose({
     ref="browse"
     :table-name="table"
     :database-id="databaseId"
+    :state-key="stateKey"
     :database-name="db.name"
     :result="rows.page.value?.result ?? null"
     :has-more="rows.page.value?.hasMore ?? false"
