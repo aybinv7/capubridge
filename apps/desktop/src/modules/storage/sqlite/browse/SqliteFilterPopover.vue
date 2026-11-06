@@ -13,7 +13,6 @@ import {
 } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
 import KeyCaps from "@/components/command/KeyCaps.vue";
-import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { FILTER_OPERATORS, chipLabel } from "./sqliteFilters";
 import { columnFilter, type ColumnFilterOperator } from "./sqliteQuery";
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
