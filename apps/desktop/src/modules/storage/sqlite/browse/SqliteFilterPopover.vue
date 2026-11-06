@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
-import { ListFilter } from "lucide-vue-next";
+import { ListFilter, X } from "lucide-vue-next";
 import {
   Button,
   FieldError,
@@ -8,19 +8,21 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-  Popover,
   Select,
 } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
 import KeyCaps from "@/components/command/KeyCaps.vue";
+import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { FILTER_OPERATORS, chipLabel } from "./sqliteFilters";
 import { columnFilter, type ColumnFilterOperator } from "./sqliteQuery";
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 
 /**
- * Filtering beyond the search: one condition on a column (it becomes a chip), or a SQL WHERE
+ * Filtering beyond the search: the Filter button opens a row under the toolbar (no overlay, so
+ * its menus never close it) with one condition on a column (it becomes a chip) and a SQL WHERE
  * clause for anything else. Apply adds the condition and applies the WHERE; Enter in the WHERE
- * applies it, Esc puts back the applied one. A WHERE the database refuses shows its words here.
+ * applies it, Esc puts back the applied one, then closes the row. A WHERE the database refuses
+ * shows its words here.
  */
 const props = defineProps<{
   query: SqliteTableQuery;
@@ -110,6 +112,17 @@ function revertWhere(event: KeyboardEvent) {
   where.value = props.query.whereClause.value;
 }
 
+function onPanelKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  event.preventDefault();
+  open.value = false;
+}
+
+function toggle() {
+  if (open.value) open.value = false;
+  else openFor();
+}
+
 function clearAll() {
   props.query.clearConditions();
   where.value = "";
@@ -120,23 +133,34 @@ defineExpose({ openFor });
 </script>
 
 <template>
-  <Popover v-model:open="open" position="bottom-end" class="w-96" content-class-name="p-3">
-    <template #trigger>
-      <Button
-        size="sm"
-        :variant="active ? 'solid' : 'transparent'"
-        :outline="active"
-        :color="error ? 'red' : undefined"
-        content-class-name="gap-1.5"
-        aria-haspopup="dialog"
-        aria-label="Filter by a column or with SQL"
-      >
-        <ListFilter :size="13" aria-hidden="true" />
-        Filter
-      </Button>
-    </template>
-    <form ref="form" class="flex flex-col gap-3" @submit.prevent="apply">
-      <fieldset data-condition class="flex flex-col gap-2">
+  <Button
+    size="sm"
+    :variant="active || open ? 'solid' : 'transparent'"
+    :outline="active"
+    :color="error ? 'red' : undefined"
+    content-class-name="gap-1.5"
+    :aria-expanded="open"
+    aria-label="Filter by a column or with SQL"
+    @click="toggle"
+  >
+    <ListFilter :size="13" aria-hidden="true" />
+    Filter
+  </Button>
+  <Transition
+    enter-active-class="transition-[opacity,translate] duration-300 ease-cladd-spring motion-reduce:transition-none"
+    leave-active-class="transition-[opacity,translate] duration-150 ease-in motion-reduce:transition-none"
+    enter-from-class="-translate-y-2 opacity-0"
+    leave-to-class="-translate-y-1 opacity-0"
+  >
+    <form
+      v-if="open"
+      ref="form"
+      class="order-last flex basis-full flex-wrap items-end gap-x-3 gap-y-2 rounded-well bg-surface-cut px-3 py-2.5 shadow-cut"
+      aria-label="Filter the rows"
+      @submit.prevent="apply"
+      @keydown="onPanelKeydown"
+    >
+      <fieldset data-condition class="flex min-w-0 flex-[2_1_28rem] flex-col gap-1.5">
         <legend class="mb-1 text-cladd-xs text-cladd-fg-soft">A condition on a column</legend>
         <div class="flex gap-2">
           <Select
@@ -149,17 +173,21 @@ defineExpose({ openFor });
           <Select
             v-model="operator"
             size="sm"
-            class="w-36 shrink-0"
+            class="w-40 shrink-0"
             aria-label="Condition"
             :options="FILTER_OPERATORS.map(({ value, label }) => ({ value, label }))"
           />
+          <Input
+            v-if="needsValue"
+            v-model="value"
+            size="sm"
+            class="min-w-0 flex-1"
+            placeholder="Value"
+            aria-label="Value"
+          />
         </div>
-        <Input v-if="needsValue" v-model="value" size="sm" placeholder="Value" aria-label="Value" />
-        <p v-if="condition" class="truncate font-mono text-cladd-2xs text-cladd-fg-soft">
-          {{ condition.sql }}
-        </p>
       </fieldset>
-      <div data-where class="flex flex-col gap-1.5 border-t border-cladd-outline pt-3">
+      <div data-where class="flex min-w-0 flex-[2_1_22rem] flex-col gap-1.5">
         <span class="flex items-center gap-2 text-cladd-xs text-cladd-fg-soft">
           Or with SQL
           <KeyCaps keys="enter" />
@@ -180,9 +208,8 @@ defineExpose({ openFor });
             @keydown.esc="revertWhere"
           />
         </InputGroup>
-        <FieldError v-if="error && query.whereClause.value">{{ error }}</FieldError>
       </div>
-      <div class="flex justify-end gap-1.5">
+      <div class="flex shrink-0 items-center gap-1.5">
         <Button
           v-if="active"
           size="sm"
@@ -191,12 +218,21 @@ defineExpose({ openFor });
           type="button"
           @click="clearAll"
         >
-          Clear the filters
+          Clear
         </Button>
         <Button size="sm" variant="solid-fill" color="brand" type="submit" :disabled="!canApply">
           Apply
         </Button>
+        <IconAction label="Close the filter" keys="escape" size="sm" @click="open = false">
+          <X :stroke-width="1.8" />
+        </IconAction>
       </div>
+      <p v-if="condition" class="basis-full truncate font-mono text-cladd-2xs text-cladd-fg-soft">
+        {{ condition.sql }}
+      </p>
+      <FieldError v-if="error && query.whereClause.value" class="basis-full">{{
+        error
+      }}</FieldError>
     </form>
-  </Popover>
+  </Transition>
 </template>
