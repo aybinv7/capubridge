@@ -13,7 +13,7 @@ use commands::adb::{
     adb_get_device_info, adb_get_package_details, adb_list_devices, adb_list_packages,
     adb_list_reverse, adb_list_webview_sockets, adb_open_package, adb_pair_device, adb_reboot,
     adb_remove_reverse, adb_restart_server, adb_reverse, adb_root, adb_shell_command,
-    adb_start_server, adb_tcpip, start_logcat, stop_logcat,
+    adb_start_server, adb_tcpip,
 };
 use commands::automation::{
     automation_event_append, automation_events_read, automation_task_upsert, automation_tasks_list,
@@ -299,8 +299,6 @@ pub fn run() {
             adb_reverse,
             adb_remove_reverse,
             adb_list_reverse,
-            start_logcat,
-            stop_logcat,
             adb_forward_cdp,
             adb_remove_forward,
             adb_fetch_json_targets,
