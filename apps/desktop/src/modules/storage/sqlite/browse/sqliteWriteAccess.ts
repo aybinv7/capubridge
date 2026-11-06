@@ -1,49 +1,21 @@
-import { computed, type Ref } from "vue";
-import { toast } from "vue-sonner";
-import type { Provenance } from "@/lib/provenance";
-import type { LocalSqlSession } from "@/stores/sqlSession.store";
 import type { SqliteDbFile } from "@/types/sqlite.types";
 
 /**
- * Why a database cannot be written here, or `null` when writes reach its source.
- * Only an imported file is its own source: every device database is read through a
- * pulled copy that the next refresh overwrites, so writing to it would report a
- * change the device never received.
+ * Why this database cannot be changed here, or `null` when it can. Only a file opened on this
+ * computer is its own source: every phone database is read through a pulled copy that the next
+ * read replaces, so a change there would look saved while the phone never got it. The answer
+ * depends on this database alone, never on whichever other one happens to be open.
  */
-export function sqliteReadOnlyReason(
-  session: LocalSqlSession | null,
-  db: SqliteDbFile | null,
-): string | null {
-  if (session?.sourceKind === "imported") return null;
-  if (db?.sourceKind === "native-android") {
-    return "Native Android databases are read-only: they are pulled to this computer as a copy.";
+export function sqliteReadOnlyReason(db: Pick<SqliteDbFile, "sourceKind"> | null): string | null {
+  if (!db) return "No database is open.";
+  if (db.sourceKind === "imported") return null;
+  if ((db.sourceKind ?? "native-android") === "native-android") {
+    return "A copy pulled from the phone: changes here would never reach the app's database, so it is read-only.";
   }
-  return "Read-only for now: this is a copy pulled from the device, and edits are not written back to it yet.";
+  return "A copy read from the page: changes here would never reach the app's database, so it is read-only.";
 }
 
-/**
- * Whether this one database, not the one that happens to be open, may be changed or deleted here.
- * Only an imported file is its own source; a device database is a pulled copy.
- */
+/** Whether this one database may be changed, cleared or replaced here. */
 export function canWriteDatabase(db: Pick<SqliteDbFile, "sourceKind">): boolean {
-  return db.sourceKind === "imported";
-}
-
-export function useSqliteWriteAccess(
-  session: Ref<LocalSqlSession | null>,
-  db: Ref<SqliteDbFile | null>,
-) {
-  const readOnlyReason = computed(() => sqliteReadOnlyReason(session.value, db.value));
-  const provenance = computed<Provenance>(() =>
-    readOnlyReason.value === null ? "imported" : "local",
-  );
-
-  /** `true` when a write may proceed; otherwise explains why not and returns `false`. */
-  function guardWrite(): boolean {
-    if (readOnlyReason.value === null) return true;
-    toast.info("This database is read-only here", { description: readOnlyReason.value });
-    return false;
-  }
-
-  return { readOnlyReason, provenance, guardWrite };
+  return sqliteReadOnlyReason(db) === null;
 }

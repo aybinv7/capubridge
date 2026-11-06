@@ -1,60 +1,37 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useRouter } from "vue-router";
-import { ExternalLink } from "lucide-vue-next";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { sqliteSourceDescriptor, sqliteSourceTech } from "./sqliteSources";
+import { Chip } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import type { SqliteDbFile } from "@/types/sqlite.types";
+import { sqliteSourceDescriptor } from "./sqliteSources";
 
+/**
+ * Where the database lives (native, opfs, sah-pool, wa-sqlite, jeep, file) as a quiet chip;
+ * hovering it says what that means, the package behind it and where it is stored.
+ */
 const props = defineProps<{ db: SqliteDbFile }>();
 
-const router = useRouter();
 const descriptor = computed(() => sqliteSourceDescriptor(props.db));
-const tech = computed(() => sqliteSourceTech(props.db));
 
-const opfsPath = computed(() => props.db.sourceOpfsPath ?? null);
-const opfsDirectory = computed(() => props.db.sourceOpfsDirectory ?? null);
-
-function exploreSource() {
-  if (opfsDirectory.value === null) return;
-  void router.push({ path: "/storage/opfs", query: { path: opfsDirectory.value } });
-}
+const explanation = computed(() => {
+  const db = props.db;
+  const where =
+    db.sourceOpfsPath ??
+    (db.sourceKind === "jeep-sqlite"
+      ? `IndexedDB ${db.sourceIdbName ?? "jeepSQLiteStore"} › ${db.sourceStoreName ?? "databases"}`
+      : "");
+  return [
+    `${descriptor.value.title}. ${descriptor.value.description}`,
+    descriptor.value.packageName ? `Package ${descriptor.value.packageName}.` : "",
+    where ? `Stored at ${where}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+});
 </script>
 
 <template>
-  <TooltipProvider :delay-duration="150">
-    <Tooltip>
-      <TooltipTrigger as-child>
-        <span
-          class="shrink-0 rounded border px-1.5 py-px text-2xs font-mono uppercase tracking-wider"
-          :class="descriptor.badgeClass"
-        >
-          {{ descriptor.label }}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent variant="surface" side="right" class="max-w-[280px] space-y-1.5 p-2.5">
-        <p class="text-xs font-medium text-foreground">{{ descriptor.title }}</p>
-        <p class="text-2xs leading-relaxed text-muted-foreground">
-          {{ descriptor.description }}
-        </p>
-        <p v-if="descriptor.packageName" class="font-mono text-2xs text-muted-foreground/70">
-          {{ descriptor.packageName }}
-        </p>
-        <p v-if="opfsPath" class="break-all font-mono text-2xs text-muted-foreground/60">
-          {{ opfsPath }}
-        </p>
-        <button
-          v-if="opfsDirectory !== null"
-          class="flex items-center gap-1 text-2xs text-info hover:underline"
-          @click="exploreSource"
-        >
-          <ExternalLink :size="10" />
-          Show in OPFS explorer
-        </button>
-        <p v-else-if="tech === 'jeep-sqlite'" class="font-mono text-2xs text-muted-foreground/60">
-          {{ db.sourceIdbName ?? "jeepSQLiteStore" }} / {{ db.sourceStoreName ?? "databases" }}
-        </p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
+  <HintTooltip :text="explanation">
+    <Chip size="xs" tabindex="0">{{ descriptor.label }}</Chip>
+  </HintTooltip>
 </template>

@@ -1,20 +1,9 @@
+import { quoteIdent, sqlLiteral } from "../sqlText";
+
+export { quoteIdent, sqlLiteral };
+
 export type SqliteExportFormat = "csv" | "json" | "sql";
 export type SqliteExportScope = "all" | "selected";
-
-/** `"name"` with embedded quotes doubled, safe for any identifier. */
-export function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-/** A SQL literal for a cell value; text is single-quoted with quotes doubled. */
-export function sqlLiteral(value: unknown): string {
-  if (value === null || value === undefined) return "NULL";
-  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "NULL";
-  if (typeof value === "bigint") return String(value);
-  if (typeof value === "boolean") return value ? "1" : "0";
-  const text = typeof value === "string" ? value : JSON.stringify(value);
-  return `'${text.replace(/'/g, "''")}'`;
-}
 
 export type PredicateOperator = "=" | "!=" | "null" | "not-null";
 

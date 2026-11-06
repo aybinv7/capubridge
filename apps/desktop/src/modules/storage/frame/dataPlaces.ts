@@ -6,6 +6,7 @@ export const REMEMBERED_TABS = new Set([
   "storage-keyvalue",
   "storage-cache-storage",
   "storage-opfs",
+  "storage-sqlite",
 ]);
 
 interface Place {

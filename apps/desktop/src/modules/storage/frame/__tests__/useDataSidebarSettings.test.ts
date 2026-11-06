@@ -65,3 +65,27 @@ describe("useDataSidebarSettings", () => {
     expect(saved.sources[`${phoneA}::https://app::shop`].hiddenItems).toEqual(["logs"]);
   });
 });
+
+describe("the old SQLite sidebar settings", () => {
+  test("seed a database by its path in every phone's SQLite scope, then the old key goes", () => {
+    localStorage.setItem(
+      "sqlite-sidebar-settings",
+      JSON.stringify({
+        pinnedDbs: ["/data/data/com.shop/databases/app.db"],
+        hiddenDbs: [],
+        pinnedTables: ["/data/data/com.shop/databases/app.db::orders"],
+        hiddenTables: ["/data/data/com.shop/databases/app.db::logs"],
+        showHiddenDbs: false,
+        showHiddenTables: true,
+        expandedDbs: [],
+      }),
+    );
+    const settings = useDataSidebarSettings();
+    const scope = dataScope("A1", "com.shop", "sqlite");
+    const source = settings.source(scope, "/data/data/com.shop/databases/app.db");
+    expect(source).toMatchObject({ pinned: true, pinnedItems: ["orders"], hiddenItems: ["logs"] });
+    expect(settings.showHidden(scope)).toBe(true);
+    expect(localStorage.getItem("sqlite-sidebar-settings")).toBeNull();
+    expect(settings.source(dataScope("A1", "com.shop", "opfs"), "x").pinned).toBe(false);
+  });
+});

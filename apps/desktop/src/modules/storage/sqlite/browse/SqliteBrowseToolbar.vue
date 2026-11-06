@@ -5,12 +5,14 @@ import { Button, Popover, SearchField } from "@capubridge/cladd";
 import { DataGridColumnsMenu, type GridColumn } from "@/shared/components/data/grid";
 import SqliteFilterBar from "./SqliteFilterBar.vue";
 import type { SqliteExportFormat, SqliteExportScope } from "./sqliteQuery";
-import type { useSqliteTableQuery } from "./useSqliteTableQuery";
+import type { SqliteTableQuery } from "./useSqliteTableQuery";
 
 const props = defineProps<{
-  query: ReturnType<typeof useSqliteTableQuery>;
+  query: SqliteTableQuery;
   columns: readonly GridColumn[];
   selectedRows: number;
+  /** Why the WHERE clause did not run, from the database. */
+  filterError: string | null;
 }>();
 
 const visibility = defineModel<Record<string, boolean>>("visibility", { required: true });
@@ -18,7 +20,11 @@ const visibility = defineModel<Record<string, boolean>>("visibility", { required
 const emit = defineEmits<{ export: [format: SqliteExportFormat, scope: SqliteExportScope] }>();
 
 const root = ref<HTMLElement | null>(null);
-defineExpose({ anchor: root });
+defineExpose({
+  anchor: root,
+  focusSearch: () =>
+    root.value?.querySelector<HTMLInputElement>('input[aria-label="Search all columns"]')?.focus(),
+});
 
 const SEARCH_DELAY_MS = 250;
 const searchDraft = ref(props.query.search.value);
@@ -52,7 +58,7 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
   >
     <SqliteFilterBar
       :where="query.whereClause.value"
-      :error="query.filterError.value"
+      :error="filterError"
       @apply="query.setWhere($event)"
     />
     <SearchField

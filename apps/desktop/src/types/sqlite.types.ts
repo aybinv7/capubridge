@@ -30,7 +30,6 @@ export interface SqliteSourceDescriptor {
   title: string;
   description: string;
   packageName?: string;
-  badgeClass: string;
 }
 
 export interface SqliteTableInfo {

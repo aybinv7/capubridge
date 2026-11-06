@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
 import { sqliteReadOnlyReason } from "../browse/sqliteWriteAccess";
-import type { LocalSqlSession } from "@/stores/sqlSession.store";
 import { sqliteColumnType, toGridColumns, toGridRows } from "../browse/sqliteGrid";
 import type { SqliteColumnInfo } from "@/types/sqlite.types";
 
@@ -69,13 +68,9 @@ describe("toGridRows", () => {
 });
 
 describe("sqliteReadOnlyReason", () => {
-  test("only an imported file accepts writes", () => {
-    const imported = { sourceKind: "imported" } as LocalSqlSession;
-    const opfs = { sourceKind: "opfs" } as LocalSqlSession;
-    expect(sqliteReadOnlyReason(imported, null)).toBeNull();
-    expect(sqliteReadOnlyReason(opfs, null)).toMatch(/not written back/);
-    expect(
-      sqliteReadOnlyReason(null, { name: "a", path: "p", size: 1, sourceKind: "native-android" }),
-    ).toMatch(/Native Android/);
+  test("only the database itself decides, never the file that is open (M1)", () => {
+    expect(sqliteReadOnlyReason({ sourceKind: "imported" })).toBeNull();
+    expect(sqliteReadOnlyReason({ sourceKind: "opfs" })).toMatch(/read-only/);
+    expect(sqliteReadOnlyReason({ sourceKind: "native-android" })).toMatch(/phone/);
   });
 });

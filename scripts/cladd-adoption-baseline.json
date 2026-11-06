@@ -268,21 +268,5 @@
   "apps/desktop/src/modules/storage/graph/StorageGraphViewportToolbar.vue": {
     "button": 1,
     "tooltip": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteChangeDiffDialog.vue": {
-    "badge": 1,
-    "dialog": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteExplorer.vue": {
-    "button": 1,
-    "confirm-dialog": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteSourceBadge.vue": {
-    "tooltip": 1
-  },
-  "apps/desktop/src/modules/storage/sqlite/SqliteTableToolbar.vue": {
-    "badge": 1,
-    "button": 1,
-    "select": 1
   }
 }

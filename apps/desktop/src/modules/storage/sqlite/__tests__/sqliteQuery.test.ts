@@ -81,3 +81,23 @@ describe("column filter, search and grouping", () => {
     );
   });
 });
+
+describe("exact values (C18, C19)", () => {
+  test("an integer past 2^53 is written with every digit", () => {
+    const wide = { __type: "Number", value: "9007199254740993" };
+    expect(sqlLiteral(wide)).toBe("9007199254740993");
+    expect(predicate("id", "=", wide)).toBe(`"id" = 9007199254740993`);
+  });
+
+  test("a BLOB is written as its bytes, never as its description", () => {
+    expect(sqlLiteral({ __type: "Blob", size: 3, hex: "00ff10", complete: true })).toBe(
+      "X'00ff10'",
+    );
+  });
+
+  test("a BLOB read only in part is refused instead of written short", () => {
+    expect(() => sqlLiteral({ __type: "Blob", size: 9000, hex: "00", complete: false })).toThrow(
+      /only partly read/,
+    );
+  });
+});

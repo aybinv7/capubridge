@@ -6,7 +6,6 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     title: "Native Android SQLite",
     description:
       "A database file inside the app's private data directory on the device, read over ADB. This is what the Android SDK and Room write to.",
-    badgeClass: "border-success/20 text-success bg-success/10",
   },
   "sqlite-wasm-opfsdb": {
     label: "opfs",
@@ -14,7 +13,6 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     description:
       "The database is stored as its own file in the Origin Private File System, with the SQLite header at byte 0.",
     packageName: "@sqlite.org/sqlite-wasm",
-    badgeClass: "border-info/25 text-info bg-info/10",
   },
   "sqlite-wasm-sah-pool": {
     label: "sah-pool",
@@ -22,7 +20,6 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     description:
       "The database lives inside an opaque pool slot: a 4096-byte header holding the logical path and flags, then the SQLite payload. CapuBridge strips that header for you.",
     packageName: "@sqlite.org/sqlite-wasm",
-    badgeClass: "border-info/25 text-info bg-info/10",
   },
   "wa-sqlite-opfs": {
     label: "wa-sqlite",
@@ -30,7 +27,6 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     description:
       "An OPFS database with -wal or -journal companion files alongside it, typical of wa-sqlite's OPFS virtual file systems.",
     packageName: "wa-sqlite",
-    badgeClass: "border-teal-500/25 text-teal-300 bg-teal-500/10",
   },
   "jeep-sqlite": {
     label: "jeep",
@@ -38,13 +34,11 @@ const DESCRIPTORS: Record<SqliteSourceTech, SqliteSourceDescriptor> = {
     description:
       "The database is serialised into an IndexedDB record by the jeep-sqlite web shim that backs @capacitor-community/sqlite in a browser context.",
     packageName: "jeep-sqlite",
-    badgeClass: "border-violet-500/25 text-violet-300 bg-violet-500/10",
   },
   imported: {
     label: "file",
     title: "Imported file",
     description: "Opened from a file on this machine. It has no live source on the device.",
-    badgeClass: "border-warning/25 text-warning bg-warning/10",
   },
 };
 

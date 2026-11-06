@@ -1,32 +1,6 @@
-import { save, open } from "@tauri-apps/plugin-dialog";
-import { useSQLite } from "@/composables/useSQLite";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { invokeCommand } from "@/runtime/ipc/client";
-import type { SqliteQueryResult, SqliteTableInfo } from "@/types/sqlite.types";
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-function sqlLiteral(v: unknown): string {
-  if (v === null || v === undefined) return "NULL";
-  if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  if (typeof v === "boolean") return v ? "1" : "0";
-  if (typeof v === "string" && v.startsWith("[BLOB ")) return "NULL";
-  const s = typeof v === "string" ? v : JSON.stringify(v);
-  return `'${s.replace(/'/g, "''")}'`;
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  const chunkSize = 32768;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode.apply(
-      null,
-      bytes.subarray(i, Math.min(i + chunkSize, bytes.length)) as unknown as number[],
-    );
-  }
-  return btoa(binary);
-}
+import { addressArgs, type SqliteAddress } from "./sqliteAddress";
 
 function base64ToBytes(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -35,98 +9,48 @@ function base64ToBytes(base64: string): Uint8Array {
   return out;
 }
 
-function textToBase64(text: string): string {
-  return bytesToBase64(new TextEncoder().encode(text));
+function stemOf(name: string): string {
+  return name.replace(/\.(sqlite3?|db3?)$/i, "") || "database";
 }
 
+/** Saves the copy at `address` as a database file; `null` when the person cancelled. */
 export async function exportSqliteFile(
-  serial: string,
-  pkg: string,
-  dbPath: string,
-  defaultName: string,
+  address: SqliteAddress,
+  name: string,
 ): Promise<string | null> {
   const dest = await save({
-    defaultPath: defaultName.endsWith(".sqlite") ? defaultName : `${defaultName}.sqlite`,
-    filters: [{ name: "SQLite database", extensions: ["sqlite", "db"] }],
+    defaultPath: /\.(sqlite3?|db3?)$/i.test(name) ? name : `${name}.sqlite`,
+    filters: [{ name: "SQLite database", extensions: ["sqlite", "db", "sqlite3", "db3"] }],
   });
   if (!dest) return null;
-
-  const { exportBytes } = useSQLite();
-  const bytes = await exportBytes(serial, pkg, dbPath);
-  await invokeCommand("save_base64_file", { path: dest, data: bytesToBase64(bytes) });
+  const data = await invokeCommand("sqlite_export_bytes", addressArgs(address));
+  await invokeCommand("save_base64_file", { path: dest, data });
   return dest;
 }
 
-export async function buildSqlDump(
-  serial: string,
-  pkg: string,
-  dbPath: string,
-  tables: SqliteTableInfo[],
-): Promise<string> {
-  const { executeQuery } = useSQLite();
-  const lines: string[] = [];
-  lines.push("PRAGMA foreign_keys=OFF;");
-  lines.push("BEGIN TRANSACTION;");
-
-  // Schema: tables, then indexes (excluding auto-indexes).
-  const schemaRes = await executeQuery(
-    serial,
-    pkg,
-    dbPath,
-    "SELECT type, name, sql FROM sqlite_master " +
-      "WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' " +
-      "ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, name",
-  );
-  for (const row of schemaRes.rows) {
-    const [, , sql] = row as [string, string, string];
-    if (sql) lines.push(`${sql};`);
-  }
-
-  // Rows per table.
-  for (const t of tables) {
-    if (t.tableType !== "table") continue;
-    const ident = quoteIdent(t.name);
-    const pageSize = 1000;
-    let offset = 0;
-    while (true) {
-      const result: SqliteQueryResult = await executeQuery(
-        serial,
-        pkg,
-        dbPath,
-        `SELECT * FROM ${ident} LIMIT ${pageSize} OFFSET ${offset}`,
-      );
-      if (result.rows.length === 0) break;
-      const cols = result.columns.map(quoteIdent).join(",");
-      for (const row of result.rows) {
-        const values = (row as unknown[]).map(sqlLiteral).join(",");
-        lines.push(`INSERT INTO ${ident} (${cols}) VALUES (${values});`);
-      }
-      if (result.rows.length < pageSize) break;
-      offset += pageSize;
-    }
-  }
-
-  lines.push("COMMIT;");
-  lines.push("PRAGMA foreign_keys=ON;");
-  return lines.join("\n");
-}
-
+/**
+ * Saves the copy at `address` as an SQL dump, written by Rust with every value exact (wide
+ * integers, BLOBs as `X'…'`). Resolves with the path and the number of rows written.
+ */
 export async function exportSqlDump(
-  serial: string,
-  pkg: string,
-  dbPath: string,
-  tables: SqliteTableInfo[],
-  defaultName: string,
-): Promise<string | null> {
+  address: SqliteAddress,
+  name: string,
+): Promise<{ path: string; rows: number } | null> {
   const dest = await save({
-    defaultPath: defaultName.endsWith(".sql") ? defaultName : `${defaultName}.sql`,
+    defaultPath: `${stemOf(name)}.sql`,
     filters: [{ name: "SQL dump", extensions: ["sql"] }],
   });
   if (!dest) return null;
+  const rows = await invokeCommand("sqlite_export_dump", { ...addressArgs(address), dest });
+  return { path: dest, rows };
+}
 
-  const dump = await buildSqlDump(serial, pkg, dbPath, tables);
-  await invokeCommand("save_base64_file", { path: dest, data: textToBase64(dump) });
-  return dest;
+/**
+ * Replaces the file at `address` with what `dumpSql` builds, all or nothing: Rust replays it on
+ * a copy and swaps the file only when the whole dump ran (M13). Only ever an opened file.
+ */
+export async function importSqlDump(address: SqliteAddress, dumpSql: string): Promise<void> {
+  await invokeCommand("sqlite_import_dump", { ...addressArgs(address), sql: dumpSql });
 }
 
 export interface PickedSqliteFile {
@@ -142,8 +66,7 @@ export async function pickSqliteFile(): Promise<PickedSqliteFile | null> {
     filters: [{ name: "SQLite database", extensions: ["sqlite", "db", "db3", "sqlite3"] }],
   });
   if (!picked || Array.isArray(picked)) return null;
-  const base64 = await invokeCommand("read_local_file_base64", { path: picked });
-  const bytes = base64ToBytes(base64);
+  const bytes = base64ToBytes(await invokeCommand("read_local_file_base64", { path: picked }));
   const name = picked.split(/[\\/]/).pop() || "imported.sqlite";
   return { path: picked, name, bytes };
 }
@@ -161,33 +84,7 @@ export async function pickSqlDump(): Promise<PickedSqlDump | null> {
     filters: [{ name: "SQL dump", extensions: ["sql", "txt"] }],
   });
   if (!picked || Array.isArray(picked)) return null;
-  const base64 = await invokeCommand("read_local_file_base64", { path: picked });
-  const bytes = base64ToBytes(base64);
-  const sql = new TextDecoder("utf-8").decode(bytes);
+  const bytes = base64ToBytes(await invokeCommand("read_local_file_base64", { path: picked }));
   const name = picked.split(/[\\/]/).pop() || "imported.sql";
-  return { path: picked, name, sql };
-}
-
-/**
- * Apply a SQL dump against the current DB: clears all user-defined tables
- * first (DROP TABLE), then runs the dump's CREATE + INSERT statements.
- * Wrapped in a transaction by `sqlite_execute_write` -> execute_batch.
- */
-export async function importSqlDump(
-  serial: string,
-  pkg: string,
-  dbPath: string,
-  existingTables: SqliteTableInfo[],
-  dumpSql: string,
-): Promise<void> {
-  const { executeWrite } = useSQLite();
-  const dropStatements = existingTables
-    .filter((t) => t.tableType === "table")
-    .map((t) => `DROP TABLE IF EXISTS ${quoteIdent(t.name)};`)
-    .join("\n");
-  const wipe = `PRAGMA foreign_keys=OFF;\n${dropStatements}\nPRAGMA foreign_keys=ON;`;
-  if (dropStatements) {
-    await executeWrite(serial, pkg, dbPath, wipe);
-  }
-  await executeWrite(serial, pkg, dbPath, dumpSql);
+  return { path: picked, name, sql: new TextDecoder("utf-8").decode(bytes) };
 }

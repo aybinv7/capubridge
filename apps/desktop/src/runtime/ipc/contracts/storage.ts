@@ -80,7 +80,12 @@ export interface StorageCommandMap {
     },
     SqliteQueryResult
   >;
-  sqlite_execute_query: IpcCommand<SqliteDatabaseArgs & { sql: string }, SqliteQueryResult>;
+  sqlite_execute_query: IpcCommand<
+    SqliteDatabaseArgs & { sql: string; fullValues?: boolean },
+    SqliteQueryResult
+  >;
   sqlite_execute_write: IpcCommand<SqliteDatabaseArgs & { sql: string }, SqliteQueryResult>;
   sqlite_export_bytes: IpcCommand<SqliteDatabaseArgs, string>;
+  sqlite_export_dump: IpcCommand<SqliteDatabaseArgs & { dest: string }, number>;
+  sqlite_import_dump: IpcCommand<SqliteDatabaseArgs & { sql: string }, void>;
 }

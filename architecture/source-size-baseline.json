@@ -2,12 +2,6 @@
   "threshold": 800,
   "exceptions": [
     {
-      "path": "apps/desktop/src/modules/storage/sqlite/SqliteExplorer.vue",
-      "maxLines": 2195,
-      "owner": "Storage module",
-      "rationale": "Legacy SQLite orchestration combines discovery, routing, CRUD, import/export, change overlays, and SQL console responsibilities; v2.5.0 adds OPFS auto-discovery, the Rust-backed snapshot cache/dirty-check, and automatic change tracking on top of the existing SIZE-01 debt. Bumped mechanically to unblock release — the owed split (snapshot/diff/discovery orchestration into their own composables) is tracked, not resolved, by this entry."
-    },
-    {
       "path": "apps/desktop/src-tauri/src/commands/adb.rs",
       "maxLines": 2045,
       "owner": "Device runtime",
@@ -27,9 +21,9 @@
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/sqlite.rs",
-      "maxLines": 1200,
+      "maxLines": 1026,
       "owner": "Storage runtime",
-      "rationale": "SQLite backend currently combines discovery, queries, writes, metadata, export, and file synchronization adapters; v2.5.0 adds the cheap native dirty-check stat used by automatic change tracking. Bumped mechanically to unblock release, approved pending service-oriented command extraction."
+      "rationale": "SQLite backend currently combines discovery, queries, writes, metadata, export, and file synchronization adapters; v2.5.0 adds the cheap native dirty-check stat used by automatic change tracking. Bumped mechanically to unblock release, approved pending service-oriented command extraction. Lowered to 1026 in Data round 3: table metadata reads the pulled copy only (no on-device sqlite3 path) and dumps moved to sqlite_dump.rs."
     },
     {
       "path": "apps/desktop/src-tauri/src/commands/recording_db.rs",

@@ -155,6 +155,8 @@ export const IPC_COMMAND_NAMES = [
   "sqlite_execute_query",
   "sqlite_execute_write",
   "sqlite_export_bytes",
+  "sqlite_export_dump",
+  "sqlite_import_dump",
   "mock_server_start",
   "mock_server_stop",
   "mock_server_sync_rules",

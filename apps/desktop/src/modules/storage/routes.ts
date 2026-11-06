@@ -1,5 +1,5 @@
 import type { RouteRecordRaw } from "vue-router";
-import { OPEN_IDB_EXPORT_COMMAND } from "./useDataAppCommands";
+import { OPEN_IDB_EXPORT_COMMAND, OPEN_SQLITE_FILE_COMMAND } from "./useDataAppCommands";
 
 export const storageRoutes = [
   {
@@ -67,8 +67,22 @@ export const storageRoutes = [
       {
         path: "sqlite/:db?/:table?",
         name: "storage-sqlite",
-        component: () => import("./sqlite/SqliteExplorer.vue"),
-        meta: { label: "SQLite" },
+        component: () => import("./sqlite/SqliteView.vue"),
+        meta: {
+          label: "SQLite",
+          requires: "data",
+          gateCommand: {
+            commandId: OPEN_SQLITE_FILE_COMMAND,
+            label: "Open a SQLite file…",
+            hint: "Read a database file with no phone",
+          },
+        },
+      },
+      {
+        path: "sqlite-file/:file/:table?",
+        name: "storage-sqlite-file",
+        component: () => import("./sqlite/SqliteView.vue"),
+        meta: { label: "SQLite", navigation: false, tabPath: "/storage/sqlite" },
       },
       {
         path: "graph",

@@ -14,7 +14,7 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * Opens an OPFS-backed SQLite database in the SQL Explorer. Rust streams the
+ * Opens an OPFS-backed SQLite database in Data › SQLite. Rust streams the
  * file straight to disk, so the database never passes through the JS heap, and
  * an unchanged file that was already pulled is reused instead of re-read.
  */
@@ -85,11 +85,11 @@ export function useOpenSqliteSource() {
         opfsPath: opts.path,
         stripSahPoolHeader: opts.stripSahPool,
       });
-      toast.success(`Opened "${opts.label}" in SQL Explorer`, { id: toastId });
-      await router.push(`/storage/sqlite/${encodeURIComponent(session.fileName)}`);
+      toast.success(`Opened “${session.fileName}” in SQLite`, { id: toastId });
+      await router.push({ name: "storage-sqlite", params: { db: `opfs:${opts.path}` } });
     } catch (err) {
       snapshotCache.forget(targetId, opts.path);
-      toast.error("Failed to open in SQL Explorer", { id: toastId, description: String(err) });
+      toast.error("Could not open the database", { id: toastId, description: String(err) });
     } finally {
       unlisten?.();
       openingPath.value = null;

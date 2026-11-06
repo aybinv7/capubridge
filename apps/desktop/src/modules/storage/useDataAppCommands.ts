@@ -8,9 +8,12 @@ import { createDataPlaces } from "./frame/dataPlaces";
 /** Id of the app-wide "Open an IndexedDB export…" command (also offered by the IndexedDB gate). */
 export const OPEN_IDB_EXPORT_COMMAND = "data.idb.open-export";
 
+/** Id of the app-wide "Open a SQLite file…" command (also offered by the SQLite gate). */
+export const OPEN_SQLITE_FILE_COMMAND = "data.sqlite.open-file";
+
 /**
- * Data commands that work from anywhere, phone or not: opening an export lands on the ungated
- * file route of the IndexedDB tab. Also keeps where each Data tab was left, per target, so a
+ * Data commands that work from anywhere, phone or not: opening an export or a SQLite file lands
+ * on the ungated file route of its tab. Also keeps where each Data tab was left, per target, so a
  * tab opened again from elsewhere comes back to it.
  */
 export function useDataAppCommands(): void {
@@ -36,6 +39,17 @@ export function useDataAppCommands(): void {
       run: async () => {
         const { openIdbExport } = await import("./indexeddb/openIdbExport");
         await openIdbExport(router);
+      },
+    },
+    {
+      id: OPEN_SQLITE_FILE_COMMAND,
+      title: "Open a SQLite file…",
+      group: "Data",
+      icon: FolderOpen,
+      keywords: ["import", "sqlite", "database", "file", "db"],
+      run: async () => {
+        const { openSqliteFile } = await import("./sqlite/openSqliteFile");
+        await openSqliteFile(router);
       },
     },
   ]);

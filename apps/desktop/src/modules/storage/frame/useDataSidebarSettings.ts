@@ -5,6 +5,7 @@ import type { DataKind } from "./dataFrame.types";
 
 const STORAGE_KEY = "capubridge:data-sidebar:v1";
 const LEGACY_IDB_KEY = "idb-sidebar-settings";
+const LEGACY_SQLITE_KEY = "sqlite-sidebar-settings";
 const MAX_SOURCES = 400;
 
 /** Sidebar choices for one source (a database), kept per phone and app. */
@@ -22,6 +23,18 @@ interface PersistedSettings {
   showHidden: Record<string, boolean>;
   /** The old IndexedDB settings, moved here once so the old key can go. */
   legacy?: LegacyIdbSettings;
+  /** The old SQLite settings (keyed by database path), moved here once too. */
+  legacySqlite?: LegacySqliteSettings;
+}
+
+interface LegacySqliteSettings {
+  pinnedDbs?: string[];
+  hiddenDbs?: string[];
+  pinnedTables?: string[];
+  hiddenTables?: string[];
+  showHiddenDbs?: boolean;
+  showHiddenTables?: boolean;
+  expandedDbs?: string[];
 }
 
 interface LegacyIdbSettings {
@@ -52,12 +65,35 @@ function isPersisted(value: unknown): boolean {
   );
 }
 
-function readLegacy(): LegacyIdbSettings | null {
-  return readPersisted<LegacyIdbSettings | null>(
-    LEGACY_IDB_KEY,
-    null,
-    (value) => typeof value === "object" && value !== null,
-  );
+function readLegacy<T>(key: string): T | null {
+  return readPersisted<T | null>(key, null, (value) => typeof value === "object" && value !== null);
+}
+
+/** The SQLite sidebar's old settings for one database path, or `null` when it had none. */
+function legacySqliteSeed(
+  legacy: LegacySqliteSettings | null,
+  path: string,
+): SourceSettings | null {
+  if (!legacy) return null;
+  const prefix = `${path}::`;
+  const items = (list: string[] | undefined) =>
+    (list ?? [])
+      .filter((entry) => entry.startsWith(prefix))
+      .map((entry) => entry.slice(prefix.length));
+  const seed: SourceSettings = {
+    pinned: legacy.pinnedDbs?.includes(path) ?? false,
+    hidden: legacy.hiddenDbs?.includes(path) ?? false,
+    expanded: legacy.expandedDbs?.includes(path) ?? false,
+    pinnedItems: items(legacy.pinnedTables),
+    hiddenItems: items(legacy.hiddenTables),
+  };
+  const empty =
+    !seed.pinned &&
+    !seed.hidden &&
+    !seed.expanded &&
+    !seed.pinnedItems.length &&
+    !seed.hiddenItems.length;
+  return empty ? null : seed;
 }
 
 /** `serial::package::kind` — choices never leak from one phone or app to another. */
@@ -102,19 +138,25 @@ export const useDataSidebarSettings = defineStore("data-sidebar-settings", () =>
       isPersisted,
     ),
   );
-  const oldKey = readLegacy();
-  if (oldKey) {
-    if (!stored.value.legacy) {
-      stored.value = { ...stored.value, legacy: oldKey };
+  const moves: Array<[string, "legacy" | "legacySqlite"]> = [
+    [LEGACY_IDB_KEY, "legacy"],
+    [LEGACY_SQLITE_KEY, "legacySqlite"],
+  ];
+  for (const [key, field] of moves) {
+    const old = readLegacy<LegacyIdbSettings & LegacySqliteSettings>(key);
+    if (!old) continue;
+    if (!stored.value[field]) {
+      stored.value = { ...stored.value, [field]: old };
       writePersisted(STORAGE_KEY, stored.value);
     }
     try {
-      localStorage.removeItem(LEGACY_IDB_KEY);
+      localStorage.removeItem(key);
     } catch (error) {
-      console.warn("Could not remove the old IndexedDB sidebar settings", error);
+      console.warn("Could not remove old Data sidebar settings", key, error);
     }
   }
   const legacy = stored.value.legacy ?? null;
+  const legacySqlite = stored.value.legacySqlite ?? null;
 
   function keyOf(scope: string, sourceId: string): string {
     return `${scope}::${sourceId}`;
@@ -123,7 +165,9 @@ export const useDataSidebarSettings = defineStore("data-sidebar-settings", () =>
   function source(scope: string, sourceId: string): SourceSettings {
     const entry = stored.value.sources[keyOf(scope, sourceId)];
     if (entry) return entry;
-    return (scope.endsWith("::indexeddb") ? legacySeed(legacy, sourceId) : null) ?? EMPTY;
+    if (scope.endsWith("::indexeddb")) return legacySeed(legacy, sourceId) ?? EMPTY;
+    if (scope.endsWith("::sqlite")) return legacySqliteSeed(legacySqlite, sourceId) ?? EMPTY;
+    return EMPTY;
   }
 
   function persist() {
@@ -174,9 +218,11 @@ export const useDataSidebarSettings = defineStore("data-sidebar-settings", () =>
   function showHidden(scope: string): boolean {
     const value = stored.value.showHidden[scope];
     if (value !== undefined) return value;
-    return scope.endsWith("::indexeddb")
-      ? Boolean(legacy?.showHidden || legacy?.showHiddenDbs)
-      : false;
+    if (scope.endsWith("::indexeddb")) return Boolean(legacy?.showHidden || legacy?.showHiddenDbs);
+    if (scope.endsWith("::sqlite")) {
+      return Boolean(legacySqlite?.showHiddenDbs || legacySqlite?.showHiddenTables);
+    }
+    return false;
   }
 
   function setShowHidden(scope: string, value: boolean) {
