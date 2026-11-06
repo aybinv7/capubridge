@@ -13,7 +13,7 @@ import type { PolicyId } from "@/modules/automation/policies/types";
 import { POLICY_IDS } from "@/modules/automation/flowShared";
 import { isRemovedArtemis, REMOVED_ARTEMIS_MESSAGE } from "@/modules/automation/removedPolicies";
 import type { Assertion, ReasoningOwner } from "@/types/automation.types";
-import { hasDevToolsEndpoint } from "@/lib/app-target";
+import { isNativeAppTarget } from "@/lib/app-target";
 
 const REASONING_OWNERS: readonly ReasoningOwner[] = ["embedded", "mcp-host", "deterministic"];
 
@@ -48,7 +48,7 @@ export function useMcpBridge() {
     }
 
     targetsStore.selectTarget(target);
-    if (hasDevToolsEndpoint(target)) await connectToTarget(target);
+    if (!isNativeAppTarget(target)) await connectToTarget(target);
 
     return {
       selected: { id: target.id, title: target.title, url: target.url },
