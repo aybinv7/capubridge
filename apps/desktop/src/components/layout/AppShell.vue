@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import BottomDock from "@/components/dock/BottomDock.vue";
+import TimelineStrip from "@/shared/components/timeline/TimelineStrip.vue";
 import TitleBar from "./TitleBar.vue";
 import Sidebar from "./Sidebar.vue";
 import { useRailPeek } from "./useRailPeek";
@@ -16,6 +17,7 @@ import { isDockWindowOpen } from "@/lib/dock-windows";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useDockStore } from "@/stores/dock.store";
+import { useTimelineStripStore } from "@/stores/timelineStrip.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useUIStore } from "@/stores/ui.store";
 import { restoreSelectedDeviceSerial } from "@/composables/useSessionPersistence";
@@ -30,6 +32,7 @@ const bottomDockRef = ref<InstanceType<typeof BottomDock> | null>(null);
 const mirrorStore = useMirrorStore();
 const inspectStore = useInspectStore();
 const dockStore = useDockStore();
+const timelineStrip = useTimelineStripStore();
 const devicesStore = useDevicesStore();
 const uiStore = useUIStore();
 const router = useRouter();
@@ -265,6 +268,15 @@ onUnmounted(() => {
             ref="bottomDockRef"
             @request-main-focus="focusMainContent"
           />
+        </Transition>
+
+        <Transition
+          enter-active-class="transition-[opacity,translate] duration-300 ease-cladd-settle"
+          leave-active-class="transition-[opacity,translate] duration-200 ease-in-out"
+          enter-from-class="translate-y-2 opacity-0"
+          leave-to-class="translate-y-2 opacity-0"
+        >
+          <TimelineStrip v-if="!timelineStrip.hidden" />
         </Transition>
       </div>
 

@@ -25,6 +25,8 @@ import Replay20Regular from "@vicons/fluent/es/Replay20Regular";
 import Search20Regular from "@vicons/fluent/es/Search20Regular";
 import Settings20Filled from "@vicons/fluent/es/Settings20Filled";
 import Settings20Regular from "@vicons/fluent/es/Settings20Regular";
+import Timeline20Filled from "@vicons/fluent/es/Timeline20Filled";
+import Timeline20Regular from "@vicons/fluent/es/Timeline20Regular";
 import type { ShellIconSet } from "./shell-icon.types";
 
 /**
@@ -51,4 +53,5 @@ export const fluentShellIcons: ShellIconSet = {
   panelRight: { regular: PanelRight20Regular, filled: PanelRight20Filled },
   panelLeft: { regular: PanelLeft20Regular, filled: PanelLeft20Filled },
   panelBottom: { regular: PanelBottom20Regular, filled: PanelBottom20Filled },
+  timeline: { regular: Timeline20Regular, filled: Timeline20Filled },
 };

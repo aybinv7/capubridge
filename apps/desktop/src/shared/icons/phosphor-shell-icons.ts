@@ -3,6 +3,7 @@ import {
   PhAppWindow,
   PhCaretLeft,
   PhCaretRight,
+  PhChartBar,
   PhCursorClick,
   PhDatabase,
   PhDeviceMobile,
@@ -50,4 +51,5 @@ export const phosphorShellIcons: ShellIconSet = {
   panelRight: pair(PhSquareHalf),
   panelLeft: pair(PhSquareHalf, "-scale-x-100"),
   panelBottom: pair(PhSquareHalfBottom),
+  timeline: pair(PhChartBar),
 };

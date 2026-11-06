@@ -17,6 +17,7 @@ import {
   Sun,
   Terminal,
   TriangleAlert,
+  ChartNoAxesGantt,
   Zap,
 } from "lucide-vue-next";
 import { primaryNavigationFeatures, utilityNavigationFeatures } from "@/app/feature-registry";
@@ -24,6 +25,7 @@ import { useCommandsStore } from "@/stores/commands.store";
 import { useUIStore } from "@/stores/ui.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useMirrorStore } from "@/stores/mirror.store";
+import { useTimelineStripStore } from "@/stores/timelineStrip.store";
 import { useThemeStore } from "@/stores/theme.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useDeviceNamesStore } from "@/stores/deviceNames.store";
@@ -57,6 +59,7 @@ export function useCoreCommands(): void {
   const ui = useUIStore();
   const dock = useDockStore();
   const mirror = useMirrorStore();
+  const timelineStrip = useTimelineStripStore();
   const theme = useThemeStore();
   const devices = useDevicesStore();
   const deviceNames = useDeviceNamesStore();
@@ -142,6 +145,16 @@ export function useCoreCommands(): void {
         binding: "mod+j",
         global: true,
         run: () => dock.toggleDock(),
+      },
+      {
+        id: "view.toggle-timeline",
+        title: timelineStrip.hidden ? "Show the timeline" : "Hide the timeline",
+        group: "View",
+        icon: ChartNoAxesGantt,
+        binding: "mod+shift+j",
+        global: true,
+        keywords: ["timeline", "strip", "markers", "history"],
+        run: () => timelineStrip.toggleHidden(),
       },
       {
         id: "view.toggle-device-pane",

@@ -6,6 +6,8 @@ export interface RevealHandler {
   reveal(ref: TimelineMarkerRef): boolean | Promise<boolean>;
   /** Whether the evidence is still kept, for an "aged out" label before any navigation. */
   isKept?(ref: TimelineMarkerRef): boolean;
+  /** How much the section keeps, said plainly: "Console keeps the last 10,000 messages". */
+  keeps?: string;
 }
 
 export type RevealOutcome = "revealed" | "aged-out" | "no-handler";
@@ -39,4 +41,14 @@ export async function revealMarker(ref: TimelineMarkerRef): Promise<RevealOutcom
 export function isMarkerKept(ref: TimelineMarkerRef): boolean {
   const handler = handlers.get(ref.kind);
   return handler?.isKept ? handler.isKept(ref) : handler !== undefined;
+}
+
+/** Whether a section has registered to show markers of `kind`. */
+export function hasReveal(kind: TimelineMarkerRef["kind"]): boolean {
+  return handlers.has(kind);
+}
+
+/** What the owning section says it keeps, for an aged-out item; null when it does not say. */
+export function retentionOf(kind: TimelineMarkerRef["kind"]): string | null {
+  return handlers.get(kind)?.keeps ?? null;
 }

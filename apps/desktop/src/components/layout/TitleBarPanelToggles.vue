@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useDockStore } from "@/stores/dock.store";
 import { useMirrorStore } from "@/stores/mirror.store";
+import { useTimelineStripStore } from "@/stores/timelineStrip.store";
 import { useBindingHint } from "@/composables/useBindingHint";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { shellIcons } from "@/shared/icons/shell-icons";
@@ -10,6 +11,7 @@ import { shellIcons } from "@/shared/icons/shell-icons";
 const context = useActiveContextStore();
 const dockStore = useDockStore();
 const mirrorStore = useMirrorStore();
+const timelineStrip = useTimelineStripStore();
 const { keysOf } = useBindingHint();
 
 const mirrorEnabled = computed(
@@ -36,11 +38,29 @@ const consoleLabel = computed(() => (dockStore.isOpen ? "Hide the console" : "Sh
 const consoleHint = computed(() =>
   dockStore.hasUnread && !dockStore.isOpen ? "New messages since you last looked" : undefined,
 );
+const timelineShown = computed(() => !timelineStrip.hidden);
+const timelineIcon = computed(() =>
+  timelineShown.value ? shellIcons.timeline.filled : shellIcons.timeline.regular,
+);
+const timelineLabel = computed(() =>
+  timelineShown.value ? "Hide the timeline" : "Show the timeline",
+);
 const showUnread = computed(() => dockStore.hasUnread && !dockStore.isOpen);
 </script>
 
 <template>
   <div class="flex items-center gap-1">
+    <IconAction
+      :label="timelineLabel"
+      hint="Every second of the session, at the foot of the window"
+      :keys="keysOf('view.toggle-timeline') ?? undefined"
+      toggle
+      :pressed="timelineShown"
+      @click="timelineStrip.toggleHidden()"
+    >
+      <component :is="timelineIcon" />
+    </IconAction>
+
     <IconAction
       :label="consoleLabel"
       :hint="consoleHint"

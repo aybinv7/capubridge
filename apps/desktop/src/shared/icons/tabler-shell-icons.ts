@@ -25,6 +25,8 @@ import {
   IconSearch,
   IconSettings,
   IconSettingsFilled,
+  IconTimelineEvent,
+  IconTimelineEventFilled,
   IconWorld,
   IconWorldFilled,
 } from "@tabler/icons-vue";
@@ -60,4 +62,5 @@ export const tablerShellIcons: ShellIconSet = {
   panelRight: pair(IconLayoutSidebarRight, IconLayoutSidebarRightFilled),
   panelLeft: pair(IconLayoutSidebar, IconLayoutSidebarFilled),
   panelBottom: pair(IconLayoutBottombar, IconLayoutBottombarFilled),
+  timeline: pair(IconTimelineEvent, IconTimelineEventFilled),
 };

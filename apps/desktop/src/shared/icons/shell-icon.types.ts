@@ -31,4 +31,5 @@ export interface ShellIconSet {
   panelRight: ShellIconPair;
   panelLeft: ShellIconPair;
   panelBottom: ShellIconPair;
+  timeline: ShellIconPair;
 }
