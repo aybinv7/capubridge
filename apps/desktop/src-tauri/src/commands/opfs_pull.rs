@@ -229,6 +229,42 @@ impl CdpSession {
     }
 }
 
+/// Where the bytes of an OPFS file come from: the page over CDP, or a fake in tests.
+trait OpfsSource {
+    async fn stat(&mut self, path: &str) -> Result<OpfsFileStat, String>;
+    async fn read_chunk(&mut self, path: &str, offset: u64, length: u64)
+        -> Result<Vec<u8>, String>;
+}
+
+impl OpfsSource for CdpSession {
+    async fn stat(&mut self, path: &str) -> Result<OpfsFileStat, String> {
+        CdpSession::stat(self, path).await
+    }
+
+    async fn read_chunk(
+        &mut self,
+        path: &str,
+        offset: u64,
+        length: u64,
+    ) -> Result<Vec<u8>, String> {
+        CdpSession::read_chunk(self, path, offset, length).await
+    }
+}
+
+fn emit_progress<'a>(window: &'a tauri::Webview, path: &str) -> impl FnMut(u64, u64) + 'a {
+    let path = path.to_string();
+    move |loaded, total| {
+        let _ = window.emit(
+            "capubridge:opfs-pull-progress",
+            OpfsPullProgress {
+                opfs_path: path.clone(),
+                loaded,
+                total,
+            },
+        );
+    }
+}
+
 fn temp_target(label: &str) -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -273,7 +309,15 @@ pub async fn opfs_pull_sqlite(
 ) -> Result<OpfsPullResult, String> {
     validate_upstream_url(&ws_url)?;
     let mut session = CdpSession::open(&ws_url).await?;
-    let result = pull_into_file(&mut session, &window, &path, &label, strip_sah_pool_header).await;
+    let mut progress = emit_progress(&window, &path);
+    let result = pull_into_file(
+        &mut session,
+        &mut progress,
+        &path,
+        &label,
+        strip_sah_pool_header,
+    )
+    .await;
     let _ = session.socket.close(None).await;
     result
 }
@@ -292,7 +336,8 @@ pub async fn opfs_save_file(
 ) -> Result<OpfsSaveResult, String> {
     validate_upstream_url(&ws_url)?;
     let mut session = CdpSession::open(&ws_url).await?;
-    let result = save_into(&mut session, &window, &path, Path::new(&destination)).await;
+    let mut progress = emit_progress(&window, &path);
+    let result = save_into(&mut session, &mut progress, &path, Path::new(&destination)).await;
     let _ = session.socket.close(None).await;
     result
 }
@@ -310,18 +355,44 @@ fn same_stat(left: &OpfsFileStat, right: &OpfsFileStat) -> bool {
     left.size == right.size && left.last_modified == right.last_modified
 }
 
-async fn save_into(
-    session: &mut CdpSession,
-    window: &tauri::Webview,
+/// Whether a finished copy may replace the destination, and whether the app
+/// wrote to the file while it was copied. A copy shorter than the file, or a
+/// file that could not be checked afterwards, never replaces anything.
+fn finish_save(
+    before: &OpfsFileStat,
+    written: u64,
+    after: Result<OpfsFileStat, String>,
+) -> Result<bool, String> {
+    if written != before.size {
+        return Err(format!(
+            "The copy stopped at {written} of {} bytes, so the file on disk was left as it was.",
+            before.size
+        ));
+    }
+    match after {
+        Ok(after) => Ok(!same_stat(before, &after)),
+        Err(error) => Err(format!(
+            "The file could not be checked after the copy ({error}), so the file on disk was left as it was."
+        )),
+    }
+}
+
+async fn save_into<S: OpfsSource>(
+    source: &mut S,
+    progress: &mut impl FnMut(u64, u64),
     path: &str,
     destination: &Path,
 ) -> Result<OpfsSaveResult, String> {
-    let before = session.stat(path).await?;
+    let before = source.stat(path).await?;
     let partial = partial_path(destination);
-    let written = copy_range(session, window, path, 0, before.size, &partial, false).await?;
-    let changed = match session.stat(path).await {
-        Ok(after) => !same_stat(&before, &after) || written != before.size,
-        Err(_) => true,
+    let written = copy_range(source, progress, path, 0, before.size, &partial, false).await?;
+    let after = source.stat(path).await;
+    let changed = match finish_save(&before, written, after) {
+        Ok(changed) => changed,
+        Err(error) => {
+            let _ = std::fs::remove_file(&partial);
+            return Err(error);
+        }
     };
     if let Err(error) = std::fs::rename(&partial, destination) {
         let _ = std::fs::remove_file(&partial);
@@ -335,11 +406,12 @@ async fn save_into(
 }
 
 /// Copies `total` bytes of an OPFS file from `offset` into `target`, chunk by
-/// chunk, emitting progress. Removes `target` when anything fails, so no
-/// partial file is left behind.
-async fn copy_range(
-    session: &mut CdpSession,
-    window: &tauri::Webview,
+/// chunk, reporting progress, and syncs it to disk. Removes `target` when
+/// anything fails, so no partial file is left behind. Resolves the bytes
+/// written, which is less than `total` when the file got shorter meanwhile.
+async fn copy_range<S: OpfsSource>(
+    source: &mut S,
+    progress: &mut impl FnMut(u64, u64),
     path: &str,
     offset: u64,
     total: u64,
@@ -347,16 +419,16 @@ async fn copy_range(
     expect_sqlite: bool,
 ) -> Result<u64, String> {
     let result =
-        copy_range_inner(session, window, path, offset, total, target, expect_sqlite).await;
+        copy_range_inner(source, progress, path, offset, total, target, expect_sqlite).await;
     if result.is_err() {
         let _ = std::fs::remove_file(target);
     }
     result
 }
 
-async fn copy_range_inner(
-    session: &mut CdpSession,
-    window: &tauri::Webview,
+async fn copy_range_inner<S: OpfsSource>(
+    source: &mut S,
+    progress: &mut impl FnMut(u64, u64),
     path: &str,
     offset: u64,
     total: u64,
@@ -368,7 +440,7 @@ async fn copy_range_inner(
     let mut written: u64 = 0;
     while written < total {
         let length = CHUNK_BYTES.min(total - written);
-        let chunk = session.read_chunk(path, offset + written, length).await?;
+        let chunk = source.read_chunk(path, offset + written, length).await?;
         if chunk.is_empty() {
             break;
         }
@@ -380,28 +452,23 @@ async fn copy_range_inner(
         file.write_all(&chunk)
             .map_err(|error| format!("Failed to write the local copy: {error}"))?;
         written += chunk.len() as u64;
-        let _ = window.emit(
-            "capubridge:opfs-pull-progress",
-            OpfsPullProgress {
-                opfs_path: path.to_string(),
-                loaded: written,
-                total,
-            },
-        );
+        progress(written, total);
     }
     file.flush()
         .map_err(|error| format!("Failed to flush the local copy: {error}"))?;
+    file.sync_all()
+        .map_err(|error| format!("Failed to write the local copy to disk: {error}"))?;
     Ok(written)
 }
 
-async fn pull_into_file(
-    session: &mut CdpSession,
-    window: &tauri::Webview,
+async fn pull_into_file<S: OpfsSource>(
+    source: &mut S,
+    progress: &mut impl FnMut(u64, u64),
     path: &str,
     label: &str,
     strip_sah_pool_header: bool,
 ) -> Result<OpfsPullResult, String> {
-    let stat = session.stat(path).await?;
+    let stat = source.stat(path).await?;
     let offset = if strip_sah_pool_header {
         SAH_POOL_HEADER_DATA_OFFSET
     } else {
@@ -412,7 +479,13 @@ async fn pull_into_file(
     }
     let total = stat.size - offset;
     let target = temp_target(label);
-    let written = copy_range(session, window, path, offset, total, &target, true).await?;
+    let written = copy_range(source, progress, path, offset, total, &target, true).await?;
+    if written != total {
+        let _ = std::fs::remove_file(&target);
+        return Err(format!(
+            "The copy of \"{path}\" stopped at {written} of {total} bytes; the app may have changed it. Try again."
+        ));
+    }
 
     Ok(OpfsPullResult {
         path: target.to_string_lossy().to_string(),
@@ -424,6 +497,133 @@ async fn pull_into_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An OPFS file in memory; `short_after` makes reads past it come back
+    /// empty (the file shrank), `fail_stat_after` makes the n-th stat fail.
+    struct FakeSource {
+        bytes: Vec<u8>,
+        short_after: Option<usize>,
+        stats: usize,
+        fail_stat_after: Option<usize>,
+        grow_on_read: bool,
+    }
+
+    impl FakeSource {
+        fn new(bytes: &[u8]) -> Self {
+            Self {
+                bytes: bytes.to_vec(),
+                short_after: None,
+                stats: 0,
+                fail_stat_after: None,
+                grow_on_read: false,
+            }
+        }
+    }
+
+    impl OpfsSource for FakeSource {
+        async fn stat(&mut self, _path: &str) -> Result<OpfsFileStat, String> {
+            self.stats += 1;
+            if self.fail_stat_after.is_some_and(|limit| self.stats > limit) {
+                return Err("the page went away".to_string());
+            }
+            Ok(OpfsFileStat {
+                size: self.bytes.len() as u64,
+                last_modified: 1.0 + self.bytes.len() as f64,
+            })
+        }
+
+        async fn read_chunk(
+            &mut self,
+            _path: &str,
+            offset: u64,
+            length: u64,
+        ) -> Result<Vec<u8>, String> {
+            let end = self
+                .short_after
+                .unwrap_or(self.bytes.len())
+                .min(self.bytes.len());
+            let start = (offset as usize).min(end);
+            let stop = (offset + length).min(end as u64) as usize;
+            let chunk = self.bytes[start..stop].to_vec();
+            if self.grow_on_read {
+                self.bytes.push(b'+');
+            }
+            Ok(chunk)
+        }
+    }
+
+    fn destination_with(content: &[u8]) -> (tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let destination = dir.path().join("app.sqlite3");
+        std::fs::write(&destination, content).expect("seed destination");
+        (dir, destination)
+    }
+
+    #[tokio::test]
+    async fn a_short_copy_never_replaces_the_destination() {
+        let (_dir, destination) = destination_with(b"the copy saved last week");
+        let mut source = FakeSource::new(b"0123456789");
+        source.short_after = Some(4);
+        let error = save_into(&mut source, &mut |_, _| {}, "app.sqlite3", &destination)
+            .await
+            .expect_err("a short copy is an error");
+        assert!(error.contains("4 of 10"), "{error}");
+        assert_eq!(
+            std::fs::read(&destination).unwrap(),
+            b"the copy saved last week"
+        );
+        assert!(!partial_path(&destination).exists());
+    }
+
+    #[tokio::test]
+    async fn a_file_that_cannot_be_checked_afterwards_never_replaces_the_destination() {
+        let (_dir, destination) = destination_with(b"old");
+        let mut source = FakeSource::new(b"0123456789");
+        source.fail_stat_after = Some(1);
+        let error = save_into(&mut source, &mut |_, _| {}, "app.sqlite3", &destination)
+            .await
+            .expect_err("an unchecked copy is an error");
+        assert!(error.contains("could not be checked"), "{error}");
+        assert_eq!(std::fs::read(&destination).unwrap(), b"old");
+        assert!(!partial_path(&destination).exists());
+    }
+
+    #[tokio::test]
+    async fn a_complete_copy_replaces_the_destination_and_says_whether_the_app_wrote() {
+        let (_dir, destination) = destination_with(b"old");
+        let mut source = FakeSource::new(b"0123456789");
+        let mut seen = Vec::new();
+        let saved = save_into(
+            &mut source,
+            &mut |loaded, total| seen.push((loaded, total)),
+            "app.sqlite3",
+            &destination,
+        )
+        .await
+        .expect("saved");
+        assert_eq!(std::fs::read(&destination).unwrap(), b"0123456789");
+        assert!(!saved.changed);
+        assert_eq!(seen.last(), Some(&(10, 10)));
+
+        let mut growing = FakeSource::new(b"0123456789");
+        growing.grow_on_read = true;
+        let saved = save_into(&mut growing, &mut |_, _| {}, "app.sqlite3", &destination)
+            .await
+            .expect("saved");
+        assert!(saved.changed);
+    }
+
+    #[tokio::test]
+    async fn a_short_database_pull_is_an_error() {
+        let mut bytes = SQLITE_MAGIC.to_vec();
+        bytes.extend_from_slice(&[0u8; 64]);
+        let mut source = FakeSource::new(&bytes);
+        source.short_after = Some(20);
+        let error = pull_into_file(&mut source, &mut |_, _| {}, "app.sqlite3", "app", false)
+            .await
+            .expect_err("a short pull is an error");
+        assert!(error.contains("20 of 80"), "{error}");
+    }
 
     #[test]
     fn partial_path_sits_beside_the_destination() {
