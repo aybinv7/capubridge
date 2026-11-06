@@ -28,8 +28,12 @@ const props = defineProps<{ rows: readonly KeyValueRow[]; mono?: boolean }>();
         </Link>
         <span
           v-else
-          class="block break-all select-text"
-          :class="[TONE_CLASS[row.tone ?? 'default'], row.clamp && 'line-clamp-2']"
+          class="block select-text"
+          :class="[
+            props.mono ? 'break-all' : 'wrap-anywhere',
+            TONE_CLASS[row.tone ?? 'default'],
+            row.clamp && 'line-clamp-2',
+          ]"
           :title="row.clamp ? row.value : undefined"
         >
           {{ row.value }}

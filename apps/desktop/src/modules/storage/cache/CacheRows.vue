@@ -26,9 +26,6 @@ import type { useCacheWrites } from "./useCacheWrites";
 
 const PANE_SETTLE_MS = 140;
 
-const READ_ONLY_TEXT =
-  "Cached responses are read here, not edited. An entry or the whole cache can be deleted.";
-
 /**
  * Find, the entries of one cache in the grid, the entry pane beside it and the status bar.
  * Every delete asks first and names the entries; the pane follows a row by id.
@@ -274,10 +271,10 @@ defineExpose({ focusFind });
     <span v-if="unread > 0" class="truncate text-[var(--fg-subtle)]">
       {{ unread.toLocaleString("en-US") }} without status or size (the read ran out of time)
     </span>
-    <HintTooltip :text="writes.blockedReason.value ?? READ_ONLY_TEXT">
+    <HintTooltip v-if="writes.blockedReason.value" :text="writes.blockedReason.value">
       <span class="flex items-center gap-1" tabindex="0">
         <Lock :size="11" aria-hidden="true" />
-        {{ writes.blockedReason.value ? "deletes wait" : "read-only" }}
+        deletes wait
       </span>
     </HintTooltip>
     <IconAction

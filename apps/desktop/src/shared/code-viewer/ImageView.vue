@@ -111,7 +111,7 @@ function onLoad(event: Event) {
         <Maximize :stroke-width="1.8" />
       </IconAction>
       <ToolbarSeparator />
-      <span class="px-2 font-mono text-2xs text-muted-foreground tabular-nums">
+      <span class="px-2 font-mono text-2xs whitespace-nowrap text-muted-foreground tabular-nums">
         {{ dimensions }}
       </span>
     </Toolbar>

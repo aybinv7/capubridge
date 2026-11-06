@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef } from "vue";
+import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import { refDebounced } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { Lock, PanelRight, Trash2 } from "lucide-vue-next";
@@ -76,6 +76,23 @@ const unread = computed(() =>
 const lockedCount = computed(() => props.rows.filter((row) => row.locked).length);
 
 const pane = useOpfsPane({ rows: computed(() => props.rows), order, grid });
+
+/** Opening a folder unmounts the grid that had focus: the new one takes it on its first rows. */
+let takeFocus =
+  typeof document !== "undefined" &&
+  (document.activeElement === null || document.activeElement === document.body);
+watch(
+  () => order.value[0],
+  (first) => {
+    if (!first || !takeFocus) return;
+    takeFocus = false;
+    void nextTick(() => {
+      grid.value?.focusRow(first);
+      grid.value?.focus();
+    });
+  },
+  { immediate: true },
+);
 const preview = useOpfsPreview({
   row: computed(() => (pane.visible.value ? pane.row.value : null)),
   paused: computed(() => props.away !== null),
