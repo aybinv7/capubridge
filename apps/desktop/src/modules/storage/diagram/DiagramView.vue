@@ -55,6 +55,12 @@ const canIncludeOther = computed(
   () => props.subject.place.packageName !== "file" && props.subject.place.serial !== "",
 );
 const includeEffective = computed(() => includeOther.value && canIncludeOther.value);
+const nodeWord = computed(() => {
+  if (includeEffective.value) return { one: "table or store", many: "tables and stores" };
+  return props.subject.kind === "sqlite"
+    ? { one: "table", many: "tables" }
+    : { one: "store", many: "stores" };
+});
 
 const model = useDiagramModel(subject, includeEffective);
 const { scopeKey } = model;
@@ -71,6 +77,9 @@ const filters = useDiagramFilters(
   },
   props.subject.kind === "sqlite" ? "schema" : "inferred",
 );
+watch(includeEffective, (on) => {
+  if (!on) filters.sourceFilter.value = "all";
+});
 
 const nodeTypes = {
   entity: markRaw(DiagramEntityNode),
@@ -94,7 +103,7 @@ const canvas = useStorageGraphCanvasNodes({
   canvasMode,
   graphStrategy: filters.strategy,
   filteredEntities: filters.filteredEntities,
-  notes: model.notes,
+  notes: filters.filteredNotes,
   persistedPositions: model.persistedPositions,
   activeAutoLayoutPositions: filters.activeAutoLayoutPositions,
   persistedGroups: model.persistedGroups,
@@ -196,7 +205,7 @@ watch(interactions.selectedNodes, (value) => {
 watch(
   [
     filters.filteredEntities,
-    model.notes,
+    filters.filteredNotes,
     filters.visibleRelationships,
     filters.activeAutoLayoutPositions,
     filters.strategy,
@@ -231,6 +240,7 @@ watch(
       :origins="model.availableOrigins.value"
       :can-include-other="canIncludeOther"
       :node-count="entityCount"
+      :node-word="nodeWord"
       :link-count="filters.visibleRelationships.value.length"
       @set-origin="model.setOrigin"
     />

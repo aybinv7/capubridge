@@ -1,5 +1,5 @@
-import { expect, test } from "vite-plus/test";
-import { layoutStorageGraphWithElk } from "./storageGraphElkLayout";
+import { describe, expect, test } from "vite-plus/test";
+import { cachedUntilFailure, layoutStorageGraphWithElk } from "./storageGraphElkLayout";
 import { buildStorageGraphNamingFamilies } from "./storageGraphNamingFamilies";
 
 test("ELK lays out tables and returns routed relationship points", async () => {
@@ -108,4 +108,19 @@ test("ELK keeps a naming family together while routing external relationships", 
   expect(Math.max(...familyPositions.map((position) => position.x))).toBeLessThanOrEqual(
     Math.min(...familyPositions.map((position) => position.x)) + 760,
   );
+});
+
+describe("cachedUntilFailure (B9)", () => {
+  test("a failed load is tried again, a good one is kept", async () => {
+    let calls = 0;
+    const load = cachedUntilFailure(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("chunk failed");
+      return calls;
+    });
+    await expect(load()).rejects.toThrow("chunk failed");
+    await expect(load()).resolves.toBe(2);
+    await expect(load()).resolves.toBe(2);
+    expect(calls).toBe(2);
+  });
 });

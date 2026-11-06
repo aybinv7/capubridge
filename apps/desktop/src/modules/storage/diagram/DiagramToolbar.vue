@@ -15,6 +15,8 @@ const props = defineProps<{
   origins: readonly string[];
   canIncludeOther: boolean;
   nodeCount: number;
+  /** What the boxes are called here: tables, stores, or both with the app's other data. */
+  nodeWord: { one: string; many: string };
   linkCount: number;
 }>();
 
@@ -77,7 +79,7 @@ const originModel = computed({
       <Switch v-model="includeOther" size="sm" aria-label="Include the app's other data" />
       Include the app's other data
     </label>
-    <template v-if="includeOther">
+    <template v-if="includeOther && canIncludeOther">
       <Select
         v-model="sourceModel"
         :options="SOURCE_OPTIONS"
@@ -101,7 +103,7 @@ const originModel = computed({
       </Select>
     </template>
     <span class="ml-auto text-2xs text-muted-foreground tabular-nums">
-      {{ nodeCount }} {{ nodeCount === 1 ? "table" : "tables" }} · {{ linkCount }}
+      {{ nodeCount }} {{ nodeCount === 1 ? nodeWord.one : nodeWord.many }} · {{ linkCount }}
       {{ linkCount === 1 ? "link" : "links" }}
     </span>
   </div>

@@ -58,9 +58,17 @@ export function useDiagramFilters(input: DiagramFilterInput, initialStrategy: Di
     });
   });
 
+  const filteredNotes = computed(() => {
+    const query = searchApplied.value.trim().toLowerCase();
+    if (!query) return [...input.notes.value];
+    return input.notes.value.filter((note) =>
+      `${note.title} ${note.note}`.toLowerCase().includes(query),
+    );
+  });
+
   const visibleNodeIds = computed(() => {
     const ids = new Set(filteredEntities.value.map((entity) => entity.id));
-    for (const note of input.notes.value) ids.add(note.id);
+    for (const note of filteredNotes.value) ids.add(note.id);
     return ids;
   });
 
@@ -89,6 +97,7 @@ export function useDiagramFilters(input: DiagramFilterInput, initialStrategy: Di
     strategy,
     showGuessed,
     filteredEntities,
+    filteredNotes,
     visibleRelationships,
     activeAutoLayoutPositions,
   };

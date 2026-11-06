@@ -12,27 +12,37 @@ export interface StorageGraphElkLayoutResult {
   routes: Record<string, StorageGraphPosition[]>;
 }
 
-let engine: Promise<InstanceType<typeof ELK>> | null = null;
+/**
+ * Memoises an async load, but not its failure: a rejected load is dropped, so the next call
+ * tries again instead of failing until the app reloads (B9).
+ */
+export function cachedUntilFailure<T>(load: () => Promise<T>): () => Promise<T> {
+  let pending: Promise<T> | null = null;
+  return () => {
+    pending ??= load().catch((error: unknown) => {
+      pending = null;
+      throw error;
+    });
+    return pending;
+  };
+}
 
 /**
  * ELK (about 1.6 MB) loads the first time a layout is asked for, never with the screen. In the
  * app it runs in a worker, so a big layout never freezes the window; without workers (tests) it
  * runs in place.
  */
-function elkEngine(): Promise<InstanceType<typeof ELK>> {
-  engine ??= (async () => {
-    if (typeof Worker === "undefined") {
-      const { default: Bundled } = await import("elkjs/lib/elk.bundled.js");
-      return new Bundled();
-    }
-    const [{ default: Api }, { default: workerUrl }] = await Promise.all([
-      import("elkjs/lib/elk-api.js"),
-      import("elkjs/lib/elk-worker.min.js?url"),
-    ]);
-    return new Api({ workerFactory: () => new Worker(workerUrl) });
-  })();
-  return engine;
-}
+const elkEngine = cachedUntilFailure(async (): Promise<InstanceType<typeof ELK>> => {
+  if (typeof Worker === "undefined") {
+    const { default: Bundled } = await import("elkjs/lib/elk.bundled.js");
+    return new Bundled();
+  }
+  const [{ default: Api }, { default: workerUrl }] = await Promise.all([
+    import("elkjs/lib/elk-api.js"),
+    import("elkjs/lib/elk-worker.min.js?url"),
+  ]);
+  return new Api({ workerFactory: () => new Worker(workerUrl) });
+});
 
 function sourcePortId(edgeId: string): string {
   return `${edgeId}:source`;
