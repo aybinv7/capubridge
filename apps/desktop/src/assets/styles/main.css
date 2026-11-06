@@ -399,7 +399,7 @@
 }
 
 .cladd-menu[data-state="open"] {
-  animation: cladd-menu-in 320ms cubic-bezier(0, 1, 0, 1.025) both;
+  animation: cladd-menu-in 320ms cubic-bezier(0, 1, 0, 1.025) backwards;
 }
 
 .cladd-menu[data-state="closed"] {
