@@ -29,6 +29,7 @@ const handlers = useSqliteTreeHandlers(tab, confirm.askAsync);
 const root = ref<HTMLElement | null>(null);
 const pane = ref<{
   focusSearch: () => void;
+  openWhere?: () => void;
   edits?: () => SqliteEditCommands | null;
 } | null>(null);
 const search = ref("");
@@ -126,6 +127,8 @@ useSqliteCommands({
   canExport: () => address.value !== null,
   refresh: () => void handlers.refresh(),
   focusFind: () => pane.value?.focusSearch(),
+  filterWithSql: () => pane.value?.openWhere?.(),
+  hasTable: () => current.value !== null && location.table.value !== "",
   findHere,
   togglePane: toggleRecordPane,
   exportFile: () => current.value && handlers.exportFile(current.value.db),

@@ -4,13 +4,8 @@ import { toCsv, type GridSort } from "@/shared/components/data/grid";
 import { downloadText, fileStem } from "@/lib/download";
 import type { SqliteQueryResult } from "@/types/sqlite.types";
 import { toSqliteInserts } from "../sqlText";
-import {
-  andWhere,
-  buildPageQuery,
-  predicate,
-  searchClause,
-  type SqliteExportFormat,
-} from "./sqliteQuery";
+import { combineWhere, makeChip, type SqliteFilterChip } from "./sqliteFilters";
+import { buildPageQuery, type ColumnFilterOperator, type SqliteExportFormat } from "./sqliteQuery";
 import type { SqliteRowOrder } from "./sqliteRowOrder";
 
 export interface SqliteTableQueryContext {
@@ -27,12 +22,15 @@ export interface SqliteTableQueryContext {
 }
 
 /**
- * What the rows of one table are narrowed and ordered by: the WHERE clause, the search over every
- * column, grouping, sort and the page. Every change starts again from the first page; the rows
- * themselves are read by `useSqliteRows`, on the database, never over the page on screen.
+ * What the rows of one table are narrowed and ordered by: the filter chips, the free WHERE
+ * clause, the search over every column, grouping, sort and the page. Every change starts again
+ * from the first page; the rows themselves are read by `useSqliteRows`, on the database, never
+ * over the page on screen. Filters are chips, never text appended to the WHERE, so an active
+ * filter is always visible on its own.
  */
 export function useSqliteTableQuery(context: SqliteTableQueryContext) {
   const whereClause = ref("");
+  const filters = ref<SqliteFilterChip[]>([]);
   const filterError = ref<string | null>(null);
   const search = ref("");
   /** Column whose distinct values are listed with counts, or `null` for plain rows. */
@@ -42,12 +40,10 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
   const page = ref(0);
   const pageSize = ref(50);
 
-  /** The user's WHERE combined with "search all columns". */
-  const effectiveWhere = computed(() => {
-    const searched = searchClause(context.allColumns(), search.value);
-    if (!searched) return whereClause.value;
-    return whereClause.value.trim() ? andWhere(whereClause.value, searched) : searched;
-  });
+  /** The chips, the free WHERE and "search all columns", joined with AND. */
+  const effectiveWhere = computed(() =>
+    combineWhere(filters.value, whereClause.value, context.allColumns(), search.value),
+  );
 
   /** Plain, unfiltered rows come from the table reader; anything else is a query. */
   const needsQuery = computed(() => effectiveWhere.value.trim() !== "" || groupBy.value !== null);
@@ -72,8 +68,33 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
     page.value = 0;
   }
 
-  function addFilter(clause: string) {
-    setWhere(andWhere(whereClause.value, clause));
+  /** Adds one condition as a chip; throws when the value cannot be written as SQL. */
+  function addFilter(column: string, operator: ColumnFilterOperator, value?: unknown) {
+    const chip = makeChip(column, operator, value);
+    if (filters.value.some((existing) => existing.sql === chip.sql)) return;
+    filters.value = [...filters.value, chip];
+    filterError.value = null;
+    page.value = 0;
+  }
+
+  function removeFilter(id: string) {
+    filters.value = filters.value.filter((chip) => chip.id !== id);
+    filterError.value = null;
+    page.value = 0;
+  }
+
+  /** Drops every chip and the WHERE; the search stays. */
+  function clearConditions() {
+    filters.value = [];
+    whereClause.value = "";
+    filterError.value = null;
+    page.value = 0;
+  }
+
+  /** Drops every chip, the WHERE and the search. */
+  function clearFilters() {
+    clearConditions();
+    search.value = "";
   }
 
   function setSearch(query: string) {
@@ -92,7 +113,7 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
     const column = groupBy.value;
     if (!column) return;
     groupBy.value = null;
-    addFilter(predicate(column, "=", value));
+    addFilter(column, "=", value);
   }
 
   function setPageSize(size: number) {
@@ -102,6 +123,7 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
 
   function reset() {
     whereClause.value = "";
+    filters.value = [];
     filterError.value = null;
     search.value = "";
     groupBy.value = null;
@@ -172,6 +194,7 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
 
   return {
     whereClause,
+    filters,
     filterError,
     search,
     groupBy,
@@ -186,6 +209,9 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
     openGroup,
     setWhere,
     addFilter,
+    removeFilter,
+    clearConditions,
+    clearFilters,
     setPageSize,
     reset,
     exportTable,

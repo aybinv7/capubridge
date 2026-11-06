@@ -20,7 +20,7 @@ const props = withDefaults(
     disabled?: boolean;
     loading?: boolean;
     color?: Color;
-    size?: "sm" | "md";
+    size?: "xs" | "sm" | "md";
     position?: TooltipPosition;
   }>(),
   {
@@ -36,8 +36,10 @@ const props = withDefaults(
   },
 );
 
-const sizeClass = computed(() => (props.size === "sm" ? "size-6" : "size-7"));
-const iconClass = computed(() => (props.size === "sm" ? "[&>svg]:size-3" : "[&>svg]:size-3.5"));
+const SIZE_CLASS = { xs: "size-5", sm: "size-6", md: "size-7" } as const;
+const ICON_CLASS = { xs: "[&>svg]:size-3", sm: "[&>svg]:size-3", md: "[&>svg]:size-3.5" } as const;
+const sizeClass = computed(() => SIZE_CLASS[props.size]);
+const iconClass = computed(() => ICON_CLASS[props.size]);
 const toneClass = computed(() => {
   if (props.color) return "";
   if (props.pressed) return "text-foreground";

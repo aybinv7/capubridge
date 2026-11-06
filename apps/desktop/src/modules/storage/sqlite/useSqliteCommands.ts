@@ -1,6 +1,7 @@
 import {
   Download,
   FileCode,
+  ListFilter,
   Network,
   PanelRight,
   Plus,
@@ -27,6 +28,9 @@ interface SqliteCommandDeps {
   canExport: () => boolean;
   refresh: () => void;
   focusFind: () => void;
+  /** Opens the Filter popover on its WHERE clause (a table's rows). */
+  filterWithSql: () => void;
+  hasTable: () => boolean;
   /** Whether Ctrl+F belongs to this tab: focus inside it (not in the pane) or nowhere. */
   findHere: () => boolean;
   togglePane: () => void;
@@ -107,6 +111,17 @@ export function useSqliteCommands(deps: SqliteCommandDeps) {
       keywords: ["search", "filter", "sqlite"],
       when: () => deps.hasDatabase() && (commands.paletteOpen || deps.findHere()),
       run: deps.focusFind,
+    },
+    {
+      id: "data.sqlite.filter-sql",
+      title: "Filter the rows with SQL",
+      group: "Data",
+      icon: ListFilter,
+      binding: "mod+shift+f",
+      screen: true,
+      keywords: ["where", "filter", "sql", "condition"],
+      when: () => deps.hasTable() && (commands.paletteOpen || deps.findHere()),
+      run: deps.filterWithSql,
     },
     {
       id: "data.sqlite.pane",

@@ -20,7 +20,9 @@ import CellEditor from "@/shared/components/data/grid/editors/CellEditor.vue";
 import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import DataFreshness from "@/modules/storage/frame/DataFreshness.vue";
 import DataPager from "@/modules/storage/frame/DataPager.vue";
+import type { DataProvenance } from "@/modules/storage/frame/dataFrame.types";
 import DataState from "@/modules/storage/frame/DataState.vue";
 import RecordPane from "@/modules/storage/frame/RecordPane.vue";
 import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
@@ -40,14 +42,12 @@ import { toSqliteInserts } from "../sqlText";
 import { toGridColumns, toGridRows } from "./sqliteGrid";
 import { recordKeyLabel, recordStateWords } from "./sqliteRecordTitle";
 import {
-  predicate,
   type PredicateOperator,
   type SqliteExportFormat,
   type SqliteExportScope,
 } from "./sqliteQuery";
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 import SqliteBrowseToolbar from "./SqliteBrowseToolbar.vue";
-import SqliteColumnFilter from "./SqliteColumnFilter.vue";
 import SqliteEditBar from "./SqliteEditBar.vue";
 import type { SqliteStaged } from "./sqliteChangeset";
 import type { SqliteEditCommands } from "../useSqliteCommands";
@@ -86,7 +86,14 @@ const props = defineProps<{
   savesTo?: string | null;
   /** The opened file's working copy holds changes its file does not have yet. */
   unsaved?: boolean;
+  /** Where the rows came from and when they were read, for the status bar. */
+  provenance: DataProvenance;
+  readAt: number | null;
+  /** The change watcher keeps the copy current. */
+  watched?: boolean;
 }>();
+
+defineSlots<{ lead?: () => unknown; changes?: () => unknown; trail?: () => unknown }>();
 
 const emit = defineEmits<{
   followForeignKey: [target: string, value: unknown];
@@ -181,7 +188,6 @@ watch(
   () => props.tableName,
   () => {
     visibility.value = {};
-    filterColumn.value = null;
   },
 );
 
@@ -194,10 +200,9 @@ function setShowAs(columnId: string, type: GridColumnType | null) {
 }
 
 const toolbar = ref<InstanceType<typeof SqliteBrowseToolbar> | null>(null);
-const filterColumn = ref<string | null>(null);
 
 function onColumnAction(columnId: string, action: GridColumnMenuAction) {
-  if (action.kind === "filter") filterColumn.value = columnId;
+  if (action.kind === "filter") toolbar.value?.openFilter(columnId);
   else if (action.kind === "group") {
     props.query.setGroupBy(grouped.value === columnId ? null : columnId);
   } else if (action.kind === "showAs") setShowAs(columnId, action.type);
@@ -285,7 +290,7 @@ function runContextAction(actionId: string, target: GridContextTarget) {
   else if (actionId.startsWith("filter:") && target.columnId) {
     const operator = actionId.slice("filter:".length) as PredicateOperator;
     try {
-      props.query.addFilter(predicate(target.columnId, operator, target.value));
+      props.query.addFilter(target.columnId, operator, target.value);
     } catch (error) {
       toast.error("Could not filter on this value", {
         description: error instanceof Error ? error.message : String(error),
@@ -424,7 +429,14 @@ const summary = shallowRef<GridSummary>({
 });
 
 const sort = computed<GridSort | null>(() => (grouped.value ? null : props.query.gridSort.value));
-const where = computed(() => props.query.whereClause.value);
+const noMatch = computed(() => {
+  const parts = [
+    ...props.query.filters.value.map((chip) => chip.label),
+    ...(props.query.whereClause.value ? [`WHERE ${props.query.whereClause.value}`] : []),
+    ...(props.query.search.value ? [`the search “${props.query.search.value}”`] : []),
+  ];
+  return parts.length ? `No rows match ${parts.join(" and ")}` : "No rows match";
+});
 
 const confirm = useDataConfirm();
 
@@ -454,6 +466,7 @@ function onKeydown(event: KeyboardEvent) {
 
 defineExpose({
   focusSearch: () => toolbar.value?.focusSearch(),
+  openWhere: () => toolbar.value?.openWhere(),
   edits: {
     canEdit: () => !readOnly.value,
     pending: () => staging.pending.value,
@@ -487,13 +500,11 @@ defineExpose({
       :selected-rows="summary.selectedRows"
       :filter-error="filterError"
       @export="exportRows"
-    />
-    <SqliteColumnFilter
-      :column="filterColumn"
-      :anchor="toolbar?.anchor ?? null"
-      @apply="query.addFilter($event)"
-      @close="filterColumn = null"
-    />
+    >
+      <template #lead><slot name="lead" /></template>
+      <template #changes><slot name="changes" /></template>
+      <template #trail><slot name="trail" /></template>
+    </SqliteBrowseToolbar>
     <DataState
       v-if="error && !result && !filterError"
       kind="error"
@@ -548,21 +559,8 @@ defineExpose({
             </template>
             <template #empty>
               <div v-if="query.needsQuery.value" class="flex flex-col items-start gap-2">
-                <span>
-                  No rows match
-                  <code v-if="where" class="font-mono text-cladd-fg">{{ where }}</code>
-                  <template v-if="query.search.value">
-                    {{ where ? " and " : "" }}the search “{{ query.search.value }}”</template
-                  >
-                </span>
-                <Button
-                  size="sm"
-                  variant="transparent"
-                  @click="
-                    query.setWhere('');
-                    query.setSearch('');
-                  "
-                >
+                <span>{{ noMatch }}</span>
+                <Button size="sm" variant="transparent" @click="query.clearFilters()">
                   Clear filters
                 </Button>
               </div>
@@ -628,6 +626,7 @@ defineExpose({
         </span>
       </HintTooltip>
       <span v-if="result" class="tabular-nums">{{ result.durationMs }} ms</span>
+      <DataFreshness :provenance="provenance" :read-at="readAt" :watched="watched" />
       <IconAction
         :label="pane.open.value ? 'Hide the record pane' : 'Show the record pane'"
         size="sm"

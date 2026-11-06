@@ -727,6 +727,30 @@ are relative to `modules/storage/sqlite/`.
       app · seen T" / "changed here · T" is the pane's quiet line, the key is its title
 - [x] The record pane's maximum width is 960 px in IndexedDB, Key-value, Cache storage and OPFS too
 
+### Step 2 — search first, filters as chips, each name once
+
+- [x] Browse: WHERE bar (Enter applies, Esc reverts, × clears, the error) → the Filter popover
+      (`browse/SqliteFilterPopover.vue`, `mod+shift+f` "Filter the rows with SQL", palette group Data):
+      Cladd `InputGroup` WHERE with Enter and Esc as before, the database's words in a `FieldError`;
+      the applied WHERE stays on screen as a chip (`browse/SqliteFilterChips.vue`), red with the
+      database's words on hover when refused, × removes it
+- [x] Column filter form (header menu "Filter") and the context menu's "Filter: equals / not / is NULL
+      / is not NULL" → conditions in the same popover (column, condition, value; Apply is its one
+      primary), each added as a chip, never as text in the WHERE (`browse/sqliteFilters.ts`,
+      `useSqliteTableQuery.addFilter`); a part-read BLOB still says why it cannot be filtered on;
+      opening a group adds a chip. The effective WHERE is the chips, the WHERE and the search joined
+      with AND, each in its own parentheses (tested). "Clear the filters" in the popover drops chips and
+      WHERE; "Clear filters" in the empty state drops the search too. `SqliteFilterBar.vue` and
+      `SqliteColumnFilter.vue` are gone
+- [x] Search all columns → "Search rows", the widest control of the toolbar; same 250 ms debounce,
+      same SQL
+- [x] Table header (name, "table in db", provenance and freshness, change summary, Rows · Structure ·
+      SQL, Read again, table menu) → no header for a table: the name is the sidebar selection (the tab
+      in step 5); Rows · Structure · SQL lead the toolbar (`SqliteTableViewSwitch.vue`, `?view=` kept);
+      `ChangeSummary` after Filter; Read again and the table's ⋯ end it (`SqliteTableActions.vue`);
+      the rows' provenance and "read 12 s ago" sit in the status bar beside the query time. Structure
+      and SQL keep a slim bar with the switch and the same actions
+
 ### Pending live checks (SQLite redesign)
 
 Not checked: the owner's app was not driven (screenshots only), and no data was written on a phone.
@@ -736,3 +760,6 @@ Not checked: the owner's app was not driven (screenshots only), and no data was 
 - [ ] The record pane: drag 280–960 px, the width shared with IndexedDB, double-click the handle; no
       pane until a row is chosen; `Ctrl+↑/↓` across a page edge; Shift+Space and Esc with the motion
       (dark and light); a TEXT JSON column parsed; "Show what the app changed" opens Changes
+- [ ] Filters: a context-menu "equals" chip, a column condition chip, a WHERE chip; a refused WHERE turns
+      red with the database's words and the search still works; Ctrl+Shift+F opens on the WHERE (AZERTY);
+      Esc in the WHERE reverts, a second Esc closes; toolbar wrapping at 1280 px with three chips

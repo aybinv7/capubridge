@@ -87,7 +87,51 @@ describe("useSqliteTableQuery", () => {
     query.setGroupBy("role");
     query.openGroup("assistant");
     expect(query.groupBy.value).toBeNull();
-    expect(query.whereClause.value).toBe(`"role" = 'assistant'`);
+    expect(query.whereClause.value).toBe("");
+    expect(query.filters.value.map((chip) => chip.label)).toEqual(["role = “assistant”"]);
+    expect(query.effectiveWhere.value).toBe(`"role" = 'assistant'`);
+  });
+
+  test("filters are chips that AND with the WHERE and the search, never text in the WHERE", () => {
+    const { query } = setup();
+    query.setWhere("id > 5 OR id < 2");
+    query.addFilter("role", "=", "admin");
+    query.setSearch("kg");
+    expect(query.whereClause.value).toBe("id > 5 OR id < 2");
+    expect(query.effectiveWhere.value).toBe(
+      `("role" = 'admin') AND (id > 5 OR id < 2) AND (CAST("id" AS TEXT) LIKE '%kg%' ESCAPE '!' OR CAST("role" AS TEXT) LIKE '%kg%' ESCAPE '!')`,
+    );
+  });
+
+  test("removing a chip starts from the first page; the same condition twice is one chip", () => {
+    const { query } = setup();
+    query.addFilter("role", "null");
+    query.addFilter("role", "null");
+    expect(query.filters.value).toHaveLength(1);
+    query.page.value = 4;
+    query.removeFilter(query.filters.value[0]?.id ?? "");
+    expect(query.filters.value).toHaveLength(0);
+    expect(query.page.value).toBe(0);
+    expect(query.needsQuery.value).toBe(false);
+  });
+
+  test("clearing the conditions keeps the search; clearing the filters drops it too", () => {
+    const { query } = setup();
+    query.addFilter("id", ">", "3");
+    query.setWhere("id < 9");
+    query.setSearch("kg");
+    query.clearConditions();
+    expect(query.effectiveWhere.value).toContain("LIKE '%kg%'");
+    query.clearFilters();
+    expect(query.effectiveWhere.value).toBe("");
+  });
+
+  test("a BLOB read only in part cannot become a filter", () => {
+    const { query } = setup();
+    expect(() =>
+      query.addFilter("id", "=", { __type: "Blob", size: 9000, hex: "00", complete: false }),
+    ).toThrow(/only partly read/);
+    expect(query.filters.value).toHaveLength(0);
   });
 
   test("search combines with the WHERE clause on every column", () => {

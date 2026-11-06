@@ -4,27 +4,36 @@ import { Download, Group, X } from "lucide-vue-next";
 import { Button, Popover, SearchField } from "@capubridge/cladd";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { DataGridColumnsMenu, type GridColumn } from "@/shared/components/data/grid";
-import SqliteFilterBar from "./SqliteFilterBar.vue";
+import SqliteFilterChips from "./SqliteFilterChips.vue";
+import SqliteFilterPopover from "./SqliteFilterPopover.vue";
 import type { SqliteExportFormat, SqliteExportScope } from "./sqliteQuery";
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 
+/**
+ * The rows' toolbar: the view switch (slot), search as the widest control, the active filters
+ * as chips, then Filter, the change summary (slot), columns, export and the table's actions.
+ */
 const props = defineProps<{
   query: SqliteTableQuery;
   columns: readonly GridColumn[];
   selectedRows: number;
-  /** Why the WHERE clause did not run, from the database. */
+  /** Why the filters did not run, from the database. */
   filterError: string | null;
 }>();
+
+defineSlots<{ lead?: () => unknown; changes?: () => unknown; trail?: () => unknown }>();
 
 const visibility = defineModel<Record<string, boolean>>("visibility", { required: true });
 
 const emit = defineEmits<{ export: [format: SqliteExportFormat, scope: SqliteExportScope] }>();
 
 const root = ref<HTMLElement | null>(null);
+const filter = ref<InstanceType<typeof SqliteFilterPopover> | null>(null);
 defineExpose({
-  anchor: root,
   focusSearch: () =>
     root.value?.querySelector<HTMLInputElement>('input[aria-label="Search all columns"]')?.focus(),
+  openFilter: (column?: string) => filter.value?.openFor({ column }),
+  openWhere: () => filter.value?.openFor({ where: true }),
 });
 
 const SEARCH_DELAY_MS = 250;
@@ -55,19 +64,22 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
 <template>
   <div
     ref="root"
-    class="flex shrink-0 items-start gap-2 border-b border-cladd-outline bg-cladd-bg px-3 py-2"
+    class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-cladd-outline px-2 py-1.5"
   >
-    <SqliteFilterBar
-      :where="query.whereClause.value"
-      :error="filterError"
-      @apply="query.setWhere($event)"
-    />
+    <slot name="lead" />
     <SearchField
       v-model="searchDraft"
       size="sm"
-      class="w-56 shrink-0"
-      placeholder="Search all columns"
+      class="min-w-48 flex-1"
+      placeholder="Search rows"
       aria-label="Search all columns"
+    />
+    <SqliteFilterChips
+      :filters="query.filters.value"
+      :where="query.whereClause.value"
+      :error="filterError"
+      @remove="query.removeFilter"
+      @clear-where="query.setWhere('')"
     />
     <HintTooltip
       v-if="query.groupBy.value"
@@ -85,6 +97,13 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
         <X :size="12" aria-hidden="true" />
       </Button>
     </HintTooltip>
+    <SqliteFilterPopover
+      ref="filter"
+      :query="query"
+      :columns="columns.map((column) => column.id)"
+      :error="filterError"
+    />
+    <slot name="changes" />
     <DataGridColumnsMenu v-model:visibility="visibility" :columns="columns" />
     <Popover position="bottom-end" content-class-name="w-60 p-1">
       <template #trigger>
@@ -128,5 +147,6 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
         </div>
       </template>
     </Popover>
+    <slot name="trail" />
   </div>
 </template>

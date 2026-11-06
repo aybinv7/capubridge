@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { RefreshCw } from "lucide-vue-next";
-import { Segmented, SegmentedButton } from "@capubridge/cladd";
-import IconAction from "@/shared/components/presentation/IconAction.vue";
+import { computed, nextTick, ref, watch } from "vue";
 import ChangeSummary from "@/modules/storage/frame/ChangeSummary.vue";
-import DataCollectionHeader from "@/modules/storage/frame/DataCollectionHeader.vue";
-import DataRowMenu from "@/modules/storage/frame/DataRowMenu.vue";
 import type { DataAction, DataProvenance } from "@/modules/storage/frame/dataFrame.types";
 import { useSqliteTableChangeOverlay } from "@/modules/storage/changes/useSqliteChangeOverlay";
 import { orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
@@ -18,12 +13,18 @@ import { rowOrderOf } from "./browse/sqliteRowOrder";
 import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
 import SqliteSqlPane from "./SqliteSqlPane.vue";
 import SqliteStructure from "./SqliteStructure.vue";
+import SqliteTableActions from "./SqliteTableActions.vue";
+import SqliteTableViewSwitch from "./SqliteTableViewSwitch.vue";
 import type { SqliteAddress } from "./sqliteAddress";
 import { runQuery } from "./sqliteReads";
 import { useSqliteColumns, useSqliteStructure } from "./useSqliteCatalog";
 import type { SqliteTableView } from "./useSqliteLocation";
 
-/** One table of the open database: its header, then its rows, its structure, or free SQL. */
+/**
+ * One table of the open database: its rows, its structure, or free SQL. The table's name is not
+ * repeated here (the sidebar selection names it); the view switch, the change summary, Read
+ * again and the table's menu sit in the toolbar, and the rows' freshness in the status bar.
+ */
 const props = defineProps<{
   db: SqliteDbFile;
   databaseId: string;
@@ -103,11 +104,6 @@ function followForeignKey(target: string) {
   if (name && props.tableNames.has(name)) emit("openTable", name);
 }
 
-const identity = computed(() => {
-  const kind = props.info?.tableType === "view" ? "view" : "table";
-  return `${kind} in ${props.db.name}`;
-});
-
 defineExpose({
   edits: () => (props.view === "rows" ? (browse.value?.edits ?? null) : null),
   focusSearch: () => {
@@ -117,50 +113,14 @@ defineExpose({
       browse.value?.focusSearch();
     }
   },
+  openWhere: () => {
+    if (props.view !== "rows") emit("setView", "rows");
+    void nextTick(() => browse.value?.openWhere());
+  },
 });
 </script>
 
 <template>
-  <DataCollectionHeader
-    :title="table"
-    :identity="identity"
-    :provenance="provenance"
-    :read-at="rows.readAt.value"
-    :busy="rows.fetching.value && !rows.loading.value"
-  >
-    <ChangeSummary v-model:changes-only="changesOnly" :changes="tableSummary" />
-    <template #actions>
-      <Segmented size="xs" active-variant="solid" aria-label="What to show of the table">
-        <SegmentedButton :active="view === 'rows'" @click="emit('setView', 'rows')"
-          >Rows</SegmentedButton
-        >
-        <SegmentedButton :active="view === 'structure'" @click="emit('setView', 'structure')">
-          Structure
-        </SegmentedButton>
-        <SegmentedButton :active="view === 'sql'" @click="emit('setView', 'sql')"
-          >SQL</SegmentedButton
-        >
-      </Segmented>
-      <IconAction
-        label="Read again"
-        :hint="
-          db.sourceKind === 'imported'
-            ? 'Reads the file again'
-            : 'Copies the database again and compares it'
-        "
-        @click="emit('refresh')"
-      >
-        <RefreshCw :stroke-width="1.8" />
-      </IconAction>
-      <DataRowMenu
-        v-if="actions.length"
-        :actions="actions"
-        :label="`Actions for ${table}`"
-        @select="emit('action', $event)"
-      />
-    </template>
-  </DataCollectionHeader>
-
   <SqliteBrowse
     v-if="view === 'rows'"
     ref="browse"
@@ -183,12 +143,41 @@ defineExpose({
     :save-changes="(staged) => saveChanges(keyColumns, staged)"
     :saves-to="db.sourceFilePath ?? null"
     :unsaved="db.unsavedToSource === true"
+    :provenance="provenance"
+    :read-at="rows.readAt.value"
     @file-action="emit('fileAction', $event)"
     @follow-foreign-key="followForeignKey"
     @retry="rows.refetch()"
-  />
+  >
+    <template #lead>
+      <SqliteTableViewSwitch :view="view" @set-view="emit('setView', $event)" />
+    </template>
+    <template #changes>
+      <ChangeSummary v-model:changes-only="changesOnly" :changes="tableSummary" />
+    </template>
+    <template #trail>
+      <SqliteTableActions
+        :table="table"
+        :actions="actions"
+        :opened="db.sourceKind === 'imported'"
+        @refresh="emit('refresh')"
+        @action="emit('action', $event)"
+      />
+    </template>
+  </SqliteBrowse>
+  <div v-else class="flex shrink-0 items-center gap-2 border-b border-cladd-outline px-2 py-1.5">
+    <SqliteTableViewSwitch :view="view" @set-view="emit('setView', $event)" />
+    <span class="flex-1" />
+    <SqliteTableActions
+      :table="table"
+      :actions="actions"
+      :opened="db.sourceKind === 'imported'"
+      @refresh="emit('refresh')"
+      @action="emit('action', $event)"
+    />
+  </div>
   <SqliteStructure
-    v-else-if="view === 'structure'"
+    v-if="view === 'structure'"
     :structure="structure.structure.value"
     :create-sql="info?.sql ?? ''"
     :loading="structure.loading.value"
@@ -198,7 +187,7 @@ defineExpose({
     @retry="structure.refetch()"
   />
   <SqliteSqlPane
-    v-else
+    v-else-if="view === 'sql'"
     ref="sql"
     :address="address"
     :database-id="databaseId"
