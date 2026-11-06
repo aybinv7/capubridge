@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, shallowRef, watch } from "vue";
 import { useStorage } from "@vueuse/core";
-import { Surface } from "@capubridge/cladd";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import RecordSplit from "@/shared/components/layout/RecordSplit.vue";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import type { NetworkEntry } from "@/types/network.types";
 import ColumnsMenu from "../columns/ColumnsMenu.vue";
@@ -45,6 +44,7 @@ const table = ref<InstanceType<typeof RequestsTable> | null>(null);
 const detailsPane = ref<HTMLElement | null>(null);
 const root = ref<HTMLElement | null>(null);
 const menuId = ref<string | null>(null);
+const maximized = ref(false);
 const menuEntry = computed(() => store.entryById(menuId.value));
 
 const shown = computed(() => sortRequests(store.filteredEntries, sort.value));
@@ -97,8 +97,15 @@ function select(entry: NetworkEntry) {
 }
 
 function closeDetails() {
+  maximized.value = false;
   store.select(null);
   void nextTick(() => table.value?.focus());
+}
+
+/** Esc puts a maximised details pane back beside the list first, then closes it. */
+function onPaneEscape() {
+  if (maximized.value) maximized.value = false;
+  else closeDetails();
 }
 
 function focusFilter() {
@@ -133,6 +140,13 @@ useRequestsKeyboard({
 useRequestsCommands({ selected, actions, reload: page.reload });
 
 watch(
+  () => selected.value === null,
+  (none) => {
+    if (none) maximized.value = false;
+  },
+);
+
+watch(
   () => store.focusSearchTrigger,
   () => {
     if (store.takeFilterFocus()) focusFilter();
@@ -163,12 +177,16 @@ onMounted(() => {
         @show-all="columns.showAll()"
       />
     </RequestsFilterBar>
-    <ResizablePanelGroup
-      direction="horizontal"
-      auto-save-id="capubridge:network-requests"
-      class="min-h-0 flex-1"
+    <RecordSplit
+      :pane-open="!!selected"
+      :maximized="maximized"
+      save-id="capubridge:network-requests-pane:v1"
+      panel-prefix="network-requests"
+      :pane-default="560"
+      :pane-min="320"
+      :pane-max="1100"
     >
-      <ResizablePanel id="network-requests-list" :order="1" :min-size="30">
+      <template #grid>
         <RequestsEmpty
           v-if="!shown.length"
           :copy="empty"
@@ -201,38 +219,26 @@ onMounted(() => {
             @mock="menuEntry && actions.mockResponse(menuEntry)"
           />
         </ContextMenu>
-      </ResizablePanel>
-      <template v-if="selected">
-        <ResizableHandle
-          class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
-        />
-        <ResizablePanel
-          id="network-requests-details"
-          :order="2"
-          :default-size="42"
-          :min-size="26"
-          :max-size="70"
-        >
-          <div ref="detailsPane" class="h-full py-2 pr-2" @keydown.esc.stop="closeDetails">
-            <Surface
-              variant="solid"
-              level="+1"
-              outline
-              class="h-full overflow-hidden rounded-well border border-border-subtle"
-              content-class-name="flex min-h-0 flex-col"
-            >
-              <RequestDetails
-                v-model:tab="tab"
-                :entry="selected"
-                :find-signal="findSignal"
-                :bodies="bodies"
-                :actions="actions"
-                @close="closeDetails"
-              />
-            </Surface>
-          </div>
-        </ResizablePanel>
       </template>
-    </ResizablePanelGroup>
+      <template #pane>
+        <div
+          v-if="selected"
+          ref="detailsPane"
+          class="h-full min-h-0"
+          @keydown.esc.stop="onPaneEscape"
+        >
+          <RequestDetails
+            v-model:tab="tab"
+            :entry="selected"
+            :find-signal="findSignal"
+            :bodies="bodies"
+            :actions="actions"
+            :maximized="maximized"
+            @maximize="maximized = $event"
+            @close="closeDetails"
+          />
+        </div>
+      </template>
+    </RecordSplit>
   </div>
 </template>

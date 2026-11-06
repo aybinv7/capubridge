@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { ChevronDown, X } from "lucide-vue-next";
+import { ChevronDown, Maximize2, Minimize2, X } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import {
   DropdownMenu,
@@ -17,9 +17,19 @@ import { headerFacts } from "./requestFacts";
 import { hasResponseBody } from "./useRequestBodies";
 import type { CopyKind } from "./useRequestActions";
 
-const props = defineProps<{ entry: NetworkEntry; busy: boolean; canMock: boolean }>();
+const props = defineProps<{
+  entry: NetworkEntry;
+  busy: boolean;
+  canMock: boolean;
+  maximized: boolean;
+}>();
 
-const emit = defineEmits<{ copy: [kind: CopyKind]; mock: []; close: [] }>();
+const emit = defineEmits<{
+  copy: [kind: CopyKind];
+  mock: [];
+  close: [];
+  maximize: [maximized: boolean];
+}>();
 
 const facts = computed(() => headerFacts(props.entry));
 const finished = computed(() => hasResponseBody(props.entry));
@@ -86,6 +96,20 @@ const mockHint = computed(() =>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <IconAction
+        :label="
+          props.maximized
+            ? 'Put the details back beside the list'
+            : 'Fill the screen with the details'
+        "
+        size="sm"
+        toggle
+        :pressed="props.maximized"
+        @click="emit('maximize', !props.maximized)"
+      >
+        <Minimize2 v-if="props.maximized" :stroke-width="1.8" />
+        <Maximize2 v-else :stroke-width="1.8" />
+      </IconAction>
       <IconAction label="Close details" keys="Escape" size="sm" @click="emit('close')">
         <X :stroke-width="1.8" />
       </IconAction>

@@ -16,11 +16,12 @@ const props = defineProps<{
   findSignal: number;
   bodies: RequestBodies;
   actions: RequestActions;
+  maximized: boolean;
 }>();
 
 const tab = defineModel<DetailTab>("tab", { required: true });
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; maximize: [maximized: boolean] }>();
 
 const bodies = props.bodies;
 const actions = props.actions;
@@ -32,6 +33,8 @@ const actions = props.actions;
       :entry="props.entry"
       :busy="actions.busy.value"
       :can-mock="actions.canMock"
+      :maximized="props.maximized"
+      @maximize="emit('maximize', $event)"
       @copy="actions.copy(props.entry, $event)"
       @mock="actions.mockResponse(props.entry)"
       @close="emit('close')"

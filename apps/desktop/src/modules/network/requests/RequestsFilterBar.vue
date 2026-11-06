@@ -13,7 +13,7 @@ defineSlots<{ default?: () => unknown }>();
 </script>
 
 <template>
-  <div class="flex shrink-0 items-center gap-3 border-b border-border-subtle px-3 py-1.5">
+  <div class="flex shrink-0 items-center gap-3 px-3 pt-1.5 pb-2">
     <div class="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
       <Segmented
         size="sm"
