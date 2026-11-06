@@ -24,13 +24,27 @@ function byPinThenName<T extends { pinned?: boolean; label: string }>(left: T, r
   return pin !== 0 ? pin : compareText(left.label, right.label);
 }
 
+/**
+ * An ordered list (a folder tree) keeps its order, but pinned entries move to the top, out of
+ * their place in the tree, without indentation.
+ */
+function pinnedFirst(list: DataCollectionNode[]): DataCollectionNode[] {
+  const pinned = list.filter((collection) => collection.pinned);
+  if (pinned.length === 0) return list;
+  return [
+    ...pinned.map((collection) => ({ ...collection, depth: 0 })),
+    ...list.filter((collection) => !collection.pinned),
+  ];
+}
+
 function visibleCollections(
   source: DataSourceNode,
   needle: string,
   showHidden: boolean,
 ): { collections: DataCollectionNode[]; matched: boolean } {
   const kept = source.collections.filter((collection) => showHidden || !collection.hidden);
-  const order = (list: DataCollectionNode[]) => (source.ordered ? list : list.sort(byPinThenName));
+  const order = (list: DataCollectionNode[]) =>
+    source.ordered ? pinnedFirst(list) : list.sort(byPinThenName);
   if (!needle) return { collections: order(kept), matched: true };
   const matching = kept.filter((collection) => collection.label.toLowerCase().includes(needle));
   if (matching.length > 0) return { collections: order(matching), matched: true };

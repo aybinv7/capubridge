@@ -48,7 +48,7 @@ describe("buildDataTree", () => {
               ordered: true,
               collections: [
                 { id: "z", label: "z", depth: 0 },
-                { id: "z/a", label: "a", depth: 1, pinned: true },
+                { id: "z/a", label: "a", depth: 1 },
                 { id: "b", label: "b", depth: 0 },
               ],
             }),
@@ -102,5 +102,36 @@ describe("buildDataTree", () => {
 
   test("a search that matches nothing says so", () => {
     expect(buildDataTree([live], { search: "zzz", showHidden: false }).noMatch).toBe(true);
+  });
+
+  test("a pinned folder of a folder tree moves to the top, unindented (B2)", () => {
+    const tree = buildDataTree(
+      [
+        {
+          ...live,
+          sources: [
+            source("opfs", {
+              ordered: true,
+              collections: [
+                { id: "a", label: "a", depth: 0 },
+                { id: "a/b", label: "b", depth: 1 },
+                { id: "c", label: "c", depth: 0, pinned: false },
+                { id: "a/b/d", label: "d", depth: 2, pinned: true },
+              ],
+            }),
+          ],
+        },
+      ],
+      { search: "", showHidden: false },
+    );
+    const collections = tree.rows.filter((row) => row.kind === "collection");
+    expect(collections.map((row) => row.key.split("\u0000")[1])).toEqual([
+      "a/b/d",
+      "a",
+      "a/b",
+      "c",
+    ]);
+    const first = collections[0];
+    expect(first?.kind === "collection" ? first.collection.depth : -1).toBe(0);
   });
 });
