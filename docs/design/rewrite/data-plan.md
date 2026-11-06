@@ -635,8 +635,9 @@ overview and dialogs) and about 1,600 lines of Graph Vue. The Graph composables 
 
 SQLite is done on the frame; Diagram is split off as **R3b** (below). Commits: `530afd9e` (gate),
 `60ba3bf5` + `0dc43ebf` (Rust values, dumps, registration), `5d8f6cb8` + `c3018f57` (jeep chunks),
-`f321f121` (SQLite on the frame), `249811d6` (Graph fixes in place). Each data-safety fix has a test
-that failed on the code before it (run red, then green).
+`f321f121` (SQLite on the frame), `249811d6` (Graph fixes in place). M13, C18, C19 and C35 were run
+red on the code before the fix, then green. M1's old bug lived in the explorer's template, which is gone,
+so its tests pin the new rule (writes decided per database, with a file open) rather than replay the old one.
 
 | Id  | Status | Where, and the proving test                                                                                                                                                                        |
 | --- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
