@@ -26,7 +26,6 @@ function measured(client: CDPClient & { calls: string[] }) {
   const sizes: number[] = [];
   const send = client.send.bind(client);
   const wrapped = {
-    ...client,
     send: async (method: string, params?: Record<string, unknown>) => {
       const answer = (await send(method as never, params as never)) as {
         result?: { value?: unknown };
