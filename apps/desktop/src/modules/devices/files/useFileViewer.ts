@@ -2,9 +2,9 @@ import { computed, onScopeDispose, ref, shallowRef, watch, type ComputedRef, typ
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { DeviceFileListEntry } from "./filePaths";
 import { galleryEntries, galleryNeighbour, galleryPosition } from "./viewer/gallery";
-import { loadViewerContent } from "./viewer/loadContent";
+import { loadViewerContent } from "@/shared/file-viewer/loadContent";
 import { useDatabaseRoute } from "./viewer/useDatabaseRoute";
-import type { FileBytes, ViewerState } from "./viewer/viewerContent";
+import type { FileBytes, ViewerState } from "@/shared/file-viewer/viewerContent";
 
 const STEP_SETTLE_MS = 140;
 const RELEASE_AFTER_CLOSE_MS = 260;

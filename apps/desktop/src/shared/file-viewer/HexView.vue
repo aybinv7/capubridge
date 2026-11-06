@@ -5,6 +5,7 @@ import { Button } from "@capubridge/cladd";
 import { useFixedVirtualList } from "@/shared/composables/useFixedVirtualList";
 import { hexRows } from "./hexDump";
 import { formatBudget, truncationNote, type Truncation } from "./readPlan";
+import { primaryFileAction, type ViewerActions } from "./viewerActions";
 import { noPreviewTitle } from "./viewerCopy";
 import { extensionOf } from "./viewerKinds";
 
@@ -15,6 +16,7 @@ const props = defineProps<{
   head: Uint8Array;
   truncation: Truncation | null;
   title?: string;
+  actions: ViewerActions;
 }>();
 
 const emit = defineEmits<{ openOnComputer: []; chooseApp: []; download: [] }>();
@@ -32,6 +34,12 @@ const shown = computed(() => {
   if (props.truncation) return `${truncationNote(props.truncation)}, as bytes.`;
   return `All ${formatBudget(props.head.length)} of it, as bytes.`;
 });
+const opensHere = computed(() => props.actions.openOnComputer || props.actions.chooseApp);
+const primary = computed(() => primaryFileAction(props.actions));
+
+function variantOf(action: "openOnComputer" | "chooseApp" | "download") {
+  return primary.value === action ? "solid-fill" : "transparent";
+}
 
 const actionContent = "gap-2 [&>svg]:size-3.5";
 </script>
@@ -51,15 +59,16 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         <div class="flex min-w-0 flex-col gap-0.5">
           <h3 class="text-sm font-medium text-foreground">{{ heading }}</h3>
           <p class="text-xs text-muted-foreground">
-            {{ shown }} An app on this computer may open it.
+            {{ shown }}<template v-if="opensHere"> An app on this computer may open it.</template>
           </p>
         </div>
       </div>
-      <div class="flex shrink-0 flex-wrap items-center gap-1">
+      <div v-if="primary" class="flex shrink-0 flex-wrap items-center gap-1">
         <Button
+          v-if="props.actions.openOnComputer"
           size="sm"
-          variant="solid-fill"
-          color="brand"
+          :variant="variantOf('openOnComputer')"
+          :color="primary === 'openOnComputer' ? 'brand' : undefined"
           :content-class-name="actionContent"
           @click="emit('openOnComputer')"
         >
@@ -67,8 +76,10 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
           Open with the default app
         </Button>
         <Button
+          v-if="props.actions.chooseApp"
           size="sm"
-          variant="transparent"
+          :variant="variantOf('chooseApp')"
+          :color="primary === 'chooseApp' ? 'brand' : undefined"
           :content-class-name="actionContent"
           @click="emit('chooseApp')"
         >
@@ -76,9 +87,11 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
           Choose an app…
         </Button>
         <Button
+          v-if="props.actions.download"
           size="sm"
-          variant="transparent"
-          :outline="false"
+          :variant="variantOf('download')"
+          :color="primary === 'download' ? 'brand' : undefined"
+          :outline="primary === 'download' ? undefined : false"
           :content-class-name="actionContent"
           @click="emit('download')"
         >
@@ -87,7 +100,6 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         </Button>
       </div>
     </section>
-
     <div
       v-if="rows.length > 0"
       ref="scroller"

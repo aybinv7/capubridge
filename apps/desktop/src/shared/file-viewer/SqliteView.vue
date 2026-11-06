@@ -1,16 +1,22 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useRouter, type RouteLocationRaw } from "vue-router";
 import { Database, Download, ExternalLink, TableProperties } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
-import { formatSize } from "../fileKinds";
+import { formatSize } from "@/shared/format/fileSize";
+import type { ViewerActions } from "./viewerActions";
 import type { SqliteContent } from "./viewerContent";
 
-const props = defineProps<{ content: SqliteContent; route: RouteLocationRaw | null }>();
+const props = defineProps<{ content: SqliteContent; actions: ViewerActions }>();
 
-const emit = defineEmits<{ openOnComputer: []; download: []; navigated: [] }>();
+const emit = defineEmits<{ openOnComputer: []; download: []; openDatabase: [] }>();
 
-const router = useRouter();
+const canOpen = computed(() => props.actions.database.canOpen);
+const hint = computed(() => props.actions.database.hint);
+const primary = computed(() => {
+  if (canOpen.value) return "openDatabase";
+  if (props.actions.download) return "download";
+  return props.actions.openOnComputer ? "openOnComputer" : null;
+});
 
 const facts = computed(() => {
   const header = props.content.header;
@@ -32,12 +38,6 @@ const facts = computed(() => {
   return rows;
 });
 
-async function openInData() {
-  if (!props.route) return;
-  emit("navigated");
-  await router.push(props.route);
-}
-
 const actionContent = "gap-2 [&>svg]:size-3.5";
 </script>
 
@@ -56,13 +56,10 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         </span>
         <div class="flex min-w-0 flex-col gap-0.5">
           <h3 class="text-sm font-medium text-foreground">SQLite database</h3>
-          <p class="text-xs text-muted-foreground">
-            <template v-if="props.route">Its tables open in Data › SQLite.</template>
-            <template v-else>
-              To browse its tables, select the app that owns it, then open Data › SQLite. That
-              screen lists the databases in the app's own folder.
-            </template>
+          <p v-if="canOpen" class="text-xs text-muted-foreground">
+            Its tables open in Data › SQLite.
           </p>
+          <p v-else-if="hint" class="text-xs text-muted-foreground">{{ hint }}</p>
         </div>
       </header>
 
@@ -75,21 +72,23 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         </template>
       </dl>
 
-      <div class="flex flex-wrap items-center gap-1">
+      <div v-if="primary" class="flex flex-wrap items-center gap-1">
         <Button
-          v-if="props.route"
+          v-if="canOpen"
           size="sm"
           variant="solid-fill"
           color="brand"
           :content-class-name="actionContent"
-          @click="openInData"
+          @click="emit('openDatabase')"
         >
           <TableProperties :stroke-width="1.8" />
           Open in Data › SQLite
         </Button>
         <Button
+          v-if="props.actions.download"
           size="sm"
-          :variant="props.route ? 'transparent' : 'solid-fill'"
+          :variant="primary === 'download' ? 'solid-fill' : 'transparent'"
+          :color="primary === 'download' ? 'brand' : undefined"
           :content-class-name="actionContent"
           @click="emit('download')"
         >
@@ -97,9 +96,11 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
           Download
         </Button>
         <Button
+          v-if="props.actions.openOnComputer"
           size="sm"
-          variant="transparent"
-          :outline="false"
+          :variant="primary === 'openOnComputer' ? 'solid-fill' : 'transparent'"
+          :color="primary === 'openOnComputer' ? 'brand' : undefined"
+          :outline="primary === 'openOnComputer' ? undefined : false"
           :content-class-name="actionContent"
           @click="emit('openOnComputer')"
         >

@@ -1,7 +1,8 @@
 ﻿import { Archive, File, FileText, Film, Image, Music, Package } from "lucide-vue-next";
 import type { FileEntry } from "@/types/adb.types";
 import { isFolderEntry } from "./filePaths";
-import { kindFromName, type NameKind } from "./viewer/viewerKinds";
+import { kindFromName, type NameKind } from "@/shared/file-viewer/viewerKinds";
+import { formatSize } from "@/shared/format/fileSize";
 
 export function entryExtension(entry: FileEntry) {
   return entry.name.split(".").pop()?.toLowerCase() ?? "";
@@ -25,19 +26,7 @@ export function fileIcon(entry: FileEntry) {
   return File;
 }
 
-export function formatSize(bytes: number, compact = true) {
-  if (!Number.isFinite(bytes) || bytes < 0) return "—";
-  if (bytes === 0) return compact ? "0 B" : "0 bytes";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  const digits = value >= 10 || unitIndex === 0 ? 0 : 1;
-  return `${value.toFixed(digits)} ${units[unitIndex]}`;
-}
+export { formatSize };
 
 export function formatSizeLabel(entry: FileEntry) {
   return isFolderEntry(entry) ? "Folder" : formatSize(entry.size, false);

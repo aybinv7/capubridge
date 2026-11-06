@@ -137,7 +137,7 @@ Actions and toasts (`files/useFileActions.ts`)
 
 Viewer (`files/FileViewerDialog.vue`, `useFileViewer.ts`)
 
-- [x] Image, video, JSON, text → Cladd `Dialog` near full window; content released on close
+- [x] Image, video, JSON, text → Cladd `Dialog` near full window; content released on close. Data R2c: the body (`ViewerBody`, the views per kind, read plan, sniffing, SQLite header) lives in `src/shared/file-viewer/` so Data › OPFS previews with it; Device keeps the dialog, header, gallery, adb reader and the "Open in Data › SQLite" route (`files/viewer/`), and passes the actions it offers (`ViewerActions`)
 - [x] Name, kind, size, path, External, Download → header with chip and `IconAction`s
 - [x] Gallery previous / next, ← →, "n / total" → same
 - [x] Loading / error + toast → same, stale reads ignored
@@ -252,7 +252,7 @@ Files
 - Toolbar: "Auto-refresh: Off / 3 s / …"; Folder / Phone only while searching; one eye toggle.
 - Whole-phone search needs three characters and gives up after 10 s.
 - Keys keep working after clicking a button in a row; only text fields and menus keep their keys.
-- Viewer rebuilt (`files/viewer/`): one view per kind (image with zoom and pan, video and audio
+- Viewer rebuilt (`files/viewer/`, body shared from `src/shared/file-viewer/` since Data R2c): one view per kind (image with zoom and pan, video and audio
   from a Blob URL, text and code with highlighting and find, JSON text or tree, SQLite facts, hex
   for anything else), previous / next over every file of the folder, read caps decided from the
   listing size (`adb_read_file_bytes`, binary IPC). The separate "No preview" dialog is folded

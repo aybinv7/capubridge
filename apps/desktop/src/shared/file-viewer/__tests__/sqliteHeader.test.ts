@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { appDatabaseFromPath, parseSqliteHeader } from "../sqliteHeader";
+import { parseSqliteHeader } from "../sqliteHeader";
 
 function header(options: {
   pageSize: number;
@@ -69,23 +69,5 @@ describe("parseSqliteHeader", () => {
   test("gives up on a short or nonsensical header", () => {
     expect(parseSqliteHeader(new Uint8Array(40), 0)).toBeNull();
     expect(parseSqliteHeader(new Uint8Array(100), 0)).toBeNull();
-  });
-});
-
-describe("appDatabaseFromPath", () => {
-  test("recognises an app's own databases folder", () => {
-    expect(appDatabaseFromPath("/data/data/com.shop.app/databases/shopSQLite.db")).toEqual({
-      packageName: "com.shop.app",
-      fileName: "shopSQLite.db",
-    });
-    expect(appDatabaseFromPath("/data/user/0/com.shop.app/databases/a.db")?.packageName).toBe(
-      "com.shop.app",
-    );
-  });
-
-  test("ignores databases anywhere else", () => {
-    expect(appDatabaseFromPath("/sdcard/Download/a.db")).toBeNull();
-    expect(appDatabaseFromPath("/data/data/com.shop.app/files/a.db")).toBeNull();
-    expect(appDatabaseFromPath("/data/data/com.shop.app/databases/nested/a.db")).toBeNull();
   });
 });

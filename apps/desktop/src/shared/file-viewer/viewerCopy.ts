@@ -1,4 +1,4 @@
-import { formatSize } from "../fileKinds";
+import { formatSize } from "@/shared/format/fileSize";
 import { formatBudget } from "./readPlan";
 import type { ViewerKind } from "./viewerKinds";
 

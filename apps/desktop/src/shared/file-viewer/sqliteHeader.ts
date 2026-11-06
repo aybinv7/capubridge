@@ -6,11 +6,6 @@ export interface SqliteHeaderFacts {
   userVersion: number;
 }
 
-export interface AppDatabase {
-  packageName: string;
-  fileName: string;
-}
-
 const HEADER_LENGTH = 100;
 const ENCODINGS = { 1: "UTF-8", 2: "UTF-16le", 3: "UTF-16be" } as const;
 
@@ -46,13 +41,4 @@ export function parseSqliteHeader(bytes: Uint8Array, fileSize: number): SqliteHe
     journal: bytes[18] === 2 ? "Write-ahead log" : "Rollback journal",
     userVersion: readUint32(bytes, 60),
   };
-}
-
-const APP_DATABASE = /^\/data\/(?:data|user\/\d+)\/([^/]+)\/databases\/([^/]+)$/;
-
-/** The app and file name when a path is an app's own database, the folder Data › SQLite lists. */
-export function appDatabaseFromPath(path: string): AppDatabase | null {
-  const match = APP_DATABASE.exec(path);
-  if (!match?.[1] || !match[2]) return null;
-  return { packageName: match[1], fileName: match[2] };
 }

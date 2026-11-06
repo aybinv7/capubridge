@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import type { RouteLocationRaw } from "vue-router";
+import { computed, ref } from "vue";
+import { useRouter, type RouteLocationRaw } from "vue-router";
 import { Dialog } from "@capubridge/cladd";
 import { isEditableTarget } from "@/lib/commands/editable";
+import ViewerBody from "@/shared/file-viewer/ViewerBody.vue";
+import type { ViewerActions } from "@/shared/file-viewer/viewerActions";
+import type { ViewerState } from "@/shared/file-viewer/viewerContent";
+import { viewerKeyAction } from "@/shared/file-viewer/viewerCopy";
 import type { DeviceFileListEntry } from "../filePaths";
-import ViewerBody from "./ViewerBody.vue";
 import ViewerHeader from "./ViewerHeader.vue";
 import type { GalleryPosition } from "./gallery";
-import type { ViewerState } from "./viewerContent";
-import { viewerKeyAction } from "./viewerCopy";
+
+const NOT_THE_SELECTED_APP =
+  "To browse its tables, select the app that owns it, then open Data › SQLite. That screen lists the databases in the app's own folder.";
 
 const open = defineModel<boolean>("open", { required: true });
 
@@ -27,7 +31,17 @@ const emit = defineEmits<{
   chooseApp: [entry: DeviceFileListEntry];
 }>();
 
+const router = useRouter();
 const findSignal = ref(0);
+
+const actions = computed<ViewerActions>(() => ({
+  openOnComputer: true,
+  chooseApp: true,
+  download: true,
+  database: props.databaseRoute
+    ? { canOpen: true }
+    : { canOpen: false, hint: NOT_THE_SELECTED_APP },
+}));
 
 function focusOwnsArrows(target: EventTarget | null): boolean {
   return isEditableTarget(target) || target instanceof HTMLMediaElement;
@@ -52,6 +66,13 @@ function forEntry(action: "download" | "openOnComputer" | "chooseApp") {
   else if (action === "openOnComputer") emit("openOnComputer", entry);
   else emit("chooseApp", entry);
 }
+
+async function openDatabase() {
+  const route = props.databaseRoute;
+  if (!route) return;
+  open.value = false;
+  await router.push(route);
+}
 </script>
 
 <template>
@@ -75,15 +96,16 @@ function forEntry(action: "download" | "openOnComputer" | "chooseApp") {
         @close="open = false"
       />
       <ViewerBody
-        :entry="props.entry"
+        :name="props.entry.name"
+        :path="props.entry.path"
         :state="props.state"
         :find-signal="findSignal"
-        :database-route="props.databaseRoute"
+        :actions="actions"
         @retry="emit('retry')"
         @download="forEntry('download')"
         @open-on-computer="forEntry('openOnComputer')"
         @choose-app="forEntry('chooseApp')"
-        @navigated="open = false"
+        @open-database="openDatabase"
       />
     </template>
   </Dialog>

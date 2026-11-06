@@ -2,8 +2,8 @@ import { computed, type Ref } from "vue";
 import type { RouteLocationRaw } from "vue-router";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { DeviceFileListEntry } from "../filePaths";
-import { appDatabaseFromPath } from "./sqliteHeader";
-import type { ViewerState } from "./viewerContent";
+import { appDatabaseFromPath } from "./appDatabase";
+import type { ViewerState } from "@/shared/file-viewer/viewerContent";
 
 /**
  * Where Data › SQLite opens this database, or null when it cannot. That screen lists only the

@@ -7,9 +7,9 @@ import FileGlyph from "../FileGlyph.vue";
 import { formatSize } from "../fileKinds";
 import { parentPath, type DeviceFileListEntry } from "../filePaths";
 import type { GalleryPosition } from "./gallery";
-import { isKnownSize } from "./readPlan";
-import type { ViewerState } from "./viewerContent";
-import { kindFromName, kindWord } from "./viewerKinds";
+import { isKnownSize } from "@/shared/file-viewer/readPlan";
+import type { ViewerState } from "@/shared/file-viewer/viewerContent";
+import { kindFromName, kindWord } from "@/shared/file-viewer/viewerKinds";
 
 const props = defineProps<{
   entry: DeviceFileListEntry;

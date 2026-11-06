@@ -1,4 +1,4 @@
-import { formatSize } from "../fileKinds";
+import { formatSize } from "@/shared/format/fileSize";
 import type { NameKind } from "./viewerKinds";
 
 const KB = 1024;
