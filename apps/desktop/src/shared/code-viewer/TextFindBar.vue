@@ -6,7 +6,10 @@ import IconAction from "@/shared/components/presentation/IconAction.vue";
 
 const query = defineModel<string>("query", { required: true });
 
-const props = defineProps<{ label: string; hasMatches: boolean }>();
+const props = withDefaults(
+  defineProps<{ label: string; hasMatches: boolean; placeholder?: string }>(),
+  { placeholder: "Find in this file" },
+);
 
 const emit = defineEmits<{ step: [direction: 1 | -1]; close: [] }>();
 
@@ -45,8 +48,8 @@ defineExpose({ focus });
       v-model="query"
       size="sm"
       class="w-72"
-      placeholder="Find in this file"
-      aria-label="Find in this file"
+      :placeholder="props.placeholder"
+      :aria-label="props.placeholder"
       @keydown="onKeydown"
     />
     <span class="min-w-20 font-mono text-2xs text-muted-foreground tabular-nums" aria-live="polite">

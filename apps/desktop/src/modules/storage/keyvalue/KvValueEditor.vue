@@ -42,7 +42,8 @@ function format() {
 
 defineExpose({
   focus: () => (mode.value === "json" ? json.value?.textareaRef?.focus() : text.value?.focus()),
-  focusFind: () => json.value?.focusFilter(),
+  focusFind: () =>
+    mode.value === "json" ? json.value?.focusFilter() : void text.value?.openFind(),
 });
 </script>
 
