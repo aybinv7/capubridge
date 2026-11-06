@@ -69,7 +69,7 @@ export type {
   ImportStageBinaryParams,
 } from "./cdp/domains/indexeddb-transfer.js";
 export { LocalStorageDomain, CacheAPIDomain } from "./cdp/domains/storage.js";
-export type { LSOrigin, CacheName, CacheEntry } from "./cdp/domains/storage.js";
+export type { LSOrigin } from "./cdp/domains/storage.js";
 export {
   CACHE_BODY_PREVIEW_BYTES,
   CACHE_DETAIL_BUDGET_MS,

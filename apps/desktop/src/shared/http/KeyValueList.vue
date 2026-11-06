@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import { Link } from "@capubridge/cladd";
-import { TONE_CLASS, type CellTone } from "./tone";
+import { TONE_CLASS } from "./tone";
+import type { KeyValueRow } from "./keyValueRow";
 
-export interface KeyValueRow {
-  key: string;
-  value: string;
-  tone?: CellTone;
-  clamp?: boolean;
-  /** Makes the value a link that shows where this fact is told in full. */
-  action?: () => void;
-}
+export type { KeyValueRow } from "./keyValueRow";
 
 const props = defineProps<{ rows: readonly KeyValueRow[]; mono?: boolean }>();
 </script>

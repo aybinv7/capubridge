@@ -9,7 +9,6 @@ import {
   singleQuotedContent,
 } from "../src/cdp/evaluate.ts";
 import { LocalForageDomain } from "../src/cdp/domains/localforage.ts";
-import { CacheAPIDomain } from "../src/cdp/domains/storage.ts";
 
 const hostile = [
   "plain",
@@ -93,14 +92,5 @@ describe("LocalForageDomain writes", () => {
     await expect(new LocalForageDomain(client).deleteItem("o", "k")).rejects.toThrow(
       "QuotaExceededError",
     );
-  });
-});
-
-describe("CacheAPIDomain deletes", () => {
-  test("rejects when the cache or entry is already gone", async () => {
-    const { client } = fakeClient(() => ({ result: { value: false } }));
-    const domain = new CacheAPIDomain(client);
-    await expect(domain.deleteCache("v1")).rejects.toThrow('Cache "v1" was not found');
-    await expect(domain.deleteEntry("v1", "https://a/b")).rejects.toThrow("no longer in cache");
   });
 });

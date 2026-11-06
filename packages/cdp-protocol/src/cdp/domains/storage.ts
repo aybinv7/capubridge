@@ -1,4 +1,4 @@
-import { DeviceEvaluationError, evaluateChecked, jsLiteral } from "../evaluate.js";
+import { evaluateChecked, jsLiteral } from "../evaluate.js";
 import type { CDPClient } from "../client.js";
 
 export interface LSOrigin {
@@ -6,18 +6,6 @@ export interface LSOrigin {
   entries: Array<{ key: string; value: string }>;
 }
 
-export interface CacheName {
-  name: string;
-  entries: Array<{ url: string; method: string }>;
-}
-
-export interface CacheEntry {
-  url: string;
-  method: string;
-  cacheName: string;
-  status: number;
-  headers: Record<string, string>;
-}
 export class LocalStorageDomain {
   constructor(private client: CDPClient) {}
 
@@ -104,61 +92,6 @@ export class CacheAPIDomain {
     const parsed = JSON.parse(value as string);
     if (parsed.error) throw new Error(parsed.error);
     return parsed as string[];
-  }
-
-  async getEntries(cacheName: string): Promise<CacheEntry[]> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        (async () => {
-          try {
-            const cacheName = ${jsLiteral(cacheName)};
-            const cache = await caches.open(cacheName);
-            const requests = await cache.keys();
-            const entries = requests.map(req => ({
-              url: req.url,
-              method: req.method,
-              cacheName
-            }));
-            return JSON.stringify(entries);
-          } catch (e) {
-            return JSON.stringify({ error: e.message });
-          }
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    const value = (result.result as Record<string, unknown>).value as string;
-    const parsed = JSON.parse(value as string);
-    if (parsed.error) throw new Error(parsed.error);
-    return parsed as CacheEntry[];
-  }
-
-  async deleteCache(cacheName: string): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `caches.delete(${jsLiteral(cacheName)})`,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    if (result.result.value !== true) {
-      throw new DeviceEvaluationError(`Cache "${cacheName}" was not found on the device`);
-    }
-  }
-
-  async deleteEntry(cacheName: string, url: string): Promise<void> {
-    const result = await evaluateChecked(this.client, {
-      expression: `
-        (async () => {
-          const cache = await caches.open(${jsLiteral(cacheName)});
-          return cache.delete(${jsLiteral(url)});
-        })()
-      `,
-      awaitPromise: true,
-      returnByValue: true,
-    });
-    if (result.result.value !== true) {
-      throw new DeviceEvaluationError(`${url} is no longer in cache "${cacheName}"`);
-    }
   }
 
   async getStorageSize(): Promise<number> {

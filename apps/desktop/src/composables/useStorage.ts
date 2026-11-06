@@ -1,44 +1,8 @@
 import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { CacheAPIDomain, OPFSDomain, JeepSqliteDomain } from "@capubridge/cdp-protocol";
+import { OPFSDomain, JeepSqliteDomain } from "@capubridge/cdp-protocol";
 import { useCDP } from "./useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
-
-export function useCacheAPI() {
-  const { getClient } = useCDP();
-  const targetsStore = useTargetsStore();
-  const targetId = computed(() => targetsStore.cdpTargetId);
-
-  function getDomain() {
-    const client = getClient(targetId.value);
-    if (!client) throw new Error("No active CDP connection");
-    return new CacheAPIDomain(client);
-  }
-
-  function useCacheNames() {
-    return useQuery({
-      queryKey: computed(() => ["cache-names", targetId.value]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.getCacheNames();
-      },
-      enabled: computed(() => !!targetId.value),
-    });
-  }
-
-  function useCacheEntries(cacheName: Ref<string>) {
-    return useQuery({
-      queryKey: computed(() => ["cache-entries", targetId.value, cacheName.value]),
-      queryFn: async () => {
-        const domain = getDomain();
-        return domain.getEntries(cacheName.value);
-      },
-      enabled: computed(() => !!targetId.value && !!cacheName.value),
-    });
-  }
-
-  return { targetId, useCacheNames, useCacheEntries, getDomain };
-}
 
 export function useOPFS() {
   const { getClient } = useCDP();

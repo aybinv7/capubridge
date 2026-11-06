@@ -242,10 +242,6 @@
     "button": 1,
     "switch": 1
   },
-  "apps/desktop/src/modules/storage/cache/CacheExplorer.vue": {
-    "button": 1,
-    "input": 1
-  },
   "apps/desktop/src/modules/storage/graph/StorageGraphCanvasDock.vue": {
     "button": 1,
     "tooltip": 1

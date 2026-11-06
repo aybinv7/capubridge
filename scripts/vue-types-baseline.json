@@ -38,9 +38,6 @@
   "apps/desktop/src/modules/recording/ReplayPlayer.vue": {
     "errors": 1
   },
-  "apps/desktop/src/modules/storage/cache/CacheExplorer.vue": {
-    "errors": 1
-  },
   "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue": {
     "errors": 3
   },

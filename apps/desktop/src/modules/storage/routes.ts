@@ -47,10 +47,16 @@ export const storageRoutes = [
         meta: { navigation: false },
       },
       {
+        path: "cache-storage",
+        name: "storage-cache-storage",
+        component: () => import("./cache/CacheStorageView.vue"),
+        meta: { label: "Cache storage", requires: "target", ownsBringToFront: true },
+      },
+      {
         path: "cache",
         name: "storage-cache",
-        component: () => import("./cache/CacheExplorer.vue"),
-        meta: { label: "Cache", requires: "target" },
+        redirect: (to) => ({ name: "storage-cache-storage", query: to.query }),
+        meta: { navigation: false },
       },
       {
         path: "opfs",
