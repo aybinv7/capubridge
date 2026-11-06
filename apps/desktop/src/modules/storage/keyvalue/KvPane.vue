@@ -64,16 +64,28 @@ const lineNote = computed(() => lineBreakNote(original.value));
 const baseKey = computed(() => props.entry?.key ?? "");
 
 const mode = ref<KvEditorMode>(baseMode.value);
-const draft = ref(baseDraft.value);
+const draft = ref("");
 const keyDraft = ref(baseKey.value);
+/** The draft is built only when Edit opens: reading a value never formats it for editing. */
+const drafted = ref(false);
 
-const dirty = computed(() =>
-  creating.value
-    ? keyDraft.value !== "" || draft.value !== ""
-    : keyDraft.value !== baseKey.value ||
-      draft.value !== baseDraft.value ||
-      (props.kind === "forage" && mode.value !== baseMode.value),
-);
+function startDraft() {
+  if (drafted.value) return;
+  mode.value = baseMode.value;
+  draft.value = baseDraft.value;
+  keyDraft.value = baseKey.value;
+  drafted.value = true;
+}
+
+const dirty = computed(() => {
+  if (creating.value) return keyDraft.value !== "" || draft.value !== "";
+  if (!drafted.value) return false;
+  return (
+    keyDraft.value !== baseKey.value ||
+    draft.value !== baseDraft.value ||
+    (props.kind === "forage" && mode.value !== baseMode.value)
+  );
+});
 const settledDraft = refDebounced(draft, 200);
 const problem = computed(() => {
   if (mode.value !== "json") return null;
@@ -96,12 +108,22 @@ const canSave = computed(
     (creating.value || dirty.value),
 );
 
-watch([baseDraft, baseKey, baseMode], () => {
-  if (dirty.value) return;
-  mode.value = baseMode.value;
-  draft.value = baseDraft.value;
-  keyDraft.value = baseKey.value;
-});
+watch(
+  () => (drafted.value ? [baseDraft.value, baseKey.value, baseMode.value] : null),
+  () => {
+    if (!drafted.value || dirty.value) return;
+    mode.value = baseMode.value;
+    draft.value = baseDraft.value;
+    keyDraft.value = baseKey.value;
+  },
+);
+watch(
+  view,
+  (next) => {
+    if (next === "edit") startDraft();
+  },
+  { immediate: true },
+);
 watch(dirty, (next) => emit("dirty", next), { immediate: true });
 
 const subtitle = computed(() => {
@@ -113,7 +135,7 @@ const subtitle = computed(() => {
 
 function discard() {
   mode.value = baseMode.value;
-  draft.value = baseDraft.value;
+  draft.value = drafted.value ? baseDraft.value : "";
   keyDraft.value = baseKey.value;
 }
 

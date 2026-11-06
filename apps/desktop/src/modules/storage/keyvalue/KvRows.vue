@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef } from "vue";
-import { refDebounced } from "@vueuse/core";
+import { refDebounced, useDebounceFn } from "@vueuse/core";
 import { toast } from "vue-sonner";
 import { Lock, PanelRight, Trash2 } from "lucide-vue-next";
 import { Button, SearchField } from "@capubridge/cladd";
@@ -25,6 +25,7 @@ import { useKvPane } from "./useKvPane";
 import type { useKvWrites } from "./useKvWrites";
 
 const NOTE_MS = 5000;
+const PANE_SETTLE_MS = 120;
 
 /**
  * Find, the keys of one list in the grid, the pane beside it and the status bar. Every delete
@@ -65,6 +66,7 @@ const listName = computed(() => sourceLabel(props.source));
 const narrowed = computed(() => findText.value.trim() !== "");
 
 const pane = useKvPane({ entries: computed(() => props.entries), order, grid });
+const followSettled = useDebounceFn((id: string) => pane.follow(id), PANE_SETTLE_MS);
 
 const paneKey = computed(() =>
   pane.creating.value ? `${props.source.id}::new` : `${props.source.id}::${pane.base.value?.id}`,
@@ -270,7 +272,7 @@ defineExpose({ guardDiscard, startCreate, focusFind });
           :context-actions="contextActions"
           :layout-key="`kv:${source.kind}`"
           @update:sort="sort = $event"
-          @active-row="$event && pane.follow($event)"
+          @active-row="$event && followSettled($event)"
           @inspect="inspect"
           @edit="startEdit"
           @delete="requestDelete"
