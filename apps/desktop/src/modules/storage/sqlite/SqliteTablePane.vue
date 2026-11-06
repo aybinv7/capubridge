@@ -15,6 +15,7 @@ import SqliteBrowse from "./browse/SqliteBrowse.vue";
 import type { SqliteStaged } from "./browse/sqliteChangeset";
 import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
 import { useSqliteRows } from "./browse/useSqliteRows";
+import { rowOrderOf } from "./browse/sqliteRowOrder";
 import { useSqliteTableQuery } from "./browse/useSqliteTableQuery";
 import SqliteChangeDiffDialog from "./SqliteChangeDiffDialog.vue";
 import SqliteSqlPane from "./SqliteSqlPane.vue";
@@ -62,6 +63,7 @@ const sql = ref<InstanceType<typeof SqliteSqlPane> | null>(null);
 const { columns } = useSqliteColumns(address, table);
 const structure = useSqliteStructure(address, table, ref(true));
 
+const rowOrder = computed(() => rowOrderOf(props.info, columns.value));
 const query = useSqliteTableQuery({
   run: (statement, fullValues) => {
     const current = address.value;
@@ -72,12 +74,14 @@ const query = useSqliteTableQuery({
   database: computed(() => props.db.name),
   currentColumns: () => rows.page.value?.result.columns ?? null,
   allColumns: () => columns.value.map((column) => column.name),
+  rowOrder: () => rowOrder.value,
 });
 const rows = useSqliteRows({
   address,
   table,
   query,
   tableRowCount: computed(() => props.info?.rowCount ?? null),
+  rowOrder,
 });
 
 const keyColumns = computed(() => orderKeyColumns([...columns.value]));

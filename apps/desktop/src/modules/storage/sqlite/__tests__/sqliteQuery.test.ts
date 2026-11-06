@@ -11,6 +11,7 @@ import {
   quoteIdent,
   sqlLiteral,
 } from "../browse/sqliteQuery";
+import { orderSql, rowOrderOf } from "../browse/sqliteRowOrder";
 
 describe("quoting", () => {
   test("identifiers and literals cannot break out of their quotes", () => {
@@ -53,6 +54,55 @@ describe("page and count queries", () => {
     );
     expect(buildCountQuery("sale_order", "")).toBe(`SELECT COUNT(*) AS total FROM "sale_order"`);
   });
+
+  test("equal sort values are broken by the row order, in the sort's direction", () => {
+    const page = (orderBy: string | null, direction: "ASC" | "DESC" | null) =>
+      buildPageQuery({
+        table: "t",
+        where: "x = 1",
+        orderBy,
+        direction,
+        offset: 0,
+        limit: 51,
+        rowOrder: { kind: "terms", terms: ["rowid"] },
+      });
+    expect(page("state", "DESC")).toBe(
+      `SELECT * FROM "t" WHERE (x = 1) ORDER BY "state" DESC, rowid DESC LIMIT 51 OFFSET 0`,
+    );
+    expect(page(null, null)).toBe(
+      `SELECT * FROM "t" WHERE (x = 1) ORDER BY rowid ASC LIMIT 51 OFFSET 0`,
+    );
+  });
+});
+
+describe("row order", () => {
+  const table = (sql: string, tableType = "table") => ({ tableType, sql });
+  const col = (name: string, pk = 0) => ({ name, pk });
+
+  test("a rowid table is ordered by its rowid, under a name no column takes", () => {
+    expect(rowOrderOf(table("CREATE TABLE t (id INTEGER PRIMARY KEY)"), [col("id", 1)])).toEqual({
+      kind: "terms",
+      terms: ["rowid"],
+    });
+    expect(rowOrderOf(table("CREATE TABLE t (rowid, oid)"), [col("rowid"), col("oid")])).toEqual({
+      kind: "terms",
+      terms: ["_rowid_"],
+    });
+  });
+
+  test("a WITHOUT ROWID table is ordered by its primary key in declared order", () => {
+    const sql = "CREATE TABLE p (a, b, PRIMARY KEY (b, a)) WITHOUT ROWID";
+    expect(rowOrderOf(table(sql), [col("a", 2), col("b", 1)])).toEqual({
+      kind: "terms",
+      terms: [`"b"`, `"a"`],
+    });
+  });
+
+  test("a view breaks ties by every column, and only under a sort", () => {
+    const order = rowOrderOf(table("CREATE VIEW v AS SELECT 1", "view"), [col("a"), col("b")]);
+    expect(orderSql("a", "DESC", order)).toBe(' ORDER BY "a" DESC, 1 DESC, 2 DESC');
+    expect(orderSql(null, null, order)).toBe("");
+  });
 });
 
 describe("column filter, search and grouping", () => {
@@ -74,7 +124,7 @@ describe("column filter, search and grouping", () => {
 
   test("group by counts rows per value on the database", () => {
     expect(buildGroupQuery("t", "x > 1", "state", 0, 51)).toBe(
-      `SELECT "state", COUNT(*) AS "rows" FROM "t" WHERE (x > 1) GROUP BY "state" ORDER BY "rows" DESC LIMIT 51 OFFSET 0`,
+      `SELECT "state", COUNT(*) AS "rows" FROM "t" WHERE (x > 1) GROUP BY "state" ORDER BY "rows" DESC, "state" LIMIT 51 OFFSET 0`,
     );
     expect(buildGroupCountQuery("t", "", "state")).toBe(
       `SELECT COUNT(*) AS total FROM (SELECT 1 FROM "t" GROUP BY "state")`,

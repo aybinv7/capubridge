@@ -689,3 +689,27 @@ never write on a phone.
 - [ ] An opened file: edit a cell, a key, a NULL cell; add a row; Save (Ctrl+S) and the read-back toast
       (a text typed into an INTEGER column reads back as a number); Discard; leave the table with
       changes (asked); a BLOB and a wide integer refuse inline edit; a phone copy shows no edit bar
+
+## SQLite redesign (`sqlite-redesign.md`, 2026-11-07)
+
+The SQLite lines above keep their behaviour; this section records what moved and what was fixed. Paths
+are relative to `modules/storage/sqlite/`.
+
+### Fixes
+
+- [x] **N6 — sorted paging had no tie-breaker.** Every page is now ordered completely: the person's sort,
+      then the rowid (or the primary key of a WITHOUT ROWID table) in the same direction, or the rowid
+      alone with no sort; a sorted view breaks ties by all its columns (Rust `sqlite/paging.rs` for plain
+      pages, `browse/sqliteRowOrder.ts` for filtered pages and exports, grouped pages by the group value).
+      Only rows with equal sort values change their relative order, which was undefined before. Tests:
+      Rust `sorted_pages_break_ties_by_the_row_key_so_each_row_shows_once` (fails on the old query:
+      `qty DESC` came back with ties in rowid order ascending), `__tests__/sqliteQuery.test.ts` "row
+      order". The bundled SQLite did not repeat a row in a probe of 60,000 rows; the fix makes the order
+      defined rather than relying on that.
+
+### Pending live checks (SQLite redesign)
+
+Not checked: the owner's app was not driven (screenshots only), and no data was written on a phone.
+
+- [ ] A sorted phone table (a status or date column with repeats): page to the end, every row once, ties
+      in key order

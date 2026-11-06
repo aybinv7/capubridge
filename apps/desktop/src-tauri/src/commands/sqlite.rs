@@ -600,21 +600,12 @@ pub async fn sqlite_table_rows(
         let conn = open_db(&local)?;
         let blob_limit = Some(BLOB_PREVIEW_BYTES);
 
-        let safe_table = table_name.replace('"', "\"\"");
-        let order_clause = match order_by {
-            Some(ref col) => {
-                let safe_col = col.replace('"', "\"\"");
-                let dir = match order_dir.as_deref() {
-                    Some("desc" | "DESC") => "DESC",
-                    _ => "ASC",
-                };
-                format!(" ORDER BY \"{safe_col}\" {dir}")
-            }
-            None => String::new(),
-        };
-
-        let sql =
-            format!("SELECT * FROM \"{safe_table}\"{order_clause} LIMIT {limit} OFFSET {offset}");
+        let descending = matches!(order_dir.as_deref(), Some("desc" | "DESC"));
+        let order_clause = paging::page_order(&conn, &table_name, order_by.as_deref(), descending)?;
+        let sql = format!(
+            "SELECT * FROM {}{order_clause} LIMIT {limit} OFFSET {offset}",
+            quote_ident(&table_name)
+        );
 
         let start = std::time::Instant::now();
         let mut stmt = conn
@@ -966,6 +957,7 @@ pub async fn sqlite_execute_write(
     .map_err(|e| e.to_string())?
 }
 
+mod paging;
 mod rows;
 #[cfg(test)]
 mod tests;

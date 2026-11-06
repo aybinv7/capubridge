@@ -11,6 +11,7 @@ import {
   searchClause,
   type SqliteExportFormat,
 } from "./sqliteQuery";
+import type { SqliteRowOrder } from "./sqliteRowOrder";
 
 export interface SqliteTableQueryContext {
   /** Runs a read-only query on the open copy; `fullValues` sends every byte of BLOBs. */
@@ -21,6 +22,8 @@ export interface SqliteTableQueryContext {
   currentColumns: () => readonly string[] | null;
   /** Every column of the table, for "search all columns". */
   allColumns: () => readonly string[];
+  /** Breaks ties of the sort, so exported rows follow the order on screen. */
+  rowOrder?: () => SqliteRowOrder;
 }
 
 /**
@@ -118,6 +121,7 @@ export function useSqliteTableQuery(context: SqliteTableQueryContext) {
           direction: orderDir.value,
           offset: 0,
           limit: 2_147_483_647,
+          rowOrder: context.rowOrder?.(),
         }),
         true,
       );

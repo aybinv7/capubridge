@@ -64,6 +64,7 @@ function setup() {
         table,
         query,
         tableRowCount: ref(26),
+        rowOrder: ref({ kind: "none" as const }),
       });
       return { query, rows };
     }),

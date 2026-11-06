@@ -9,6 +9,7 @@ import {
   buildGroupQuery,
   buildPageQuery,
 } from "./sqliteQuery";
+import type { SqliteRowOrder } from "./sqliteRowOrder";
 import type { SqliteTableQuery } from "./useSqliteTableQuery";
 
 export interface SqlitePage {
@@ -38,6 +39,8 @@ export function useSqliteRows(options: {
   query: SqliteTableQuery;
   /** Rows of the whole table, from the database listing. */
   tableRowCount: Ref<number | null>;
+  /** Breaks ties of the sort, so pages never repeat or skip a row. */
+  rowOrder: Ref<SqliteRowOrder>;
 }) {
   const { address, table, query } = options;
 
@@ -51,6 +54,7 @@ export function useSqliteRows(options: {
     query.orderDir.value,
     query.effectiveWhere.value,
     query.groupBy.value,
+    options.rowOrder.value,
   ]);
 
   const rows = useQuery({
@@ -88,6 +92,7 @@ export function useSqliteRows(options: {
                   direction: query.orderDir.value,
                   offset,
                   limit: size + 1,
+                  rowOrder: options.rowOrder.value,
                 }),
           );
       const hasMore = result.rows.length > size;

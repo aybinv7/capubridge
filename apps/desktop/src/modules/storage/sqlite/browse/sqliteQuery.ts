@@ -1,4 +1,5 @@
 import { quoteIdent, sqlLiteral } from "../sqlText";
+import { orderSql, type SqliteRowOrder } from "./sqliteRowOrder";
 
 export { quoteIdent, sqlLiteral };
 
@@ -32,6 +33,8 @@ export interface PageQuery {
   offset: number;
   /** Rows to fetch; callers ask for one extra to learn whether another page exists. */
   limit: number;
+  /** Breaks ties of the sort so pages never repeat or skip a row; see `rowOrderOf`. */
+  rowOrder?: SqliteRowOrder;
 }
 
 function whereSql(where: string): string {
@@ -40,10 +43,7 @@ function whereSql(where: string): string {
 }
 
 export function buildPageQuery(query: PageQuery): string {
-  const order =
-    query.orderBy && query.direction
-      ? ` ORDER BY ${quoteIdent(query.orderBy)} ${query.direction}`
-      : "";
+  const order = orderSql(query.orderBy, query.direction, query.rowOrder ?? { kind: "none" });
   const limit = Math.max(1, Math.floor(query.limit));
   const offset = Math.max(0, Math.floor(query.offset));
   return `SELECT * FROM ${quoteIdent(query.table)}${whereSql(query.where)}${order} LIMIT ${limit} OFFSET ${offset}`;
@@ -124,7 +124,7 @@ export function buildGroupQuery(
   limit: number,
 ): string {
   const ident = quoteIdent(column);
-  return `SELECT ${ident}, COUNT(*) AS "rows" FROM ${quoteIdent(table)}${whereSql(where)} GROUP BY ${ident} ORDER BY "rows" DESC LIMIT ${Math.max(1, Math.floor(limit))} OFFSET ${Math.max(0, Math.floor(offset))}`;
+  return `SELECT ${ident}, COUNT(*) AS "rows" FROM ${quoteIdent(table)}${whereSql(where)} GROUP BY ${ident} ORDER BY "rows" DESC, ${ident} LIMIT ${Math.max(1, Math.floor(limit))} OFFSET ${Math.max(0, Math.floor(offset))}`;
 }
 
 export function buildGroupCountQuery(table: string, where: string, column: string): string {
