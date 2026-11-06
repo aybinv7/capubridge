@@ -152,12 +152,12 @@ defineExpose({ openFor });
     enter-from-class="-translate-y-2 opacity-0"
     leave-to-class="-translate-y-1 opacity-0"
   >
-    <form
+    <div
       v-if="open"
       ref="form"
+      role="form"
       class="order-last flex basis-full flex-wrap items-end gap-x-3 gap-y-2 rounded-well bg-surface-cut px-3 py-2.5 shadow-cut"
       aria-label="Filter the rows"
-      @submit.prevent="apply"
       @keydown="onPanelKeydown"
     >
       <fieldset data-condition class="flex min-w-0 flex-[2_1_28rem] flex-col gap-1.5">
@@ -184,6 +184,7 @@ defineExpose({ openFor });
             class="min-w-0 flex-1"
             placeholder="Value"
             aria-label="Value"
+            @keydown.enter.prevent="apply"
           />
         </div>
       </fieldset>
@@ -220,7 +221,14 @@ defineExpose({ openFor });
         >
           Clear
         </Button>
-        <Button size="sm" variant="solid-fill" color="brand" type="submit" :disabled="!canApply">
+        <Button
+          size="sm"
+          variant="solid-fill"
+          color="brand"
+          type="button"
+          :disabled="!canApply"
+          @click="apply"
+        >
           Apply
         </Button>
         <IconAction label="Close the filter" keys="escape" size="sm" @click="open = false">
@@ -233,6 +241,6 @@ defineExpose({ openFor });
       <FieldError v-if="error && query.whereClause.value" class="basis-full">{{
         error
       }}</FieldError>
-    </form>
+    </div>
   </Transition>
 </template>
