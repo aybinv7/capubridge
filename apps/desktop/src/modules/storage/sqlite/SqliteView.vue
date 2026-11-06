@@ -11,7 +11,6 @@ import { Button } from "@capubridge/cladd";
 import KeyCaps from "@/components/command/KeyCaps.vue";
 import { bindingTokens } from "@/lib/commands/keymap";
 import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
-import IconAction from "@/shared/components/presentation/IconAction.vue";
 import DataSourceTree from "@/modules/storage/frame/DataSourceTree.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
 import DataWorkbench from "@/modules/storage/frame/DataWorkbench.vue";
@@ -271,7 +270,8 @@ useSqliteCommands({
           :selection="selection"
           :loading="tab.sources.loading.value"
           :error="tab.sources.error.value"
-          search-label="Find a database or table"
+          search-label="Databases and tables"
+          :searchable="false"
           :source-icon="Database"
           :collection-icon="Table2"
           :actions-for="actionsFor"
@@ -294,14 +294,18 @@ useSqliteCommands({
               <KeyCaps :keys="bindingTokens('mod+p')" quiet />
             </Button>
           </template>
-          <template #tools>
-            <IconAction
-              label="Open a SQLite file…"
-              hint="Read a database file from this computer"
+          <template #footer>
+            <Button
+              size="sm"
+              variant="transparent"
+              :outline="false"
+              class="w-full"
+              content-class-name="w-full justify-start gap-2 text-muted-foreground"
               @click="openSqliteFile(router)"
             >
-              <FolderOpen :stroke-width="1.8" />
-            </IconAction>
+              <FolderOpen :size="13" aria-hidden="true" />
+              <span class="flex-1 text-left">Open a SQLite file from this computer…</span>
+            </Button>
           </template>
           <template #empty>
             <p class="text-xs text-muted-foreground">

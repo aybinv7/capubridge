@@ -16,16 +16,21 @@ const ROW_HEIGHT = 28;
  * collections, pins and hidden entries, change marks and a menu per row. One tab stop;
  * arrows move, → opens, ← closes or goes to the parent, Enter opens the row.
  */
-const props = defineProps<{
-  sections: readonly DataSection[];
-  selection: DataSelection | null;
-  loading: boolean;
-  error: string | null;
-  searchLabel: string;
-  sourceIcon: Component;
-  collectionIcon: Component;
-  actionsFor: (row: DataTreeRow) => readonly DataAction[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    sections: readonly DataSection[];
+    selection: DataSelection | null;
+    loading: boolean;
+    error: string | null;
+    searchLabel: string;
+    sourceIcon: Component;
+    collectionIcon: Component;
+    actionsFor: (row: DataTreeRow) => readonly DataAction[];
+    /** False when the tab finds its tables another way (a quick-open in the lead slot). */
+    searchable?: boolean;
+  }>(),
+  { searchable: true },
+);
 
 const search = defineModel<string>("search", { required: true });
 const showHidden = defineModel<boolean>("showHidden", { required: true });
@@ -39,7 +44,12 @@ const emit = defineEmits<{
   retry: [];
 }>();
 
-defineSlots<{ lead?: () => unknown; tools?: () => unknown; empty?: () => unknown }>();
+defineSlots<{
+  lead?: () => unknown;
+  tools?: () => unknown;
+  empty?: () => unknown;
+  footer?: () => unknown;
+}>();
 
 const listId = useId();
 const scroller = ref<HTMLElement | null>(null);
@@ -47,7 +57,10 @@ const activeKey = ref<string | null>(null);
 const treeFocused = ref(false);
 
 const tree = computed(() =>
-  buildDataTree(props.sections, { search: search.value, showHidden: showHidden.value }),
+  buildDataTree(props.sections, {
+    search: props.searchable ? search.value : "",
+    showHidden: showHidden.value,
+  }),
 );
 const rows = computed(() => tree.value.rows);
 const { items, topSpacerHeight, bottomSpacerHeight } = useFixedVirtualList(rows, scroller, {
@@ -190,10 +203,10 @@ function onFocus() {
 
 <template>
   <aside class="flex h-full min-h-0 flex-col" :aria-label="searchLabel">
-    <div v-if="$slots.lead" class="shrink-0 px-2 pt-2">
+    <div v-if="$slots.lead" class="shrink-0 px-2 pt-2" :class="props.searchable ? '' : 'pb-1.5'">
       <slot name="lead" />
     </div>
-    <div class="flex shrink-0 items-center gap-1 px-2 pt-2 pb-1.5">
+    <div v-if="props.searchable" class="flex shrink-0 items-center gap-1 px-2 pt-2 pb-1.5">
       <SearchField
         v-model="search"
         size="sm"
@@ -272,6 +285,9 @@ function onFocus() {
         <component :is="showHidden ? EyeOff : Eye" :size="11" aria-hidden="true" />
         {{ showHidden ? "Hide them" : "Show them" }}
       </Button>
+    </div>
+    <div v-if="$slots.footer" class="shrink-0 border-t border-border-subtle p-1.5">
+      <slot name="footer" />
     </div>
   </aside>
 </template>
