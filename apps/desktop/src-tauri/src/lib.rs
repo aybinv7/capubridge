@@ -20,6 +20,7 @@ use commands::automation::{
     jev_decide, recording_read_attachment, recording_session_attach,
 };
 use commands::cdp_proxy::{cdp_start_proxy, cdp_stop_proxy};
+use commands::debuggable::adb_list_debuggable_packages;
 use commands::chrome::{
     chrome_activate_target, chrome_fetch_targets, chrome_find, chrome_is_running, chrome_kill_all,
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
@@ -303,6 +304,7 @@ pub fn run() {
             adb_open_package,
             adb_get_app_icon,
             adb_list_webview_sockets,
+            adb_list_debuggable_packages,
             adb_reverse,
             adb_remove_reverse,
             adb_list_reverse,

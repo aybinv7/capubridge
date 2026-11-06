@@ -4,6 +4,7 @@ pub mod reasoning;
 pub(crate) mod cdp_forward_cache;
 pub mod cdp_proxy;
 pub mod chrome;
+pub mod debuggable;
 pub mod emulator;
 pub mod file_bytes;
 pub mod files;

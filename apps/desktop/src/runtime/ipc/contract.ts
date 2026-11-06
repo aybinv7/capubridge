@@ -83,6 +83,7 @@ export const IPC_COMMAND_NAMES = [
   "adb_open_package",
   "adb_get_app_icon",
   "adb_list_webview_sockets",
+  "adb_list_debuggable_packages",
   "adb_reverse",
   "adb_remove_reverse",
   "adb_list_reverse",

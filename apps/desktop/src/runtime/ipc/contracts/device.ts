@@ -45,6 +45,7 @@ export interface DeviceCommandMap {
     string
   >;
   adb_list_webview_sockets: IpcCommand<{ serial: string }, WebViewSocket[]>;
+  adb_list_debuggable_packages: IpcCommand<{ serial: string }, string[]>;
   adb_reverse: IpcCommand<{ serial: string; remotePort: number; localPort: number }, void>;
   adb_remove_reverse: IpcCommand<{ serial: string; remotePort: number }, void>;
   adb_list_reverse: IpcCommand<{ serial: string }, ReverseRule[]>;
