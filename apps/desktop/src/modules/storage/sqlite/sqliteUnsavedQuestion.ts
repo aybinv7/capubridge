@@ -76,3 +76,29 @@ export function closeWindowQuestion(
     danger: true,
   };
 }
+
+function quotedList(names: readonly string[]): string {
+  const quoted = names.map((name) => `“${name}”`);
+  if (quoted.length <= 1) return quoted[0] ?? "";
+  return `${quoted.slice(0, -1).join(", ")} and ${quoted[quoted.length - 1]}`;
+}
+
+/**
+ * What leaving staged edits behind asks: leaving the database (`Leaving drops them.`) or closing
+ * a table's tab (`Closing the tab drops them.`). `null` when nothing is staged. Switching tables
+ * or tabs never asks: the edits wait in the unsaved store.
+ */
+export function leaveQuestion(
+  staged: readonly Staged[],
+  consequence = "Leaving drops them.",
+): ConfirmRequest | null {
+  const kept = staged.filter((entry) => entry.count > 0);
+  const total = kept.reduce((sum, entry) => sum + entry.count, 0);
+  if (total === 0) return null;
+  return {
+    title: total === 1 ? "Leave 1 change unsaved?" : `Leave ${total} changes unsaved?`,
+    text: `The changes to ${quotedList(kept.map((entry) => entry.table))} are not in the file yet. ${consequence}`,
+    confirmLabel: "Drop the changes",
+    danger: true,
+  };
+}

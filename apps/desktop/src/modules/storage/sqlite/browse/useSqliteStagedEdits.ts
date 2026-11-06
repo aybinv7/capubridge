@@ -34,14 +34,24 @@ interface StagedEditsInput {
   /** Only an opened file whose table has a primary key is edited. */
   writable: Ref<boolean>;
   save: (staged: SqliteStaged) => Promise<boolean>;
+  /**
+   * Where the staged edits live; outside the component (the unsaved store) so they outlive a
+   * remount. Without it they are kept locally.
+   */
+  store?: { read: () => SqliteStaged; write: (next: SqliteStaged) => void };
 }
 
 /**
- * Cell edits and new rows of one table, kept on screen until saved together: the grid shows
- * them over the rows as read, nothing reaches the file before Save, and Discard drops them.
+ * Cell edits and new rows of one table, kept until saved together: the grid shows them over the
+ * rows as read, nothing reaches the file before Save, and Discard drops them. They live in
+ * `store` when given, so leaving the table and coming back finds them as they were.
  */
 export function useSqliteStagedEdits(input: StagedEditsInput) {
-  const staged = shallowRef<SqliteStaged>(EMPTY_STAGED);
+  const local = shallowRef<SqliteStaged>(EMPTY_STAGED);
+  const staged = computed<SqliteStaged>({
+    get: () => (input.store ? input.store.read() : local.value),
+    set: (next) => (input.store ? input.store.write(next) : (local.value = next)),
+  });
   const editing = ref<GridEditingCell | null>(null);
   const saving = ref(false);
   const note = ref<string | null>(null);

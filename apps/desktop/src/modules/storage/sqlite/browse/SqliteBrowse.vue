@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
-import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
+import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import { toast } from "vue-sonner";
@@ -17,7 +16,6 @@ import {
   type GridSummary,
 } from "@/shared/components/data/grid";
 import CellEditor from "@/shared/components/data/grid/editors/CellEditor.vue";
-import ConfirmDialog from "@/shared/components/presentation/ConfirmDialog.vue";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import DataFreshness from "@/modules/storage/frame/DataFreshness.vue";
@@ -28,7 +26,6 @@ import RecordPane from "@/modules/storage/frame/RecordPane.vue";
 import RecordSplit from "@/modules/storage/frame/RecordSplit.vue";
 import { useRecordPane } from "@/modules/storage/frame/useRecordPane";
 import { formatExactTime } from "@/shared/format/dates";
-import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
 import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
 import { downloadText, fileStem } from "@/lib/download";
 import { readPersisted, writePersisted } from "@/lib/persisted";
@@ -129,25 +126,18 @@ const readOnly = computed(
   () => grouped.value !== null || props.readOnlyReason !== null || !mapped.value.identified,
 );
 
+const unsavedTables = useSqliteUnsavedStore();
 const staging = useSqliteStagedEdits({
   rows: computed(() => mapped.value.rows),
   columns,
   showAs: computed(() => showAs.value),
   writable: computed(() => !readOnly.value),
   save: (staged) => props.saveChanges(staged),
+  store: {
+    read: () => unsavedTables.staged(props.databaseId, props.tableName),
+    write: (next) => unsavedTables.setStaged(props.databaseId, props.tableName, next),
+  },
 });
-
-const unsavedTables = useSqliteUnsavedStore();
-watch(
-  () => staging.pending.value,
-  (count) =>
-    unsavedTables.track(props.databaseId, props.tableName, {
-      count,
-      discard: () => staging.discard(),
-    }),
-  { immediate: true },
-);
-onBeforeUnmount(() => unsavedTables.track(props.databaseId, props.tableName, null));
 
 const rowStates = computed(() => {
   const states = new Map<string, GridRowState>();
@@ -471,24 +461,6 @@ const noMatch = computed(() => {
   return parts.length ? `No rows match ${parts.join(" and ")}` : "No rows match";
 });
 
-const confirm = useDataConfirm();
-
-async function leaveWithChanges(): Promise<boolean> {
-  const count = staging.pending.value;
-  if (count === 0) return true;
-  const leave = await confirm.askAsync({
-    title: count === 1 ? "Leave 1 change unsaved?" : `Leave ${count} changes unsaved?`,
-    text: `The changes to “${props.tableName}” are not in the file yet. Leaving drops them.`,
-    confirmLabel: "Drop the changes",
-    danger: true,
-  });
-  if (leave) staging.discard();
-  return leave;
-}
-
-onBeforeRouteLeave(leaveWithChanges);
-onBeforeRouteUpdate(leaveWithChanges);
-
 function onKeydown(event: KeyboardEvent) {
   if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "s") {
     if (staging.pending.value === 0) return;
@@ -671,10 +643,5 @@ defineExpose({
         <PanelRight :stroke-width="1.8" />
       </IconAction>
     </DataGridStatus>
-    <ConfirmDialog
-      v-model:open="confirm.open.value"
-      :request="confirm.request.value"
-      @confirm="confirm.confirm()"
-    />
   </div>
 </template>

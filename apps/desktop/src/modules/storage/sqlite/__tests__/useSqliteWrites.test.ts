@@ -217,18 +217,17 @@ describe("sidebar writes and the table's staged edits (S10)", () => {
       await import("@/modules/storage/stores/useSqliteUnsavedStore");
     const unsaved = useSqliteUnsavedStore();
     const id = useSqliteFilesStore().files[0]?.id ?? "";
-    const discard = vi.fn();
-    unsaved.track(`file:${id}`, "orders", { count: 2, discard });
+    const { EMPTY_STAGED, addInsert } = await import("../browse/sqliteChangeset");
+    unsaved.setStaged(`file:${id}`, "orders", addInsert(addInsert(EMPTY_STAGED, "new:1"), "new:2"));
 
     confirm.mockResolvedValueOnce(false);
     await api.clearTable(file, "orders");
     const asked = (confirm.mock.calls as unknown as Array<[{ text: string }]>)[0]?.[0];
     expect(asked?.text).toContain("2 changes to “orders” not saved are dropped");
-    expect(discard).not.toHaveBeenCalled();
+    expect(unsaved.total).toBe(2);
     expect(writes).toEqual([]);
 
     await api.dropTable(file, "orders");
-    expect(discard).toHaveBeenCalledTimes(1);
     expect(unsaved.total).toBe(0);
     expect(writes).toEqual([`DROP TABLE "orders"`]);
   });

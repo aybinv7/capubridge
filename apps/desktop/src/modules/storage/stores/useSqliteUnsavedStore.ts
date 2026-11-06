@@ -1,5 +1,10 @@
 import { computed, shallowRef } from "vue";
 import { defineStore } from "pinia";
+import {
+  EMPTY_STAGED,
+  stagedCount,
+  type SqliteStaged,
+} from "@/modules/storage/sqlite/browse/sqliteChangeset";
 
 /** A table whose grid holds staged edits that are not saved yet. */
 export interface SqliteStagedTable {
@@ -7,8 +12,12 @@ export interface SqliteStagedTable {
   sourceId: string;
   table: string;
   count: number;
-  /** Drops the staged edits on screen. */
-  discard: () => void;
+}
+
+interface Entry {
+  sourceId: string;
+  table: string;
+  staged: SqliteStaged;
 }
 
 function keyOf(sourceId: string, table: string): string {
@@ -16,11 +25,23 @@ function keyOf(sourceId: string, table: string): string {
 }
 
 /**
- * Tables with staged edits, so whatever would drop them (closing the file, a sidebar write,
- * closing the window) can ask first, and drop them when the person agrees.
+ * The staged edits of every table, outside any component: a table's grid reads and writes
+ * them here, so switching tables or tabs (which may unmount the grid) never drops them and
+ * never asks. Whatever would drop them (closing a tab, leaving the database, closing the file,
+ * a sidebar write, closing the window) asks first through `stagedIn`, and drops them with
+ * `discardIn`.
  */
 export const useSqliteUnsavedStore = defineStore("sqlite-unsaved", () => {
-  const tables = shallowRef<ReadonlyMap<string, SqliteStagedTable>>(new Map());
+  const entries = shallowRef<ReadonlyMap<string, Entry>>(new Map());
+
+  const tables = computed<ReadonlyMap<string, SqliteStagedTable>>(() => {
+    const map = new Map<string, SqliteStagedTable>();
+    for (const [key, entry] of entries.value) {
+      const count = stagedCount(entry.staged);
+      if (count > 0) map.set(key, { sourceId: entry.sourceId, table: entry.table, count });
+    }
+    return map;
+  });
 
   const total = computed(() => {
     let count = 0;
@@ -28,18 +49,19 @@ export const useSqliteUnsavedStore = defineStore("sqlite-unsaved", () => {
     return count;
   });
 
-  /** Records the staged edits of a table; `null` or a count of 0 forgets it. */
-  function track(
-    sourceId: string,
-    table: string,
-    entry: Omit<SqliteStagedTable, "sourceId" | "table"> | null,
-  ) {
+  /** The staged edits of a table (empty when there are none). */
+  function staged(sourceId: string, table: string): SqliteStaged {
+    return entries.value.get(keyOf(sourceId, table))?.staged ?? EMPTY_STAGED;
+  }
+
+  /** Replaces the staged edits of a table; empty ones are forgotten. */
+  function setStaged(sourceId: string, table: string, next: SqliteStaged) {
     const key = keyOf(sourceId, table);
-    const next = new Map(tables.value);
-    if (entry && entry.count > 0) next.set(key, { sourceId, table, ...entry });
-    else if (next.has(key)) next.delete(key);
+    const map = new Map(entries.value);
+    if (stagedCount(next) > 0) map.set(key, { sourceId, table, staged: next });
+    else if (map.has(key)) map.delete(key);
     else return;
-    tables.value = next;
+    entries.value = map;
   }
 
   /** Staged tables of one database, or of one of its tables. */
@@ -51,18 +73,13 @@ export const useSqliteUnsavedStore = defineStore("sqlite-unsaved", () => {
 
   /** Drops the staged edits of one database (or one table of it). */
   function discardIn(sourceId: string, table?: string) {
-    for (const entry of stagedIn(sourceId, table)) {
-      entry.discard();
-      track(entry.sourceId, entry.table, null);
-    }
+    for (const entry of stagedIn(sourceId, table))
+      setStaged(entry.sourceId, entry.table, EMPTY_STAGED);
   }
 
   function discardAll() {
-    for (const entry of tables.value.values()) {
-      entry.discard();
-      track(entry.sourceId, entry.table, null);
-    }
+    entries.value = new Map();
   }
 
-  return { tables, total, track, stagedIn, discardIn, discardAll };
+  return { tables, total, staged, setStaged, stagedIn, discardIn, discardAll };
 });

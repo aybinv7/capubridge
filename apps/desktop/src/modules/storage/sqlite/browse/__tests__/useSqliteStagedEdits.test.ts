@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vite-plus/test";
-import { effectScope, ref } from "vue";
+import { effectScope, ref, shallowRef } from "vue";
 import type { GridColumn, GridRow } from "@/shared/components/data/grid";
 import { useSqliteStagedEdits } from "../useSqliteStagedEdits";
 import type { SqliteStaged } from "../sqliteChangeset";
@@ -122,5 +122,41 @@ describe("one cell at a time (U3)", () => {
     staging.setNull("[2]", "name");
     expect(staging.staged.value.edits.get("[2]")?.values).toEqual({ name: null });
     scope.stop();
+  });
+});
+
+describe("staged edits kept outside the component", () => {
+  test("a remounted grid finds the edits it left", () => {
+    const kept = shallowRef<SqliteStaged>({ edits: new Map(), inserts: [], deletes: new Map() });
+    const store = {
+      read: () => kept.value,
+      write: (next: SqliteStaged) => {
+        kept.value = next;
+      },
+    };
+    const mount = () => {
+      const scope = effectScope();
+      const staging = scope.run(() =>
+        useSqliteStagedEdits({
+          rows: ref(rows),
+          columns: ref(columns),
+          showAs: ref({}),
+          writable: ref(true),
+          save: async () => true,
+          store,
+        }),
+      );
+      if (!staging) throw new Error("no staging");
+      return { staging, scope };
+    };
+    const first = mount();
+    first.staging.addRow();
+    first.staging.deleteRows(["[2]"]);
+    expect(first.staging.pending.value).toBe(2);
+    first.scope.stop();
+    const second = mount();
+    expect(second.staging.pending.value).toBe(2);
+    expect(second.staging.isDeleting("[2]")).toBe(true);
+    second.scope.stop();
   });
 });

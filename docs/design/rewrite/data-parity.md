@@ -790,6 +790,19 @@ are relative to `modules/storage/sqlite/`.
       the target table and lands on the row the value points at (`sqliteLanding.ts`,
       `browse/useSqliteGoToRow.ts`); it was page 1 of the table before (N5)
 
+### Step 5a — staged edits outside the grid (S4)
+
+- [x] Staged edits (cell edits, new rows, rows marked for deletion) → kept per table in
+      `stores/useSqliteUnsavedStore.ts` (`staged` / `setStaged`), read and written by
+      `browse/useSqliteStagedEdits.ts` through its `store` input; the grid no longer owns them, so
+      switching tables (and, in step 5, tabs) never drops them and never asks (tested: a remounted grid
+      finds its edits). The route guard on every route update is gone from `SqliteBrowse.vue`; leaving
+      the **database** (another database, another screen) asks with the existing words, "Leave N
+      changes unsaved?" / "The changes to “t” are not in the file yet. Leaving drops them." / "Drop the
+      changes" (`SqliteView.vue`, `sqliteUnsavedQuestion.leaveQuestion`, tested). Closing the file, the
+      sidebar writes (S10) and closing the window ask as before, from the same store. One
+      `ConfirmDialog` per view: the browse one is gone (C5)
+
 ### Pending live checks (SQLite redesign)
 
 Not checked: the owner's app was not driven (screenshots only), and no data was written on a phone.
@@ -810,3 +823,5 @@ Not checked: the owner's app was not driven (screenshots only), and no data was 
 - [ ] Depth in dark and light on all five Data tabs: the workspace raised above the sidebar, the grid in
       its well, the record pane above it; the grid's sticky row numbers match the well; overview pages,
       the Diagram canvas and the SQL pane on the workspace surface
+- [ ] An opened file: stage edits in two tables, switch between them (no question, edits still there),
+      then open another database (asked once, with both tables), close the file, close the window

@@ -44,6 +44,14 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 const { useSqliteFilesStore } = await import("@/modules/storage/stores/useSqliteFilesStore");
 const { useSqliteUnsavedStore } = await import("@/modules/storage/stores/useSqliteUnsavedStore");
 const { closeOpenedFile } = await import("../closeOpenedFile");
+const { EMPTY_STAGED, addInsert } = await import("../browse/sqliteChangeset");
+const { leaveQuestion } = await import("../sqliteUnsavedQuestion");
+
+function stagedRows(count: number) {
+  let staged = EMPTY_STAGED;
+  for (let index = 0; index < count; index++) staged = addInsert(staged, `new:${index}`);
+  return staged;
+}
 const { useSqliteCloseGuard } = await import("../useSqliteCloseGuard");
 
 async function flush() {
@@ -64,8 +72,7 @@ describe("closing a file with staged edits asks first (S3)", () => {
     const files = useSqliteFilesStore();
     const unsaved = useSqliteUnsavedStore();
     const file = await files.open("D:/shop.db");
-    const discard = vi.fn();
-    unsaved.track("file:1", "orders", { count: 2, discard });
+    unsaved.setStaged("file:1", "orders", stagedRows(2));
     const confirm = vi.fn(async () => false);
     const leave = vi.fn();
 
@@ -76,13 +83,13 @@ describe("closing a file with staged edits asks first (S3)", () => {
     expect((confirm.mock.calls as unknown as Array<[{ text: string }]>)[0]?.[0].text).toContain(
       "2 changes to “orders”",
     );
-    expect(discard).not.toHaveBeenCalled();
+    expect(unsaved.total).toBe(2);
     expect(leave).not.toHaveBeenCalled();
     expect(files.files).toHaveLength(1);
 
     confirm.mockResolvedValueOnce(true);
     expect(await closeOpenedFile("file:1", file.id, { confirm, files, unsaved, leave })).toBe(true);
-    expect(discard).toHaveBeenCalledTimes(1);
+    expect(unsaved.total).toBe(0);
     expect(leave).toHaveBeenCalledTimes(1);
     expect(files.files).toHaveLength(0);
     expect(ipc).toContain("sqlite_close_opened_file");
@@ -127,8 +134,8 @@ describe("closing the window with staged edits asks first (S3)", () => {
     await flush();
     expect(closeHandlers).toHaveLength(0);
 
-    const discard = vi.fn();
-    useSqliteUnsavedStore().track("file:1", "orders", { count: 1, discard });
+    const unsaved = useSqliteUnsavedStore();
+    unsaved.setStaged("file:1", "orders", stagedRows(1));
     await flush();
     expect(closeHandlers).toHaveLength(1);
 
@@ -136,15 +143,41 @@ describe("closing the window with staged edits asks first (S3)", () => {
     await closeHandlers[0]?.(event);
     expect(asked.questions[0]).toContain("1 change in the Data tab is not saved");
     expect(event.preventDefault).toHaveBeenCalled();
-    expect(discard).not.toHaveBeenCalled();
+    expect(unsaved.total).toBe(1);
 
     asked.answer = true;
     const closing = { preventDefault: vi.fn() };
     await closeHandlers[0]?.(closing);
     expect(closing.preventDefault).not.toHaveBeenCalled();
-    expect(discard).toHaveBeenCalled();
+    expect(unsaved.total).toBe(0);
     await flush();
     expect(closeHandlers).toHaveLength(0);
     app.unmount();
+  });
+});
+
+describe("staged edits live outside the grid (S4)", () => {
+  test("a table's edits stay while another table or tab is shown, per table", () => {
+    const unsaved = useSqliteUnsavedStore();
+    unsaved.setStaged("/data/shop.db", "orders", stagedRows(2));
+    unsaved.setStaged("/data/shop.db", "items", stagedRows(1));
+    expect(unsaved.staged("/data/shop.db", "orders").inserts).toHaveLength(2);
+    expect(unsaved.stagedIn("/data/shop.db").map((entry) => entry.count)).toEqual([2, 1]);
+    unsaved.discardIn("/data/shop.db", "items");
+    expect(unsaved.total).toBe(2);
+    expect(unsaved.staged("/data/shop.db", "items")).toBe(EMPTY_STAGED);
+  });
+
+  test("leaving the database asks with every table; closing a tab names its own", () => {
+    const both = leaveQuestion([
+      { table: "orders", count: 2 },
+      { table: "items", count: 1 },
+    ]);
+    expect(both?.title).toBe("Leave 3 changes unsaved?");
+    expect(both?.text).toContain("“orders” and “items”");
+    const one = leaveQuestion([{ table: "orders", count: 1 }], "Closing the tab drops them.");
+    expect(one?.title).toBe("Leave 1 change unsaved?");
+    expect(one?.text).toContain("Closing the tab drops them.");
+    expect(leaveQuestion([])).toBeNull();
   });
 });

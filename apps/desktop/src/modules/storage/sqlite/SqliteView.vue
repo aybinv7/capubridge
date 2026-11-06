@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import {
+  onBeforeRouteLeave,
+  onBeforeRouteUpdate,
+  useRouter,
+  type RouteLocationNormalized,
+} from "vue-router";
 import { Database, FolderOpen, Search, Table2 } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
 import KeyCaps from "@/components/command/KeyCaps.vue";
@@ -22,6 +27,10 @@ import { sqliteRouteTo } from "./useSqliteLocation";
 import { useSqliteTab } from "./useSqliteTab";
 import { useSqliteTreeHandlers } from "./useSqliteTreeHandlers";
 import { useSqliteTabsStore } from "@/modules/storage/stores/useSqliteTabsStore";
+import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
+import { routeParam } from "./sqliteDatabaseRef";
+import { leaveQuestion } from "./sqliteUnsavedQuestion";
+import { SQLITE_FILE_ROUTE, SQLITE_ROUTE } from "./useSqliteLocation";
 import SqliteQuickOpen, { type QuickOpenMode } from "./quick/SqliteQuickOpen.vue";
 import type { QuickOpenItem } from "./quick/sqliteQuickOpenModel";
 import { useSqliteAllColumns } from "./quick/useSqliteAllColumns";
@@ -178,6 +187,31 @@ function chooseQuick(item: QuickOpenItem, mode: QuickOpenMode) {
   }
   openTableAs(item.table, mode === "open" ? "rows" : mode);
 }
+
+const unsaved = useSqliteUnsavedStore();
+
+function staysInDatabase(to: RouteLocationNormalized): boolean {
+  const target = location.target.value;
+  if (!target) return true;
+  if (target.kind === "file") {
+    return to.name === SQLITE_FILE_ROUTE && routeParam(to.params["file"]) === target.id;
+  }
+  return to.name === SQLITE_ROUTE && routeParam(to.params["db"]) === target.path;
+}
+
+/** Leaving the database (not a table or tab of it) asks before dropping its staged edits. */
+async function leaveDatabase(to: RouteLocationNormalized): Promise<boolean> {
+  const open = current.value;
+  if (!open || staysInDatabase(to)) return true;
+  const question = leaveQuestion(unsaved.stagedIn(open.sourceId));
+  if (!question) return true;
+  const leave = await confirm.askAsync(question);
+  if (leave) unsaved.discardIn(open.sourceId);
+  return leave;
+}
+
+onBeforeRouteUpdate(leaveDatabase);
+onBeforeRouteLeave(leaveDatabase);
 
 function findHere(): boolean {
   const element = root.value;
