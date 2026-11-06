@@ -20,24 +20,24 @@ home (e.g. "→ Key-value, LocalForage source").
 Round 1 owns the IndexedDB lines, the change-tracking line and the links into IndexedDB. Lines owned by
 R2/R3 are unchanged and still work on today's code paths (marked _R2_ / _R3_).
 
-- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; R2b: Cache is renamed **Cache storage** (`/storage/cache-storage`, route `storage-cache-storage`), so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite · Graph; the Graph merge is still to come (R3)
+- [ ] _R2/R3_ Sub-navigation tabs from route `meta.label`: IndexedDB · Local storage · LocalForage · Cache · OPFS · SQLite · Graph (`StoragePanel.vue:11`, `src/components/layout/SubNavTabs.vue`) — R2a: Local storage and LocalForage are one **Key-value** tab (`/storage/keyvalue`, route `storage-keyvalue`), so the tabs read IndexedDB · Key-value · Cache · OPFS · SQLite · Graph; R2b: Cache is renamed **Cache storage** (`/storage/cache-storage`, route `storage-cache-storage`), so the tabs read IndexedDB · Key-value · Cache storage · OPFS · SQLite · Graph; R2c: OPFS keeps its name and route (`/storage/opfs`, `storage-opfs`); the Graph merge is still to come (R3)
 - [x] `/storage` redirects to `/storage/indexeddb` → unchanged (`routes.ts`)
 - [x] Route names `storage-indexeddb`, `storage-indexeddb-snapshot`, `storage-localstorage`, `storage-localforage`, `storage-cache`, `storage-opfs`, `storage-sqlite`, `storage-graph` → unchanged (`routes.ts`); R2a: `storage-localstorage` and `storage-localforage` (and their paths) now redirect to `storage-keyvalue` with `?source=local` / `?source=forage`, hidden from the tabs (`navigation: false`); R2b: `storage-cache` (`/storage/cache`) redirects to `storage-cache-storage` with its query kept, hidden from the tabs
 - [x] `indexeddb/:db?/:store?` and `indexeddb-snapshot/:db?/:store?` both render the IndexedDB tab; snapshot has `navigation: false` → both render `indexeddb/IndexedDBView.vue`; the file route carries `meta.tabPath` so the IndexedDB tab stays selected (`SubNavTabs.vue` `activePath`, `src/router/route-meta.d.ts`)
-- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`). R2b: Cache storage keeps `requires: "target"` and owns Bring to front too
+- [x] Gate `requires: "target"` on IndexedDB, Local storage, LocalForage, Cache, OPFS; none on Snapshot, SQLite, Graph → unchanged; the opened-file route stays ungated so an export opens with no phone. Key-value keeps `requires: "target"` and owns Bring to front (`ownsBringToFront`). R2b: Cache storage keeps `requires: "target"` and owns Bring to front too. R2c: OPFS keeps `requires: "target"` and owns Bring to front too
 - [x] Target change remounts the tab; a lost link keeps it under the stale strip → unchanged (`GatedView.vue`)
 - [x] App in background: gate notice strip only → unchanged; the change watcher now also pauses (`changes/useIndexedDBChangesTracking.ts` `paused`)
 - [x] IndexedDB change tracking runs for the whole route ⚠ F2 → fixed: a lease (`useIndexedDBChangesLease`) held by the IndexedDB tab and Graph only, paused while the window is hidden or the app is in the background, one flush at a time, at most 40 stores watched plus any the person asks for ("Watch this store"), flushes spaced by max(1 s, 2 × last flush), 8 s per store read with two retries (`changes/indexeddbChangeTracker.ts`, tests in `changes/__tests__/indexeddbChanges.test.ts`). Round 1 fixes (P3): when the last holder leaves, the feed and baselines stay (reset only on target or origin change) and the watcher only listens (`indexeddbChangesLease.test.ts`); `StoragePanel.vue` no longer starts it
 - [x] Palette `Go to Data` / `g s` → unchanged
-- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). R2b: Cache storage registers the same provider: Read Cache storage again, Find cached entries (`mod+f`, same focus guard), Show or hide the record pane, Delete this cache… (`cache/useCacheCommands.ts`). OPFS, SQLite: none yet (R2/R3)
+- [x] No screen palette provider → IndexedDB registers `screen.storage` (group Data): Read IndexedDB again, Find rows (`mod+f`, only while the focus is in the tab and not in the record pane, P6), Show or hide the record pane (`indexeddb/useIdbCommands.ts`). "Open an IndexedDB export…" is app-wide (`useDataAppCommands.ts`, registered by `AppShell`) and the IndexedDB gate offers it beside its own actions (route meta `gateCommand`, `WorkbenchGate.vue`), landing on the ungated file route (P1). Key-value registers the same provider: Read key-value data again, Find keys (`mod+f`, same focus guard), New key, Show or hide the record pane (`keyvalue/useKvCommands.ts`). R2b: Cache storage registers the same provider: Read Cache storage again, Find cached entries (`mod+f`, same focus guard), Show or hide the record pane, Delete this cache… (`cache/useCacheCommands.ts`). R2c: OPFS registers the same provider: Read OPFS again, Find files in this folder (`mod+f`, same focus guard), Show or hide the record pane, Open the folder above, Delete this folder… (`opfs/useOpfsCommands.ts`). SQLite: none yet (R3)
 - [x] Lazy route chunks per tab → unchanged
 
 Inbound and outbound links that must keep working:
 
 - [x] App › Overview "Data" links by route name → unchanged (`storage-indexeddb` still resolves); R2a: its "Local storage" link is "Key-value" (`storage-keyvalue`, `app/overview/dataLinks.ts`)
 - [ ] _R3_ Device › Files viewer opens a SQLite file in Data → unchanged
-- [ ] _R3_ SQLite source badge "Show in OPFS explorer" → unchanged
-- [ ] _R2_ OPFS file click → SQLite tab with the pulled copy → unchanged
+- [ ] _R3_ SQLite source badge "Show in OPFS explorer" → unchanged; R2c: it lands on that folder in the new OPFS tab (`?path=`)
+- [x] _R2_ OPFS file click → SQLite tab with the pulled copy → R2c: Enter or double-click on a SQLite row, the context menu and the pane's database card, through the unchanged `useOpenSqliteSource`
 - [x] Graph inspector "Open data" → `/storage/indexeddb/:db/:store` still opens the store (route shape kept); Graph now holds the change-tracking lease so its change badges keep working
 - [x] Automation reads `useIndexedDBChangesStore().lastEventAt` ⚠ C33 → fixed: bumped only when a flush found changes made by the app, never for Capubridge's own writes (tagged `source: "capubridge"` through `noteOwnWrite` in `stores/useIndexedDBChangesStore.ts`) and never for empty flushes (tested). Round 1 fixes (P3): once IndexedDB or Graph has been opened, device events keep bumping it while another tab is shown (stores Capubridge wrote to in the last seconds excepted)
 - [ ] _R2_ Session recorder shares `orderKeyColumns` and the SQLite pull cache ⚠ C37 → unchanged
@@ -46,9 +46,9 @@ Inbound and outbound links that must keep working:
 
 - [x] Selected origin per target, in memory (`stores/useStorageContextStore.ts`) → unchanged; written by `indexeddb/useIdbCatalog.ts` for live databases only, never a file id (⚠ C6), read by the change watcher
 - [x] Query defaults `retry: 1`, `refetchOnWindowFocus: false`, `staleTime` 0 → unchanged; IndexedDB pages use `keepPreviousData`
-- [ ] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded). R2a: Key-value reads pause while the app is away and run again on its return, with 10 s read timeouts (`useDataPresence`); R2b: Cache storage does the same (catalog and entries pause while the app is away, 10 s and 15 s read timeouts, entry reads 10 s); OPFS still waits
+- [x] _R2_ CDP calls to a backgrounded app wait for the 30 s command timeout → unchanged (the IndexedDB watcher no longer re-reads while the app is backgrounded). R2a: Key-value reads pause while the app is away and run again on its return, with 10 s read timeouts (`useDataPresence`); R2b: Cache storage does the same (catalog and entries pause while the app is away, 10 s and 15 s read timeouts, entry reads 10 s); R2c: OPFS does the same (the folder walk 15 s, a folder 10 s, the pool 10 s, a preview read 30 s, all paused while the app is away). SQLite and Graph: R3
 - [x] Every device script goes through `evaluateChecked` and host data enters only as `jsLiteral` — except IDB export/import ⚠ M8 → fixed: export and import run through `packages/cdp-protocol/src/cdp/domains/indexeddb-transfer.ts` (checked, literal)
-- [ ] _R2_ OPFS snapshot cache in memory, keyed `targetId::path` → unchanged
+- [x] _R2_ OPFS snapshot cache in memory, keyed `targetId::path` → unchanged; R2c: a delete in the OPFS tab forgets the copies of what went (`forget`, `forgetUnder` for a folder)
 
 ## IndexedDB (→ `indexeddb/IndexedDBView.vue` on the Data frame `modules/storage/frame/`)
 
@@ -351,24 +351,54 @@ screenshots a minute apart), and checks never delete on the phone.
 - [ ] "Waiting for the app" and Bring to front with the app in the background; reads again on return
 - [ ] `/storage/cache` redirects to Cache storage; the palette commands; first paint dark and light, the pane at 280 and 560 px
 
-## OPFS (`opfs/OPFSExplorer.vue`, `opfsSnapshotCache.ts`, `useOpenSqliteSource.ts`)
+## OPFS (→ `opfs/OpfsView.vue` on the Data frame; R2c)
 
-- [ ] Start path from `?path=` once at mount (`OPFSExplorer.vue:36`) ⚠ C32
-- [ ] Up, root "opfs:/", breadcrumb segments (`:190-212,228-245`)
-- [ ] Raw files / Decoded DBs toggle when a SAH-Pool directory is inspectable (`:249-270`)
-- [ ] Refresh → directory only (`:271-278`)
-- [ ] Detected storage tech chips with tooltip (description, package, evidence) from `detectStorageTechs` (`:282-317`, `cdp:opfs.ts:97-236`)
-- [ ] Filter "Filter…" on name/kind (sidebar and table) and on logical path / opaque name (decoded view) (`:68-84,326-330`)
-- [ ] Click directory → navigate (`:167-173,367,482`)
-- [ ] Click `.sqlite/.sqlite3/.db/.db3` → `openOpfsDatabase`: `opfs_stat_file`, cache hit or `opfs_pull_sqlite` (Rust, 8 MiB base64 chunks over its own WebSocket into `%TEMP%`), `adoptLocalSession`, push `/storage/sqlite/<file>`. Toasts `Opening "<label>"…`, `Reading "<label>" — X of Y` (event `capubridge:opfs-pull-progress`), `Opened "<label>" in SQL Explorer`, "Failed to open in SQL Explorer" (`:174-177`, `useOpenSqliteSource.ts:34-97`, `OP:243-332`)
-- [ ] Click decoded SAH-Pool row → open opaque file with `stripSahPool: true` (`:182-188,431`)
-- [ ] Click other file → highlight only, no preview (`:179`) ⚠ C32
-- [ ] Row Download button — no handler (`:519-526`) ⚠ C32
-- [ ] Row Delete (files) → `OPFSDomain.deleteEntry` (`removeEntry(name, { recursive: true })`) — **MUTATES**, no confirm, toast or catch (`:214-219,527-535`, `cdp:opfs.ts:288-320`) ⚠ M4
-- [ ] Sidebar: icon, name, size (`:358-374`); table: Name + badges sqlite/journal/wal/shm/sah-pool, Type, Size, Modified (`:122-138,466-513`)
-- [ ] Decoded view: Logical path, Opaque file, Data size, Flags (hex), Modified (`:416-450`, `cdp:opfs.ts:455-507`)
-- [ ] States: spinner (`:334-336`), "Failed to load OPFS" (`:338-344`), "Empty directory" (sidebar only, `:346-351`), "Decoding SAH-Pool headers…", "Failed to decode SAH-Pool. The directory may not be in pool format.", "No live databases inside this pool (all slots empty)." (`:389-408`)
-- [ ] `listDirectory` stats every file sequentially, no paging (`cdp:opfs.ts:254-270`) ⚠ F11
+Was `opfs/OPFSExplorer.vue` (removed). Paths below are relative to `modules/storage/opfs/`; the device
+side is `cdp:opfs-files.ts` and `cdp:opfs-files-scripts.ts` (folder walk, listing, deletes: every script
+through `evaluateChecked`, host data only as `jsLiteral`), while previews, the SAH-Pool decode and the
+SQLite pull keep `cdp:opfs.ts` and `OP`. Device tests: `packages/cdp-protocol/tests/opfs-files.test.ts`
+(fake OPFS in `opfs-fixture.ts`); screen tests: `opfs/__tests__/`; Rust: the `opfs_pull` tests.
+
+- [x] Start path from `?path=` once at mount (`OPFSExplorer.vue:36`) ⚠ C32 → fixed: `?path=` both ways (`useOpfsLocation`): every folder opened here is written to the address (Back and reload return to it), and a link (the SQLite source badge) lands on its folder; a folder the walk did not find says "This folder is not in OPFS" with "Open the top of OPFS" (`resolveFolder`)
+- [x] Up, root "opfs:/", breadcrumb segments (`:190-212,228-245`) → "Open the folder above" (`IconAction`, palette), breadcrumbs from "OPFS" (`OpfsBreadcrumbs.vue`), and the folder tree in the sidebar: top-level folders, opened along the way to the current folder, each with its item count; "Find a folder" lists every folder (`opfsSources.visibleFolders`, frame `depth` and `ordered` options)
+- [x] Raw files / Decoded DBs toggle when a SAH-Pool directory is inspectable (`:249-270`) → "Files · Databases in the pool" (`Segmented`) in the folder header, only where the pool can be decoded; back to Files in any other folder (`OpfsFolder.vue`)
+- [x] Refresh → directory only (`:271-278`) → "Read again" in the header (the folder, and the pool when shown) and in the sidebar row menus; the palette's "Read OPFS again" reads the folders and the folder
+- [x] Detected storage tech chips with tooltip (description, package, evidence) from `detectStorageTechs` (`:282-317`, `cdp:opfs.ts:97-236`) → quiet Cladd `Chip`s beside the breadcrumbs (`OpfsTechHints.vue`), the tooltip saying how sure (Sure / Likely / A guess), what it means, the package and what was seen. The "Unrecognised OPFS layout" guess is no longer a chip: it only pointed to child folders, which the sidebar tree now shows
+- [x] Filter "Filter…" on name/kind (sidebar and table) and on logical path / opaque name (decoded view) (`:68-84,326-330`) → "Find a name or kind" above the grid (debounced 150 ms, any case, on text built once per read), "Find a folder" in the sidebar, "Find a database or slot" in the pool view; "Nothing here is named “x”" with Clear find
+- [x] Click directory → navigate (`:167-173,367,482`) → Enter or double-click on a folder row, the sidebar, the context menu "Open the folder", and "Open the folder" in the pane
+- [x] Click `.sqlite/.sqlite3/.db/.db3` → `openOpfsDatabase` … (`:174-177`, `useOpenSqliteSource.ts:34-97`, `OP:243-332`) → Enter or double-click on a SQLite row, the context menu "Open in Data › SQLite", and the pane's database card (any file whose bytes are SQLite); same pipeline, toasts and route (`useOpenSqliteSource.ts` unchanged). The pull now removes its partial temp file on any failure, not only on a bad header (`OP` `copy_range`)
+- [x] Click decoded SAH-Pool row → open opaque file with `stripSahPool: true` (`:182-188,431`) → Enter, double-click or the context menu in "Databases in the pool" (`OpfsPoolRows.vue`); a slot in Files offers "Open in Data › SQLite" too (pane footer, context menu)
+- [x] Click other file → highlight only, no preview (`:179`) ⚠ C32 → fixed: the pane previews it through the shared file viewer (`src/shared/file-viewer/`: text and code with find, JSON text or tree, pictures, video and audio, SQLite facts, bytes for anything else), read with `OPFSDomain.readFileBytes` in 8 MB chunks under each kind's budget; video and audio over 32 MB are refused before any read, with Download (`useOpfsPreview.ts`); a read that finishes after the pane moved on is dropped and a run of arrow keys reads only the file it stops on (tested). A file the app holds open (a live SQLite VFS) is listed "In use" and the pane says why instead of failing
+- [x] Row Download button — no handler (`:519-526`) ⚠ C32 → fixed: "Download…" in the pane footer, the context menu and the viewer's own views: the system save dialog (it asks before replacing a file), then Rust streams the file from the phone straight to disk (`opfs_save_file`: a `.capubridge-part` file renamed only when complete, so a failed copy leaves nothing and never destroys the file it replaces), progress in the toast, "Saved “x”" with the path, a warning when the app wrote to the file during the copy, "Could not save “x”" with the reason (`useOpfsDownload.ts`)
+- [x] Row Delete (files) → `OPFSDomain.deleteEntry` … — **MUTATES**, no confirm, toast or catch (`:214-219,527-535`, `cdp:opfs.ts:288-320`) ⚠ M4 → fixed: files and folders, from the pane, the context menu, the Delete key, "Delete N selected", "Delete folder…" in the header, the sidebar row menu and the palette; always confirmed, naming what goes and where, with a warning for SQLite files (corruption while the app has them open), SAH-Pool slots (the database in them goes too) and folders (everything inside) (`opfsWrites.deleteQuestion`). The phone deletes only on the origin that was read, only a file whose size and date are what the person saw (otherwise "This file changed on the phone" asks first), never forces a file the app holds open, and says what was already gone; toasts after the phone answered, with the phone's words on failure; the pulled local copies of what went are forgotten (`opfsSnapshotCache.forget` / `forgetUnder`). Deletes wait, with the reason, while the folder is read or the app is away (`useOpfsWrites.ts`; tests `opfsWrites.test.ts`, `opfs-files.test.ts`)
+- [x] Sidebar: icon, name, size (`:358-374`); table: Name + badges sqlite/journal/wal/shm/sah-pool, Type, Size, Modified (`:122-138,466-513`) → sidebar: the folder tree with item counts; grid (`DataGrid`, virtualised, sortable, folders first): Name · Kind · Size · Modified (`opfsGrid.ts`). The badges are the Kind in words: SQLite database, Write-ahead log, Rollback journal, Shared memory, SAH-Pool slot (Empty SAH-Pool slot for a header-only slot), "JSON file", Folder (`opfsModel.ts`); sizes read "1.2 MB", dates "Today at 13:46"
+- [x] Decoded view: Logical path, Opaque file, Data size, Flags (hex), Modified (`:416-450`, `cdp:opfs.ts:455-507`) → "Databases in the pool": Database · Slot file · Size · Flags (`0x…`) · Modified (`opfsPoolGrid.ts`)
+- [x] States: spinner, "Failed to load OPFS", "Empty directory" (sidebar only), "Decoding SAH-Pool headers…", "Failed to decode SAH-Pool…", "No live databases inside this pool (all slots empty)." (`:334-408`) → "Reading the page's OPFS"; errors with the phone's words and Try again, a failed re-read keeps the last rows under a compact error; "Waiting for the app" with Bring to front (rows kept, reads and deletes wait, the tab owns Bring to front); "The folder “x” is empty." and an empty root noted in the sidebar; "This folder is not in OPFS any more" with "Open the folder above"; "This page has no OPFS" (not a secure page); the pool grid's loading rows, "Could not decode the SAH-Pool; the folder may not be in pool format", "No live databases in this pool: every slot is empty."
+- [x] `listDirectory` stats every file sequentially, no paging (`cdp:opfs.ts:254-270`) ⚠ F11 → fixed: `OPFSFilesDomain.folder` stats the files in parallel in one evaluate, up to 5,000 entries ("First 5,000 of N entries read" in the status bar); kinds are computed once per read and grid rows cached per row. The sidebar walk lists folders only (no file opened), up to 500 folders and 12 levels, and says when it stopped
+
+### Not carried over, or deferred
+
+- The pull pipeline work planned for R2 (`data-plan.md` §7: WAL C15, temp-file cleanup on exit C36, the
+  recorder's reuse C37, F5–F7) belongs to SQLite and moves to R3 with the SQLite screen; only the OPFS
+  pull's partial-file cleanup landed here, because the download shares its copy loop.
+- Upload and rename: OPFS never had them, and they are not added; nothing here can overwrite a file.
+- "Open on this computer" and "Choose an app…" stay Device-only: an OPFS file would first need a pull to
+  a temp file. Download covers it.
+
+### Pending live checks (OPFS)
+
+Seen live (screenshots only, the owner was using the tab): Presalio Staging on the Redmi,
+`.opfs-sahpool/.opaque` with 12 slots, the sidebar tree opened along the path, the SAH-Pool chip and the
+Files · Databases in the pool switch. Not checked, because checks never write on the phone and the app
+was in use:
+
+- [ ] The pane on a JSON, a log, a picture, a SQLite file (open in SQLite from the card) and a held-open file
+- [ ] "Databases in the pool" on the Presalio pool, and opening one in SQLite
+- [ ] Download of a large file (progress toast, the `.capubridge-part` rename, the "changed while copied" warning)
+- [ ] Deleting a test file and a test folder (never the app's own), the "changed on the phone" question, a held-open file refused
+- [ ] "Waiting for the app" and Bring to front with the app in the background; reads again on return
+- [ ] `?path=` from the SQLite source badge; Back and reload; a folder past the walk limit
+- [ ] Dark and light first paint; the pane at 280 and 560 px; Device › Files viewer after the move
 
 ## SQLite (`sqlite/SqliteExplorer.vue` and children)
 

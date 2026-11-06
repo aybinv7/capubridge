@@ -30,6 +30,10 @@ describe("OPFS rows", () => {
     ]);
   });
 
+  test("a slot holding only its header says it is empty", () => {
+    expect(row(file("Xa9", 4096), [poolHint(["Xa9"])]).kindLabel).toBe("Empty SAH-Pool slot");
+  });
+
   test("a small file the pool hint names is not a slot", () => {
     expect(row(file("Xa9", 100), [poolHint(["Xa9"])]).role).toBe("file");
   });

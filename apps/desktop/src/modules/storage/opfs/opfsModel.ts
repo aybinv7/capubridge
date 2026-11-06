@@ -61,8 +61,12 @@ export function roleOf(item: OPFSItem, poolSlots: ReadonlySet<string>): OpfsRole
   return "file";
 }
 
-/** The kind in words: the role, or the extension ("JSON file"), or "File". */
-export function kindLabelOf(role: OpfsRole, name: string): string {
+/**
+ * The kind in words: the role, or the extension ("JSON file"), or "File". A pool slot that holds
+ * only its 4 KB header keeps no database.
+ */
+export function kindLabelOf(role: OpfsRole, name: string, size: number | null = null): string {
+  if (role === "pool-slot" && size === SAH_POOL_HEADER_DATA_OFFSET) return "Empty SAH-Pool slot";
   if (role !== "file") return ROLE_LABELS[role];
   const extension = extensionOf(name);
   return extension ? `${extension.toUpperCase()} file` : "File";
@@ -78,7 +82,7 @@ export function toRows(items: readonly OPFSItem[], hints: readonly StorageTechHi
   const slots = poolSlotNames(hints);
   return items.map((item) => {
     const role = roleOf(item, slots);
-    const kindLabel = kindLabelOf(role, item.name);
+    const kindLabel = kindLabelOf(role, item.name, item.size);
     return {
       id: item.path,
       name: item.name,
