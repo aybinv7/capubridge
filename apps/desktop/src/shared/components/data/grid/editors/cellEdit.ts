@@ -18,6 +18,9 @@ const DATE_TIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2
 const ZONE = /(Z|[+-]\d{2}:?\d{2})$/;
 const EPOCH_MS_FROM = 1e11;
 const LONG_TEXT = 200;
+const INTEGER_TEXT = /^[+-]?\d+$/;
+const SQLITE_INTEGER_MAX = 9223372036854775807n;
+const SQLITE_INTEGER_MIN = -9223372036854775808n;
 
 function pad(value: number, width = 2): string {
   return String(value).padStart(width, "0");
@@ -192,6 +195,54 @@ function newDateLike(like: unknown, dateInput: string): unknown {
   return dateInput;
 }
 
+export interface CellEditOptions {
+  /**
+   * Integers past 2^53 are kept exact as `{ __type: "Number", value }` (digits in full), up to
+   * SQLite's 64-bit range. Without it they are refused, never rounded.
+   */
+  exactIntegers?: boolean;
+}
+
+function wideIntegerText(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) return null;
+  const marker = value as { __type?: unknown; value?: unknown };
+  return marker.__type === "Number" && typeof marker.value === "string" ? marker.value : null;
+}
+
+/**
+ * A typed number, never rounded without saying so: an integer JavaScript cannot hold exactly
+ * becomes an exact marker (`exactIntegers`) or is refused, and so is any other text `Number()`
+ * would turn into such an integer.
+ */
+function parseNumber(original: unknown, text: string, exactIntegers: boolean): ParsedCellEdit {
+  const trimmed = text.trim();
+  if (trimmed === "") return { ok: false, error: "Enter a number" };
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) return { ok: false, error: `"${trimmed}" is not a number` };
+  if (Number.isSafeInteger(value) || !Number.isInteger(value)) {
+    return { ok: true, value, changed: !Object.is(value, original) };
+  }
+  if (!INTEGER_TEXT.test(trimmed)) {
+    return { ok: false, error: `"${trimmed}" is too large to keep exactly; type it as digits` };
+  }
+  const exact = BigInt(trimmed);
+  if (!exactIntegers) {
+    return {
+      ok: false,
+      error: `${exact} is too large to keep exactly: whole numbers stop at ${Number.MAX_SAFE_INTEGER} here`,
+    };
+  }
+  if (exact > SQLITE_INTEGER_MAX || exact < SQLITE_INTEGER_MIN) {
+    return { ok: false, error: `SQLite whole numbers stop at ${SQLITE_INTEGER_MAX}` };
+  }
+  const digits = exact.toString();
+  return {
+    ok: true,
+    value: { __type: "Number", value: digits },
+    changed: wideIntegerText(original) !== digits,
+  };
+}
+
 /**
  * Reads what was typed back into a value of the stored type. Text stays text ("123" is not
  * turned into a number), and `changed` is false when nothing would be written. An empty cell
@@ -202,6 +253,7 @@ export function parseCellEdit(
   kind: CellEditorKind,
   text: string,
   like?: unknown,
+  options: CellEditOptions = {},
 ): ParsedCellEdit {
   if (isEmpty(original)) {
     if (text.trim() === "") return { ok: true, value: original, changed: false };
@@ -222,13 +274,8 @@ export function parseCellEdit(
       const value = restoreLineBreaks(text, style === "mixed" ? "lf" : style);
       return { ok: true, value, changed: value !== original };
     }
-    case "number": {
-      const trimmed = text.trim();
-      if (trimmed === "") return { ok: false, error: "Enter a number" };
-      const value = Number(trimmed);
-      if (!Number.isFinite(value)) return { ok: false, error: `"${trimmed}" is not a number` };
-      return { ok: true, value, changed: !Object.is(value, original) };
-    }
+    case "number":
+      return parseNumber(original, text, options.exactIntegers === true);
     case "boolean": {
       if (text !== "true" && text !== "false") return { ok: false, error: "Choose true or false" };
       const value = text === "true";

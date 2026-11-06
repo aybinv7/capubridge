@@ -16,6 +16,8 @@ const props = defineProps<{
   label: string;
   /** Another value of the column, so an empty cell is filled in the column's form. */
   like?: unknown;
+  /** Integers past 2^53 are kept as exact markers instead of being refused. */
+  exactIntegers?: boolean;
 }>();
 
 const emit = defineEmits<{ commit: [value: unknown]; cancel: [] }>();
@@ -76,7 +78,9 @@ function finish(commitChange: boolean) {
     emit("cancel");
     return;
   }
-  const parsed = parseCellEdit(props.value, props.kind, text.value, props.like);
+  const parsed = parseCellEdit(props.value, props.kind, text.value, props.like, {
+    exactIntegers: props.exactIntegers === true,
+  });
   if (!parsed.ok) {
     error.value = parsed.error;
     return;

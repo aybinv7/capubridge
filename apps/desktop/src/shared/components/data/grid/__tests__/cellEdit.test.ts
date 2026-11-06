@@ -188,3 +188,15 @@ describe("text with line breaks (S1)", () => {
     expect(inlineEditRefusal("a\r\nb")).toBeNull();
   });
 });
+
+describe("a typed integer past 2^53 (S4)", () => {
+  test("is refused where it cannot be kept exactly, never rounded", () => {
+    const parsed = parseCellEdit(1, "number", "9007199254740993");
+    expect(parsed.ok).toBe(false);
+    expect(parseCellEdit(1, "number", "9007199254740991")).toEqual({
+      ok: true,
+      value: 9007199254740991,
+      changed: true,
+    });
+  });
+});

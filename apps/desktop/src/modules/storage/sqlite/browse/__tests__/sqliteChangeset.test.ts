@@ -141,3 +141,48 @@ describe("a multi-line text cell (S1)", () => {
     expect(uneditableReason("a\r\nb\nc")).toMatch(/two kinds of line break/);
   });
 });
+
+describe("a typed integer past 2^53 (S4)", () => {
+  test("is written and read back exactly on an insert of a wide key", async () => {
+    const parsed = parseCellEdit(null, "number", "9007199254740993", 5, { exactIntegers: true });
+    expect(parsed).toEqual({ ok: true, value: wide, changed: true });
+    if (!parsed.ok) return;
+    const staged = stageInsertCell(addInsert(EMPTY_STAGED, "new:1"), "new:1", "id", parsed.value);
+    expect(changesetStatements("item", ["id"], staged)).toEqual([
+      `INSERT INTO "item" ("id") VALUES (9007199254740993)`,
+    ]);
+    const exact = await readBackChangeset(
+      async () => ({ columns: ["id"], rows: [[wide]], rowCount: 1, changes: 0, durationMs: 0 }),
+      "item",
+      ["id"],
+      staged,
+      [1],
+    );
+    expect(exact.differences).toEqual([]);
+    const rounded = await readBackChangeset(
+      async () => ({
+        columns: ["id"],
+        rows: [[{ __type: "Number", value: "9007199254740992" }]],
+        rowCount: 1,
+        changes: 0,
+        durationMs: 0,
+      }),
+      "item",
+      ["id"],
+      staged,
+      [1],
+    );
+    expect(rounded.differences).toEqual([
+      { column: "id", wrote: "9007199254740993", reads: "9007199254740992", row: "new row 1" },
+    ]);
+  });
+
+  test("past SQLite's 64-bit range, or typed so it would round, it is refused", () => {
+    expect(parseCellEdit(1, "number", "9223372036854775808", 1, { exactIntegers: true }).ok).toBe(
+      false,
+    );
+    expect(parseCellEdit(1, "number", "9007199254740993.0", 1, { exactIntegers: true }).ok).toBe(
+      false,
+    );
+  });
+});

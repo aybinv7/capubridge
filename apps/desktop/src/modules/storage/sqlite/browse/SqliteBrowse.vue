@@ -421,6 +421,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch() });
               :value="value"
               :like="staging.sampleOf(column.id)"
               :kind="staging.editorKind(column.id, value)"
+              exact-integers
               :label="`Edit ${column.title}`"
               @commit="staging.commit"
               @cancel="staging.cancel()"
