@@ -186,7 +186,7 @@ onBeforeUnmount(clearTimers);
   >
     <TimelineTray :expanded="expanded" :edge="edge" />
     <div
-      class="absolute inset-x-0"
+      class="absolute inset-x-0 transition-[clip-path] duration-500 ease-cladd-spring motion-reduce:transition-none"
       :style="{
         [edge]: '0px',
         height: `${EXPANDED_HEIGHT}px`,
