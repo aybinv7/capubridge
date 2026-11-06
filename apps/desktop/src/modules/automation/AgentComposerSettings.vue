@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { PolicyOption, RunLimitValues } from "./agentPanelState";
+import DecisionModelSetting from "./DecisionModelSetting.vue";
+import { useDecisionModelStore } from "./decisions/decisionModelStore";
 
 const props = defineProps<{
   policies: PolicyOption[];
@@ -29,10 +31,26 @@ const emit = defineEmits<{
   setLimit: [field: keyof RunLimitValues, value: string];
 }>();
 
-const modelLabel = computed(
-  () =>
-    `${props.selectedPolicy.label}${props.selectedPolicy.model === undefined ? "" : ` · ${props.selectedPolicy.model}`}`,
-);
+const decisionModels = useDecisionModelStore();
+
+function policyLabel(policy: PolicyOption): string {
+  const model = policy.id === "jev" ? decisionModels.selected.label : policy.model;
+  return model === undefined ? policy.label : `${policy.label} · ${model}`;
+}
+
+const modelLabel = computed(() => policyLabel(props.selectedPolicy));
+
+/**
+ * Keeps the settings popover open while a Cladd select inside it is in use:
+ * its option list is teleported to the body, so a pick there reads as an
+ * outside interaction.
+ */
+function keepOpenForNestedOverlay(event: CustomEvent<{ originalEvent: Event }>): void {
+  const target = event.detail.originalEvent.target;
+  if (target instanceof Element && target.closest(".cladd-popover") !== null) {
+    event.preventDefault();
+  }
+}
 
 const modelSelectorOpen = ref(false);
 
@@ -68,7 +86,7 @@ function selectPolicy(id: string): void {
             >
               <Gauge class="size-4" />
               <ModelSelectorName>
-                {{ policy.label }}{{ policy.model === undefined ? "" : ` · ${policy.model}` }}
+                {{ policyLabel(policy) }}
               </ModelSelectorName>
             </ModelSelectorItem>
           </ModelSelectorGroup>
@@ -88,7 +106,16 @@ function selectPolicy(id: string): void {
           <SlidersHorizontal class="size-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" side="top" class="w-72 space-y-3 p-3">
+      <PopoverContent
+        align="end"
+        side="top"
+        class="w-72 space-y-3 p-3"
+        @interact-outside="keepOpenForNestedOverlay"
+      >
+        <template v-if="selectedPolicy.id === 'jev'">
+          <DecisionModelSetting />
+          <div class="border-t" />
+        </template>
         <div>
           <p class="text-sm font-medium">Run limits</p>
           <p class="text-xs text-muted-foreground">Bound the agent before it starts.</p>
