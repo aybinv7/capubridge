@@ -602,17 +602,17 @@ Tests: `__tests__/` (`readSqliteDiagram`, `sqliteDiagramEntities`, `diagramPlace
 - [ ] Add note → "Add a note"
 - [ ] Auto layout (ELK layered, orthogonal routes), undoable ⚠ F12 → "Lay out again" with its busy state; ELK in a worker by dynamic import (R3); toast "Laid out again" with "Undo brings the earlier positions back"
 - [ ] Toggle guessed links → "Show / Hide guessed links"
-- [ ] Zoom −/+, % = fit view, first fit per scope, range 0.01–2 ⚠ C1 → `DiagramViewportBar.vue`; C1 fixed (R3)
-- [ ] Undo / Redo (80 steps) → unchanged
+- [ ] Zoom −/+, % = fit view, first fit per scope, range 0.01–2 ⚠ C1 → `DiagramViewportBar.vue`; C1 fixed (R3); keys + and − zoom, 0 fits (review U7)
+- [ ] Undo / Redo (80 steps) → unchanged; Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y on the focused canvas (review U7)
 - [ ] Click node / edge / frame selects; empty canvas clears; Shift multi-select; box select → unchanged; a selected node is ringed in the selection colour
 - [ ] Drag nodes and frames (members follow), positions saved → unchanged, one write per drag (R3)
 - [ ] Connect handles → manual link; duplicate refused with a toast → unchanged
-- [ ] Backspace deletes selected notes and manual links → unchanged (Vue Flow's delete key)
+- [ ] Backspace deletes selected notes and manual links → unchanged (Vue Flow's delete key); Delete too, and Escape clears the selection (review U7)
 - [ ] Selection toolbar (≥ 2 nodes): group, ungroup, pack, align ×6, distribute ×2 → a bar at the top with "N selected" (`DiagramSelectionBar.vue`)
 - [ ] Inspector, cluster: name, description, Save, members focus → `DiagramClusterPanel.vue` ("Save group")
 - [ ] Inspector, entity: Open data, Edit metadata dialog (alias, note), field map, related tables → `DiagramEntityPanel.vue`: Open data, Describe…, Fields, Linked (direction and kind in words)
 - [ ] Inspector, note: title, body, accent, Save, Delete → `DiagramNotePanel.vue`; Delete is undoable and says so
-- [ ] Inspector, edge: label; Save/Delete for manual links → `DiagramEdgePanel.vue`: from, to and kind as facts; label, Save and Delete for your links, the others say why they cannot change. The pane shows only while something is selected (no "Nothing selected" placeholder)
+- [ ] Inspector, edge: label; Save/Delete for manual links → `DiagramEdgePanel.vue`: from, to and kind as facts; label, Save and Delete for your links, the others say why they cannot change. The pane is resizable again (260 to 560 px, size kept); it opens with the first selection and stays, with "Select a table, a note or a link" when nothing is selected, and "Hide this panel" closes it (review B6)
 
 ### States and persistence
 
@@ -651,8 +651,18 @@ Each data-safety fix has a test that failed before it. Rust: `sqlite_opened::tes
 - S10 Sidebar writes say how many staged changes they drop, and drop them only on yes.
 - S11 A row that fails to read fails the query (one reader, `read_rows`).
 - S12 A cell left with a value that cannot be stored says why in the edit bar.
-- B3, B5, B7, B8, B9, B10, B4 (own saves tagged "capubridge": "Show what changed here"), B2 (eviction
-  order, sticky-note search, texts above).
+- B3, B5, B6, B7, B8, B9, B10, B4 (own saves tagged "capubridge": "Show what changed here"), B2
+  (eviction order, sticky-note search, texts above).
+- Performance: P2 (jeep checked by size and header change counter, full hash every twelfth unchanged
+  check), P3 (SQL pane reads at most 10,000 rows and says so), P4 in part (other databases two at a
+  time, six tables each), P6 (read-back 100 rows per query), P8 in part (a full storage says so once),
+  P9 in part (show as and widths of a file kept by its path), P10 (ELK worker stops with the last
+  Diagram).
+- UI: U2, U3 in part (Set to NULL, Undo this change), U4, U5, U6 (palette: Add a row Ctrl+Shift+N, Save
+  changes, Discard changes, Show the diagram), U7 in part, U8 (Discard with Undo), U9, U10, U11.
+- Still open from the review: U1 (SQLite's record pane onto the shared RecordPane), P1 (diff in Rust,
+  F7), P3 exports streamed from Rust, P4 one schema command per database, P5, P7, P8 adoption of only
+  this database's nodes, U3 per-cell marks, U7 Tab to nodes.
 
 **Open owner question (B1):** SAH-Pool slot release and force-release (about:blank, delete, restore)
 were reachable before round 3 only through the M1 path, and both write to the app's storage at its
