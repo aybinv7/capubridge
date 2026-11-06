@@ -18,6 +18,7 @@ const emit = defineEmits<{ create: [template?: Partial<MockRule>] }>();
     <Button
       size="sm"
       variant="solid-fill"
+      color="brand"
       content-class-name="gap-1.5"
       class="rounded-r-none"
       @click="emit('create')"
@@ -30,6 +31,7 @@ const emit = defineEmits<{ create: [template?: Partial<MockRule>] }>();
         <Button
           size="sm"
           variant="solid-fill"
+          color="brand"
           square
           aria-label="New rule from a template"
           class="rounded-l-none border-l border-background/20"

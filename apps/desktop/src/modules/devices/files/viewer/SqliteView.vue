@@ -80,6 +80,7 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
           v-if="props.route"
           size="sm"
           variant="solid-fill"
+          color="brand"
           :content-class-name="actionContent"
           @click="openInData"
         >

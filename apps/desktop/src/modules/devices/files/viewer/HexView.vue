@@ -59,6 +59,7 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
         <Button
           size="sm"
           variant="solid-fill"
+          color="brand"
           :content-class-name="actionContent"
           @click="emit('openOnComputer')"
         >

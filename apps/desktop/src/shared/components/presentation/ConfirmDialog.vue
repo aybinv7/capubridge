@@ -27,7 +27,7 @@ const more = computed(() => details.value.length - shown.value.length);
     :text="props.request?.text"
     :confirm-button-text="props.request?.confirmLabel"
     cancel-button-text="Cancel"
-    :confirm-button-color="props.request?.danger ? 'red' : undefined"
+    :confirm-button-color="props.request?.danger ? 'red' : 'brand'"
     :require-confirm-text="props.request?.requireConfirmText"
     :class="
       details.length ? 'w-[560px] max-w-[calc(100vw-48px)]' : 'w-[400px] max-w-[calc(100vw-48px)]'

@@ -49,7 +49,9 @@ const starters = DEFAULT_RULE_TEMPLATES.map((template) => ({
       </div>
 
       <div class="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
-        <Button size="sm" variant="solid-fill" @click="emit('create')">New empty rule</Button>
+        <Button size="sm" variant="solid-fill" color="brand" @click="emit('create')"
+          >New empty rule</Button
+        >
         <Button
           v-if="props.canOpenRequests"
           size="sm"

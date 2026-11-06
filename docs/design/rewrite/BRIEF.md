@@ -102,3 +102,10 @@ From the Device review (`device-review.md`), the mistakes reviewers caught most:
 - Charts that animate on every tick (`:duration="0"` for live data).
 - Raw dates and identifiers as primary text; empty states that keep a large pane open.
 - Breakpoints on the window width instead of the panel (use container queries).
+
+## Button hierarchy (owner decision, 2026-11-06)
+
+At most one primary action per view or dialog: `variant="solid-fill" color="brand"` (accent).
+Secondary is neutral `variant="solid"`, quiet is `variant="transparent"` / `IconAction`. Red
+(`color="red"`, or `danger: true` in the shared `ConfirmDialog`) only on the button that performs a
+destructive action. Never make every button primary. See `apps/desktop/DESIGN.md` §5.

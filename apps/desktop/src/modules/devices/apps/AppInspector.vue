@@ -97,6 +97,7 @@ const facts = computed(() => {
       <Button
         size="sm"
         variant="solid-fill"
+        color="brand"
         content-class-name="gap-1.5 px-3 [&>svg]:size-3.5"
         @click="emit('launch')"
       >

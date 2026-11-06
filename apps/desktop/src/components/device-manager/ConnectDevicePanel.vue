@@ -90,7 +90,9 @@ const fieldLabel = "text-2xs text-[var(--fg-subtle)]";
             <span :class="fieldLabel">Port</span>
             <Input v-model="port" input-mode="numeric" input-class-name="font-mono" />
           </label>
-          <Button type="submit" variant="solid-fill" :loading="props.connecting">Connect</Button>
+          <Button type="submit" variant="solid-fill" color="brand" :loading="props.connecting"
+            >Connect</Button
+          >
         </form>
       </section>
     </div>

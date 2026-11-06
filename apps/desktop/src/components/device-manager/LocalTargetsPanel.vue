@@ -59,6 +59,7 @@ const recent = computed(() => pageHistory.visits.filter((visit) => !openUrls.val
       <Button
         type="submit"
         variant="solid-fill"
+        color="brand"
         :loading="props.creating"
         content-class-name="px-3.5"
       >

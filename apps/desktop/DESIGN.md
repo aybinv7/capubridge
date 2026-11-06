@@ -12,7 +12,9 @@ Study and rationale: `docs/design/2026-11-04-ui-ux-rewrite-study.md`.
 ## 1. Principles
 
 - **Colour is meaning.** Every hue owns exactly one role. Decoration never uses a signal colour.
-- **Ink for action.** Primary actions are neutral ink on paper (`bg-brand`). Colour is for state.
+- **One accent for the main action.** Each view or dialog has at most one primary action, filled with
+  the brand accent (`variant="solid-fill" color="brand"`, the selection blue). Everything else is
+  neutral. Colour otherwise means state.
 - **Depth, not borders.** Surfaces are lit from the top-left (bevel) and recessed wells are cut
   in (cut). Borders exist for structure, not for decoration.
 - **Dense without squinting.** Nothing below 11 px; tabular numerals for all data.
@@ -85,8 +87,15 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
   `yellow`/`orange` → warning, `blue` → info, `brand` → select, `lime` → live, `cyan`/`purple`/`pink` →
   categories). Cladd's surface levels, hover and press derive from those, so no Cladd colour is tuned by
   hand. Cladd type tokens are clamped to the 11 px floor.
-- **Neutral by default.** `App.vue` wraps everything in `CladdProvider accent-color="neutral"`: a primary
-  action is `variant="solid-fill"` (ink on paper); secondary is `variant="transparent"`.
+- **Neutral by default, one accent.** `App.vue` wraps everything in `CladdProvider accent-color="neutral"`.
+  Button hierarchy:
+  - **Primary** — `variant="solid-fill" color="brand"`: the one main action of a view or dialog
+    (Save, Connect, Open, Apply, a non-destructive confirm).
+  - **Secondary** — `variant="solid"` (neutral raised).
+  - **Quiet** — `variant="transparent"`, and `IconAction` for icon buttons.
+  - **Destructive** — `color="red"`, only on the button that performs the delete, clear or uninstall
+    (the shared `ConfirmDialog` does this with `danger: true`); menu items that lead to it use red text.
+  - Recording keeps `signal-rec` red on its own start/stop control, as its state colour.
 - **Mode.** `applyTheme` sets `data-theme-mode` (the app's `dark:` variant) and the `dark`/`light` class
   (Cladd scopes and its `light:` variant).
 - **Overlays** portal to `body`, so the native-webview overlay guard sees Cladd dialogs, popups and

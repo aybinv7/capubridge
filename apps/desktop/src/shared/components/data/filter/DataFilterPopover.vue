@@ -177,7 +177,7 @@ function clearAll() {
         <Button v-if="predicates.length > 0" size="sm" variant="transparent" @click="clearAll">
           Clear filters
         </Button>
-        <Button size="sm" variant="solid-fill" @click="apply">Apply</Button>
+        <Button size="sm" variant="solid-fill" color="brand" @click="apply">Apply</Button>
       </div>
     </div>
   </Popover>

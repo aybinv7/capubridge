@@ -23,6 +23,7 @@ const emit = defineEmits<{ turnOn: [] }>();
     <Button
       size="sm"
       variant="solid-fill"
+      color="brand"
       class="shrink-0"
       :disabled="!props.hasTarget"
       @click="emit('turnOn')"
