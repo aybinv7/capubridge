@@ -1,5 +1,11 @@
 import { toast } from "vue-sonner";
-import type { OPFSDeleteResult, OPFSDeleteTarget, OPFSFilesDomain } from "@capubridge/cdp-protocol";
+import type {
+  OPFSDeleteResult,
+  OPFSDeleteTarget,
+  OPFSFilesDomain,
+  OPFSInspection,
+} from "@capubridge/cdp-protocol";
+import { formatBytes } from "@/shared/format/numbers";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import { isLiveDatabaseRole, type OpfsRow } from "./opfsModel";
 
@@ -15,7 +21,8 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const HELD_OPEN =
+/** Why a file the app holds open cannot be deleted, and what to do. */
+export const HELD_OPEN =
   "The app has it open (a live database). Close the app, or the database in it, then try again.";
 
 /** What deleting these rows can do to the app beyond losing the files. */
@@ -37,8 +44,60 @@ export function deleteWarnings(rows: readonly OpfsRow[]): string[] {
   return warnings;
 }
 
+function shortList(paths: readonly string[]): string {
+  const names = paths.slice(0, 3).map((path) => quoted(path.split("/").pop() ?? path));
+  const more = paths.length > 3 ? ` and ${paths.length - 3} more` : "";
+  return `${names.join(", ")}${more}`;
+}
+
+/** What the folders being deleted hold, in sentences, from a look inside just before asking. */
+export function insideWords(inspections: readonly OPFSInspection[]): string[] {
+  const folders = inspections.filter((entry) => entry.kind === "directory" && !entry.gone);
+  if (folders.length === 0) return [];
+  const files = folders.reduce((sum, entry) => sum + entry.files, 0);
+  const subfolders = folders.reduce((sum, entry) => sum + entry.folders, 0);
+  const bytes = folders.reduce((sum, entry) => sum + entry.bytes, 0);
+  const databases = folders.flatMap((entry) => entry.databases);
+  const journals = folders.flatMap((entry) => entry.journals);
+  const slots = folders.reduce((sum, entry) => sum + entry.poolSlots, 0);
+  const words: string[] = [];
+  const holds =
+    files + subfolders === 0
+      ? "It is empty."
+      : `Inside: ${plural(files, "file", "files")}${subfolders ? ` in ${plural(subfolders, "folder", "folders")}` : ""} (${formatBytes(bytes)}).`;
+  words.push(folders.length === 1 ? holds : holds.replace("Inside:", "Inside them:"));
+  if (databases.length > 0) {
+    words.push(
+      `${plural(databases.length, "SQLite database goes", "SQLite databases go")} with it: ${shortList(databases)}.`,
+    );
+  }
+  if (journals.length > 0) {
+    words.push(
+      `${plural(journals.length, "journal file", "journal files")} too (${shortList(journals)}); a database loses unsaved changes without them.`,
+    );
+  }
+  if (slots > 0) {
+    words.push(
+      `${plural(slots, "SAH-Pool slot", "SAH-Pool slots")}, each can hold a whole database.`,
+    );
+  }
+  if (folders.some((entry) => entry.truncated)) {
+    words.push("There are more files than were counted.");
+  }
+  return words;
+}
+
+/** The paths inside the targets that the app holds open; such a delete cannot run now. */
+export function heldOpen(inspections: readonly OPFSInspection[]): string[] {
+  return inspections.flatMap((entry) => entry.locked);
+}
+
 /** The question every delete asks first, naming what goes, where, and what it can break. */
-export function deleteQuestion(rows: readonly OpfsRow[], folder: string): ConfirmRequest {
+export function deleteQuestion(
+  rows: readonly OpfsRow[],
+  folder: string,
+  inspections: readonly OPFSInspection[] = [],
+): ConfirmRequest {
   const single = rows.length === 1 ? rows[0] : undefined;
   const where = folder ? `the folder ${quoted(folder)}` : "the top of OPFS";
   const what = single
@@ -49,6 +108,7 @@ export function deleteQuestion(rows: readonly OpfsRow[], folder: string): Confir
     title: single ? `Delete ${quoted(single.name)}?` : `Delete ${rows.length} items?`,
     text: [
       `${what} ${single ? "is" : "are"} deleted from ${where} in the app's OPFS on the phone. This cannot be undone.`,
+      ...insideWords(inspections),
       ...warnings,
     ].join(" "),
     confirmLabel: single
@@ -63,14 +123,35 @@ export function deleteQuestion(rows: readonly OpfsRow[], folder: string): Confir
 
 function changedQuestion(count: number): ConfirmRequest {
   return {
-    title: count === 1 ? "This file changed on the phone" : `${count} files changed on the phone`,
-    text: "The app wrote to it after the list was read, so it is not what you saw. Delete it anyway?",
+    title: count === 1 ? "This item changed on the phone" : `${count} items changed on the phone`,
+    text: "The app wrote to it after you were asked, so it is not what you saw. Delete it anyway?",
     confirmLabel: count === 1 ? "Delete it anyway" : "Delete them anyway",
     danger: true,
   };
 }
 
-function targetOf(row: OpfsRow): OPFSDeleteTarget {
+/**
+ * The target the phone checks: the size and date the list read, or for a file the list could
+ * not measure, the ones read just before the question; a folder's contents as looked at then.
+ */
+export function targetOf(row: OpfsRow, inspection?: OPFSInspection): OPFSDeleteTarget {
+  if (row.kind === "directory") {
+    return {
+      path: row.path,
+      kind: row.kind,
+      size: null,
+      lastModified: null,
+      fingerprint: inspection?.fingerprint ?? null,
+    };
+  }
+  if (row.size === null && inspection) {
+    return {
+      path: row.path,
+      kind: row.kind,
+      size: inspection.size,
+      lastModified: inspection.lastModified,
+    };
+  }
   return { path: row.path, kind: row.kind, size: row.size, lastModified: row.lastModified };
 }
 
@@ -129,14 +210,22 @@ export function opfsWrites(
   confirm: (request: ConfirmRequest) => Promise<boolean>,
   forget: (paths: readonly OpfsRow[]) => void,
 ) {
-  /** Deletes `rows`; resolves how many are no longer on the phone (deleted or already gone). */
-  async function removeRows(rows: readonly OpfsRow[]): Promise<number> {
+  /**
+   * Deletes `rows`, checked against `inspections` (the look inside read before the question);
+   * resolves how many are no longer on the phone (deleted or already gone).
+   */
+  async function removeRows(
+    rows: readonly OpfsRow[],
+    inspections: readonly OPFSInspection[] = [],
+  ): Promise<number> {
     if (rows.length === 0) return 0;
+    const byPath = new Map(inspections.map((entry) => [entry.path, entry]));
+    const targets = rows.map((row) => targetOf(row, byPath.get(row.path)));
     try {
-      const first = await domain.remove(origin, rows.map(targetOf));
+      const first = await domain.remove(origin, targets);
       let forced: OPFSDeleteResult | null = null;
       if (first.changed.length > 0 && (await confirm(changedQuestion(first.changed.length)))) {
-        const again = rows.filter((row) => first.changed.includes(row.path)).map(targetOf);
+        const again = targets.filter((target) => first.changed.includes(target.path));
         forced = await domain.remove(origin, again, true);
       }
       const result = merged(first, forced);

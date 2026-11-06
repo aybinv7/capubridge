@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { ref } from "vue";
-import type { OPFSDeleteResult, OPFSFilesDomain } from "@capubridge/cdp-protocol";
+import type { OPFSDeleteResult, OPFSFilesDomain, OPFSInspection } from "@capubridge/cdp-protocol";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 vi.mock("vue-sonner", () => ({ toast }));
@@ -176,5 +176,81 @@ describe("the folder's deletes", () => {
     expect(remove).toHaveBeenCalledTimes(1);
     expect(after).toHaveBeenCalledWith(1);
     expect(handle.busy.value).toBe(false);
+  });
+
+  function inspection(partial: Partial<OPFSInspection>): OPFSInspection {
+    return {
+      path: "data/cache",
+      kind: "directory",
+      gone: false,
+      files: 0,
+      folders: 0,
+      bytes: 0,
+      databases: [],
+      journals: [],
+      poolSlots: 0,
+      locked: [],
+      size: null,
+      lastModified: null,
+      fingerprint: "fp",
+      truncated: false,
+      ...partial,
+    };
+  }
+
+  test("a folder is looked inside before the question, which says what goes with it", async () => {
+    const inspect = vi.fn().mockResolvedValue([
+      inspection({
+        files: 3,
+        folders: 1,
+        bytes: 2048,
+        databases: ["data/cache/app.sqlite3"],
+        journals: ["data/cache/app.sqlite3-wal"],
+      }),
+    ]);
+    const remove = vi.fn().mockResolvedValue(result({ deleted: ["data/cache"] }));
+    const confirm = vi.fn().mockResolvedValue(true);
+    const handle = useOpfsWrites({
+      origin: ORIGIN,
+      folder: "data",
+      domain: () => ({ inspect, remove }) as unknown as OPFSFilesDomain,
+      pending: ref(false),
+      away: ref(null),
+      confirm,
+      forget: vi.fn(),
+      after: vi.fn(),
+    });
+    await handle.confirmAndRemove([dir]);
+    const text = String((confirm.mock.calls[0]?.[0] as { text?: string } | undefined)?.text);
+    expect(text).toMatch(/Inside: 3 files in 1 folder/);
+    expect(text).toMatch(/1 SQLite database goes with it: “app.sqlite3”/);
+    expect(text).toMatch(/journal file/);
+    expect(remove).toHaveBeenCalledWith(ORIGIN, [
+      { path: "data/cache", kind: "directory", size: null, lastModified: null, fingerprint: "fp" },
+    ]);
+  });
+
+  test("a folder with a file held open inside is refused before any question", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue([inspection({ locked: ["data/cache/app.sqlite3-wal"] })]);
+    const remove = vi.fn();
+    const confirm = vi.fn();
+    const handle = useOpfsWrites({
+      origin: ORIGIN,
+      folder: "data",
+      domain: () => ({ inspect, remove }) as unknown as OPFSFilesDomain,
+      pending: ref(false),
+      away: ref(null),
+      confirm,
+      forget: vi.fn(),
+      after: vi.fn(),
+    });
+    await expect(handle.confirmAndRemove([dir])).resolves.toBe(0);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith("Nothing was deleted", {
+      description: expect.stringContaining("“data/cache/app.sqlite3-wal” is held open"),
+    });
   });
 });

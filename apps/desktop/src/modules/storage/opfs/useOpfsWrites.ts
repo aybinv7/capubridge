@@ -1,9 +1,9 @@
 import { computed, ref, type Ref } from "vue";
 import { toast } from "vue-sonner";
-import type { OPFSFilesDomain } from "@capubridge/cdp-protocol";
+import type { OPFSFilesDomain, OPFSInspection } from "@capubridge/cdp-protocol";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { OpfsRow } from "./opfsModel";
-import { deleteQuestion, opfsWrites } from "./opfsWrites";
+import { HELD_OPEN, deleteQuestion, heldOpen, opfsWrites } from "./opfsWrites";
 
 /**
  * Deletes for the folder on screen. The origin and the folder are fixed for the life of the
@@ -31,14 +31,46 @@ export function useOpfsWrites(options: {
     return null;
   });
 
-  /** Asks first, naming what goes and what it can break; deletes only on yes. */
+  /** Looks inside folders and at files the list could not measure, before the question. */
+  async function look(rows: readonly OpfsRow[]): Promise<OPFSInspection[] | null> {
+    const needed = rows.filter((row) => row.kind === "directory" || row.size === null);
+    if (needed.length === 0) return [];
+    try {
+      busy.value = true;
+      return await options.domain().inspect(
+        options.origin,
+        needed.map((row) => ({ path: row.path, kind: row.kind })),
+      );
+    } catch (error) {
+      toast.error("Nothing was deleted", {
+        description: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  /**
+   * Looks inside what would go, refuses while the app holds any of it open, then asks, naming
+   * what goes and what it can break; deletes only on yes.
+   */
   async function confirmAndRemove(rows: readonly OpfsRow[]): Promise<number> {
     if (rows.length === 0 || busy.value) return 0;
     if (blockedReason.value) {
       toast.info("Nothing was deleted", { description: blockedReason.value });
       return 0;
     }
-    if (!(await options.confirm(deleteQuestion(rows, options.folder)))) return 0;
+    const inspections = await look(rows);
+    if (!inspections) return 0;
+    const held = heldOpen(inspections);
+    if (held.length > 0) {
+      toast.error("Nothing was deleted", {
+        description: `${held.length === 1 ? `“${held[0]}” is` : `${held.length} files are`} held open. ${HELD_OPEN}`,
+      });
+      return 0;
+    }
+    if (!(await options.confirm(deleteQuestion(rows, options.folder, inspections)))) return 0;
     if (blockedReason.value) {
       toast.info("Nothing was deleted", { description: blockedReason.value });
       return 0;
@@ -51,7 +83,7 @@ export function useOpfsWrites(options: {
         options.origin,
         options.confirm,
         options.forget,
-      ).removeRows(rows);
+      ).removeRows(rows, inspections);
       options.after(removed);
       return removed;
     } catch (error) {

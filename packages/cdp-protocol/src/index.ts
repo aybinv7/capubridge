@@ -122,6 +122,7 @@ export {
   OPFS_FOLDER_READ_LIMIT,
   OPFS_FOLDER_WALK_DEPTH,
   OPFS_FOLDER_WALK_LIMIT,
+  OPFS_INSPECT_FILE_LIMIT,
 } from "./cdp/domains/opfs-files.js";
 export type {
   OPFSDeleteFailure,
@@ -130,6 +131,7 @@ export type {
   OPFSFolderListing,
   OPFSFolderNode,
   OPFSFolderTree,
+  OPFSInspection,
   OPFSItem,
 } from "./cdp/domains/opfs-files.js";
 export { OpfsSqliteDiscovery } from "./cdp/domains/opfs-sqlite-discovery.js";

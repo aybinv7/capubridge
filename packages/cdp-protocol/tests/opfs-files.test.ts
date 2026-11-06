@@ -126,8 +126,15 @@ describe("OPFS files deletes", () => {
 
   test("deletes a folder with what is inside, and says what was already gone", async () => {
     seed();
+    const [pool] = await domain.inspect(PAGE, [{ path: ".opfs-sahpool", kind: "directory" }]);
     const result = await domain.remove(PAGE, [
-      { path: ".opfs-sahpool", kind: "directory", size: null, lastModified: null },
+      {
+        path: ".opfs-sahpool",
+        kind: "directory",
+        size: null,
+        lastModified: null,
+        fingerprint: pool?.fingerprint ?? null,
+      },
       { path: "missing.json", kind: "file", size: 2, lastModified: 1 },
     ]);
     expect(result.deleted).toEqual([".opfs-sahpool"]);
@@ -154,5 +161,104 @@ describe("OPFS files deletes", () => {
       ]),
     ).rejects.toBeInstanceOf(OPFSWrongOriginError);
     expect(root.has("logs/today.log")).toBe(true);
+  });
+});
+
+describe("OPFS folder deletes look inside first", () => {
+  function nested() {
+    const data = root.folder("data");
+    data.file("app.sqlite3", "SQLite format 3\0rest", 1000);
+    data.file("app.sqlite3-wal", "wal", 1000);
+    data.folder(".opfs-sahpool").folder(".opaque").file("Xa9", "slot");
+    data.folder("logs").file("today.log", "line");
+    return data;
+  }
+
+  test("says what the folder holds: files, databases, journals, slots, held-open files", async () => {
+    const data = nested();
+    const wal = data.children.get("app.sqlite3-wal");
+    if (wal && "locked" in wal) wal.locked = true;
+    const [inspection] = await domain.inspect(PAGE, [{ path: "data", kind: "directory" }]);
+    expect(inspection).toMatchObject({
+      path: "data",
+      gone: false,
+      files: 4,
+      folders: 3,
+      databases: ["data/app.sqlite3"],
+      journals: ["data/app.sqlite3-wal"],
+      poolSlots: 1,
+      locked: ["data/app.sqlite3-wal"],
+      truncated: false,
+    });
+    expect(inspection?.fingerprint).toEqual(expect.any(String));
+  });
+
+  test("a folder with a file held open inside is not touched at all", async () => {
+    const data = nested();
+    const deep = data.folder("logs").file("held.log", "x");
+    deep.locked = true;
+    const [inspection] = await domain.inspect(PAGE, [{ path: "data", kind: "directory" }]);
+    const result = await domain.remove(
+      PAGE,
+      [
+        {
+          path: "data",
+          kind: "directory",
+          size: null,
+          lastModified: null,
+          fingerprint: inspection?.fingerprint ?? null,
+        },
+      ],
+      true,
+    );
+    expect(result.busy).toEqual(["data"]);
+    expect(root.has("data/app.sqlite3")).toBe(true);
+    expect(root.has("data/logs/today.log")).toBe(true);
+  });
+
+  test("a folder whose contents changed since the question is kept until forced", async () => {
+    const data = nested();
+    const [inspection] = await domain.inspect(PAGE, [{ path: "data", kind: "directory" }]);
+    data.folder("logs").file("new.log", "x");
+    const target = {
+      path: "data",
+      kind: "directory" as const,
+      size: null,
+      lastModified: null,
+      fingerprint: inspection?.fingerprint ?? null,
+    };
+    expect((await domain.remove(PAGE, [target])).changed).toEqual(["data"]);
+    expect(root.has("data")).toBe(true);
+    expect((await domain.remove(PAGE, [target], true)).deleted).toEqual(["data"]);
+  });
+
+  test("a folder nobody looked inside is not deleted unless forced", async () => {
+    nested();
+    const result = await domain.remove(PAGE, [
+      { path: "data", kind: "directory", size: null, lastModified: null },
+    ]);
+    expect(result.changed).toEqual(["data"]);
+    expect(root.has("data")).toBe(true);
+  });
+
+  test("a file whose size was unknown is checked against its size read before the question", async () => {
+    nested();
+    const [inspection] = await domain.inspect(PAGE, [
+      { path: "data/logs/today.log", kind: "file" },
+    ]);
+    expect(inspection).toMatchObject({ size: 4, lastModified: 1_700_000_000_000 });
+    const unknown = {
+      path: "data/logs/today.log",
+      kind: "file" as const,
+      size: null,
+      lastModified: null,
+    };
+    expect((await domain.remove(PAGE, [unknown])).changed).toEqual(["data/logs/today.log"]);
+    const known = {
+      ...unknown,
+      size: inspection?.size ?? null,
+      lastModified: inspection?.lastModified ?? null,
+    };
+    expect((await domain.remove(PAGE, [known])).deleted).toEqual(["data/logs/today.log"]);
   });
 });

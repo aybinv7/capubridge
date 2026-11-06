@@ -85,7 +85,17 @@ export class FakeOpfsFolder {
     if (child instanceof FakeOpfsFolder && child.children.size > 0 && !options.recursive) {
       throw domError("InvalidModificationError", "The directory is not empty");
     }
+    if (child instanceof FakeOpfsFolder) child.clearUntilLocked();
     this.children.delete(name);
+  }
+
+  /** What a recursive delete does: removes entries one by one and stops at a held-open file. */
+  private clearUntilLocked(): void {
+    for (const [name, child] of this.children) {
+      if (child instanceof FakeOpfsFolder) child.clearUntilLocked();
+      else if (child.locked) throw domError("NoModificationAllowedError", "The file is locked");
+      this.children.delete(name);
+    }
   }
 
   has(path: string): boolean {

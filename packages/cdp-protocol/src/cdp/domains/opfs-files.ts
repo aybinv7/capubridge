@@ -4,11 +4,13 @@ import {
   deleteScript,
   folderScript,
   foldersScript,
+  inspectScript,
   type OPFSDeleteTarget,
 } from "./opfs-files-scripts.js";
 
 export type { OPFSDeleteTarget } from "./opfs-files-scripts.js";
 export {
+  OPFS_INSPECT_FILE_LIMIT,
   OPFS_FOLDER_READ_LIMIT,
   OPFS_FOLDER_WALK_DEPTH,
   OPFS_FOLDER_WALK_LIMIT,
@@ -27,6 +29,8 @@ export interface OPFSItem {
   locked?: boolean;
   /** Why the file could not be opened, in the phone's words. */
   unreadable?: string;
+  /** The listing ran out of time before it read this file's size and date. */
+  unread?: boolean;
 }
 
 export interface OPFSFolderListing {
@@ -60,6 +64,34 @@ export interface OPFSFolderTree {
 export interface OPFSDeleteFailure {
   path: string;
   error: string;
+}
+
+/** What deleting one target would take with it, read just before the question. */
+export interface OPFSInspection {
+  path: string;
+  kind: "file" | "directory";
+  /** Not on the phone any more (or not of this kind). */
+  gone: boolean;
+  /** Files and folders inside a folder (0 for a file). */
+  files: number;
+  folders: number;
+  /** Bytes of the files inside that could be read. */
+  bytes: number;
+  /** Paths of SQLite databases inside (by name or by their first bytes). */
+  databases: string[];
+  /** Paths of SQLite write-ahead logs, rollback journals and shared-memory files inside. */
+  journals: string[];
+  /** Files inside a SAH-Pool folder: each can hold a whole database. */
+  poolSlots: number;
+  /** Paths the app holds open; such a target cannot be deleted now. */
+  locked: string[];
+  /** A file's bytes and modification time; `null` for folders and held-open files. */
+  size: number | null;
+  lastModified: number | null;
+  /** A folder's contents, for the delete to compare; `null` when the look stopped at its limit. */
+  fingerprint: string | null;
+  /** The look stopped at `OPFS_INSPECT_FILE_LIMIT` files. */
+  truncated: boolean;
 }
 
 /** What a delete did, by path: deleted, already gone, kept because changed or held open, failed. */
@@ -133,6 +165,17 @@ export class OPFSFilesDomain {
   async folder(path: string, origin: string | null = null): Promise<OPFSFolderListing> {
     const reply = parseReply<OPFSFolderListing>(await this.evaluate(folderScript(origin, path)));
     return { origin: reply.origin, path: reply.path, entries: reply.entries, total: reply.total };
+  }
+
+  /** What deleting each target would take with it (see `OPFSInspection`). */
+  async inspect(
+    origin: string,
+    targets: readonly Pick<OPFSDeleteTarget, "path" | "kind">[],
+  ): Promise<OPFSInspection[]> {
+    const reply = parseReply<{ inspections: OPFSInspection[] }>(
+      await this.evaluate(inspectScript(origin, targets)),
+    );
+    return reply.inspections;
   }
 
   /** Deletes files and folders as the person saw them; see `OPFSDeleteResult`. */
