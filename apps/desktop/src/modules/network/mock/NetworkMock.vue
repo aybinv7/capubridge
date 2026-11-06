@@ -3,7 +3,6 @@ import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useStorage } from "@vueuse/core";
 import { toast } from "@/lib/toast";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useAppPackages } from "@/composables/useAppPackages";
 import { targetAppName } from "@/lib/target-app-name";
 import { useTargetsStore } from "@/stores/targets.store";
@@ -13,8 +12,8 @@ import MockInterceptionNote from "./MockInterceptionNote.vue";
 import MockModeGuide from "./MockModeGuide.vue";
 import MockOnboarding from "./MockOnboarding.vue";
 import MockRuleEditor from "./MockRuleEditor.vue";
-import MockSidebar from "./MockSidebar.vue";
 import MockToolbar from "./MockToolbar.vue";
+import MockWorkspace from "./MockWorkspace.vue";
 import { rulesSummary, scopeWords } from "./mockView";
 import { useMockCommands } from "./useMockCommands";
 import { useMockReverse } from "./useMockReverse";
@@ -146,61 +145,37 @@ useMockCommands({ create, importRule: transfer.importRule });
       @create="create"
       @open-requests="router.push({ name: 'network-requests' })"
     />
-    <ResizablePanelGroup
+    <MockWorkspace
       v-else
-      direction="horizontal"
-      auto-save-id="capubridge:network-mock"
-      class="min-h-0 flex-1"
+      v-model:view="sidebarView"
+      :rules="store.rules"
+      :log="store.log"
+      :selected-id="selectedId"
+      :hits="store.hitCountOf"
+      :any-hits="store.anyHits"
+      :pane-open="!!draft"
+      @select="select"
+      @open-rule="select"
+      @clear="clearSelection"
+      @toggle="store.setRuleEnabled"
+      @remove="remove"
+      @reset-hits="store.clearHitCounts()"
+      @clear-log="store.clearLog()"
     >
-      <ResizablePanel
-        id="network-mock-rules"
-        :order="1"
-        :default-size="34"
-        :min-size="24"
-        :max-size="52"
-      >
-        <MockSidebar
-          v-model:view="sidebarView"
-          :rules="store.rules"
-          :log="store.log"
-          :selected-id="selectedId"
-          :hits="store.hitCountOf"
-          :any-hits="store.anyHits"
-          @select="select"
-          @open-rule="select"
-          @clear="clearSelection"
-          @toggle="store.setRuleEnabled"
-          @remove="remove"
-          @reset-hits="store.clearHitCounts()"
-          @clear-log="store.clearLog()"
+      <template #pane>
+        <MockRuleEditor
+          v-if="draft"
+          :key="selectedId ?? ''"
+          v-model:draft="draft"
+          :mode="store.interceptMode"
+          :port="store.httpPort"
+          :transfer-pending="transfer.pending.value"
+          @duplicate="selectedId && duplicate(selectedId)"
+          @export="exportSelected"
+          @remove="selectedId && remove(selectedId)"
+          @close="clearSelection"
         />
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel id="network-mock-editor" :order="2" :min-size="40">
-        <div class="h-full border-l border-border-subtle">
-          <MockRuleEditor
-            v-if="draft"
-            :key="selectedId ?? ''"
-            v-model:draft="draft"
-            :mode="store.interceptMode"
-            :port="store.httpPort"
-            :transfer-pending="transfer.pending.value"
-            @duplicate="selectedId && duplicate(selectedId)"
-            @export="exportSelected"
-            @remove="selectedId && remove(selectedId)"
-          />
-          <div
-            v-else
-            class="flex h-full items-center justify-center p-8 text-xs text-muted-foreground"
-          >
-            {{
-              store.rules.length
-                ? "Choose a rule on the left to edit it."
-                : "No rules yet. Use New rule above, or Mock this response in Requests."
-            }}
-          </div>
-        </div>
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      </template>
+    </MockWorkspace>
   </div>
 </template>

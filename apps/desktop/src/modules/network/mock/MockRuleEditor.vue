@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { Braces, Copy, Download, Maximize2, Trash2 } from "lucide-vue-next";
+import { Braces, Copy, Download, Maximize2, Trash2, X } from "lucide-vue-next";
 import {
   Button,
   Input,
@@ -35,7 +35,7 @@ const draft = defineModel<MockRuleDraft>("draft", { required: true });
 
 const props = defineProps<{ mode: MockInterceptMode; port: number; transferPending: boolean }>();
 
-const emit = defineEmits<{ duplicate: []; export: []; remove: [] }>();
+const emit = defineEmits<{ duplicate: []; export: []; remove: []; close: [] }>();
 
 const bodyDialogOpen = ref(false);
 
@@ -123,6 +123,9 @@ const headersModel = computed({
         </IconAction>
         <IconAction label="Delete rule" @click="emit('remove')">
           <Trash2 :stroke-width="1.8" />
+        </IconAction>
+        <IconAction label="Close the rule" @click="emit('close')">
+          <X :stroke-width="1.8" />
         </IconAction>
       </div>
 
