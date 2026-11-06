@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import StorageGraphFieldSettings from "@/modules/storage/graph/StorageGraphFieldSettings.vue";
+import StorageGraphFieldSettings from "@/modules/storage/diagram/StorageGraphFieldSettings.vue";
 import type {
   StorageGraphClusterSelection,
   StorageGraphNodeAnnotation,

@@ -19,12 +19,12 @@ import {
   applySelectionAction,
   getSelectedCanvasNodes,
   type StorageGraphSelectionAction,
-} from "@/modules/storage/graph/storageGraphCanvas.utils";
+} from "@/modules/storage/diagram/storageGraphCanvas.utils";
 import type {
   StorageGraphMountedEdge,
   StorageGraphMountedNode,
-} from "@/modules/storage/graph/useStorageGraphCanvasNodes";
-import type { useStorageGraphHistory } from "@/modules/storage/graph/useStorageGraphHistory";
+} from "@/modules/storage/diagram/useStorageGraphCanvasNodes";
+import type { useStorageGraphHistory } from "@/modules/storage/diagram/useStorageGraphHistory";
 import type { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import type {
   StorageGraphClusterSelection,

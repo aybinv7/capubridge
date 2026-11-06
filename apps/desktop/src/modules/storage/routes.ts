@@ -87,7 +87,7 @@ export const storageRoutes = [
       {
         path: "graph",
         name: "storage-graph",
-        component: () => import("./graph/StorageGraphExplorer.vue"),
+        component: () => import("./diagram/StorageGraphExplorer.vue"),
         meta: { label: "Graph" },
       },
     ],

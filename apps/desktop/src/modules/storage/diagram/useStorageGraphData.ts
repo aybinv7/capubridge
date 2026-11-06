@@ -11,10 +11,10 @@ import { graphScopeKey, useStorageGraphStore } from "@/modules/storage/stores/us
 import {
   buildAutoLayoutPositions,
   buildSchemaLayoutPositions,
-} from "@/modules/storage/graph/storageGraph.utils";
-import { makeGraphId } from "@/modules/storage/graph/storageGraphEntityBuilders";
-import { useStorageGraphQueries } from "@/modules/storage/graph/useStorageGraphQueries";
-import { useStorageGraphRelationships } from "@/modules/storage/graph/useStorageGraphRelationships";
+} from "@/modules/storage/diagram/storageGraph.utils";
+import { makeGraphId } from "@/modules/storage/diagram/storageGraphEntityBuilders";
+import { useStorageGraphQueries } from "@/modules/storage/diagram/useStorageGraphQueries";
+import { useStorageGraphRelationships } from "@/modules/storage/diagram/useStorageGraphRelationships";
 import type {
   StorageGraphEntityDescriptor,
   StorageGraphNodeAnnotation,

@@ -1,5 +1,5 @@
 import { computed, type ComputedRef } from "vue";
-import { buildFieldMatchRelationships } from "@/modules/storage/graph/storageGraph.utils";
+import { buildFieldMatchRelationships } from "@/modules/storage/diagram/storageGraph.utils";
 import type {
   StorageGraphEntityDescriptor,
   StorageGraphManualEdgeRecord,

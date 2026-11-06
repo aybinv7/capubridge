@@ -8,12 +8,12 @@ import {
   buildLocalForageDescriptor,
   buildSqliteDescriptor,
   makeGraphId,
-} from "@/modules/storage/graph/storageGraphEntityBuilders";
+} from "@/modules/storage/diagram/storageGraphEntityBuilders";
 import {
   discoverLogicalSqliteReferences,
   logSqliteSchemaDiagnostics,
   type SqliteSchemaDiagnostic,
-} from "@/modules/storage/graph/storageGraphSqliteDiagnostics";
+} from "@/modules/storage/diagram/storageGraphSqliteDiagnostics";
 import type { StorageGraphEntityDescriptor } from "@/types/storageGraph.types";
 
 export interface UseStorageGraphQueriesParams {

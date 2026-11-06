@@ -242,30 +242,30 @@
     "button": 1,
     "switch": 1
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphCanvasDock.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphCanvasDock.vue": {
     "button": 1,
     "tooltip": 1
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphEntityNode.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphEntityNode.vue": {
     "badge": 1
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphExplorer.vue": {
     "badge": 1,
     "input": 1,
     "select": 1
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphInspector.vue": {
     "badge": 1,
     "button": 1,
     "dialog": 1,
     "input": 1,
     "textarea": 1
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphSelectionToolbar.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphSelectionToolbar.vue": {
     "button": 1,
     "tooltip": 1
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphViewportToolbar.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphViewportToolbar.vue": {
     "button": 1,
     "tooltip": 1
   }

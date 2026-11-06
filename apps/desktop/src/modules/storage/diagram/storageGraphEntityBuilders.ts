@@ -2,7 +2,7 @@ import { type IDBDatabaseInfo, type IDBRecord, type StoreInfo } from "@capubridg
 import {
   dedupeGraphFields,
   normalizeGraphFieldName,
-} from "@/modules/storage/graph/storageGraph.utils";
+} from "@/modules/storage/diagram/storageGraph.utils";
 import type { StorageGraphEntityDescriptor, StorageGraphField } from "@/types/storageGraph.types";
 
 export function makeGraphId(...parts: string[]): string {

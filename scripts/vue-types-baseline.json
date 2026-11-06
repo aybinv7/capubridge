@@ -38,10 +38,10 @@
   "apps/desktop/src/modules/recording/ReplayPlayer.vue": {
     "errors": 1
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphExplorer.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphExplorer.vue": {
     "errors": 2
   },
-  "apps/desktop/src/modules/storage/graph/StorageGraphInspector.vue": {
+  "apps/desktop/src/modules/storage/diagram/StorageGraphInspector.vue": {
     "errors": 5
   }
 }

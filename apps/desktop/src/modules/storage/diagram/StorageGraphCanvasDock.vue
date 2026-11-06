@@ -2,7 +2,7 @@
 import { Hand, LayoutGrid, MousePointer2, StickyNote, Waypoints } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { StorageGraphCanvasMode } from "@/modules/storage/graph/storageGraphCanvas.utils";
+import type { StorageGraphCanvasMode } from "@/modules/storage/diagram/storageGraphCanvas.utils";
 
 const props = defineProps<{
   mode: StorageGraphCanvasMode;

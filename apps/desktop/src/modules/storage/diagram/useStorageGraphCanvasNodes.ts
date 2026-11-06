@@ -5,8 +5,8 @@ import {
   getStorageGraphClusterTitle,
   isStorageGraphRouteAttached,
   type StorageGraphCanvasMode,
-} from "@/modules/storage/graph/storageGraphCanvas.utils";
-import { buildStorageGraphNamingFamilies } from "@/modules/storage/graph/storageGraphNamingFamilies";
+} from "@/modules/storage/diagram/storageGraphCanvas.utils";
+import { buildStorageGraphNamingFamilies } from "@/modules/storage/diagram/storageGraphNamingFamilies";
 import type { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import type {
   StorageGraphEntityDescriptor,

@@ -15,20 +15,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import StorageGraphCanvasDock from "@/modules/storage/graph/StorageGraphCanvasDock.vue";
-import StorageGraphEntityNode from "@/modules/storage/graph/StorageGraphEntityNode.vue";
-import StorageGraphGroupFrameNode from "@/modules/storage/graph/StorageGraphGroupFrameNode.vue";
-import StorageGraphInspector from "@/modules/storage/graph/StorageGraphInspector.vue";
-import StorageGraphNoteNode from "@/modules/storage/graph/StorageGraphNoteNode.vue";
-import StorageGraphRoutedEdge from "@/modules/storage/graph/StorageGraphRoutedEdge.vue";
-import StorageGraphSelectionToolbar from "@/modules/storage/graph/StorageGraphSelectionToolbar.vue";
-import type { StorageGraphCanvasMode } from "@/modules/storage/graph/storageGraphCanvas.utils";
-import StorageGraphViewportToolbar from "@/modules/storage/graph/StorageGraphViewportToolbar.vue";
-import { layoutStorageGraphWithElk } from "@/modules/storage/graph/storageGraphElkLayout";
-import { useStorageGraphCanvasInteractions } from "@/modules/storage/graph/useStorageGraphCanvasInteractions";
-import { useStorageGraphCanvasNodes } from "@/modules/storage/graph/useStorageGraphCanvasNodes";
-import { useStorageGraphData } from "@/modules/storage/graph/useStorageGraphData";
-import { useStorageGraphHistory } from "@/modules/storage/graph/useStorageGraphHistory";
+import StorageGraphCanvasDock from "@/modules/storage/diagram/StorageGraphCanvasDock.vue";
+import StorageGraphEntityNode from "@/modules/storage/diagram/StorageGraphEntityNode.vue";
+import StorageGraphGroupFrameNode from "@/modules/storage/diagram/StorageGraphGroupFrameNode.vue";
+import StorageGraphInspector from "@/modules/storage/diagram/StorageGraphInspector.vue";
+import StorageGraphNoteNode from "@/modules/storage/diagram/StorageGraphNoteNode.vue";
+import StorageGraphRoutedEdge from "@/modules/storage/diagram/StorageGraphRoutedEdge.vue";
+import StorageGraphSelectionToolbar from "@/modules/storage/diagram/StorageGraphSelectionToolbar.vue";
+import type { StorageGraphCanvasMode } from "@/modules/storage/diagram/storageGraphCanvas.utils";
+import StorageGraphViewportToolbar from "@/modules/storage/diagram/StorageGraphViewportToolbar.vue";
+import { layoutStorageGraphWithElk } from "@/modules/storage/diagram/storageGraphElkLayout";
+import { useStorageGraphCanvasInteractions } from "@/modules/storage/diagram/useStorageGraphCanvasInteractions";
+import { useStorageGraphCanvasNodes } from "@/modules/storage/diagram/useStorageGraphCanvasNodes";
+import { useStorageGraphData } from "@/modules/storage/diagram/useStorageGraphData";
+import { useStorageGraphHistory } from "@/modules/storage/diagram/useStorageGraphHistory";
 import { useStorageGraphStore } from "@/modules/storage/stores/useStorageGraphStore";
 import type { StorageGraphNodeAnnotation } from "@/types/storageGraph.types";
 import { useRouter } from "vue-router";

@@ -14,7 +14,7 @@ import {
 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { StorageGraphSelectionAction } from "@/modules/storage/graph/storageGraphCanvas.utils";
+import type { StorageGraphSelectionAction } from "@/modules/storage/diagram/storageGraphCanvas.utils";
 
 defineProps<{
   visible: boolean;

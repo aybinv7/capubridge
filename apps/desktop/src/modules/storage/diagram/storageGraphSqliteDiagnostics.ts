@@ -1,4 +1,4 @@
-import { makeGraphId } from "@/modules/storage/graph/storageGraphEntityBuilders";
+import { makeGraphId } from "@/modules/storage/diagram/storageGraphEntityBuilders";
 import type { StorageGraphEntityDescriptor } from "@/types/storageGraph.types";
 
 export interface SqliteSchemaDiagnostic {
