@@ -622,15 +622,17 @@ defineExpose({
       </template>
     </RecordSplit>
     <DataGridStatus :summary="summary" :total="total" hide-count>
-      <DataPager
-        :page="query.page.value"
-        :page-size="query.pageSize.value"
-        :has-more="hasMore"
-        :rows-on-page="result?.rows.length ?? 0"
-        :total="total"
-        @update:page="query.page.value = $event"
-        @update:page-size="query.setPageSize($event)"
-      />
+      <template #lead>
+        <DataPager
+          :page="query.page.value"
+          :page-size="query.pageSize.value"
+          :has-more="hasMore"
+          :rows-on-page="result?.rows.length ?? 0"
+          :total="total"
+          @update:page="query.page.value = $event"
+          @update:page-size="query.setPageSize($event)"
+        />
+      </template>
       <span v-if="grouped" class="text-cladd-fg-soft">groups of {{ grouped }}</span>
       <HintTooltip v-if="lockReason" :text="lockReason">
         <span class="flex items-center gap-1" tabindex="0">

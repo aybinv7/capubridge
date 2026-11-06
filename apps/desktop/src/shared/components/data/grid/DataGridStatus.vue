@@ -11,7 +11,7 @@ const props = defineProps<{
   hideCount?: boolean;
 }>();
 
-defineSlots<{ default?: () => unknown }>();
+defineSlots<{ default?: () => unknown; lead?: () => unknown }>();
 
 const count = computed(() => {
   const shown = props.summary.rowCount.toLocaleString("en-US");
@@ -44,6 +44,7 @@ const numbers = computed(() => {
   <div
     class="flex h-7 shrink-0 items-center gap-3 border-t border-[var(--border-subtle)] bg-[var(--bg-chrome)] px-3 font-mono text-2xs text-muted-foreground"
   >
+    <slot name="lead" />
     <span v-if="!hideCount" class="tabular-nums">{{ count }}</span>
     <span v-if="selection" class="tabular-nums text-foreground">{{ selection }}</span>
     <span v-if="summary.aggregate && summary.aggregate.nulls > 0" class="tabular-nums">

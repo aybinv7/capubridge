@@ -304,7 +304,7 @@ useSqliteCommands({
               @click="openSqliteFile(router)"
             >
               <FolderOpen :size="13" aria-hidden="true" />
-              <span class="flex-1 text-left">Open a SQLite file from this computer…</span>
+              <span class="flex-1 truncate text-left">Open a file…</span>
             </Button>
           </template>
           <template #empty>

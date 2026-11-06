@@ -629,6 +629,18 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
     :total="pageLocal ? model.rows.length : null"
     :hide-count="!pageLocal && !inStoreSearch"
   >
+    <template #lead>
+      <DataPager
+        v-if="!inStoreSearch"
+        :page="pager.page.value"
+        :page-size="pager.pageSize.value"
+        :has-more="pager.hasMore.value"
+        :rows-on-page="pager.pageRecords.value.length"
+        :total="storeInfo?.recordCount ?? null"
+        @update:page="goToPage"
+        @update:page-size="setPageSize"
+      />
+    </template>
     <span v-if="editNote" class="flex min-w-0 items-center gap-1 text-foreground" role="status">
       <Lock :size="11" aria-hidden="true" class="shrink-0" />
       <span class="truncate">{{ editNote }}</span>
@@ -661,16 +673,6 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
         read-only
       </span>
     </HintTooltip>
-    <DataPager
-      v-if="!inStoreSearch"
-      :page="pager.page.value"
-      :page-size="pager.pageSize.value"
-      :has-more="pager.hasMore.value"
-      :rows-on-page="pager.pageRecords.value.length"
-      :total="storeInfo?.recordCount ?? null"
-      @update:page="goToPage"
-      @update:page-size="setPageSize"
-    />
     <IconAction
       :label="pane.open.value ? 'Hide the record pane' : 'Show the record pane'"
       size="sm"
