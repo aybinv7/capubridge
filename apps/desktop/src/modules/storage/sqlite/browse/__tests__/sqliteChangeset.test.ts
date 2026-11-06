@@ -100,8 +100,8 @@ describe("reading saved rows back", () => {
         queries.push(sql);
         return sql.includes("rowid")
           ? {
-              columns: ["id", "name"],
-              rows: [[8, "scone"]],
+              columns: ["__capubridge_rowid", "id", "name"],
+              rows: [[8, 8, "scone"]],
               rowCount: 1,
               changes: 0,
               durationMs: 0,
@@ -114,8 +114,8 @@ describe("reading saved rows back", () => {
       [null, 8],
     );
     expect(queries).toEqual([
-      `SELECT * FROM "item" WHERE "id" IS 7 LIMIT 1`,
-      `SELECT * FROM "item" WHERE rowid = 8 LIMIT 1`,
+      `SELECT * FROM "item" WHERE ("id" IS 7)`,
+      `SELECT rowid AS "__capubridge_rowid", * FROM "item" WHERE rowid IN (8)`,
     ]);
     expect(back.differences).toEqual([]);
     expect(back.inserted[0]?.row).toEqual({ id: 8, name: "scone" });
@@ -228,5 +228,34 @@ describe("deleting rows (S6)", () => {
     expect(back.differences).toEqual([
       { column: "(row)", wrote: "deleted", reads: "still there", row: "[1]" },
     ]);
+  });
+});
+
+describe("reading a save back (P6)", () => {
+  test("200 edited rows are read back in two queries, not 200", async () => {
+    let staged = EMPTY_STAGED;
+    for (let i = 0; i < 200; i++) {
+      staged = stageCell(staged, { id: `[${i}]`, cells: { id: i, name: "old" } }, "name", "new");
+    }
+    const queries: string[] = [];
+    const back = await readBackChangeset(
+      async (sql) => {
+        queries.push(sql);
+        return {
+          columns: ["id", "name"],
+          rows: Array.from({ length: 200 }, (_, i) => [i, "new"]),
+          rowCount: 200,
+          changes: 0,
+          durationMs: 0,
+        };
+      },
+      "item",
+      ["id"],
+      staged,
+      [],
+    );
+    expect(queries).toHaveLength(2);
+    expect(back.differences).toEqual([]);
+    expect(back.edited).toHaveLength(200);
   });
 });
