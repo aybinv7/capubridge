@@ -1,4 +1,6 @@
 import type { RouteRecordRaw } from "vue-router";
+import { isNativeAppTarget } from "@/lib/app-target";
+import { useTargetsStore } from "@/stores/targets.store";
 import { lastDiagramPath } from "./diagram/diagramPlaces";
 import { OPEN_IDB_EXPORT_COMMAND, OPEN_SQLITE_FILE_COMMAND } from "./useDataAppCommands";
 
@@ -6,7 +8,10 @@ export const storageRoutes = [
   {
     path: "/storage",
     component: () => import("./StoragePanel.vue"),
-    redirect: "/storage/indexeddb",
+    redirect: () =>
+      isNativeAppTarget(useTargetsStore().selectedTarget)
+        ? "/storage/sqlite"
+        : "/storage/indexeddb",
     children: [
       {
         path: "indexeddb/:db?/:store?",
