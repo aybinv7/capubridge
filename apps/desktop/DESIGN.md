@@ -65,9 +65,10 @@ Scale (`text-*`): `2xs` 11/16 · `xs` 12/16 · `sm` 13/18 · `base` 14/20 · `lg
   height (`rounded-cladd-*`: 28 px → 8 px, 24 px → ~7 px, 20 px → ~6 px); chips use the pill variants.
   Hand-built screens keep `rounded-lg` panels and `rounded-md` controls until their phase-B rebuild.
 - **Depth** (ported from Cladd):
-  - `shadow-bevel` — raised surfaces. Dark is the soft bevel: one 1 px top-left highlight at 5 %, no
-    shade and no drop shadow. Cladd's outline (`shadow-cladd-outline`) is bridged to the same bevel, and
-    one Cladd surface level is the panel → raised step (`--cladd-surface-mix-amount` 3.4 %).
+  - `shadow-bevel` — raised surfaces. Dark uses Cladd's own outline: a 1 px top-left edge at 8 % and a
+    bottom-right edge at 7 %, no drop shadow, so controls read as clickable. Cladd's outline
+    (`shadow-cladd-outline`) and cut outline are bridged to `--bevel` and `--cut`, and one Cladd surface
+    level is the panel → raised step at Cladd's 6 % (`--cladd-surface-mix-amount`).
   - `shadow-bevel-strong` — pressed/emphasised raised surfaces.
   - `shadow-cut` — recessed wells.
   - `shadow-float` — the only drop shadow; overlays only.

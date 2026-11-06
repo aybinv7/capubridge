@@ -64,13 +64,15 @@
   --state-danger: oklch(0.7 0.19 22);
   --state-info: oklch(0.78 0.11 245);
 
-  --bevel: inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 5%, transparent);
+  --bevel:
+    inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 8%, transparent),
+    inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 7%, transparent);
   --bevel-strong:
     inset 1px 1px 0 0 color-mix(in oklab, var(--highlight) 14%, transparent),
-    inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 8%, transparent);
+    inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 10%, transparent);
   --cut:
-    inset 1px 1px 0 0 oklch(0 0 0 / 0.35),
-    inset 0 0 0 1px color-mix(in oklab, var(--highlight) 5%, transparent);
+    inset -1px -1px 0 0 color-mix(in oklab, var(--highlight) 2%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--highlight) 7%, transparent);
   --shadow-float: 0 24px 64px -12px oklch(0 0 0 / 0.55);
 }
 
