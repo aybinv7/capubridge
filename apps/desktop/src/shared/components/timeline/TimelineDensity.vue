@@ -30,7 +30,7 @@ function paint(ctx: CanvasRenderingContext2D) {
     />
     <div
       v-if="props.unkept > 0"
-      class="prov-stale pointer-events-none absolute inset-y-2 left-0 rounded-l-inner opacity-60"
+      class="prov-stale pointer-events-none absolute inset-y-2 left-0 rounded-l-inner opacity-40"
       :style="{ width: `${props.unkept}px` }"
       aria-hidden="true"
     />
