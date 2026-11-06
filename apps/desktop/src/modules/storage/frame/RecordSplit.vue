@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { nextTick, ref, useId, watch } from "vue";
 import { Surface, SurfaceCut } from "@capubridge/cladd";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
@@ -11,8 +11,9 @@ const SETTLE = "cubic-bezier(0, 1, 0.2, 1)";
  * well (`SurfaceCut`); the record pane is raised one level above the workspace (`Surface +1`).
  * One width for the pane across Data (persisted), 280–960 px, the grid never under 30 %; a
  * double-click on the handle puts the pane back to its default width. `maximized` lets the pane
- * fill the split: the grid stays mounted under it (inert), and the pane's edge travels across
- * with Cladd's settle curve.
+ * fill the split: it moves (teleported, never remounted) into an overlay that covers the whole
+ * split, the grid stays mounted under it (inert), and its edge travels across with Cladd's
+ * settle curve.
  */
 const props = defineProps<{
   paneOpen: boolean;
@@ -27,6 +28,8 @@ interface PanelHandle {
 
 const root = ref<HTMLElement | null>(null);
 const paneBox = ref<HTMLElement | null>(null);
+const overlay = ref<HTMLElement | null>(null);
+const overlayId = `record-overlay-${useId()}`;
 const panel = ref<PanelHandle | null>(null);
 const expanded = ref(props.maximized === true);
 
@@ -63,13 +66,13 @@ watch(
     if (next) {
       expanded.value = true;
       await nextTick();
-      paneBox.value?.animate([{ clipPath: closed }, { clipPath: open }], {
+      overlay.value?.animate([{ clipPath: closed }, { clipPath: open }], {
         duration: 500,
         easing: SETTLE,
       });
       return;
     }
-    const leaving = paneBox.value?.animate([{ clipPath: open }, { clipPath: closed }], {
+    const leaving = overlay.value?.animate([{ clipPath: open }, { clipPath: closed }], {
       duration: 200,
       easing: "ease-in-out",
     });
@@ -116,24 +119,28 @@ function resetWidth() {
           :max-size="960"
           class="min-h-0"
         >
-          <div
-            ref="paneBox"
-            class="h-full min-h-0 pr-2 pb-2"
-            :class="expanded ? 'absolute inset-0 z-10 pl-2' : ''"
-            :data-maximized="expanded || undefined"
-          >
-            <Surface
-              variant="solid"
-              level="+1"
-              outline
-              class="h-full min-h-0 overflow-hidden rounded-well"
-              content-class-name="flex h-full min-h-0 flex-col"
-            >
-              <slot name="pane" :maximized="expanded" />
-            </Surface>
+          <div ref="paneBox" class="h-full min-h-0 pr-2 pb-2">
+            <Teleport defer :to="`#${overlayId}`" :disabled="!expanded">
+              <Surface
+                variant="solid"
+                level="+1"
+                outline
+                class="h-full min-h-0 overflow-hidden rounded-well"
+                content-class-name="flex h-full min-h-0 flex-col"
+                :data-maximized="expanded || undefined"
+              >
+                <slot name="pane" :maximized="expanded" />
+              </Surface>
+            </Teleport>
           </div>
         </ResizablePanel>
       </template>
     </ResizablePanelGroup>
+    <div
+      :id="overlayId"
+      ref="overlay"
+      class="absolute inset-0 z-10 flex-col bg-surface-0 px-2 pb-2"
+      :class="expanded ? 'flex' : 'hidden'"
+    />
   </div>
 </template>
