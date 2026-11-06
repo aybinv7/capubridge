@@ -666,7 +666,7 @@ mod tests {
     async fn a_cancelled_save_leaves_the_destination_and_no_part_file() {
         let (_dir, destination) = destination_with(b"old");
         let mut source = FakeSource::new(&vec![7u8; (CHUNK_BYTES * 2) as usize]);
-        tauri::async_runtime::block_on(opfs_cancel_save("save-1".to_string())).expect("cancel");
+        opfs_cancel_save("save-1".to_string()).await.expect("cancel");
         let mut progress = |_: u64, _: u64| !take_cancelled("save-1");
         let error = save_into(&mut source, &mut progress, "app.sqlite3", &destination)
             .await
