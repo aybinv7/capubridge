@@ -7,7 +7,7 @@
 //! enter the JS heap at all.
 
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::Engine;
@@ -40,6 +40,14 @@ pub struct OpfsPullResult {
     pub path: String,
     pub size: u64,
     pub last_modified: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpfsSaveResult {
+    pub size: u64,
+    pub last_modified: f64,
+    pub changed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -181,7 +189,12 @@ impl CdpSession {
         })
     }
 
-    async fn read_chunk(&mut self, path: &str, offset: u64, length: u64) -> Result<Vec<u8>, String> {
+    async fn read_chunk(
+        &mut self,
+        path: &str,
+        offset: u64,
+        length: u64,
+    ) -> Result<Vec<u8>, String> {
         let escaped = escape_js_string(path);
         let expression = format!(
             r#"
@@ -260,16 +273,125 @@ pub async fn opfs_pull_sqlite(
 ) -> Result<OpfsPullResult, String> {
     validate_upstream_url(&ws_url)?;
     let mut session = CdpSession::open(&ws_url).await?;
-    let result = pull_into_file(
-        &mut session,
-        &window,
-        &path,
-        &label,
-        strip_sah_pool_header,
-    )
-    .await;
+    let result = pull_into_file(&mut session, &window, &path, &label, strip_sah_pool_header).await;
     let _ = session.socket.close(None).await;
     result
+}
+
+/// Stream an OPFS file to `destination` (picked by the person in a save
+/// dialog). The bytes land in a sibling `.capubridge-part` file first and
+/// replace the destination only once complete, so a failed copy never leaves
+/// a half file or destroys the one that was there. `changed` reports a file
+/// the app wrote to while it was being copied.
+#[tauri::command]
+pub async fn opfs_save_file(
+    window: tauri::Webview,
+    ws_url: String,
+    path: String,
+    destination: String,
+) -> Result<OpfsSaveResult, String> {
+    validate_upstream_url(&ws_url)?;
+    let mut session = CdpSession::open(&ws_url).await?;
+    let result = save_into(&mut session, &window, &path, Path::new(&destination)).await;
+    let _ = session.socket.close(None).await;
+    result
+}
+
+fn partial_path(destination: &Path) -> PathBuf {
+    let mut name = destination
+        .file_name()
+        .map(|name| name.to_os_string())
+        .unwrap_or_else(|| "opfs-file".into());
+    name.push(".capubridge-part");
+    destination.with_file_name(name)
+}
+
+fn same_stat(left: &OpfsFileStat, right: &OpfsFileStat) -> bool {
+    left.size == right.size && left.last_modified == right.last_modified
+}
+
+async fn save_into(
+    session: &mut CdpSession,
+    window: &tauri::Webview,
+    path: &str,
+    destination: &Path,
+) -> Result<OpfsSaveResult, String> {
+    let before = session.stat(path).await?;
+    let partial = partial_path(destination);
+    let written = copy_range(session, window, path, 0, before.size, &partial, false).await?;
+    let changed = match session.stat(path).await {
+        Ok(after) => !same_stat(&before, &after) || written != before.size,
+        Err(_) => true,
+    };
+    if let Err(error) = std::fs::rename(&partial, destination) {
+        let _ = std::fs::remove_file(&partial);
+        return Err(format!("Failed to save the file: {error}"));
+    }
+    Ok(OpfsSaveResult {
+        size: written,
+        last_modified: before.last_modified,
+        changed,
+    })
+}
+
+/// Copies `total` bytes of an OPFS file from `offset` into `target`, chunk by
+/// chunk, emitting progress. Removes `target` when anything fails, so no
+/// partial file is left behind.
+async fn copy_range(
+    session: &mut CdpSession,
+    window: &tauri::Webview,
+    path: &str,
+    offset: u64,
+    total: u64,
+    target: &Path,
+    expect_sqlite: bool,
+) -> Result<u64, String> {
+    let result =
+        copy_range_inner(session, window, path, offset, total, target, expect_sqlite).await;
+    if result.is_err() {
+        let _ = std::fs::remove_file(target);
+    }
+    result
+}
+
+async fn copy_range_inner(
+    session: &mut CdpSession,
+    window: &tauri::Webview,
+    path: &str,
+    offset: u64,
+    total: u64,
+    target: &Path,
+    expect_sqlite: bool,
+) -> Result<u64, String> {
+    let mut file = std::fs::File::create(target)
+        .map_err(|error| format!("Failed to create the local copy: {error}"))?;
+    let mut written: u64 = 0;
+    while written < total {
+        let length = CHUNK_BYTES.min(total - written);
+        let chunk = session.read_chunk(path, offset + written, length).await?;
+        if chunk.is_empty() {
+            break;
+        }
+        if expect_sqlite && written == 0 && !chunk.starts_with(SQLITE_MAGIC) {
+            return Err(format!(
+                "Bytes at offset {offset} of \"{path}\" are not a SQLite database (magic header mismatch)."
+            ));
+        }
+        file.write_all(&chunk)
+            .map_err(|error| format!("Failed to write the local copy: {error}"))?;
+        written += chunk.len() as u64;
+        let _ = window.emit(
+            "capubridge:opfs-pull-progress",
+            OpfsPullProgress {
+                opfs_path: path.to_string(),
+                loaded: written,
+                total,
+            },
+        );
+    }
+    file.flush()
+        .map_err(|error| format!("Failed to flush the local copy: {error}"))?;
+    Ok(written)
 }
 
 async fn pull_into_file(
@@ -289,44 +411,49 @@ async fn pull_into_file(
         return Err(format!("\"{path}\" is too small to hold a SQLite database"));
     }
     let total = stat.size - offset;
-
     let target = temp_target(label);
-    let mut file = std::fs::File::create(&target)
-        .map_err(|error| format!("Failed to create local snapshot: {error}"))?;
-
-    let mut written: u64 = 0;
-    while written < total {
-        let length = CHUNK_BYTES.min(total - written);
-        let chunk = session.read_chunk(path, offset + written, length).await?;
-        if chunk.is_empty() {
-            break;
-        }
-        if written == 0 && !chunk.starts_with(SQLITE_MAGIC) {
-            drop(file);
-            let _ = std::fs::remove_file(&target);
-            return Err(format!(
-                "Bytes at offset {offset} of \"{path}\" are not a SQLite database (magic header mismatch)."
-            ));
-        }
-        file.write_all(&chunk)
-            .map_err(|error| format!("Failed to write local snapshot: {error}"))?;
-        written += chunk.len() as u64;
-        let _ = window.emit(
-            "capubridge:opfs-pull-progress",
-            OpfsPullProgress {
-                opfs_path: path.to_string(),
-                loaded: written,
-                total,
-            },
-        );
-    }
-
-    file.flush()
-        .map_err(|error| format!("Failed to flush local snapshot: {error}"))?;
+    let written = copy_range(session, window, path, offset, total, &target, true).await?;
 
     Ok(OpfsPullResult {
         path: target.to_string_lossy().to_string(),
         size: written,
         last_modified: stat.last_modified,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn partial_path_sits_beside_the_destination() {
+        let destination = Path::new("C:/Users/me/Downloads/app.sqlite3");
+        assert_eq!(
+            partial_path(destination),
+            Path::new("C:/Users/me/Downloads/app.sqlite3.capubridge-part")
+        );
+    }
+
+    #[test]
+    fn same_stat_needs_size_and_time() {
+        let base = OpfsFileStat {
+            size: 10,
+            last_modified: 1.0,
+        };
+        assert!(same_stat(&base, &base.clone()));
+        assert!(!same_stat(
+            &base,
+            &OpfsFileStat {
+                size: 11,
+                last_modified: 1.0
+            }
+        ));
+        assert!(!same_stat(
+            &base,
+            &OpfsFileStat {
+                size: 10,
+                last_modified: 2.0
+            }
+        ));
+    }
 }

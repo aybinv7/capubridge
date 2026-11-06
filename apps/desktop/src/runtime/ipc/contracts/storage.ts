@@ -24,6 +24,13 @@ export interface OpfsPullResult {
   lastModified: number;
 }
 
+export interface OpfsSaveResult {
+  size: number;
+  lastModified: number;
+  /** The app wrote to the file while it was being copied. */
+  changed: boolean;
+}
+
 interface SqliteDatabaseArgs {
   serial: string;
   package: string;
@@ -56,6 +63,7 @@ export interface StorageCommandMap {
     },
     OpfsPullResult
   >;
+  opfs_save_file: IpcCommand<{ wsUrl: string; path: string; destination: string }, OpfsSaveResult>;
   sqlite_table_columns: IpcCommand<SqliteTableArgs, SqliteColumnInfo[]>;
   sqlite_table_indexes: IpcCommand<SqliteTableArgs, SqliteIndexInfo[]>;
   sqlite_table_foreign_keys: IpcCommand<SqliteTableArgs, SqliteForeignKeyInfo[]>;
