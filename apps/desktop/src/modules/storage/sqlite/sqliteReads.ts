@@ -15,16 +15,21 @@ export function openTables(address: SqliteAddress): Promise<SqliteTableInfo[]> {
   return invokeCommand("sqlite_open_database", addressArgs(address));
 }
 
-/** One read-only statement; `fullValues` sends every byte of every BLOB (exports). */
+/**
+ * One read-only statement; `fullValues` sends every byte of every BLOB (exports), `maxRows`
+ * stops Rust reading after that many rows.
+ */
 export function runQuery(
   address: SqliteAddress,
   sql: string,
   fullValues = false,
+  maxRows?: number,
 ): Promise<SqliteQueryResult> {
   return invokeCommand("sqlite_execute_query", {
     ...addressArgs(address),
     sql,
     ...(fullValues ? { fullValues } : {}),
+    ...(maxRows !== undefined ? { maxRows } : {}),
   });
 }
 

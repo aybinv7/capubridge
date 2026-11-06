@@ -18,6 +18,8 @@ import { runQuery } from "./sqliteReads";
 import { quoteIdent } from "./sqlText";
 import { useSqliteSqlHistory } from "./useSqliteSqlHistory";
 
+const PANE_ROWS = 10_000;
+
 /**
  * Free SQL on the open copy. The connection only reads, so any SELECT across any table runs and a
  * statement that would change data is refused by the database itself (C25). Ctrl+Enter runs;
@@ -61,8 +63,9 @@ watch(() => [props.databaseId, props.table], seed, { immediate: true });
 const columns = computed<GridColumn[]>(() =>
   (result.value?.columns ?? []).map((name, index) => ({ id: `${index}`, title: name })),
 );
+const capped = computed(() => (result.value?.rows.length ?? 0) > PANE_ROWS);
 const rows = computed<GridRow[]>(() =>
-  (result.value?.rows ?? []).map((values, index) => ({
+  (result.value?.rows ?? []).slice(0, PANE_ROWS).map((values, index) => ({
     id: `${index}`,
     cells: Object.fromEntries(values.map((value, column) => [`${column}`, value])),
   })),
@@ -75,7 +78,7 @@ async function run() {
   running.value = true;
   error.value = null;
   try {
-    result.value = await runQuery(address, sql);
+    result.value = await runQuery(address, sql, false, PANE_ROWS + 1);
     history.remember(props.databaseId, sql);
   } catch (failure) {
     error.value = (failure instanceof Error ? failure.message : String(failure)).replace(
@@ -158,7 +161,7 @@ defineExpose({ focus: () => editor.value?.focus() });
         </Popover>
         <span class="flex items-center gap-1 text-2xs text-muted-foreground">
           <Lock :size="11" aria-hidden="true" />
-          Read-only: the database refuses statements that change data.
+          This pane only reads.
         </span>
       </div>
     </div>
@@ -190,6 +193,10 @@ defineExpose({ focus: () => editor.value?.focus() });
         </DataGrid>
       </div>
       <DataGridStatus :summary="summary">
+        <span v-if="capped" class="tabular-nums" role="status">
+          Showing the first {{ PANE_ROWS.toLocaleString("en-US") }} rows; add a LIMIT or a WHERE to
+          see others
+        </span>
         <span class="tabular-nums">{{ result.durationMs }} ms</span>
       </DataGridStatus>
     </template>

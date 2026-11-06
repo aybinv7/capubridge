@@ -582,33 +582,6 @@ pub async fn sqlite_table_foreign_keys(
     .await
 }
 
-/// Every row of a prepared statement as JSON cells. A row that fails to read fails the whole
-/// read, so a page never shows fewer rows than the database holds without saying so.
-fn read_rows(
-    stmt: &mut rusqlite::Statement<'_>,
-    col_count: usize,
-    blob_limit: Option<usize>,
-    context: &str,
-) -> Result<Vec<Vec<Value>>, String> {
-    let mut rows = stmt.query([]).map_err(|e| format!("{context}: {e}"))?;
-    let mut out = Vec::new();
-    while let Some(row) = rows
-        .next()
-        .map_err(|e| format!("A row could not be read: {e}"))?
-    {
-        let mut vals = Vec::with_capacity(col_count);
-        for i in 0..col_count {
-            let val = row
-                .get_ref(i)
-                .map(|v| v.into())
-                .unwrap_or(rusqlite::types::Value::Null);
-            vals.push(sqlite_value_to_json(&val, blob_limit));
-        }
-        out.push(vals);
-    }
-    Ok(out)
-}
-
 /// Fetch paginated rows from a table.
 /// This is the only command that pulls the DB file (lazy, cached).
 #[tauri::command]
@@ -651,7 +624,13 @@ pub async fn sqlite_table_rows(
         let columns: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
         let col_count = columns.len();
 
-        let rows = read_rows(&mut stmt, col_count, blob_limit, "Failed to read rows")?;
+        let rows = rows::read_rows(
+            &mut stmt,
+            col_count,
+            blob_limit,
+            "Failed to read rows",
+            None,
+        )?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let row_count = rows.len();
@@ -676,6 +655,7 @@ pub async fn sqlite_execute_query(
     db_path: String,
     sql: String,
     full_values: Option<bool>,
+    max_rows: Option<usize>,
 ) -> Result<SqliteQueryResult, String> {
     tokio::task::spawn_blocking(move || {
         let local = obtain_local_path(&serial, &package, &db_path, false)?;
@@ -700,7 +680,7 @@ pub async fn sqlite_execute_query(
             return Err("Only SELECT queries are supported on read-only databases".to_string());
         }
 
-        let rows = read_rows(&mut stmt, col_count, blob_limit, "Query failed")?;
+        let rows = rows::read_rows(&mut stmt, col_count, blob_limit, "Query failed", max_rows)?;
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let row_count = rows.len();
@@ -986,5 +966,6 @@ pub async fn sqlite_execute_write(
     .map_err(|e| e.to_string())?
 }
 
+mod rows;
 #[cfg(test)]
 mod tests;

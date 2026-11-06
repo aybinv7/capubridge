@@ -107,7 +107,7 @@ export interface StorageCommandMap {
     SqliteQueryResult
   >;
   sqlite_execute_query: IpcCommand<
-    SqliteDatabaseArgs & { sql: string; fullValues?: boolean },
+    SqliteDatabaseArgs & { sql: string; fullValues?: boolean; maxRows?: number },
     SqliteQueryResult
   >;
   sqlite_execute_write: IpcCommand<SqliteDatabaseArgs & { sql: string }, SqliteQueryResult>;
