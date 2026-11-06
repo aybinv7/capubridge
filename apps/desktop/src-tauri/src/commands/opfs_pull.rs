@@ -295,7 +295,7 @@ fn emit_progress<'a>(
 /// Cancels the save `save_id`: it stops after the chunk in flight, removes its part file and
 /// leaves the destination as it was.
 #[tauri::command]
-pub fn opfs_cancel_save(save_id: String) -> Result<(), String> {
+pub async fn opfs_cancel_save(save_id: String) -> Result<(), String> {
     let mut cancelled = CANCELLED_SAVES
         .lock()
         .map_err(|_| "The save could not be cancelled".to_string())?;
@@ -666,7 +666,7 @@ mod tests {
     async fn a_cancelled_save_leaves_the_destination_and_no_part_file() {
         let (_dir, destination) = destination_with(b"old");
         let mut source = FakeSource::new(&vec![7u8; (CHUNK_BYTES * 2) as usize]);
-        opfs_cancel_save("save-1".to_string()).expect("cancel");
+        tauri::async_runtime::block_on(opfs_cancel_save("save-1".to_string())).expect("cancel");
         let mut progress = |_: u64, _: u64| !take_cancelled("save-1");
         let error = save_into(&mut source, &mut progress, "app.sqlite3", &destination)
             .await
