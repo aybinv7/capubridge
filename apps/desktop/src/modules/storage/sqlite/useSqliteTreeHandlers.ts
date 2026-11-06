@@ -4,6 +4,8 @@ import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
 import { useSqliteChangesStore } from "@/modules/storage/stores/useSqliteChangesStore";
 import { useSqliteFilesStore } from "@/modules/storage/stores/useSqliteFilesStore";
+import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
+import { closeOpenedFile } from "./closeOpenedFile";
 import type { SqliteColumnInfo, SqliteDbFile } from "@/types/sqlite.types";
 import { addressOf } from "./sqliteAddress";
 import { exportSqlDump, exportSqliteFile } from "./sqliteImportExport";
@@ -25,6 +27,7 @@ export function useSqliteTreeHandlers(
 ) {
   const router = useRouter();
   const files = useSqliteFilesStore();
+  const unsaved = useSqliteUnsavedStore();
   const changes = useSqliteChangesStore();
   const { location, settings, scope } = tab;
 
@@ -115,16 +118,22 @@ export function useSqliteTreeHandlers(
     });
   }
 
+  /** Closes an opened file, asking first when that drops staged edits or unwritten changes. */
   async function closeFile(sourceId: string) {
     const id = tab.fileIdOf(sourceId);
     if (!id) return;
-    const wasOpen = tab.current.value?.sourceId === sourceId;
     try {
-      await files.close(id);
+      await closeOpenedFile(sourceId, id, {
+        confirm,
+        files,
+        unsaved,
+        leave: () => {
+          if (tab.current.value?.sourceId === sourceId) location.open(null);
+        },
+      });
     } catch (error) {
       toast.error("Could not remove the working copy", { description: describe(error) });
     }
-    if (wasOpen) location.open(null);
   }
 
   function run(actionId: string, row: DataTreeRow) {

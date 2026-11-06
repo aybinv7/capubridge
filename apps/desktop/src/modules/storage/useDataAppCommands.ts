@@ -4,6 +4,7 @@ import { FolderOpen } from "lucide-vue-next";
 import { useCommandsStore } from "@/stores/commands.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { createDataPlaces } from "./frame/dataPlaces";
+import { useSqliteCloseGuard } from "./sqlite/useSqliteCloseGuard";
 
 /** Id of the app-wide "Open an IndexedDB export…" command (also offered by the IndexedDB gate). */
 export const OPEN_IDB_EXPORT_COMMAND = "data.idb.open-export";
@@ -14,10 +15,12 @@ export const OPEN_SQLITE_FILE_COMMAND = "data.sqlite.open-file";
 /**
  * Data commands that work from anywhere, phone or not: opening an export or a SQLite file lands
  * on the ungated file route of its tab. Also keeps where each Data tab was left, per target, so a
- * tab opened again from elsewhere comes back to it.
+ * tab opened again from elsewhere comes back to it, and asks before the window closes while SQLite
+ * changes would be lost.
  */
 export function useDataAppCommands(): void {
   const router = useRouter();
+  useSqliteCloseGuard();
   const commands = useCommandsStore();
   const targets = useTargetsStore();
   const places = createDataPlaces();

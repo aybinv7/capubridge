@@ -12,6 +12,7 @@
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",
     "core:window:allow-close",
+    "core:window:allow-destroy",
     "core:window:allow-is-maximized",
     "core:window:allow-set-always-on-top",
     "core:window:allow-show",
@@ -28,6 +29,7 @@
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
     "dialog:allow-open",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "dialog:allow-ask"
   ]
 }

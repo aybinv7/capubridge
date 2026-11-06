@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
 import { Lock, PanelRight } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
@@ -25,6 +25,7 @@ import DataPager from "@/modules/storage/frame/DataPager.vue";
 import DataState from "@/modules/storage/frame/DataState.vue";
 import { recordPaneOpen } from "@/modules/storage/frame/recordPaneOpen";
 import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
+import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
 import { downloadText, fileStem } from "@/lib/download";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import type {
@@ -115,6 +116,18 @@ const staging = useSqliteStagedEdits({
   writable: computed(() => !readOnly.value),
   save: (staged) => props.saveChanges(staged),
 });
+
+const unsavedTables = useSqliteUnsavedStore();
+watch(
+  () => staging.pending.value,
+  (count) =>
+    unsavedTables.track(props.databaseId, props.tableName, {
+      count,
+      discard: () => staging.discard(),
+    }),
+  { immediate: true },
+);
+onBeforeUnmount(() => unsavedTables.track(props.databaseId, props.tableName, null));
 
 const rowStates = computed(() => {
   const states = new Map<string, GridRowState>();
