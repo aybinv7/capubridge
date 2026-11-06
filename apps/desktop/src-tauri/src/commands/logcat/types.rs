@@ -59,3 +59,11 @@ pub(crate) trait LogcatSink: Send + Sync + 'static {
     fn status(&self, status: LogcatStatusPayload);
     fn ended(&self, serial: &str, generation: u64);
 }
+
+/// What a holder's channel receives: line batches and state changes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "payload", rename_all = "camelCase")]
+pub enum LogcatStreamMessage {
+    Batch(LogcatBatchPayload),
+    Status(LogcatStatusPayload),
+}

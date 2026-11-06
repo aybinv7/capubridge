@@ -4,20 +4,15 @@ import { useDockStore } from "@/stores/dock.store";
 import { createFrameBatcher } from "@/lib/frame-batcher";
 import { createSerialQueue } from "@/lib/serial-queue";
 import { toLogcatEntry } from "@/lib/logcat/logcatEntry";
-import {
-  runSessionEffect,
-  startLogcatLeaseEffect,
-  stopLogcatLeaseEffect,
-  subscribeSessionEventsEffect,
-} from "@/runtime/session";
+import { runSessionEffect, startLogcatLeaseEffect, stopLogcatLeaseEffect } from "@/runtime/session";
 import type {
   LogcatBatchPayload,
   LogcatClockSample,
   LogcatEntry,
   LogcatStatusPayload,
+  LogcatStreamMessage,
   LogcatStreamState,
 } from "@/types/logcat.types";
-import type { SessionEvent } from "@/types/session.types";
 
 const maxLogcatEntries = 900;
 const maxPausedBufferEntries = maxLogcatEntries;
@@ -41,8 +36,9 @@ function errorMessage(error: unknown): string {
 /**
  * Logcat of the active device, captured at app level. The window holds one lease on the
  * device's capture (Rust shares one run between every window that holds it); views only read.
- * Rust streams one long-running logcat per device and reconnects on its own; this store shows
- * the state it reports, and ignores reports from a run that was replaced.
+ * Rust streams one long-running logcat per device, reconnects on its own and sends batches on a
+ * channel only this window receives; this store shows the state it reports, and ignores reports
+ * from a run or channel that was replaced.
  */
 export const useLogcatStore = defineStore("logcat", () => {
   const dockStore = useDockStore();
@@ -55,19 +51,17 @@ export const useLogcatStore = defineStore("logcat", () => {
   const retryInMs = ref<number | null>(null);
   const clock = ref<LogcatClockSample | null>(null);
   const clockWentBack = ref(false);
-  const isReady = ref(false);
   const isPaused = ref(false);
   const pausedEntries = shallowRef<LogcatEntry[]>([]);
   const pausedCount = ref(0);
   const pausedDropped = ref(0);
   const error = ref<string | null>(null);
-  const unlisten = shallowRef<null | (() => void)>(null);
 
   const isStreaming = computed(() => streamState.value === "live");
 
-  let initializePromise: Promise<void> | null = null;
   let heldSerial: string | null = null;
   let generation = 0;
+  let channelToken = 0;
 
   const batcher = createFrameBatcher<LogcatEntry>((batch) => {
     if (isPaused.value) {
@@ -99,10 +93,7 @@ export const useLogcatStore = defineStore("logcat", () => {
   }
 
   function handleBatch(batch: LogcatBatchPayload) {
-    if (batch.serial !== serial.value || heldSerial !== batch.serial) {
-      return;
-    }
-    if (!acceptsGeneration(batch.generation)) {
+    if (batch.serial !== serial.value || !acceptsGeneration(batch.generation)) {
       return;
     }
     for (const line of batch.lines) {
@@ -111,10 +102,7 @@ export const useLogcatStore = defineStore("logcat", () => {
   }
 
   function handleStatus(status: LogcatStatusPayload) {
-    if (status.serial !== serial.value || heldSerial !== status.serial) {
-      return;
-    }
-    if (!acceptsGeneration(status.generation)) {
+    if (status.serial !== serial.value || !acceptsGeneration(status.generation)) {
       return;
     }
     streamState.value = status.state;
@@ -130,36 +118,15 @@ export const useLogcatStore = defineStore("logcat", () => {
         : null;
   }
 
-  function handleSessionEvent(event: SessionEvent) {
-    if (event.type === "logcatBatch") {
-      handleBatch(event.batch);
+  function handleMessage(token: number, message: LogcatStreamMessage) {
+    if (token !== channelToken) {
       return;
     }
-    if (event.type === "logcatStatus") {
-      handleStatus(event.status);
-    }
-  }
-
-  async function initialize() {
-    if (isReady.value) {
+    if (message.type === "batch") {
+      handleBatch(message.payload);
       return;
     }
-    if (initializePromise) {
-      return initializePromise;
-    }
-
-    initializePromise = (async () => {
-      if (!unlisten.value) {
-        unlisten.value = await runSessionEffect(subscribeSessionEventsEffect(handleSessionEvent), {
-          operation: "session.subscribeLogcat",
-        });
-      }
-      isReady.value = true;
-    })().finally(() => {
-      initializePromise = null;
-    });
-
-    return initializePromise;
+    handleStatus(message.payload);
   }
 
   function resetStreamState() {
@@ -175,6 +142,7 @@ export const useLogcatStore = defineStore("logcat", () => {
       return;
     }
     heldSerial = null;
+    channelToken += 1;
     resetStreamState();
     try {
       await runSessionEffect(stopLogcatLeaseEffect(previous), {
@@ -188,17 +156,23 @@ export const useLogcatStore = defineStore("logcat", () => {
   async function acquire(targetSerial: string, restart: boolean) {
     error.value = null;
     heldSerial = targetSerial;
+    const token = ++channelToken;
     if (streamState.value === "stopped") {
       streamState.value = "connecting";
     }
     try {
-      await runSessionEffect(startLogcatLeaseEffect(targetSerial, { restart }), {
-        operation: "session.startLogcatLease",
-      });
+      await runSessionEffect(
+        startLogcatLeaseEffect(targetSerial, (message) => handleMessage(token, message), {
+          restart,
+        }),
+        { operation: "session.startLogcatLease" },
+      );
     } catch (err) {
-      heldSerial = null;
-      resetStreamState();
-      error.value = errorMessage(err);
+      if (token === channelToken) {
+        heldSerial = null;
+        resetStreamState();
+        error.value = errorMessage(err);
+      }
     }
   }
 
@@ -209,7 +183,6 @@ export const useLogcatStore = defineStore("logcat", () => {
    */
   function follow(nextSerial: string | null, online = true) {
     return leaseQueue.run(async () => {
-      await initialize();
       const wanted = online ? nextSerial : null;
       if (wanted && wanted === heldSerial && wanted === serial.value) {
         return;
@@ -239,7 +212,6 @@ export const useLogcatStore = defineStore("logcat", () => {
   /** Starts a fresh capture run for the current device and clears the view. */
   function restart() {
     return leaseQueue.run(async () => {
-      await initialize();
       const currentSerial = serial.value;
       if (!currentSerial) {
         return;
@@ -278,16 +250,6 @@ export const useLogcatStore = defineStore("logcat", () => {
     pause();
   }
 
-  async function dispose() {
-    await follow(null);
-    const stopListening = unlisten.value;
-    unlisten.value = null;
-    if (stopListening) {
-      stopListening();
-    }
-    isReady.value = false;
-  }
-
   return {
     entries,
     serial,
@@ -297,18 +259,15 @@ export const useLogcatStore = defineStore("logcat", () => {
     clock,
     clockWentBack,
     isStreaming,
-    isReady,
     isPaused,
     pausedCount,
     pausedDropped,
     error,
-    initialize,
     follow,
     restart,
     pause,
     resume,
     togglePaused,
     clear,
-    dispose,
   };
 });

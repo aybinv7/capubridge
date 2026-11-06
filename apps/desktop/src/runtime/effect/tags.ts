@@ -1,6 +1,7 @@
 import { Context, Data, Effect } from "effect";
 import type { IpcError } from "@/runtime/ipc/error";
 import type { SessionPackageScope } from "@/runtime/ipc/contracts/session";
+import type { LogcatStreamMessage } from "@/types/logcat.types";
 import type { AdbPackage, DeviceInfo, ReverseRule, WebViewSocket } from "@/types/adb.types";
 import type {
   SessionDeviceSnapshot,
@@ -50,6 +51,7 @@ export interface SessionBridgeService {
   refreshTargets: (serial: string) => Effect.Effect<SessionTargetSnapshot[], IpcError>;
   startLogcatLease: (
     serial: string,
+    onMessage: (message: LogcatStreamMessage) => void,
     options?: { restart?: boolean },
   ) => Effect.Effect<SessionLeaseState, IpcError>;
   stopLogcatLease: (serial: string) => Effect.Effect<SessionLeaseState, IpcError>;

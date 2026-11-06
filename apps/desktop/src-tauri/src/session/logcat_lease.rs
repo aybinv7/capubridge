@@ -2,15 +2,19 @@ use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 
 use parking_lot::Mutex;
+use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
+use crate::commands::logcat::fanout::LOGCAT_FANOUT;
 use crate::commands::logcat::leases::{
-    logcat_holder_name, LogcatAcquire, LogcatRun, LOGCAT_LEASES,
+    logcat_holder_name, LogcatAcquire, LogcatRelease, LogcatRun, LOGCAT_LEASES,
 };
 use crate::commands::logcat::spawn_logcat_run;
-use crate::commands::logcat::types::{LogcatBatchPayload, LogcatSink, LogcatStatusPayload};
+use crate::commands::logcat::types::{
+    LogcatBatchPayload, LogcatSink, LogcatStatusPayload, LogcatStreamMessage,
+};
 use crate::error::{AppResult, AppResultExt};
-use crate::session::events::{emit_lease_state, emit_logcat_batch, emit_logcat_status};
+use crate::session::events::emit_lease_state;
 use crate::session::live_features::require_hot_session;
 use crate::session::registry::{SessionRegistry, SessionRegistryState};
 use crate::session::types::SessionLeaseState;
@@ -18,7 +22,8 @@ use crate::session::types::SessionLeaseState;
 static HOOKED_WINDOWS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 
-/// Delivers a run's reports to the app, dropping those of a run that was replaced.
+/// Delivers a run's reports to the windows holding it, dropping those of a run
+/// that was replaced.
 struct AppLogcatSink {
     app: AppHandle,
     registry: Arc<SessionRegistry>,
@@ -30,7 +35,7 @@ impl LogcatSink for AppLogcatSink {
             .lock()
             .is_current(&batch.serial, batch.generation)
         {
-            emit_logcat_batch(&self.app, batch);
+            LOGCAT_FANOUT.lock().lines(batch);
         }
     }
 
@@ -39,7 +44,7 @@ impl LogcatSink for AppLogcatSink {
             .lock()
             .is_current(&status.serial, status.generation)
         {
-            emit_logcat_status(&self.app, status);
+            LOGCAT_FANOUT.lock().status(status);
         }
     }
 
@@ -68,13 +73,18 @@ fn spawn_run(app: &AppHandle, registry: Arc<SessionRegistry>, serial: &str, run:
     spawn_logcat_run(serial.to_string(), run, sink);
 }
 
+fn finish_release(serial: &str, holder: &str, release: &LogcatRelease) {
+    LOGCAT_FANOUT.lock().detach(serial, holder);
+    if let Some(run) = &release.stopped {
+        run.stop();
+    }
+}
+
 fn release_window_holder(app: &AppHandle, holder: &str) {
-    let registry = app.state::<SessionRegistryState>().registry();
     let released = LOGCAT_LEASES.lock().release_everywhere(holder);
+    let registry = app.state::<SessionRegistryState>().registry();
     for (serial, release) in released {
-        if let Some(run) = release.stopped {
-            run.stop();
-        }
+        finish_release(&serial, holder, &release);
         if let Ok(lease) = registry.set_logcat_lease(&serial, release.still_held) {
             emit_lease_state(app, lease);
         }
@@ -96,14 +106,18 @@ fn hook_window_close(app: &AppHandle, webview: &tauri::Webview, holder: &str) {
 }
 
 /// Takes the device's logcat capture for `holder` (default: the calling
-/// window). One capture runs per device, shared by every holder; `restart`
-/// replaces it with a fresh run without dropping anyone.
+/// window) and streams it to `on_event`: line batches (at most every 50 ms or
+/// 500 lines) and state changes, sent only to the windows that hold it. One
+/// capture runs per device, shared by every holder; a holder that joins a
+/// running capture first receives its recent backlog. `restart` replaces the
+/// capture with a fresh run without dropping anyone.
 #[tauri::command]
 pub async fn session_start_logcat_lease(
     app: AppHandle,
     webview: tauri::Webview,
     state: State<'_, SessionRegistryState>,
     serial: String,
+    on_event: Channel<LogcatStreamMessage>,
     holder: Option<String>,
     restart: Option<bool>,
 ) -> AppResult<SessionLeaseState> {
@@ -114,6 +128,13 @@ pub async fn session_start_logcat_lease(
     let outcome = LOGCAT_LEASES
         .lock()
         .acquire(&serial, &holder, restart.unwrap_or(false));
+    let generation = match &outcome {
+        LogcatAcquire::Start { run, .. } => run.generation,
+        LogcatAcquire::Joined { generation } => *generation,
+    };
+    LOGCAT_FANOUT
+        .lock()
+        .attach(&serial, &holder, generation, Box::new(on_event));
     if let LogcatAcquire::Start { run, replaced } = outcome {
         if let Some(previous) = replaced {
             previous.stop();
@@ -140,9 +161,7 @@ pub async fn session_stop_logcat_lease(
 ) -> AppResult<SessionLeaseState> {
     let holder = logcat_holder_name(holder.or_else(|| Some(webview.label().to_string())));
     let release = LOGCAT_LEASES.lock().release(&serial, &holder);
-    if let Some(run) = release.stopped {
-        run.stop();
-    }
+    finish_release(&serial, &holder, &release);
     let lease = state
         .registry()
         .set_logcat_lease(&serial, release.still_held)

@@ -1,3 +1,4 @@
+import { Channel } from "@tauri-apps/api/core";
 import { Effect, Layer } from "effect";
 import { invokeCommandEffect, listenEventEffect } from "@/runtime/ipc/effect";
 import { normalizeSessionError, type SessionRequestOptions } from "@/runtime/effect/cancellation";
@@ -7,6 +8,7 @@ import {
   type SessionPackageScope,
 } from "@/runtime/effect/tags";
 import type { SessionEvent } from "@/types/session.types";
+import type { LogcatStreamMessage } from "@/types/logcat.types";
 
 export const SESSION_EVENT_NAME = "capubridge:session-event" as const;
 
@@ -90,9 +92,22 @@ export function refreshTargetsEffect(serial: string) {
   return invokeCommandEffect("session_refresh_targets", { serial });
 }
 
-/** Takes this window's hold on the device's logcat capture; `restart` begins a fresh run. */
-export function startLogcatLeaseEffect(serial: string, options: { restart?: boolean } = {}) {
-  return invokeCommandEffect("session_start_logcat_lease", { serial, restart: options.restart });
+/**
+ * Takes this window's hold on the device's logcat capture. Line batches and state changes
+ * arrive on a channel only this window receives; `restart` begins a fresh run.
+ */
+export function startLogcatLeaseEffect(
+  serial: string,
+  onMessage: (message: LogcatStreamMessage) => void,
+  options: { restart?: boolean } = {},
+) {
+  const onEvent = new Channel<LogcatStreamMessage>();
+  onEvent.onmessage = onMessage;
+  return invokeCommandEffect("session_start_logcat_lease", {
+    serial,
+    onEvent,
+    restart: options.restart,
+  });
 }
 
 /** Gives this window's hold back; the capture stops when no window holds it. */

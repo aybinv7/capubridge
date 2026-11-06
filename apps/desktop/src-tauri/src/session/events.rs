@@ -1,6 +1,5 @@
 use tauri::{AppHandle, Emitter};
 
-use crate::commands::logcat::{LogcatBatchPayload, LogcatStatusPayload};
 use crate::commands::perf::PerfMetrics;
 use crate::session::types::{SessionEvent, SessionLeaseState, SessionRegistrySnapshot};
 
@@ -18,14 +17,6 @@ pub fn emit_lease_state(app: &AppHandle, lease: SessionLeaseState) {
         SESSION_EVENT_NAME,
         SessionEvent::LeaseStateChanged { lease },
     );
-}
-
-pub fn emit_logcat_batch(app: &AppHandle, batch: LogcatBatchPayload) {
-    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::LogcatBatch { batch });
-}
-
-pub fn emit_logcat_status(app: &AppHandle, status: LogcatStatusPayload) {
-    let _ = app.emit(SESSION_EVENT_NAME, SessionEvent::LogcatStatus { status });
 }
 
 pub fn emit_perf_metrics(app: &AppHandle, serial: String, metrics: PerfMetrics) {

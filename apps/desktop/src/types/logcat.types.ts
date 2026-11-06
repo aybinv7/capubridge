@@ -57,3 +57,8 @@ export interface LogcatEntry {
   packageName: string | null;
   message: string;
 }
+
+/** What this window's logcat channel receives. */
+export type LogcatStreamMessage =
+  | { type: "batch"; payload: LogcatBatchPayload }
+  | { type: "status"; payload: LogcatStatusPayload };

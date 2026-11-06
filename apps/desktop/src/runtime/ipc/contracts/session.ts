@@ -1,3 +1,4 @@
+import type { Channel } from "@tauri-apps/api/core";
 import type { AdbPackage, DeviceInfo, ReverseRule, WebViewSocket } from "@/types/adb.types";
 import type {
   SessionDeviceSnapshot,
@@ -6,6 +7,7 @@ import type {
   SessionTargetSnapshot,
 } from "@/types/session.types";
 import type { IpcCommand } from "@/runtime/ipc/contracts/common";
+import type { LogcatStreamMessage } from "@/types/logcat.types";
 
 export type SessionPackageScope = "third-party" | "all";
 
@@ -34,7 +36,12 @@ export interface SessionCommandMap {
   session_list_targets: IpcCommand<{ serial: string }, SessionTargetSnapshot[]>;
   session_refresh_targets: IpcCommand<{ serial: string }, SessionTargetSnapshot[]>;
   session_start_logcat_lease: IpcCommand<
-    { serial: string; holder?: string; restart?: boolean },
+    {
+      serial: string;
+      onEvent: Channel<LogcatStreamMessage>;
+      holder?: string;
+      restart?: boolean;
+    },
     SessionLeaseState
   >;
   session_stop_logcat_lease: IpcCommand<{ serial: string; holder?: string }, SessionLeaseState>;

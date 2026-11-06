@@ -1,5 +1,4 @@
 use crate::commands::adb::DeviceKind;
-use crate::commands::logcat::{LogcatBatchPayload, LogcatStatusPayload};
 use crate::commands::perf::PerfMetrics;
 use serde::{Deserialize, Serialize};
 
@@ -115,8 +114,6 @@ pub struct SessionLeaseState {
 pub enum SessionEvent {
     RegistryUpdated { snapshot: SessionRegistrySnapshot },
     LeaseStateChanged { lease: SessionLeaseState },
-    LogcatBatch { batch: LogcatBatchPayload },
-    LogcatStatus { status: LogcatStatusPayload },
     PerfMetrics { serial: String, metrics: PerfMetrics },
     PerfError { serial: String, message: String },
 }

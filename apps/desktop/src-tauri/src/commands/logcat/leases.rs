@@ -40,7 +40,7 @@ pub(crate) enum LogcatAcquire {
         replaced: Option<LogcatRun>,
     },
     /// A run is already live; the holder shares it.
-    Joined,
+    Joined { generation: u64 },
 }
 
 /// Result of releasing one holder.
@@ -70,13 +70,16 @@ impl LogcatLeases {
     /// Adds `holder` for `serial`. A run starts when none is live, or when
     /// `restart` asks for a fresh one; otherwise the holder joins the live run.
     pub fn acquire(&mut self, serial: &str, holder: &str, restart: bool) -> LogcatAcquire {
-        let needs_run = {
+        let joined = {
             let lease = self.by_serial.entry(serial.to_string()).or_default();
             lease.holders.insert(holder.to_string());
-            restart || lease.run.as_ref().map_or(true, LogcatRun::is_stopped)
+            match lease.run.as_ref() {
+                Some(run) if !restart && !run.is_stopped() => Some(run.generation),
+                _ => None,
+            }
         };
-        if !needs_run {
-            return LogcatAcquire::Joined;
+        if let Some(generation) = joined {
+            return LogcatAcquire::Joined { generation };
         }
         let run = self.new_run();
         let lease = self.by_serial.entry(serial.to_string()).or_default();
@@ -187,7 +190,7 @@ mod tests {
     fn started(outcome: LogcatAcquire) -> (LogcatRun, Option<LogcatRun>) {
         match outcome {
             LogcatAcquire::Start { run, replaced } => (run, replaced),
-            LogcatAcquire::Joined => panic!("expected a new run"),
+            LogcatAcquire::Joined { .. } => panic!("expected a new run"),
         }
     }
 
@@ -196,11 +199,10 @@ mod tests {
         let mut leases = LogcatLeases::default();
         let (run, replaced) = started(leases.acquire(SERIAL, "main", false));
         assert!(replaced.is_none());
-        assert!(matches!(
-            leases.acquire(SERIAL, "dock-logcat", false),
-            LogcatAcquire::Joined
-        ));
-        assert!(leases.is_current(SERIAL, run.generation));
+        match leases.acquire(SERIAL, "dock-logcat", false) {
+            LogcatAcquire::Joined { generation } => assert_eq!(generation, run.generation),
+            LogcatAcquire::Start { .. } => panic!("second holder must join"),
+        }
         assert_eq!(leases.holders(SERIAL), vec!["dock-logcat", "main"]);
     }
 
