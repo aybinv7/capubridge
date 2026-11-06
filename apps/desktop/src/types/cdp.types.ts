@@ -1,6 +1,6 @@
 export interface CDPTarget {
   id: string;
-  type: "page" | "background_page" | "worker" | "iframe";
+  type: "page" | "background_page" | "worker" | "iframe" | "app";
   title: string;
   url: string;
   devtoolsFrontendUrl?: string;

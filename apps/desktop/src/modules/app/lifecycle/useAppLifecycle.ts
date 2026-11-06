@@ -2,6 +2,7 @@ import { computed, ref, type Ref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { toast } from "vue-sonner";
 import { useAdb } from "@/composables/useAdb";
+import { isNativeAppTarget } from "@/lib/app-target";
 import { appActionCommand, appActionOutcome, appActionRequest } from "@/shared/apps/appActions";
 import { packageDumpKey } from "../package/usePackageDump";
 import type { AppProcess } from "../process/useAppProcess";
@@ -90,6 +91,7 @@ export function useAppLifecycle(
     packageName: string,
     previous: PreviousPage | null,
   ): Promise<void> {
+    if (isNativeAppTarget(app.target.value)) return Promise.resolve();
     attaching ??= reattach(serial, packageName, previous)
       .then((back) => {
         if (back) return;

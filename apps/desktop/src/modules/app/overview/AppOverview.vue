@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { Button, Spinner } from "@capubridge/cladd";
 import FactList from "@/shared/facts/FactList.vue";
+import { isNativeAppTarget } from "@/lib/app-target";
 import { useAppSession } from "../appSession";
 import { useWebViewRuntime } from "../runtime/useWebViewRuntime";
 import AppActions from "./AppActions.vue";
@@ -19,12 +20,13 @@ const runtime = useWebViewRuntime(app.presence);
 
 const apkPath = computed(() => entry.value?.apkPath ?? details.data.value?.apkPath ?? "");
 const pid = computed(() => process.latest.value?.pid ?? null);
+const page = computed(() => (isNativeAppTarget(target.value) ? null : target.value));
 const facts = computed(() =>
   appFacts({
     packageName: packageName.value,
     details: details.data.value,
-    pageUrl: target.value?.url ?? null,
-    pageTitle: target.value?.title ?? null,
+    pageUrl: page.value?.url ?? null,
+    pageTitle: page.value?.title ?? null,
     runtime: runtime.data.value,
     capacitor: dump.capacitor.value,
     pid: pid.value,

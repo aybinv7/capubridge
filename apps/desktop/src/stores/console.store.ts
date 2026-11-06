@@ -24,6 +24,7 @@ import type {
   ReplHistoryEntry,
 } from "@/types/console.types";
 import { parseRemoteValue } from "@/lib/console-parse";
+import { isNativeAppTarget } from "@/lib/app-target";
 import {
   buildId,
   exceptionEntry,
@@ -437,8 +438,9 @@ export const useConsoleStore = defineStore("console", () => {
     await bindLeasedClient();
   }
 
-  async function syncLease(target: CDPTarget | null) {
+  async function syncLease(requested: CDPTarget | null) {
     await initialize();
+    const target = requested && !isNativeAppTarget(requested) ? requested : null;
 
     if (leaseConsumers.value <= 0) {
       return;

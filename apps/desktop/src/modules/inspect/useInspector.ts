@@ -2,6 +2,7 @@ import { watch, onUnmounted } from "vue";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useCDP } from "@/composables/useCDP";
+import { hasDevToolsEndpoint } from "@/lib/app-target";
 import { DOMDomain, OverlayDomain } from "@capubridge/cdp-protocol";
 import type { CDPClient } from "@capubridge/cdp-protocol";
 
@@ -367,8 +368,7 @@ export function useInspector() {
   watch(
     () => targetsStore.selectedTarget,
     (target) => {
-      if (!target) return;
-      if (target.source === "local" && !target.webSocketDebuggerUrl) return;
+      if (!target || !hasDevToolsEndpoint(target)) return;
       const activeTargetId = connectionStore.activeConnection?.targetId ?? null;
       if (activeTargetId === target.id && activeClient.value) return;
       void connectToTarget(target).catch((e) => {

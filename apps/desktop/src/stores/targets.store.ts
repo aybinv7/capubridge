@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { ConnectionSource } from "@/types/connection.types";
@@ -8,6 +8,7 @@ import { useSourceStore } from "@/stores/source.store";
 import { useConnectionStore } from "@/stores/connection.store";
 import { invokeCommand } from "@/runtime/ipc/client";
 import type { CdpJsonTarget } from "@/runtime/ipc/contracts/common";
+import { buildAppTargets, isNativeAppTarget } from "@/lib/app-target";
 import {
   restoreSelectedTargetUrl,
   saveSelectedTargetUrl,
@@ -54,10 +55,14 @@ export const useTargetsStore = defineStore("targets", () => {
   const selectedTarget = ref<CDPTarget | null>(null);
   const fetchingSources = ref<Set<string>>(new Set());
   const error = ref<string | null>(null);
+  const debuggablePackages = shallowRef<ReadonlyMap<string, readonly string[]>>(new Map());
+  const appLabels = shallowRef<ReadonlyMap<string, Readonly<Record<string, string>>>>(new Map());
+  const scanningApps = ref<Set<string>>(new Set());
+  const appScanError = shallowRef<ReadonlyMap<string, string>>(new Map());
 
   const cdpTargetId = computed(() => {
     const t = selectedTarget.value;
-    if (!t) return "";
+    if (!t || isNativeAppTarget(t)) return "";
     if (t.source === "local") return t.webSocketDebuggerUrl ? t.id : "";
     return t.id;
   });
@@ -93,11 +98,31 @@ export const useTargetsStore = defineStore("targets", () => {
     return a.title === b.title && (a.packageName ?? "") === (b.packageName ?? "");
   }
 
+  function syncAppTargets(serial: string) {
+    const selected = selectedTarget.value;
+    const keepPackage =
+      isNativeAppTarget(selected) && selected?.deviceSerial === serial
+        ? (selected.packageName ?? null)
+        : null;
+    const others = targets.value.filter(
+      (target) => !(isNativeAppTarget(target) && target.deviceSerial === serial),
+    );
+    const appTargets = buildAppTargets({
+      serial,
+      packages: debuggablePackages.value.get(serial) ?? [],
+      webviewTargets: others,
+      labels: appLabels.value.get(serial) ?? {},
+      keepPackage,
+    });
+    targets.value = others.concat(appTargets);
+  }
+
   function replaceTargetsForSource(source: ConnectionSource, nextTargets: CDPTarget[]) {
     if (source.type === "adb") {
       targets.value = targets.value
         .filter((target) => target.deviceSerial !== source.serial)
         .concat(nextTargets);
+      syncAppTargets(source.serial);
       return;
     }
 
@@ -143,8 +168,42 @@ export const useTargetsStore = defineStore("targets", () => {
     return connectionStore.externalDevtoolsTargetId !== null;
   }
 
+  /**
+   * Asks the device which third-party apps are debuggable and turns those without a live WebView
+   * into app targets. Runs beside the WebView scan; a failure only leaves the app list as it was.
+   */
+  async function refreshDebuggablePackages(serial: string) {
+    if (scanningApps.value.has(serial)) return;
+    scanningApps.value.add(serial);
+    try {
+      const packages = await invokeCommand("adb_list_debuggable_packages", { serial });
+      debuggablePackages.value = new Map(debuggablePackages.value).set(serial, packages);
+      if (appScanError.value.has(serial)) {
+        const next = new Map(appScanError.value);
+        next.delete(serial);
+        appScanError.value = next;
+      }
+      syncAppTargets(serial);
+      reconcileSelectedTarget();
+      restorePersistedTargetSelection();
+    } catch (err) {
+      appScanError.value = new Map(appScanError.value).set(serial, String(err));
+      console.warn("Could not list the debuggable apps of", serial, err);
+    } finally {
+      scanningApps.value.delete(serial);
+    }
+  }
+
+  /** Names the app targets of `serial` by their labels, once the installed apps are known. */
+  function setAppLabels(serial: string, labels: Readonly<Record<string, string>>) {
+    appLabels.value = new Map(appLabels.value).set(serial, labels);
+    syncAppTargets(serial);
+    reconcileSelectedTarget();
+  }
+
   async function hydrateAdbTargets(serial: string) {
     error.value = null;
+    if (!debuggablePackages.value.has(serial)) void refreshDebuggablePackages(serial);
     try {
       const source: ConnectionSource = { type: "adb", serial };
       const snapshots = await runSessionEffect(listTargetsEffect(serial), {
@@ -171,6 +230,7 @@ export const useTargetsStore = defineStore("targets", () => {
 
     fetchingSources.value.add(key);
     error.value = null;
+    if (source.type === "adb") void refreshDebuggablePackages(source.serial);
 
     try {
       let raw: RawCDPTarget[] = [];
@@ -291,7 +351,12 @@ export const useTargetsStore = defineStore("targets", () => {
     cdpTargetId,
     fetchingSources,
     error,
+    debuggablePackages,
+    scanningApps,
+    appScanError,
     hydrateAdbTargets,
+    refreshDebuggablePackages,
+    setAppLabels,
     fetchTargetsForSource,
     createChromeTarget,
     createLocalTarget,

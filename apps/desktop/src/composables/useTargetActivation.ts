@@ -3,6 +3,7 @@ import { useConnectionStore } from "@/stores/connection.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import { useTargetsStore } from "@/stores/targets.store";
+import { isNativeAppTarget } from "@/lib/app-target";
 import type { CDPTarget } from "@/types/cdp.types";
 
 /** Single entry point for making a target the active one, shared by every surface that selects targets. */
@@ -49,7 +50,17 @@ export function useTargetActivation() {
     await connectionStore.connect(target);
   }
 
+  async function activateAppTarget(target: CDPTarget) {
+    await releasePrevious(target.id);
+    connectionStore.clearExternalDevtoolsTarget(target.id);
+    targetsStore.selectTarget(target);
+  }
+
   async function activateTarget(target: CDPTarget) {
+    if (isNativeAppTarget(target)) {
+      await activateAppTarget(target);
+      return;
+    }
     if (target.source === "local") {
       await activateLocalTarget(target);
       return;

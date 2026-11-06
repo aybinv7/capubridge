@@ -13,6 +13,7 @@ const TYPE_LABEL: Record<CDPTarget["type"], string> = {
   iframe: "Frame",
   worker: "Worker",
   background_page: "Background page",
+  app: "App",
 };
 
 export function targetTypeLabel(target: Pick<CDPTarget, "type">): string {

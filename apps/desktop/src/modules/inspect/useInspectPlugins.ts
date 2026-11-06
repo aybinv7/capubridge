@@ -1,5 +1,6 @@
 import { computed, effectScope, ref, watch } from "vue";
 import { useCDP } from "@/composables/useCDP";
+import { isNativeAppTarget } from "@/lib/app-target";
 // Registration must not depend on a lazy route component: SubNavTabs asks for
 // the plugin list at app boot, long before /inspect is ever visited.
 import "./plugins/init";
@@ -16,7 +17,7 @@ let detectionScope: ReturnType<typeof effectScope> | null = null;
 
 async function ensureTargetClient(cdp: ReturnType<typeof useCDP>) {
   const target = cdp.targetsStore.selectedTarget;
-  if (!target) return null;
+  if (!target || isNativeAppTarget(target)) return null;
 
   let client = cdp.activeClient.value;
   if (!client) {

@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 import type { CDPTarget, CDPConnection } from "@/types/cdp.types";
 import { CDPClient } from "@capubridge/cdp-protocol";
 import { invokeCommand } from "@/runtime/ipc/client";
+import { isNativeAppTarget } from "@/lib/app-target";
 
 export const useConnectionStore = defineStore("connection", () => {
   const connections = ref<Map<string, CDPConnection>>(new Map());
@@ -61,6 +62,9 @@ export const useConnectionStore = defineStore("connection", () => {
   }
 
   async function connect(target: CDPTarget): Promise<CDPClient> {
+    if (isNativeAppTarget(target)) {
+      throw new Error(`${target.title} has no WebView, so there is no DevTools session to open.`);
+    }
     if (target.source === "local" && !target.webSocketDebuggerUrl) {
       throw new Error(
         "Local target has no CDP endpoint yet. Wait for WebView2 debug discovery to complete.",
