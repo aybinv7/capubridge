@@ -170,7 +170,7 @@ export function logcatSchema(context: LogcatQueryContext): StreamQuerySchema<Log
       if (key !== "package" || value.toLowerCase() !== "mine") return undefined;
       return context.myPackage
         ? { value: context.myPackage }
-        : { problem: "package:mine needs an app: choose a WebView first" };
+        : { problem: "package:mine needs an app: choose a WebView or a debuggable app first" };
     },
   };
 }

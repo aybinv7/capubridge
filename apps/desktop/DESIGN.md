@@ -172,7 +172,9 @@ bar (the desktop) joined by a step trace drawn in `signal-live`. Monochrome othe
   the viewed device (state, numbered next steps when it cannot be used) and its WebViews: one Cladd
   `Surface` card per app (icon, app label, package as the quiet line, an `In use` chip), its pages
   inside; pages no app was matched to sit last under "Not linked to an app" with a plain-words
-  reason, and an unanswered DevTools socket reads as "Chrome browser" with what to do. Rows name a
+  reason, and an unanswered DevTools socket reads as "Chrome browser" with what to do. Debuggable
+  apps with no live WebView follow in one "Debuggable apps" card (icon, label, package as the quiet
+  line, `native` on the active row); picking one never opens a DevTools link. Rows name a
   kind only when it is not a page. Opening focuses the device column, not a row, so no ring is drawn
   until a key is pressed; arrows move within a column, ←/→ between columns, Enter acts, Esc closes.
   Opening never changes the selected device.
