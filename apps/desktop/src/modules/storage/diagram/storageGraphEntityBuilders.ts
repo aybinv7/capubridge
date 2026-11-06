@@ -144,6 +144,7 @@ export function buildIndexedDbDescriptor(
   database: IDBDatabaseInfo,
   store: StoreInfo,
   records: IDBRecord[],
+  openPath?: string,
 ): StorageGraphEntityDescriptor {
   const fieldTypes = buildIdbFieldTypeMap(records);
   const fields = dedupeGraphFields([
@@ -159,7 +160,9 @@ export function buildIndexedDbDescriptor(
     title: store.name,
     subtitle: database.name,
     containerLabel: database.origin,
-    openPath: `/storage/indexeddb/${encodeURIComponent(database.name)}/${encodeURIComponent(store.name)}`,
+    openPath:
+      openPath ??
+      `/storage/indexeddb/${encodeURIComponent(database.name)}/${encodeURIComponent(store.name)}`,
     statsLabel: `${store.recordCount.toLocaleString()} rows`,
     groupKey: `indexeddb:${database.name}`,
     changeCount: 0,
@@ -207,6 +210,7 @@ export function buildSqliteDescriptor(
   columns: Array<{ name: string; pk: number; colType?: string }>,
   indexes: Array<{ columns: string[] }>,
   foreignKeys: Array<{ fromColumn: string; toTable: string; toColumn: string | null }>,
+  openPath?: string,
 ): StorageGraphEntityDescriptor {
   const indexFieldNames = new Set(indexes.flatMap((index) => index.columns));
   const columnTypes = new Map(
@@ -240,7 +244,9 @@ export function buildSqliteDescriptor(
     title: table.name,
     subtitle: databaseName,
     containerLabel: packageName,
-    openPath: `/storage/sqlite/${encodeURIComponent(databaseName)}/${encodeURIComponent(table.name)}`,
+    openPath:
+      openPath ??
+      `/storage/sqlite/${encodeURIComponent(databaseName)}/${encodeURIComponent(table.name)}`,
     statsLabel: `${table.rowCount.toLocaleString()} rows`,
     groupKey: `sqlite:${databasePath}`,
     changeCount: 0,

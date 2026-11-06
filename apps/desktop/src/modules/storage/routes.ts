@@ -1,4 +1,5 @@
 import type { RouteRecordRaw } from "vue-router";
+import { lastDiagramPath } from "./diagram/diagramPlaces";
 import { OPEN_IDB_EXPORT_COMMAND, OPEN_SQLITE_FILE_COMMAND } from "./useDataAppCommands";
 
 export const storageRoutes = [
@@ -87,8 +88,8 @@ export const storageRoutes = [
       {
         path: "graph",
         name: "storage-graph",
-        component: () => import("./diagram/StorageGraphExplorer.vue"),
-        meta: { label: "Graph" },
+        redirect: () => lastDiagramPath(),
+        meta: { navigation: false },
       },
     ],
   },

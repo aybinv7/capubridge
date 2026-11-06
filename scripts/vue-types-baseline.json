@@ -37,11 +37,5 @@
   },
   "apps/desktop/src/modules/recording/ReplayPlayer.vue": {
     "errors": 1
-  },
-  "apps/desktop/src/modules/storage/diagram/StorageGraphExplorer.vue": {
-    "errors": 2
-  },
-  "apps/desktop/src/modules/storage/diagram/StorageGraphInspector.vue": {
-    "errors": 5
   }
 }

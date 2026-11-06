@@ -16,6 +16,7 @@ import SqliteDatabasePane from "./SqliteDatabasePane.vue";
 import SqliteTablePane from "./SqliteTablePane.vue";
 import { sqliteTreeActions } from "./sqliteTreeActions";
 import { useSqliteCommands } from "./useSqliteCommands";
+import { sqliteRouteTo } from "./useSqliteLocation";
 import { useSqliteTab } from "./useSqliteTab";
 import { useSqliteTreeHandlers } from "./useSqliteTreeHandlers";
 
@@ -51,6 +52,16 @@ const tableNames = computed(() => new Set(tables.tables.value.map((table) => tab
 const tableInfo = computed(() =>
   tables.tables.value.find((table) => table.name === location.table.value),
 );
+const owner = computed(() => ({
+  serial: tab.device.value?.serial ?? "",
+  packageName: tab.device.value?.package ?? "",
+}));
+
+function tablePath(table: string): string {
+  const target = location.target.value;
+  return target ? router.resolve(sqliteRouteTo(target, table)).fullPath : "/storage/sqlite";
+}
+
 const databaseCount = computed(() => tab.sources.databases.value.length + tab.fileCount.value);
 
 function actionsFor(row: DataTreeRow) {
@@ -227,6 +238,8 @@ useSqliteCommands({
           :view="location.databaseView.value"
           :provenance="provenance"
           :actions="headerActions"
+          :owner="owner"
+          :table-path="tablePath"
           @set-view="location.setView"
           @open-table="handlers.openTable"
           @action="headerAction"

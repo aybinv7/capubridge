@@ -43,6 +43,20 @@ export interface SqliteStructure {
   triggers: SqliteTrigger[];
 }
 
+/** Columns, indexes and foreign keys of a table, from the same copy as its rows (no triggers). */
+export async function readTableSchema(
+  address: SqliteAddress,
+  table: string,
+): Promise<Omit<SqliteStructure, "triggers">> {
+  const args = { ...addressArgs(address), tableName: table };
+  const [columns, indexes, foreignKeys] = await Promise.all([
+    invokeCommand("sqlite_table_columns", args),
+    invokeCommand("sqlite_table_indexes", args),
+    invokeCommand("sqlite_table_foreign_keys", args),
+  ]);
+  return { columns, indexes, foreignKeys };
+}
+
 /** How a table is built, read from the same copy as its rows. */
 export async function readStructure(
   address: SqliteAddress,

@@ -8,6 +8,7 @@ import type {
   StorageGraphPersistedScope,
   StorageGraphPosition,
 } from "@/types/storageGraph.types";
+import { DEFAULT_NOTE_ACCENT } from "@/modules/storage/diagram/diagramAccents";
 
 const STORAGE_KEY = "capubridge:storage-graph:v1";
 const SCOPE_PREFIX = "storage-graph:v2:";
@@ -269,7 +270,7 @@ export const useStorageGraphStore = defineStore("storage-graph", () => {
       id: payload.id ?? makeId("note"),
       title: payload.title?.trim() || "Note",
       note: payload.note,
-      accent: payload.accent ?? "#e8765a",
+      accent: payload.accent ?? DEFAULT_NOTE_ACCENT,
       position: payload.position ?? { x: 0, y: 0 },
     };
 

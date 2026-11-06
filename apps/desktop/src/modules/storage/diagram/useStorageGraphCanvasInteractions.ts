@@ -69,7 +69,7 @@ interface UseStorageGraphCanvasInteractionsOptions {
   selectedClusterId: { value: string };
   zoomPercent: { value: number };
   getViewport: () => { zoom: number };
-  fitView: (options?: { padding?: number; duration?: number }) => Promise<void>;
+  fitView: (options?: { padding?: number; duration?: number }) => Promise<unknown>;
 }
 
 export function useStorageGraphCanvasInteractions(

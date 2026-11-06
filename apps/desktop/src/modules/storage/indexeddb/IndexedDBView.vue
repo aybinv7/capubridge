@@ -67,6 +67,16 @@ const showHidden = computed({
   set: (value: boolean) => settings.setShowHidden(scope.value, value),
 });
 
+const owner = computed(() => ({
+  serial: context.device?.serial ?? "",
+  packageName: context.target?.packageName ?? "",
+}));
+
+function storePath(store: string): string {
+  const open = catalog.openDatabase.value;
+  return open ? location.storePath(open.mode, open.id, store) : "/storage/indexeddb";
+}
+
 const openSourceId = computed(() => {
   const open = catalog.openDatabase.value;
   if (!open) return null;
@@ -336,6 +346,11 @@ useIdbCommands({
         :idb-usage="catalog.idbUsage.value"
         :read-at="catalog.storeInfoReadAt.value"
         :actions="openRow ? actionsFor(openRow) : []"
+        :view="location.databaseView.value"
+        :target-id="catalog.targetId.value"
+        :owner="owner"
+        :store-path="storePath"
+        @set-view="location.setDatabaseView"
         @open="
           location.open(catalog.openDatabase.value.mode, catalog.openDatabase.value.id, $event)
         "

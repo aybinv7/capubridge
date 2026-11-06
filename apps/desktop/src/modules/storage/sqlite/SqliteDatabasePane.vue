@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import { RefreshCw } from "lucide-vue-next";
 import { Segmented, SegmentedButton } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
+import DataState from "@/modules/storage/frame/DataState.vue";
+import type { SqliteDiagramSubject } from "@/modules/storage/diagram/diagramSubject";
 import DataCollectionHeader from "@/modules/storage/frame/DataCollectionHeader.vue";
 import DataRowMenu from "@/modules/storage/frame/DataRowMenu.vue";
 import type { DataAction, DataProvenance } from "@/modules/storage/frame/dataFrame.types";
@@ -13,8 +15,10 @@ import SqliteSqlPane from "./SqliteSqlPane.vue";
 import type { SqliteAddress } from "./sqliteAddress";
 import type { SqliteDatabaseView } from "./useSqliteLocation";
 
+const DiagramView = defineAsyncComponent(() => import("@/modules/storage/diagram/DiagramView.vue"));
+
 /** The open database: its header, then the overview, free SQL, or its diagram. */
-defineProps<{
+const props = defineProps<{
   db: SqliteDbFile;
   databaseId: string;
   address: SqliteAddress | null;
@@ -27,6 +31,10 @@ defineProps<{
   view: SqliteDatabaseView;
   provenance: DataProvenance;
   actions: readonly DataAction[];
+  /** The phone and app the database belongs to (empty for a file opened here). */
+  owner: { serial: string; packageName: string };
+  /** The address of one of its tables, for the diagram's "Open data". */
+  tablePath: (table: string) => string;
 }>();
 
 const emit = defineEmits<{
@@ -37,6 +45,25 @@ const emit = defineEmits<{
 }>();
 
 const sql = ref<InstanceType<typeof SqliteSqlPane> | null>(null);
+
+const diagram = computed<SqliteDiagramSubject | null>(() => {
+  const address = props.address;
+  if (!address) return null;
+  const file = props.db.sourceKind === "imported";
+  return {
+    kind: "sqlite",
+    place: {
+      serial: file ? "" : props.owner.serial,
+      packageName: file ? "file" : props.owner.packageName,
+      kind: "sqlite",
+      databasePath: file ? `file:${props.db.name}` : props.db.path,
+    },
+    db: props.db,
+    address,
+    tables: props.tables,
+    openTable: props.tablePath,
+  };
+});
 
 defineExpose({ focusSearch: () => sql.value?.focus() });
 </script>
@@ -60,6 +87,9 @@ defineExpose({ focusSearch: () => sql.value?.focus() });
         <SegmentedButton :active="view === 'sql'" @click="emit('setView', 'sql')"
           >SQL</SegmentedButton
         >
+        <SegmentedButton :active="view === 'diagram'" @click="emit('setView', 'diagram')">
+          Diagram
+        </SegmentedButton>
       </Segmented>
       <IconAction
         label="Read again"
@@ -89,6 +119,17 @@ defineExpose({ focusSearch: () => sql.value?.focus() });
     :database-name="db.name"
     table=""
   />
+  <template v-else-if="view === 'diagram'">
+    <DataState
+      v-if="error && !loaded"
+      kind="error"
+      title="Could not open the database"
+      :detail="error"
+      @retry="emit('refresh')"
+    />
+    <DataState v-else-if="!diagram || !loaded" kind="loading" title="Opening the database" />
+    <DiagramView v-else :subject="diagram" />
+  </template>
   <SqliteOverview
     v-else
     :tables="tables"

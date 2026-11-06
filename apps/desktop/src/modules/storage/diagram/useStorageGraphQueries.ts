@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from "vue";
+import { computed, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { IDBDomain, KeyValueDomain } from "@capubridge/cdp-protocol";
 import type { useCDP } from "@/composables/useCDP";
@@ -6,14 +6,8 @@ import type { useSQLite } from "@/composables/useSQLite";
 import {
   buildIndexedDbDescriptor,
   buildLocalForageDescriptor,
-  buildSqliteDescriptor,
-  makeGraphId,
 } from "@/modules/storage/diagram/storageGraphEntityBuilders";
-import {
-  discoverLogicalSqliteReferences,
-  logSqliteSchemaDiagnostics,
-  type SqliteSchemaDiagnostic,
-} from "@/modules/storage/diagram/storageGraphSqliteDiagnostics";
+import { sqliteDiagramEntities } from "./sqliteDiagramEntities";
 import type { StorageGraphEntityDescriptor } from "@/types/storageGraph.types";
 
 export interface UseStorageGraphQueriesParams {
@@ -27,10 +21,16 @@ export interface UseStorageGraphQueriesParams {
     | "tableForeignKeys"
     | "executeQuery"
   >;
-  targetId: ComputedRef<string>;
-  selectedOrigin: ComputedRef<string>;
-  serial: ComputedRef<string>;
-  selectedPackageName: ComputedRef<string>;
+  targetId: Ref<string>;
+  selectedOrigin: Ref<string>;
+  serial: Ref<string>;
+  selectedPackageName: Ref<string>;
+  /** Off until the diagram asks for the app's other data. */
+  enabled: Ref<boolean>;
+  /** The database the diagram draws from its own open copy, never pulled again here. */
+  skipSqlitePath: Ref<string>;
+  /** The IndexedDB database the diagram draws itself. */
+  skipIdbDatabase: Ref<string>;
 }
 
 export function useStorageGraphQueries({
@@ -40,6 +40,9 @@ export function useStorageGraphQueries({
   selectedOrigin,
   serial,
   selectedPackageName,
+  enabled,
+  skipSqlitePath,
+  skipIdbDatabase,
 }: UseStorageGraphQueriesParams) {
   const {
     listDatabases,
@@ -51,8 +54,14 @@ export function useStorageGraphQueries({
   } = sqlite;
 
   const indexedDbQuery = useQuery({
-    queryKey: computed(() => ["storage-graph-indexeddb", targetId.value, selectedOrigin.value]),
-    enabled: computed(() => Boolean(targetId.value && selectedOrigin.value)),
+    queryKey: computed(() => [
+      "storage-graph-indexeddb",
+      targetId.value,
+      selectedOrigin.value,
+      skipIdbDatabase.value,
+    ]),
+    enabled: computed(() => enabled.value && Boolean(targetId.value && selectedOrigin.value)),
+    staleTime: 60_000,
     queryFn: async () => {
       const client = getClient(targetId.value);
       if (!client) {
@@ -62,7 +71,10 @@ export function useStorageGraphQueries({
       const domain = new IDBDomain(client);
       const databases = await domain.discoverDatabases();
       const scopedDatabases = databases.filter(
-        (database) => database.origin === selectedOrigin.value && database.name !== "localforage",
+        (database) =>
+          database.origin === selectedOrigin.value &&
+          database.name !== "localforage" &&
+          database.name !== skipIdbDatabase.value,
       );
 
       const descriptors = await Promise.all(
@@ -90,7 +102,8 @@ export function useStorageGraphQueries({
 
   const localForageQuery = useQuery({
     queryKey: computed(() => ["storage-graph-localforage", targetId.value, selectedOrigin.value]),
-    enabled: computed(() => Boolean(targetId.value && selectedOrigin.value)),
+    enabled: computed(() => enabled.value && Boolean(targetId.value && selectedOrigin.value)),
+    staleTime: 60_000,
     queryFn: async () => {
       const client = getClient(targetId.value);
       if (!client) {
@@ -111,17 +124,23 @@ export function useStorageGraphQueries({
   });
 
   const sqliteQuery = useQuery({
-    queryKey: computed(() => ["storage-graph-sqlite", serial.value, selectedPackageName.value]),
-    enabled: computed(() => Boolean(serial.value && selectedPackageName.value)),
+    queryKey: computed(() => [
+      "storage-graph-sqlite",
+      serial.value,
+      selectedPackageName.value,
+      skipSqlitePath.value,
+    ]),
+    enabled: computed(() => enabled.value && Boolean(serial.value && selectedPackageName.value)),
     staleTime: 60_000,
     queryFn: async () => {
-      const databases = await listDatabases(serial.value, selectedPackageName.value);
+      const databases = (await listDatabases(serial.value, selectedPackageName.value)).filter(
+        (database) => database.path !== skipSqlitePath.value,
+      );
 
       const settled = await Promise.allSettled(
         databases.map(async (database) => {
           const tables = await openDatabase(serial.value, selectedPackageName.value, database.path);
-
-          return Promise.all(
+          const schemas = await Promise.all(
             tables.map(async (table) => {
               const [columns, indexes, foreignKeys] = await Promise.all([
                 tableColumns(serial.value, selectedPackageName.value, database.path, table.name),
@@ -133,42 +152,10 @@ export function useStorageGraphQueries({
                   table.name,
                 ),
               ]);
-
-              return {
-                descriptor: buildSqliteDescriptor(
-                  selectedPackageName.value,
-                  database.name,
-                  database.path,
-                  table,
-                  columns,
-                  indexes,
-                  foreignKeys,
-                ),
-                diagnostic: {
-                  database: database.name,
-                  databasePath: database.path,
-                  table: table.name,
-                  columns: columns.map((column) => ({
-                    name: column.name,
-                    type: column.colType,
-                    primaryKey: column.pk > 0,
-                  })),
-                  indexes: indexes.map((index) => ({
-                    name: index.name,
-                    columns: index.columns,
-                    unique: index.unique,
-                  })),
-                  foreignKeys: foreignKeys.map((foreignKey) => ({
-                    fromColumn: foreignKey.fromColumn,
-                    toTable: foreignKey.toTable,
-                    toColumn: foreignKey.toColumn,
-                    onUpdate: foreignKey.onUpdate,
-                    onDelete: foreignKey.onDelete,
-                  })),
-                } satisfies SqliteSchemaDiagnostic,
-              };
+              return { table, columns, indexes, foreignKeys };
             }),
           );
+          return { name: database.name, path: database.path, tables: schemas };
         }),
       );
       const failed = settled.flatMap((outcome, index) =>
@@ -178,50 +165,15 @@ export function useStorageGraphQueries({
       );
       if (failed.length > 0 && failed.length === settled.length) throw failed[0]?.reason;
       if (failed.length > 0) console.warn("[storage-graph][sqlite] databases left out", failed);
-      const results = settled.flatMap((outcome) =>
-        outcome.status === "fulfilled" ? outcome.value : [],
+      const schemas = settled.flatMap((outcome) =>
+        outcome.status === "fulfilled" ? [outcome.value] : [],
       );
-      const diagnostics = results.map((result) => result.diagnostic);
-      const logicalReferences = await discoverLogicalSqliteReferences(
-        diagnostics,
+      const descriptors = await sqliteDiagramEntities(
+        selectedPackageName.value,
+        schemas,
         (databasePath, sql) =>
           executeQuery(serial.value, selectedPackageName.value, databasePath, sql),
       );
-      const descriptors = results.map((result) => {
-        const references = logicalReferences.filter(
-          (reference) =>
-            reference.source.databasePath === result.diagnostic.databasePath &&
-            reference.source.table === result.diagnostic.table,
-        );
-        return {
-          ...result.descriptor,
-          fields: result.descriptor.fields.map((field) => {
-            const reference = references.find((candidate) => candidate.sourceColumn === field.name);
-            if (!reference || field.references) {
-              return field;
-            }
-            return {
-              ...field,
-              references: {
-                targetNodeId: makeGraphId(
-                  "sqlite",
-                  selectedPackageName.value,
-                  result.diagnostic.database,
-                  reference.table,
-                ),
-                targetFieldName: reference.primaryKey,
-                relationshipKind: "logical-reference" as const,
-              },
-            };
-          }),
-        };
-      });
-
-      logSqliteSchemaDiagnostics(selectedPackageName.value, descriptors, diagnostics);
-      if (import.meta.env.DEV) {
-        console.log("[storage-graph][sqlite] validated logical references", logicalReferences);
-      }
-
       return descriptors;
     },
   });
