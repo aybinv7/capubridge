@@ -2,6 +2,7 @@
 import { onBeforeUnmount, ref, watch } from "vue";
 import { Download, Group, X } from "lucide-vue-next";
 import { Button, Popover, SearchField } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { DataGridColumnsMenu, type GridColumn } from "@/shared/components/data/grid";
 import SqliteFilterBar from "./SqliteFilterBar.vue";
 import type { SqliteExportFormat, SqliteExportScope } from "./sqliteQuery";
@@ -68,18 +69,22 @@ const FORMATS: Array<{ value: SqliteExportFormat; label: string }> = [
       placeholder="Search all columns"
       aria-label="Search all columns"
     />
-    <Button
+    <HintTooltip
       v-if="query.groupBy.value"
-      size="sm"
-      variant="solid"
-      content-class-name="gap-1.5"
-      :title="`Grouped by ${query.groupBy.value}. Click to show rows.`"
-      @click="query.setGroupBy(null)"
+      :text="`Grouped by ${query.groupBy.value}. Click to show the rows again.`"
     >
-      <Group :size="13" aria-hidden="true" />
-      <span class="font-mono">{{ query.groupBy.value }}</span>
-      <X :size="12" aria-hidden="true" />
-    </Button>
+      <Button
+        size="sm"
+        variant="solid"
+        content-class-name="gap-1.5"
+        :aria-label="`Stop grouping by ${query.groupBy.value}`"
+        @click="query.setGroupBy(null)"
+      >
+        <Group :size="13" aria-hidden="true" />
+        <span class="font-mono">{{ query.groupBy.value }}</span>
+        <X :size="12" aria-hidden="true" />
+      </Button>
+    </HintTooltip>
     <DataGridColumnsMenu v-model:visibility="visibility" :columns="columns" />
     <Popover position="bottom-end" content-class-name="w-60 p-1">
       <template #trigger>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { Button, Input, Popover, Select } from "@capubridge/cladd";
+import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { columnFilter, type ColumnFilterOperator } from "./sqliteQuery";
 
 const props = defineProps<{
@@ -75,7 +76,7 @@ function apply() {
           v-model="operator"
           size="sm"
           class="w-36 shrink-0"
-          title="Condition"
+          aria-label="Condition"
           :options="OPERATORS.map(({ value, label }) => ({ value, label }))"
         />
         <Input
@@ -87,12 +88,13 @@ function apply() {
           autofocus
         />
       </div>
-      <code
-        v-if="preview"
-        class="block truncate rounded-cladd-3xs bg-cladd-surface-cut px-2 py-1 font-mono text-cladd-2xs text-cladd-fg-soft"
-        :title="preview"
-        >{{ preview }}</code
-      >
+      <HintTooltip v-if="preview" :text="preview">
+        <code
+          tabindex="0"
+          class="block truncate rounded-cladd-3xs bg-cladd-surface-cut px-2 py-1 font-mono text-cladd-2xs text-cladd-fg-soft"
+          >{{ preview }}</code
+        >
+      </HintTooltip>
       <div class="flex justify-end gap-1.5">
         <Button
           size="sm"
@@ -103,9 +105,9 @@ function apply() {
         >
           Cancel
         </Button>
-        <Button size="sm" variant="solid-fill" type="submit" :disabled="!preview"
-          >Add filter</Button
-        >
+        <Button size="sm" variant="solid-fill" color="brand" type="submit" :disabled="!preview">
+          Add filter
+        </Button>
       </div>
     </form>
   </Popover>

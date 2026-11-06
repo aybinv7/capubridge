@@ -28,14 +28,14 @@ const KIND_WORDS: Record<StorageGraphField["kind"], string> = {
     aria-label="Fields"
   >
     <div
-      class="grid grid-cols-[minmax(0,1fr)_4.5rem_1.75rem_1.75rem_1.75rem] items-center gap-1 border-b border-border-subtle px-2.5 py-1.5 text-2xs text-muted-foreground"
+      class="grid grid-cols-[minmax(0,1fr)_4.5rem_2rem_3rem_3rem] items-center gap-1 border-b border-border-subtle px-2.5 py-1.5 text-2xs text-muted-foreground"
       role="row"
     >
       <span role="columnheader">Name</span>
       <span role="columnheader">Type</span>
-      <span role="columnheader" class="text-center" title="Primary key">PK</span>
-      <span role="columnheader" class="text-center" title="Indexed">IX</span>
-      <span role="columnheader" class="text-center" title="Links to another table">FK</span>
+      <span role="columnheader" class="text-center">Key</span>
+      <span role="columnheader" class="text-center">Indexed</span>
+      <span role="columnheader" class="text-center">Links to</span>
     </div>
     <p v-if="fields.length === 0" class="px-2.5 py-3 text-xs text-muted-foreground">
       No fields were found.
@@ -44,7 +44,7 @@ const KIND_WORDS: Record<StorageGraphField["kind"], string> = {
       <div
         v-for="field in fields"
         :key="field.id"
-        class="grid grid-cols-[minmax(0,1fr)_4.5rem_1.75rem_1.75rem_1.75rem] items-center gap-1 border-t border-border-subtle px-2.5 py-1 text-xs first:border-t-0"
+        class="grid grid-cols-[minmax(0,1fr)_4.5rem_2rem_3rem_3rem] items-center gap-1 border-t border-border-subtle px-2.5 py-1 text-xs first:border-t-0"
         role="row"
       >
         <div class="min-w-0" role="cell">

@@ -60,7 +60,6 @@ function save() {
           role="radio"
           :aria-checked="accent === option.value"
           :aria-label="option.label"
-          :title="option.label"
           class="size-6 rounded-full border-2 border-surface-0 ring-1 ring-border-subtle focus-visible:outline-2 focus-visible:outline-signal-select"
           :class="accent === option.value ? 'ring-2 ring-signal-select' : ''"
           :style="{ backgroundColor: option.value }"
