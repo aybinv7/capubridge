@@ -77,8 +77,7 @@ const actionContent = "gap-2 [&>svg]:size-3.5";
       <template #icon><FileWarning :size="18" :stroke-width="1.6" /></template>
       <Button
         size="sm"
-        variant="solid-fill"
-        color="brand"
+        variant="transparent"
         :content-class-name="actionContent"
         @click="emit('retry')"
       >

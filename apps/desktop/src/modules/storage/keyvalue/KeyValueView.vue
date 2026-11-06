@@ -195,6 +195,7 @@ useKvCommands({
         <Button
           size="sm"
           variant="solid-fill"
+          color="brand"
           :loading="presence.bringing.value"
           @click="presence.bringToFront()"
         >

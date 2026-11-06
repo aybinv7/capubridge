@@ -503,7 +503,9 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
     title="Waiting for the app"
     :text="away"
   >
-    <Button size="sm" variant="solid-fill" @click="emit('bringToFront')">Bring to front</Button>
+    <Button size="sm" variant="solid-fill" color="brand" @click="emit('bringToFront')">
+      Bring to front
+    </Button>
   </DataState>
   <DataState
     v-else-if="pager.error.value && records.length === 0"

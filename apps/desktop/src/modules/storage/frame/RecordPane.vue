@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ChevronDown, ChevronUp, Lock, Trash2, X } from "lucide-vue-next";
+import { ChevronDown, ChevronUp, Lock, X } from "lucide-vue-next";
 import { Button, Segmented, SegmentedButton } from "@capubridge/cladd";
 import JsonEditor from "@/shared/components/data/JsonEditor.vue";
 import JsonDiff from "@/shared/code-viewer/JsonDiff.vue";
@@ -8,6 +8,7 @@ import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { readPersisted, writePersisted } from "@/lib/persisted";
 import type { GridColumn } from "@/shared/components/data/grid";
+import DataPaneFooter from "./DataPaneFooter.vue";
 import RecordFields from "./RecordFields.vue";
 
 type PaneView = "fields" | "json" | "changes";
@@ -190,34 +191,28 @@ defineExpose({ discard });
       <JsonDiff :before-value="before?.value" :after-text="original" readonly />
     </div>
 
-    <footer
+    <DataPaneFooter
       v-if="editable || canDelete"
-      class="flex shrink-0 items-center gap-2 border-t border-border-subtle px-3 py-2"
+      :delete-label="canDelete ? 'Delete record…' : null"
+      @delete="emit('delete')"
     >
-      <Button
-        v-if="canDelete"
-        size="sm"
-        variant="transparent"
-        color="red"
-        content-class-name="gap-1.5"
-        @click="emit('delete')"
-      >
-        <Trash2 :size="12" aria-hidden="true" />
-        Delete
-      </Button>
-      <span class="flex-1" />
-      <span v-if="dirty && !valid" class="text-2xs text-error">The JSON is not valid</span>
-      <Button v-if="dirty" size="sm" variant="transparent" @click="discard">Discard</Button>
-      <Button
-        v-if="editable"
-        size="sm"
-        variant="solid-fill"
-        :disabled="!dirty || !valid"
-        :loading="saving"
-        @click="save"
-      >
-        Save
-      </Button>
-    </footer>
+      <template #status>
+        <span v-if="dirty && !valid" class="text-error">The JSON is not valid</span>
+      </template>
+      <template #actions>
+        <Button v-if="dirty" size="sm" variant="transparent" @click="discard">Discard</Button>
+        <Button
+          v-if="editable"
+          size="sm"
+          variant="solid-fill"
+          color="brand"
+          :disabled="!dirty || !valid"
+          :loading="saving"
+          @click="save"
+        >
+          Save
+        </Button>
+      </template>
+    </DataPaneFooter>
   </section>
 </template>

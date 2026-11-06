@@ -114,7 +114,13 @@ defineExpose({
     title="Waiting for the app"
     :text="away"
   >
-    <Button size="sm" variant="solid-fill" :loading="bringing" @click="emit('bringToFront')">
+    <Button
+      size="sm"
+      variant="solid-fill"
+      color="brand"
+      :loading="bringing"
+      @click="emit('bringToFront')"
+    >
       Bring to front
     </Button>
   </DataState>

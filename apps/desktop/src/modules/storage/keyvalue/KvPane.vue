@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { refDebounced } from "@vueuse/core";
-import { ChevronDown, ChevronUp, Lock, Trash2, X } from "lucide-vue-next";
+import { ChevronDown, ChevronUp, Lock, X } from "lucide-vue-next";
 import { Button, Input, Segmented, SegmentedButton } from "@capubridge/cladd";
+import DataPaneFooter from "@/modules/storage/frame/DataPaneFooter.vue";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -294,39 +295,33 @@ defineExpose({ discard, edit });
       <span>{{ blockedReason }}</span>
     </p>
 
-    <footer class="flex shrink-0 items-center gap-2 border-t border-border-subtle px-3 py-2">
-      <Button
-        v-if="entry"
-        size="sm"
-        variant="transparent"
-        color="red"
-        content-class-name="gap-1.5"
-        :disabled="blockedReason !== null"
-        @click="emit('delete')"
-      >
-        <Trash2 :size="12" aria-hidden="true" />
-        Delete
-      </Button>
-      <span class="flex-1" />
-      <span v-if="problem" class="truncate text-2xs text-error">{{ problem }}</span>
-      <HintTooltip v-else-if="typeWarning" :text="typeWarning">
-        <span class="truncate text-2xs text-warning" tabindex="0" role="status">
-          {{ typeWarning }}
-        </span>
-      </HintTooltip>
-      <Button v-if="dirty && !creating" size="sm" variant="transparent" @click="discard">
-        Discard
-      </Button>
-      <Button
-        v-if="!readOnlyReason"
-        size="sm"
-        variant="solid-fill"
-        :disabled="!canSave"
-        :loading="saving"
-        @click="save"
-      >
-        {{ creating ? "Add key" : "Save" }}
-      </Button>
-    </footer>
+    <DataPaneFooter
+      :delete-label="entry ? 'Delete key…' : null"
+      :delete-reason="blockedReason"
+      @delete="emit('delete')"
+    >
+      <template #status>
+        <span v-if="problem" class="text-error">{{ problem }}</span>
+        <HintTooltip v-else-if="typeWarning" :text="typeWarning">
+          <span class="text-warning" tabindex="0" role="status">{{ typeWarning }}</span>
+        </HintTooltip>
+      </template>
+      <template #actions>
+        <Button v-if="dirty && !creating" size="sm" variant="transparent" @click="discard">
+          Discard
+        </Button>
+        <Button
+          v-if="!readOnlyReason"
+          size="sm"
+          variant="solid-fill"
+          color="brand"
+          :disabled="!canSave"
+          :loading="saving"
+          @click="save"
+        >
+          {{ creating ? "Add key" : "Save" }}
+        </Button>
+      </template>
+    </DataPaneFooter>
   </section>
 </template>

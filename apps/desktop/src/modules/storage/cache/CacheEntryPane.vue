@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useStorage } from "@vueuse/core";
-import { ChevronDown, ChevronUp, Trash2, X } from "lucide-vue-next";
-import { Button, Link, Tab, Tabs, TabsList } from "@capubridge/cladd";
+import { ChevronDown, ChevronUp, X } from "lucide-vue-next";
+import { Link, Segmented, SegmentedButton } from "@capubridge/cladd";
 import type { CacheStorageEntryDetail } from "@capubridge/cdp-protocol";
+import DataPaneFooter from "@/modules/storage/frame/DataPaneFooter.vue";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -58,10 +59,6 @@ const findSignal = ref(0);
 
 const changed = computed(() => responseChanged(props.row, props.detail));
 const subtitle = computed(() => [props.position, props.row.kind].filter(Boolean).join(" · "));
-
-function asTab(value: unknown): PaneTab {
-  return value === "response" ? "response" : "headers";
-}
 
 function onKeydown(event: KeyboardEvent) {
   const mod = event.ctrlKey || event.metaKey;
@@ -147,24 +144,18 @@ function onKeydown(event: KeyboardEvent) {
       @action="emit('readList')"
     />
     <template v-else>
-      <Tabs :value="tab" @update:value="tab = asTab($event)">
-        <TabsList
-          aria-label="Cached entry"
-          size="sm"
-          active-variant="solid"
-          :rounded="false"
-          class="shrink-0 justify-start gap-0.5 border-b border-border-subtle px-2.5 py-1.5"
-        >
-          <Tab
+      <div class="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-1.5">
+        <Segmented size="xs" active-variant="solid" aria-label="Show the entry's">
+          <SegmentedButton
             v-for="option in TABS"
             :key="option.value"
-            :value="option.value"
-            class="text-xs font-normal text-muted-foreground data-active:font-medium data-active:text-foreground"
+            :active="tab === option.value"
+            @click="tab = option.value"
           >
             {{ option.label }}
-          </Tab>
-        </TabsList>
-      </Tabs>
+          </SegmentedButton>
+        </Segmented>
+      </div>
       <div class="min-h-0 flex-1">
         <CacheEntryHeaders
           v-if="tab === 'headers'"
@@ -185,24 +176,18 @@ function onKeydown(event: KeyboardEvent) {
       </div>
     </template>
 
-    <footer class="flex shrink-0 items-center gap-2 border-t border-border-subtle px-3 py-2">
-      <HintTooltip :text="blockedReason">
-        <Button
-          size="sm"
-          variant="transparent"
-          content-class-name="gap-1.5"
-          :disabled="blockedReason !== null || gone"
-          :loading="busy"
-          @click="emit('delete')"
-        >
-          <Trash2 :size="12" aria-hidden="true" />
-          Delete entry…
-        </Button>
-      </HintTooltip>
-      <span class="flex-1" />
-      <span v-if="error && tab === 'headers'" class="truncate text-2xs text-error">
-        Could not read this entry: {{ error }}
-      </span>
-    </footer>
+    <DataPaneFooter
+      delete-label="Delete entry…"
+      :delete-reason="blockedReason"
+      :delete-disabled="gone"
+      :busy="busy"
+      @delete="emit('delete')"
+    >
+      <template #status>
+        <span v-if="error && tab === 'headers'" class="text-error">
+          Could not read this entry: {{ error }}
+        </span>
+      </template>
+    </DataPaneFooter>
   </section>
 </template>

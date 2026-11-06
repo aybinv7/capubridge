@@ -7,10 +7,10 @@ import {
   FolderOpen,
   Lock,
   TableProperties,
-  Trash2,
   X,
 } from "lucide-vue-next";
 import { Button } from "@capubridge/cladd";
+import DataPaneFooter from "@/modules/storage/frame/DataPaneFooter.vue";
 import CopyAction from "@/shared/components/presentation/CopyAction.vue";
 import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -179,44 +179,38 @@ function onKeydown(event: KeyboardEvent) {
       @open-database="emit('openDatabase')"
     />
 
-    <footer class="flex shrink-0 items-center gap-1 border-t border-border-subtle px-3 py-2">
-      <HintTooltip :text="blockedReason">
+    <DataPaneFooter
+      :delete-label="isFolder ? 'Delete folder…' : 'Delete file…'"
+      :delete-reason="blockedReason"
+      :busy="busy"
+      @delete="emit('delete')"
+    >
+      <template #actions>
+        <HintTooltip v-if="!isFolder" :text="downloadReason">
+          <Button
+            size="sm"
+            :variant="row.role === 'pool-slot' ? 'solid' : 'transparent'"
+            content-class-name="gap-1.5"
+            :disabled="downloadReason !== null"
+            :loading="saving"
+            @click="emit('download')"
+          >
+            <Download :size="12" aria-hidden="true" />
+            Download…
+          </Button>
+        </HintTooltip>
         <Button
+          v-if="row.role === 'pool-slot'"
           size="sm"
-          variant="transparent"
+          variant="solid-fill"
+          color="brand"
           content-class-name="gap-1.5"
-          :disabled="blockedReason !== null"
-          :loading="busy"
-          @click="emit('delete')"
+          @click="emit('openDatabase')"
         >
-          <Trash2 :size="12" aria-hidden="true" />
-          {{ isFolder ? "Delete folder…" : "Delete file…" }}
+          <TableProperties :size="12" aria-hidden="true" />
+          Open in SQLite
         </Button>
-      </HintTooltip>
-      <span class="flex-1" />
-      <Button
-        v-if="row.role === 'pool-slot'"
-        size="sm"
-        variant="transparent"
-        content-class-name="gap-1.5"
-        @click="emit('openDatabase')"
-      >
-        <TableProperties :size="12" aria-hidden="true" />
-        Open in Data › SQLite
-      </Button>
-      <HintTooltip v-if="!isFolder" :text="downloadReason">
-        <Button
-          size="sm"
-          variant="transparent"
-          content-class-name="gap-1.5"
-          :disabled="downloadReason !== null"
-          :loading="saving"
-          @click="emit('download')"
-        >
-          <Download :size="12" aria-hidden="true" />
-          Download…
-        </Button>
-      </HintTooltip>
-    </footer>
+      </template>
+    </DataPaneFooter>
   </section>
 </template>
