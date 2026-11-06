@@ -2,14 +2,15 @@
 import { computed, ref, toRef } from "vue";
 import type { NetworkEntry } from "@/types/network.types";
 import { requestName } from "../requestNames";
-import BodyView from "./BodyView.vue";
-import DetailsSection from "./DetailsSection.vue";
-import DetailsState from "./DetailsState.vue";
-import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
-import { payloadContent } from "./bodyContent";
+import BodyView from "@/shared/http/BodyView.vue";
+import DetailsSection from "@/shared/http/DetailsSection.vue";
+import DetailsState from "@/shared/http/DetailsState.vue";
+import KeyValueList, { type KeyValueRow } from "@/shared/http/KeyValueList.vue";
+import { payloadContent } from "@/shared/http/bodyContent";
 import { findHeader } from "./cookies";
 import { queryParameters } from "./queryParameters";
-import { useBodyContent } from "./useBodyContent";
+import { useBodyContent } from "@/shared/http/useBodyContent";
+import { NETWORK_WRAP_KEY } from "./bodyViewer";
 
 const props = defineProps<{
   entry: NetworkEntry;
@@ -74,6 +75,7 @@ const errorText = computed(() => (props.error ? String(props.error) : null));
         empty-title="The body is empty"
         :find-signal="props.findSignal"
         find-label="Find in the body"
+        :wrap-storage-key="NETWORK_WRAP_KEY"
       />
     </div>
   </div>

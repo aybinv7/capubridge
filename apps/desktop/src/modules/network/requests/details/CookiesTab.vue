@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { NetworkEntry } from "@/types/network.types";
-import DetailsState from "./DetailsState.vue";
-import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
+import DetailsState from "@/shared/http/DetailsState.vue";
+import KeyValueList, { type KeyValueRow } from "@/shared/http/KeyValueList.vue";
 import { findHeader, parseRequestCookies, parseSetCookies } from "./cookies";
 
 const props = defineProps<{ entry: NetworkEntry }>();

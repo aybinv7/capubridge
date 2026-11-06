@@ -6,7 +6,6 @@ import TextView from "@/shared/code-viewer/TextView.vue";
 import ViewerToolbar from "@/shared/code-viewer/ViewerToolbar.vue";
 import { SEGMENT_TEXT } from "@/shared/components/presentation/segmentText";
 import { base64Lines } from "./bodyContent";
-import { NETWORK_WRAP_KEY } from "./bodyViewer";
 
 const props = defineProps<{
   blob: Blob;
@@ -14,6 +13,7 @@ const props = defineProps<{
   mime: string;
   name: string;
   findSignal: number;
+  wrapStorageKey: string;
 }>();
 
 const mode = ref<"picture" | "base64">("picture");
@@ -29,7 +29,7 @@ const lines = computed(() =>
       v-if="mode === 'base64' || unreadable"
       :text="lines"
       language="plain"
-      :wrap-storage-key="NETWORK_WRAP_KEY"
+      :wrap-storage-key="props.wrapStorageKey"
       find-label="Find in the Base64"
       :find-signal="props.findSignal"
       :notice="

@@ -2,10 +2,11 @@
 import { computed, toRef } from "vue";
 import type { NetworkEntry } from "@/types/network.types";
 import { requestName } from "../requestNames";
-import BodyView from "./BodyView.vue";
-import DetailsState from "./DetailsState.vue";
-import { responseContent, type RawBody } from "./bodyContent";
-import { useBodyContent } from "./useBodyContent";
+import BodyView from "@/shared/http/BodyView.vue";
+import DetailsState from "@/shared/http/DetailsState.vue";
+import { responseContent, type RawBody } from "@/shared/http/bodyContent";
+import { useBodyContent } from "@/shared/http/useBodyContent";
+import { NETWORK_WRAP_KEY } from "./bodyViewer";
 
 const props = defineProps<{
   entry: NetworkEntry;
@@ -60,6 +61,7 @@ const errorText = computed(() => (props.error ? String(props.error) : null));
     empty-title="The response has no body"
     :find-signal="props.findSignal"
     find-label="Find in the response"
+    :wrap-storage-key="NETWORK_WRAP_KEY"
     @copy-base64="emit('copyBase64')"
   />
 </template>

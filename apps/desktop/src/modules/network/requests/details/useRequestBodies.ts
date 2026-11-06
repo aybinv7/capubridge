@@ -6,7 +6,7 @@ import { useCDP } from "@/composables/useCDP";
 import { useTargetsStore } from "@/stores/targets.store";
 import type { NetworkEntry } from "@/types/network.types";
 import { useNetworkStore } from "../../stores/useNetworkStore";
-import type { RawBody } from "./bodyContent";
+import type { RawBody } from "@/shared/http/bodyContent";
 import type { DetailTab } from "./detailTabs";
 
 const BODY_STALE_MS = 60_000;

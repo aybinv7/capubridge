@@ -1,5 +1,8 @@
 import type { NetworkEntry } from "@/types/network.types";
+import { statusTone, type CellTone } from "@/shared/http/tone";
 import { isAppAddress } from "./requestNames";
+
+export { TONE_CLASS, statusTone, type CellTone } from "@/shared/http/tone";
 
 const BYTE_UNITS = ["B", "KB", "MB", "GB"] as const;
 
@@ -29,8 +32,6 @@ export function durationMs(entry: NetworkEntry): number | null {
   return Math.max(0, (entry.finishedTimestamp - entry.startTimestamp) * 1000);
 }
 
-export type CellTone = "default" | "muted" | "subtle" | "warning" | "error";
-
 export interface Cell {
   text: string;
   tone: CellTone;
@@ -47,13 +48,6 @@ export function statusCell(entry: NetworkEntry): Cell {
   const code = entry.httpStatus;
   if (code === null) return { text: "Pending", tone: "subtle" };
   return { text: String(code), tone: statusTone(code) };
-}
-
-/** The tone of an HTTP code: success stays quiet, client errors warn, server errors fail. */
-export function statusTone(code: number): CellTone {
-  if (code >= 500) return "error";
-  if (code >= 400) return "warning";
-  return "muted";
 }
 
 /** Whether the app served this file from its own bundle on the phone, not over the network. */
@@ -179,12 +173,3 @@ function fileName(url: string): string {
     return url.split("/").filter(Boolean).pop() ?? url;
   }
 }
-
-/** Tailwind text classes for a cell tone. */
-export const TONE_CLASS: Record<CellTone, string> = {
-  default: "text-foreground",
-  muted: "text-muted-foreground",
-  subtle: "text-[var(--fg-subtle)]",
-  warning: "text-warning",
-  error: "text-error",
-};

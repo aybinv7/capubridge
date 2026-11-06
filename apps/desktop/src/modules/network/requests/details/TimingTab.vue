@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { NetworkEntry } from "@/types/network.types";
 import { durationMs, formatMs } from "../requestCells";
-import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
+import KeyValueList, { type KeyValueRow } from "@/shared/http/KeyValueList.vue";
 import { timingBreakdown, type TimingPhaseId } from "./timing";
 
 const props = defineProps<{ entry: NetworkEntry }>();

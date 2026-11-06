@@ -55,8 +55,3 @@ export function parseSetCookies(header: string): ResponseCookie[] {
       };
     });
 }
-
-/** Header pairs sorted by name, for stable reading. */
-export function sortedHeaders(headers: Record<string, string>): Array<[string, string]> {
-  return Object.entries(headers).sort(([a], [b]) => a.localeCompare(b));
-}

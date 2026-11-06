@@ -11,7 +11,7 @@ import {
   mockRuleNotes,
   type MockSourceBody,
 } from "../../mock/mockFromRequest";
-import { responseText, type RawBody } from "./bodyContent";
+import { responseText, type RawBody } from "@/shared/http/bodyContent";
 import { toCurl, toFetch } from "./copyAs";
 
 export type CopyKind = "url" | "curl" | "fetch" | "response" | "base64";

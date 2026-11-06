@@ -6,7 +6,7 @@ import {
   payloadContent,
   responseContent,
   responseText,
-} from "../requests/details/bodyContent";
+} from "@/shared/http/bodyContent";
 import { findHeader, parseRequestCookies, parseSetCookies } from "../requests/details/cookies";
 import { shellQuote, toCurl, toFetch } from "../requests/details/copyAs";
 import { asDetailTab, cycleTab } from "../requests/details/detailTabs";
@@ -15,7 +15,7 @@ import {
   RESPONSE_FIRST,
   UNFOLDED_LIMIT,
   groupHeaders,
-} from "../requests/details/headerGroups";
+} from "@/shared/http/headerGroups";
 import { generalFacts, headerFacts, sizeFact } from "../requests/details/requestFacts";
 import { timingBreakdown } from "../requests/details/timing";
 import { networkEntry } from "./fixtures";

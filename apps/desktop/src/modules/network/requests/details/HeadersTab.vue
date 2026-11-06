@@ -3,10 +3,15 @@ import { computed, ref } from "vue";
 import { useStorage } from "@vueuse/core";
 import { Link } from "@capubridge/cladd";
 import type { NetworkEntry } from "@/types/network.types";
-import DetailsSection from "./DetailsSection.vue";
-import KeyValueList, { type KeyValueRow } from "./KeyValueList.vue";
+import DetailsSection from "@/shared/http/DetailsSection.vue";
+import KeyValueList, { type KeyValueRow } from "@/shared/http/KeyValueList.vue";
 import { parseRequestCookies, parseSetCookies } from "./cookies";
-import { REQUEST_FIRST, RESPONSE_FIRST, groupHeaders, type HeaderGroups } from "./headerGroups";
+import {
+  REQUEST_FIRST,
+  RESPONSE_FIRST,
+  groupHeaders,
+  type HeaderGroups,
+} from "@/shared/http/headerGroups";
 import { generalFacts } from "./requestFacts";
 
 type SectionId = "general" | "response" | "request";

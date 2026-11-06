@@ -5,9 +5,14 @@ import ImageView from "@/shared/code-viewer/ImageView.vue";
 import TextView from "@/shared/code-viewer/TextView.vue";
 import ViewerToolbar from "@/shared/code-viewer/ViewerToolbar.vue";
 import { SEGMENT_TEXT } from "@/shared/components/presentation/segmentText";
-import { NETWORK_WRAP_KEY } from "./bodyViewer";
 
-const props = defineProps<{ text: string; blob: Blob; name: string; findSignal: number }>();
+const props = defineProps<{
+  text: string;
+  blob: Blob;
+  name: string;
+  findSignal: number;
+  wrapStorageKey: string;
+}>();
 
 const mode = ref<"picture" | "text">("picture");
 </script>
@@ -19,7 +24,7 @@ const mode = ref<"picture" | "text">("picture");
       :text="props.text"
       language="xml"
       :find-signal="props.findSignal"
-      :wrap-storage-key="NETWORK_WRAP_KEY"
+      :wrap-storage-key="props.wrapStorageKey"
       find-label="Find in the response"
     >
       <template #lead>

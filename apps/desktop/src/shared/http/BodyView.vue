@@ -3,7 +3,6 @@ import JsonView from "@/shared/code-viewer/JsonView.vue";
 import TextView from "@/shared/code-viewer/TextView.vue";
 import BinaryBody from "./BinaryBody.vue";
 import type { BodyContent } from "./bodyContent";
-import { NETWORK_WRAP_KEY } from "./bodyViewer";
 import DetailsState from "./DetailsState.vue";
 import ImageBody from "./ImageBody.vue";
 import SvgBody from "./SvgBody.vue";
@@ -14,6 +13,7 @@ const props = defineProps<{
   emptyTitle: string;
   findSignal: number;
   findLabel: string;
+  wrapStorageKey: string;
 }>();
 
 const emit = defineEmits<{ copyBase64: [] }>();
@@ -27,7 +27,7 @@ const emit = defineEmits<{ copyBase64: [] }>();
     :pretty="props.content.pretty"
     :parse="props.content.parse"
     :find-signal="props.findSignal"
-    :wrap-storage-key="NETWORK_WRAP_KEY"
+    :wrap-storage-key="props.wrapStorageKey"
     :find-label="props.findLabel"
     allow-raw
   />
@@ -36,7 +36,7 @@ const emit = defineEmits<{ copyBase64: [] }>();
     :text="props.content.text"
     :language="props.content.language"
     :find-signal="props.findSignal"
-    :wrap-storage-key="NETWORK_WRAP_KEY"
+    :wrap-storage-key="props.wrapStorageKey"
     :find-label="props.findLabel"
   />
   <ImageBody
@@ -46,6 +46,7 @@ const emit = defineEmits<{ copyBase64: [] }>();
     :mime="props.content.mime"
     :name="props.name"
     :find-signal="props.findSignal"
+    :wrap-storage-key="props.wrapStorageKey"
   />
   <SvgBody
     v-else-if="props.content.kind === 'svg'"
@@ -53,6 +54,7 @@ const emit = defineEmits<{ copyBase64: [] }>();
     :blob="props.content.blob"
     :name="props.name"
     :find-signal="props.findSignal"
+    :wrap-storage-key="props.wrapStorageKey"
   />
   <BinaryBody
     v-else
@@ -60,6 +62,7 @@ const emit = defineEmits<{ copyBase64: [] }>();
     :bytes="props.content.bytes"
     :mime="props.content.mime"
     :find-signal="props.findSignal"
+    :wrap-storage-key="props.wrapStorageKey"
     @copy-base64="emit('copyBase64')"
   />
 </template>

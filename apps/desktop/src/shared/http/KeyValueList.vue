@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from "@capubridge/cladd";
-import { TONE_CLASS, type CellTone } from "../requestCells";
+import { TONE_CLASS, type CellTone } from "./tone";
 
 export interface KeyValueRow {
   key: string;

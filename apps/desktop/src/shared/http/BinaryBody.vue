@@ -2,11 +2,16 @@
 import { computed, ref } from "vue";
 import { Button } from "@capubridge/cladd";
 import TextView from "@/shared/code-viewer/TextView.vue";
-import { formatBytes } from "../requestCells";
+import { formatBytes } from "@/shared/format/numbers";
 import { base64Lines } from "./bodyContent";
-import { NETWORK_WRAP_KEY } from "./bodyViewer";
 
-const props = defineProps<{ base64: string; bytes: number; mime: string; findSignal: number }>();
+const props = defineProps<{
+  base64: string;
+  bytes: number;
+  mime: string;
+  findSignal: number;
+  wrapStorageKey: string;
+}>();
 
 const emit = defineEmits<{ copyBase64: [] }>();
 
@@ -20,7 +25,7 @@ const lines = computed(() => (shown.value ? base64Lines(props.base64) : ""));
     :text="lines"
     language="plain"
     :find-signal="props.findSignal"
-    :wrap-storage-key="NETWORK_WRAP_KEY"
+    :wrap-storage-key="props.wrapStorageKey"
     find-label="Find in the Base64"
     notice="The bytes as Base64, 76 characters a line."
   >
