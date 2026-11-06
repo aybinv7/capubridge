@@ -56,6 +56,18 @@ const resolved = computed(() => resolveCache(location.cache.value, catalog.catal
 const open = computed(() => resolved.value.cache);
 
 watch(open, () => (openCount.value = null));
+
+let landed = false;
+watch(
+  () => catalog.catalog.value,
+  (value) => {
+    if (landed || !value) return;
+    landed = true;
+    const only = value.caches.length === 1 ? value.caches[0] : undefined;
+    if (only && !location.cache.value) location.replace(only.name);
+  },
+  { immediate: true },
+);
 watch(
   origin,
   (value) => {

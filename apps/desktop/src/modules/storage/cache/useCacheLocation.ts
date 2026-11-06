@@ -21,5 +21,11 @@ export function useCacheLocation() {
     void router.push({ name: CACHE_STORAGE_ROUTE, query: name ? { cache: name } : {} });
   }
 
-  return { cache, open };
+  /** Opens a cache in place of the overview, without a history entry (one cache only). */
+  function replace(name: string) {
+    if (name === cache.value) return;
+    void router.replace({ name: CACHE_STORAGE_ROUTE, query: { cache: name } });
+  }
+
+  return { cache, open, replace };
 }
