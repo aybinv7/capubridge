@@ -1,9 +1,14 @@
 import type { ConsoleArg } from "@/types/console.types";
+import { valuePreview } from "./consolePreview";
 
 const SPECIFIER = /%([sdifoOc%])/g;
 
+/** A primitive as its text; an object as its preview, so search and copy see its fields. */
 function argText(arg: ConsoleArg): string {
-  return arg.kind === "primitive" ? arg.text : arg.description;
+  if (arg.kind === "primitive") return arg.text;
+  return valuePreview(arg)
+    .map((segment) => segment.text)
+    .join("");
 }
 
 function substitute(kind: string, arg: ConsoleArg | undefined): string {

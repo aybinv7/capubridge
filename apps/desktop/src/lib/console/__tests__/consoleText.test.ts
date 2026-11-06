@@ -33,7 +33,7 @@ describe("consoleCallText", () => {
         object("Object"),
         text("extra"),
       ]),
-    ).toBe("sync took 41 ms (3.5%) Object extra");
+    ).toBe("sync took 41 ms (3.5%) {…} extra");
   });
 
   it("joins plain arguments and leaves unmatched specifiers alone", () => {

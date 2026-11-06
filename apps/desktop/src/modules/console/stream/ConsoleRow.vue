@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ChevronRight } from "lucide-vue-next";
+import { argsPreview, hasObjectArgs } from "@/lib/console/consolePreview";
 import type { ConsoleStreamRow } from "@/lib/console/consoleStream";
 import { formatClockMs } from "@/shared/components/timeline/stripFormat";
 import RepeatBadge from "../list/RepeatBadge.vue";
 import { consoleSource, consoleSummary, consoleTone } from "./consoleTone";
+import PreviewText from "./PreviewText.vue";
 
-/** One 22 px line of the Console stream: time, level, source, message, repeats. */
+/**
+ * One 22 px line of the Console stream: time, level, source, message, repeats. A call with
+ * objects shows them as their preview (`{id: 1, name: 'x', …}`) rather than "Object".
+ */
 const props = defineProps<{
   row: ConsoleStreamRow;
   selected: boolean;
@@ -23,6 +28,12 @@ const emit = defineEmits<{
 const item = computed(() => props.row.item);
 const tone = computed(() => consoleTone(item.value));
 const summary = computed(() => consoleSummary(item.value));
+const preview = computed(() => {
+  const current = item.value;
+  return current.kind === "entry" && hasObjectArgs(current.entry.args)
+    ? argsPreview(current.entry.args)
+    : null;
+});
 const source = computed(() => consoleSource(item.value));
 const isGroup = computed(() => item.value.kind === "entry" && item.value.entry.isGroup);
 const indent = computed(() => `${props.row.depth * 14}px`);
@@ -71,7 +82,8 @@ const time = computed(() => formatClockMs(item.value.time));
         />
       </button>
       <span class="min-w-0 truncate" :class="[tone.textClass, isGroup ? 'font-medium' : '']">
-        {{ summary }}
+        <PreviewText v-if="preview" :segments="preview" :fallback-class="tone.textClass" />
+        <template v-else>{{ summary }}</template>
       </span>
     </span>
     <RepeatBadge

@@ -598,6 +598,41 @@ export const useConsoleStore = defineStore("console", () => {
   }
 
   /**
+   * The object behind `objectId` as indented JSON, made on the target so nothing is cut to a
+   * preview. Cycles and values JSON cannot hold come back as readable placeholders.
+   */
+  async function objectJson(objectId: string): Promise<string> {
+    const client = boundTargetId.value ? connectionStore.getClient(boundTargetId.value) : null;
+    if (!client) throw new Error("No WebView is connected");
+    const res = await client.send<{
+      result?: { value?: unknown };
+      exceptionDetails?: { text?: string };
+    }>("Runtime.callFunctionOn", {
+      objectId,
+      functionDeclaration: `function () {
+        const seen = new WeakSet();
+        return JSON.stringify(this, (key, value) => {
+          if (typeof value === "bigint") return value.toString() + "n";
+          if (typeof value === "function") return "[Function " + (value.name || "anonymous") + "]";
+          if (typeof value === "symbol") return value.toString();
+          if (value === undefined) return "[undefined]";
+          if (typeof value === "object" && value !== null) {
+            if (seen.has(value)) return "[Circular]";
+            seen.add(value);
+          }
+          return value;
+        }, 2);
+      }`,
+      returnByValue: true,
+      silent: true,
+    });
+    if (res.exceptionDetails) throw new Error(res.exceptionDetails.text ?? "The page refused");
+    const value = res.result?.value;
+    if (typeof value !== "string") throw new Error("This value has no JSON form");
+    return value;
+  }
+
+  /**
    * Names the prompt can complete on `objectExpr` (globals when null), read from the bound
    * target without side effects. Empty when no target is bound.
    */
@@ -642,6 +677,7 @@ export const useConsoleStore = defineStore("console", () => {
     completionNames,
     liveSince,
     fetchObjectProperties,
+    objectJson,
     clearConsole,
     clearExceptions,
     clearReplHistory,

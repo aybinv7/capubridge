@@ -1,7 +1,29 @@
-import type { ConsoleArg, ConsoleProp } from "@/types/console.types";
+import type { ConsoleArg, ConsolePrimitiveType, ConsoleProp } from "@/types/console.types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+const PRIMITIVE_TYPES: ReadonlySet<string> = new Set([
+  "string",
+  "number",
+  "bigint",
+  "boolean",
+  "undefined",
+  "symbol",
+  "function",
+]);
+
+function primitiveType(type: unknown, subtype?: unknown): ConsolePrimitiveType | undefined {
+  if (subtype === "null") return "null";
+  return typeof type === "string" && PRIMITIVE_TYPES.has(type)
+    ? (type as ConsolePrimitiveType)
+    : undefined;
+}
+
+function primitive(text: string, type: unknown, subtype?: unknown): ConsoleArg {
+  const valueType = primitiveType(type, subtype);
+  return valueType ? { kind: "primitive", text, valueType } : { kind: "primitive", text };
 }
 
 function formatJsonValue(value: unknown): string {
@@ -63,10 +85,10 @@ export function parsePropertyPreview(p: Record<string, unknown>): ConsoleArg {
   }
 
   if (typeof p.value === "string") {
-    return { kind: "primitive", text: p.value };
+    return primitive(p.value, type, p.subtype);
   }
   if (type) {
-    return { kind: "primitive", text: type };
+    return primitive(type, type, p.subtype);
   }
   return { kind: "primitive", text: "" };
 }
@@ -77,15 +99,15 @@ export function parseRemoteValue(value: unknown): ConsoleArg {
   }
 
   if (typeof value.unserializableValue === "string") {
-    return { kind: "primitive", text: value.unserializableValue };
+    return primitive(value.unserializableValue, value.type);
   }
 
   if ("value" in value) {
-    return { kind: "primitive", text: formatJsonValue(value.value) };
+    return primitive(formatJsonValue(value.value), value.type, value.subtype);
   }
 
   if (value.subtype === "null") {
-    return { kind: "primitive", text: "null" };
+    return primitive("null", "object", "null");
   }
 
   const isObjectLike =
@@ -96,10 +118,10 @@ export function parseRemoteValue(value: unknown): ConsoleArg {
 
   if (!isObjectLike) {
     if (typeof value.description === "string") {
-      return { kind: "primitive", text: value.description };
+      return primitive(value.description, value.type);
     }
     if (typeof value.type === "string") {
-      return { kind: "primitive", text: value.type };
+      return primitive(value.type, value.type);
     }
     return { kind: "primitive", text: "[unknown]" };
   }

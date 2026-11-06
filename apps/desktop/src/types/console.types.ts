@@ -1,8 +1,20 @@
 export type ConsoleEntryLevel = "log" | "info" | "warn" | "error" | "debug";
 
+/** The JavaScript type of a primitive value, when the protocol said it. */
+export type ConsolePrimitiveType =
+  | "string"
+  | "number"
+  | "bigint"
+  | "boolean"
+  | "undefined"
+  | "null"
+  | "symbol"
+  | "function";
+
 export interface ConsoleArgPrimitive {
   kind: "primitive";
   text: string;
+  valueType?: ConsolePrimitiveType;
 }
 
 export interface ConsoleArgObject {
