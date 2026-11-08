@@ -3,6 +3,7 @@ import { ref, watch, onUnmounted } from "vue";
 import { useRecordingStore } from "@/stores/recording.store";
 import { useRecordingSession } from "@/composables/useRecordingSession";
 import RecordingConfigModal from "./RecordingConfigModal.vue";
+import { useRecordingCommands } from "./useRecordingCommands";
 import { toast } from "@/lib/toast";
 import { Button } from "@capubridge/cladd";
 
@@ -42,16 +43,27 @@ function formatElapsed(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
+async function stopSession() {
+  const capuPath = await stop();
+  if (capuPath) {
+    toast.success("Session saved", { description: capuPath });
+  }
+}
+
 async function handleClick() {
   if (recordingStore.phase === "idle") {
     modalOpen.value = true;
   } else if (recordingStore.phase === "recording") {
-    const capuPath = await stop();
-    if (capuPath) {
-      toast.success("Session saved", { description: capuPath });
-    }
+    await stopSession();
   }
 }
+
+useRecordingCommands({
+  configure: () => {
+    modalOpen.value = true;
+  },
+  stop: stopSession,
+});
 </script>
 
 <template>

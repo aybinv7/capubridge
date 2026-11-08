@@ -28,6 +28,7 @@ import { describeMirrorStatus } from "./mirrorStatus";
 import { orientationOfSize } from "./deviceRotation";
 import { useMirrorFrameStats } from "./useMirrorFrameStats";
 import { useMirrorRecordingClock } from "./useMirrorRecordingClock";
+import { useMirrorCommands } from "./useMirrorCommands";
 
 const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
@@ -350,6 +351,13 @@ function toggleRecord() {
   if (mirrorStore.isRecording) void stopRecording();
   else void startRecording();
 }
+
+useMirrorCommands({
+  canCapture: () => canUseStreamActions.value,
+  isRecording: () => mirrorStore.isRecording,
+  screenshot: captureScreenshot,
+  toggleRecord,
+});
 </script>
 
 <template>

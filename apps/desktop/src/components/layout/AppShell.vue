@@ -10,7 +10,9 @@ import Sidebar from "./Sidebar.vue";
 import { useRailPeek } from "./useRailPeek";
 import CommandPalette from "@/components/command/CommandPalette.vue";
 import { useCoreCommands } from "@/app/useCoreCommands";
+import { useContextCommands } from "@/app/useContextCommands";
 import { useRouteCommands } from "@/app/useRouteCommands";
+import ShellAppActions from "@/modules/app/ShellAppActions.vue";
 import { useReloadShortcut } from "@/app/useReloadShortcut";
 import { useTimelineReveals } from "@/app/useTimelineReveals";
 import { useDataAppCommands } from "@/modules/storage/public";
@@ -53,6 +55,7 @@ useActiveContextStore();
 const commandsStore = useCommandsStore();
 useCoreCommands();
 useRouteCommands();
+useContextCommands();
 useDataAppCommands();
 useReloadShortcut();
 useTimelineReveals();
@@ -316,4 +319,5 @@ onUnmounted(() => {
   </div>
 
   <CommandPalette />
+  <ShellAppActions />
 </template>
