@@ -3,6 +3,7 @@ import type { QrPairingStart, WirelessDiscovery } from "@/types/wireless.types";
 
 export interface WirelessCommandMap {
   adb_wifi_address: IpcCommand<{ serial: string }, string | null>;
+  adb_disconnect_serial: IpcCommand<{ serial: string }, void>;
   wireless_discover: IpcCommand<undefined, WirelessDiscovery>;
   wireless_discover_stop: IpcCommand<undefined, void>;
   wireless_pairing_start: IpcCommand<undefined, QrPairingStart>;

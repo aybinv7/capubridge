@@ -2,6 +2,8 @@ import { ref } from "vue";
 import { toast } from "@/lib/toast";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useAdb } from "@/composables/useAdb";
+import { guidFromSerial } from "@/lib/wireless/nearbyPhones";
+import { usePairedPhonesStore } from "@/stores/pairedPhones.store";
 import type { ADBDevice } from "@/types/adb.types";
 import type { DeviceManagerState } from "./useDeviceManager";
 
@@ -22,7 +24,8 @@ export function parseHostPort(value: string): { host: string; port: number } | n
 /** Wi-Fi switching, TCP connect and disconnecting, each with honest feedback. */
 export function useDeviceConnections(manager: DeviceManagerState) {
   const devicesStore = useDevicesStore();
-  const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, wifiAddress } = useAdb();
+  const { getDeviceOverview, tcpip, connectDevice, disconnectSerial, wifiAddress } = useAdb();
+  const pairedPhones = usePairedPhonesStore();
 
   const switchingToWifi = ref(false);
   const connecting = ref(false);
@@ -78,13 +81,11 @@ export function useDeviceConnections(manager: DeviceManagerState) {
 
   async function disconnect(device: ADBDevice) {
     if (device.connectionType !== "usb") {
-      const address = parseHostPort(device.serial);
-      if (address) {
-        try {
-          await disconnectDevice(address.host, address.port);
-        } catch (error) {
-          console.warn("Failed to disconnect device", device.serial, error);
-        }
+      pairedPhones.holdReconnect(guidFromSerial(device.serial) ?? device.serial);
+      try {
+        await disconnectSerial(device.serial);
+      } catch (error) {
+        console.warn("Failed to disconnect device", device.serial, error);
       }
     }
     manager.showPanel("local");

@@ -110,6 +110,11 @@ export function useAdb() {
     await invokeCommand("adb_disconnect_device", { host, port });
   }
 
+  /** Disconnects a Wi-Fi device by serial, which also covers mDNS serials without an address. */
+  async function disconnectSerial(serial: string) {
+    await invokeCommand("adb_disconnect_serial", { serial });
+  }
+
   async function pairDevice(host: string, port: number, code: string) {
     await invokeCommand("adb_pair_device", { host, port, code });
   }
@@ -217,6 +222,7 @@ export function useAdb() {
     disconnectDevice,
     pairDevice,
     wifiAddress,
+    disconnectSerial,
     tcpip,
     root,
     reboot,

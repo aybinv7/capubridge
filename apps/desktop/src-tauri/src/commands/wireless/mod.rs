@@ -27,3 +27,10 @@ pub async fn wireless_discover() -> Result<WirelessDiscovery, String> {
 pub async fn wireless_discover_stop() -> Result<(), String> {
     run_blocking(discovery::stop).await
 }
+
+/// Disconnects a Wi-Fi device by its adb serial, including mDNS serials
+/// (`<guid>._adb-tls-connect._tcp`) that have no `ip:port` to pass to `adb disconnect`.
+#[tauri::command]
+pub async fn adb_disconnect_serial(serial: String) -> Result<(), String> {
+    run_blocking(move || adb_host::disconnect(&serial)).await?
+}

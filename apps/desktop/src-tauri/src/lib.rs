@@ -72,7 +72,7 @@ use commands::recording_db::{
 };
 use commands::recording_export::{recording_export_preview, recording_export_session};
 use commands::wireless::{
-    adb_wifi_address, wireless_discover, wireless_discover_stop, wireless_pairing_cancel,
+    adb_disconnect_serial, adb_wifi_address, wireless_discover, wireless_discover_stop, wireless_pairing_cancel,
     wireless_pairing_start, wireless_pairing_with_code,
 };
 use commands::sqlite::{
@@ -300,6 +300,7 @@ pub fn run() {
             adb_pair_device,
             adb_tcpip,
             adb_wifi_address,
+            adb_disconnect_serial,
             wireless_discover,
             wireless_discover_stop,
             wireless_pairing_start,

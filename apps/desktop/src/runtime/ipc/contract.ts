@@ -77,6 +77,7 @@ export const IPC_COMMAND_NAMES = [
   "adb_pair_device",
   "adb_tcpip",
   "adb_wifi_address",
+  "adb_disconnect_serial",
   "wireless_discover",
   "wireless_discover_stop",
   "wireless_pairing_start",

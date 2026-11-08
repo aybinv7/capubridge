@@ -36,6 +36,8 @@ export const usePairedPhonesStore = defineStore("pairedPhones", () => {
     readPersisted<PairedPhone[]>(STORAGE_KEY, [], isPairedPhoneList),
   );
 
+  const held = ref<ReadonlySet<string>>(new Set());
+
   const byGuid = computed(() => new Map(phones.value.map((phone) => [phone.guid, phone])));
   const autoReconnectGuids = computed(
     () => new Set(phones.value.filter((phone) => phone.autoReconnect).map((phone) => phone.guid)),
@@ -45,8 +47,25 @@ export const usePairedPhonesStore = defineStore("pairedPhones", () => {
     writePersisted(STORAGE_KEY, phones.value);
   }
 
+  /**
+   * Keeps a phone the person disconnected from reconnecting by itself until it is connected
+   * again or the app restarts. Keys are guids or `ip:port` addresses; nothing is persisted.
+   */
+  function holdReconnect(key: string) {
+    held.value = new Set([...held.value, key]);
+  }
+
+  function isHeld(key: string): boolean {
+    return held.value.has(key);
+  }
+
   /** Records a phone that just connected; a new phone reconnects automatically by default. */
   function remember(guid: string, label: string | null) {
+    if (held.value.has(guid)) {
+      const next = new Set(held.value);
+      next.delete(guid);
+      held.value = next;
+    }
     const existing = byGuid.value.get(guid);
     const next: PairedPhone = {
       guid,
@@ -74,5 +93,14 @@ export const usePairedPhonesStore = defineStore("pairedPhones", () => {
     return byGuid.value.get(guid) ?? null;
   }
 
-  return { phones, autoReconnectGuids, remember, setAutoReconnect, forget, find };
+  return {
+    phones,
+    autoReconnectGuids,
+    remember,
+    setAutoReconnect,
+    forget,
+    find,
+    holdReconnect,
+    isHeld,
+  };
 });

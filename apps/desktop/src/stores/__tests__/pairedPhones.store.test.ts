@@ -52,4 +52,16 @@ describe("paired phones store", () => {
     store.forget("g");
     expect(store.find("g")).toBeNull();
   });
+
+  test("a held phone stays held until it connects again, and the hold is not persisted", () => {
+    const store = usePairedPhonesStore();
+    store.remember("g", "Phone");
+    store.holdReconnect("g");
+    store.holdReconnect("10.0.0.2:5555");
+    expect(store.isHeld("g")).toBe(true);
+    expect(store.isHeld("10.0.0.2:5555")).toBe(true);
+    expect(localStorage.getItem(KEY) ?? "").not.toContain("10.0.0.2");
+    store.remember("g", null);
+    expect(store.isHeld("g")).toBe(false);
+  });
 });

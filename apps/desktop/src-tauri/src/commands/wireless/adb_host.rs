@@ -196,6 +196,26 @@ pub(crate) fn connect(address: SocketAddrV4) -> Result<(), String> {
     ))
 }
 
+/// Reads the reply to `host:disconnect:<serial>`: `disconnected <serial>` on success; an unknown
+/// serial is a `FAIL` (`no such device`), which also leaves it disconnected.
+pub(crate) fn classify_disconnect_reply(reply: Result<String, HostError>) -> Result<(), String> {
+    match reply {
+        Ok(text) if text.trim().starts_with("disconnected") => Ok(()),
+        Ok(text) => Err(if text.trim().is_empty() {
+            "ADB did not confirm the disconnection".to_string()
+        } else {
+            text.trim().to_string()
+        }),
+        Err(HostError::Failed(text)) if text.contains("no such device") => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+/// Disconnects a Wi-Fi device by its adb serial: `ip:port` or an mDNS serial.
+pub(crate) fn disconnect(serial: &str) -> Result<(), String> {
+    classify_disconnect_reply(request(&format!("host:disconnect:{serial}"), QUERY_TIMEOUT))
+}
+
 /// Serials adb lists as usable (`device` state), from `host:devices`.
 pub(crate) fn parse_online_serials(text: &str) -> Vec<String> {
     text.lines()
@@ -309,6 +329,20 @@ mod tests {
             classify_connect_reply(Ok("failed to authenticate to 10.0.0.2:5555".into())).is_err()
         );
         assert!(classify_connect_reply(Ok(String::new())).is_err());
+    }
+
+    #[test]
+    fn disconnect_accepts_success_and_an_already_gone_device() {
+        assert_eq!(
+            classify_disconnect_reply(Ok("disconnected adb-R5CR-Xy._adb-tls-connect._tcp".into())),
+            Ok(())
+        );
+        assert_eq!(
+            classify_disconnect_reply(Err(HostError::Failed("no such device 'x'".into()))),
+            Ok(())
+        );
+        assert!(classify_disconnect_reply(Ok("error: something".into())).is_err());
+        assert!(classify_disconnect_reply(Err(HostError::Unreachable("refused".into()))).is_err());
     }
 
     #[test]

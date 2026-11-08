@@ -29,6 +29,8 @@ export function useWirelessReconnect() {
       (phone) =>
         phone.connectedSerial === null &&
         pairedPhones.autoReconnectGuids.has(phone.guid) &&
+        !pairedPhones.isHeld(phone.guid) &&
+        !pairedPhones.isHeld(`${phone.host}:${phone.port}`) &&
         now - (lastAttempt.get(phone.guid) ?? 0) >= RETRY_AFTER_MS,
     );
   }
