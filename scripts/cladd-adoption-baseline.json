@@ -194,24 +194,5 @@
   },
   "apps/desktop/src/modules/recording/ReplayView.vue": {
     "button": 1
-  },
-  "apps/desktop/src/modules/settings/SettingsAdb.vue": {
-    "badge": 1
-  },
-  "apps/desktop/src/modules/settings/SettingsChrome.vue": {
-    "badge": 1
-  },
-  "apps/desktop/src/modules/settings/SettingsMcp.vue": {
-    "badge": 1,
-    "button": 1,
-    "input": 1,
-    "switch": 1
-  },
-  "apps/desktop/src/modules/settings/SettingsModal.vue": {
-    "dialog": 1
-  },
-  "apps/desktop/src/modules/settings/SettingsUpdates.vue": {
-    "button": 1,
-    "switch": 1
   }
 }

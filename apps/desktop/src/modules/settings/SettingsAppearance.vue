@@ -2,51 +2,55 @@
 import { Segmented, SegmentedButton, Switch } from "@capubridge/cladd";
 import { useTheme } from "@/composables/useTheme";
 import { useTimelineStripStore, type StripEdge } from "@/stores/timelineStrip.store";
-import ThemeCard from "./components/ThemeCard.vue";
+import { useUIStore } from "@/stores/ui.store";
+import SettingsCard from "./components/SettingsCard.vue";
+import SettingsPage from "./components/SettingsPage.vue";
 import SettingsRow from "./components/SettingsRow.vue";
-import SettingsSection from "./components/SettingsSection.vue";
+import ThemeCard from "./components/ThemeCard.vue";
 
 const { themeId, availableThemes, setTheme } = useTheme();
 const strip = useTimelineStripStore();
+const ui = useUIStore();
 
 const EDGES: readonly { value: StripEdge; label: string }[] = [
   { value: "top", label: "Top" },
   { value: "bottom", label: "Bottom" },
 ];
+
+function setRailShown(shown: boolean) {
+  if (shown === ui.railHidden) ui.toggleRail();
+}
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-8 p-6">
-    <SettingsSection
+  <SettingsPage title="Appearance" description="How Capubridge looks on this computer.">
+    <SettingsCard
       title="Theme"
-      description="Colour carries meaning: live, recording, selection and marks each own one hue."
+      description="Each signal keeps one colour: live, recording, selection and marks."
+      padded
     >
-      <div class="grid grid-cols-2 gap-3 p-4 md:grid-cols-3">
-        <ThemeCard
-          v-for="theme in availableThemes"
-          :key="theme.id"
-          :theme="theme"
-          :active="themeId === theme.id"
-          @select="setTheme"
-        />
+      <div class="@container">
+        <div class="grid grid-cols-2 gap-2.5 @md:grid-cols-3">
+          <ThemeCard
+            v-for="theme in availableThemes"
+            :key="theme.id"
+            :theme="theme"
+            :active="themeId === theme.id"
+            @select="setTheme"
+          />
+        </div>
       </div>
-    </SettingsSection>
+    </SettingsCard>
 
-    <SettingsSection
-      title="Timeline"
-      description="The live strip of what happens on the device, shown on every screen."
-    >
+    <SettingsCard title="Timeline">
       <SettingsRow label="Show the timeline" description="Ctrl+Shift+J also hides and shows it.">
         <Switch
-          :checked="!strip.hidden"
+          :model-value="!strip.hidden"
           aria-label="Show the timeline"
-          @update:checked="strip.setHidden(!$event)"
+          @update:model-value="strip.setHidden(!$event)"
         />
       </SettingsRow>
-      <SettingsRow
-        label="Position"
-        description="Its own card on the window, above or below the page."
-      >
+      <SettingsRow label="Position" description="Its own card, above or below the page.">
         <Segmented size="xs" aria-label="Where the timeline sits">
           <SegmentedButton
             v-for="option in EDGES"
@@ -58,6 +62,19 @@ const EDGES: readonly { value: StripEdge; label: string }[] = [
           </SegmentedButton>
         </Segmented>
       </SettingsRow>
-    </SettingsSection>
-  </div>
+    </SettingsCard>
+
+    <SettingsCard title="Window">
+      <SettingsRow
+        label="Show the navigation rail"
+        description="Ctrl+B also hides it; hover the left edge to reveal it while hidden."
+      >
+        <Switch
+          :model-value="!ui.railHidden"
+          aria-label="Show the navigation rail"
+          @update:model-value="setRailShown"
+        />
+      </SettingsRow>
+    </SettingsCard>
+  </SettingsPage>
 </template>

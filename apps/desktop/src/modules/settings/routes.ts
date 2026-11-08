@@ -3,37 +3,26 @@ import type { RouteRecordRaw } from "vue-router";
 export const settingsRoutes = [
   {
     path: "/settings",
-    component: () => import("./SettingsModal.vue"),
-    redirect: "/settings/general",
+    component: () => import("./SettingsDialog.vue"),
+    redirect: "/settings/appearance",
     children: [
-      {
-        path: "general",
-        name: "settings-general",
-        component: () => import("./SettingsGeneral.vue"),
-        meta: { label: "General" },
-      },
       {
         path: "appearance",
         name: "settings-appearance",
         component: () => import("./SettingsAppearance.vue"),
-        meta: { label: "Appearance" },
+        meta: { label: "Appearance", keywords: ["theme", "timeline", "rail", "colours"] },
       },
       {
-        path: "adb",
-        name: "settings-adb",
-        component: () => import("./SettingsAdb.vue"),
-        meta: { label: "ADB" },
+        path: "devices",
+        name: "settings-devices",
+        component: () => import("./SettingsDevices.vue"),
+        meta: { label: "Devices", keywords: ["adb", "chrome", "wi-fi", "wireless", "paired"] },
       },
       {
-        path: "chrome",
-        name: "settings-chrome",
-        component: () => import("./SettingsChrome.vue"),
-        meta: { label: "Chrome" },
-      },
-      {
-        // Back-compat: older deep links to /settings/theme land on Appearance.
-        path: "theme",
-        redirect: { name: "settings-appearance" },
+        path: "screen",
+        name: "settings-screen",
+        component: () => import("./SettingsScreen.vue"),
+        meta: { label: "Screen", keywords: ["mirror", "frame rate", "quality", "bitrate"] },
       },
       {
         path: "shortcuts",
@@ -45,14 +34,18 @@ export const settingsRoutes = [
         path: "mcp",
         name: "settings-mcp",
         component: () => import("./SettingsMcp.vue"),
-        meta: { label: "AI / MCP" },
+        meta: { label: "AI access", keywords: ["mcp", "ai", "token", "assistant"] },
       },
       {
         path: "updates",
         name: "settings-updates",
         component: () => import("./SettingsUpdates.vue"),
-        meta: { label: "Updates" },
+        meta: { label: "Updates", keywords: ["version", "pre-release", "install"] },
       },
+      { path: "general", redirect: { name: "settings-appearance" } },
+      { path: "theme", redirect: { name: "settings-appearance" } },
+      { path: "adb", redirect: { name: "settings-devices" } },
+      { path: "chrome", redirect: { name: "settings-devices" } },
     ],
   },
 ] satisfies RouteRecordRaw[];

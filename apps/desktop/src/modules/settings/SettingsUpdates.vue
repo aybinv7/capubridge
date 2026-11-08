@@ -1,142 +1,116 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { getVersion } from "@tauri-apps/api/app";
-import { RefreshCw, Download, CheckCircle2, AlertCircle, RotateCw } from "lucide-vue-next";
+import { CircleAlert, CircleCheck } from "lucide-vue-next";
+import { Button, Switch } from "@capubridge/cladd";
 import { toast } from "@/lib/toast";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { useUpdaterStore } from "@/stores/updater.store";
-import SettingsSection from "./components/SettingsSection.vue";
+import SettingsCard from "./components/SettingsCard.vue";
+import SettingsPage from "./components/SettingsPage.vue";
 import SettingsRow from "./components/SettingsRow.vue";
+import UpdateAvailableCard from "./updates/UpdateAvailableCard.vue";
 
 const updater = useUpdaterStore();
-const appVersion = ref<string>("");
+const appVersion = ref("");
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 onMounted(async () => {
   try {
     appVersion.value = await getVersion();
   } catch {
-    appVersion.value = updater.info?.currentVersion ?? "unknown";
+    appVersion.value = updater.info?.currentVersion ?? "";
   }
 });
+
+const lastChecked = computed(() =>
+  updater.lastChecked ? `Last checked ${dateFormat.format(updater.lastChecked)}` : "Never checked",
+);
 
 async function checkNow() {
   try {
     await updater.check();
-    if (updater.status === "up-to-date") toast.success("You're on the latest version");
-  } catch (err) {
-    toast.error("Update check failed", { description: String(err) });
+    if (updater.status === "up-to-date") toast.success("You have the latest version");
+  } catch (error) {
+    toast.error("Could not check for updates", { description: String(error) });
   }
 }
 
-async function onPrereleaseChange(value: boolean) {
+async function setPrerelease(value: boolean) {
   updater.setPrerelease(value);
   await checkNow();
 }
 
-async function installNow() {
+async function install() {
   await updater.install();
   if (updater.status === "error" && updater.error) {
-    toast.error("Update failed", { description: updater.error });
+    toast.error("The update failed", { description: updater.error });
   }
-}
-
-function formatLastChecked(ts: number | null): string {
-  if (!ts) return "Never";
-  return new Date(ts).toLocaleString();
 }
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl space-y-8 p-6">
-    <SettingsSection title="Updates" description="Keep Capubridge up to date.">
-      <SettingsRow label="Current version" description="The version you're running now">
-        <span class="text-xs text-[var(--fg-muted)]">v{{ appVersion || "…" }}</span>
-      </SettingsRow>
+  <SettingsPage title="Updates">
+    <template #aside>
+      <span class="font-mono text-2xs text-muted-foreground tabular-nums">
+        {{ appVersion ? `v${appVersion}` : "Version unknown" }}
+      </span>
+    </template>
 
+    <SettingsCard>
+      <SettingsRow label="Check for updates" :description="lastChecked">
+        <Button
+          size="xs"
+          variant="solid"
+          :loading="updater.status === 'checking'"
+          :disabled="updater.isBusy"
+          @click="checkNow"
+        >
+          Check now
+        </Button>
+      </SettingsRow>
       <SettingsRow
-        label="Receive pre-release updates"
-        description="Get beta builds before they're released to everyone"
+        label="Pre-release versions"
+        description="Get test builds before everyone else. They can be less stable."
       >
         <Switch
           :model-value="updater.prerelease"
           :disabled="updater.isBusy"
-          @update:model-value="onPrereleaseChange"
+          aria-label="Pre-release versions"
+          @update:model-value="setPrerelease"
         />
       </SettingsRow>
-
-      <SettingsRow
-        label="Check for updates"
-        :description="`Last checked: ${formatLastChecked(updater.lastChecked)}`"
+      <div
+        v-if="updater.status === 'up-to-date'"
+        class="flex items-center gap-2 px-3.5 py-2.5 text-2xs text-muted-foreground"
+        role="status"
       >
-        <Button variant="outline" size="sm" :disabled="updater.isBusy" @click="checkNow">
-          <RefreshCw :size="14" :class="updater.status === 'checking' ? 'animate-spin' : ''" />
-          {{ updater.status === "checking" ? "Checking…" : "Check now" }}
+        <CircleCheck :size="14" class="shrink-0 text-signal-live" aria-hidden="true" />
+        You have the latest version.
+      </div>
+      <div
+        v-else-if="updater.status === 'error'"
+        class="flex items-start gap-2 px-3.5 py-2.5"
+        role="alert"
+      >
+        <CircleAlert :size="14" class="mt-px shrink-0 text-destructive" aria-hidden="true" />
+        <p class="min-w-0 flex-1 text-2xs break-words text-muted-foreground">
+          <span class="text-foreground">The update check failed.</span> {{ updater.error }}
+        </p>
+        <Button size="xs" variant="solid" :disabled="updater.isBusy" @click="checkNow">
+          Try again
         </Button>
-      </SettingsRow>
-    </SettingsSection>
+      </div>
+    </SettingsCard>
 
-    <!-- Up to date -->
-    <div
-      v-if="updater.status === 'up-to-date'"
-      class="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] px-4 py-3 text-sm text-[var(--fg-muted)]"
-    >
-      <CheckCircle2 :size="16" class="text-[var(--accent)]" />
-      You're running the latest version.
-    </div>
-
-    <!-- Update available / downloading -->
-    <SettingsSection
+    <UpdateAvailableCard
       v-if="updater.updateAvailable || updater.status === 'downloading'"
-      title="Update available"
-      :description="updater.info ? `Version ${updater.info.version} is ready to install` : ''"
-    >
-      <div class="space-y-4 p-4">
-        <div v-if="updater.info?.notes" class="space-y-1">
-          <div class="text-xs font-medium text-[var(--fg-default)]">Release notes</div>
-          <p class="max-h-48 overflow-y-auto whitespace-pre-line text-xs text-[var(--fg-muted)]">
-            {{ updater.info.notes }}
-          </p>
-        </div>
-
-        <!-- Progress -->
-        <div v-if="updater.status === 'downloading'" class="space-y-2">
-          <div class="h-2 w-full overflow-hidden rounded-full bg-[var(--bg-surface)]">
-            <div
-              class="h-full rounded-full bg-[var(--accent)] transition-all duration-150"
-              :style="{ width: `${updater.progressPct ?? 0}%` }"
-            />
-          </div>
-          <div class="text-xs text-[var(--fg-muted)]">
-            {{
-              updater.progressPct !== null ? `Downloading… ${updater.progressPct}%` : "Downloading…"
-            }}
-          </div>
-        </div>
-
-        <Button v-else size="sm" :disabled="updater.isBusy" @click="installNow">
-          <Download :size="14" />
-          Install &amp; Restart
-        </Button>
-      </div>
-    </SettingsSection>
-
-    <!-- Error -->
-    <div
-      v-if="updater.status === 'error'"
-      class="space-y-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-raised)] p-4"
-    >
-      <div class="flex items-start gap-2 text-sm text-[var(--fg-default)]">
-        <AlertCircle :size="16" class="mt-0.5 shrink-0 text-destructive" />
-        <div>
-          <div class="font-medium">Update check failed</div>
-          <p class="mt-0.5 break-words text-xs text-[var(--fg-muted)]">{{ updater.error }}</p>
-        </div>
-      </div>
-      <Button variant="outline" size="sm" :disabled="updater.isBusy" @click="checkNow">
-        <RotateCw :size="14" />
-        Retry
-      </Button>
-    </div>
-  </div>
+      :version="updater.info?.version ?? null"
+      :notes="updater.info?.notes ?? null"
+      :downloading="updater.status === 'downloading'"
+      :progress-pct="updater.progressPct"
+      :busy="updater.isBusy"
+      @install="install"
+    />
+  </SettingsPage>
 </template>
