@@ -66,6 +66,9 @@ schemars = "1"
 tokio-util = "0.7"
 uuid = { version = "1", features = ["v4"] }
 keyring = { version = "3.0.3", features = ["windows-native"] }
+qrcodegen = "1.8"
+getrandom = "0.3"
+mdns-sd = { version = "0.21", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

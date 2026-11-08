@@ -71,6 +71,10 @@ use commands::recording_db::{
     recording_database_snapshot_page, recording_database_sources, recording_database_table_rows,
 };
 use commands::recording_export::{recording_export_preview, recording_export_session};
+use commands::wireless::{
+    adb_wifi_address, wireless_discover, wireless_discover_stop, wireless_pairing_cancel,
+    wireless_pairing_start, wireless_pairing_with_code,
+};
 use commands::sqlite::{
     sqlite_close_database, sqlite_execute_query, sqlite_execute_write, sqlite_export_bytes,
     sqlite_list_databases, sqlite_open_database, sqlite_overwrite_local_bytes,
@@ -295,6 +299,12 @@ pub fn run() {
             adb_disconnect_device,
             adb_pair_device,
             adb_tcpip,
+            adb_wifi_address,
+            wireless_discover,
+            wireless_discover_stop,
+            wireless_pairing_start,
+            wireless_pairing_with_code,
+            wireless_pairing_cancel,
             adb_reboot,
             adb_root,
             adb_restart_server,

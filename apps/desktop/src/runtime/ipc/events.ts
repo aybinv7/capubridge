@@ -3,6 +3,7 @@ import type { SessionEvent } from "@/types/session.types";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { UpdaterProgressPayload } from "@/types/updater.types";
 import type { AutomationTaskEvent } from "@/types/automation.types";
+import type { PairingStateEvent } from "@/types/wireless.types";
 
 export interface MockServerRequestEvent {
   ruleId: string | null;
@@ -67,6 +68,7 @@ export interface IpcEventMap {
   "mcp://bridge/request": McpBridgeRequestEvent;
   "capubridge:opfs-pull-progress": OpfsPullProgressEvent;
   "capubridge:automation-task-event": AutomationTaskEventPayload;
+  "capubridge:wireless-pairing": PairingStateEvent;
 }
 
 export type IpcEventName = keyof IpcEventMap;

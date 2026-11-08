@@ -9,6 +9,7 @@ import type { RecordingCommandMap } from "@/runtime/ipc/contracts/recording";
 import type { SessionCommandMap } from "@/runtime/ipc/contracts/session";
 import type { StorageCommandMap } from "@/runtime/ipc/contracts/storage";
 import type { UpdaterCommandMap } from "@/runtime/ipc/contracts/updater";
+import type { WirelessCommandMap } from "@/runtime/ipc/contracts/wireless";
 
 export interface IpcCommandMap
   extends
@@ -21,7 +22,8 @@ export interface IpcCommandMap
     RecordingCommandMap,
     MockCommandMap,
     McpCommandMap,
-    UpdaterCommandMap {}
+    UpdaterCommandMap,
+    WirelessCommandMap {}
 
 export type IpcCommandName = keyof IpcCommandMap;
 export type IpcCommandArgs<Name extends IpcCommandName> = IpcCommandMap[Name]["args"];
@@ -74,6 +76,12 @@ export const IPC_COMMAND_NAMES = [
   "adb_disconnect_device",
   "adb_pair_device",
   "adb_tcpip",
+  "adb_wifi_address",
+  "wireless_discover",
+  "wireless_discover_stop",
+  "wireless_pairing_start",
+  "wireless_pairing_with_code",
+  "wireless_pairing_cancel",
   "adb_reboot",
   "adb_root",
   "adb_restart_server",
