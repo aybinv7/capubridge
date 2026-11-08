@@ -4,6 +4,7 @@ import AppShell from "@/components/layout/AppShell.vue";
 import UpdaterBootstrap from "@/components/UpdaterBootstrap.vue";
 import McpBridgeBootstrap from "@/components/McpBridgeBootstrap.vue";
 import ObservabilityBootstrap from "@/components/ObservabilityBootstrap.vue";
+import WirelessReconnectBootstrap from "@/components/WirelessReconnectBootstrap.vue";
 import { CladdProvider } from "@capubridge/cladd";
 import AppToasts from "@/components/feedback/AppToasts.vue";
 import { useThemeStore } from "@/stores/theme.store";
@@ -40,6 +41,7 @@ const DrawerWindow = isDrawerWindow
       <UpdaterBootstrap />
       <McpBridgeBootstrap />
       <ObservabilityBootstrap />
+      <WirelessReconnectBootstrap />
       <AppToasts />
     </template>
   </CladdProvider>
