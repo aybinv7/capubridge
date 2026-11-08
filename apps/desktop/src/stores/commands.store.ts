@@ -5,34 +5,36 @@ import type { Command } from "@/lib/commands/types";
 import { resolveKeydown, type SequenceState } from "@/lib/commands/dispatch";
 import { isEditableTarget } from "@/lib/commands/editable";
 import { readPersisted, writePersisted } from "@/lib/persisted";
+import {
+  MAX_RECENT_APPS,
+  MAX_RECENT_COMMANDS,
+  isStringArray,
+  pushRecent,
+} from "@/lib/commands/recents";
 
 const LS_RECENT = "capubridge:recent-commands";
-const MAX_RECENT = 6;
+const LS_RECENT_APPS = "capubridge:recent-apps";
 
 export type CommandProvider = () => readonly Command[];
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
 
 export const useCommandsStore = defineStore("commands", () => {
   const providers = shallowRef(new Map<string, CommandProvider>());
   const paletteOpen = ref(false);
   const paletteQuery = ref("");
   const recentIds = ref<string[]>(readPersisted<string[]>(LS_RECENT, [], isStringArray));
+  const recentApps = ref<string[]>(readPersisted<string[]>(LS_RECENT_APPS, [], isStringArray));
   let pendingSequence: SequenceState | null = null;
 
+  /**
+   * Every provider's commands. When two providers offer the same id the one registered later
+   * wins and keeps the earlier one's place, so a screen can specialise an app-wide command.
+   */
   const commands = computed<Command[]>(() => {
-    const result: Command[] = [];
-    const seen = new Set<string>();
+    const byId = new Map<string, Command>();
     for (const provider of providers.value.values()) {
-      for (const command of provider()) {
-        if (seen.has(command.id)) continue;
-        seen.add(command.id);
-        result.push(command);
-      }
+      for (const command of provider()) byId.set(command.id, command);
     }
-    return result;
+    return [...byId.values()];
   });
 
   const available = computed(() => commands.value.filter((command) => command.when?.() ?? true));
@@ -50,11 +52,12 @@ export const useCommandsStore = defineStore("commands", () => {
     return bindings.value.get(id) ?? null;
   }
 
-  const recent = computed(() =>
-    recentIds.value
-      .map((id) => available.value.find((command) => command.id === id))
-      .filter((command): command is Command => command !== undefined),
-  );
+  const recent = computed(() => {
+    const byId = new Map(available.value.map((command) => [command.id, command]));
+    return recentIds.value
+      .map((id) => byId.get(id))
+      .filter((command): command is Command => command !== undefined);
+  });
 
   function registerProvider(id: string, provider: CommandProvider): () => void {
     const next = new Map(providers.value);
@@ -70,8 +73,14 @@ export const useCommandsStore = defineStore("commands", () => {
 
   function remember(id: string) {
     if (id === "view.palette") return;
-    recentIds.value = [id, ...recentIds.value.filter((entry) => entry !== id)].slice(0, MAX_RECENT);
+    recentIds.value = pushRecent(recentIds.value, id, MAX_RECENT_COMMANDS);
     writePersisted(LS_RECENT, recentIds.value);
+  }
+
+  /** Remembers an app opened from the palette, so "open" lists it first next time. */
+  function rememberApp(packageName: string) {
+    recentApps.value = pushRecent(recentApps.value, packageName, MAX_RECENT_APPS);
+    writePersisted(LS_RECENT_APPS, recentApps.value);
   }
 
   async function run(command: Command) {
@@ -112,9 +121,11 @@ export const useCommandsStore = defineStore("commands", () => {
     commands,
     available,
     recent,
+    recentApps,
     paletteOpen,
     paletteQuery,
     registerProvider,
+    rememberApp,
     bindingOf,
     run,
     openPalette,

@@ -13,7 +13,7 @@ const { labelOf } = useBindingHint();
 const paletteDescription = computed(() => {
   const opener = labelOf("view.palette");
   const lead = opener ? `${opener} opens it; start` : "Start";
-  return `${lead} with > for commands, @ for devices and targets, or : for this screen.`;
+  return `${lead} with "open " for apps, > for actions, @ for devices and targets, # for tables and stores, or : for this screen.`;
 });
 
 const bound = computed(() => {
