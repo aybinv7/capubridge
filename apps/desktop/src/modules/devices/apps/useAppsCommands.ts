@@ -4,7 +4,7 @@ import { useCommandProvider } from "@/composables/useCommandProvider";
 import type { AdbPackage, AdbPackageDetails } from "@/types/adb.types";
 import { appDisplayName } from "@/shared/apps/appIdentity";
 import { appFolders } from "@/shared/apps/appFolders";
-import type { useAppActions } from "./useAppActions";
+import type { useAppActions } from "@/shared/apps/useAppActions";
 
 interface AppsCommandDeps {
   selectedApp: ComputedRef<AdbPackage | null>;

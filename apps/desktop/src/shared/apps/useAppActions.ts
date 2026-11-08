@@ -2,29 +2,29 @@ import { computed, ref, type Ref } from "vue";
 import { toast } from "@/lib/toast";
 import { useAdb } from "@/composables/useAdb";
 import type { AdbPackage } from "@/types/adb.types";
-import { appDisplayName } from "@/shared/apps/appIdentity";
+import { appDisplayName } from "./appIdentity";
 import {
   appActionCommand,
   appActionOutcome,
   appActionRequest,
   type AppAction,
   type AppActionSubject,
-} from "@/shared/apps/appActions";
+} from "./appActions";
 
 function subjectOf(app: AdbPackage): AppActionSubject {
   return { name: appDisplayName(app), packageName: app.packageName, system: app.system };
 }
 
-interface AppActionHooks {
-  onUninstalled: (app: AdbPackage) => Promise<void> | void;
-  onDataCleared: (app: AdbPackage) => void;
+export interface AppActionHooks {
+  onUninstalled?: (app: AdbPackage) => Promise<void> | void;
+  onDataCleared?: (app: AdbPackage) => void;
 }
 
 /**
  * Launch, force stop, clear data and uninstall for one phone. Disruptive actions are asked first:
  * `request` opens the question, `confirm` runs the shell command and reports what the phone said.
  */
-export function useAppActions(serial: Ref<string>, hooks: AppActionHooks) {
+export function useAppActions(serial: Ref<string>, hooks: AppActionHooks = {}) {
   const { openPackage, shellCommand } = useAdb();
   const pending = ref<{ app: AdbPackage; action: AppAction } | null>(null);
   const isActing = ref(false);
@@ -39,7 +39,7 @@ export function useAppActions(serial: Ref<string>, hooks: AppActionHooks) {
     pending.value ? appActionRequest(pending.value.action, subjectOf(pending.value.app)) : null,
   );
 
-  async function launch(app: AdbPackage) {
+  async function launch(app: Pick<AdbPackage, "label" | "packageName">) {
     if (!serial.value) return;
     const name = appDisplayName(app);
     try {
@@ -70,8 +70,8 @@ export function useAppActions(serial: Ref<string>, hooks: AppActionHooks) {
         return;
       }
       toast.success(outcome.title);
-      if (action === "uninstall") await hooks.onUninstalled(app);
-      if (action === "clearData") hooks.onDataCleared(app);
+      if (action === "uninstall") await hooks.onUninstalled?.(app);
+      if (action === "clearData") hooks.onDataCleared?.(app);
     } catch (err) {
       toast.error(`Could not finish the action on ${name}`, { description: String(err) });
     } finally {

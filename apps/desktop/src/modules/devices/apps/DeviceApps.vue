@@ -18,7 +18,7 @@ import AppsTable from "./AppsTable.vue";
 import AppsToolbar from "./AppsToolbar.vue";
 import { countApps, filterApps, sortApps, type AppScope, type AppSort } from "./appsModel";
 import type { AppsDensity, AppsView } from "./appsView";
-import { useAppActions } from "./useAppActions";
+import { useAppActions } from "@/shared/apps/useAppActions";
 import { useAppSelection } from "./useAppSelection";
 import { useAppsCommands } from "./useAppsCommands";
 
