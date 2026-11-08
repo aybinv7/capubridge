@@ -3,7 +3,6 @@ import { useRouter } from "vue-router";
 import {
   Bug,
   Cable,
-  Keyboard,
   Monitor,
   Moon,
   PanelLeft,
@@ -210,14 +209,6 @@ export function useCoreCommands(): void {
         run: () =>
           entry.prompt ? drawer.openPrompt() : drawer.open(entry.view, { mode: entry.mode }),
       })),
-      {
-        id: "help.shortcuts",
-        title: "Keyboard shortcuts",
-        group: "Help",
-        icon: Keyboard,
-        keywords: ["keys", "bindings", "hotkeys"],
-        run: () => router.push("/settings/shortcuts"),
-      },
     ]),
 
     commands.registerProvider("core.appearance", () =>
@@ -237,6 +228,7 @@ export function useCoreCommands(): void {
         id: "device.manager",
         title: "Choose device or target",
         group: "Devices",
+        section: "switch",
         icon: Cable,
         binding: "mod+shift+d",
         keywords: ["device manager", "connect", "pair", "wifi", "emulator", "target"],
@@ -246,6 +238,7 @@ export function useCoreCommands(): void {
         id: "device.refresh",
         title: "Refresh devices",
         group: "Devices",
+        section: "switch",
         icon: RefreshCw,
         keywords: ["adb", "rescan"],
         run: () => devices.refreshDevices(),
@@ -254,6 +247,7 @@ export function useCoreCommands(): void {
         id: `device.${device.serial}`,
         title: deviceNames.nameOf(device),
         group: "Devices",
+        section: "switch",
         icon: Smartphone,
         detail: `${device.serial} · ${device.isStale ? "stale" : device.status}`,
         dormant: device.isStale || device.status !== "online",
@@ -268,6 +262,7 @@ export function useCoreCommands(): void {
         id: `target.${target.id}`,
         title: target.title?.trim() || target.url,
         group: "Targets",
+        section: "switch",
         icon: Bug,
         detail: target.packageName ?? target.url,
         keywords: [target.url, target.packageName ?? "", "target", "inspect", "webview"],

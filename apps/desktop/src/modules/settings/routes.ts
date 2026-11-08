@@ -39,7 +39,7 @@ export const settingsRoutes = [
         path: "shortcuts",
         name: "settings-shortcuts",
         component: () => import("./SettingsShortcuts.vue"),
-        meta: { label: "Shortcuts" },
+        meta: { label: "Shortcuts", keywords: ["keyboard", "keys", "bindings", "hotkeys"] },
       },
       {
         path: "mcp",

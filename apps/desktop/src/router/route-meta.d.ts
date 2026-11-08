@@ -11,5 +11,7 @@ declare module "vue-router" {
     tabPath?: string;
     /** A command the gate offers beside its own actions (for example, open a file instead). */
     gateCommand?: { commandId: string; label: string; hint?: string };
+    /** Extra words the command palette matches this destination on. */
+    keywords?: readonly string[];
   }
 }
