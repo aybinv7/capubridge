@@ -18,6 +18,10 @@ use tokio_util::sync::CancellationToken;
 const MAX_CDP_MESSAGE_BYTES: usize = 1024 * 1024 * 1024;
 const MAX_CDP_FRAME_BYTES: usize = 512 * 1024 * 1024;
 
+/// How long the relay waits for the device's DevTools socket. An app frozen in the background
+/// can leave the handshake unanswered; the client's own open timeout is 10 s.
+const UPSTREAM_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
+
 pub fn cdp_socket_config() -> WebSocketConfig {
     WebSocketConfig::default()
         .max_message_size(Some(MAX_CDP_MESSAGE_BYTES))
@@ -55,7 +59,10 @@ pub(crate) fn validate_upstream_url(ws_url: &str) -> Result<(), String> {
     if uri.scheme_str() != Some("ws") {
         return Err("CDP WebSocket URL must use ws".to_string());
     }
-    if !matches!(uri.host().unwrap_or_default(), "127.0.0.1" | "localhost" | "::1") {
+    if !matches!(
+        uri.host().unwrap_or_default(),
+        "127.0.0.1" | "localhost" | "::1"
+    ) {
         return Err("CDP WebSocket URL must target loopback".to_string());
     }
     if uri.port_u16().is_none() || !uri.path().starts_with("/devtools/") {
@@ -102,28 +109,21 @@ fn authorize_request(request: &Request, expected_token: &str) -> Result<(), http
 fn rejection(status: http::StatusCode) -> ErrorResponse {
     http::Response::builder()
         .status(status)
-        .body(Some(status.canonical_reason().unwrap_or("Rejected").to_string()))
+        .body(Some(
+            status.canonical_reason().unwrap_or("Rejected").to_string(),
+        ))
         .expect("valid proxy rejection")
 }
 
+/// Relays one client to the device. The device side is opened first, so the client's socket
+/// only opens when the target really answers: a frozen or vanished WebView fails the client's
+/// handshake instead of opening a socket that closes a moment later.
 async fn relay_connection(
     client_stream: TcpStream,
     upstream_url: String,
     token: String,
     cancel: CancellationToken,
 ) {
-    let client_ws = tokio::select! {
-        _ = cancel.cancelled() => return,
-        result = accept_hdr_async_with_config(client_stream, |request: &Request, response: Response| {
-            authorize_request(request, &token).map(|()| response).map_err(rejection)
-        }, Some(cdp_socket_config())) => match result {
-            Ok(socket) => socket,
-            Err(error) => {
-                log::warn!("[cdp_proxy] Client handshake rejected: {error}");
-                return;
-            }
-        }
-    };
     let mut upstream_request = match upstream_url.into_client_request() {
         Ok(request) => request,
         Err(error) => {
@@ -143,10 +143,29 @@ async fn relay_connection(
     }
     let upstream_ws = tokio::select! {
         _ = cancel.cancelled() => return,
-        result = connect_async_with_config(upstream_request, Some(cdp_socket_config()), false) => match result {
-            Ok((socket, _)) => socket,
-            Err(error) => {
+        result = tokio::time::timeout(
+            UPSTREAM_CONNECT_TIMEOUT,
+            connect_async_with_config(upstream_request, Some(cdp_socket_config()), false),
+        ) => match result {
+            Ok(Ok((socket, _))) => socket,
+            Ok(Err(error)) => {
                 log::warn!("[cdp_proxy] Upstream connection failed: {error}");
+                return;
+            }
+            Err(_) => {
+                log::warn!("[cdp_proxy] Upstream connection timed out");
+                return;
+            }
+        }
+    };
+    let client_ws = tokio::select! {
+        _ = cancel.cancelled() => return,
+        result = accept_hdr_async_with_config(client_stream, |request: &Request, response: Response| {
+            authorize_request(request, &token).map(|()| response).map_err(rejection)
+        }, Some(cdp_socket_config())) => match result {
+            Ok(socket) => socket,
+            Err(error) => {
+                log::warn!("[cdp_proxy] Client handshake rejected: {error}");
                 return;
             }
         }
@@ -295,10 +314,7 @@ mod tests {
     #[test]
     fn proxy_requires_exact_token_and_allowed_origin() {
         let token = crate::mcp::auth::generate_token();
-        let valid = request(
-            &format!("/?token={token}"),
-            Some("http://tauri.localhost"),
-        );
+        let valid = request(&format!("/?token={token}"), Some("http://tauri.localhost"));
         assert!(authorize_request(&valid, &token).is_ok());
         assert_eq!(
             authorize_request(&request("/?token=wrong", None), &token),
@@ -311,5 +327,33 @@ mod tests {
             ),
             Err(http::StatusCode::FORBIDDEN)
         );
+    }
+    #[tokio::test]
+    async fn client_socket_never_opens_when_the_device_side_refuses() {
+        let dead = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind dead port");
+        let dead_port = dead.local_addr().expect("dead addr").port();
+        drop(dead);
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy");
+        let port = listener.local_addr().expect("proxy addr").port();
+        let token = crate::mcp::auth::generate_token();
+        let cancel = CancellationToken::new();
+        let proxy = tokio::spawn(run_proxy(
+            listener,
+            format!("ws://127.0.0.1:{dead_port}/devtools/page/frozen"),
+            token.clone(),
+            cancel.clone(),
+        ));
+
+        let result =
+            tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/?token={token}")).await;
+
+        assert!(
+            result.is_err(),
+            "the client socket opened although the device side refused"
+        );
+        cancel.cancel();
+        proxy.await.expect("proxy task");
     }
 }

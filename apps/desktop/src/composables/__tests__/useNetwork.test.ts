@@ -38,6 +38,7 @@ function fakeClient(): FakeClient {
 
 const env = vi.hoisted(() => ({
   clients: new Map<string, unknown>(),
+  connects: 0,
   targets: null as null | { selectedTarget: CDPTarget | null; cdpTargetId: string },
 }));
 
@@ -54,7 +55,10 @@ vi.mock("@/composables/useCDP", async () => {
   return {
     useCDP: () => ({
       getClient: (id: string) => env.clients.get(id),
-      connectToTarget: async (target: CDPTarget) => env.clients.get(target.id),
+      connectToTarget: async (target: CDPTarget) => {
+        env.connects += 1;
+        return env.clients.get(target.id);
+      },
       connectionStore,
     }),
   };
@@ -104,6 +108,7 @@ beforeEach(() => {
   setActivePinia(createPinia());
   setNetworkFlushScheduler(() => (flush) => flush());
   env.clients.clear();
+  env.connects = 0;
   env.clients.set("a", fakeClient());
   env.clients.set("b", fakeClient());
   scope = effectScope();
@@ -240,5 +245,25 @@ describe("network capture lifecycle", () => {
 
     expect(store.captureStatus).toBe("idle");
     expect(store.captureTargetId).toBeNull();
+  });
+  test("a closed connection waits before reconnecting instead of looping", async () => {
+    await selectTarget("a");
+    scope.run(() => useNetwork());
+    await settle();
+    const store = useNetworkStore();
+    const { useCDP } = await import("@/composables/useCDP");
+    const connections = useCDP().connectionStore.connections as Map<string, { status: string }>;
+    const before = env.connects;
+
+    env.clients.delete("a");
+    connections.set("a", { status: "disconnected" });
+    await settle();
+
+    expect(env.connects).toBe(before);
+    expect(store.captureStatus).toBe("error");
+
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await settle();
+    expect(env.connects).toBe(before + 1);
   });
 });

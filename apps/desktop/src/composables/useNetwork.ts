@@ -312,17 +312,24 @@ export function useNetwork() {
           ? (connectionStore.connections.get(target.value.id)?.status ?? "disconnected")
           : "disconnected",
       ] as const,
-    ([targetId], previous) => {
-      const previousTargetId = previous?.[0] ?? null;
+    ([targetId, wsUrl, status], previous) => {
       const nextTarget = target.value;
-      if (targetId !== previousTargetId) {
+      if (!nextTarget) {
+        void stopCapture();
+        return;
+      }
+      const targetChanged = targetId !== (previous?.[0] ?? null);
+      if (targetChanged) {
         store.clear();
         retryDelay = initialRetryDelay;
       }
-      if (nextTarget) {
+      if (targetChanged || wsUrl !== (previous?.[1] ?? null) || status === "connected") {
         void startCapture(nextTarget);
-      } else {
-        void stopCapture();
+        return;
+      }
+      if ((status === "disconnected" || status === "error") && !retryTimer && !bindingTargetId) {
+        store.setCaptureState("error", nextTarget.id, "The DevTools connection closed");
+        scheduleRetry(nextTarget);
       }
     },
     { immediate: true },
