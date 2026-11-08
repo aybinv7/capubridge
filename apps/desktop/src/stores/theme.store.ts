@@ -1,6 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
-import { getTheme, applyTheme, DEFAULT_THEME_ID } from "../themes/registry";
+import { getAvailableTheme, getTheme, applyTheme, DEFAULT_THEME_ID } from "../themes/registry";
 
 const LS_THEME = "capubridge:theme-id";
 
@@ -17,12 +17,12 @@ export const useThemeStore = defineStore("theme", () => {
 
   function initialize() {
     const saved = localStorage.getItem(LS_THEME);
-    themeId.value = getTheme(saved ?? DEFAULT_THEME_ID).id;
+    themeId.value = getAvailableTheme(saved ?? DEFAULT_THEME_ID).id;
     reapply();
   }
 
   function setTheme(id: string) {
-    themeId.value = getTheme(id).id;
+    themeId.value = getAvailableTheme(id).id;
     localStorage.setItem(LS_THEME, themeId.value);
     reapply();
   }

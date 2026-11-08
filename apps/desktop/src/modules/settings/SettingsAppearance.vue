@@ -3,6 +3,7 @@ import { Segmented, SegmentedButton, Switch } from "@capubridge/cladd";
 import { useTheme } from "@/composables/useTheme";
 import { useTimelineStripStore, type StripEdge } from "@/stores/timelineStrip.store";
 import { useUIStore } from "@/stores/ui.store";
+import { isThemeAvailable } from "@/themes/registry";
 import SettingsCard from "./components/SettingsCard.vue";
 import SettingsPage from "./components/SettingsPage.vue";
 import SettingsRow from "./components/SettingsRow.vue";
@@ -36,6 +37,7 @@ function setRailShown(shown: boolean) {
             :key="theme.id"
             :theme="theme"
             :active="themeId === theme.id"
+            :disabled="!isThemeAvailable(theme)"
             @select="setTheme"
           />
         </div>

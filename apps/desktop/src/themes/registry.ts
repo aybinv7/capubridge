@@ -7,6 +7,17 @@ export const themes: readonly Theme[] = [benchDark, benchLight, highContrast] as
 
 export const DEFAULT_THEME_ID = "bench-dark";
 
+/** Light themes are defined and tested, but the app is not finished for them yet. */
+export function isThemeAvailable(theme: Theme): boolean {
+  return theme.mode !== "light";
+}
+
+/** The theme for `id` if it can be used today, otherwise the default. */
+export function getAvailableTheme(id: string): Theme {
+  const theme = getTheme(id);
+  return isThemeAvailable(theme) ? theme : getTheme(DEFAULT_THEME_ID);
+}
+
 export function getTheme(id: string): Theme {
   const found = themes.find((t) => t.id === id);
   if (found) return found;

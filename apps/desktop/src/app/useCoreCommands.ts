@@ -31,7 +31,7 @@ import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
-import { themes } from "@/themes/registry";
+import { isThemeAvailable, themes } from "@/themes/registry";
 import type { Command } from "@/lib/commands/types";
 import type { ConsoleMode, DrawerView } from "@/types/drawer.types";
 
@@ -212,7 +212,7 @@ export function useCoreCommands(): void {
     ]),
 
     commands.registerProvider("core.appearance", () =>
-      themes.map<Command>((entry) => ({
+      themes.filter(isThemeAvailable).map<Command>((entry) => ({
         id: `theme.${entry.id}`,
         title: `Theme: ${entry.label}`,
         group: "Appearance",

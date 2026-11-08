@@ -31,11 +31,25 @@ describe("themeStore", () => {
   });
 
   test("initialize restores a saved theme", () => {
+    localStorage.setItem("capubridge:theme-id", "high-contrast");
+    const store = useThemeStore();
+    store.initialize();
+    expect(store.themeId).toBe("high-contrast");
+  });
+
+  test("a saved light theme falls back to dark until light is supported", () => {
     localStorage.setItem("capubridge:theme-id", "bench-light");
     const store = useThemeStore();
     store.initialize();
-    expect(store.themeId).toBe("bench-light");
-    expect(store.mode).toBe("light");
+    expect(store.themeId).toBe("bench-dark");
+    expect(store.mode).toBe("dark");
+  });
+
+  test("choosing a light theme keeps the dark one", () => {
+    const store = useThemeStore();
+    store.initialize();
+    store.setTheme("bench-light");
+    expect(store.themeId).toBe("bench-dark");
   });
 
   test("a retired theme id migrates to the default", () => {
