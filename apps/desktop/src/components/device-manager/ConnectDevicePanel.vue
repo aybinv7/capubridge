@@ -1,100 +1,106 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { Button, Input } from "@capubridge/cladd";
+import { computed, ref } from "vue";
+import { Segmented, SegmentedButton } from "@capubridge/cladd";
+import { useWirelessDiscovery } from "@/composables/useWirelessDiscovery";
+import { nearbyPhones, type NearbyPhone } from "@/lib/wireless/nearbyPhones";
+import { useDevicesStore } from "@/stores/devices.store";
+import type { ADBDevice } from "@/types/adb.types";
+import AddressConnectView from "./wireless/AddressConnectView.vue";
+import CodePairingView from "./wireless/CodePairingView.vue";
+import NearbyPhonesList from "./wireless/NearbyPhonesList.vue";
+import QrPairingView from "./wireless/QrPairingView.vue";
+
+type ConnectMethod = "qr" | "code" | "address";
+
+const DISCOVERY_INTERVAL_MS = 1000;
+
+const METHODS: { value: ConnectMethod; label: string }[] = [
+  { value: "qr", label: "QR code" },
+  { value: "code", label: "Pairing code" },
+  { value: "address", label: "Cable or address" },
+];
 
 const props = defineProps<{
-  pairing: boolean;
   connecting: boolean;
-  pair: (address: string, code: string) => Promise<boolean>;
+  switchingToWifi: boolean;
+  connectingGuid: string | null;
   connect: (host: string, port: number) => Promise<boolean>;
+  switchToWifi: (device: ADBDevice) => Promise<boolean>;
+}>();
+const emit = defineEmits<{
+  connected: [serial: string, guid: string | null];
+  connectNearby: [phone: NearbyPhone];
 }>();
 
-const pairAddress = ref("");
-const pairCode = ref("");
-const host = ref("");
-const port = ref("5555");
+const devicesStore = useDevicesStore();
+const method = ref<ConnectMethod>("qr");
 
-async function submitPair() {
-  if (await props.pair(pairAddress.value, pairCode.value)) pairCode.value = "";
+const { services, status } = useWirelessDiscovery(DISCOVERY_INTERVAL_MS);
+
+const phones = computed(() => nearbyPhones(services.value, devicesStore.devices));
+const usbDevices = computed(() =>
+  devicesStore.devices.filter(
+    (device) => device.connectionType === "usb" && device.status === "online" && !device.isStale,
+  ),
+);
+const discoveryNote = computed(() => {
+  if (status.value === "adbUnavailable")
+    return "ADB is not running, so nearby phones cannot be listed.";
+  if (status.value === "discoveryUnavailable")
+    return "This computer cannot search the network. A pairing code or the cable still works.";
+  return null;
+});
+
+function onConnected(serial: string, guid: string | null) {
+  emit("connected", serial, guid);
 }
-
-async function submitConnect() {
-  await props.connect(host.value, Number.parseInt(port.value, 10) || 5555);
-}
-
-const sectionClass = "flex flex-col gap-3 rounded-well bg-surface-cut px-4 py-3.5 shadow-cut";
-const fieldLabel = "text-2xs text-[var(--fg-subtle)]";
 </script>
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <header class="flex flex-col gap-1 px-5 pt-5 pb-4">
-      <h2 class="text-base font-medium text-foreground">Connect a device over Wi-Fi</h2>
-      <p class="text-2xs text-[var(--fg-subtle)]">
-        The device and this computer must be on the same network.
-      </p>
+    <header class="flex flex-col gap-3 px-5 pt-5 pb-4">
+      <div class="flex flex-col gap-1">
+        <h2 class="text-base font-medium text-foreground">Connect over Wi-Fi</h2>
+        <p class="text-2xs text-[var(--fg-subtle)]">
+          The phone and this computer must be on the same network. Guest or isolated Wi-Fi can hide
+          the phone.
+        </p>
+      </div>
+      <Segmented size="sm" aria-label="How to connect" class="self-start">
+        <SegmentedButton
+          v-for="option in METHODS"
+          :key="option.value"
+          :active="method === option.value"
+          @click="method = option.value"
+        >
+          {{ option.label }}
+        </SegmentedButton>
+      </Segmented>
     </header>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-5">
-      <section :class="sectionClass" aria-labelledby="pair-title">
-        <div class="flex flex-col gap-1">
-          <h3 id="pair-title" class="text-sm font-medium text-foreground">
-            Pair with a code
-            <span class="font-normal text-[var(--fg-subtle)]">Android 11 and later</span>
-          </h3>
-          <p class="text-xs text-muted-foreground">
-            On the device: Settings › Developer options › Wireless debugging › Pair device with
-            pairing code. Enter the address and code it shows, then connect below.
-          </p>
-        </div>
-        <form class="flex items-end gap-2" @submit.prevent="submitPair">
-          <label class="flex min-w-0 flex-1 flex-col gap-1">
-            <span :class="fieldLabel">Pairing address</span>
-            <Input
-              v-model="pairAddress"
-              placeholder="192.168.1.20:37261"
-              input-class-name="font-mono"
-            />
-          </label>
-          <label class="flex w-28 flex-col gap-1">
-            <span :class="fieldLabel">Code</span>
-            <Input
-              v-model="pairCode"
-              placeholder="123456"
-              input-mode="numeric"
-              :max-length="6"
-              input-class-name="font-mono"
-            />
-          </label>
-          <Button type="submit" variant="solid" surface-level="+2" :loading="props.pairing">
-            Pair
-          </Button>
-        </form>
-      </section>
+    <div class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-5 pb-5">
+      <QrPairingView v-if="method === 'qr'" @connected="onConnected" />
+      <CodePairingView
+        v-else-if="method === 'code'"
+        :services="services"
+        @connected="onConnected"
+      />
+      <AddressConnectView
+        v-else
+        :usb-devices="usbDevices"
+        :switching="props.switchingToWifi"
+        :connecting="props.connecting"
+        :connect="props.connect"
+        :switch-to-wifi="props.switchToWifi"
+      />
 
-      <section :class="sectionClass" aria-labelledby="connect-title">
-        <div class="flex flex-col gap-1">
-          <h3 id="connect-title" class="text-sm font-medium text-foreground">Connect by address</h3>
-          <p class="text-xs text-muted-foreground">
-            Use the address under Wireless debugging. On Android 10 and older, first run
-            <span class="font-mono text-foreground">adb tcpip 5555</span> with the device on USB, or
-            use “Use Wi-Fi” on a USB device.
-          </p>
-        </div>
-        <form class="flex items-end gap-2" @submit.prevent="submitConnect">
-          <label class="flex min-w-0 flex-1 flex-col gap-1">
-            <span :class="fieldLabel">IP address</span>
-            <Input v-model="host" placeholder="192.168.1.20" input-class-name="font-mono" />
-          </label>
-          <label class="flex w-24 flex-col gap-1">
-            <span :class="fieldLabel">Port</span>
-            <Input v-model="port" input-mode="numeric" input-class-name="font-mono" />
-          </label>
-          <Button type="submit" variant="solid-fill" color="brand" :loading="props.connecting"
-            >Connect</Button
-          >
-        </form>
-      </section>
+      <p v-if="discoveryNote" class="text-2xs text-[var(--fg-subtle)]">{{ discoveryNote }}</p>
+      <NearbyPhonesList
+        v-else-if="phones.length"
+        :phones="phones"
+        :connecting-guid="props.connectingGuid"
+        @connect="emit('connectNearby', $event)"
+      />
     </div>
   </div>
 </template>

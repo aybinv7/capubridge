@@ -19,44 +19,58 @@ export function parseHostPort(value: string): { host: string; port: number } | n
   return { host, port };
 }
 
-/** Wi-Fi switching, TCP connect, pairing and disconnecting, each with honest feedback. */
+/** Wi-Fi switching, TCP connect and disconnecting, each with honest feedback. */
 export function useDeviceConnections(manager: DeviceManagerState) {
   const devicesStore = useDevicesStore();
-  const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, pairDevice } = useAdb();
+  const { getDeviceOverview, tcpip, connectDevice, disconnectDevice, wifiAddress } = useAdb();
 
   const switchingToWifi = ref(false);
   const connecting = ref(false);
-  const pairing = ref(false);
 
-  async function switchToWifi(device: ADBDevice) {
-    if (switchingToWifi.value) return;
+  async function readWifiAddress(device: ADBDevice): Promise<string | null> {
+    try {
+      const ip = await wifiAddress(device.serial);
+      if (ip) return ip;
+    } catch (error) {
+      console.warn("Could not read the Wi-Fi address; falling back to the device overview", error);
+    }
+    const known = manager.viewedDeviceInfo.value?.ipAddresses?.[0];
+    if (known) return known;
+    const info = await getDeviceOverview(device.serial);
+    if (!info) return null;
+    manager.rememberDeviceInfo(device.serial, info);
+    return info.ipAddresses?.[0] ?? null;
+  }
+
+  /**
+   * Android 10 and older: restarts adbd in TCP mode on 5555 through the cable, then connects to
+   * the phone's Wi-Fi address, read before the restart drops the USB link.
+   */
+  async function switchToWifi(device: ADBDevice): Promise<boolean> {
+    if (switchingToWifi.value) return false;
     switchingToWifi.value = true;
     try {
-      await manager.withPollingPaused(async () => {
-        let ip = manager.viewedDeviceInfo.value?.ipAddresses?.[0];
+      return await manager.withPollingPaused(async () => {
+        const ip = await readWifiAddress(device);
         if (!ip) {
-          const info = await getDeviceOverview(device.serial);
-          if (info) {
-            manager.rememberDeviceInfo(device.serial, info);
-            ip = info.ipAddresses?.[0];
-          }
+          toast.warning("Turn on Wi-Fi on the phone first", {
+            description:
+              "The phone has no Wi-Fi address, so it cannot be reached without the cable.",
+          });
+          return false;
         }
         await tcpip(device.serial, ADB_TCP_PORT);
-        if (!ip) {
-          toast.warning("Wi-Fi debugging is on; connect it by address", {
-            description: `The device IP could not be read. Use Connect a device with <ip>:${ADB_TCP_PORT}.`,
-          });
-          return;
-        }
         await new Promise<void>((resolve) => setTimeout(resolve, TCP_RESTART_DELAY_MS));
         await connectDevice(ip, ADB_TCP_PORT);
         await devicesStore.refreshDevices();
         toast.success("Wi-Fi debugging is on", {
-          description: `Connected through ${ip}:${ADB_TCP_PORT}. You can unplug the cable.`,
+          description: "The phone is connected over Wi-Fi. You can unplug the cable.",
         });
+        return true;
       });
     } catch (error) {
       toast.error("Could not switch to Wi-Fi debugging", { description: String(error) });
+      return false;
     } finally {
       switchingToWifi.value = false;
     }
@@ -103,33 +117,5 @@ export function useDeviceConnections(manager: DeviceManagerState) {
     }
   }
 
-  async function pair(address: string, code: string): Promise<boolean> {
-    const target = parseHostPort(address);
-    if (!target) {
-      toast.error("Enter the pairing address as ip:port", {
-        description:
-          "It is shown under “Pair device with pairing code”, for example 192.168.1.20:37261.",
-      });
-      return false;
-    }
-    if (!code.trim()) {
-      toast.error("Enter the six-digit pairing code");
-      return false;
-    }
-    pairing.value = true;
-    try {
-      await pairDevice(target.host, target.port, code.trim());
-      toast.success("Paired", {
-        description: "Now connect it with the address shown under Wireless debugging.",
-      });
-      return true;
-    } catch (error) {
-      toast.error("Pairing failed", { description: String(error) });
-      return false;
-    } finally {
-      pairing.value = false;
-    }
-  }
-
-  return { switchingToWifi, connecting, pairing, switchToWifi, disconnect, connectTcp, pair };
+  return { switchingToWifi, connecting, switchToWifi, disconnect, connectTcp };
 }

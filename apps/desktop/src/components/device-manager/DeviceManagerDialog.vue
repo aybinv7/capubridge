@@ -15,6 +15,7 @@ import { moveRovingFocus } from "./rovingFocus";
 import { useDeviceConnections } from "./useDeviceConnections";
 import { useDeviceManager } from "./useDeviceManager";
 import { useDeviceTargets } from "./useDeviceTargets";
+import { useWirelessConnect } from "./wireless/useWirelessConnect";
 
 const props = defineProps<{ open: boolean; panel?: DeviceManagerPanel | null }>();
 const emit = defineEmits<{ close: []; selectDevice: [serial: string] }>();
@@ -28,6 +29,7 @@ const manager = useDeviceManager({
   onDeviceSelected: (serial) => emit("selectDevice", serial),
 });
 const connections = useDeviceConnections(manager);
+const wireless = useWirelessConnect(manager);
 const targets = useDeviceTargets(manager, () => emit("close"));
 
 const { activePanel, viewedSerial, viewedDevice, viewedDeviceInfo } = manager;
@@ -214,10 +216,13 @@ function showEmulators() {
 
         <ConnectDevicePanel
           v-else-if="activePanel === 'connect'"
-          :pairing="connections.pairing.value"
           :connecting="connections.connecting.value"
-          :pair="connections.pair"
+          :switching-to-wifi="connections.switchingToWifi.value"
+          :connecting-guid="wireless.connectingGuid.value"
           :connect="connections.connectTcp"
+          :switch-to-wifi="connections.switchToWifi"
+          @connected="wireless.adopt"
+          @connect-nearby="wireless.connectNearby"
         />
 
         <EmulatorPanel

@@ -114,6 +114,11 @@ export function useAdb() {
     await invokeCommand("adb_pair_device", { host, port, code });
   }
 
+  /** The phone's Wi-Fi IPv4 address read over adb (wlan0, then the Wi-Fi route), or null. */
+  async function wifiAddress(serial: string): Promise<string | null> {
+    return invokeCommand("adb_wifi_address", { serial });
+  }
+
   async function tcpip(serial: string, port = 5555) {
     await runSessionEffect(tcpipEffect(serial, port), {
       operation: "session.tcpip",
@@ -211,6 +216,7 @@ export function useAdb() {
     connectDevice,
     disconnectDevice,
     pairDevice,
+    wifiAddress,
     tcpip,
     root,
     reboot,

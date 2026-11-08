@@ -21,17 +21,18 @@ The app opens to the **Devices** module by default.
 
 ### Via Wi-Fi
 
-1. Connect your device via USB first
-2. Open a terminal on your PC and run:
+Android 11 and later, no cable:
 
-```bash
-adb tcpip 5555
-```
+1. Open the device manager and choose **Connect over Wi-Fi**
+2. On the phone: Settings → Developer options → **Wireless debugging** → **Pair device with QR code**
+3. Scan the QR code Capubridge shows. It pairs, connects and selects the phone on its own
 
-3. Disconnect the USB cable
-4. Find your device's IP address (Settings → About → Status → IP address)
-5. In Capubridge, click the device pill → **Pair wirelessly**
-6. Enter the IP address and port `5555`
+The phone and the computer must be on the same Wi-Fi. Paired phones then appear under
+**Nearby phones** with one-click Connect, and reconnect by themselves when they come back.
+
+No camera handy? Use **Pairing code**: the address is filled in from the network, so you only type
+the six digits. On Android 10 and older, plug the cable in once and use **Switch to Wi-Fi** under
+**Cable or address**.
 
 ## Step 3: Inspect a target
 
