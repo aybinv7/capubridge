@@ -31,6 +31,7 @@ import {
 import { idbTreeActions, runIdbTreeAction } from "./idbTreeActions";
 import { useIdbCatalog } from "./useIdbCatalog";
 import { useIdbCommands } from "./useIdbCommands";
+import { useIdbStoreJumps } from "./useIdbStoreJumps";
 import { useIdbDatabaseActions } from "./useIdbDatabaseActions";
 import { useIdbLocation } from "./useIdbLocation";
 import { toggleRecordPane } from "@/modules/storage/frame/recordPaneOpen";
@@ -216,6 +217,11 @@ function findHere(): boolean {
   if (!active || active === document.body || active === document.documentElement) return true;
   return element.contains(active) && !active.closest("[data-record-pane]");
 }
+
+useIdbStoreJumps({
+  database: () => catalog.openDatabase.value,
+  openStore: location.open,
+});
 
 useIdbCommands({
   hasStore: () => Boolean(location.store.value),

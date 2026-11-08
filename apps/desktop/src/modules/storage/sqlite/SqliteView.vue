@@ -22,6 +22,7 @@ import SqliteWorkspace from "./SqliteWorkspace.vue";
 import { useSqliteTabs } from "./workspace/useSqliteTabs";
 import { sqliteTreeActions } from "./sqliteTreeActions";
 import { useSqliteCommands, type SqliteEditCommands } from "./useSqliteCommands";
+import { useSqliteTableJumps } from "./useSqliteTableJumps";
 import { sqliteRouteTo } from "./useSqliteLocation";
 import { useSqliteTab } from "./useSqliteTab";
 import { useSqliteTreeHandlers } from "./useSqliteTreeHandlers";
@@ -230,6 +231,12 @@ function findHere(): boolean {
   if (!active || active === document.body || active === document.documentElement) return true;
   return element.contains(active) && !active.closest("[data-record-pane]");
 }
+
+useSqliteTableJumps({
+  databaseName: () => current.value?.db.name ?? null,
+  tables: () => tables.tables.value,
+  openTable: (table) => openTableAs(table),
+});
 
 useSqliteCommands({
   hasDatabase: () => current.value !== null,
