@@ -6,10 +6,11 @@ import { MAIN_AREA_MIN_WIDTH, WEB_PANEL_MIN_WIDTH, useMirrorStore } from "@/stor
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
-import { useCDP } from "@/composables/useCDP";
+import { useUIStore } from "@/stores/ui.store";
 import { useAppPackages } from "@/composables/useAppPackages";
+import { useOpenLocalPage } from "@/composables/useOpenLocalPage";
+import type { AddressResolution } from "@/lib/local-address";
 import { useBringToFrontOwner } from "@/composables/useBringToFrontOwner";
 import { targetAppName } from "@/lib/target-app-name";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
@@ -21,6 +22,8 @@ import LocalWebviewHost from "./LocalWebviewHost.vue";
 import MirrorDeviceBar from "./MirrorDeviceBar.vue";
 import MirrorDeviceFrame from "./MirrorDeviceFrame.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
+import LocalAddressBar from "./LocalAddressBar.vue";
+import { useLocalPageAddress, type ReloadKind } from "./useLocalPageAddress";
 import MirrorStateOverlay from "./MirrorStateOverlay.vue";
 import MirrorBringToFront from "./MirrorBringToFront.vue";
 import WebViewportBar from "./WebViewportBar.vue";
@@ -34,8 +37,7 @@ const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
 const inspectStore = useInspectStore();
 const targetsStore = useTargetsStore();
-const localWebviewStore = useLocalWebviewStore();
-const { connectToTarget } = useCDP();
+const ui = useUIStore();
 const {
   useScrcpyCanvas,
   isAndroidStream,
@@ -64,6 +66,11 @@ const screenRef = computed(() => deviceFrameRef.value?.screen ?? null);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
 const localViewport = useLocalWebviewViewport(selectedTarget, screenRef);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
+const localPage = useLocalPageAddress(
+  computed(() => (isLocalTarget.value ? selectedTarget.value : null)),
+  () => localViewport.apply(),
+);
+const { openLocalPage } = useOpenLocalPage();
 const isWebPreview = computed(
   () => isLocalTarget.value || selectedTarget.value?.source === "chrome",
 );
@@ -148,30 +155,37 @@ function handleStreamNavigation(action: "back" | "home") {
   void sendKey(action === "back" ? AndroidKey.BACK : AndroidKey.HOME);
 }
 
-async function handleRefresh() {
-  if (isLocalTarget.value) {
-    const target = selectedTarget.value;
-    if (!target || target.source !== "local") return;
-    try {
-      const readyTarget = await localWebviewStore.ensureCdpTarget(target).catch((error) => {
-        console.warn("Local webview CDP unavailable; reloading through navigation", error);
-        return null;
-      });
-      if (readyTarget?.webSocketDebuggerUrl) {
-        const client = await connectToTarget(readyTarget);
-        await client.send("Page.reload", { ignoreCache: true });
-        await localViewport.apply();
-        return;
-      }
-      if (target.localWebviewLabel) {
-        await localWebviewStore.navigateSource(target.localWebviewLabel, target.url);
-      }
-    } catch (err) {
-      toast.error("Failed to refresh local webview", { description: String(err) });
-    }
-    return;
-  }
+const RELOAD_FAILED: Record<ReloadKind, string> = {
+  normal: "Could not reload the page",
+  hard: "Could not hard reload the page",
+  "empty-cache": "Could not empty the cache and reload",
+};
 
+async function handleLocalReload(kind: ReloadKind) {
+  try {
+    await localPage.reload(kind);
+    if (kind === "empty-cache") toast.success("Cache emptied, page reloaded");
+  } catch (error) {
+    toast.error(RELOAD_FAILED[kind], { description: String(error) });
+  }
+}
+
+async function handleLocalGo(resolution: AddressResolution) {
+  try {
+    if (resolution.kind === "same-page") await localPage.navigate(resolution.url);
+    else await openLocalPage(resolution.url);
+  } catch (error) {
+    toast.error("Could not open the address", { description: String(error) });
+  }
+}
+
+function handleInvalidAddress(text: string) {
+  toast.error(`“${text.trim()}” is not an address`, {
+    description: "Type a path such as /panels, or a full URL such as localhost:5173.",
+  });
+}
+
+async function handleRefresh() {
   if (mirrorStore.isOpen && !mirrorStore.isDetached) {
     await stopStream();
     await startStream();
@@ -380,13 +394,24 @@ useMirrorCommands({
     <div
       class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
     >
+      <LocalAddressBar
+        v-if="isLocalTarget"
+        :url="localPage.url.value"
+        :loading="localPage.loading.value"
+        :side="mirrorStore.side"
+        @switch-device="ui.openDeviceManager('local')"
+        @reload="handleLocalReload"
+        @go="handleLocalGo"
+        @invalid="handleInvalidAddress"
+        @toggle-side="mirrorStore.setSide(mirrorStore.side === 'right' ? 'left' : 'right')"
+      />
       <MirrorTopBar
+        v-else
         :status="status"
         :is-recording="mirrorStore.isRecording"
         :recording-timecode="recordingTimecode"
         :can-capture="canUseStreamActions"
         :android-mode="androidMode"
-        :is-local="isLocalTarget"
         :laser-mode="mirrorStore.laserMode"
         :side="mirrorStore.side"
         @screenshot="captureScreenshot"

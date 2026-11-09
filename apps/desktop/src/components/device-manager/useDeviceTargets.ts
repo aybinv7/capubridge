@@ -5,14 +5,12 @@ import { useConnectionStore } from "@/stores/connection.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
-import { useCDP } from "@/composables/useCDP";
-import { useLocalPageHistoryStore } from "@/stores/localPageHistory.store";
+import { useOpenLocalPage } from "@/composables/useOpenLocalPage";
 import { normalizeInspectableUrl } from "@/lib/inspect-url";
 import { isNativeAppTarget } from "@/lib/app-target";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { DeviceManagerState } from "./useDeviceManager";
 import { groupTargetsByApp } from "./targetGroups";
-import { readLocalPageIdentity } from "./readLocalPageIdentity";
 
 /** Targets on the viewed device and on This PC, and every action on them. */
 export function useDeviceTargets(manager: DeviceManagerState, close: () => void) {
@@ -21,8 +19,7 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
   const connectionStore = useConnectionStore();
   const localWebviewStore = useLocalWebviewStore();
   const { activateTarget } = useTargetActivation();
-  const { connectToTarget } = useCDP();
-  const pageHistory = useLocalPageHistoryStore();
+  const { openLocalPage } = useOpenLocalPage((target) => selectTarget(target));
 
   const scanning = ref(false);
   const creatingLocal = ref(false);
@@ -121,16 +118,6 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     }
   }
 
-  async function learnPageIdentity(target: CDPTarget, url: string) {
-    try {
-      const ready = await localWebviewStore.ensureCdpTarget(target);
-      const client = await connectToTarget(ready);
-      pageHistory.describe(url, await readLocalPageIdentity(client));
-    } catch (error) {
-      console.warn("Could not read the title and icon of the local page", url, error);
-    }
-  }
-
   async function createLocalTarget(rawUrl: string): Promise<string | null> {
     const url = normalizeInspectableUrl(rawUrl);
     if (!url) {
@@ -139,10 +126,7 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     }
     creatingLocal.value = true;
     try {
-      const target = targetsStore.createLocalTarget(url);
-      pageHistory.record(url);
-      await selectTarget(target);
-      void learnPageIdentity(target, url);
+      await openLocalPage(url);
       return url;
     } catch (error) {
       toast.error("Could not open the local page", { description: String(error) });

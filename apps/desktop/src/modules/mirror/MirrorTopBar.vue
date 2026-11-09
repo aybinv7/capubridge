@@ -12,7 +12,6 @@ const props = defineProps<{
   recordingTimecode: string;
   canCapture: boolean;
   androidMode: boolean;
-  isLocal: boolean;
   laserMode: boolean;
   side: MirrorSide;
 }>();
@@ -42,7 +41,7 @@ const emit = defineEmits<{
           {{ props.recordingTimecode }}
         </span>
       </template>
-      <template v-else-if="!props.isLocal">
+      <template v-else>
         <StatusDot
           :color="props.status.dotColor"
           :variant="props.status.dotVariant"
@@ -56,12 +55,10 @@ const emit = defineEmits<{
           {{ props.status.meta }}
         </span>
       </template>
-      <span v-else class="truncate text-xs text-muted-foreground">Local webview</span>
     </div>
 
     <div class="flex shrink-0 items-center gap-0.5">
       <IconAction
-        v-if="!props.isLocal"
         label="Screenshot"
         hint="Copied to the clipboard and saved to Downloads"
         :disabled="!props.canCapture"
@@ -84,7 +81,6 @@ const emit = defineEmits<{
       </IconAction>
 
       <IconAction
-        v-if="!props.isLocal"
         label="Open in its own window"
         hint="Keeps the screen beside any app"
         @click="emit('detach')"
@@ -94,7 +90,7 @@ const emit = defineEmits<{
 
       <MirrorScreenMenu
         :android-mode="props.androidMode"
-        :is-local="props.isLocal"
+        :is-local="false"
         :side="props.side"
         :laser-mode="props.laserMode"
         @toggle-laser="emit('toggleLaser')"
