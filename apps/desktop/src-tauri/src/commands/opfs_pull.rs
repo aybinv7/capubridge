@@ -520,8 +520,10 @@ async fn pull_into_file<S: OpfsSource>(
     } else {
         0
     };
-    if stat.size <= offset {
-        return Err(format!("\"{path}\" is too small to hold a SQLite database"));
+    if stat.size < offset {
+        return Err(format!(
+            "\"{path}\" is shorter than a SAH-Pool slot header, so it is not a pool slot"
+        ));
     }
     let total = stat.size - offset;
     let target = temp_target(label);
@@ -686,6 +688,38 @@ mod tests {
             .await
             .expect_err("a short pull is an error");
         assert!(error.contains("20 of 80"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn a_slot_holding_only_its_header_opens_as_an_empty_database() {
+        let mut slot = b"/panels.sqlite3".to_vec();
+        slot.resize(SAH_POOL_HEADER_DATA_OFFSET as usize, 0);
+        let mut source = FakeSource::new(&slot);
+        let pulled = pull_into_file(&mut source, &mut |_, _| true, "slot", "panels", true)
+            .await
+            .expect("an unwritten pool database is an empty database");
+        assert_eq!(pulled.size, 0);
+        assert_eq!(std::fs::metadata(&pulled.path).unwrap().len(), 0);
+        let connection = rusqlite::Connection::open_with_flags(
+            &pulled.path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .expect("an empty file opens");
+        let tables: i64 = connection
+            .query_row("SELECT count(*) FROM sqlite_master", [], |row| row.get(0))
+            .expect("an empty database has an empty schema");
+        assert_eq!(tables, 0);
+        drop(connection);
+        let _ = std::fs::remove_file(&pulled.path);
+    }
+
+    #[tokio::test]
+    async fn a_file_shorter_than_a_slot_header_is_not_a_pool_slot() {
+        let mut source = FakeSource::new(&[0u8; 100]);
+        let error = pull_into_file(&mut source, &mut |_, _| true, "slot", "panels", true)
+            .await
+            .expect_err("a short slot is an error");
+        assert!(error.contains("not a pool slot"), "{error}");
     }
 
     #[test]
