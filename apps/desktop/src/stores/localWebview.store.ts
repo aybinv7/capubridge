@@ -69,6 +69,18 @@ async function injectScrollbarHide(webview: Webview) {
   );
 }
 
+/**
+ * The backend creates the preview in its own browser environment, the only one with a DevTools
+ * port, so Capubridge's windows never expose one. This returns the handle to place and show it.
+ */
+async function createPreview(label: string, url: string): Promise<Webview> {
+  await invokeCommand("local_webview_create", { label, url });
+  const { Webview: WebviewApi } = await import("@tauri-apps/api/webview");
+  const webview = await WebviewApi.getByLabel(label);
+  if (!webview) throw new Error("The local page opened, but its webview could not be found");
+  return webview;
+}
+
 function readWebSocketDebuggerUrl(value: JsonValue | null): string | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const candidate = value["webSocketDebuggerUrl"];
@@ -184,68 +196,30 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     }
 
     setEntry(target, { status: "creating", error: null });
-    const [{ Webview }, { getCurrentWindow }] = await Promise.all([
-      import("@tauri-apps/api/webview"),
-      import("@tauri-apps/api/window"),
-    ]);
-    const parent = getCurrentWindow();
-    const webview = new Webview(parent, target.localWebviewLabel, {
-      url: target.url,
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-      devtools: true,
-      focus: false,
-      dragDropEnabled: false,
-    });
-
-    const next = new Map(webviews.value);
-    next.set(target.localWebviewLabel, webview);
-    webviews.value = next;
-
-    const creation = new Promise<Webview>((resolve, reject) => {
-      void webview
-        .once("tauri://created", async () => {
-          try {
-            setEntry(target, { status: "ready", error: null });
-            void webview.hide().catch((error) => {
-              console.warn(
-                "Failed to hide newly created local preview webview",
-                webview.label,
-                error,
-              );
-            });
-            await injectScrollbarHide(webview);
-            resolve(webview);
-            void discoverCdpEndpoint(target).catch((error) => {
-              console.warn("Local preview CDP discovery failed", target.localWebviewLabel, error);
-            });
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            setEntry(target, { status: "error", error: message });
-            reject(error);
-          }
-        })
-        .catch((error) => {
-          const message = error instanceof Error ? error.message : String(error);
-          setEntry(target, { status: "error", error: message });
-          reject(error);
+    const label = target.localWebviewLabel;
+    const creation = createPreview(label, target.url)
+      .then(async (webview) => {
+        const next = new Map(webviews.value);
+        next.set(label, webview);
+        webviews.value = next;
+        setEntry(target, { status: "ready", error: null });
+        void webview.hide().catch((error) => {
+          console.warn("Failed to hide newly created local preview webview", label, error);
         });
-      void webview
-        .once<string>("tauri://error", (event) => {
-          const message = String(event.payload);
-          setEntry(target, { status: "error", error: message });
-          reject(new Error(message));
-        })
-        .catch((error) => {
-          const message = error instanceof Error ? error.message : String(error);
-          setEntry(target, { status: "error", error: message });
-          reject(error);
+        await injectScrollbarHide(webview);
+        void discoverCdpEndpoint(target).catch((error) => {
+          console.warn("Local preview CDP discovery failed", label, error);
         });
-    }).finally(() => {
-      creationPromises.delete(target.localWebviewLabel);
-    });
+        return webview;
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setEntry(target, { status: "error", error: message });
+        throw error;
+      })
+      .finally(() => {
+        creationPromises.delete(label);
+      });
 
     creationPromises.set(target.localWebviewLabel, creation);
     return creation;

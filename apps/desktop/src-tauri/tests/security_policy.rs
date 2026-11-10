@@ -69,3 +69,20 @@ fn local_webview_source_has_no_wildcard_origin_allowance() {
 
     assert!(!source.contains(&forbidden));
 }
+
+#[test]
+fn only_the_preview_environment_opens_a_devtools_port() {
+    for relative in ["src/lib.rs", "src/commands/local_webview.rs"] {
+        let source = fs::read_to_string(manifest_path(relative)).expect("source must exist");
+        assert!(
+            !source.contains("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"),
+            "{relative} must not give every WebView2 in the process a DevTools port"
+        );
+    }
+    let preview = fs::read_to_string(manifest_path("src/commands/local_preview_env.rs"))
+        .expect("preview environment source must exist");
+    assert!(preview.contains(".data_directory("));
+    assert!(preview.contains("--remote-debugging-address=127.0.0.1"));
+    let allow_origins = ["--remote-allow-origins", "="].concat();
+    assert!(!preview.contains(&allow_origins));
+}

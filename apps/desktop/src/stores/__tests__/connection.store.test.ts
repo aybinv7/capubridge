@@ -50,7 +50,7 @@ const target: CDPTarget = {
   title: "Target",
   url: "https://example.test",
   webSocketDebuggerUrl: "ws://target",
-  source: "local",
+  source: "chrome",
 };
 
 function socket(): FakeWebSocket {
@@ -129,5 +129,17 @@ describe("connection store", () => {
     expect(ipc.invoke).toHaveBeenNthCalledWith(2, "cdp_stop_proxy", {
       wsUrl: "ws://target",
     });
+  });
+
+  test("a page on This PC connects through the proxy, which sends no Origin", async () => {
+    ipc.invoke.mockResolvedValueOnce({ wsUrl: "ws://proxy", localPort: 9222 });
+    const store = useConnectionStore();
+    const pending = store.connect({ ...target, id: "local-target", source: "local" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ipc.invoke).toHaveBeenCalledWith("cdp_start_proxy", { wsUrl: "ws://target" });
+    expect(socket().url).toBe("ws://proxy");
+    socket().open();
+    await expect(pending).resolves.toBeDefined();
   });
 });
