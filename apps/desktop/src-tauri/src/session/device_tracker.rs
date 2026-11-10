@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use tauri::AppHandle;
 
-use crate::adb_runtime::create_adb_server;
 use crate::commands::adb::{catch_adb_panic, map_adb_server_err};
+use crate::commands::adb_devices::track_devices;
 use crate::session::events::emit_registry_snapshot;
 use crate::session::registry::SessionRegistry;
 use crate::session::types::SessionTrackerStatus;
@@ -54,17 +54,14 @@ pub fn start_device_tracker(app: AppHandle, registry: Arc<SessionRegistry>) {
             let tracker_registry = registry.clone();
             let callback_tx = refresh_tx.clone();
             let tracker_result = catch_adb_panic("session_track_devices", move || {
-                let mut tracker = create_adb_server();
                 let running_snapshot =
                     tracker_registry.update_tracker_status(SessionTrackerStatus::Running, None);
                 emit_registry_snapshot(&tracker_app, running_snapshot);
 
-                tracker
-                    .track_devices(move |_| {
-                        let _ = callback_tx.send(());
-                        Ok(())
-                    })
-                    .map_err(map_adb_server_err)
+                track_devices(move |_| {
+                    let _ = callback_tx.send(());
+                })
+                .map_err(map_adb_server_err)
             });
 
             match tracker_result {

@@ -33,8 +33,8 @@ pub(crate) fn ensure_adb_runtime(app: &AppHandle) -> Result<String, String> {
         return Ok("already_running".to_string());
     }
 
-    let binary = configure_adb_binary(app)?
-        .ok_or_else(|| missing_adb_binary_message().to_string())?;
+    let binary =
+        configure_adb_binary(app)?.ok_or_else(|| missing_adb_binary_message().to_string())?;
     start_adb_server_process(&binary.path)?;
 
     for _ in 0..25 {
@@ -48,8 +48,8 @@ pub(crate) fn ensure_adb_runtime(app: &AppHandle) -> Result<String, String> {
 }
 
 pub(crate) fn restart_adb_runtime(app: &AppHandle) -> Result<String, String> {
-    let binary = configure_adb_binary(app)?
-        .ok_or_else(|| missing_adb_binary_message().to_string())?;
+    let binary =
+        configure_adb_binary(app)?.ok_or_else(|| missing_adb_binary_message().to_string())?;
     let mut server = create_adb_server();
     let _ = server.kill();
     start_adb_server_process(&binary.path)?;
@@ -269,6 +269,5 @@ fn start_adb_server_process(path: &Path) -> Result<(), String> {
 }
 
 fn probe_adb_server() -> bool {
-    let mut server = create_adb_server();
-    server.devices_long().is_ok()
+    crate::commands::adb_devices::server_answers()
 }

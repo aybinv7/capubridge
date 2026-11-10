@@ -1,8 +1,4 @@
-use adb_client::{
-    server::{ADBServer, DeviceLong, DeviceState},
-    server_device::ADBServerDevice,
-    ADBDeviceExt, RebootType,
-};
+use adb_client::{server::ADBServer, server_device::ADBServerDevice, ADBDeviceExt, RebootType};
 use base64::{engine::general_purpose, Engine as _};
 use parking_lot::Mutex;
 use prost::Message;
@@ -18,9 +14,10 @@ use tauri::AppHandle;
 
 use crate::adb_runtime;
 use crate::blocking::run_blocking;
+use crate::commands::adb_devices;
 use crate::commands::icon_gate::acquire_icon_permit;
-use crate::commands::package_sizes::package_sizes;
 use crate::commands::package_dump::{external_dir_for_user, parse_package_dump};
+use crate::commands::package_sizes::package_sizes;
 
 pub(crate) fn map_adb_server_err(err: impl std::fmt::Display) -> String {
     let msg = err.to_string();
@@ -91,12 +88,18 @@ fn with_serialized_adb_server<T>(
     operation(&mut server)
 }
 
+/// A handle on the device `serial`, once the adb server confirms it lists that device. Uses
+/// Capubridge's own device list: `adb_client`'s rejects a serial with spaces, and with one such
+/// device connected it failed every lookup, not only that device's.
 pub(crate) fn get_adb_device(serial: &str) -> Result<ADBServerDevice, String> {
-    with_serialized_adb_server(|server| {
-        server
-            .get_device_by_name(serial)
-            .map_err(|error| format!("Device not found: {}", map_adb_server_err(error)))
-    })
+    let devices = adb_devices::list_devices().map_err(map_adb_server_err)?;
+    if !devices.iter().any(|device| device.serial == serial) {
+        return Err(format!("Device not found: could not find device {serial}"));
+    }
+    Ok(ADBServerDevice::new(
+        serial.to_string(),
+        Some(adb_runtime::ADB_HOST),
+    ))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -137,24 +140,6 @@ pub struct DeviceInfo {
     pub battery_level: u32,
     pub battery_charging: bool,
     pub ip_addresses: Vec<String>,
-}
-
-fn state_to_string(state: &DeviceState) -> String {
-    match state {
-        DeviceState::Device => "online".to_string(),
-        DeviceState::Offline => "offline".to_string(),
-        DeviceState::Unauthorized => "unauthorized".to_string(),
-        DeviceState::Connecting => "connecting".to_string(),
-        DeviceState::Bootloader => "bootloader".to_string(),
-        DeviceState::Host => "host".to_string(),
-        DeviceState::Recovery => "recovery".to_string(),
-        DeviceState::Sideload => "sideload".to_string(),
-        DeviceState::NoDevice => "no_device".to_string(),
-        DeviceState::Authorizing => "authorizing".to_string(),
-        DeviceState::NoPerm => "no_perm".to_string(),
-        DeviceState::Detached => "detached".to_string(),
-        DeviceState::Rescue => "rescue".to_string(),
-    }
 }
 
 fn connection_type_from_serial(serial: &str) -> String {
@@ -575,21 +560,15 @@ fn aya_get_package_infos(
     Ok(map)
 }
 
-fn parse_device_long(dl: &DeviceLong) -> AdbDevice {
-    let identifier = dl.identifier.clone();
-    let connection_type = connection_type_from_serial(&identifier);
-    let status = state_to_string(&dl.state);
-    let model = dl.model.clone();
-    let product = dl.product.clone();
-
+fn online_device(listed: &adb_devices::ListedDevice) -> AdbDevice {
     AdbDevice {
-        serial: identifier,
-        model,
-        product,
-        transport_id: dl.transport_id.to_string(),
-        device_kind: device_kind_from_serial(&dl.identifier),
-        connection_type,
-        status,
+        serial: listed.serial.clone(),
+        model: listed.model.clone().unwrap_or_else(|| "Unk".to_string()),
+        product: listed.product.clone().unwrap_or_else(|| "Unk".to_string()),
+        transport_id: listed.transport_id.clone().unwrap_or_default(),
+        device_kind: device_kind_from_serial(&listed.serial),
+        connection_type: connection_type_from_serial(&listed.serial),
+        status: "online".to_string(),
     }
 }
 
@@ -599,16 +578,12 @@ pub async fn adb_list_devices() -> Result<Vec<AdbDevice>, String> {
 }
 
 pub(crate) fn adb_list_devices_inner() -> Result<Vec<AdbDevice>, String> {
-    catch_adb_panic("adb_list_devices", || {
-        let devices = with_serialized_adb_server(|server| {
-            server.devices_long().map_err(map_adb_server_err)
-        })?;
-        Ok(devices
-            .iter()
-            .filter(|d| matches!(d.state, DeviceState::Device))
-            .map(|d| parse_device_long(d))
-            .collect())
-    })
+    let devices = adb_devices::list_devices().map_err(map_adb_server_err)?;
+    Ok(devices
+        .iter()
+        .filter(|device| device.state == "device")
+        .map(online_device)
+        .collect())
 }
 
 pub(crate) fn adb_get_device_info_inner(serial: &str) -> Result<DeviceInfo, String> {
@@ -949,16 +924,16 @@ pub(crate) fn adb_list_packages_inner(
 
         let aya_info_map =
             match aya_get_package_infos(&mut device, serial, &package_names, &cancellation) {
-            Ok(info) => info,
-            Err(err) => {
-                log::warn!(
-                    "[adb_list_packages] aya metadata unavailable for serial {}: {}",
-                    serial,
-                    err
-                );
-                HashMap::new()
-            }
-        };
+                Ok(info) => info,
+                Err(err) => {
+                    log::warn!(
+                        "[adb_list_packages] aya metadata unavailable for serial {}: {}",
+                        serial,
+                        err
+                    );
+                    HashMap::new()
+                }
+            };
         if cancellation.is_cancelled() {
             return Ok(Vec::new());
         }
@@ -1129,7 +1104,10 @@ pub(crate) fn adb_open_package_inner(serial: &str, package_name: &str) -> Result
 
     let current_user = get_current_user(&mut device);
     if let Some(activity) = resolve_launchable_activity(&mut device, &package_name, current_user) {
-        let output = shell_output(&mut device, &launcher_start_command(current_user, &activity));
+        let output = shell_output(
+            &mut device,
+            &launcher_start_command(current_user, &activity),
+        );
         return classify_am_start_output(output.trim());
     }
 
@@ -1522,16 +1500,8 @@ fn parse_reverse_rules(output: &str) -> Vec<ReverseRule> {
         .lines()
         .filter_map(|line| {
             let mut parts = line.split_whitespace().rev();
-            let local_port = parts
-                .next()?
-                .strip_prefix("tcp:")?
-                .parse::<u16>()
-                .ok()?;
-            let remote_port = parts
-                .next()?
-                .strip_prefix("tcp:")?
-                .parse::<u16>()
-                .ok()?;
+            let local_port = parts.next()?.strip_prefix("tcp:")?.parse::<u16>().ok()?;
+            let remote_port = parts.next()?.strip_prefix("tcp:")?.parse::<u16>().ok()?;
             Some(ReverseRule {
                 remote_port,
                 local_port,
@@ -1546,10 +1516,7 @@ mod tests {
 
     #[test]
     fn reverse_remove_service_targets_selected_remote_port() {
-        assert_eq!(
-            reverse_remove_service(3000),
-            "reverse:killforward:tcp:3000"
-        );
+        assert_eq!(reverse_remove_service(3000), "reverse:killforward:tcp:3000");
     }
 
     #[test]
@@ -1566,7 +1533,10 @@ mod tests {
 
     #[test]
     fn device_kind_distinguishes_android_emulator_serials() {
-        assert_eq!(device_kind_from_serial("emulator-5554"), DeviceKind::Emulator);
+        assert_eq!(
+            device_kind_from_serial("emulator-5554"),
+            DeviceKind::Emulator
+        );
         assert_eq!(device_kind_from_serial("R5CT12345AB"), DeviceKind::Physical);
     }
 
@@ -1612,8 +1582,14 @@ mod tests {
 
     #[test]
     fn package_from_cmdline_drops_the_process_suffix() {
-        assert_eq!(package_from_cmdline("com.app:remote\0\0").as_deref(), Some("com.app"));
-        assert_eq!(package_from_cmdline("com.app\0").as_deref(), Some("com.app"));
+        assert_eq!(
+            package_from_cmdline("com.app:remote\0\0").as_deref(),
+            Some("com.app")
+        );
+        assert_eq!(
+            package_from_cmdline("com.app\0").as_deref(),
+            Some("com.app")
+        );
         assert_eq!(package_from_cmdline("\0"), None);
         assert_eq!(package_from_cmdline(""), None);
     }

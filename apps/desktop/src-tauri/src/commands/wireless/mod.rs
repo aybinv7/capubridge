@@ -1,4 +1,4 @@
-mod adb_host;
+pub(crate) mod adb_host;
 mod discovery;
 mod mdns_services;
 mod native_mdns;
