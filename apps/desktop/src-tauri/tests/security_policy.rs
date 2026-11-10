@@ -46,6 +46,10 @@ fn capabilities_do_not_grant_preview_or_unscoped_shell_access() {
             privileged_main_found = true;
             assert_eq!(capability["webviews"], serde_json::json!(["main"]));
             assert!(capability.get("windows").is_none());
+            assert!(
+                !serialized.contains("core:webview:allow-create-webview\""),
+                "previews are created by the backend, in their own browser environment"
+            );
         }
 
         let webviews = capability["webviews"]
