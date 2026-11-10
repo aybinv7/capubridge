@@ -1,4 +1,5 @@
 pub mod adb;
+pub(crate) mod adb_devices;
 pub mod automation;
 pub mod reasoning;
 pub(crate) mod cdp_forward_cache;

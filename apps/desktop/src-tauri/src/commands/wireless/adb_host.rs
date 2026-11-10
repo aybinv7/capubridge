@@ -35,7 +35,7 @@ impl fmt::Display for HostError {
 
 /// Sends one host service request (`host:…`) on its own connection, so slow requests such as
 /// pairing never hold the shared adb client lock.
-fn request(service: &str, timeout: Duration) -> Result<String, HostError> {
+pub(crate) fn request(service: &str, timeout: Duration) -> Result<String, HostError> {
     let mut stream = TcpStream::connect_timeout(&SocketAddr::V4(ADB_HOST), CONNECT_TIMEOUT)
         .map_err(|e| HostError::Unreachable(e.to_string()))?;
     stream
@@ -69,7 +69,7 @@ pub(crate) fn read_reply(reader: &mut impl Read) -> Result<String, HostError> {
     }
 }
 
-fn read_length_prefixed(reader: &mut impl Read) -> Result<String, HostError> {
+pub(crate) fn read_length_prefixed(reader: &mut impl Read) -> Result<String, HostError> {
     let mut length = [0u8; 4];
     reader
         .read_exact(&mut length)
@@ -216,14 +216,12 @@ pub(crate) fn disconnect(serial: &str) -> Result<(), String> {
     classify_disconnect_reply(request(&format!("host:disconnect:{serial}"), QUERY_TIMEOUT))
 }
 
-/// Serials adb lists as usable (`device` state), from `host:devices`.
+/// Serials adb lists as usable (`device` state), from `host:devices`. A serial may hold spaces.
 pub(crate) fn parse_online_serials(text: &str) -> Vec<String> {
-    text.lines()
-        .filter_map(|line| {
-            let mut fields = line.split_whitespace();
-            let serial = fields.next()?;
-            (fields.next()? == "device").then(|| serial.to_string())
-        })
+    crate::commands::adb_devices::parse_device_list(text)
+        .into_iter()
+        .filter(|device| device.state == "device")
+        .map(|device| device.serial)
         .collect()
 }
 
@@ -350,12 +348,14 @@ mod tests {
         let text = "r4geda5p7d65u8uo\tdevice\n\
             adb-R5CR-Xy._adb-tls-connect._tcp\tdevice\n\
             10.0.0.2:5555\toffline\n\
-            emulator-5554\tunauthorized\n";
+            emulator-5554\tunauthorized\n\
+            adb-R5CR-Xy (2)._adb-tls-connect._tcp\tdevice\n";
         assert_eq!(
             parse_online_serials(text),
             vec![
                 "r4geda5p7d65u8uo".to_string(),
-                "adb-R5CR-Xy._adb-tls-connect._tcp".to_string()
+                "adb-R5CR-Xy._adb-tls-connect._tcp".to_string(),
+                "adb-R5CR-Xy (2)._adb-tls-connect._tcp".to_string()
             ]
         );
     }
