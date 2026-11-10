@@ -106,6 +106,7 @@ const rowContentClass = "w-full justify-start gap-2.5 px-2 [&>svg]:size-3.5";
       </Button>
 
       <Button
+        v-if="!props.isLocal"
         variant="transparent"
         :outline="false"
         :class="rowClass"

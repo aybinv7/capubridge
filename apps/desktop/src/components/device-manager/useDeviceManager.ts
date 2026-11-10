@@ -4,6 +4,7 @@ import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useTargetsStore } from "@/stores/targets.store";
+import { useThisPcBrowserStore } from "@/stores/thisPcBrowser.store";
 import type { DeviceManagerPanel } from "@/stores/ui.store";
 import { useAdb } from "@/composables/useAdb";
 
@@ -28,6 +29,7 @@ export function useDeviceManager(options: DeviceManagerOptions) {
   const deviceNames = useDeviceNamesStore();
   const localWebviewStore = useLocalWebviewStore();
   const targetsStore = useTargetsStore();
+  const thisPc = useThisPcBrowserStore();
   const { getDeviceOverview } = useAdb();
 
   const activePanel = ref<DeviceManagerPanel>("device");
@@ -133,7 +135,7 @@ export function useDeviceManager(options: DeviceManagerOptions) {
     const target = targetsStore.selectedTarget;
     const current = devicesStore.selectedDevice;
     const targetSerial = target?.source === "adb" ? (target.deviceSerial ?? null) : null;
-    if (target?.source === "local") {
+    if (target?.source === "local" || thisPc.active) {
       showPanel("local");
     } else if (
       targetSerial &&

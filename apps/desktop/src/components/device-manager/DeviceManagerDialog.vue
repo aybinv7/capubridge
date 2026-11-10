@@ -3,6 +3,7 @@ import { computed, nextTick, ref, toRef } from "vue";
 import { MonitorSmartphone, RefreshCw, Wifi } from "lucide-vue-next";
 import { Dialog, ListButton } from "@capubridge/cladd";
 import { useActiveContextStore } from "@/stores/activeContext.store";
+import { useLocalTabs } from "@/composables/useLocalTabs";
 import { useDevicesStore } from "@/stores/devices.store";
 import type { DeviceManagerPanel } from "@/stores/ui.store";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
@@ -31,6 +32,7 @@ const manager = useDeviceManager({
 const connections = useDeviceConnections(manager);
 const wireless = useWirelessConnect(manager);
 const targets = useDeviceTargets(manager, () => emit("close"));
+const localTabs = useLocalTabs();
 
 const { activePanel, viewedSerial, viewedDevice, viewedDeviceInfo } = manager;
 
@@ -93,6 +95,17 @@ async function onOpened() {
   root.value?.querySelector<HTMLElement>("[data-roving-region='devices']")?.focus();
 }
 
+/** This PC is a browser: picking it opens its tabs, or a New tab, instead of a target list. */
+function openThisPc() {
+  localTabs.enterThisPc();
+  emit("close");
+}
+
+function pickDevice(serial: string) {
+  localTabs.leaveThisPc();
+  void manager.selectDevice(serial);
+}
+
 function showConnect() {
   manager.showPanel("connect");
 }
@@ -139,8 +152,8 @@ function showEmulators() {
             :local-viewed="activePanel === 'local'"
             :viewed-serial="activePanel === 'device' ? viewedSerial : null"
             :forgetting-serial="manager.forgettingSerial.value"
-            @select-local="manager.showPanel('local')"
-            @select-device="manager.selectDevice($event)"
+            @select-local="openThisPc"
+            @select-device="pickDevice"
             @forget-device="manager.forgetDevice($event)"
           />
         </div>

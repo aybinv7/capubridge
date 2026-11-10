@@ -6,6 +6,7 @@ import { useConnectionStore } from "@/stores/connection.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useDeviceNamesStore } from "@/stores/deviceNames.store";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
+import { useThisPcBrowserStore } from "@/stores/thisPcBrowser.store";
 import { deriveLinkHealth, presentLink } from "@/lib/gates/link";
 import type { GateInput, GateLinkStatus } from "@/lib/gates/types";
 import type { CDPConnection } from "@/types/cdp.types";
@@ -26,13 +27,14 @@ export const useActiveContextStore = defineStore("active-context", () => {
   const devicesStore = useDevicesStore();
   const deviceNames = useDeviceNamesStore();
   const presenceStore = useTargetPresenceStore();
+  const thisPc = useThisPcBrowserStore();
 
   const device = computed(() => sessionStore.selectedDevice);
   const target = computed(() => targetsStore.selectedTarget);
 
   const kind = computed<ActiveContextKind>(() => {
     const selected = target.value;
-    if (selected?.source === "local") return "local";
+    if (selected?.source === "local" || thisPc.active) return "local";
     if (selected?.source === "chrome") return "chrome";
     if (selected?.source === "adb") return "adb-target";
     return device.value ? "device" : "none";

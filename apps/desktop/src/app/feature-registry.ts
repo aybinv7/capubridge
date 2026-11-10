@@ -31,6 +31,8 @@ export interface AppFeatureDefinition {
   icon: Component;
   /** The rail glyph (`shellIcons.rail`): filled while the destination is current, regular otherwise. */
   railIcon: RailIconKey;
+  /** About an Android device or app, so it leaves the rail while This PC is the context. */
+  deviceOnly?: boolean;
   maturity: FeatureMaturity;
   placement: FeaturePlacement;
   commandPalette: boolean;
@@ -46,6 +48,7 @@ export const featureRegistry = [
     path: "/devices",
     icon: Smartphone,
     railIcon: "device",
+    deviceOnly: true,
     maturity: "stable",
     placement: "primary",
     commandPalette: true,
@@ -58,6 +61,7 @@ export const featureRegistry = [
     path: "/app",
     icon: AppWindow,
     railIcon: "app",
+    deviceOnly: true,
     maturity: "beta",
     placement: "primary",
     commandPalette: true,
@@ -202,6 +206,16 @@ export const utilityNavigationFeatures = enabledFeatures.filter(
 );
 
 export const commandPaletteFeatures = enabledFeatures.filter((feature) => feature.commandPalette);
+
+/** Whether `feature` belongs in the rail for the current context. */
+export function showsInContext(feature: AppFeatureDefinition, thisPc: boolean): boolean {
+  return !(thisPc && feature.deviceOnly);
+}
+
+/** Paths of the destinations about an Android device, which This PC has no use for. */
+export const deviceOnlyPaths: readonly string[] = enabledFeatures
+  .filter((feature: AppFeatureDefinition) => feature.deviceOnly)
+  .map((feature) => feature.path);
 
 export const registeredFeatureRoutes = enabledFeatures.flatMap((feature) =>
   filterFeatureRoutes(feature.routes),

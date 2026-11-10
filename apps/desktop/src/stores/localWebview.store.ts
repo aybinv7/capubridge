@@ -203,7 +203,7 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
         next.set(label, webview);
         webviews.value = next;
         setEntry(target, { status: "ready", error: null });
-        void webview.hide().catch((error) => {
+        await webview.hide().catch((error) => {
           console.warn("Failed to hide newly created local preview webview", label, error);
         });
         await injectScrollbarHide(webview);
@@ -225,66 +225,82 @@ export const useLocalWebviewStore = defineStore("local-webview", () => {
     return creation;
   }
 
-  async function attachToElement(target: CDPTarget, element: HTMLElement) {
-    if (!isLocalTarget(target)) {
-      return;
-    }
+  let layoutChain: Promise<void> = Promise.resolve();
 
-    const webview = await ensureWebview(target);
-
-    // Maintain the invariant that only one local webview is visible at a time.
-    // Without this, switching targets leaves the previous webview painted
-    // beneath/around the new one.
-    const parkOthers = Array.from(webviews.value.entries())
-      .filter(([label]) => label !== target.localWebviewLabel)
-      .map(([, other]) => parkWebview(other));
-    await Promise.all(parkOthers);
-
-    activeTargetId.value = target.id;
-    if (modalGuardCount.value > 0) {
-      await parkWebview(webview);
-      return;
-    }
-    await placeWebview(webview, readElementBounds(element));
-    if (modalGuardCount.value > 0) {
-      await parkWebview(webview);
-      return;
-    }
-    await webview.show();
+  /**
+   * Runs moves, hides and shows one after another, in the order they were asked for. Each is
+   * several native calls, so two running at once could interleave: a host that unmounts parks
+   * every preview while the next host shows its own, and a park landing last hid the page.
+   */
+  function inLayoutOrder(task: () => Promise<void>): Promise<void> {
+    const run = layoutChain.then(task);
+    layoutChain = run.catch((error: unknown) => {
+      console.warn("A local preview layout step failed", error);
+    });
+    return run;
   }
 
-  async function resizeToElement(target: CDPTarget, element: HTMLElement) {
-    if (!isLocalTarget(target)) {
-      return;
-    }
+  function attachToElement(target: CDPTarget, element: HTMLElement) {
+    if (!isLocalTarget(target)) return Promise.resolve();
 
-    const webview = webviews.value.get(target.localWebviewLabel);
-    if (!webview || activeTargetId.value !== target.id || modalGuardCount.value > 0) {
-      return;
-    }
+    return inLayoutOrder(async () => {
+      const webview = await ensureWebview(target);
 
-    await placeWebview(webview, readElementBounds(element));
+      // Maintain the invariant that only one local webview is visible at a time.
+      // Without this, switching targets leaves the previous webview painted
+      // beneath/around the new one.
+      const parkOthers = Array.from(webviews.value.entries())
+        .filter(([label]) => label !== target.localWebviewLabel)
+        .map(([, other]) => parkWebview(other));
+      await Promise.all(parkOthers);
+
+      activeTargetId.value = target.id;
+      if (modalGuardCount.value > 0) {
+        await parkWebview(webview);
+        return;
+      }
+      await placeWebview(webview, readElementBounds(element));
+      if (modalGuardCount.value > 0) {
+        await parkWebview(webview);
+        return;
+      }
+      await webview.show();
+    });
   }
 
-  async function hideTarget(target: CDPTarget | null | undefined) {
-    if (!isLocalTarget(target)) {
-      return;
-    }
+  function resizeToElement(target: CDPTarget, element: HTMLElement) {
+    if (!isLocalTarget(target)) return Promise.resolve();
 
-    const webview = webviews.value.get(target.localWebviewLabel);
-    if (webview) {
-      await parkWebview(webview);
-    }
-    if (activeTargetId.value === target.id) {
+    return inLayoutOrder(async () => {
+      const webview = webviews.value.get(target.localWebviewLabel);
+      if (!webview || activeTargetId.value !== target.id || modalGuardCount.value > 0) {
+        return;
+      }
+      await placeWebview(webview, readElementBounds(element));
+    });
+  }
+
+  function hideTarget(target: CDPTarget | null | undefined) {
+    if (!isLocalTarget(target)) return Promise.resolve();
+
+    return inLayoutOrder(async () => {
+      const webview = webviews.value.get(target.localWebviewLabel);
+      if (webview) {
+        await parkWebview(webview);
+      }
+      if (activeTargetId.value === target.id) {
+        activeTargetId.value = null;
+      }
+      targetsStore.removeTarget(target.id);
+    });
+  }
+
+  function hideAll() {
+    return inLayoutOrder(async () => {
+      const pending = Array.from(webviews.value.values()).map((webview) => parkWebview(webview));
+      await Promise.all(pending);
       activeTargetId.value = null;
-    }
-    targetsStore.removeTarget(target.id);
-  }
-
-  async function hideAll() {
-    const pending = Array.from(webviews.value.values()).map((webview) => parkWebview(webview));
-    await Promise.all(pending);
-    activeTargetId.value = null;
+    });
   }
 
   async function ensureCdpTarget(target: CDPTarget): Promise<CDPTarget> {

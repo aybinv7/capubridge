@@ -7,10 +7,9 @@ import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
-import { useUIStore } from "@/stores/ui.store";
+import { useThisPcBrowserStore } from "@/stores/thisPcBrowser.store";
 import { useAppPackages } from "@/composables/useAppPackages";
-import { useOpenLocalPage } from "@/composables/useOpenLocalPage";
-import type { AddressResolution } from "@/lib/local-address";
+import { useLocalTabs } from "@/composables/useLocalTabs";
 import { useBringToFrontOwner } from "@/composables/useBringToFrontOwner";
 import { targetAppName } from "@/lib/target-app-name";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
@@ -22,8 +21,10 @@ import LocalWebviewHost from "./LocalWebviewHost.vue";
 import MirrorDeviceBar from "./MirrorDeviceBar.vue";
 import MirrorDeviceFrame from "./MirrorDeviceFrame.vue";
 import MirrorTopBar from "./MirrorTopBar.vue";
-import LocalAddressBar from "./LocalAddressBar.vue";
+import LocalBrowserChrome from "./LocalBrowserChrome.vue";
+import NewTabPage from "./NewTabPage.vue";
 import { useLocalPageAddress, type ReloadKind } from "./useLocalPageAddress";
+import { useLiveTabIdentity } from "./useLiveTabIdentity";
 import MirrorStateOverlay from "./MirrorStateOverlay.vue";
 import MirrorBringToFront from "./MirrorBringToFront.vue";
 import WebViewportBar from "./WebViewportBar.vue";
@@ -37,7 +38,7 @@ const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
 const inspectStore = useInspectStore();
 const targetsStore = useTargetsStore();
-const ui = useUIStore();
+const browser = useThisPcBrowserStore();
 const {
   useScrcpyCanvas,
   isAndroidStream,
@@ -66,14 +67,12 @@ const screenRef = computed(() => deviceFrameRef.value?.screen ?? null);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
 const localViewport = useLocalWebviewViewport(selectedTarget, screenRef);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
-const localPage = useLocalPageAddress(
-  computed(() => (isLocalTarget.value ? selectedTarget.value : null)),
-  () => localViewport.apply(),
-);
-const { openLocalPage } = useOpenLocalPage();
-const isWebPreview = computed(
-  () => isLocalTarget.value || selectedTarget.value?.source === "chrome",
-);
+const localMode = computed(() => browser.active);
+const selectedTab = computed(() => browser.selectedTab);
+const localPage = useLocalPageAddress(selectedTab, () => localViewport.apply());
+useLiveTabIdentity(selectedTab, localPage.url, localPage.loading);
+const { openInNewTab } = useLocalTabs();
+const isWebPreview = computed(() => localMode.value || selectedTarget.value?.source === "chrome");
 const { width: windowWidth } = useWindowSize();
 const webMaxWidth = computed(() => windowWidth.value - MAIN_AREA_MIN_WIDTH);
 const columnWidth = computed(() => {
@@ -81,8 +80,8 @@ const columnWidth = computed(() => {
   const ceiling = Math.max(WEB_PANEL_MIN_WIDTH, webMaxWidth.value);
   return Math.min(ceiling, Math.max(WEB_PANEL_MIN_WIDTH, mirrorStore.webPanelWidth));
 });
-const androidMode = computed(() => !isLocalTarget.value && isAndroidStream.value);
-const canUseStreamActions = computed(() => !isLocalTarget.value && mirrorStore.isStreaming);
+const androidMode = computed(() => !localMode.value && isAndroidStream.value);
+const canUseStreamActions = computed(() => !localMode.value && mirrorStore.isStreaming);
 const presenceStore = useTargetPresenceStore();
 const streamSerial = computed(() => {
   const device = devicesStore.selectedDevice;
@@ -94,7 +93,7 @@ const streamOrientation = computed(() =>
   orientationOfSize(mirrorStore.deviceWidth, mirrorStore.deviceHeight),
 );
 const streamWanted = computed(
-  () => mirrorStore.isOpen && !mirrorStore.isDetached && !isLocalTarget.value,
+  () => mirrorStore.isOpen && !mirrorStore.isDetached && !localMode.value,
 );
 const { frames } = useMirrorFrameStats(readFrames, streamWanted);
 const { timecode: recordingTimecode } = useMirrorRecordingClock(
@@ -170,10 +169,13 @@ async function handleLocalReload(kind: ReloadKind) {
   }
 }
 
-async function handleLocalGo(resolution: AddressResolution) {
+async function handleLocalGo(url: string, newTab: boolean) {
+  if (newTab) {
+    await openInNewTab(url);
+    return;
+  }
   try {
-    if (resolution.kind === "same-page") await localPage.navigate(resolution.url);
-    else await openLocalPage(resolution.url);
+    await localPage.navigate(url);
   } catch (error) {
     toast.error("Could not open the address", { description: String(error) });
   }
@@ -196,7 +198,7 @@ watch(
   () => mirrorStore.isOpen,
   (open) => {
     if (open && !mirrorStore.isDetached) {
-      if (isLocalTarget.value) {
+      if (localMode.value) {
         void stopStream().then(() => localViewport.syncAndApply());
         return;
       }
@@ -213,7 +215,7 @@ watch(
 watch(
   () => devicesStore.selectedDevice?.serial,
   () => {
-    if (isLocalTarget.value) return;
+    if (localMode.value) return;
     if (mirrorStore.isOpen && !mirrorStore.isDetached) {
       void stopStream().then(() => startStream());
     }
@@ -221,10 +223,10 @@ watch(
 );
 
 watch(
-  () => targetsStore.selectedTarget?.id ?? null,
+  () => [targetsStore.selectedTarget?.id ?? null, localMode.value] as const,
   () => {
     if (mirrorStore.isOpen && !mirrorStore.isDetached) {
-      if (isLocalTarget.value) {
+      if (localMode.value) {
         void stopStream().then(() => localViewport.syncAndApply());
         return;
       }
@@ -256,7 +258,7 @@ watch(
   () => mirrorStore.webViewport,
   () => {
     if (!mirrorStore.isOpen || mirrorStore.isDetached) return;
-    if (isLocalTarget.value) {
+    if (localMode.value) {
       void localViewport.syncAndApply();
       return;
     }
@@ -295,8 +297,8 @@ async function focusExistingDetachedMirror() {
 }
 
 async function handleDetach() {
-  if (isLocalTarget.value) {
-    toast.info("Local webview stays in the main window");
+  if (localMode.value) {
+    toast.info("Pages on This PC stay in the main window");
     return;
   }
   if (detaching) return;
@@ -394,12 +396,11 @@ useMirrorCommands({
     <div
       class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-surface border border-border-subtle bg-surface-0 shadow-bevel"
     >
-      <LocalAddressBar
-        v-if="isLocalTarget"
+      <LocalBrowserChrome
+        v-if="localMode"
         :url="localPage.url.value"
         :loading="localPage.loading.value"
         :side="mirrorStore.side"
-        @switch-device="ui.openDeviceManager('local')"
         @reload="handleLocalReload"
         @go="handleLocalGo"
         @invalid="handleInvalidAddress"
@@ -423,12 +424,19 @@ useMirrorCommands({
         @refresh="handleRefresh"
       />
 
+      <NewTabPage
+        v-if="localMode && browser.showingNewTab"
+        class="min-h-0 flex-1"
+        @open="openInNewTab"
+      />
+
       <WebViewportBar
-        v-if="!androidMode"
+        v-if="!androidMode && !(localMode && browser.showingNewTab)"
         :rendered-width="deviceFrameRef?.frame.screenWidth ?? 0"
       />
 
       <MirrorDeviceFrame
+        v-if="!(localMode && browser.showingNewTab)"
         ref="deviceFrameRef"
         :device-width="mirrorStore.deviceWidth"
         :device-height="mirrorStore.deviceHeight"
@@ -443,7 +451,7 @@ useMirrorCommands({
             :app-name="backgroundApp.appName"
           />
         </template>
-        <LocalWebviewHost v-if="isLocalTarget" :target="selectedTarget" />
+        <LocalWebviewHost v-if="localMode" :target="selectedTab" />
         <MirrorStream
           v-else
           :use-canvas="useScrcpyCanvas"

@@ -1,10 +1,20 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { NavRail, NavRailItem } from "@capubridge/cladd";
-import { primaryNavigationFeatures, utilityNavigationFeatures } from "@/app/feature-registry";
+import {
+  primaryNavigationFeatures,
+  showsInContext,
+  utilityNavigationFeatures,
+} from "@/app/feature-registry";
 import { shellIcons, type RailIconKey } from "@/shared/icons/shell-icons";
+import { useThisPcBrowserStore } from "@/stores/thisPcBrowser.store";
 
 const route = useRoute();
+const thisPc = useThisPcBrowserStore();
+const primary = computed(() =>
+  primaryNavigationFeatures.filter((feature) => showsInContext(feature, thisPc.active)),
+);
 
 function isActive(path: string) {
   return route.path.startsWith(path);
@@ -19,7 +29,7 @@ function railGlyph(key: RailIconKey, active: boolean) {
 <template>
   <NavRail aria-label="Main" :labels="false" class="pb-2">
     <NavRailItem
-      v-for="feature in primaryNavigationFeatures"
+      v-for="feature in primary"
       :key="feature.id"
       :as="RouterLink"
       :to="feature.path"

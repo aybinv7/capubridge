@@ -94,6 +94,7 @@ function onDeviceSelected(selectedSerial: string) {
       <span class="min-w-0 truncate text-foreground">{{ targetLabel }}</span>
       <span class="shrink-0" :class="linkText">{{ context.link.label }}</span>
     </template>
+    <span v-else-if="context.kind === 'local'" class="shrink-0 text-muted-foreground">New tab</span>
     <span v-else class="shrink-0 text-signal-select">Select a target</span>
     <ChevronDown :size="12" class="shrink-0 text-[var(--fg-subtle)]" aria-hidden="true" />
   </Button>

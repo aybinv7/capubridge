@@ -2,24 +2,21 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { Globe } from "lucide-vue-next";
 import { Input } from "@capubridge/cladd";
-import { displayAddress, resolveAddress, type AddressResolution } from "@/lib/local-address";
+import { displayAddress, resolveAddress } from "@/lib/local-address";
 
 /**
- * The page's address, as a browser shows it: host muted and path bright at rest, the full URL
- * selected on focus. Enter goes there; Escape puts the address back. While typing, it says when
- * the address leaves this origin and so opens as another page.
+ * The tab's address, as a browser shows it: host muted and path bright at rest, the full URL
+ * selected on focus. Enter goes there in this tab, Alt+Enter in a new tab; Escape puts the address
+ * back. A path stays on the page's own site.
  */
 const props = defineProps<{ url: string }>();
-const emit = defineEmits<{ go: [resolution: AddressResolution]; invalid: [text: string] }>();
+const emit = defineEmits<{ go: [url: string, newTab: boolean]; invalid: [text: string] }>();
 
 const field = ref<InstanceType<typeof Input> | null>(null);
 const draft = ref(props.url);
 const focused = ref(false);
 
 const shown = computed(() => displayAddress(props.url));
-const pending = computed(() =>
-  focused.value && draft.value.trim() !== props.url ? resolveAddress(draft.value, props.url) : null,
-);
 
 watch(
   () => props.url,
@@ -56,7 +53,7 @@ function onKeydown(event: KeyboardEvent) {
     emit("invalid", draft.value);
     return;
   }
-  emit("go", resolution);
+  emit("go", resolution.url, event.altKey);
   leave();
 }
 </script>
@@ -86,10 +83,11 @@ function onKeydown(event: KeyboardEvent) {
     </template>
     <template #suffix>
       <span
-        v-if="pending?.kind === 'other-page'"
+        v-if="focused"
         class="mr-2 shrink-0 text-2xs whitespace-nowrap text-[var(--fg-subtle)]"
+        aria-hidden="true"
       >
-        Opens a new page
+        Alt+Enter: new tab
       </span>
     </template>
   </Input>

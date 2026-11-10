@@ -18,6 +18,11 @@ import { useSqliteOpening } from "./useSqliteOpening";
 import { useSqliteSnapshotSync } from "./useSqliteSnapshotSync";
 import { useSqliteSources, type SqliteDevice } from "./useSqliteSources";
 
+/** A database kept inside the page (OPFS, jeep-sqlite), so it belongs to that page's tab. */
+function isInPage(path: string): boolean {
+  return path.startsWith("opfs:") || path.startsWith("jeep-sqlite:");
+}
+
 export interface SqliteOpenDatabase {
   sourceId: string;
   db: SqliteDbFile;
@@ -83,6 +88,15 @@ export function useSqliteTab() {
     { immediate: true },
   );
 
+  watch(
+    () => targets.selectedTarget?.id ?? null,
+    (next, previous) => {
+      const target = location.target.value;
+      if (!previous || next === previous || target?.kind !== "device") return;
+      if (isInPage(target.path)) location.open(null, "", true);
+    },
+  );
+
   const missing = computed(() => {
     const target = location.target.value;
     if (!target || current.value) return null;
@@ -90,8 +104,7 @@ export function useSqliteTab() {
       return "Files opened here last only while Capubridge runs. Open the file again to read it.";
     }
     if (sources.loading.value) return null;
-    const inPage = target.path.startsWith("opfs:") || target.path.startsWith("jeep-sqlite:");
-    if (inPage && !sources.complete.value) {
+    if (isInPage(target.path) && !sources.complete.value) {
       return "This database is in the page, which is not answering right now. Bring the app to the front to list it.";
     }
     return "This database is not in the list any more: the app may have deleted or renamed it.";
