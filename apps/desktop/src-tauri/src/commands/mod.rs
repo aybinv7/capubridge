@@ -13,8 +13,10 @@ pub mod host_file_stream;
 pub(crate) mod files_parse;
 pub(crate) mod icon_gate;
 pub mod local_webview;
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+pub(crate) mod local_preview_env;
 pub mod logcat;
-#[cfg_attr(not(all(target_os = "windows", debug_assertions)), allow(dead_code))]
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub(crate) mod local_webview_probe;
 pub mod mirror;
 pub mod mock_server;

@@ -46,6 +46,10 @@ fn capabilities_do_not_grant_preview_or_unscoped_shell_access() {
             privileged_main_found = true;
             assert_eq!(capability["webviews"], serde_json::json!(["main"]));
             assert!(capability.get("windows").is_none());
+            assert!(
+                !serialized.contains("core:webview:allow-create-webview\""),
+                "previews are created by the backend, in their own browser environment"
+            );
         }
 
         let webviews = capability["webviews"]
@@ -68,4 +72,21 @@ fn local_webview_source_has_no_wildcard_origin_allowance() {
     let forbidden = ["remote-allow-origins", "=", "*"].concat();
 
     assert!(!source.contains(&forbidden));
+}
+
+#[test]
+fn only_the_preview_environment_opens_a_devtools_port() {
+    for relative in ["src/lib.rs", "src/commands/local_webview.rs"] {
+        let source = fs::read_to_string(manifest_path(relative)).expect("source must exist");
+        assert!(
+            !source.contains("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"),
+            "{relative} must not give every WebView2 in the process a DevTools port"
+        );
+    }
+    let preview = fs::read_to_string(manifest_path("src/commands/local_preview_env.rs"))
+        .expect("preview environment source must exist");
+    assert!(preview.contains(".data_directory("));
+    assert!(preview.contains("--remote-debugging-address=127.0.0.1"));
+    let allow_origins = ["--remote-allow-origins", "="].concat();
+    assert!(!preview.contains(&allow_origins));
 }

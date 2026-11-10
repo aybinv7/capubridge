@@ -1,25 +1,8 @@
 use tauri::Manager;
 
+use super::local_preview_env;
+
 const LOCAL_PREVIEW_LABEL_PREFIX: &str = "local-preview-";
-
-#[cfg(all(target_os = "windows", debug_assertions))]
-pub const LOCAL_WEBVIEW_DEBUG_PORT: u16 = 19222;
-
-#[cfg(target_os = "windows")]
-pub fn enable_webview2_remote_debugging() {
-    #[cfg(debug_assertions)]
-    std::env::set_var(
-        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-        webview2_remote_debugging_arguments(),
-    );
-}
-
-#[cfg(all(target_os = "windows", debug_assertions))]
-fn webview2_remote_debugging_arguments() -> String {
-    format!(
-        "--remote-debugging-address=127.0.0.1 --remote-debugging-port={LOCAL_WEBVIEW_DEBUG_PORT} --remote-allow-origins=http://localhost:5173"
-    )
-}
 
 fn validate_local_preview_label(label: &str) -> Result<(), String> {
     let suffix = label
@@ -144,6 +127,18 @@ pub async fn local_webview_inject_scrollbar_hide(
     webview.eval(script).map_err(|e| e.to_string())
 }
 
+/// Opens a page on This PC in its own preview webview, in the preview browser environment.
+#[tauri::command]
+pub async fn local_webview_create(
+    app: tauri::AppHandle,
+    label: String,
+    url: String,
+) -> Result<(), String> {
+    validate_local_preview_label(&label)?;
+    let url = tauri::Url::parse(&validate_preview_url(&url)?).map_err(|e| e.to_string())?;
+    local_preview_env::create_preview(&app, &label, url)
+}
+
 #[tauri::command]
 pub async fn local_webview_navigate(
     app: tauri::AppHandle,
@@ -225,21 +220,22 @@ pub async fn local_webview_fetch_cdp_target(
     label: String,
     claimed_target_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    #[cfg(all(target_os = "windows", debug_assertions))]
+    #[cfg(target_os = "windows")]
     {
         use std::time::{Duration, Instant};
 
         const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(10);
         const POLL_INTERVAL: Duration = Duration::from_millis(300);
 
+        let port = local_preview_env::opened_debug_port()
+            .ok_or_else(|| "The local page is not open yet".to_string())?;
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(2))
             .build()
             .map_err(|e| e.to_string())?;
-        let endpoint = format!("http://127.0.0.1:{LOCAL_WEBVIEW_DEBUG_PORT}/json");
+        let endpoint = format!("http://127.0.0.1:{port}/json");
         let deadline = Instant::now() + DISCOVERY_TIMEOUT;
-        let mut last_issue =
-            format!("WebView2 debug endpoint 127.0.0.1:{LOCAL_WEBVIEW_DEBUG_PORT} did not respond");
+        let mut last_issue = format!("The DevTools port of local pages ({port}) did not respond");
 
         let marker = super::local_webview_probe::preview_marker_script(&label)?;
 
@@ -289,7 +285,7 @@ pub async fn local_webview_fetch_cdp_target(
                 },
                 Err(error) => {
                     last_issue = format!(
-                        "WebView2 debug endpoint 127.0.0.1:{LOCAL_WEBVIEW_DEBUG_PORT} unreachable: {error}"
+                        "The DevTools port of local pages ({port}) is unreachable: {error}"
                     );
                 }
             }
@@ -301,10 +297,10 @@ pub async fn local_webview_fetch_cdp_target(
         }
     }
 
-    #[cfg(not(all(target_os = "windows", debug_assertions)))]
+    #[cfg(not(target_os = "windows"))]
     {
         let _ = (app, label, claimed_target_ids);
-        Err("Local preview CDP access is available only in Windows debug builds".to_string())
+        Err("Inspecting pages on This PC needs WebView2, so it works on Windows only".to_string())
     }
 }
 
@@ -385,14 +381,5 @@ mod tests {
         assert!(validate_preview_url("https://example.com/path").is_ok());
         assert!(validate_preview_url("javascript:alert(1)").is_err());
         assert!(validate_preview_url("https://user:secret@example.com").is_err());
-    }
-
-    #[cfg(all(target_os = "windows", debug_assertions))]
-    #[test]
-    fn debug_endpoint_is_loopback_and_origin_scoped() {
-        let arguments = super::webview2_remote_debugging_arguments();
-        assert!(arguments.contains("--remote-debugging-address=127.0.0.1"));
-        assert!(arguments.contains("--remote-allow-origins=http://localhost:5173"));
-        assert!(!arguments.contains("origins=*"));
     }
 }

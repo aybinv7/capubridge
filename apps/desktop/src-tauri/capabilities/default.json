@@ -18,7 +18,7 @@
     "core:window:allow-show",
     "core:window:allow-unminimize",
     "core:window:allow-set-focus",
-    "core:webview:allow-create-webview",
+    "core:webview:allow-get-all-webviews",
     "core:webview:allow-create-webview-window",
     "core:webview:allow-set-webview-position",
     "core:webview:allow-set-webview-size",

@@ -100,7 +100,7 @@ export const useConnectionStore = defineStore("connection", () => {
         }
 
         let wsUrl = target.webSocketDebuggerUrl;
-        if (target.source === "adb") {
+        if (target.source === "adb" || target.source === "local") {
           const proxy = await invokeCommand("cdp_start_proxy", {
             wsUrl: target.webSocketDebuggerUrl,
           });

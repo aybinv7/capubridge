@@ -35,11 +35,10 @@ use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
     adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
 };
-#[cfg(target_os = "windows")]
-use commands::local_webview::enable_webview2_remote_debugging;
 use commands::local_webview::{
-    local_device_name, local_webview_fetch_cdp_target, local_webview_inject_scrollbar_hide,
-    local_webview_navigate, local_webview_open_devtools, local_webview_set_bounds,
+    local_device_name, local_webview_create, local_webview_fetch_cdp_target,
+    local_webview_inject_scrollbar_hide, local_webview_navigate, local_webview_open_devtools,
+    local_webview_set_bounds,
 };
 use commands::mirror::{
     adb_mirror_get_clipboard, adb_mirror_get_screen_size, adb_mirror_inject_keycode,
@@ -151,9 +150,6 @@ pub fn run() {
 
     #[cfg(target_os = "windows")]
     suppress_error_dialogs();
-
-    #[cfg(target_os = "windows")]
-    enable_webview2_remote_debugging();
 
     let session_registry = SessionRegistryState::new();
 
@@ -426,6 +422,7 @@ pub fn run() {
             local_device_name,
             local_webview_open_devtools,
             local_webview_fetch_cdp_target,
+            local_webview_create,
             local_webview_inject_scrollbar_hide,
             local_webview_navigate,
             local_webview_set_bounds,
