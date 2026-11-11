@@ -50,13 +50,6 @@ export function socketDisplayName(socket: string): string {
   return socket;
 }
 
-/** What to tell the user about a socket whose pages could not be listed. */
-export function unansweredSocketHint(socket: string): string {
-  return socket === CHROME_SOCKET
-    ? "No tabs to show. Open a page in Chrome on the device, then scan again."
-    : "No page open. Open the app on the phone, then scan again.";
-}
-
 /** A target's visible name: its title, else its URL without the scheme, else "Untitled". */
 export function targetDisplayTitle(target: Pick<CDPTarget, "id" | "title" | "url">): string {
   const socket = unansweredSocketOf(target);

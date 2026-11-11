@@ -210,6 +210,7 @@ function showEmulators() {
           @rescan-targets="targets.refreshTargets()"
           @select="targets.selectTarget($event)"
           @inspect="targets.inspectTarget($event)"
+          @open-app="targets.openApp($event)"
           @detach="targets.detachTarget($event)"
         />
 

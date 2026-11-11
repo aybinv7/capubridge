@@ -21,6 +21,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [target: CDPTarget];
   inspect: [target: CDPTarget];
+  openApp: [target: CDPTarget];
   detach: [target: CDPTarget];
 }>();
 
@@ -103,6 +104,7 @@ const subtitle = computed(() => {
       :app-label="props.appLabel"
       @select="emit('select', target)"
       @inspect="emit('inspect', target)"
+      @open-app="emit('openApp', target)"
       @detach="emit('detach', target)"
     >
       <template #app-icon>
@@ -113,7 +115,7 @@ const subtitle = computed(() => {
           :apk-path="props.apkPath"
           :icon-path="props.iconPath"
           size="sm"
-          class="!size-5 !rounded-[5px]"
+          class="!size-6 !rounded-[6px]"
         />
         <Globe
           v-else

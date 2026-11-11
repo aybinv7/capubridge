@@ -25,6 +25,7 @@ const emit = defineEmits<{
   rescan: [];
   select: [target: CDPTarget];
   inspect: [target: CDPTarget];
+  openApp: [target: CDPTarget];
   detach: [target: CDPTarget];
 }>();
 
@@ -88,6 +89,7 @@ const decorated = computed(() =>
         :link="props.link"
         @select="emit('select', $event)"
         @inspect="emit('inspect', $event)"
+        @open-app="emit('openApp', $event)"
         @detach="emit('detach', $event)"
       />
       <DebuggableAppList

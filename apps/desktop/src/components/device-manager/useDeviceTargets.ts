@@ -4,10 +4,14 @@ import { toast } from "@/lib/toast";
 import { useConnectionStore } from "@/stores/connection.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
+import { useAdb } from "@/composables/useAdb";
 import { isNativeAppTarget } from "@/lib/app-target";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { DeviceManagerState } from "./useDeviceManager";
 import { groupTargetsByApp } from "./targetGroups";
+
+/** How long an app usually takes to start and open its WebView before a scan can see it. */
+const APP_START_MS = 1500;
 
 /** Targets on the viewed device, and every action on them. This PC's pages are its tabs. */
 export function useDeviceTargets(manager: DeviceManagerState, close: () => void) {
@@ -15,6 +19,7 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
   const targetsStore = useTargetsStore();
   const connectionStore = useConnectionStore();
   const { activateTarget } = useTargetActivation();
+  const { openPackage } = useAdb();
 
   const scanning = ref(false);
 
@@ -86,6 +91,20 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     }
   }
 
+  /** Opens the app of a WebView with no page, then scans once it has had time to show one. */
+  async function openApp(target: CDPTarget) {
+    const serial = target.deviceSerial;
+    const packageName = target.packageName;
+    if (!serial || !packageName) return;
+    try {
+      await openPackage(serial, packageName);
+      await new Promise((resolve) => setTimeout(resolve, APP_START_MS));
+      await refreshTargets();
+    } catch (error) {
+      toast.error("Could not open the app", { description: String(error) });
+    }
+  }
+
   async function detachTarget(target: CDPTarget) {
     try {
       await connectionStore.disconnectTarget(target.id);
@@ -106,6 +125,7 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     refreshTargets,
     selectTarget,
     inspectTarget,
+    openApp,
     detachTarget,
   };
 }

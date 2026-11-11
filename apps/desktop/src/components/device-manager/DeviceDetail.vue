@@ -34,6 +34,7 @@ const emit = defineEmits<{
   rescanTargets: [];
   select: [target: CDPTarget];
   inspect: [target: CDPTarget];
+  openApp: [target: CDPTarget];
   detach: [target: CDPTarget];
 }>();
 
@@ -77,6 +78,7 @@ const state = computed(() => describeDeviceState(props.device, Date.now(), name.
       @rescan="emit('rescanTargets')"
       @select="emit('select', $event)"
       @inspect="emit('inspect', $event)"
+      @open-app="emit('openApp', $event)"
       @detach="emit('detach', $event)"
     />
   </div>

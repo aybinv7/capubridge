@@ -1,17 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Bug, Unlink } from "lucide-vue-next";
+import { Bug, ExternalLink, Unlink } from "lucide-vue-next";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
-import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
+import { LINK_TONE_TEXT } from "@/components/gate/linkTone";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
-import {
-  describeTargetLines,
-  targetDisplayTitle,
-  targetKindHint,
-  unansweredSocketHint,
-  unansweredSocketOf,
-} from "./targetGroups";
+import { describeTargetLines, isUnansweredSocket, targetKindHint } from "./targetGroups";
 import PageIcon from "./PageIcon.vue";
 
 const props = defineProps<{
@@ -22,38 +16,38 @@ const props = defineProps<{
   appLabel?: string | null;
 }>();
 
-const emit = defineEmits<{ select: []; inspect: []; detach: [] }>();
+const emit = defineEmits<{ select: []; inspect: []; openApp: []; detach: [] }>();
 
-const socket = computed(() => unansweredSocketOf(props.target));
-const unanswered = computed(() => socket.value !== null);
+const unanswered = computed(() => isUnansweredSocket(props.target));
 const lines = computed(() => describeTargetLines(props.target, props.appLabel ?? null));
-const title = computed(() =>
-  unanswered.value ? targetDisplayTitle(props.target) : lines.value.title,
-);
-const detail = computed(() =>
-  socket.value ? unansweredSocketHint(socket.value) : lines.value.detail,
-);
 const kind = computed(() => targetKindHint(props.target));
+const openLabel = computed(() => `Open ${props.appLabel || "the app"} on the phone`);
 </script>
 
 <template>
   <div
+    v-if="unanswered"
+    class="flex items-center justify-between gap-2 rounded-control py-1.5 pr-1.5 pl-3"
+  >
+    <slot name="app-icon" />
+    <IconAction
+      v-if="props.target.packageName"
+      :label="openLabel"
+      hint="No page is open in it yet"
+      size="sm"
+      position="top"
+      @click="emit('openApp')"
+    >
+      <ExternalLink :stroke-width="1.8" />
+    </IconAction>
+  </div>
+
+  <div
+    v-else
     class="group/target relative flex items-center gap-1 rounded-control pr-1.5 transition-colors duration-120"
     :class="props.active ? 'bg-cladd-surface-next shadow-bevel' : 'hover:bg-cladd-surface-hover'"
   >
-    <div
-      v-if="unanswered"
-      class="flex min-w-0 flex-1 items-center gap-2.5 py-2 pr-1 pl-3"
-      :title="detail ?? undefined"
-    >
-      <slot name="app-icon" />
-      <span class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate text-sm text-[var(--fg-muted)]">{{ title }}</span>
-        <span v-if="detail" class="truncate text-2xs text-[var(--fg-subtle)]">{{ detail }}</span>
-      </span>
-    </div>
     <button
-      v-else
       type="button"
       data-roving-item
       :data-current="props.active || undefined"
@@ -62,16 +56,11 @@ const kind = computed(() => targetKindHint(props.target));
       :title="props.active ? props.link?.description : 'Attach DevTools to this page'"
       @click="emit('select')"
     >
-      <span
-        class="size-1.5 shrink-0"
-        :class="props.active && props.link ? LINK_TONE_MARK[props.link.tone] : 'rounded-full'"
-        aria-hidden="true"
-      />
       <PageIcon v-if="props.icon !== undefined" :icon="props.icon" />
       <span class="flex min-w-0 flex-1 flex-col">
-        <span class="truncate text-sm text-foreground">{{ title }}</span>
-        <span v-if="detail" class="truncate font-mono text-2xs text-[var(--fg-subtle)]">
-          {{ detail }}
+        <span class="truncate text-sm text-foreground">{{ lines.title }}</span>
+        <span v-if="lines.detail" class="truncate font-mono text-2xs text-[var(--fg-subtle)]">
+          {{ lines.detail }}
         </span>
       </span>
       <span
@@ -87,7 +76,6 @@ const kind = computed(() => targetKindHint(props.target));
     </button>
 
     <div
-      v-if="!unanswered"
       class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-120 group-focus-within/target:opacity-100 group-hover/target:opacity-100"
       :class="props.active && 'opacity-100'"
     >
