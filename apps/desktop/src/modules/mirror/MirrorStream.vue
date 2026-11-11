@@ -8,6 +8,8 @@ const props = defineProps<{
   deviceWidth: number;
   deviceHeight: number;
   inspectMode?: boolean;
+  /** Reports the pointer moving over the screen without a press, for a page's hover. */
+  forwardHover?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,6 +27,7 @@ const emit = defineEmits<{
     },
   ];
   inspectHover: [x: number, y: number];
+  hover: [x: number, y: number];
   inspectSelect: [x: number, y: number];
   inspectLeave: [];
   canvasReady: [canvas: HTMLCanvasElement | null];
@@ -163,6 +166,10 @@ function onMouseMove(e: MouseEvent) {
     const c = getDeviceCoords(e.clientX, e.clientY);
     emit("inspectHover", c.x, c.y);
     return;
+  }
+  if (props.forwardHover && !dragOrigin.value) {
+    const c = getDeviceCoords(e.clientX, e.clientY);
+    emit("hover", c.x, c.y);
   }
   if (!dragOrigin.value) return;
   if ((e.buttons & 1) !== 1) return;

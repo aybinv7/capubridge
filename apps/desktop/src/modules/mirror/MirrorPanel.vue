@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import { toast } from "@/lib/toast";
 import { useWindowSize, watchDebounced } from "@vueuse/core";
 import { MAIN_AREA_MIN_WIDTH, WEB_PANEL_MIN_WIDTH, useMirrorStore } from "@/stores/mirror.store";
@@ -25,6 +26,7 @@ import LocalBrowserChrome from "./LocalBrowserChrome.vue";
 import NewTabPage from "./NewTabPage.vue";
 import { useLocalPageAddress, type ReloadKind } from "./useLocalPageAddress";
 import { useLiveTabIdentity } from "./useLiveTabIdentity";
+import { usePageHoverForwarding } from "./usePageHoverForwarding";
 import MirrorStateOverlay from "./MirrorStateOverlay.vue";
 import MirrorBringToFront from "./MirrorBringToFront.vue";
 import WebViewportBar from "./WebViewportBar.vue";
@@ -69,7 +71,11 @@ const { panelWidth } = useMirrorViewportWidth(streamAreaRef);
 const frameArea = computed(() => deviceFrameRef.value?.area ?? null);
 const renderedWidth = computed(() => deviceFrameRef.value?.frame.screenWidth ?? 0);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
-const localViewport = useLocalWebviewViewport(selectedTarget, frameArea);
+const route = useRoute();
+/** DevTools' element picker may be on, and Capubridge cannot see DevTools' session to know. */
+const devtoolsOpen = computed(() => route.path.startsWith("/devtools/chrome"));
+const pickingElements = computed(() => inspectStore.inspectMode || devtoolsOpen.value);
+const localViewport = useLocalWebviewViewport(selectedTarget, frameArea, pickingElements);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
 const localMode = computed(() => browser.active);
 const selectedTab = computed(() => browser.selectedTab);
@@ -85,6 +91,8 @@ const columnWidth = computed(() => {
   return Math.min(ceiling, Math.max(WEB_PANEL_MIN_WIDTH, mirrorStore.webPanelWidth));
 });
 const androidMode = computed(() => !localMode.value && isAndroidStream.value);
+const forwardHover = computed(() => androidMode.value && devtoolsOpen.value);
+const pageHover = usePageHoverForwarding(selectedTarget, forwardHover);
 const canUseStreamActions = computed(() => !localMode.value && mirrorStore.isStreaming);
 const presenceStore = useTargetPresenceStore();
 const streamSerial = computed(() => {
@@ -249,14 +257,11 @@ watchDebounced(
   { debounce: AREA_SETTLE_MS },
 );
 
-watch(
-  () => inspectStore.inspectMode,
-  () => {
-    if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
-      void localViewport.apply();
-    }
-  },
-);
+watch(pickingElements, () => {
+  if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
+    void localViewport.apply();
+  }
+});
 
 watch(
   () => mirrorStore.settings.fps,
@@ -477,6 +482,8 @@ useMirrorCommands({
           :device-width="mirrorStore.deviceWidth"
           :device-height="mirrorStore.deviceHeight"
           :inspect-mode="inspectStore.inspectMode"
+          :forward-hover="forwardHover"
+          @hover="pageHover.move"
           @touch="sendTouch"
           @wheel="sendWheel"
           @navigation="handleStreamNavigation"

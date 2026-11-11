@@ -1,7 +1,6 @@
 import type { Ref } from "vue";
 import { useCDP } from "@/composables/useCDP";
 import { resolveViewport, type ViewportArea } from "@/lib/web-viewport";
-import { useInspectStore } from "@/stores/inspect.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import type { CDPTarget } from "@/types/cdp.types";
@@ -16,15 +15,16 @@ import { fitDeviceFrame } from "./deviceFrame";
  * after a switch the screen still has the previous device's size, and measuring it laid the page
  * out with the old scale.
  *
- * While picking an element, the mouse stays a mouse even on a phone size: emulated touch has no
- * hover, so the page would never highlight what the pointer is over.
+ * While `keepMouse` (an element picker may be on: ours, or DevTools' own), the mouse stays a mouse
+ * even on a phone size: emulated touch has no hover, so the page would never see the pointer and
+ * no picker could highlight what it is over. Chrome's device mode makes the same trade.
  */
 export function useLocalWebviewViewport(
   target: Readonly<Ref<CDPTarget | null>>,
   area: Readonly<Ref<ViewportArea | null>>,
+  keepMouse: Readonly<Ref<boolean>>,
 ) {
   const mirrorStore = useMirrorStore();
-  const inspectStore = useInspectStore();
   const localWebviewStore = useLocalWebviewStore();
   const { connectToTarget } = useCDP();
   let applySequence = 0;
@@ -79,7 +79,7 @@ export function useLocalWebviewViewport(
           maxTouchPoints: metrics.mobile ? 1 : 0,
         }),
         client.send("Emulation.setEmitTouchEventsForMouse", {
-          enabled: metrics.mobile && !inspectStore.inspectMode,
+          enabled: metrics.mobile && !keepMouse.value,
           configuration: metrics.mobile ? "mobile" : "desktop",
         }),
       ]);
