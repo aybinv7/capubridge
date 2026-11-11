@@ -75,13 +75,14 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     }
   }
 
+  /** Attaches to the page and opens its full Chrome DevTools, docked. */
   async function inspectTarget(target: CDPTarget) {
     try {
       await activateTarget(target);
       close();
-      await router.push(target.source === "local" ? "/devtools/chrome" : "/inspect/elements");
+      await router.push("/devtools/chrome");
     } catch (error) {
-      toast.error("Could not inspect the target", { description: String(error) });
+      toast.error("Could not open DevTools for the page", { description: String(error) });
     }
   }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Crosshair, Trash2, Unlink } from "lucide-vue-next";
+import { Bug, Unlink } from "lucide-vue-next";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { LinkPresentation } from "@/lib/gates/link";
 import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
@@ -18,12 +18,11 @@ const props = defineProps<{
   target: CDPTarget;
   active: boolean;
   link: LinkPresentation | null;
-  removable?: boolean;
   icon?: string | null;
   appLabel?: string | null;
 }>();
 
-const emit = defineEmits<{ select: []; inspect: []; detach: []; remove: [] }>();
+const emit = defineEmits<{ select: []; inspect: []; detach: [] }>();
 
 const unanswered = computed(() => isUnansweredSocket(props.target));
 const lines = computed(() => describeTargetLines(props.target, props.appLabel ?? null));
@@ -82,11 +81,17 @@ const kind = computed(() => targetKindHint(props.target));
       class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-120 group-focus-within/target:opacity-100 group-hover/target:opacity-100"
       :class="props.active && 'opacity-100'"
     >
-      <IconAction label="Inspect elements" size="sm" position="top" @click="emit('inspect')">
-        <Crosshair :stroke-width="1.8" />
+      <IconAction
+        label="Open in Chrome DevTools"
+        hint="The full DevTools of this page, docked"
+        size="sm"
+        position="top"
+        @click="emit('inspect')"
+      >
+        <Bug :stroke-width="1.8" />
       </IconAction>
       <IconAction
-        v-if="props.active && !props.removable"
+        v-if="props.active"
         label="Detach DevTools"
         hint="Keeps the app running; closes this session"
         size="sm"
@@ -94,15 +99,6 @@ const kind = computed(() => targetKindHint(props.target));
         @click="emit('detach')"
       >
         <Unlink :stroke-width="1.8" />
-      </IconAction>
-      <IconAction
-        v-if="props.removable"
-        label="Remove this page"
-        size="sm"
-        position="top"
-        @click="emit('remove')"
-      >
-        <Trash2 :stroke-width="1.8" />
       </IconAction>
     </div>
   </div>
