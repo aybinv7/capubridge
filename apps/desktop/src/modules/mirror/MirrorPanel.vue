@@ -7,12 +7,8 @@ import { MAIN_AREA_MIN_WIDTH, WEB_PANEL_MIN_WIDTH, useMirrorStore } from "@/stor
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
 import { useTargetsStore } from "@/stores/targets.store";
-import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useThisPcBrowserStore } from "@/stores/thisPcBrowser.store";
-import { useAppPackages } from "@/composables/useAppPackages";
 import { useLocalTabs } from "@/composables/useLocalTabs";
-import { useBringToFrontOwner } from "@/composables/useBringToFrontOwner";
-import { targetAppName } from "@/lib/target-app-name";
 import { useMirrorViewportWidth } from "./useMirrorViewportWidth";
 import { useLocalWebviewViewport } from "./useLocalWebviewViewport";
 import { AndroidKey, useMirrorStream } from "./useMirrorStream";
@@ -28,7 +24,6 @@ import { useLocalPageAddress, type ReloadKind } from "./useLocalPageAddress";
 import { useLiveTabIdentity } from "./useLiveTabIdentity";
 import { usePageHoverForwarding } from "./usePageHoverForwarding";
 import MirrorStateOverlay from "./MirrorStateOverlay.vue";
-import MirrorBringToFront from "./MirrorBringToFront.vue";
 import WebViewportBar from "./WebViewportBar.vue";
 import { describeMirrorStatus } from "./mirrorStatus";
 import { orientationOfSize } from "./deviceRotation";
@@ -94,7 +89,6 @@ const androidMode = computed(() => !localMode.value && isAndroidStream.value);
 const forwardHover = computed(() => androidMode.value && devtoolsOpen.value);
 const pageHover = usePageHoverForwarding(selectedTarget, forwardHover);
 const canUseStreamActions = computed(() => !localMode.value && mirrorStore.isStreaming);
-const presenceStore = useTargetPresenceStore();
 const streamSerial = computed(() => {
   const device = devicesStore.selectedDevice;
   if (device?.status === "online") return device.serial;
@@ -119,20 +113,6 @@ const status = computed(() =>
     frames: frames.value,
   }),
 );
-const bringToFrontOwner = useBringToFrontOwner();
-const { getCachedPackage } = useAppPackages(computed(() => streamSerial.value ?? ""));
-const backgroundApp = computed(() => {
-  const target = selectedTarget.value;
-  const serial = streamSerial.value;
-  if (!androidMode.value || target?.source !== "adb" || !serial || !target.packageName) return null;
-  if (presenceStore.presence !== "background" || bringToFrontOwner.value === "route") return null;
-  const label = getCachedPackage(target.packageName)?.label;
-  return {
-    serial,
-    packageName: target.packageName,
-    appName: targetAppName(target, label) ?? target.packageName,
-  };
-});
 
 function startResize(e: MouseEvent) {
   isResizing.value = true;
@@ -465,14 +445,6 @@ useMirrorCommands({
         :bare="isWebPreview"
         :class="androidMode ? '' : 'mb-2'"
       >
-        <template #overlay>
-          <MirrorBringToFront
-            v-if="backgroundApp"
-            :serial="backgroundApp.serial"
-            :package-name="backgroundApp.packageName"
-            :app-name="backgroundApp.appName"
-          />
-        </template>
         <LocalWebviewHost v-if="localMode" :target="selectedTab" />
         <MirrorStream
           v-else

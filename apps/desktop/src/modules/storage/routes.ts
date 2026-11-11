@@ -20,7 +20,6 @@ export const storageRoutes = [
         meta: {
           label: "IndexedDB",
           requires: "target",
-          ownsBringToFront: true,
           gateCommand: {
             commandId: OPEN_IDB_EXPORT_COMMAND,
             label: "Open an IndexedDB export…",
@@ -38,7 +37,7 @@ export const storageRoutes = [
         path: "keyvalue",
         name: "storage-keyvalue",
         component: () => import("./keyvalue/KeyValueView.vue"),
-        meta: { label: "Key-value", requires: "target", ownsBringToFront: true },
+        meta: { label: "Key-value", requires: "target" },
       },
       {
         path: "localstorage",
@@ -56,7 +55,7 @@ export const storageRoutes = [
         path: "cache-storage",
         name: "storage-cache-storage",
         component: () => import("./cache/CacheStorageView.vue"),
-        meta: { label: "Cache storage", requires: "target", ownsBringToFront: true },
+        meta: { label: "Cache storage", requires: "target" },
       },
       {
         path: "cache",
@@ -68,7 +67,7 @@ export const storageRoutes = [
         path: "opfs",
         name: "storage-opfs",
         component: () => import("./opfs/OpfsView.vue"),
-        meta: { label: "OPFS", requires: "target", ownsBringToFront: true },
+        meta: { label: "OPFS", requires: "target" },
       },
       {
         path: "sqlite/:db?/:table?",

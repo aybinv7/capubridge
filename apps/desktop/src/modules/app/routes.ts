@@ -10,13 +10,13 @@ export const appRoutes = [
         path: "overview",
         name: "app-overview",
         component: () => import("./overview/AppOverview.vue"),
-        meta: { label: "Overview", requires: "app-target", ownsBringToFront: true },
+        meta: { label: "Overview", requires: "app-target" },
       },
       {
         path: "performance",
         name: "app-performance",
         component: () => import("./perf/AppPerformance.vue"),
-        meta: { label: "Performance", requires: "app-target", ownsBringToFront: true },
+        meta: { label: "Performance", requires: "app-target" },
       },
       {
         path: "data-usage",

@@ -5,6 +5,7 @@ import IconAction from "@/shared/components/presentation/IconAction.vue";
 import { shellIcons } from "@/shared/icons/shell-icons";
 import RecordingButton from "@/modules/recording/RecordingButton.vue";
 import ContextBar from "./ContextBar.vue";
+import TitleBarBringToFront from "./TitleBarBringToFront.vue";
 import TitleBarPanelToggles from "./TitleBarPanelToggles.vue";
 import WindowControls from "./WindowControls.vue";
 
@@ -37,8 +38,17 @@ const { keysOf } = useBindingHint();
       </IconAction>
     </div>
 
-    <div class="flex min-w-0 items-center justify-center" style="-webkit-app-region: no-drag">
+    <div
+      class="relative flex min-w-0 items-center justify-center"
+      style="-webkit-app-region: no-drag"
+    >
       <ContextBar />
+      <div
+        class="absolute top-1/2 left-full ml-2 -translate-y-1/2"
+        style="-webkit-app-region: no-drag"
+      >
+        <TitleBarBringToFront />
+      </div>
     </div>
 
     <div class="flex min-w-0 items-center justify-self-end">
