@@ -13,6 +13,8 @@ type DeviceOverview = NonNullable<
 >;
 
 const POLL_INTERVAL_MS = 3000;
+/** One toast for the ADB server's state, replaced as it changes, so a flapping server never stacks them. */
+const ADB_TOAST_ID = "adb-server-status";
 
 interface DeviceManagerOptions {
   open: Ref<boolean>;
@@ -170,22 +172,18 @@ export function useDeviceManager(options: DeviceManagerOptions) {
     },
   );
 
-  let adbToastId: string | number | undefined;
   watch(
     () => devicesStore.adbServerStatus,
     (status, previous) => {
       if (status === "starting") {
-        adbToastId = toast.loading("Starting the ADB server…", { duration: Infinity });
+        toast.loading("Starting the ADB server…", { id: ADB_TOAST_ID, duration: Infinity });
       } else if (status === "running" && previous === "starting") {
-        if (adbToastId !== undefined) toast.dismiss(adbToastId);
-        toast.success("ADB server ready");
-        adbToastId = undefined;
-      } else if (status === "error") {
-        if (adbToastId !== undefined) toast.dismiss(adbToastId);
-        toast.error("Could not start the ADB server", {
-          description: "Make sure adb is installed and on your PATH.",
+        toast.success("ADB server ready", { id: ADB_TOAST_ID, duration: 3000 });
+      } else if (status === "error" && previous !== "error") {
+        toast.error("The ADB server is not answering", {
+          id: ADB_TOAST_ID,
+          description: "Capubridge keeps trying to start it.",
         });
-        adbToastId = undefined;
       }
     },
   );
