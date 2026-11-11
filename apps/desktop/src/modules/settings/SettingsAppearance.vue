@@ -2,6 +2,7 @@
 import { Segmented, SegmentedButton, Switch } from "@capubridge/cladd";
 import { useTheme } from "@/composables/useTheme";
 import { useTimelineStripStore, type StripEdge } from "@/stores/timelineStrip.store";
+import { useRecordPaneStore, type RecordPanePlacement } from "@/stores/recordPane.store";
 import { useUIStore } from "@/stores/ui.store";
 import { isThemeAvailable } from "@/themes/registry";
 import SettingsCard from "./components/SettingsCard.vue";
@@ -17,6 +18,13 @@ const EDGES: readonly { value: StripEdge; label: string }[] = [
   { value: "top", label: "Top" },
   { value: "bottom", label: "Bottom" },
 ];
+
+const PLACEMENTS: readonly { value: RecordPanePlacement; label: string }[] = [
+  { value: "side", label: "Beside" },
+  { value: "bottom", label: "Below" },
+];
+
+const recordPane = useRecordPaneStore();
 
 function setRailShown(shown: boolean) {
   if (shown === ui.railHidden) ui.toggleRail();
@@ -76,6 +84,24 @@ function setRailShown(shown: boolean) {
           aria-label="Show the navigation rail"
           @update:model-value="setRailShown"
         />
+      </SettingsRow>
+    </SettingsCard>
+
+    <SettingsCard title="Data">
+      <SettingsRow
+        label="Open records"
+        description="Where a picked row opens, for every database. Below suits wide tables."
+      >
+        <Segmented size="xs" aria-label="Where records open">
+          <SegmentedButton
+            v-for="option in PLACEMENTS"
+            :key="option.value"
+            :active="recordPane.placement === option.value"
+            @click="recordPane.placement = option.value"
+          >
+            {{ option.label }}
+          </SegmentedButton>
+        </Segmented>
       </SettingsRow>
     </SettingsCard>
   </SettingsPage>

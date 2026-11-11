@@ -200,9 +200,9 @@ defineExpose({
         <RefreshCw :stroke-width="1.8" />
       </IconAction>
       <DataRowMenu
-        v-if="actions.length"
         :actions="actions"
         :label="`Actions for ${store}`"
+        record-pane-toggle
         @select="emit('action', $event)"
       />
     </template>

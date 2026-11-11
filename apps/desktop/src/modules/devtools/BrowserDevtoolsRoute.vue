@@ -1,40 +1,39 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { useDevtoolsSettingsStore } from "@/stores/devtoolsSettings.store";
+import { RefreshCw } from "lucide-vue-next";
+import { Button } from "@capubridge/cladd";
 import { useTargetsStore } from "@/stores/targets.store";
-import { useThisPcBrowserStore } from "@/stores/thisPcBrowser.store";
 import DevtoolsState from "./DevtoolsState.vue";
-import { inspectorUrlFor, withScreencast } from "./inspectorUrl";
+import { useDevtoolsAddress } from "./useDevtoolsAddress";
 import { useLocalDevtoolsView } from "./useLocalDevtoolsView";
 
 /**
- * The full Chrome DevTools of the selected page. On This PC it is the engine's own DevTools,
- * docked here; phones get theirs next, and say so rather than showing an empty pane.
+ * The full Chrome DevTools of the selected page, docked: a tab on This PC or a phone's WebView,
+ * over USB or Wi-Fi. Each says plainly when there is nothing to attach to.
  */
 const targets = useTargetsStore();
-const thisPc = useThisPcBrowserStore();
-const settings = useDevtoolsSettingsStore();
+const { subject, url, error, resolving, retry } = useDevtoolsAddress();
 
 const host = ref<HTMLElement | null>(null);
-const failure = ref<string | null>(null);
+const viewFailure = ref<string | null>(null);
+const failure = computed(() => error.value ?? viewFailure.value);
 
 const source = computed(() => targets.selectedTarget?.source ?? null);
-const tab = computed(() => (thisPc.showingNewTab ? null : thisPc.selectedTab));
-const inspectorUrl = computed(() => {
-  const socket = tab.value?.webSocketDebuggerUrl;
-  const base = socket ? inspectorUrlFor(socket) : null;
-  return base ? withScreencast(base, !settings.hideScreencast) : null;
+
+watch(url, () => {
+  viewFailure.value = null;
 });
 
-watch(inspectorUrl, () => {
-  failure.value = null;
-});
+function tryAgain() {
+  viewFailure.value = null;
+  void retry();
+}
 
 useLocalDevtoolsView(
-  computed(() => (tab.value && inspectorUrl.value && !failure.value ? host.value : null)),
-  inspectorUrl,
+  computed(() => (url.value && !failure.value ? host.value : null)),
+  url,
   (message) => {
-    failure.value = message;
+    viewFailure.value = message;
   },
 );
 </script>
@@ -42,22 +41,27 @@ useLocalDevtoolsView(
 <template>
   <div class="relative h-full w-full bg-surface-0">
     <DevtoolsState
-      v-if="source === 'adb'"
-      title="Chrome DevTools for phones comes next"
-      text="On a phone, Elements, Network, Data and the Vue and React tabs work today. Full DevTools works on pages on This PC."
-    />
-    <DevtoolsState
-      v-else-if="source === 'chrome'"
+      v-if="source === 'chrome'"
       title="This tab already has Chrome's DevTools"
-      text="Open DevTools in Chrome itself for this tab. Docked DevTools here works on pages on This PC."
+      text="Open DevTools in Chrome itself for this tab. Docked DevTools covers pages on This PC and phones."
     />
     <DevtoolsState
-      v-else-if="!tab"
+      v-else-if="source === 'local' && !subject"
       title="Open a page to inspect it"
       text="Chrome DevTools follows the tab open on This PC."
     />
-    <DevtoolsState v-else-if="failure" title="DevTools could not open" :text="failure" />
-    <DevtoolsState v-else-if="!inspectorUrl" title="Connecting DevTools to the page" loading />
+    <DevtoolsState
+      v-else-if="source === 'adb' && !subject"
+      title="This app has no WebView to inspect"
+      text="Chrome DevTools attaches to web content. Open a screen of the app that shows a WebView, then pick it."
+    />
+    <DevtoolsState v-else-if="failure" title="DevTools could not open" :text="failure">
+      <Button size="sm" variant="transparent" @click="tryAgain">
+        <RefreshCw :size="12" :stroke-width="1.8" aria-hidden="true" />
+        Try again
+      </Button>
+    </DevtoolsState>
+    <DevtoolsState v-else-if="resolving || !url" title="Connecting DevTools to the page" loading />
     <div v-else ref="host" class="absolute inset-0" aria-label="Chrome DevTools" />
   </div>
 </template>

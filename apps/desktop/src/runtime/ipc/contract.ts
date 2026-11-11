@@ -202,6 +202,7 @@ export const IPC_COMMAND_NAMES = [
   "local_webview_fetch_cdp_target",
   "local_webview_create",
   "local_devtools_create",
+  "local_devtools_port",
   "local_webview_inject_scrollbar_hide",
   "local_webview_navigate",
   "local_webview_set_bounds",

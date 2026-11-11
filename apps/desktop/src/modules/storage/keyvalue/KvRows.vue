@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RecordSplit from "@/shared/components/layout/RecordSplit.vue";
+import DataRecordSplit from "@/modules/storage/frame/DataRecordSplit.vue";
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef } from "vue";
 import { refDebounced, useDebounceFn } from "@vueuse/core";
 import { toast } from "@/lib/toast";
@@ -253,7 +253,7 @@ defineExpose({ guardDiscard, startCreate, focusFind });
     </IconAction>
   </div>
 
-  <RecordSplit :pane-open="!!pane.visible.value">
+  <DataRecordSplit :pane-open="!!pane.visible.value">
     <template #grid>
       <DataGrid
         ref="grid"
@@ -317,7 +317,7 @@ defineExpose({ guardDiscard, startCreate, focusFind });
         />
       </div>
     </template>
-  </RecordSplit>
+  </DataRecordSplit>
 
   <DataGridStatus :summary="summary" :total="narrowed ? entries.length : null">
     <span v-if="editNote" class="flex min-w-0 items-center gap-1 text-foreground" role="status">

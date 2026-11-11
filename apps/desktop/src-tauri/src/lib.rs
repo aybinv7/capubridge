@@ -36,7 +36,8 @@ use commands::files::{
     adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
 };
 use commands::local_webview::{
-    local_devtools_create, local_device_name, local_webview_create, local_webview_fetch_cdp_target,
+    local_devtools_create, local_devtools_port, local_device_name, local_webview_create,
+    local_webview_fetch_cdp_target,
     local_webview_inject_scrollbar_hide, local_webview_navigate, local_webview_open_devtools,
     local_webview_set_bounds,
 };
@@ -424,6 +425,7 @@ pub fn run() {
             local_webview_fetch_cdp_target,
             local_webview_create,
             local_devtools_create,
+            local_devtools_port,
             local_webview_inject_scrollbar_hide,
             local_webview_navigate,
             local_webview_set_bounds,

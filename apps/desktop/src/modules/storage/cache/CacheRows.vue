@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RecordSplit from "@/shared/components/layout/RecordSplit.vue";
+import DataRecordSplit from "@/modules/storage/frame/DataRecordSplit.vue";
 import { computed, ref, shallowRef } from "vue";
 import { refDebounced } from "@vueuse/core";
 import { toast } from "@/lib/toast";
@@ -189,7 +189,7 @@ defineExpose({ focusFind });
     </IconAction>
   </div>
 
-  <RecordSplit :pane-open="!!(pane.visible.value && pane.row.value)">
+  <DataRecordSplit :pane-open="!!(pane.visible.value && pane.row.value)">
     <template #grid>
       <DataGrid
         ref="grid"
@@ -250,7 +250,7 @@ defineExpose({ focusFind });
         />
       </div>
     </template>
-  </RecordSplit>
+  </DataRecordSplit>
 
   <DataGridStatus :summary="summary" :total="narrowed ? rows.length : null">
     <span v-if="total !== null && total > read" class="truncate text-[var(--fg-subtle)]">

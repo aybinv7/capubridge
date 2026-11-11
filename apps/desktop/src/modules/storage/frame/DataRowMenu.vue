@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from "vue";
-import { MoreHorizontal } from "lucide-vue-next";
+import { MoreHorizontal, PanelBottom, PanelRight } from "lucide-vue-next";
+import { useRecordPaneStore } from "@/stores/recordPane.store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ import type { DataAction } from "./dataFrame.types";
 /**
  * The ⋯ menu of a sidebar row or a header. Out of the tab order inside lists (`tabindex -1`);
  * `open` lets the list open it from the keyboard (Shift+F10, the Menu key) or a right-click.
+ * `recordPaneToggle` adds where records open, below or beside the table, for every database.
  */
 const props = withDefaults(
   defineProps<{
@@ -21,13 +23,15 @@ const props = withDefaults(
     label: string;
     inList?: boolean;
     icon?: Component;
+    recordPaneToggle?: boolean;
   }>(),
-  { inList: false, icon: undefined },
+  { inList: false, icon: undefined, recordPaneToggle: false },
 );
 
 const emit = defineEmits<{ select: [actionId: string] }>();
 
 const open = defineModel<boolean>("open", { default: false });
+const recordPane = useRecordPaneStore();
 </script>
 
 <template>
@@ -59,6 +63,21 @@ const open = defineModel<boolean>("open", { default: false });
               {{ action.reason }}
             </span>
           </span>
+        </DropdownMenuItem>
+      </template>
+      <template v-if="props.recordPaneToggle">
+        <DropdownMenuSeparator v-if="props.actions.length" />
+        <DropdownMenuItem @select="recordPane.togglePlacement()">
+          <component
+            :is="recordPane.placement === 'side' ? PanelBottom : PanelRight"
+            class="size-3.5"
+            aria-hidden="true"
+          />
+          <span class="truncate">{{
+            recordPane.placement === "side"
+              ? "Show records below the table"
+              : "Show records beside the table"
+          }}</span>
         </DropdownMenuItem>
       </template>
     </DropdownMenuContent>

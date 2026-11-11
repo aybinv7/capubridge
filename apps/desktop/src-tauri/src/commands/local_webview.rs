@@ -139,6 +139,20 @@ pub async fn local_webview_create(
     local_preview_env::create_preview(&app, &label, url)
 }
 
+/// The debug port of the local pages' browser environment, reserved if no page opened it yet. It
+/// serves the DevTools frontend that the docked DevTools uses, for phones too.
+#[tauri::command]
+pub async fn local_devtools_port() -> Result<u16, String> {
+    #[cfg(target_os = "windows")]
+    {
+        local_preview_env::preview_debug_port()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Docked DevTools needs WebView2, so it works on Windows only".to_string())
+    }
+}
+
 /// Opens the docked DevTools of the local pages, in their browser environment.
 #[tauri::command]
 pub async fn local_devtools_create(

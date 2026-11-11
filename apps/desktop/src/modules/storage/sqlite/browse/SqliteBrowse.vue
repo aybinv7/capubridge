@@ -23,7 +23,7 @@ import DataPager from "@/modules/storage/frame/DataPager.vue";
 import type { DataProvenance } from "@/modules/storage/frame/dataFrame.types";
 import DataState from "@/modules/storage/frame/DataState.vue";
 import RecordPane from "@/modules/storage/frame/RecordPane.vue";
-import RecordSplit from "@/shared/components/layout/RecordSplit.vue";
+import DataRecordSplit from "@/modules/storage/frame/DataRecordSplit.vue";
 import { useRecordPane } from "@/modules/storage/frame/useRecordPane";
 import { formatExactTime } from "@/shared/format/dates";
 import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
@@ -530,7 +530,7 @@ defineExpose({
       :detail="error"
       @retry="emit('retry')"
     />
-    <RecordSplit v-else :pane-open="paneShown" :maximized="maximized">
+    <DataRecordSplit v-else :pane-open="paneShown" :maximized="maximized">
       <template #grid>
         <div class="h-full min-h-0" @keydown.capture="onGridKeydown">
           <DataGrid
@@ -620,7 +620,7 @@ defineExpose({
           </template>
         </div>
       </template>
-    </RecordSplit>
+    </DataRecordSplit>
     <DataGridStatus :summary="summary" :total="total" hide-count>
       <template #lead>
         <DataPager

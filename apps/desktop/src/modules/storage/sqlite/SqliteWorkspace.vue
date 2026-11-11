@@ -162,9 +162,9 @@ defineExpose({
         <RefreshCw :stroke-width="1.8" />
       </IconAction>
       <DataRowMenu
-        v-if="menuActions.length"
         :actions="menuActions"
         :label="table ? `Actions for ${table} and ${db.name}` : `Actions for ${db.name}`"
+        record-pane-toggle
         @select="onMenu"
       />
     </template>

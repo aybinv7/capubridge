@@ -1,24 +1,26 @@
 <script setup lang="ts">
-import { nextTick, ref, useId, watch } from "vue";
+import { computed, nextTick, ref, useId, watch } from "vue";
 import { Surface, SurfaceCut } from "@capubridge/cladd";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 const SETTLE = "cubic-bezier(0, 1, 0.2, 1)";
 
 /**
- * A list beside its record pane, as every Data tab and Network lays it out. The list sits in a
- * recessed well (`SurfaceCut`); the record pane is raised one level above it (`Surface +1`).
- * One persisted pane width per `saveId` (Data shares one), 280–960 px by default, the list never
- * under 30 %; a double-click on the handle puts the pane back to its default width. `maximized` lets the pane
- * fill the split: it moves (teleported, never remounted) into an overlay that covers the whole
- * split, the grid stays mounted under it (inert), and its edge travels across with Cladd's
+ * A list with its record pane, as every Data tab and Network lays it out: beside the list, or
+ * below it (`placement`) for wide tables. The list sits in a recessed well (`SurfaceCut`); the
+ * record pane is raised one level above it (`Surface +1`) and scrolls on its own.
+ * One persisted pane size per `saveId` and placement (Data shares them), the list never under
+ * 30 %; a double-click on the handle puts the pane back to its default size. `maximized` lets the
+ * pane fill the split: it moves (teleported, never remounted) into an overlay that covers the
+ * whole split, the grid stays mounted under it (inert), and its edge travels across with Cladd's
  * settle curve.
  */
 const props = withDefaults(
   defineProps<{
     paneOpen: boolean;
     maximized?: boolean;
-    /** Where the pane width persists. */
+    placement?: "side" | "bottom";
+    /** Where the pane size persists. */
     saveId?: string;
     /** Prefix of the two panel ids, unique per split on a page. */
     panelPrefix?: string;
@@ -28,6 +30,7 @@ const props = withDefaults(
   }>(),
   {
     maximized: false,
+    placement: "side",
     saveId: "capubridge:data-record-pane-size:v2",
     panelPrefix: "data-rows",
     paneDefault: 380,
@@ -35,6 +38,17 @@ const props = withDefaults(
     paneMax: 960,
   },
 );
+
+/** A pane below the list is measured in height, which a window has less of than width. */
+const BOTTOM_SIZES = { default: 300, min: 160, max: 720 } as const;
+
+const below = computed(() => props.placement === "bottom");
+const sizes = computed(() =>
+  below.value
+    ? BOTTOM_SIZES
+    : { default: props.paneDefault, min: props.paneMin, max: props.paneMax },
+);
+const groupSaveId = computed(() => (below.value ? `${props.saveId}:bottom` : props.saveId));
 
 defineSlots<{ grid: () => unknown; pane: (props: { maximized: boolean }) => unknown }>();
 
@@ -66,7 +80,9 @@ function paneOffset(): number | null {
   const host = root.value;
   const slot = box?.parentElement;
   if (!box || !host || !slot) return null;
-  return Math.max(0, slot.getBoundingClientRect().left - host.getBoundingClientRect().left);
+  const pane = slot.getBoundingClientRect();
+  const whole = host.getBoundingClientRect();
+  return Math.max(0, below.value ? pane.top - whole.top : pane.left - whole.left);
 }
 
 watch(
@@ -77,7 +93,7 @@ watch(
       expanded.value = next;
       return;
     }
-    const closed = `inset(0 0 0 ${offset}px)`;
+    const closed = below.value ? `inset(${offset}px 0 0 0)` : `inset(0 0 0 ${offset}px)`;
     const open = "inset(0 0 0 0px)";
     if (next) {
       expanded.value = true;
@@ -98,17 +114,27 @@ watch(
 );
 
 function resetWidth() {
-  panel.value?.resize(props.paneDefault);
+  panel.value?.resize(sizes.value.default);
 }
+
+const SIDE_HANDLE =
+  "w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring";
+const BOTTOM_HANDLE =
+  "h-2 w-full cursor-row-resize bg-transparent data-[orientation=vertical]:h-2 before:absolute before:inset-x-4 before:top-1/2 before:h-px before:-translate-y-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring";
 </script>
 
 <template>
   <div ref="root" class="relative flex min-h-0 flex-1">
-    <ResizablePanelGroup direction="horizontal" :auto-save-id="props.saveId" class="min-h-0 flex-1">
+    <ResizablePanelGroup
+      :key="props.placement"
+      :direction="below ? 'vertical' : 'horizontal'"
+      :auto-save-id="groupSaveId"
+      class="min-h-0 flex-1"
+    >
       <ResizablePanel :id="`${props.panelPrefix}-grid`" :order="1" :min-size="30" class="min-h-0">
         <div
-          class="isolate h-full min-h-0 pb-2 pl-2"
-          :class="paneOpen ? '' : 'pr-2'"
+          class="isolate h-full min-h-0"
+          :class="[below ? 'px-2' : 'pb-2 pl-2', paneOpen ? '' : below ? 'pb-2' : 'pr-2']"
           :inert="expanded || undefined"
         >
           <SurfaceCut class="h-full min-h-0 rounded-well" content-class-name="h-full min-h-0">
@@ -117,21 +143,18 @@ function resetWidth() {
         </div>
       </ResizablePanel>
       <template v-if="paneOpen">
-        <ResizableHandle
-          class="w-2 bg-transparent before:absolute before:inset-y-4 before:left-1/2 before:w-px before:-translate-x-1/2 before:rounded-full before:transition-colors hover:bg-transparent hover:before:bg-border data-[state=drag]:before:bg-ring"
-          @dblclick="resetWidth"
-        />
+        <ResizableHandle :class="below ? BOTTOM_HANDLE : SIDE_HANDLE" @dblclick="resetWidth" />
         <ResizablePanel
           :id="`${props.panelPrefix}-pane`"
           ref="panel"
           :order="2"
           size-unit="px"
-          :default-size="props.paneDefault"
-          :min-size="props.paneMin"
-          :max-size="props.paneMax"
+          :default-size="sizes.default"
+          :min-size="sizes.min"
+          :max-size="sizes.max"
           class="min-h-0"
         >
-          <div ref="paneBox" class="h-full min-h-0 pr-2 pb-2">
+          <div ref="paneBox" class="h-full min-h-0 pb-2" :class="below ? 'px-2' : 'pr-2'">
             <Teleport defer :to="`#${overlayId}`" :disabled="!expanded">
               <Surface
                 variant="solid"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RecordSplit from "@/shared/components/layout/RecordSplit.vue";
+import DataRecordSplit from "@/modules/storage/frame/DataRecordSplit.vue";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { refDebounced, useDocumentVisibility, useNow } from "@vueuse/core";
 import { Lock, PanelRight } from "lucide-vue-next";
@@ -524,7 +524,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
       class="shrink-0 border-b border-border-subtle"
       @retry="pager.refetch()"
     />
-    <RecordSplit :pane-open="!!(pane.visible.value && paneRecord && paneRow && !groupBy)">
+    <DataRecordSplit :pane-open="!!(pane.visible.value && paneRecord && paneRow && !groupBy)">
       <template #grid>
         <DataGrid
           ref="grid"
@@ -621,7 +621,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
           />
         </div>
       </template>
-    </RecordSplit>
+    </DataRecordSplit>
   </template>
 
   <DataGridStatus
