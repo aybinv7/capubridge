@@ -7,6 +7,7 @@ import { useTargetsStore } from "@/stores/targets.store";
 import { useTargetPresenceStore } from "@/stores/targetPresence.store";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
+import { useLocalTabs } from "@/composables/useLocalTabs";
 import { useAdb } from "@/composables/useAdb";
 import { isNativeAppTarget, webviewPageOf } from "@/lib/app-target";
 import type { GateActionId } from "@/lib/gates/types";
@@ -20,6 +21,7 @@ export function useGateActions() {
   const presenceStore = useTargetPresenceStore();
   const context = useActiveContextStore();
   const { activateTarget } = useTargetActivation();
+  const { enterThisPc } = useLocalTabs();
   const { openPackage } = useAdb();
   const running = ref<GateActionId | null>(null);
 
@@ -67,11 +69,11 @@ export function useGateActions() {
   }
 
   const handlers: Record<GateActionId, () => void | Promise<void>> = {
-    "choose-target": () => ui.openDeviceManager(),
+    "choose-target": () => (context.kind === "local" ? enterThisPc() : ui.openDeviceManager()),
     "choose-device": () => ui.openDeviceManager("device"),
     "pair-wifi": () => ui.openDeviceManager("connect"),
     "start-emulator": () => ui.openDeviceManager("emulators"),
-    "open-local-url": () => ui.openDeviceManager("local"),
+    "open-local-url": enterThisPc,
     "start-adb": () => devicesStore.refreshDevices(),
     "rescan-devices": () => devicesStore.refreshDevices(),
     "scan-targets": scanTargets,

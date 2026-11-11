@@ -250,6 +250,15 @@ watchDebounced(
 );
 
 watch(
+  () => inspectStore.inspectMode,
+  () => {
+    if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
+      void localViewport.apply();
+    }
+  },
+);
+
+watch(
   () => mirrorStore.settings.fps,
   (next, prev) => {
     if (next === prev) return;

@@ -2,27 +2,21 @@ import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "@/lib/toast";
 import { useConnectionStore } from "@/stores/connection.store";
-import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
-import { useOpenLocalPage } from "@/composables/useOpenLocalPage";
-import { normalizeInspectableUrl } from "@/lib/inspect-url";
 import { isNativeAppTarget } from "@/lib/app-target";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { DeviceManagerState } from "./useDeviceManager";
 import { groupTargetsByApp } from "./targetGroups";
 
-/** Targets on the viewed device and on This PC, and every action on them. */
+/** Targets on the viewed device, and every action on them. This PC's pages are its tabs. */
 export function useDeviceTargets(manager: DeviceManagerState, close: () => void) {
   const router = useRouter();
   const targetsStore = useTargetsStore();
   const connectionStore = useConnectionStore();
-  const localWebviewStore = useLocalWebviewStore();
   const { activateTarget } = useTargetActivation();
-  const { openLocalPage } = useOpenLocalPage((target) => selectTarget(target));
 
   const scanning = ref(false);
-  const creatingLocal = ref(false);
 
   const selectedTargetId = computed(() => targetsStore.selectedTarget?.id ?? null);
   const viewedTargets = computed(() =>
@@ -35,9 +29,6 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
   );
   const appTargets = computed(() => viewedTargets.value.filter(isNativeAppTarget));
   const groups = computed(() => groupTargetsByApp(deviceTargets.value, selectedTargetId.value));
-  const localTargets = computed(() =>
-    targetsStore.targets.filter((target) => target.source === "local"),
-  );
   const isScanning = computed(() => scanning.value || targetsStore.fetchingSources.size > 0);
   const isScanningApps = computed(() =>
     targetsStore.scanningApps.has(manager.viewedSerial.value ?? ""),
@@ -88,23 +79,9 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     try {
       await activateTarget(target);
       close();
-      if (target.source === "local") {
-        await localWebviewStore.openDevtools(target);
-        return;
-      }
-      await router.push("/inspect/elements");
+      await router.push(target.source === "local" ? "/devtools/chrome" : "/inspect/elements");
     } catch (error) {
       toast.error("Could not inspect the target", { description: String(error) });
-    }
-  }
-
-  async function removeLocalTarget(target: CDPTarget) {
-    try {
-      await localWebviewStore.closeTarget(target);
-      targetsStore.removeTarget(target.id);
-      toast.info("Local page removed");
-    } catch (error) {
-      toast.error("Could not remove the local page", { description: String(error) });
     }
   }
 
@@ -118,38 +95,16 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     }
   }
 
-  async function createLocalTarget(rawUrl: string): Promise<string | null> {
-    const url = normalizeInspectableUrl(rawUrl);
-    if (!url) {
-      toast.error("Enter a valid URL", { description: "For example http://localhost:5173" });
-      return null;
-    }
-    creatingLocal.value = true;
-    try {
-      await openLocalPage(url);
-      return url;
-    } catch (error) {
-      toast.error("Could not open the local page", { description: String(error) });
-      return null;
-    } finally {
-      creatingLocal.value = false;
-    }
-  }
-
   return {
     selectedTargetId,
     deviceTargets,
     appTargets,
     groups,
-    localTargets,
     isScanning,
     isScanningApps,
-    creatingLocal,
     refreshTargets,
     selectTarget,
     inspectTarget,
-    removeLocalTarget,
     detachTarget,
-    createLocalTarget,
   };
 }

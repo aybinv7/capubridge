@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useDevtoolsSettingsStore } from "@/stores/devtoolsSettings.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useThisPcBrowserStore } from "@/stores/thisPcBrowser.store";
 import DevtoolsState from "./DevtoolsState.vue";
-import { inspectorUrlFor } from "./inspectorUrl";
+import { inspectorUrlFor, withScreencast } from "./inspectorUrl";
 import { useLocalDevtoolsView } from "./useLocalDevtoolsView";
 
 /**
@@ -12,6 +13,7 @@ import { useLocalDevtoolsView } from "./useLocalDevtoolsView";
  */
 const targets = useTargetsStore();
 const thisPc = useThisPcBrowserStore();
+const settings = useDevtoolsSettingsStore();
 
 const host = ref<HTMLElement | null>(null);
 const failure = ref<string | null>(null);
@@ -20,7 +22,8 @@ const source = computed(() => targets.selectedTarget?.source ?? null);
 const tab = computed(() => (thisPc.showingNewTab ? null : thisPc.selectedTab));
 const inspectorUrl = computed(() => {
   const socket = tab.value?.webSocketDebuggerUrl;
-  return socket ? inspectorUrlFor(socket) : null;
+  const base = socket ? inspectorUrlFor(socket) : null;
+  return base ? withScreencast(base, !settings.hideScreencast) : null;
 });
 
 watch(inspectorUrl, () => {

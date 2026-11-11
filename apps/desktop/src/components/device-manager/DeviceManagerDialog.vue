@@ -11,7 +11,6 @@ import ConnectDevicePanel from "./ConnectDevicePanel.vue";
 import DeviceDetail from "./DeviceDetail.vue";
 import DeviceManagerDeviceList from "./DeviceManagerDeviceList.vue";
 import EmulatorPanel from "./EmulatorPanel.vue";
-import LocalTargetsPanel from "./LocalTargetsPanel.vue";
 import { moveRovingFocus } from "./rovingFocus";
 import { useDeviceConnections } from "./useDeviceConnections";
 import { useDeviceManager } from "./useDeviceManager";
@@ -212,19 +211,6 @@ function showEmulators() {
           @select="targets.selectTarget($event)"
           @inspect="targets.inspectTarget($event)"
           @detach="targets.detachTarget($event)"
-        />
-
-        <LocalTargetsPanel
-          v-else-if="activePanel === 'local'"
-          :device-name="manager.localDeviceName.value"
-          :targets="targets.localTargets.value"
-          :selected-target-id="targets.selectedTargetId.value"
-          :link="context.link"
-          :creating="targets.creatingLocal.value"
-          @create="targets.createLocalTarget($event)"
-          @select="targets.selectTarget($event)"
-          @inspect="targets.inspectTarget($event)"
-          @remove="targets.removeLocalTarget($event)"
         />
 
         <ConnectDevicePanel

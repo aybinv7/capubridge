@@ -57,12 +57,21 @@ fn preview_data_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map_err(|error| format!("Could not find the folder for local pages: {error}"))
 }
 
-/// Creates the preview webview `label` showing `url`, parked at 1×1 in the main window until the
-/// Screen column places it.
-pub(crate) fn create_preview(
+/// Runs in the docked DevTools before its own scripts, so the screencast setting it reads at start
+/// is the one Capubridge asks for in the address (`capubridgeScreencast=show`), on every load.
+const DEVTOOLS_PREFERENCES_SCRIPT: &str = r#"(() => {
+  try {
+    if (!location.pathname.startsWith("/devtools/")) return;
+    const show = new URLSearchParams(location.search).get("capubridgeScreencast") === "show";
+    localStorage.setItem("screencast-enabled", JSON.stringify(show));
+  } catch {}
+})();"#;
+
+/// Adds `builder` to the main window in the preview environment, parked at 1×1 until placed.
+fn add_in_preview_environment(
     app: &tauri::AppHandle,
     label: &str,
-    url: tauri::Url,
+    builder: tauri::webview::WebviewBuilder<tauri::Wry>,
 ) -> Result<(), String> {
     if app.get_webview(label).is_some() {
         return Ok(());
@@ -70,7 +79,7 @@ pub(crate) fn create_preview(
     let window = app
         .get_window("main")
         .ok_or_else(|| "The main window is not open".to_string())?;
-    let builder = tauri::webview::WebviewBuilder::new(label, WebviewUrl::External(url))
+    let builder = builder
         .data_directory(preview_data_directory(app)?)
         .disable_drag_drop_handler()
         .focused(false);
@@ -83,7 +92,42 @@ pub(crate) fn create_preview(
             LogicalSize::new(1.0, 1.0),
         )
         .map(|_| ())
-        .map_err(|error| format!("Could not open the local page: {error}"))
+        .map_err(|error| format!("Could not open the view: {error}"))
+}
+
+/// Creates the preview webview `label` showing `url`, until the Screen column places it.
+pub(crate) fn create_preview(
+    app: &tauri::AppHandle,
+    label: &str,
+    url: tauri::Url,
+) -> Result<(), String> {
+    let builder = tauri::webview::WebviewBuilder::new(label, WebviewUrl::External(url));
+    add_in_preview_environment(app, label, builder)
+}
+
+/// Whether `url` is the DevTools that the preview environment's own debug server serves.
+pub(crate) fn is_preview_devtools_url(url: &tauri::Url, port: Option<u16>) -> bool {
+    url.scheme() == "http"
+        && url.host_str() == Some("127.0.0.1")
+        && port.is_some()
+        && url.port() == port
+        && url.path().starts_with("/devtools/")
+        && url.username().is_empty()
+        && url.password().is_none()
+}
+
+/// Creates the docked DevTools view `label`, which only ever shows the preview's own DevTools.
+pub(crate) fn create_devtools(
+    app: &tauri::AppHandle,
+    label: &str,
+    url: tauri::Url,
+) -> Result<(), String> {
+    if !is_preview_devtools_url(&url, opened_debug_port()) {
+        return Err("DevTools can only show the local pages' own DevTools".to_string());
+    }
+    let builder = tauri::webview::WebviewBuilder::new(label, WebviewUrl::External(url))
+        .initialization_script(DEVTOOLS_PREFERENCES_SCRIPT);
+    add_in_preview_environment(app, label, builder)
 }
 
 #[cfg(test)]
@@ -97,6 +141,25 @@ mod tests {
         assert!(args.contains("--remote-debugging-port=51234"));
         assert!(!args.contains("remote-allow-origins"));
         assert!(args.starts_with(WRY_DEFAULT_ARGS));
+    }
+
+    #[test]
+    fn devtools_views_show_only_the_preview_debug_server() {
+        let ok = |raw: &str| is_preview_devtools_url(&tauri::Url::parse(raw).unwrap(), Some(19222));
+        assert!(ok(
+            "http://127.0.0.1:19222/devtools/inspector.html?ws=127.0.0.1:19222/devtools/page/A"
+        ));
+        assert!(!ok("http://127.0.0.1:19223/devtools/inspector.html"));
+        assert!(!ok("http://localhost:19222/devtools/inspector.html"));
+        assert!(!ok("https://127.0.0.1:19222/devtools/inspector.html"));
+        assert!(!ok("http://127.0.0.1:19222/json"));
+        assert!(!ok(
+            "http://user:pw@127.0.0.1:19222/devtools/inspector.html"
+        ));
+        assert!(!is_preview_devtools_url(
+            &tauri::Url::parse("http://127.0.0.1:19222/devtools/inspector.html").unwrap(),
+            None
+        ));
     }
 
     #[test]

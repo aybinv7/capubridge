@@ -26,7 +26,7 @@ export const GATE_ACTIONS: Record<GateActionId, GateActionMeta> = {
   "choose-device": { label: "Choose device", icon: Smartphone, binding: "mod+shift+d" },
   "pair-wifi": { label: "Pair over Wi-Fi", icon: Wifi },
   "start-emulator": { label: "Start an emulator", icon: Cpu },
-  "open-local-url": { label: "Inspect a URL on This PC", icon: Monitor },
+  "open-local-url": { label: "Open a page on This PC", icon: Monitor },
   "start-adb": { label: "Start ADB", icon: Plug },
   "rescan-devices": { label: "Rescan devices", icon: RefreshCw },
   "scan-targets": { label: "Scan targets", icon: ScanSearch },

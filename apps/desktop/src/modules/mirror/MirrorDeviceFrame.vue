@@ -22,7 +22,11 @@ const frame = computed(() =>
   }),
 );
 
-/** The room inside the well, which a Responsive page fills at 100%. */
+/**
+ * The room inside the well, which a Responsive page fills at 100%. A web page sits flush in a
+ * square well: the native page cannot be clipped to rounded corners, so a padded, rounded well
+ * only framed it with a gap.
+ */
 const area = computed(() => ({ width: areaWidth.value, height: areaHeight.value }));
 
 const bezelStyle = computed(() => ({
@@ -40,7 +44,8 @@ defineExpose({ well, screen, frame, area });
 <template>
   <div
     ref="well"
-    class="relative mx-2 flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-well bg-surface-cut p-2 shadow-cut"
+    class="relative mx-2 flex min-h-0 flex-1 items-center justify-center overflow-hidden"
+    :class="props.bare ? '' : 'rounded-well bg-surface-cut p-2 shadow-cut'"
   >
     <div
       v-if="$slots.overlay"
@@ -51,9 +56,7 @@ defineExpose({ well, screen, frame, area });
     <div
       v-show="frame.width > 0"
       class="shrink-0"
-      :class="
-        props.bare ? 'bg-surface-0 ring-1 ring-border-subtle' : 'bg-black ring-1 ring-white/10'
-      "
+      :class="props.bare ? 'bg-surface-0' : 'bg-black ring-1 ring-white/10'"
       :style="bezelStyle"
       :data-orientation="frame.orientation"
     >

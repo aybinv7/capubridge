@@ -12,7 +12,7 @@ let view: Promise<Webview> | null = null;
 let shownUrl: string | null = null;
 
 async function createView(url: string): Promise<Webview> {
-  await invokeCommand("local_webview_create", { label: LABEL, url });
+  await invokeCommand("local_devtools_create", { label: LABEL, url });
   const { Webview: WebviewApi } = await import("@tauri-apps/api/webview");
   const webview = await WebviewApi.getByLabel(LABEL);
   if (!webview) throw new Error("DevTools opened, but its view could not be found");

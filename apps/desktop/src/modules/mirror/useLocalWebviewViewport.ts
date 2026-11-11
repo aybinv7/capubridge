@@ -1,6 +1,7 @@
 import type { Ref } from "vue";
 import { useCDP } from "@/composables/useCDP";
 import { resolveViewport, type ViewportArea } from "@/lib/web-viewport";
+import { useInspectStore } from "@/stores/inspect.store";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import type { CDPTarget } from "@/types/cdp.types";
@@ -14,12 +15,16 @@ import { fitDeviceFrame } from "./deviceFrame";
  * The scale comes from the area and the emulated size, not from measuring the drawn screen: right
  * after a switch the screen still has the previous device's size, and measuring it laid the page
  * out with the old scale.
+ *
+ * While picking an element, the mouse stays a mouse even on a phone size: emulated touch has no
+ * hover, so the page would never highlight what the pointer is over.
  */
 export function useLocalWebviewViewport(
   target: Readonly<Ref<CDPTarget | null>>,
   area: Readonly<Ref<ViewportArea | null>>,
 ) {
   const mirrorStore = useMirrorStore();
+  const inspectStore = useInspectStore();
   const localWebviewStore = useLocalWebviewStore();
   const { connectToTarget } = useCDP();
   let applySequence = 0;
@@ -74,7 +79,7 @@ export function useLocalWebviewViewport(
           maxTouchPoints: metrics.mobile ? 1 : 0,
         }),
         client.send("Emulation.setEmitTouchEventsForMouse", {
-          enabled: metrics.mobile,
+          enabled: metrics.mobile && !inspectStore.inspectMode,
           configuration: metrics.mobile ? "mobile" : "desktop",
         }),
       ]);

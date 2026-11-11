@@ -18,3 +18,11 @@ export function inspectorUrlFor(webSocketDebuggerUrl: string): string | null {
   const host = `${socket.hostname}:${socket.port}`;
   return `http://${host}/devtools/inspector.html?ws=${host}${socket.pathname}`;
 }
+
+/**
+ * Adds Capubridge's screencast choice to a DevTools address. The DevTools view reads it before
+ * DevTools starts, so a changed choice takes effect on the reload a changed address causes.
+ */
+export function withScreencast(inspectorUrl: string, show: boolean): string {
+  return `${inspectorUrl}&capubridgeScreencast=${show ? "show" : "hide"}`;
+}

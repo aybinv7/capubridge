@@ -139,6 +139,18 @@ pub async fn local_webview_create(
     local_preview_env::create_preview(&app, &label, url)
 }
 
+/// Opens the docked DevTools of the local pages, in their browser environment.
+#[tauri::command]
+pub async fn local_devtools_create(
+    app: tauri::AppHandle,
+    label: String,
+    url: String,
+) -> Result<(), String> {
+    validate_local_preview_label(&label)?;
+    let url = tauri::Url::parse(url.trim()).map_err(|_| "Invalid DevTools URL".to_string())?;
+    local_preview_env::create_devtools(&app, &label, url)
+}
+
 #[tauri::command]
 pub async fn local_webview_navigate(
     app: tauri::AppHandle,

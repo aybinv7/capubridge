@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Segmented, SegmentedButton } from "@capubridge/cladd";
+import { Segmented, SegmentedButton, Switch } from "@capubridge/cladd";
+import { useDevtoolsSettingsStore } from "@/stores/devtoolsSettings.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import SettingsCard from "./components/SettingsCard.vue";
 import SettingsPage from "./components/SettingsPage.vue";
 import SettingsRow from "./components/SettingsRow.vue";
 
 const mirror = useMirrorStore();
+const devtools = useDevtoolsSettingsStore();
 
 const FPS = [5, 10, 15, 30] as const;
 const QUALITY = ["720p", "1080p", "1440p"] as const;
@@ -65,6 +67,15 @@ const BITRATE = [4, 8, 16, 20] as const;
             {{ fps }}
           </SegmentedButton>
         </Segmented>
+      </SettingsRow>
+    </SettingsCard>
+
+    <SettingsCard title="Chrome DevTools">
+      <SettingsRow
+        label="Hide DevTools' own screen"
+        description="DevTools can draw a copy of the page beside its panels. The page is already on screen next to it."
+      >
+        <Switch v-model="devtools.hideScreencast" aria-label="Hide DevTools' own screen" />
       </SettingsRow>
     </SettingsCard>
   </SettingsPage>
