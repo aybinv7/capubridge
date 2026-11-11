@@ -49,9 +49,11 @@ const target: CDPTarget = {
   type: "page",
   title: "Target",
   url: "https://example.test",
-  webSocketDebuggerUrl: "ws://target",
+  webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/TARGET",
   source: "chrome",
 };
+
+const PAGE_SOCKET = "ws://127.0.0.1:9222/devtools/page/TARGET";
 
 function socket(): FakeWebSocket {
   const current = FakeWebSocket.instances.at(-1);
@@ -124,11 +126,23 @@ describe("connection store", () => {
     socket().close();
     await expect(pending).rejects.toThrow("closed before opening");
     expect(ipc.invoke).toHaveBeenNthCalledWith(1, "cdp_start_proxy", {
-      wsUrl: "ws://target",
+      wsUrl: PAGE_SOCKET,
     });
     expect(ipc.invoke).toHaveBeenNthCalledWith(2, "cdp_stop_proxy", {
-      wsUrl: "ws://target",
+      wsUrl: PAGE_SOCKET,
     });
+  });
+
+  test("a WebView socket with no page says what to do instead of reaching the proxy", async () => {
+    const store = useConnectionStore();
+    const pending = store.connect({
+      ...target,
+      id: "adb:r4geda5p7d65u8uo:webview_devtools_remote_19350",
+      source: "adb",
+      webSocketDebuggerUrl: "ws://127.0.0.1:53110/",
+    });
+    await expect(pending).rejects.toThrow("Open the app on the phone");
+    expect(ipc.invoke).not.toHaveBeenCalled();
   });
 
   test("a page on This PC connects through the proxy, which sends no Origin", async () => {
@@ -137,7 +151,7 @@ describe("connection store", () => {
     const pending = store.connect({ ...target, id: "local-target", source: "local" });
     await Promise.resolve();
     await Promise.resolve();
-    expect(ipc.invoke).toHaveBeenCalledWith("cdp_start_proxy", { wsUrl: "ws://target" });
+    expect(ipc.invoke).toHaveBeenCalledWith("cdp_start_proxy", { wsUrl: PAGE_SOCKET });
     expect(socket().url).toBe("ws://proxy");
     socket().open();
     await expect(pending).resolves.toBeDefined();

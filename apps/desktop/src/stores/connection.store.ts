@@ -5,6 +5,18 @@ import { CDPClient } from "@capubridge/cdp-protocol";
 import { invokeCommand } from "@/runtime/ipc/client";
 import { isNativeAppTarget } from "@/lib/app-target";
 
+/**
+ * Whether a DevTools address names a page (`/devtools/page/<id>`) or the browser. A socket whose
+ * pages could not be listed is kept as a bare `ws://host:port/`, with nothing to attach to.
+ */
+function hasPageSocket(wsUrl: string): boolean {
+  try {
+    return /^\/devtools\/(page|browser)\/[^/]+$/.test(new URL(wsUrl).pathname);
+  } catch {
+    return false;
+  }
+}
+
 export const useConnectionStore = defineStore("connection", () => {
   const connections = ref<Map<string, CDPConnection>>(new Map());
   const failures = shallowRef<ReadonlyMap<string, string>>(new Map());
@@ -101,6 +113,11 @@ export const useConnectionStore = defineStore("connection", () => {
 
         let wsUrl = target.webSocketDebuggerUrl;
         if (target.source === "adb" || target.source === "local") {
+          if (!hasPageSocket(wsUrl)) {
+            throw new Error(
+              "This WebView has no page open, so there is nothing to attach to. Open the app on the phone, then pick its page.",
+            );
+          }
           const proxy = await invokeCommand("cdp_start_proxy", {
             wsUrl: target.webSocketDebuggerUrl,
           });

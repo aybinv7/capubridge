@@ -31,9 +31,19 @@ const CHROME_SOCKET = "chrome_devtools_remote";
  * A DevTools socket Capubridge found but whose page list did not answer: discovery reports it as
  * a page titled with the raw socket name, no URL, and the id `adb:<serial>:<socket>`.
  */
+/**
+ * The socket of a placeholder for a DevTools socket whose pages could not be listed, else null.
+ * Its title is the socket name, followed by the app's package when Android said which app it is
+ * (`webview_devtools_remote_19350 (com.presalio.retail)`), and it has no page address.
+ */
+export function unansweredSocketOf(target: Pick<CDPTarget, "id" | "title" | "url">): string | null {
+  if (target.url?.trim()) return null;
+  const socket = target.title?.trim().split(/\s+/)[0];
+  return socket && target.id.endsWith(`:${socket}`) ? socket : null;
+}
+
 export function isUnansweredSocket(target: Pick<CDPTarget, "id" | "title" | "url">): boolean {
-  const socket = target.title?.trim();
-  return Boolean(socket) && !target.url?.trim() && target.id.endsWith(`:${socket}`);
+  return unansweredSocketOf(target) !== null;
 }
 
 /** Plain words for a raw DevTools socket name. */
@@ -44,16 +54,23 @@ export function socketDisplayName(socket: string): string {
   return socket;
 }
 
-/** What to tell the user about a socket whose pages could not be listed. */
-export function unansweredSocketHint(socket: string): string {
-  return socket === CHROME_SOCKET
-    ? "No tabs to show. Open a page in Chrome on the device, then scan again."
+/**
+ * What to tell the user about a socket whose pages could not be listed. When the app is known,
+ * a click opens it on the phone and attaches to its page, so the hint says that.
+ */
+export function unansweredSocketHint(socket: string, opensApp = false): string {
+  if (socket === CHROME_SOCKET) {
+    return "No tabs to show. Open a page in Chrome on the device, then scan again.";
+  }
+  return opensApp
+    ? "No page is open in it. Click to open the app on the phone and attach to it."
     : "Its pages could not be listed. Bring the app to the front, then scan again.";
 }
 
 /** A target's visible name: its title, else its URL without the scheme, else "Untitled". */
 export function targetDisplayTitle(target: Pick<CDPTarget, "id" | "title" | "url">): string {
-  if (isUnansweredSocket(target)) return socketDisplayName(target.title.trim());
+  const socket = unansweredSocketOf(target);
+  if (socket) return socketDisplayName(socket);
   const title = target.title?.trim();
   if (title) return title;
   const url = target.url?.trim();

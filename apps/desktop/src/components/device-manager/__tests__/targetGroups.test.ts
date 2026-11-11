@@ -10,6 +10,7 @@ import {
   targetKindHint,
   targetTypeLabel,
   unansweredSocketHint,
+  unansweredSocketOf,
 } from "../targetGroups";
 
 function target(id: string, overrides: Partial<CDPTarget> = {}): CDPTarget {
@@ -119,6 +120,19 @@ describe("targetDisplayTitle", () => {
     ).toBe("WebView in process 812");
     expect(isUnansweredSocket({ id: "page-1", title: "Shop", url: "" })).toBe(false);
   });
+
+  it("knows a socket whose title also names the app's package", () => {
+    const socket = {
+      id: "adb:r4geda5p7d65u8uo:webview_devtools_remote_19350",
+      title: "webview_devtools_remote_19350 (com.presalio.retail)",
+      url: "",
+    };
+    expect(unansweredSocketOf(socket)).toBe("webview_devtools_remote_19350");
+    expect(targetDisplayTitle(socket)).toBe("WebView in process 19350");
+    expect(
+      unansweredSocketOf({ id: "adb:x:webview_devtools_remote_1", title: "Shop", url: "" }),
+    ).toBeNull();
+  });
 });
 
 describe("socket wording", () => {
@@ -126,6 +140,9 @@ describe("socket wording", () => {
     expect(socketDisplayName("custom_socket")).toBe("custom_socket");
     expect(unansweredSocketHint("chrome_devtools_remote")).toMatch(/Open a page in Chrome/);
     expect(unansweredSocketHint("webview_devtools_remote_1")).toMatch(/Bring the app to the front/);
+    expect(unansweredSocketHint("webview_devtools_remote_1", true)).toMatch(
+      /open the app on the phone/,
+    );
   });
 });
 

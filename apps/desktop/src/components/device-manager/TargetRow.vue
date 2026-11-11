@@ -7,10 +7,10 @@ import { LINK_TONE_MARK, LINK_TONE_TEXT } from "@/components/gate/linkTone";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import {
   describeTargetLines,
-  isUnansweredSocket,
   targetDisplayTitle,
   targetKindHint,
   unansweredSocketHint,
+  unansweredSocketOf,
 } from "./targetGroups";
 import PageIcon from "./PageIcon.vue";
 
@@ -24,15 +24,23 @@ const props = defineProps<{
 
 const emit = defineEmits<{ select: []; inspect: []; detach: [] }>();
 
-const unanswered = computed(() => isUnansweredSocket(props.target));
+const socket = computed(() => unansweredSocketOf(props.target));
+const unanswered = computed(() => socket.value !== null);
 const lines = computed(() => describeTargetLines(props.target, props.appLabel ?? null));
 const title = computed(() =>
   unanswered.value ? targetDisplayTitle(props.target) : lines.value.title,
 );
 const detail = computed(() =>
-  unanswered.value ? unansweredSocketHint(props.target.title.trim()) : lines.value.detail,
+  socket.value
+    ? unansweredSocketHint(socket.value, Boolean(props.target.packageName))
+    : lines.value.detail,
 );
 const kind = computed(() => targetKindHint(props.target));
+const rowHint = computed(() => {
+  if (props.active) return props.link?.description;
+  if (unanswered.value && props.target.packageName) return "Open the app on the phone and attach";
+  return "Attach DevTools to this page";
+});
 </script>
 
 <template>
@@ -46,7 +54,7 @@ const kind = computed(() => targetKindHint(props.target));
       :data-current="props.active || undefined"
       :aria-current="props.active ? 'true' : undefined"
       class="flex min-w-0 flex-1 items-center gap-2.5 rounded-control py-2 pr-1 pl-3 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      :title="props.active ? props.link?.description : 'Attach DevTools to this page'"
+      :title="rowHint"
       @click="emit('select')"
     >
       <span
@@ -82,6 +90,7 @@ const kind = computed(() => targetKindHint(props.target));
       :class="props.active && 'opacity-100'"
     >
       <IconAction
+        v-if="!unanswered"
         label="Open in Chrome DevTools"
         hint="The full DevTools of this page, docked"
         size="sm"
