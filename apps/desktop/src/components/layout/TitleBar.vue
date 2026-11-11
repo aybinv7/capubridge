@@ -19,6 +19,7 @@ const { keysOf } = useBindingHint();
   <header
     class="@container/titlebar relative grid h-11.5 shrink-0 select-none grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-3 bg-background pl-3"
     style="-webkit-app-region: drag"
+    data-tauri-drag-region
   >
     <div class="flex items-center gap-0.5 justify-self-start" style="-webkit-app-region: no-drag">
       <IconAction label="Back" @click="router.back()">
@@ -40,16 +41,17 @@ const { keysOf } = useBindingHint();
 
     <div
       class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2"
+      data-tauri-drag-region
     >
-      <div class="col-start-2 flex min-w-0 justify-center" style="-webkit-app-region: no-drag">
+      <div class="col-start-2 flex min-w-0 justify-center" data-tauri-drag-region>
         <ContextBar />
       </div>
-      <div class="flex justify-start" style="-webkit-app-region: no-drag">
+      <div class="flex justify-start" data-tauri-drag-region>
         <TitleBarBringToFront />
       </div>
     </div>
 
-    <div class="flex min-w-0 items-center justify-self-end">
+    <div class="flex min-w-0 items-center justify-self-end" data-tauri-drag-region>
       <div class="flex items-center gap-2 pr-2" style="-webkit-app-region: no-drag">
         <RecordingButton />
         <TitleBarPanelToggles />

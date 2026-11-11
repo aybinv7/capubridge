@@ -44,6 +44,7 @@ const windowButton =
   <div
     class="relative flex h-10 shrink-0 items-center bg-background px-2"
     style="-webkit-app-region: drag"
+    data-tauri-drag-region
   >
     <div class="z-10 flex items-center gap-0.5" style="-webkit-app-region: no-drag">
       <IconAction

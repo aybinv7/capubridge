@@ -46,6 +46,7 @@ function bringToFront() {
       variant="solid"
       surface-level="1"
       class="h-7.5 border border-border text-xs font-normal"
+      style="-webkit-app-region: no-drag"
       content-class-name="gap-1.5 pr-3 pl-2.5 [&>svg]:size-3.5"
       :loading="busy"
       :title="`${app} is in the background, so the phone shows another app and cannot answer`"

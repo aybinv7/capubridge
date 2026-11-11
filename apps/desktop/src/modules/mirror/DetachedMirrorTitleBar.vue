@@ -18,6 +18,7 @@ const emit = defineEmits<{
   <div
     class="relative flex h-9 shrink-0 items-center bg-background pl-1.5"
     style="-webkit-app-region: drag"
+    data-tauri-drag-region
   >
     <div class="z-10 flex items-center" style="-webkit-app-region: no-drag">
       <IconAction
