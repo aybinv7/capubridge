@@ -89,12 +89,15 @@ export function useSqliteTab() {
   );
 
   watch(
-    () => targets.selectedTarget?.id ?? null,
-    (next, previous) => {
+    () => {
       const target = location.target.value;
-      if (!previous || next === previous || target?.kind !== "device") return;
-      if (isInPage(target.path)) location.open(null, "", true);
+      const listed = !sources.loading.value && sources.complete.value;
+      return target?.kind === "device" && isInPage(target.path) && listed && !current.value;
     },
+    (belongsElsewhere) => {
+      if (belongsElsewhere) location.open(null, "", true);
+    },
+    { immediate: true },
   );
 
   const missing = computed(() => {

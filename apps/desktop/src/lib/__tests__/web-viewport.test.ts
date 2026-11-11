@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  CUSTOM_ID,
   DEFAULT_WEB_VIEWPORT,
   RESPONSIVE_ID,
   VIEWPORT_LIMITS,
   choosePreset,
+  followsArea,
   isWebViewport,
   resizeViewport,
   resolveViewport,
@@ -11,20 +13,28 @@ import {
 } from "../web-viewport";
 
 describe("web viewport", () => {
-  it("resolves a free size as a touch device only when it is narrow", () => {
-    expect(resolveViewport(DEFAULT_WEB_VIEWPORT)).toMatchObject({
+  it("lays Responsive out at the frame's own size, at 100%", () => {
+    expect(resolveViewport(DEFAULT_WEB_VIEWPORT, { width: 1093.6, height: 671.2 })).toMatchObject({
+      width: 1094,
+      height: 671,
+      dpr: 1,
+      mobile: false,
+      label: "Responsive",
+    });
+    expect(resolveViewport(DEFAULT_WEB_VIEWPORT, { width: 400, height: 700 }).mobile).toBe(true);
+  });
+
+  it("keeps Responsive's last size when no frame is known", () => {
+    expect(resolveViewport(DEFAULT_WEB_VIEWPORT)).toMatchObject({ width: 390, height: 844 });
+    expect(resolveViewport(DEFAULT_WEB_VIEWPORT, { width: 0, height: 0 })).toMatchObject({
       width: 390,
       height: 844,
-      dpr: 1,
-      mobile: true,
     });
-    const wide = resizeViewport(1280, 800);
-    expect(resolveViewport(wide).mobile).toBe(false);
   });
 
   it("resolves a device with its pixel ratio and turns it on rotation", () => {
     const tablet = choosePreset(DEFAULT_WEB_VIEWPORT, "ipad-air");
-    expect(resolveViewport(tablet)).toMatchObject({
+    expect(resolveViewport(tablet, { width: 2000, height: 2000 })).toMatchObject({
       width: 820,
       height: 1180,
       dpr: 2,
@@ -33,21 +43,31 @@ describe("web viewport", () => {
     expect(resolveViewport(rotateViewport(tablet))).toMatchObject({ width: 1180, height: 820 });
   });
 
-  it("turns any pick into a free size when resized, keeping it inside the limits", () => {
+  it("a typed size becomes a custom size that ignores the frame", () => {
     const resized = resizeViewport(10, 99999);
-    expect(resized.presetId).toBe(RESPONSIVE_ID);
+    expect(resized.presetId).toBe(CUSTOM_ID);
     expect(resized.width).toBe(VIEWPORT_LIMITS.min);
     expect(resized.height).toBe(VIEWPORT_LIMITS.max);
+    expect(resolveViewport(resized, { width: 500, height: 500 })).toMatchObject({
+      width: VIEWPORT_LIMITS.min,
+      height: VIEWPORT_LIMITS.max,
+      label: "Custom",
+    });
+    expect(rotateViewport(resized)).toMatchObject({
+      width: VIEWPORT_LIMITS.max,
+      height: VIEWPORT_LIMITS.min,
+    });
   });
 
-  it("keeps the current size when switching from a device to responsive", () => {
-    const rotatedLaptop = rotateViewport(choosePreset(DEFAULT_WEB_VIEWPORT, "laptop"));
-    const free = choosePreset(rotatedLaptop, RESPONSIVE_ID);
-    expect(free).toEqual({ presetId: RESPONSIVE_ID, width: 800, height: 1280, rotated: false });
+  it("Responsive follows the frame, so rotating it changes nothing", () => {
+    const free = choosePreset(choosePreset(DEFAULT_WEB_VIEWPORT, "laptop"), RESPONSIVE_ID);
+    expect(followsArea(free)).toBe(true);
+    expect(rotateViewport(free)).toEqual(free);
   });
 
-  it("rejects stored values that name an unknown device", () => {
+  it("accepts stored responsive and custom sizes, and rejects unknown devices", () => {
     expect(isWebViewport(DEFAULT_WEB_VIEWPORT)).toBe(true);
+    expect(isWebViewport(resizeViewport(800, 600))).toBe(true);
     expect(isWebViewport({ ...DEFAULT_WEB_VIEWPORT, presetId: "nokia-3310" })).toBe(false);
   });
 });

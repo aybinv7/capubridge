@@ -17,6 +17,7 @@ import DataWorkbench from "@/modules/storage/frame/DataWorkbench.vue";
 import { toggleRecordPane } from "@/modules/storage/frame/recordPaneOpen";
 import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
 import type { DataProvenance, DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
+import { useActiveContextStore } from "@/stores/activeContext.store";
 import { openSqliteFile } from "./openSqliteFile";
 import SqliteWorkspace from "./SqliteWorkspace.vue";
 import { useSqliteTabs } from "./workspace/useSqliteTabs";
@@ -42,6 +43,11 @@ const router = useRouter();
 const confirm = useDataConfirm();
 const tab = useSqliteTab();
 const { location, current, address, tables } = tab;
+const context = useActiveContextStore();
+const emptyText = computed(() => {
+  if (context.kind === "local") return "This page has no SQLite database Capubridge can read.";
+  return tab.device.value ? "This app has no SQLite database." : "No app is selected.";
+});
 const handlers = useSqliteTreeHandlers(tab, confirm.askAsync);
 
 const root = ref<HTMLElement | null>(null);
@@ -315,9 +321,7 @@ useSqliteCommands({
             </Button>
           </template>
           <template #empty>
-            <p class="text-xs text-muted-foreground">
-              {{ tab.device.value ? "This app has no SQLite database." : "No app is selected." }}
-            </p>
+            <p class="text-xs text-muted-foreground">{{ emptyText }}</p>
           </template>
         </DataSourceTree>
       </template>

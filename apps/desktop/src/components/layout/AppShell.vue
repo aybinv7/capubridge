@@ -16,6 +16,8 @@ import ShellAppActions from "@/modules/app/ShellAppActions.vue";
 import { useReloadShortcut } from "@/app/useReloadShortcut";
 import { useTimelineReveals } from "@/app/useTimelineReveals";
 import { useThisPcRoutes } from "@/app/useThisPcRoutes";
+import { useThisPcCommands } from "@/app/useThisPcCommands";
+import { useThisPcRestore } from "@/app/useThisPcRestore";
 import { useDataAppCommands } from "@/modules/storage/public";
 import { useCommandsStore } from "@/stores/commands.store";
 import MirrorPanel from "@/modules/mirror/MirrorPanel.vue";
@@ -61,6 +63,8 @@ useDataAppCommands();
 useReloadShortcut();
 useTimelineReveals();
 useThisPcRoutes();
+useThisPcCommands();
+const { restoreThisPc } = useThisPcRestore();
 useAppTargetLabels();
 let unlistenInspectRequest: (() => void) | null = null;
 let unlistenInspectHover: (() => void) | null = null;
@@ -142,8 +146,16 @@ async function bootstrapRuntime() {
 
   const startupDevice = pickStartupDevice(devicesStore.devices);
   if (startupDevice) {
-    await devicesStore.selectDevice(startupDevice);
+    try {
+      await devicesStore.selectDevice(startupDevice);
+    } catch (error) {
+      console.warn("Failed to select the startup device", error);
+    }
   }
+
+  await restoreThisPc().catch((error: unknown) => {
+    console.warn("Failed to bring back the tabs of This PC", error);
+  });
 }
 
 onMounted(() => {

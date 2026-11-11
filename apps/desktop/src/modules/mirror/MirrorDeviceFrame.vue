@@ -22,6 +22,9 @@ const frame = computed(() =>
   }),
 );
 
+/** The room inside the well, which a Responsive page fills at 100%. */
+const area = computed(() => ({ width: areaWidth.value, height: areaHeight.value }));
+
 const bezelStyle = computed(() => ({
   width: `${frame.value.width}px`,
   height: `${frame.value.height}px`,
@@ -31,7 +34,7 @@ const bezelStyle = computed(() => ({
 
 const screenStyle = computed(() => ({ borderRadius: `${frame.value.innerRadius}px` }));
 
-defineExpose({ well, screen, frame });
+defineExpose({ well, screen, frame, area });
 </script>
 
 <template>

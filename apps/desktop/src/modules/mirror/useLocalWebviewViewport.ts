@@ -1,18 +1,23 @@
-import { nextTick, type Ref } from "vue";
+import type { Ref } from "vue";
 import { useCDP } from "@/composables/useCDP";
-import { resolveViewport } from "@/lib/web-viewport";
+import { resolveViewport, type ViewportArea } from "@/lib/web-viewport";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import { useMirrorStore } from "@/stores/mirror.store";
 import type { CDPTarget } from "@/types/cdp.types";
+import { fitDeviceFrame } from "./deviceFrame";
 
 /**
- * Emulates the chosen device or free size in the local preview. The native preview fills the
- * drawn screen, so the page is laid out at the emulated size and scaled down to fit it, the way
- * Chrome's device mode zooms.
+ * Emulates the chosen device, custom size or Responsive in the local preview. The page is laid out
+ * at the emulated size and scaled down to the screen drawn for it, the way Chrome's device mode
+ * zooms; Responsive is the frame's own size, so it shows at 100%.
+ *
+ * The scale comes from the area and the emulated size, not from measuring the drawn screen: right
+ * after a switch the screen still has the previous device's size, and measuring it laid the page
+ * out with the old scale.
  */
 export function useLocalWebviewViewport(
   target: Readonly<Ref<CDPTarget | null>>,
-  screen: Readonly<Ref<HTMLElement | null>>,
+  area: Readonly<Ref<ViewportArea | null>>,
 ) {
   const mirrorStore = useMirrorStore();
   const localWebviewStore = useLocalWebviewStore();
@@ -23,10 +28,27 @@ export function useLocalWebviewViewport(
     return candidate?.source === "local";
   }
 
+  function metricsNow() {
+    return resolveViewport(mirrorStore.webViewport, area.value);
+  }
+
   function syncSize() {
     if (!isLocal(target.value)) return;
-    const metrics = resolveViewport(mirrorStore.webViewport);
+    const metrics = metricsNow();
     mirrorStore.setDeviceSize(metrics.width, metrics.height, false);
+  }
+
+  function scaleFor(width: number, height: number): number {
+    const room = area.value;
+    if (!room) return 1;
+    const fitted = fitDeviceFrame({
+      areaWidth: room.width,
+      areaHeight: room.height,
+      deviceWidth: width,
+      deviceHeight: height,
+      bare: true,
+    });
+    return fitted.screenWidth > 0 ? Math.min(1, fitted.screenWidth / width) : 1;
   }
 
   async function apply() {
@@ -37,19 +59,15 @@ export function useLocalWebviewViewport(
       const ready = await localWebviewStore.ensureCdpTarget(current);
       if (!ready.webSocketDebuggerUrl || sequence !== applySequence) return;
       const client = await connectToTarget(ready);
-      await nextTick();
-      const element = screen.value;
-      if (!element || sequence !== applySequence) return;
-      const metrics = resolveViewport(mirrorStore.webViewport);
-      const rect = element.getBoundingClientRect();
-      const scale = rect.width > 0 ? Math.min(1, rect.width / metrics.width) : 1;
+      if (sequence !== applySequence) return;
+      const metrics = metricsNow();
       const results = await Promise.allSettled([
         client.send("Emulation.setDeviceMetricsOverride", {
           width: metrics.width,
           height: metrics.height,
           deviceScaleFactor: metrics.dpr,
           mobile: metrics.mobile,
-          scale,
+          scale: scaleFor(metrics.width, metrics.height),
         }),
         client.send("Emulation.setTouchEmulationEnabled", {
           enabled: metrics.mobile,

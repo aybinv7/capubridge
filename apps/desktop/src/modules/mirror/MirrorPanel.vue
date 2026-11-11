@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { toast } from "@/lib/toast";
-import { useWindowSize } from "@vueuse/core";
+import { useWindowSize, watchDebounced } from "@vueuse/core";
 import { MAIN_AREA_MIN_WIDTH, WEB_PANEL_MIN_WIDTH, useMirrorStore } from "@/stores/mirror.store";
 import { useDevicesStore } from "@/stores/devices.store";
 import { useInspectStore } from "@/stores/inspect.store";
@@ -34,6 +34,9 @@ import { useMirrorFrameStats } from "./useMirrorFrameStats";
 import { useMirrorRecordingClock } from "./useMirrorRecordingClock";
 import { useMirrorCommands } from "./useMirrorCommands";
 
+/** Waits for a column drag to pause before laying the page out again at the new size. */
+const AREA_SETTLE_MS = 80;
+
 const mirrorStore = useMirrorStore();
 const devicesStore = useDevicesStore();
 const inspectStore = useInspectStore();
@@ -63,9 +66,10 @@ const isResizing = ref(false);
 const deviceFrameRef = ref<InstanceType<typeof MirrorDeviceFrame> | null>(null);
 const streamAreaRef = computed(() => deviceFrameRef.value?.well ?? null);
 const { panelWidth } = useMirrorViewportWidth(streamAreaRef);
-const screenRef = computed(() => deviceFrameRef.value?.screen ?? null);
+const frameArea = computed(() => deviceFrameRef.value?.area ?? null);
+const renderedWidth = computed(() => deviceFrameRef.value?.frame.screenWidth ?? 0);
 const selectedTarget = computed(() => targetsStore.selectedTarget);
-const localViewport = useLocalWebviewViewport(selectedTarget, screenRef);
+const localViewport = useLocalWebviewViewport(selectedTarget, frameArea);
 const isLocalTarget = computed(() => selectedTarget.value?.source === "local");
 const localMode = computed(() => browser.active);
 const selectedTab = computed(() => browser.selectedTab);
@@ -235,13 +239,14 @@ watch(
   },
 );
 
-watch(
-  () => [columnWidth.value, mirrorStore.deviceWidth, mirrorStore.deviceHeight] as const,
+watchDebounced(
+  () => [frameArea.value?.width ?? 0, frameArea.value?.height ?? 0] as const,
   () => {
     if (mirrorStore.isOpen && !mirrorStore.isDetached && isLocalTarget.value) {
-      void localViewport.apply();
+      void localViewport.syncAndApply();
     }
   },
+  { debounce: AREA_SETTLE_MS },
 );
 
 watch(
@@ -401,6 +406,8 @@ useMirrorCommands({
         :url="localPage.url.value"
         :loading="localPage.loading.value"
         :side="mirrorStore.side"
+        :rendered-width="renderedWidth"
+        :area="frameArea"
         @reload="handleLocalReload"
         @go="handleLocalGo"
         @invalid="handleInvalidAddress"
@@ -431,8 +438,9 @@ useMirrorCommands({
       />
 
       <WebViewportBar
-        v-if="!androidMode && !(localMode && browser.showingNewTab)"
-        :rendered-width="deviceFrameRef?.frame.screenWidth ?? 0"
+        v-if="!androidMode && !localMode"
+        :rendered-width="renderedWidth"
+        :area="null"
       />
 
       <MirrorDeviceFrame

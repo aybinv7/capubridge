@@ -9,7 +9,16 @@ export interface ViewportPreset {
   dpr: number;
 }
 
+/** Fills whatever space the page has: its size follows the frame, at 100%. */
 export const RESPONSIVE_ID = "responsive";
+/** A size typed or set by hand, which stays put when the frame changes. */
+export const CUSTOM_ID = "custom";
+
+/** The room the page has on screen, in CSS pixels. */
+export interface ViewportArea {
+  width: number;
+  height: number;
+}
 
 export const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
   { id: "iphone-se", label: "iPhone SE", kind: "phone", width: 375, height: 667, dpr: 2 },
@@ -88,19 +97,38 @@ export function isWebViewport(value: unknown): value is WebViewport {
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.presetId === "string" &&
-    (candidate.presetId === RESPONSIVE_ID || findPreset(candidate.presetId) !== null) &&
+    (candidate.presetId === RESPONSIVE_ID ||
+      candidate.presetId === CUSTOM_ID ||
+      findPreset(candidate.presetId) !== null) &&
     typeof candidate.width === "number" &&
     typeof candidate.height === "number" &&
     typeof candidate.rotated === "boolean"
   );
 }
 
-export function resolveViewport(viewport: WebViewport): ViewportMetrics {
+export function followsArea(viewport: WebViewport): boolean {
+  return viewport.presetId === RESPONSIVE_ID;
+}
+
+function hasRoom(area: ViewportArea | null | undefined): area is ViewportArea {
+  return !!area && area.width >= 1 && area.height >= 1;
+}
+
+/**
+ * The size the page is laid out at. Responsive takes `area` when one is known, so the page fills
+ * the frame at 100%; without it (a screencast, say) it keeps the last size it had.
+ */
+export function resolveViewport(
+  viewport: WebViewport,
+  area?: ViewportArea | null,
+): ViewportMetrics {
   const preset = findPreset(viewport.presetId);
   if (!preset) {
-    const width = clampViewportSide(viewport.width);
-    const height = clampViewportSide(viewport.height);
-    return { width, height, dpr: 1, mobile: width < MOBILE_BREAKPOINT, label: "Responsive" };
+    const fill = followsArea(viewport) && hasRoom(area);
+    const width = fill ? Math.round(area.width) : clampViewportSide(viewport.width);
+    const height = fill ? Math.round(area.height) : clampViewportSide(viewport.height);
+    const label = viewport.presetId === CUSTOM_ID ? "Custom" : "Responsive";
+    return { width, height, dpr: 1, mobile: width < MOBILE_BREAKPOINT, label };
   }
   const [width, height] = viewport.rotated
     ? [preset.height, preset.width]
@@ -116,17 +144,19 @@ export function choosePreset(current: WebViewport, presetId: string): WebViewpor
   return findPreset(presetId) ? { ...current, presetId, rotated: false } : current;
 }
 
-/** Typing a size or dragging an edge turns any pick into a free size, as Chrome does. */
+/** Typing a size turns any pick into a custom size, which then stays put. */
 export function resizeViewport(width: number, height: number): WebViewport {
   return {
-    presetId: RESPONSIVE_ID,
+    presetId: CUSTOM_ID,
     width: clampViewportSide(width),
     height: clampViewportSide(height),
     rotated: false,
   };
 }
 
+/** A device turns; a custom size swaps its sides; Responsive follows the frame, so it cannot. */
 export function rotateViewport(current: WebViewport): WebViewport {
   if (findPreset(current.presetId)) return { ...current, rotated: !current.rotated };
+  if (followsArea(current)) return current;
   return { ...current, width: current.height, height: current.width };
 }

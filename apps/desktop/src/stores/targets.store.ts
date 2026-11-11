@@ -301,6 +301,17 @@ export const useTargetsStore = defineStore("targets", () => {
     return target;
   }
 
+  /** Adds a page on This PC without selecting it, as when tabs come back after a restart. */
+  function addLocalTarget(url: string) {
+    const existing = targets.value.find(
+      (target) => target.source === "local" && target.url === url,
+    );
+    if (existing) return existing;
+    const target = createLocalTargetSnapshot(url);
+    targets.value = targets.value.concat(target);
+    return target;
+  }
+
   function updateLocalTargetCdp(targetId: string, webSocketDebuggerUrl: string) {
     targets.value = targets.value.map((t) =>
       t.id === targetId ? { ...t, webSocketDebuggerUrl } : t,
@@ -360,6 +371,7 @@ export const useTargetsStore = defineStore("targets", () => {
     fetchTargetsForSource,
     createChromeTarget,
     createLocalTarget,
+    addLocalTarget,
     updateLocalTargetCdp,
     removeTarget,
     selectTarget,

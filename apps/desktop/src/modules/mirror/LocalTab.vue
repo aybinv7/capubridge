@@ -39,7 +39,7 @@ function onAuxClick(event: MouseEvent) {
     class="group/tab relative flex h-7 max-w-52 min-w-24 flex-1 basis-40 cursor-default items-center gap-2 rounded-control pr-1 pl-2.5 text-xs transition-colors duration-150 select-none"
     :class="
       props.active
-        ? 'bg-surface-2 text-foreground shadow-bevel'
+        ? 'bg-signal-select/12 text-signal-select ring-1 ring-signal-select/30 ring-inset'
         : 'text-muted-foreground hover:bg-surface-1 hover:text-foreground'
     "
     tabindex="0"

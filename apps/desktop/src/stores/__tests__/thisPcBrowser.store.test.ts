@@ -62,6 +62,28 @@ describe("thisPcBrowser store", () => {
     expect(browser.showingNewTab).toBe(true);
   });
 
+  test("saves the tabs at their live address, but only once the restore has read them", async () => {
+    localStorage.setItem(
+      "capubridge:this-pc-tabs",
+      JSON.stringify({ urls: ["http://localhost:5181/old"], selected: 0, active: true }),
+    );
+    const targets = useTargetsStore();
+    const browser = useThisPcBrowserStore();
+    const page = targets.createLocalTarget("http://localhost:5173/");
+    await nextTick();
+    expect(JSON.parse(localStorage.getItem("capubridge:this-pc-tabs") ?? "{}").urls).toEqual([
+      "http://localhost:5181/old",
+    ]);
+    expect(browser.takeSaved().urls).toEqual(["http://localhost:5181/old"]);
+    browser.notePage(page.id, { url: "http://localhost:5173/settings", title: "S", icon: null });
+    await nextTick();
+    expect(JSON.parse(localStorage.getItem("capubridge:this-pc-tabs") ?? "{}")).toEqual({
+      urls: ["http://localhost:5173/settings"],
+      selected: 0,
+      active: true,
+    });
+  });
+
   test("a tab's live page is noted and forgotten with it", () => {
     const browser = useThisPcBrowserStore();
     browser.notePage("t1", { url: "http://localhost:5181/a", title: "A", icon: null });
