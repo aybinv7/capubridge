@@ -30,10 +30,19 @@ function viewFor(url: string): Promise<Webview> {
 
 async function park() {
   if (!view) return;
-  const webview = await view.catch(() => null);
-  if (!webview) return;
-  await webview.setSize(new LogicalSize(1, 1)).catch(() => undefined);
-  await webview.setPosition(new LogicalPosition(-32000, -32000)).catch(() => undefined);
+  let webview: Webview;
+  try {
+    webview = await view;
+  } catch (error) {
+    console.warn("DevTools never opened, so there is nothing to hide", error);
+    return;
+  }
+  try {
+    await webview.setSize(new LogicalSize(1, 1));
+    await webview.setPosition(new LogicalPosition(-32000, -32000));
+  } catch (error) {
+    console.warn("Could not move DevTools aside", error);
+  }
   await webview.hide().catch((error: unknown) => {
     console.warn("Could not hide DevTools", error);
   });
