@@ -31,16 +31,9 @@ const title = computed(() =>
   unanswered.value ? targetDisplayTitle(props.target) : lines.value.title,
 );
 const detail = computed(() =>
-  socket.value
-    ? unansweredSocketHint(socket.value, Boolean(props.target.packageName))
-    : lines.value.detail,
+  socket.value ? unansweredSocketHint(socket.value) : lines.value.detail,
 );
 const kind = computed(() => targetKindHint(props.target));
-const rowHint = computed(() => {
-  if (props.active) return props.link?.description;
-  if (unanswered.value && props.target.packageName) return "Open the app on the phone and attach";
-  return "Attach DevTools to this page";
-});
 </script>
 
 <template>
@@ -48,13 +41,25 @@ const rowHint = computed(() => {
     class="group/target relative flex items-center gap-1 rounded-control pr-1.5 transition-colors duration-120"
     :class="props.active ? 'bg-cladd-surface-next shadow-bevel' : 'hover:bg-cladd-surface-hover'"
   >
+    <div
+      v-if="unanswered"
+      class="flex min-w-0 flex-1 items-center gap-2.5 py-2 pr-1 pl-3"
+      :title="detail ?? undefined"
+    >
+      <slot name="app-icon" />
+      <span class="flex min-w-0 flex-1 flex-col">
+        <span class="truncate text-sm text-[var(--fg-muted)]">{{ title }}</span>
+        <span v-if="detail" class="truncate text-2xs text-[var(--fg-subtle)]">{{ detail }}</span>
+      </span>
+    </div>
     <button
+      v-else
       type="button"
       data-roving-item
       :data-current="props.active || undefined"
       :aria-current="props.active ? 'true' : undefined"
       class="flex min-w-0 flex-1 items-center gap-2.5 rounded-control py-2 pr-1 pl-3 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      :title="rowHint"
+      :title="props.active ? props.link?.description : 'Attach DevTools to this page'"
       @click="emit('select')"
     >
       <span
@@ -65,11 +70,7 @@ const rowHint = computed(() => {
       <PageIcon v-if="props.icon !== undefined" :icon="props.icon" />
       <span class="flex min-w-0 flex-1 flex-col">
         <span class="truncate text-sm text-foreground">{{ title }}</span>
-        <span
-          v-if="detail"
-          class="truncate text-2xs text-[var(--fg-subtle)]"
-          :class="!unanswered && 'font-mono'"
-        >
+        <span v-if="detail" class="truncate font-mono text-2xs text-[var(--fg-subtle)]">
           {{ detail }}
         </span>
       </span>
@@ -86,11 +87,11 @@ const rowHint = computed(() => {
     </button>
 
     <div
+      v-if="!unanswered"
       class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-120 group-focus-within/target:opacity-100 group-hover/target:opacity-100"
       :class="props.active && 'opacity-100'"
     >
       <IconAction
-        v-if="!unanswered"
         label="Open in Chrome DevTools"
         hint="The full DevTools of this page, docked"
         size="sm"

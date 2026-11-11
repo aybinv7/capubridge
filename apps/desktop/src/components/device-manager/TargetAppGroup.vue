@@ -104,7 +104,26 @@ const subtitle = computed(() => {
       @select="emit('select', target)"
       @inspect="emit('inspect', target)"
       @detach="emit('detach', target)"
-    />
+    >
+      <template #app-icon>
+        <AppIcon
+          v-if="props.group.packageName"
+          :serial="props.serial"
+          :package-name="props.group.packageName"
+          :apk-path="props.apkPath"
+          :icon-path="props.iconPath"
+          size="sm"
+          class="!size-5 !rounded-[5px]"
+        />
+        <Globe
+          v-else
+          :size="14"
+          :stroke-width="1.8"
+          class="shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </template>
+    </TargetRow>
 
     <button
       v-if="secondary.length && primary.length"

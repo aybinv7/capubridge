@@ -4,16 +4,10 @@ import { toast } from "@/lib/toast";
 import { useConnectionStore } from "@/stores/connection.store";
 import { useTargetsStore } from "@/stores/targets.store";
 import { useTargetActivation } from "@/composables/useTargetActivation";
-import { useAdb } from "@/composables/useAdb";
-import { useAppPackages } from "@/composables/useAppPackages";
 import { isNativeAppTarget } from "@/lib/app-target";
 import type { CDPTarget } from "@/types/cdp.types";
 import type { DeviceManagerState } from "./useDeviceManager";
-import { groupTargetsByApp, isUnansweredSocket } from "./targetGroups";
-
-/** An app takes a moment to start and open its WebView: scan this many times, this far apart. */
-const OPEN_SCANS = 4;
-const OPEN_SCAN_GAP_MS = 1200;
+import { groupTargetsByApp } from "./targetGroups";
 
 /** Targets on the viewed device, and every action on them. This PC's pages are its tabs. */
 export function useDeviceTargets(manager: DeviceManagerState, close: () => void) {
@@ -21,8 +15,6 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
   const targetsStore = useTargetsStore();
   const connectionStore = useConnectionStore();
   const { activateTarget } = useTargetActivation();
-  const { openPackage } = useAdb();
-  const { getCachedPackage } = useAppPackages(computed(() => manager.viewedSerial.value ?? ""));
 
   const scanning = ref(false);
 
@@ -74,64 +66,7 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
     { immediate: true },
   );
 
-  function pageOfApp(serial: string, packageName: string): CDPTarget | null {
-    return (
-      targetsStore.targets.find(
-        (target) =>
-          target.source === "adb" &&
-          target.deviceSerial === serial &&
-          target.packageName === packageName &&
-          !isNativeAppTarget(target) &&
-          !isUnansweredSocket(target),
-      ) ?? null
-    );
-  }
-
-  /**
-   * A WebView socket with no page behind it usually means the app is not open: there is nothing
-   * to attach to yet. Opens the app on the phone, scans again while it starts, and attaches to
-   * its page once one shows, instead of failing on an address with no page in it.
-   */
-  async function openAppAndAttach(target: CDPTarget) {
-    const serial = target.deviceSerial;
-    const packageName = target.packageName;
-    if (!serial || !packageName) {
-      toast.info("This WebView has no page open", {
-        description: "Open the app on the phone, then scan again.",
-      });
-      return;
-    }
-    const app = getCachedPackage(packageName)?.label ?? packageName;
-    const toastId = toast.loading(`Opening ${app} on the phone…`);
-    try {
-      await openPackage(serial, packageName);
-      for (let attempt = 0; attempt < OPEN_SCANS; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, OPEN_SCAN_GAP_MS));
-        await refreshTargets();
-        const page = pageOfApp(serial, packageName);
-        if (page) {
-          toast.dismiss(toastId);
-          await selectTarget(page);
-          return;
-        }
-      }
-      toast.info(`${app} is open, but shows no web page yet`, {
-        id: toastId,
-        description: "Go to a screen of the app with web content, then pick its page here.",
-      });
-    } catch (error) {
-      toast.error(`Could not open ${app} on the phone`, {
-        id: toastId,
-        description: String(error),
-      });
-    }
-  }
-
   async function selectTarget(target: CDPTarget) {
-    if (isUnansweredSocket(target)) {
-      await openAppAndAttach(target);
-      return;
-    }
     try {
       await manager.withPollingPaused(() => activateTarget(target));
       close();
@@ -142,10 +77,6 @@ export function useDeviceTargets(manager: DeviceManagerState, close: () => void)
 
   /** Attaches to the page and opens its full Chrome DevTools, docked. */
   async function inspectTarget(target: CDPTarget) {
-    if (isUnansweredSocket(target)) {
-      await openAppAndAttach(target);
-      return;
-    }
     try {
       await activateTarget(target);
       close();

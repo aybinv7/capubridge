@@ -115,7 +115,7 @@ export const useConnectionStore = defineStore("connection", () => {
         if (target.source === "adb" || target.source === "local") {
           if (!hasPageSocket(wsUrl)) {
             throw new Error(
-              "This WebView has no page open, so there is nothing to attach to. Open the app on the phone, then pick its page.",
+              "This WebView has no page open, so there is nothing to attach to. Open the app on the phone, then scan again.",
             );
           }
           const proxy = await invokeCommand("cdp_start_proxy", {

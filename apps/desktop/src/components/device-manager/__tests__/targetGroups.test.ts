@@ -139,10 +139,7 @@ describe("socket wording", () => {
   it("explains what to do for Chrome and for any other socket", () => {
     expect(socketDisplayName("custom_socket")).toBe("custom_socket");
     expect(unansweredSocketHint("chrome_devtools_remote")).toMatch(/Open a page in Chrome/);
-    expect(unansweredSocketHint("webview_devtools_remote_1")).toMatch(/Bring the app to the front/);
-    expect(unansweredSocketHint("webview_devtools_remote_1", true)).toMatch(
-      /open the app on the phone/,
-    );
+    expect(unansweredSocketHint("webview_devtools_remote_1")).toMatch(/Open the app on the phone/);
   });
 });
 
