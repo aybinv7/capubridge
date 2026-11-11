@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ArrowUpRight } from "lucide-vue-next";
-import { Button } from "@capubridge/cladd";
+import { Button, Tooltip } from "@capubridge/cladd";
 import { useAppPackages } from "@/composables/useAppPackages";
 import { useGateActions } from "@/composables/useGateActions";
 import { targetAppName } from "@/lib/target-app-name";
@@ -41,24 +41,32 @@ function bringToFront() {
     enter-from-class="-translate-x-1 opacity-0"
     leave-to-class="-translate-x-1 opacity-0"
   >
-    <Button
-      v-if="app"
-      variant="solid"
-      surface-level="1"
-      class="h-7.5 border border-border text-xs font-normal"
-      style="-webkit-app-region: no-drag"
-      content-class-name="gap-1.5 pr-3 pl-2.5 [&>svg]:size-3.5"
-      :loading="busy"
-      :title="`${app} is in the background, so the phone shows another app and cannot answer`"
-      :aria-label="`Bring ${app} to the front`"
-      @click="bringToFront"
-    >
-      <span class="size-1.5 shrink-0 rounded-full bg-signal-mark" aria-hidden="true" />
-      <ArrowUpRight :stroke-width="1.8" class="text-muted-foreground" />
-      <span class="hidden max-w-40 truncate text-foreground @[900px]/titlebar:inline">
-        Bring {{ app }} to front
-      </span>
-      <span class="text-foreground @[900px]/titlebar:hidden">To front</span>
-    </Button>
+    <div v-if="app" class="flex">
+      <Tooltip
+        position="bottom"
+        :offset="6"
+        content-class-name="flex max-w-64 flex-col gap-0.5 px-2 py-1 text-xs"
+      >
+        <template #trigger>
+          <Button
+            variant="solid"
+            surface-level="1"
+            class="h-7.5 border border-border"
+            style="-webkit-app-region: no-drag"
+            content-class-name="gap-1.5 px-2.5 [&>svg]:size-3.5"
+            :loading="busy"
+            :aria-label="`Bring ${app} to the front`"
+            @click="bringToFront"
+          >
+            <span class="size-1.5 shrink-0 rounded-full bg-signal-mark" aria-hidden="true" />
+            <ArrowUpRight :stroke-width="1.8" class="text-muted-foreground" />
+          </Button>
+        </template>
+        <span class="text-foreground">Bring {{ app }} to the front</span>
+        <span class="text-muted-foreground">
+          It is in the background, so the phone shows another app and cannot answer.
+        </span>
+      </Tooltip>
+    </div>
   </Transition>
 </template>
