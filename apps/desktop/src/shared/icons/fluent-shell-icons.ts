@@ -4,6 +4,8 @@ import Beaker20Filled from "@vicons/fluent/es/Beaker20Filled";
 import Beaker20Regular from "@vicons/fluent/es/Beaker20Regular";
 import ChevronLeft20Regular from "@vicons/fluent/es/ChevronLeft20Regular";
 import ChevronRight20Regular from "@vicons/fluent/es/ChevronRight20Regular";
+import Bug20Filled from "@vicons/fluent/es/Bug20Filled";
+import Bug20Regular from "@vicons/fluent/es/Bug20Regular";
 import CursorClick20Filled from "@vicons/fluent/es/CursorClick20Filled";
 import CursorClick20Regular from "@vicons/fluent/es/CursorClick20Regular";
 import Database20Filled from "@vicons/fluent/es/Database20Filled";
@@ -42,6 +44,7 @@ export const fluentShellIcons: ShellIconSet = {
     data: { regular: Database20Regular, filled: Database20Filled },
     network: { regular: Globe20Regular, filled: Globe20Filled },
     elements: { regular: CursorClick20Regular, filled: CursorClick20Filled },
+    devtools: { regular: Bug20Regular, filled: Bug20Filled },
     replay: { regular: Replay20Regular, filled: Replay20Filled },
     flows: { regular: Flash20Regular, filled: Flash20Filled },
     preview: { regular: Beaker20Regular, filled: Beaker20Filled },

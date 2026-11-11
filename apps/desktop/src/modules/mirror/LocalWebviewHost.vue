@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Loader2, Monitor } from "lucide-vue-next";
 import { useLocalWebviewStore } from "@/stores/localWebview.store";
 import type { CDPTarget } from "@/types/cdp.types";
-import { useBoundsFollower } from "./useBoundsFollower";
+import { useBoundsFollower } from "@/composables/useBoundsFollower";
 
 const props = defineProps<{
   target: CDPTarget | null;

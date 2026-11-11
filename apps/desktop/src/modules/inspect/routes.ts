@@ -12,12 +12,8 @@ export const inspectRoutes = [
         component: () => import("./ElementsInspector.vue"),
         meta: { label: "Elements", requires: "target" },
       },
-      {
-        path: ":pluginId",
-        name: "inspect-plugin",
-        component: () => import("./InspectPluginRoute.vue"),
-        meta: { navigation: false, requires: "target" },
-      },
+      { path: "vue", redirect: "/devtools/vue" },
+      { path: "react", redirect: "/devtools/react" },
     ],
   },
 ] satisfies RouteRecordRaw[];

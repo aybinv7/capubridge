@@ -1,6 +1,7 @@
 import { h, type Component, type FunctionalComponent } from "vue";
 import {
   PhAppWindow,
+  PhBug,
   PhCaretLeft,
   PhCaretRight,
   PhChartBar,
@@ -40,6 +41,7 @@ export const phosphorShellIcons: ShellIconSet = {
     data: pair(PhDatabase),
     network: pair(PhGlobe),
     elements: pair(PhCursorClick),
+    devtools: pair(PhBug),
     replay: pair(PhMonitorPlay),
     flows: pair(PhLightning),
     preview: pair(PhFlask),

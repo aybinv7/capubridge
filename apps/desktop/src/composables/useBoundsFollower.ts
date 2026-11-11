@@ -23,7 +23,7 @@ export function useBoundsFollower(
     try {
       await apply();
     } catch (error) {
-      console.warn("Failed to place the local preview", error);
+      console.warn("Failed to place a native view over its element", error);
     } finally {
       inFlight = false;
       if (dirty) {

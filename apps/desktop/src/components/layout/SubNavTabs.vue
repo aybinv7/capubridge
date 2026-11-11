@@ -2,7 +2,6 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Tab, Tabs, TabsList } from "@capubridge/cladd";
-import { useInspectPlugins } from "@/modules/inspect/useInspectPlugins";
 import { isRouteEnabled } from "@/app/feature-registry";
 
 type SubTab = {
@@ -13,16 +12,6 @@ type SubTab = {
 
 const route = useRoute();
 const router = useRouter();
-const inspectPlugins = useInspectPlugins();
-
-const inspectSubTabs = computed<SubTab[]>(() => [
-  { name: "inspect-elements", label: "Elements", path: "/inspect/elements" },
-  ...inspectPlugins.plugins.value.map((plugin) => ({
-    name: plugin.routeName,
-    label: plugin.name,
-    path: `/inspect/${plugin.routeSegment}`,
-  })),
-]);
 
 function formatLabel(name: string): string {
   return name
@@ -35,7 +24,6 @@ function formatLabel(name: string): string {
 const subTabs = computed<SubTab[]>(() => {
   const parentRoute = route.matched[0];
   if (!parentRoute?.children) return [];
-  if (parentRoute.path === "/inspect") return inspectSubTabs.value;
 
   const parentPath = parentRoute.path.replace(/\/$/, "");
   return parentRoute.children

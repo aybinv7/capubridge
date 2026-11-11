@@ -7,6 +7,7 @@ export type RailIconKey =
   | "data"
   | "network"
   | "elements"
+  | "devtools"
   | "replay"
   | "flows"
   | "preview"

@@ -12,17 +12,27 @@ use tauri::{LogicalPosition, LogicalSize, Manager, WebviewUrl};
 const PREVIEW_DATA_FOLDER: &str = "local-preview-webview2";
 const WRY_DEFAULT_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
 
+/// Tried first so the docked DevTools is served from the same address every run: it keeps its
+/// settings (theme, panels, layout) per address, and a new port each run would reset them.
+const PREFERRED_DEBUG_PORT: u16 = 19222;
+
 static DEBUG_PORT: OnceLock<u16> = OnceLock::new();
 
-/// The DevTools port of the preview environment, chosen once per run. Every preview shares one
-/// environment, and WebView2 requires one set of browser arguments per user data folder.
+fn free_port(port: u16) -> std::io::Result<u16> {
+    TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port))
+        .and_then(|listener| listener.local_addr())
+        .map(|address| address.port())
+}
+
+/// The DevTools port of the preview environment, chosen once per run: the preferred one when it is
+/// free, any free one otherwise. Every preview shares one environment, and WebView2 requires one
+/// set of browser arguments per user data folder.
 pub(crate) fn preview_debug_port() -> Result<u16, String> {
     if let Some(port) = DEBUG_PORT.get() {
         return Ok(*port);
     }
-    let port = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
-        .and_then(|listener| listener.local_addr())
-        .map(|address| address.port())
+    let port = free_port(PREFERRED_DEBUG_PORT)
+        .or_else(|_| free_port(0))
         .map_err(|error| format!("Could not reserve a DevTools port for local pages: {error}"))?;
     Ok(*DEBUG_PORT.get_or_init(|| port))
 }

@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from "vue-router";
 import {
   AppWindow,
   Bot,
+  Bug,
   Crosshair,
   Database,
   FlaskConical,
@@ -15,6 +16,7 @@ import type { RailIconKey } from "@/shared/icons/shell-icons";
 import { appRoutes } from "../modules/app/public";
 import { browserPreviewRoutes } from "../modules/browser-preview/public";
 import { deviceRoutes } from "../modules/devices/public";
+import { devtoolsRoutes } from "../modules/devtools/public";
 import { inspectRoutes } from "../modules/inspect/public";
 import { networkRoutes } from "../modules/network/public";
 import { recordingRoutes } from "../modules/recording/public";
@@ -102,6 +104,18 @@ export const featureRegistry = [
     placement: "primary",
     commandPalette: true,
     routes: inspectRoutes,
+  },
+  {
+    id: "devtools",
+    goKey: "t",
+    label: "DevTools",
+    path: "/devtools",
+    icon: Bug,
+    railIcon: "devtools",
+    maturity: "beta",
+    placement: "primary",
+    commandPalette: true,
+    routes: devtoolsRoutes,
   },
   {
     id: "replay",
