@@ -191,17 +191,12 @@ useKvCommands({
           Local storage of this page
         </Button>
       </DataState>
-      <DataState v-else-if="!open && away" kind="waiting" title="Waiting for the app" :text="away">
-        <Button
-          size="sm"
-          variant="solid-fill"
-          color="brand"
-          :loading="presence.bringing.value"
-          @click="presence.bringToFront()"
-        >
-          Bring to front
-        </Button>
-      </DataState>
+      <DataState
+        v-else-if="!open && away"
+        kind="waiting"
+        title="Waiting for the app"
+        :text="away"
+      />
       <DataState
         v-else-if="!open && catalog.error.value"
         kind="error"
@@ -218,10 +213,8 @@ useKvCommands({
         :source="open"
         :page-origin="pageOrigin"
         :away="away"
-        :bringing="presence.bringing.value"
         :confirm="confirm.askAsync"
         @count="openCount = $event"
-        @bring-to-front="presence.bringToFront()"
       />
     </DataWorkbench>
 

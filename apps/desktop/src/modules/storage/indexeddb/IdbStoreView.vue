@@ -221,7 +221,6 @@ defineExpose({
     :layout-key="`idb:${database.mode === 'live' ? database.origin : 'file'}:${database.name}/${store}`"
     :confirm="confirm"
     :away="away"
-    @bring-to-front="presence.bringToFront()"
     @delete-records="deleteRecords"
   />
   <IdbStructure v-else :info="info" :loading="infoLoading" />

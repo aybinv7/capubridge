@@ -203,10 +203,8 @@ useCacheCommands({
         :origin="origin"
         :cache-name="open"
         :away="away"
-        :bringing="presence.bringing.value"
         :confirm="confirm.askAsync"
         @count="openCount = $event"
-        @bring-to-front="presence.bringToFront()"
         @deleted="onCacheDeleted"
         @changed="catalog.refetch()"
       />
@@ -216,22 +214,10 @@ useCacheCommands({
         :read-at="catalog.readAt.value"
         :busy="catalog.fetching.value && !catalog.loading.value"
         :away="away"
-        :bringing="presence.bringing.value"
-        @bring-to-front="presence.bringToFront()"
         @open="openCache"
         @refresh="catalog.refetch()"
       />
-      <DataState v-else-if="away" kind="waiting" title="Waiting for the app" :text="away">
-        <Button
-          size="sm"
-          variant="solid-fill"
-          color="brand"
-          :loading="presence.bringing.value"
-          @click="presence.bringToFront()"
-        >
-          Bring to front
-        </Button>
-      </DataState>
+      <DataState v-else-if="away" kind="waiting" title="Waiting for the app" :text="away" />
       <DataState
         v-else-if="catalog.error.value"
         kind="error"

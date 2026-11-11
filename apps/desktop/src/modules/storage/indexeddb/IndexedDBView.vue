@@ -300,17 +300,7 @@ useIdbCommands({
         kind="waiting"
         title="Waiting for the app"
         :text="presence.away.value"
-      >
-        <Button
-          size="sm"
-          variant="solid-fill"
-          color="brand"
-          :loading="presence.bringing.value"
-          @click="presence.bringToFront()"
-        >
-          Bring to front
-        </Button>
-      </DataState>
+      />
       <DataState
         v-else-if="!catalog.openDatabase.value && catalog.liveLoading.value && hasPhone"
         kind="loading"

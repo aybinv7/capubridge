@@ -23,11 +23,10 @@ const props = defineProps<{
   pageOrigin: string;
   /** Why the phone cannot answer now (the app is away from the screen), or `null`. */
   away: string | null;
-  bringing: boolean;
   confirm: (request: ConfirmRequest) => Promise<boolean>;
 }>();
 
-const emit = defineEmits<{ count: [count: number | null]; bringToFront: [] }>();
+const emit = defineEmits<{ count: [count: number | null] }>();
 
 const rows = ref<InstanceType<typeof KvRows> | null>(null);
 const targetId = computed(() => props.targetId);
@@ -113,17 +112,7 @@ defineExpose({
     kind="waiting"
     title="Waiting for the app"
     :text="away"
-  >
-    <Button
-      size="sm"
-      variant="solid-fill"
-      color="brand"
-      :loading="bringing"
-      @click="emit('bringToFront')"
-    >
-      Bring to front
-    </Button>
-  </DataState>
+  />
   <DataState
     v-else-if="read.error.value && read.pending.value"
     kind="error"
@@ -148,11 +137,7 @@ defineExpose({
       title="Waiting for the app; the keys below are from the last read"
       :text="away"
       class="shrink-0 border-b border-border-subtle"
-    >
-      <Button size="sm" variant="transparent" :loading="bringing" @click="emit('bringToFront')">
-        Bring to front
-      </Button>
-    </DataState>
+    />
     <KvRows
       ref="rows"
       :source="source"

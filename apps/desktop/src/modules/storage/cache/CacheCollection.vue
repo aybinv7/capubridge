@@ -2,7 +2,6 @@
 import { computed, ref, watch } from "vue";
 import { toast } from "@/lib/toast";
 import { RefreshCw, Trash2 } from "lucide-vue-next";
-import { Button } from "@capubridge/cladd";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import DataCollectionHeader from "@/modules/storage/frame/DataCollectionHeader.vue";
@@ -23,13 +22,11 @@ const props = defineProps<{
   cacheName: string;
   /** Why the phone cannot answer now (the app is away from the screen), or `null`. */
   away: string | null;
-  bringing: boolean;
   confirm: (request: ConfirmRequest) => Promise<boolean>;
 }>();
 
 const emit = defineEmits<{
   count: [count: number | null];
-  bringToFront: [];
   deleted: [];
   changed: [];
 }>();
@@ -120,17 +117,7 @@ defineExpose({
     kind="waiting"
     title="Waiting for the app"
     :text="away"
-  >
-    <Button
-      size="sm"
-      variant="solid-fill"
-      color="brand"
-      :loading="bringing"
-      @click="emit('bringToFront')"
-    >
-      Bring to front
-    </Button>
-  </DataState>
+  />
   <DataState
     v-else-if="read.error.value && read.pending.value"
     kind="error"
@@ -155,11 +142,7 @@ defineExpose({
       title="Waiting for the app; the entries below are from the last read"
       :text="away"
       class="shrink-0 border-b border-border-subtle"
-    >
-      <Button size="sm" variant="transparent" :loading="bringing" @click="emit('bringToFront')">
-        Bring to front
-      </Button>
-    </DataState>
+    />
     <CacheRows
       ref="rows"
       :target-id="targetId"

@@ -58,7 +58,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   deleteRecords: [records: IndexedDBDecoratedRecord[], afterDelete: () => void];
-  bringToFront: [];
 }>();
 
 const toolbar = ref<InstanceType<typeof IdbRowsToolbar> | null>(null);
@@ -502,11 +501,7 @@ defineExpose({ focusSearch: () => toolbar.value?.focusSearch(), guardDiscard });
     kind="waiting"
     title="Waiting for the app"
     :text="away"
-  >
-    <Button size="sm" variant="solid-fill" color="brand" @click="emit('bringToFront')">
-      Bring to front
-    </Button>
-  </DataState>
+  />
   <DataState
     v-else-if="pager.error.value && records.length === 0"
     kind="error"

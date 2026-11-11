@@ -195,24 +195,12 @@ useOpfsCommands({
         :origin="origin"
         :path="path"
         :away="away"
-        :bringing="presence.bringing.value"
         :confirm="confirm.askAsync"
         @count="openCount = $event"
-        @bring-to-front="presence.bringToFront()"
         @open-folder="openFolder"
         @changed="walk.refetch()"
       />
-      <DataState v-else-if="away" kind="waiting" title="Waiting for the app" :text="away">
-        <Button
-          size="sm"
-          variant="solid-fill"
-          color="brand"
-          :loading="presence.bringing.value"
-          @click="presence.bringToFront()"
-        >
-          Bring to front
-        </Button>
-      </DataState>
+      <DataState v-else-if="away" kind="waiting" title="Waiting for the app" :text="away" />
       <DataState
         v-else-if="walk.error.value"
         kind="error"

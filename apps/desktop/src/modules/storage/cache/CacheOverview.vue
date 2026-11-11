@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { RefreshCw } from "lucide-vue-next";
-import { Button } from "@capubridge/cladd";
 import type { CacheStorageCatalog } from "@capubridge/cdp-protocol";
 import IconAction from "@/shared/components/presentation/IconAction.vue";
 import DataCollectionHeader from "@/modules/storage/frame/DataCollectionHeader.vue";
@@ -15,10 +14,9 @@ const props = defineProps<{
   readAt: number | null;
   busy: boolean;
   away: string | null;
-  bringing: boolean;
 }>();
 
-const emit = defineEmits<{ open: [name: string]; refresh: []; bringToFront: [] }>();
+const emit = defineEmits<{ open: [name: string]; refresh: [] }>();
 
 const entries = computed(() =>
   props.catalog.caches.reduce((sum, cache) => sum + (cache.count ?? 0), 0),
@@ -72,11 +70,7 @@ const bars = computed<OverviewBars[]>(() => [
     title="Waiting for the app; the caches below are from the last read"
     :text="away"
     class="shrink-0 border-b border-border-subtle"
-  >
-    <Button size="sm" variant="transparent" :loading="bringing" @click="emit('bringToFront')">
-      Bring to front
-    </Button>
-  </DataState>
+  />
   <DataState
     v-if="!catalog.available"
     kind="empty"

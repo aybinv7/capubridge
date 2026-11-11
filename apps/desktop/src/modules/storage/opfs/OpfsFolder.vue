@@ -37,13 +37,11 @@ const props = defineProps<{
   path: string;
   /** Why the phone cannot answer now (the app is away from the screen), or `null`. */
   away: string | null;
-  bringing: boolean;
   confirm: (request: ConfirmRequest) => Promise<boolean>;
 }>();
 
 const emit = defineEmits<{
   count: [count: number | null];
-  bringToFront: [];
   openFolder: [path: string];
   changed: [];
 }>();
@@ -260,17 +258,7 @@ defineExpose({
     kind="waiting"
     title="Waiting for the app"
     :text="away"
-  >
-    <Button
-      size="sm"
-      variant="solid-fill"
-      color="brand"
-      :loading="bringing"
-      @click="emit('bringToFront')"
-    >
-      Bring to front
-    </Button>
-  </DataState>
+  />
   <DataState
     v-else-if="error && read.pending.value"
     kind="error"
@@ -295,11 +283,7 @@ defineExpose({
       title="Waiting for the app; the entries below are from the last read"
       :text="away"
       class="shrink-0 border-b border-border-subtle"
-    >
-      <Button size="sm" variant="transparent" :loading="bringing" @click="emit('bringToFront')">
-        Bring to front
-      </Button>
-    </DataState>
+    />
     <OpfsPoolRows
       v-if="view === 'pool'"
       :databases="pool.databases.value"
