@@ -39,14 +39,12 @@ const { keysOf } = useBindingHint();
     </div>
 
     <div
-      class="relative flex min-w-0 items-center justify-center"
-      style="-webkit-app-region: no-drag"
+      class="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2"
     >
-      <ContextBar />
-      <div
-        class="absolute top-1/2 left-full ml-2 -translate-y-1/2"
-        style="-webkit-app-region: no-drag"
-      >
+      <div class="col-start-2 flex min-w-0 justify-center" style="-webkit-app-region: no-drag">
+        <ContextBar />
+      </div>
+      <div class="flex justify-start" style="-webkit-app-region: no-drag">
         <TitleBarBringToFront />
       </div>
     </div>
