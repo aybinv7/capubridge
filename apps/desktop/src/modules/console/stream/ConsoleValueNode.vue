@@ -3,6 +3,7 @@ import { computed, ref, shallowRef, watch } from "vue";
 import { ChevronRight, LoaderCircle } from "lucide-vue-next";
 import {
   PREVIEW_TONE_CLASS,
+  oneLinePreview,
   primitiveTone,
   valuePreview,
   type PreviewTone,
@@ -48,7 +49,7 @@ const children = computed(() => fetched.value ?? object.value?.properties ?? [])
 const visibleChildren = computed(() => children.value.slice(0, shown.value));
 const partial = computed(() => fetched.value === null && object.value?.overflow === true);
 const nameTone = computed<PreviewTone>(() => (/^\d+$/.test(props.name ?? "") ? "index" : "key"));
-const preview = computed(() => valuePreview(props.arg, false));
+const preview = computed(() => oneLinePreview(valuePreview(props.arg, false)));
 const leafTone = computed<PreviewTone>(() =>
   props.arg.kind === "primitive" ? primitiveTone(props.arg) : "type",
 );

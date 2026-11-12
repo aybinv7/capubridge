@@ -15,6 +15,8 @@ const props = withDefaults(
     /** Moves whenever `rows` changed in place; lists rebuilt as new arrays may leave it at 0. */
     revision?: number;
     keyOf: (row: R) => string;
+    /** Height of a row before it is measured, for rows that grow past one line. */
+    estimateHeight?: (row: R) => number;
     following: boolean;
     expanded: ReadonlySet<string>;
     label: string;
@@ -47,6 +49,7 @@ const list = useStreamList({
   rows,
   revision: toRef(props, "revision"),
   keyOf: props.keyOf,
+  estimateHeight: props.estimateHeight,
   following,
   onLeaveTail: () => emit("leaveTail"),
   onReachTail: () => emit("reachTail"),

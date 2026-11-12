@@ -9,6 +9,7 @@ export type PreviewTone =
   | "literal"
   | "type"
   | "punctuation"
+  | "location"
   | "text";
 
 /** A command for every node of one value tree: open or close all, `token` moving each time. */
@@ -136,23 +137,79 @@ function withoutStyles(args: readonly ConsoleArg[]): readonly ConsoleArg[] {
   return [{ ...first, text: first.text.replace(/%c/g, "") }, ...args.slice(next)];
 }
 
+const LINE_BREAK = /\r?\n/;
+
 /**
- * A whole console call on one line: top-level strings as plain text, everything else as its
- * preview, separated by spaces. Bounded, so a huge object never costs a long row.
+ * A segment that fits one line. A named object's description (an Error with its stack) keeps
+ * its first line, which is how DevTools collapses it; any other text shows its breaks as `\n`.
  */
-export function argsPreview(args: readonly ConsoleArg[]): PreviewSegment[] {
+function toOneLine(segment: PreviewSegment): PreviewSegment {
+  if (!LINE_BREAK.test(segment.text)) return segment;
+  if (segment.tone === "type") return { ...segment, text: segment.text.split(LINE_BREAK, 1)[0] };
+  return { ...segment, text: segment.text.replace(/\r?\n/g, "\\n") };
+}
+
+/**
+ * Preview pieces for a one-line slot: a collapsed row or a tree header. Copy and search keep the
+ * full text, so this is applied only where the preview is drawn.
+ */
+export function oneLinePreview(segments: readonly PreviewSegment[]): PreviewSegment[] {
+  return segments.map(toOneLine);
+}
+
+/** Fields an Error's description already prints as its message and stack. */
+const ERROR_TEXT_FIELDS = new Set(["stack", "message"]);
+
+/**
+ * An Error the way DevTools prints it in the stream: its message and stack as text in the row's
+ * colour, then its own extra fields (`code`, `data`) on the next line.
+ */
+function pushErrorBlock(out: PreviewSegment[], arg: ConsoleArgObject) {
+  out.push({ text: arg.description, tone: "text" });
+  const extra = arg.properties.filter((prop) => !ERROR_TEXT_FIELDS.has(prop.name));
+  if (extra.length === 0) return;
+  out.push({ text: "\n", tone: "text" });
+  pushObjectPreview(out, { ...arg, description: "Object", properties: extra }, false);
+}
+
+/** Line breaks are kept only in text the row prints as text; values show them as `\n`. */
+function escapeValueBreaks(segment: PreviewSegment): PreviewSegment {
+  if (segment.tone === "text" || !LINE_BREAK.test(segment.text)) return segment;
+  return { ...segment, text: segment.text.replace(/\r?\n/g, "\\n") };
+}
+
+export interface ArgsPreviewOptions {
+  /** Keep the breaks of top-level text and Error stacks, for a row that grows to fit them. */
+  multiline?: boolean;
+}
+
+/**
+ * A whole console call: top-level strings as plain text, everything else as its preview,
+ * separated by spaces. One line by default; `multiline` keeps the call's own line breaks.
+ * Bounded, so a huge object never costs a long row.
+ */
+export function argsPreview(
+  args: readonly ConsoleArg[],
+  options: ArgsPreviewOptions = {},
+): PreviewSegment[] {
+  const multiline = options.multiline === true;
   const out: PreviewSegment[] = [];
   withoutStyles(args).forEach((arg, index) => {
     if (out.length >= MAX_ROW_SEGMENTS) return;
     if (index > 0) out.push({ text: " ", tone: "text" });
     if (arg.kind === "primitive" && primitiveTone(arg) === "string") {
-      const end = arg.text.indexOf("\n");
+      const end = multiline ? -1 : arg.text.indexOf("\n");
       out.push({ text: end < 0 ? arg.text : arg.text.slice(0, end), tone: "text" });
+      return;
+    }
+    if (multiline && arg.kind === "object" && arg.subtype === "error") {
+      pushErrorBlock(out, arg);
       return;
     }
     pushValue(out, arg, false);
   });
-  return out.length > MAX_ROW_SEGMENTS ? out.slice(0, MAX_ROW_SEGMENTS) : out;
+  const bounded = out.length > MAX_ROW_SEGMENTS ? out.slice(0, MAX_ROW_SEGMENTS) : out;
+  return multiline ? bounded.map(escapeValueBreaks) : oneLinePreview(bounded);
 }
 
 function previewValue(arg: ConsoleArg): unknown {
@@ -193,5 +250,6 @@ export const PREVIEW_TONE_CLASS: Readonly<Record<PreviewTone, string>> = {
   literal: "text-cat-console",
   type: "text-muted-foreground",
   punctuation: "text-[var(--fg-subtle)]",
+  location: "text-cat-network underline decoration-dotted underline-offset-2",
   text: "",
 };

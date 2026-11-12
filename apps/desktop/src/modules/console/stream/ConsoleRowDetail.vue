@@ -16,8 +16,6 @@ import { findJson } from "@/lib/stream-rows/jsonInText";
 import { formatClockMs } from "@/shared/components/timeline/stripFormat";
 import JsonBlock from "../list/JsonBlock.vue";
 import { copyText } from "../list/copyText";
-import RowActions from "../list/RowActions.vue";
-import type { RowAction } from "../list/streamView.types";
 import StackLines from "../list/StackLines.vue";
 import { jsStackLines } from "./consoleFrames";
 import ConsoleValueNode from "./ConsoleValueNode.vue";
@@ -31,10 +29,7 @@ import { consoleLocation, consoleTone } from "./consoleTone";
 const props = defineProps<{
   row: ConsoleStreamRow;
   appOrigin: string | null;
-  actions: readonly RowAction[];
 }>();
-
-const emit = defineEmits<{ action: [id: string] }>();
 
 const store = useConsoleStore();
 const item = computed(() => props.row.item);
@@ -162,6 +157,5 @@ const repeats = computed(() =>
       >{{ plainText }}</pre
     >
     <StackLines v-if="stack.length > 0" :lines="stack" />
-    <RowActions :actions="props.actions" @action="emit('action', $event)" />
   </div>
 </template>

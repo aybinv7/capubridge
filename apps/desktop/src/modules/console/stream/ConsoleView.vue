@@ -3,6 +3,7 @@ import { computed, nextTick, ref, shallowRef, watch } from "vue";
 import { Link } from "@capubridge/cladd";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { groupConsoleErrors, originOf, type ErrorGroup } from "@/lib/console/consoleErrors";
+import { inlineBlock } from "@/lib/console/consoleLines";
 import type { ConsoleStreamRow } from "@/lib/console/consoleStream";
 import { useDrawerToolbarSlot } from "@/shared/drawer/toolbarSlot";
 import { useRevealFocus } from "@/shared/timeline/revealFocus";
@@ -25,6 +26,8 @@ import ConsoleToolbar from "./ConsoleToolbar.vue";
 import { formatConsoleRows, useConsoleActions } from "./useConsoleActions";
 import { useConsoleRows } from "./useConsoleRows";
 import { useConsolePrefs } from "./consolePrefs";
+import { consoleHasDetail } from "./consoleDetail";
+import { consoleRowHeight } from "./consoleRowHeight";
 
 /**
  * The drawer's Console view: the WebView's console as one stream with the prompt at its foot,
@@ -101,6 +104,10 @@ function keyOf(row: ConsoleStreamRow): string {
   return row.key;
 }
 
+function estimateHeight(row: ConsoleStreamRow): number {
+  return consoleRowHeight(inlineBlock(row.item));
+}
+
 function toggle(key: string) {
   const row = rows.value.find((candidate) => candidate.key === key);
   if (row?.item.kind === "entry" && row.item.entry.isGroup) {
@@ -108,6 +115,7 @@ function toggle(key: string) {
     return;
   }
   const next = new Set(expanded.value);
+  if (!next.has(key) && (!row || !consoleHasDetail(row.item))) return;
   if (next.has(key)) next.delete(key);
   else next.add(key);
   expanded.value = next;
@@ -245,6 +253,7 @@ function copyGroups(groups: ErrorGroup[]) {
           :rows="rows"
           :revision="revision"
           :key-of="keyOf"
+          :estimate-height="estimateHeight"
           :following="following"
           :expanded="expanded"
           :pending="pending"
@@ -271,12 +280,7 @@ function copyGroups(groups: ErrorGroup[]) {
             />
           </template>
           <template #detail="{ row }">
-            <ConsoleRowDetail
-              :row="row"
-              :app-origin="appOrigin"
-              :actions="actions.actionsFor(row.item)"
-              @action="actions.run($event, row)"
-            />
+            <ConsoleRowDetail :row="row" :app-origin="appOrigin" />
           </template>
         </StreamList>
       </ContextMenuTrigger>

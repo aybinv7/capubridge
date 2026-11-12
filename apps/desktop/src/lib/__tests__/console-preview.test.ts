@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vite-plus/test";
-import { argsPreview, previewJson, valuePreview } from "@/lib/console/consolePreview";
+import {
+  argsPreview,
+  oneLinePreview,
+  previewJson,
+  valuePreview,
+} from "@/lib/console/consolePreview";
 import { parseRemoteValue } from "@/lib/console-parse";
 import type { ConsoleArg } from "@/types/console.types";
 
@@ -82,5 +87,40 @@ describe("console previews", () => {
       methodName: "getStatus",
       options: "Object",
     });
+  });
+});
+
+const STACK = "Error: 'readdir' failed\n    at returnResult (<anonymous>:961:32)";
+
+const PLUGIN_ERROR: ConsoleArg = {
+  kind: "object",
+  description: STACK,
+  subtype: "error",
+  objectId: "9.9.9",
+  overflow: false,
+  properties: [
+    { name: "code", value: { kind: "primitive", text: "OS-PLUG-FILE-0008", valueType: "string" } },
+    { name: "stack", value: { kind: "primitive", text: STACK, valueType: "string" } },
+  ],
+};
+
+describe("one-line previews", () => {
+  test("a plugin error never breaks the 22 px row it sits in", () => {
+    // The live Efficy row: the Error description and its nested stack both carried line
+    // breaks, which spilled the stack over the rows below.
+    const args: ConsoleArg[] = [
+      { kind: "primitive", text: "[copyImagesToNewFolder]", valueType: "string" },
+      PLUGIN_ERROR,
+    ];
+    const line = text(argsPreview(args));
+    expect(line).not.toMatch(/\n/);
+    expect(line).toBe(
+      "[copyImagesToNewFolder] Error: 'readdir' failed {code: 'OS-PLUG-FILE-0008', stack: 'Error: 'readdir' failed\\n    at returnResult (<anonymous>:961:32)'}",
+    );
+  });
+
+  test("the tree header is one line, but copy keeps the full stack", () => {
+    expect(text(oneLinePreview(valuePreview(PLUGIN_ERROR)))).not.toMatch(/\n/);
+    expect(text(valuePreview(PLUGIN_ERROR))).toContain("\n    at returnResult");
   });
 });

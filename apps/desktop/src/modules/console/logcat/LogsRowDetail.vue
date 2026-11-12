@@ -3,8 +3,6 @@ import { computed } from "vue";
 import { hasStackFrames, javaStackLines } from "@/lib/stream-rows/foldStack";
 import { findJson } from "@/lib/stream-rows/jsonInText";
 import JsonBlock from "../list/JsonBlock.vue";
-import RowActions from "../list/RowActions.vue";
-import type { RowAction } from "../list/streamView.types";
 import StackLines from "../list/StackLines.vue";
 import type { LogsRow } from "./useLogsRows";
 
@@ -15,12 +13,10 @@ import type { LogsRow } from "./useLogsRows";
 const props = defineProps<{
   row: LogsRow;
   appPackage: string | null;
-  actions: readonly RowAction[];
 }>();
 
 const emit = defineEmits<{
   field: [key: "tag" | "pid" | "package", value: string, negate: boolean];
-  action: [id: string];
 }>();
 
 const entry = computed(() => props.row.last);
@@ -86,6 +82,5 @@ const fields = computed(() => {
     <pre v-else class="font-mono text-xs leading-5 whitespace-pre-wrap break-all text-foreground">{{
       entry.message
     }}</pre>
-    <RowActions :actions="props.actions" @action="emit('action', $event)" />
   </div>
 </template>

@@ -246,13 +246,7 @@ function clearFilter() {
             />
           </template>
           <template #detail="{ row }">
-            <LogsRowDetail
-              :row="row"
-              :app-package="myPackage"
-              :actions="actions.actionsFor(row.last)"
-              @field="actions.edit"
-              @action="actions.run($event, row)"
-            />
+            <LogsRowDetail :row="row" :app-package="myPackage" @field="actions.edit" />
           </template>
         </StreamList>
       </ContextMenuTrigger>

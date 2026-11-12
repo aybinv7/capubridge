@@ -37,26 +37,18 @@ export function consoleTone(item: ConsoleStreamItem): ConsoleTone {
   }
 }
 
-/** The one line a collapsed row shows. */
-export function consoleSummary(item: ConsoleStreamItem): string {
-  const text =
-    item.kind === "entry"
-      ? item.entry.message
-      : item.kind === "exception"
-        ? `Uncaught ${item.exception.message}`
-        : item.kind === "input"
-          ? item.repl.expression
-          : item.repl.result;
-  const end = text.indexOf("\n");
-  return end < 0 ? text : text.slice(0, end);
-}
-
 /** `file.js:12:4` of an item, or null when it has none worth showing. */
 export function consoleSource(item: ConsoleStreamItem): string | null {
   if (item.kind === "entry") return item.entry.source === "runtime" ? null : item.entry.source;
   if (item.kind === "exception")
     return item.exception.source === "runtime" ? null : item.exception.source;
   return null;
+}
+
+/** The source as DevTools shows it beside a message: `file.js:12`, the column left out. */
+export function consoleSourceLabel(item: ConsoleStreamItem): string | null {
+  const source = consoleSource(item);
+  return source === null ? null : source.replace(/:(\d+):\d+$/, ":$1");
 }
 
 /** The full location (URL with line and column) to copy, or null. */

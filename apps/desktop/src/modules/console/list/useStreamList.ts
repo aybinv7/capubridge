@@ -12,6 +12,8 @@ export interface StreamListOptions<R> {
   /** Moves whenever `rows` changes in place, so the list sees appends to the same array. */
   revision: Ref<number>;
   keyOf: (row: R) => string;
+  /** Height a row will take before it is measured; rows default to one 22 px line. */
+  estimateHeight?: (row: R) => number;
   /** True while the list follows new rows at the end. */
   following: Ref<boolean>;
   /** The reader scrolled up: stop following. */
@@ -36,7 +38,12 @@ export function useStreamList<R>(options: StreamListOptions<R>) {
       return {
         count: list.length,
         getScrollElement: () => scroller.value,
-        estimateSize: () => ROW_HEIGHT,
+        estimateSize: (index: number) => {
+          const row = list[index];
+          return row === undefined || !options.estimateHeight
+            ? ROW_HEIGHT
+            : options.estimateHeight(row);
+        },
         overscan: 16,
         getItemKey: (index: number) => {
           const row = list[index];
