@@ -83,6 +83,21 @@ export function parseAppRegistration(value: unknown) {
   return value === true;
 }
 
+/**
+ * devtools-kit announces `connected: true` once, as an edge event, when it
+ * creates the first app record. Re-attaching to a page that is already
+ * connected never repeats that event, so the host reads the state as a level
+ * instead of waiting for an edge that already passed.
+ */
+export function isDevtoolsKitConnected(state: unknown) {
+  if (!state || typeof state !== "object") return false;
+  return (state as { connected?: unknown }).connected === true;
+}
+
+export const VUE_KIT_CONNECTED_EXPRESSION =
+  `(${isDevtoolsKitConnected.toString()})(` +
+  `(typeof globalThis !== "undefined" ? globalThis : window).__VUE_DEVTOOLS_KIT_GLOBAL_STATE__)`;
+
 function toNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }

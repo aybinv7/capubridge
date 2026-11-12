@@ -2,8 +2,10 @@ import { describe, test, expect } from "vite-plus/test";
 import {
   VUE_APP_REGISTRATION_EXPRESSION,
   VUE_CAPABILITY_PROBE_EXPRESSION,
+  VUE_KIT_CONNECTED_EXPRESSION,
   interpretVueCapability,
   isAppRegisteredOnHook,
+  isDevtoolsKitConnected,
   isVueIntrospectable,
   parseAppRegistration,
   parseVueCapabilityProbe,
@@ -140,5 +142,45 @@ describe("interpretVueCapability", () => {
 
   test("reports an unreadable probe", () => {
     expect(interpretVueCapability(null).kind).toBe("unknown");
+  });
+});
+
+describe("isDevtoolsKitConnected", () => {
+  test("is false without a kit state", () => {
+    expect(isDevtoolsKitConnected(undefined)).toBe(false);
+    expect(isDevtoolsKitConnected(null)).toBe(false);
+  });
+
+  test("is false while the kit booted but no app registered", () => {
+    expect(isDevtoolsKitConnected({ connected: false, appRecords: [] })).toBe(false);
+  });
+
+  test("is true for a page connected before this attach", () => {
+    // The live Efficy state: connected 13 minutes earlier, so the edge event
+    // was long gone and the watchdog reported a stall that was not real.
+    expect(isDevtoolsKitConnected({ connected: true, appRecords: [{}] })).toBe(true);
+  });
+});
+
+describe("VUE_KIT_CONNECTED_EXPRESSION", () => {
+  const key = "__VUE_DEVTOOLS_KIT_GLOBAL_STATE__";
+  const globalRecord = globalThis as Record<string, unknown>;
+
+  function evaluateAgainst(state: unknown) {
+    const previous = globalRecord[key];
+    globalRecord[key] = state;
+    try {
+      return (0, eval)(VUE_KIT_CONNECTED_EXPRESSION) as unknown;
+    } finally {
+      if (previous === undefined) delete globalRecord[key];
+      else globalRecord[key] = previous;
+    }
+  }
+
+  test("reads the kit global state as a level", () => {
+    expect(VUE_KIT_CONNECTED_EXPRESSION).toContain(key);
+    expect(evaluateAgainst(undefined)).toBe(false);
+    expect(evaluateAgainst({ connected: false })).toBe(false);
+    expect(evaluateAgainst({ connected: true })).toBe(true);
   });
 });

@@ -10,6 +10,7 @@ import { useCDP } from "@/composables/useCDP";
 import {
   VUE_APP_REGISTRATION_EXPRESSION,
   VUE_CAPABILITY_PROBE_EXPRESSION,
+  VUE_KIT_CONNECTED_EXPRESSION,
   interpretVueCapability,
   parseAppRegistration,
   parseVueCapabilityProbe,
@@ -81,21 +82,32 @@ function clearConnectedWatchdog() {
 /**
  * The heartbeat only proves the injected runtime answers RPC. The panel stays
  * empty until the app itself registers on the DevTools hook, so give up waiting
- * out loud instead of spinning forever.
+ * out loud instead of spinning forever. The connected edge event may have fired
+ * before this attach, so the level is read once more before declaring a stall.
  */
-function startConnectedWatchdog() {
+function startConnectedWatchdog(client: CDPClient) {
   clearConnectedWatchdog();
   connectedWatchdog = window.setTimeout(() => {
     connectedWatchdog = null;
-    if (didStateConnectedRefresh) return;
-    if (status.value !== "ready") return;
-    status.value = "stalled";
+    void (async () => {
+      if (didStateConnectedRefresh) return;
+      const connected = await isKitConnected(client);
+      if (currentBridgeClient !== client || didStateConnectedRefresh) return;
+      if (connected) {
+        handleTargetConnected("watchdog-level");
+        return;
+      }
+      if (status.value === "ready") status.value = "stalled";
+    })();
   }, CONNECTED_TIMEOUT_MS);
 }
 
-function markTargetConnected() {
+function handleTargetConnected(reason: string) {
+  if (didStateConnectedRefresh) return;
+  didStateConnectedRefresh = true;
   clearConnectedWatchdog();
   if (status.value === "stalled") status.value = "ready";
+  refreshIframeClient(reason, { force: true });
 }
 
 function buildFrameHtml() {
@@ -130,9 +142,9 @@ function buildFrameHtml() {
 </html>`;
 }
 
-function refreshIframeClient(_reason: string) {
+function refreshIframeClient(_reason: string, options?: { force?: boolean }) {
   const now = Date.now();
-  if (now - lastIframeRefreshAt < 220) return;
+  if (!options?.force && now - lastIframeRefreshAt < 220) return;
   lastIframeRefreshAt = now;
 
   try {
@@ -342,6 +354,18 @@ async function isAppRegistered(client: CDPClient) {
   }
 }
 
+async function isKitConnected(client: CDPClient) {
+  try {
+    const result = await client.send<{ result: { value?: unknown } }>("Runtime.evaluate", {
+      expression: VUE_KIT_CONNECTED_EXPRESSION,
+      returnByValue: true,
+    });
+    return parseAppRegistration((result.result as Record<string, unknown>).value);
+  } catch {
+    return false;
+  }
+}
+
 async function waitForAppRegistration(client: CDPClient, timeoutMs: number) {
   const started = Date.now();
 
@@ -415,12 +439,9 @@ function createTargetChannel(client: CDPClient) {
         eventName === "devtools-state-updated" &&
         typeof eventPayload === "object" &&
         eventPayload !== null &&
-        (eventPayload as { connected?: boolean }).connected === true &&
-        !didStateConnectedRefresh
+        (eventPayload as { connected?: boolean }).connected === true
       ) {
-        didStateConnectedRefresh = true;
-        markTargetConnected();
-        refreshIframeClient("state-connected");
+        handleTargetConnected("state-connected");
       }
     }
 
@@ -629,7 +650,11 @@ export function useVueDevtoolsBridge() {
         status.value = "booting";
         await ensureTargetRuntime(client, target);
         await waitForRemoteHeartbeat();
-        startConnectedWatchdog();
+        if (await isKitConnected(client)) {
+          handleTargetConnected("attach-level");
+        } else {
+          startConnectedWatchdog(client);
+        }
       } catch (error) {
         status.value = "error";
         errorMessage.value = error instanceof Error ? error.message : String(error);
