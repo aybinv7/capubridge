@@ -178,7 +178,7 @@ Each device session runs at one of three temperatures:
 
 ## Status
 
-**v3.2.0** — active beta. This PC is a browser with tabs, and DevTools has its own place with Chrome DevTools docked for pages on This PC and on phones. Also QR and code pairing over Wi-Fi with remembered phones, a command palette that reaches every screen and action, and Settings as a two-pane dialog. Built on the rewritten Cladd interface: one context bar, a global live timeline, a console drawer with streamed logcat, a Data workbench (IndexedDB, Key-value, Cache storage, OPFS, SQLite with tabs and a Diagram view), Network in real columns with mocking, debuggable native apps without a WebView, screen mirror, recording, replay, in-app updates and an embedded MCP server. Experimental surfaces, such as Flows, stay hidden until their workflows are ready.
+**v3.2.1** — active beta. This PC is a browser with tabs, and DevTools has its own place with Chrome DevTools docked for pages on This PC and on phones; the Console prints messages and Error stacks inline, like Chrome. Also QR and code pairing over Wi-Fi with remembered phones, a command palette that reaches every screen and action, and Settings as a two-pane dialog. Built on the rewritten Cladd interface: one context bar, a global live timeline, a console drawer with streamed logcat, a Data workbench (IndexedDB, Key-value, Cache storage, OPFS, SQLite with tabs and a Diagram view), Network in real columns with mocking, debuggable native apps without a WebView, screen mirror, recording, replay, in-app updates and an embedded MCP server. Experimental surfaces, such as Flows, stay hidden until their workflows are ready.
 
 ---
 
