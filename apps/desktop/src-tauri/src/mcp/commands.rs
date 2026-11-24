@@ -35,10 +35,9 @@ fn registry_for(
     state: &McpServerState,
     cfg: &config::McpConfig,
 ) -> Result<Arc<auth::PrincipalRegistry>, String> {
-    state
-        .principals()
-        .map(Ok)
-        .unwrap_or_else(|| auth::PrincipalRegistry::load(app, Some(&cfg.token), cfg.allow_mutations))
+    state.principals().map(Ok).unwrap_or_else(|| {
+        auth::PrincipalRegistry::load(app, Some(&cfg.token), cfg.allow_mutations)
+    })
 }
 
 fn build_status(
@@ -68,11 +67,7 @@ async fn start_from_config(
     cfg: &config::McpConfig,
 ) -> Result<(), String> {
     let sessions_dir = crate::commands::recording::sessions_dir(app)?;
-    let principals = auth::PrincipalRegistry::load(
-        app,
-        Some(&cfg.token),
-        cfg.allow_mutations,
-    )?;
+    let principals = auth::PrincipalRegistry::load(app, Some(&cfg.token), cfg.allow_mutations)?;
     let running = server::start(
         registry.registry(),
         cfg.port,
@@ -187,11 +182,7 @@ pub async fn mcp_regenerate_token(
 ) -> Result<McpStatus, String> {
     let mut cfg = config::load(&app)?;
     cfg.ensure_token();
-    let principals = auth::PrincipalRegistry::load(
-        &app,
-        Some(&cfg.token),
-        cfg.allow_mutations,
-    )?;
+    let principals = auth::PrincipalRegistry::load(&app, Some(&cfg.token), cfg.allow_mutations)?;
     let rotated = principals.rotate_legacy(cfg.allow_mutations)?;
     let issued_token = rotated.token.clone();
     cfg.token = issued_token.clone();
@@ -206,9 +197,7 @@ pub async fn mcp_regenerate_token(
 }
 
 #[tauri::command]
-pub async fn mcp_list_principals(
-    app: AppHandle,
-) -> Result<Vec<auth::McpPrincipalSummary>, String> {
+pub async fn mcp_list_principals(app: AppHandle) -> Result<Vec<auth::McpPrincipalSummary>, String> {
     run_blocking(move || {
         let state = app.state::<McpServerState>();
         let cfg = config::load(&app)?;

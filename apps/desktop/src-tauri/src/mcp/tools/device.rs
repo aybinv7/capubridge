@@ -6,13 +6,13 @@ use rmcp::model::CallToolResult;
 use rmcp::{tool, tool_router, ErrorData};
 
 use super::{ok_json, write_png_to_temp_file, CapuBridgeTools};
+use crate::commands::adb::PackageListScope;
+use crate::commands::mirror::{adb_mirror_get_screen_size, adb_mirror_screenshot};
 use crate::mcp::device_control;
 use crate::mcp::types::{
     GetScreenSizeParams, InputTextParams, LaunchAppParams, ListPackagesParams, PackageScope,
     PressKeyParams, ScreenshotParams, ShellCommandParams, SwipeParams, TapParams,
 };
-use crate::commands::adb::PackageListScope;
-use crate::commands::mirror::{adb_mirror_get_screen_size, adb_mirror_screenshot};
 use crate::session::guards::require_online_session;
 
 #[tool_router(router = device_tool_router, vis = "pub(crate)")]
@@ -105,7 +105,12 @@ impl CapuBridgeTools {
     )]
     async fn tap(
         &self,
-        Parameters(TapParams { serial, x, y, confirm }): Parameters<TapParams>,
+        Parameters(TapParams {
+            serial,
+            x,
+            y,
+            confirm,
+        }): Parameters<TapParams>,
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "tap")?;
         let size = adb_mirror_get_screen_size(serial.clone())
@@ -167,7 +172,11 @@ impl CapuBridgeTools {
     )]
     async fn input_text(
         &self,
-        Parameters(InputTextParams { serial, text, confirm }): Parameters<InputTextParams>,
+        Parameters(InputTextParams {
+            serial,
+            text,
+            confirm,
+        }): Parameters<InputTextParams>,
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "input_text")?;
         let session = require_online_session(&self.registry, &serial)
@@ -203,7 +212,11 @@ impl CapuBridgeTools {
     #[tool(
         name = "shell_command",
         description = "Run an arbitrary command on the device via `adb shell`. High risk: this executes verbatim on the connected device with no restrictions — review the command carefully. Requires confirm: true.",
-        annotations(read_only_hint = false, destructive_hint = true, open_world_hint = true)
+        annotations(
+            read_only_hint = false,
+            destructive_hint = true,
+            open_world_hint = true
+        )
     )]
     async fn shell_command(
         &self,

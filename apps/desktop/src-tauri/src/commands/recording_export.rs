@@ -36,7 +36,11 @@ pub struct RecordingExportReport {
     pub excluded_tracks: Vec<String>,
 }
 
-fn redact_value(value: &mut Value, options: &RecordingSanitizeOptions, report: &mut RecordingExportReport) {
+fn redact_value(
+    value: &mut Value,
+    options: &RecordingSanitizeOptions,
+    report: &mut RecordingExportReport,
+) {
     match value {
         Value::Array(items) => {
             for item in items {
@@ -111,11 +115,14 @@ fn excluded(track: &str, options: &RecordingSanitizeOptions) -> bool {
     track == "console" || track == "databases" || (track == "rrweb" && options.redact_dom)
 }
 
-fn preview_export(source_path: &Path, options: &RecordingSanitizeOptions) -> Result<RecordingExportReport, String> {
-    let source = fs::File::open(source_path)
-        .map_err(|error| format!("Cannot open recording: {error}"))?;
-    let mut archive = ZipArchive::new(source)
-        .map_err(|error| format!("Invalid recording archive: {error}"))?;
+fn preview_export(
+    source_path: &Path,
+    options: &RecordingSanitizeOptions,
+) -> Result<RecordingExportReport, String> {
+    let source =
+        fs::File::open(source_path).map_err(|error| format!("Cannot open recording: {error}"))?;
+    let mut archive =
+        ZipArchive::new(source).map_err(|error| format!("Invalid recording archive: {error}"))?;
     let mut report = RecordingExportReport::default();
     let mut manifest = String::new();
     archive
@@ -139,7 +146,10 @@ fn preview_export(source_path: &Path, options: &RecordingSanitizeOptions) -> Res
         }
     }
     if archive.by_name("artifacts/databases.sqlite").is_ok()
-        && !report.excluded_tracks.iter().any(|track| track == "databases")
+        && !report
+            .excluded_tracks
+            .iter()
+            .any(|track| track == "databases")
     {
         report.excluded_tracks.push("databases".to_string());
     }
@@ -166,10 +176,10 @@ fn sanitized_export(
     destination_path: &Path,
     options: &RecordingSanitizeOptions,
 ) -> Result<RecordingExportReport, String> {
-    let source = fs::File::open(source_path)
-        .map_err(|error| format!("Cannot open recording: {error}"))?;
-    let mut archive = ZipArchive::new(source)
-        .map_err(|error| format!("Invalid recording archive: {error}"))?;
+    let source =
+        fs::File::open(source_path).map_err(|error| format!("Cannot open recording: {error}"))?;
+    let mut archive =
+        ZipArchive::new(source).map_err(|error| format!("Invalid recording archive: {error}"))?;
     let output = fs::File::create(destination_path)
         .map_err(|error| format!("Cannot create export: {error}"))?;
     let mut output = ZipWriter::new(output);
@@ -219,7 +229,10 @@ fn sanitized_export(
     }
 
     if archive.by_name("artifacts/databases.sqlite").is_ok()
-        && !report.excluded_tracks.iter().any(|track| track == "databases")
+        && !report
+            .excluded_tracks
+            .iter()
+            .any(|track| track == "databases")
     {
         report.excluded_tracks.push("databases".to_string());
     }

@@ -112,8 +112,18 @@ pub struct SessionLeaseState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SessionEvent {
-    RegistryUpdated { snapshot: SessionRegistrySnapshot },
-    LeaseStateChanged { lease: SessionLeaseState },
-    PerfMetrics { serial: String, metrics: PerfMetrics },
-    PerfError { serial: String, message: String },
+    RegistryUpdated {
+        snapshot: SessionRegistrySnapshot,
+    },
+    LeaseStateChanged {
+        lease: SessionLeaseState,
+    },
+    PerfMetrics {
+        serial: String,
+        metrics: PerfMetrics,
+    },
+    PerfError {
+        serial: String,
+        message: String,
+    },
 }

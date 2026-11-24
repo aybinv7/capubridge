@@ -74,9 +74,7 @@ impl SessionWorkerJob {
 
     pub fn priority(&self) -> SessionJobPriority {
         match self {
-            Self::Root | Self::Reboot { .. } | Self::TcpIp { .. } => {
-                SessionJobPriority::Lifecycle
-            }
+            Self::Root | Self::Reboot { .. } | Self::TcpIp { .. } => SessionJobPriority::Lifecycle,
             Self::ShellCommand { .. }
             | Self::OpenPackage { .. }
             | Self::Reverse { .. }
@@ -160,12 +158,7 @@ impl SessionWorkerRequest {
         };
 
         cancellation
-            .compare_exchange(
-                JOB_QUEUED,
-                JOB_RUNNING,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            )
+            .compare_exchange(JOB_QUEUED, JOB_RUNNING, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
     }
 }
@@ -208,7 +201,9 @@ impl SessionJobQueue {
         let request = SessionWorkerRequest {
             job,
             response: maybe_key.is_none().then_some(response_tx.clone()),
-            cancellation: maybe_key.is_none().then(|| Arc::new(AtomicU8::new(JOB_QUEUED))),
+            cancellation: maybe_key
+                .is_none()
+                .then(|| Arc::new(AtomicU8::new(JOB_QUEUED))),
         };
         let cancellation = request.cancellation.clone();
 
@@ -219,9 +214,7 @@ impl SessionJobQueue {
                 mpsc::TrySendError::Full(_) => {
                     format!("Session queue is full at {SESSION_QUEUE_CAPACITY} jobs")
                 }
-                mpsc::TrySendError::Disconnected(_) => {
-                    "Session worker is disconnected".to_string()
-                }
+                mpsc::TrySendError::Disconnected(_) => "Session worker is disconnected".to_string(),
             };
             if let Some(key) = maybe_key {
                 let waiters = self
@@ -283,7 +276,6 @@ impl SessionJobQueue {
     pub fn depth(&self) -> usize {
         self.queued_jobs.load(Ordering::Acquire)
     }
-
 }
 
 #[cfg(test)]
@@ -311,7 +303,9 @@ mod tests {
                 command: "second".to_string(),
             },
         );
-        assert!(matches!(second.receiver.recv(), Ok(Err(message)) if message.contains("queue is full")));
+        assert!(
+            matches!(second.receiver.recv(), Ok(Err(message)) if message.contains("queue is full"))
+        );
     }
 
     #[test]

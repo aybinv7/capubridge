@@ -58,11 +58,7 @@ fn validate_manifest_json(manifest_json: &str, session_id: &str) -> Result<(), S
     if object.get("version").and_then(serde_json::Value::as_u64) != Some(1) {
         return Err("Invalid recording manifest: version must be 1".to_string());
     }
-    if object
-        .get("sessionId")
-        .and_then(serde_json::Value::as_str)
-        != Some(session_id)
-    {
+    if object.get("sessionId").and_then(serde_json::Value::as_str) != Some(session_id) {
         return Err("Invalid recording manifest: sessionId does not match recording".to_string());
     }
     if object
@@ -112,8 +108,8 @@ pub(crate) fn write_session_archive(
             if !name.ends_with(".ndjson") {
                 continue;
             }
-            let content = fs::read(entry.path())
-                .map_err(|e| format!("Failed to read track {name}: {e}"))?;
+            let content =
+                fs::read(entry.path()).map_err(|e| format!("Failed to read track {name}: {e}"))?;
             zip.start_file(format!("tracks/{name}"), options)
                 .map_err(|e| format!("Failed to create track archive entry {name}: {e}"))?;
             zip.write_all(&content)
@@ -175,8 +171,7 @@ pub async fn recording_session_start(
 ) -> Result<(), String> {
     let work_dir = session_work_dir(&app, &session_id)?;
     if work_dir.exists() {
-        fs::remove_dir_all(&work_dir)
-            .map_err(|e| format!("Failed to reset session dir: {e}"))?;
+        fs::remove_dir_all(&work_dir).map_err(|e| format!("Failed to reset session dir: {e}"))?;
     }
     let tracks_dir = work_dir.join("tracks");
     fs::create_dir_all(&tracks_dir).map_err(|e| format!("Failed to create session dir: {}", e))?;
@@ -197,9 +192,7 @@ pub async fn recording_session_append(
     if !work_dir.is_dir() {
         return Err("Recording session is not active".to_string());
     }
-    let track_file = work_dir
-        .join("tracks")
-        .join(format!("{}.ndjson", track));
+    let track_file = work_dir.join("tracks").join(format!("{}.ndjson", track));
 
     let mut file = OpenOptions::new()
         .create(true)
@@ -303,7 +296,10 @@ pub(crate) fn list_sessions_in(
 
     for entry in entries.flatten() {
         let path = entry.path();
-        let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let file_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
         let is_partial = file_name.ends_with(".capu.partial");
         if !file_name.ends_with(".capu") && !is_partial {
             continue;
@@ -348,8 +344,9 @@ pub(crate) fn list_sessions_in(
                             file_size_bytes,
                             incomplete: is_partial || manifest.get("incomplete").is_some(),
                             missing_tracks,
-                            automation:
-                                super::automation::automation_summary_from_path(&path, &manifest),
+                            automation: super::automation::automation_summary_from_path(
+                                &path, &manifest,
+                            ),
                         });
                     }
                 }
@@ -366,7 +363,10 @@ pub(crate) fn list_sessions_in(
         .flatten()
     {
         let path = entry.path();
-        let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let file_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
         let Some(session_id) = file_name.strip_suffix("_work") else {
             continue;
         };
@@ -473,7 +473,6 @@ pub async fn recording_cleanup_orphans(app: tauri::AppHandle) -> Result<u32, Str
             cleaned += 1;
             continue;
         }
-
     }
 
     Ok(cleaned)
@@ -519,10 +518,12 @@ pub(crate) fn read_session_from(
                 );
             }
         }
-        let database_path = source_path
-            .join("databases.sqlite")
-            .is_file()
-            .then(|| source_path.join("databases.sqlite").to_string_lossy().into_owned());
+        let database_path = source_path.join("databases.sqlite").is_file().then(|| {
+            source_path
+                .join("databases.sqlite")
+                .to_string_lossy()
+                .into_owned()
+        });
         return Ok(RustSessionContents {
             manifest_json,
             tracks,
@@ -712,8 +713,7 @@ mod tests {
         let capu = write_capu(temp.path(), "session_two");
         let cache = temp.path().join("read_cache");
 
-        let contents =
-            read_session_from(&capu.to_string_lossy(), &cache).expect("read session");
+        let contents = read_session_from(&capu.to_string_lossy(), &cache).expect("read session");
         assert!(contents.manifest_json.contains("session_two"));
         assert_eq!(
             contents.tracks.get("network").map(String::as_str),
@@ -731,8 +731,12 @@ mod tests {
         fs::write(work.join("manifest.json"), manifest("recovered")).expect("manifest write");
         fs::write(work.join("tracks/network.ndjson"), "{\"t\":1}\n").expect("track write");
 
-        let contents = read_session_from(&work.to_string_lossy(), temp.path()).expect("recovery read");
+        let contents =
+            read_session_from(&work.to_string_lossy(), temp.path()).expect("recovery read");
         assert!(contents.manifest_json.contains("recovered"));
-        assert_eq!(contents.tracks.get("network").map(String::as_str), Some("{\"t\":1}\n"));
+        assert_eq!(
+            contents.tracks.get("network").map(String::as_str),
+            Some("{\"t\":1}\n")
+        );
     }
 }

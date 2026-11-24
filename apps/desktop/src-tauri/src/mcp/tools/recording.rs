@@ -18,7 +18,14 @@ use crate::mcp::types::{
     QueryRecordingParams, ReadRecordingDbParams, ReadRecordingParams, ReadRecordingTrackParams,
 };
 
-const TRACK_NAMES: [&str; 6] = ["rrweb", "network", "console", "perf", "databases", "automation"];
+const TRACK_NAMES: [&str; 6] = [
+    "rrweb",
+    "network",
+    "console",
+    "perf",
+    "databases",
+    "automation",
+];
 
 #[tool_router(router = recording_tool_router, vis = "pub(crate)")]
 impl CapuBridgeTools {
@@ -102,7 +109,10 @@ impl CapuBridgeTools {
             .map_err(|error| ErrorData::internal_error(error, None))?;
 
         let body = contents.tracks.get(&track).cloned().unwrap_or_default();
-        let all_lines: Vec<&str> = body.lines().filter(|line| !line.trim().is_empty()).collect();
+        let all_lines: Vec<&str> = body
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .collect();
         let total = all_lines.len();
         let offset = offset.unwrap_or(0) as usize;
         let limit = limit.unwrap_or(100).clamp(1, 500) as usize;
@@ -193,14 +203,20 @@ impl CapuBridgeTools {
     ) -> Result<CallToolResult, ErrorData> {
         if !TRACK_NAMES.contains(&track.as_str()) {
             return Err(ErrorData::invalid_params(
-                format!("Unknown track '{track}'. Valid tracks: {}", TRACK_NAMES.join(", ")),
+                format!(
+                    "Unknown track '{track}'. Valid tracks: {}",
+                    TRACK_NAMES.join(", ")
+                ),
                 None,
             ));
         }
         if let Some(ct) = &correlate_track {
             if !TRACK_NAMES.contains(&ct.as_str()) {
                 return Err(ErrorData::invalid_params(
-                    format!("Unknown correlate_track '{ct}'. Valid tracks: {}", TRACK_NAMES.join(", ")),
+                    format!(
+                        "Unknown correlate_track '{ct}'. Valid tracks: {}",
+                        TRACK_NAMES.join(", ")
+                    ),
                     None,
                 ));
             }
@@ -225,8 +241,10 @@ impl CapuBridgeTools {
         let offset = offset.unwrap_or(0) as usize;
 
         let events = recording_query::parse_track(contents.tracks.get(&track).map_or("", |s| s));
-        let matched: Vec<&recording_query::Event> =
-            events.iter().filter(|event| recording_query::matches(event, &filter)).collect();
+        let matched: Vec<&recording_query::Event> = events
+            .iter()
+            .filter(|event| recording_query::matches(event, &filter))
+            .collect();
         let total = matched.len();
 
         // Correlation source (parsed once, compact-projected per match).
@@ -243,10 +261,11 @@ impl CapuBridgeTools {
             .map(|event| {
                 let mut projected = recording_query::project(&track, event, verbose);
                 if let Some((ct, window, source)) = &correlate {
-                    let near: Vec<serde_json::Value> = recording_query::correlate(event.t, source, *window)
-                        .iter()
-                        .map(|other| recording_query::project(ct, other, false))
-                        .collect();
+                    let near: Vec<serde_json::Value> =
+                        recording_query::correlate(event.t, source, *window)
+                            .iter()
+                            .map(|other| recording_query::project(ct, other, false))
+                            .collect();
                     if let Some(map) = projected.as_object_mut() {
                         map.insert("correlated".to_string(), serde_json::json!(near));
                     }
@@ -337,7 +356,10 @@ mod tests {
         let result = tools()
             .query_recording(Parameters(query_params("not-a-track", None)))
             .await;
-        assert!(result.expect_err("bad track").message.contains("Unknown track"));
+        assert!(result
+            .expect_err("bad track")
+            .message
+            .contains("Unknown track"));
     }
 
     #[tokio::test]

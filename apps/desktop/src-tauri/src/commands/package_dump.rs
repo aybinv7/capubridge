@@ -123,7 +123,10 @@ pub(crate) fn parse_package_dump(dump: &str, package_name: &str, user: u32) -> P
         } else if let Some(value) = trimmed.strip_prefix("installerPackageName=") {
             first(&mut facts.installer_package_name, Some(value.to_string()));
         }
-        first(&mut facts.version_code, token_value(trimmed, "versionCode="));
+        first(
+            &mut facts.version_code,
+            token_value(trimmed, "versionCode="),
+        );
         first(
             &mut facts.min_sdk_version,
             token_value(trimmed, "minSdk=")
@@ -210,12 +213,24 @@ Hidden system packages:
     #[test]
     fn reads_the_current_users_section_only() {
         let owner = parse_package_dump(ANDROID_16_TWO_USERS, "com.example.retail", 0);
-        assert_eq!(owner.data_dir.as_deref(), Some("/data/user/0/com.example.retail"));
-        assert_eq!(owner.first_install_time.as_deref(), Some("2026-10-06 01:39:15"));
+        assert_eq!(
+            owner.data_dir.as_deref(),
+            Some("/data/user/0/com.example.retail")
+        );
+        assert_eq!(
+            owner.first_install_time.as_deref(),
+            Some("2026-10-06 01:39:15")
+        );
 
         let second = parse_package_dump(ANDROID_16_TWO_USERS, "com.example.retail", 10);
-        assert_eq!(second.data_dir.as_deref(), Some("/data/user/10/com.example.retail"));
-        assert_eq!(second.first_install_time.as_deref(), Some("2026-10-07 09:00:00"));
+        assert_eq!(
+            second.data_dir.as_deref(),
+            Some("/data/user/10/com.example.retail")
+        );
+        assert_eq!(
+            second.first_install_time.as_deref(),
+            Some("2026-10-07 09:00:00")
+        );
     }
 
     #[test]
@@ -240,20 +255,33 @@ Hidden system packages:
     #[test]
     fn package_level_data_dir_moves_to_the_users_folder() {
         let facts = parse_package_dump(OLDER_ANDROID, "com.example.app", 10);
-        assert_eq!(facts.data_dir.as_deref(), Some("/data/user/10/com.example.app"));
+        assert_eq!(
+            facts.data_dir.as_deref(),
+            Some("/data/user/10/com.example.app")
+        );
         let owner = parse_package_dump(OLDER_ANDROID, "com.example.app", 0);
-        assert_eq!(owner.data_dir.as_deref(), Some("/data/user/0/com.example.app"));
+        assert_eq!(
+            owner.data_dir.as_deref(),
+            Some("/data/user/0/com.example.app")
+        );
     }
 
     #[test]
     fn missing_data_dir_falls_back_to_the_users_folder() {
-        let facts = parse_package_dump("Packages:\n  Package [a.b] (1):\n    appId=10001\n", "a.b", 10);
+        let facts = parse_package_dump(
+            "Packages:\n  Package [a.b] (1):\n    appId=10001\n",
+            "a.b",
+            10,
+        );
         assert_eq!(facts.data_dir.as_deref(), Some("/data/user/10/a.b"));
     }
 
     #[test]
     fn external_folders_follow_the_user() {
-        assert_eq!(external_dir_for_user("data", "a.b", 0), "/sdcard/Android/data/a.b");
+        assert_eq!(
+            external_dir_for_user("data", "a.b", 0),
+            "/sdcard/Android/data/a.b"
+        );
         assert_eq!(
             external_dir_for_user("obb", "a.b", 10),
             "/storage/emulated/10/Android/obb/a.b"

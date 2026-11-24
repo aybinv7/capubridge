@@ -1,3 +1,3 @@
 pub mod hedge;
-pub mod types;
 pub mod store;
+pub mod types;

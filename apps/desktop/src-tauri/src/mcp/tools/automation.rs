@@ -15,10 +15,10 @@ use rmcp::{tool, tool_router, ErrorData};
 
 use super::{ok_json, CapuBridgeTools, McpRequestIdentity};
 use crate::mcp::types::{
-    CancelRunParams, DeleteFlowParams, PromoteRunParams, ReadRunTraceParams, RunAgentGoalParams,
-    RunFlowParams, RunIdParams, SaveFlowParams, UpdateFlowParams, TaskIdParams, ReadTaskEventsParams,
-    CancelTaskParams, HandoffTaskParams, UpdateTaskPlanParams, PauseResumeTaskParams, ExecuteTaskBatchParams,
-    VerifyTaskParams, WaitForRunParams,
+    CancelRunParams, CancelTaskParams, DeleteFlowParams, ExecuteTaskBatchParams, HandoffTaskParams,
+    PauseResumeTaskParams, PromoteRunParams, ReadRunTraceParams, ReadTaskEventsParams,
+    RunAgentGoalParams, RunFlowParams, RunIdParams, SaveFlowParams, TaskIdParams, UpdateFlowParams,
+    UpdateTaskPlanParams, VerifyTaskParams, WaitForRunParams,
 };
 
 /// Policies that run locally. Anything else sends redacted screen structure
@@ -36,11 +36,17 @@ const REMOVED_ARTEMIS_MESSAGE: &str = "The Artemis policy was removed from Capub
 /// caller still asks for the removed Artemis agent.
 fn require_supported_policy(policy_id: &str) -> Result<(), ErrorData> {
     if policy_id == REMOVED_ARTEMIS_ID {
-        return Err(ErrorData::invalid_params(REMOVED_ARTEMIS_MESSAGE.to_string(), None));
+        return Err(ErrorData::invalid_params(
+            REMOVED_ARTEMIS_MESSAGE.to_string(),
+            None,
+        ));
     }
     if !SUPPORTED_POLICIES.contains(&policy_id) {
         return Err(ErrorData::invalid_params(
-            format!("Policy '{policy_id}' is unknown. Use one of: {}.", SUPPORTED_POLICIES.join(", ")),
+            format!(
+                "Policy '{policy_id}' is unknown. Use one of: {}.",
+                SUPPORTED_POLICIES.join(", ")
+            ),
             None,
         ));
     }
@@ -102,7 +108,9 @@ impl CapuBridgeTools {
         }): Parameters<RunAgentGoalParams>,
     ) -> Result<CallToolResult, ErrorData> {
         require_supported_policy(&policy_id)?;
-        if !LOCAL_POLICIES.contains(&policy_id.as_str()) && !acknowledge_data_notice.unwrap_or(false) {
+        if !LOCAL_POLICIES.contains(&policy_id.as_str())
+            && !acknowledge_data_notice.unwrap_or(false)
+        {
             return Err(ErrorData::invalid_params(
                 format!(
                     "Policy '{policy_id}' sends redacted screen structure off this machine. \
@@ -156,8 +164,13 @@ impl CapuBridgeTools {
         }): Parameters<RunAgentGoalParams>,
     ) -> Result<CallToolResult, ErrorData> {
         require_supported_policy(&policy_id)?;
-        if !LOCAL_POLICIES.contains(&policy_id.as_str()) && !acknowledge_data_notice.unwrap_or(false) {
-            return Err(ErrorData::invalid_params("Remote task creation requires acknowledge_data_notice: true.".to_string(), None));
+        if !LOCAL_POLICIES.contains(&policy_id.as_str())
+            && !acknowledge_data_notice.unwrap_or(false)
+        {
+            return Err(ErrorData::invalid_params(
+                "Remote task creation requires acknowledge_data_notice: true.".to_string(),
+                None,
+            ));
         }
         self.require_mutation(confirm, "task_create")?;
         let result = self
@@ -209,7 +222,10 @@ impl CapuBridgeTools {
     )]
     async fn wait_for_run(
         &self,
-        Parameters(WaitForRunParams { run_id, timeout_secs }): Parameters<WaitForRunParams>,
+        Parameters(WaitForRunParams {
+            run_id,
+            timeout_secs,
+        }): Parameters<WaitForRunParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let wait = std::time::Duration::from_secs(timeout_secs.unwrap_or(50).clamp(1, 110));
         let result = self
@@ -222,30 +238,54 @@ impl CapuBridgeTools {
         ok_json(&result)
     }
 
-    #[tool(name = "task_get", description = "Read the durable task and current attempt by task id. Read-only.", annotations(read_only_hint = true))]
+    #[tool(
+        name = "task_get",
+        description = "Read the durable task and current attempt by task id. Read-only.",
+        annotations(read_only_hint = true)
+    )]
     async fn task_get(
         &self,
         Parameters(TaskIdParams { task_id }): Parameters<TaskIdParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let result = self
-            .bridge_call("automation_get_task", serde_json::json!({ "taskId": task_id }))
+            .bridge_call(
+                "automation_get_task",
+                serde_json::json!({ "taskId": task_id }),
+            )
             .await?;
         ok_json(&result)
     }
 
-    #[tool(name = "task_observe", description = "Capture the task device's current redacted observation and append it to the task trace. Read-only.", annotations(read_only_hint = true))]
+    #[tool(
+        name = "task_observe",
+        description = "Capture the task device's current redacted observation and append it to the task trace. Read-only.",
+        annotations(read_only_hint = true)
+    )]
     async fn task_observe(
         &self,
         Parameters(TaskIdParams { task_id }): Parameters<TaskIdParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let result = self.bridge_call("automation_observe_task", serde_json::json!({ "taskId": task_id })).await?;
+        let result = self
+            .bridge_call(
+                "automation_observe_task",
+                serde_json::json!({ "taskId": task_id }),
+            )
+            .await?;
         ok_json(&result)
     }
 
-    #[tool(name = "task_read_trace", description = "Read bounded canonical task events by task id. Read-only.", annotations(read_only_hint = true))]
+    #[tool(
+        name = "task_read_trace",
+        description = "Read bounded canonical task events by task id. Read-only.",
+        annotations(read_only_hint = true)
+    )]
     async fn task_read_trace(
         &self,
-        Parameters(ReadTaskEventsParams { task_id, cursor, limit }): Parameters<ReadTaskEventsParams>,
+        Parameters(ReadTaskEventsParams {
+            task_id,
+            cursor,
+            limit,
+        }): Parameters<ReadTaskEventsParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let result = self
             .bridge_call(
@@ -406,102 +446,185 @@ impl CapuBridgeTools {
         ok_json(&result)
     }
 
-    #[tool(name = "task_cancel", description = "Cancel the active attempt for a durable task. Requires confirm: true.", annotations(read_only_hint = false, destructive_hint = true))]
+    #[tool(
+        name = "task_cancel",
+        description = "Cancel the active attempt for a durable task. Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
     async fn task_cancel(
         &self,
         Parameters(CancelTaskParams { task_id, confirm }): Parameters<CancelTaskParams>,
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "task_cancel")?;
         let result = self
-            .bridge_call("automation_cancel_task", serde_json::json!({ "taskId": task_id }))
+            .bridge_call(
+                "automation_cancel_task",
+                serde_json::json!({ "taskId": task_id }),
+            )
             .await?;
         ok_json(&result)
     }
 
-    #[tool(name = "task_handoff", description = "Change the task reasoning owner and record the reason. Requires confirm: true.", annotations(read_only_hint = false))]
+    #[tool(
+        name = "task_handoff",
+        description = "Change the task reasoning owner and record the reason. Requires confirm: true.",
+        annotations(read_only_hint = false)
+    )]
     async fn task_handoff(
         &self,
-        Parameters(HandoffTaskParams { task_id, owner, reason, confirm }): Parameters<HandoffTaskParams>,
+        Parameters(HandoffTaskParams {
+            task_id,
+            owner,
+            reason,
+            confirm,
+        }): Parameters<HandoffTaskParams>,
     ) -> Result<CallToolResult, ErrorData> {
         if owner == REMOVED_ARTEMIS_ID {
-            return Err(ErrorData::invalid_params(REMOVED_ARTEMIS_MESSAGE.to_string(), None));
+            return Err(ErrorData::invalid_params(
+                REMOVED_ARTEMIS_MESSAGE.to_string(),
+                None,
+            ));
         }
         if !REASONING_OWNERS.contains(&owner.as_str()) {
-            return Err(ErrorData::invalid_params("owner must be embedded, mcp-host, or deterministic".to_string(), None));
+            return Err(ErrorData::invalid_params(
+                "owner must be embedded, mcp-host, or deterministic".to_string(),
+                None,
+            ));
         }
         self.require_mutation(confirm, "task_handoff")?;
         let result = self
-            .bridge_call("automation_handoff_task", serde_json::json!({ "taskId": task_id, "owner": owner, "reason": reason }))
+            .bridge_call(
+                "automation_handoff_task",
+                serde_json::json!({ "taskId": task_id, "owner": owner, "reason": reason }),
+            )
             .await?;
         ok_json(&result)
     }
 
-    #[tool(name = "task_heartbeat", description = "Renew the current task owner's lease. Read-only; a stale owner is rejected and the task awaits recovery.", annotations(read_only_hint = true))]
+    #[tool(
+        name = "task_heartbeat",
+        description = "Renew the current task owner's lease. Read-only; a stale owner is rejected and the task awaits recovery.",
+        annotations(read_only_hint = true)
+    )]
     async fn task_heartbeat(
         &self,
         Parameters(TaskIdParams { task_id }): Parameters<TaskIdParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let result = self.bridge_call("automation_heartbeat_task", serde_json::json!({ "taskId": task_id })).await?;
-        ok_json(&result)
-    }
-
-    #[tool(name = "task_update_plan", description = "Attach a concise plan/checkpoint summary to a durable task. Requires confirm: true.", annotations(read_only_hint = false))]
-    async fn task_update_plan(
-        &self,
-        Parameters(UpdateTaskPlanParams { task_id, summary, confirm }): Parameters<UpdateTaskPlanParams>,
-    ) -> Result<CallToolResult, ErrorData> {
-        self.require_mutation(confirm, "task_update_plan")?;
         let result = self
-            .bridge_call("automation_update_task_plan", serde_json::json!({ "taskId": task_id, "summary": summary }))
+            .bridge_call(
+                "automation_heartbeat_task",
+                serde_json::json!({ "taskId": task_id }),
+            )
             .await?;
         ok_json(&result)
     }
 
-    #[tool(name = "task_pause", description = "Pause the active task attempt and preserve it as awaiting-reasoner. Requires confirm: true.", annotations(read_only_hint = false))]
+    #[tool(
+        name = "task_update_plan",
+        description = "Attach a concise plan/checkpoint summary to a durable task. Requires confirm: true.",
+        annotations(read_only_hint = false)
+    )]
+    async fn task_update_plan(
+        &self,
+        Parameters(UpdateTaskPlanParams {
+            task_id,
+            summary,
+            confirm,
+        }): Parameters<UpdateTaskPlanParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.require_mutation(confirm, "task_update_plan")?;
+        let result = self
+            .bridge_call(
+                "automation_update_task_plan",
+                serde_json::json!({ "taskId": task_id, "summary": summary }),
+            )
+            .await?;
+        ok_json(&result)
+    }
+
+    #[tool(
+        name = "task_pause",
+        description = "Pause the active task attempt and preserve it as awaiting-reasoner. Requires confirm: true.",
+        annotations(read_only_hint = false)
+    )]
     async fn task_pause(
         &self,
         Parameters(PauseResumeTaskParams { task_id, confirm }): Parameters<PauseResumeTaskParams>,
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "task_pause")?;
-        let result = self.bridge_call("automation_pause_task", serde_json::json!({ "taskId": task_id })).await?;
+        let result = self
+            .bridge_call(
+                "automation_pause_task",
+                serde_json::json!({ "taskId": task_id }),
+            )
+            .await?;
         ok_json(&result)
     }
 
-    #[tool(name = "task_resume", description = "Resume an awaiting-reasoner task as its next durable attempt. Requires confirm: true.", annotations(read_only_hint = false))]
+    #[tool(
+        name = "task_resume",
+        description = "Resume an awaiting-reasoner task as its next durable attempt. Requires confirm: true.",
+        annotations(read_only_hint = false)
+    )]
     async fn task_resume(
         &self,
         Parameters(PauseResumeTaskParams { task_id, confirm }): Parameters<PauseResumeTaskParams>,
     ) -> Result<CallToolResult, ErrorData> {
         self.require_mutation(confirm, "task_resume")?;
-        let result = self.bridge_call("automation_resume_task", serde_json::json!({ "taskId": task_id })).await?;
-        ok_json(&result)
-    }
-
-    #[tool(name = "task_execute_batch", description = "Execute validated flow steps on an awaiting task through the shared executor. Returns immediately. Requires confirm: true.", annotations(read_only_hint = false, destructive_hint = true))]
-    async fn task_execute_batch(
-        &self,
-        identity: McpRequestIdentity,
-        Parameters(ExecuteTaskBatchParams { task_id, steps, confirm }): Parameters<ExecuteTaskBatchParams>,
-    ) -> Result<CallToolResult, ErrorData> {
-        let steps = steps.as_array().ok_or_else(|| ErrorData::invalid_params("steps must be an array of flow steps".to_string(), None))?;
-        self.require_mutation(confirm, "task_execute_batch")?;
         let result = self
-            .bridge_call("automation_execute_task_batch", serde_json::json!({
-                "taskId": task_id,
-                "steps": steps,
-                "principalId": identity.principal.id,
-            }))
+            .bridge_call(
+                "automation_resume_task",
+                serde_json::json!({ "taskId": task_id }),
+            )
             .await?;
         ok_json(&result)
     }
 
-    #[tool(name = "task_verify", description = "Run one bounded assertion against a task's device and append the verification result. Read-only.", annotations(read_only_hint = true))]
+    #[tool(
+        name = "task_execute_batch",
+        description = "Execute validated flow steps on an awaiting task through the shared executor. Returns immediately. Requires confirm: true.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn task_execute_batch(
+        &self,
+        identity: McpRequestIdentity,
+        Parameters(ExecuteTaskBatchParams {
+            task_id,
+            steps,
+            confirm,
+        }): Parameters<ExecuteTaskBatchParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let steps = steps.as_array().ok_or_else(|| {
+            ErrorData::invalid_params("steps must be an array of flow steps".to_string(), None)
+        })?;
+        self.require_mutation(confirm, "task_execute_batch")?;
+        let result = self
+            .bridge_call(
+                "automation_execute_task_batch",
+                serde_json::json!({
+                    "taskId": task_id,
+                    "steps": steps,
+                    "principalId": identity.principal.id,
+                }),
+            )
+            .await?;
+        ok_json(&result)
+    }
+
+    #[tool(
+        name = "task_verify",
+        description = "Run one bounded assertion against a task's device and append the verification result. Read-only.",
+        annotations(read_only_hint = true)
+    )]
     async fn task_verify(
         &self,
         Parameters(VerifyTaskParams { task_id, assertion }): Parameters<VerifyTaskParams>,
     ) -> Result<CallToolResult, ErrorData> {
         let result = self
-            .bridge_call("automation_verify_task", serde_json::json!({ "taskId": task_id, "assertion": assertion }))
+            .bridge_call(
+                "automation_verify_task",
+                serde_json::json!({ "taskId": task_id, "assertion": assertion }),
+            )
             .await?;
         ok_json(&result)
     }
@@ -516,11 +639,14 @@ mod tests {
     #[tokio::test]
     async fn run_flow_without_app_handle_errors_clearly() {
         let result = tools()
-            .run_flow(McpRequestIdentity::test_identity(), Parameters(RunFlowParams {
-                flow_id: "flow-1".into(),
-                device_serial: "serial-1".into(),
-                confirm: true,
-            }))
+            .run_flow(
+                McpRequestIdentity::test_identity(),
+                Parameters(RunFlowParams {
+                    flow_id: "flow-1".into(),
+                    device_serial: "serial-1".into(),
+                    confirm: true,
+                }),
+            )
             .await;
         assert!(result.is_err());
     }
@@ -528,16 +654,19 @@ mod tests {
     #[tokio::test]
     async fn run_agent_goal_rejects_remote_policy_without_acknowledgement() {
         let result = tools()
-            .run_agent_goal(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
-                goal: "sign in".into(),
-                policy_id: "jev".into(),
-                device_serial: "serial-1".into(),
-                flow_id: None,
-                app_package: None,
-                limits: None,
-                acknowledge_data_notice: None,
-                confirm: true,
-            }))
+            .run_agent_goal(
+                McpRequestIdentity::test_identity(),
+                Parameters(RunAgentGoalParams {
+                    goal: "sign in".into(),
+                    policy_id: "jev".into(),
+                    device_serial: "serial-1".into(),
+                    flow_id: None,
+                    app_package: None,
+                    limits: None,
+                    acknowledge_data_notice: None,
+                    confirm: true,
+                }),
+            )
             .await;
         let message = format!("{:?}", result.expect_err("must reject"));
         assert!(message.contains("acknowledge_data_notice"));
@@ -546,16 +675,19 @@ mod tests {
     #[tokio::test]
     async fn run_agent_goal_accepts_local_policy_without_acknowledgement() {
         let result = tools()
-            .run_agent_goal(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
-                goal: "sign in".into(),
-                policy_id: "rules".into(),
-                device_serial: "serial-1".into(),
-                flow_id: Some("flow-1".into()),
-                app_package: None,
-                limits: None,
-                acknowledge_data_notice: None,
-                confirm: true,
-            }))
+            .run_agent_goal(
+                McpRequestIdentity::test_identity(),
+                Parameters(RunAgentGoalParams {
+                    goal: "sign in".into(),
+                    policy_id: "rules".into(),
+                    device_serial: "serial-1".into(),
+                    flow_id: Some("flow-1".into()),
+                    app_package: None,
+                    limits: None,
+                    acknowledge_data_notice: None,
+                    confirm: true,
+                }),
+            )
             .await;
         assert!(result.is_err(), "no app handle, so the bridge must fail");
     }
@@ -563,16 +695,19 @@ mod tests {
     #[tokio::test]
     async fn run_agent_goal_rejects_removed_artemis_policy_naming_jev() {
         let result = tools()
-            .run_agent_goal(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
-                goal: "sign in".into(),
-                policy_id: "artemis".into(),
-                device_serial: "serial-1".into(),
-                flow_id: None,
-                app_package: None,
-                limits: None,
-                acknowledge_data_notice: Some(true),
-                confirm: true,
-            }))
+            .run_agent_goal(
+                McpRequestIdentity::test_identity(),
+                Parameters(RunAgentGoalParams {
+                    goal: "sign in".into(),
+                    policy_id: "artemis".into(),
+                    device_serial: "serial-1".into(),
+                    flow_id: None,
+                    app_package: None,
+                    limits: None,
+                    acknowledge_data_notice: Some(true),
+                    confirm: true,
+                }),
+            )
             .await;
         let message = format!("{:?}", result.expect_err("must reject"));
         assert!(message.contains("Artemis policy was removed"));
@@ -582,16 +717,19 @@ mod tests {
     #[tokio::test]
     async fn task_create_rejects_removed_artemis_policy() {
         let result = tools()
-            .task_create(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
-                goal: "sign in".into(),
-                policy_id: "artemis".into(),
-                device_serial: "serial-1".into(),
-                flow_id: None,
-                app_package: None,
-                limits: None,
-                acknowledge_data_notice: None,
-                confirm: true,
-            }))
+            .task_create(
+                McpRequestIdentity::test_identity(),
+                Parameters(RunAgentGoalParams {
+                    goal: "sign in".into(),
+                    policy_id: "artemis".into(),
+                    device_serial: "serial-1".into(),
+                    flow_id: None,
+                    app_package: None,
+                    limits: None,
+                    acknowledge_data_notice: None,
+                    confirm: true,
+                }),
+            )
             .await;
         let message = format!("{:?}", result.expect_err("must reject"));
         assert!(message.contains("Artemis policy was removed"));
@@ -600,16 +738,19 @@ mod tests {
     #[tokio::test]
     async fn run_agent_goal_rejects_unknown_policy_listing_supported_ones() {
         let result = tools()
-            .run_agent_goal(McpRequestIdentity::test_identity(), Parameters(RunAgentGoalParams {
-                goal: "sign in".into(),
-                policy_id: "mystery".into(),
-                device_serial: "serial-1".into(),
-                flow_id: None,
-                app_package: None,
-                limits: None,
-                acknowledge_data_notice: Some(true),
-                confirm: true,
-            }))
+            .run_agent_goal(
+                McpRequestIdentity::test_identity(),
+                Parameters(RunAgentGoalParams {
+                    goal: "sign in".into(),
+                    policy_id: "mystery".into(),
+                    device_serial: "serial-1".into(),
+                    flow_id: None,
+                    app_package: None,
+                    limits: None,
+                    acknowledge_data_notice: Some(true),
+                    confirm: true,
+                }),
+            )
             .await;
         let message = format!("{:?}", result.expect_err("must reject"));
         assert!(message.contains("rules, jev, embedded"));

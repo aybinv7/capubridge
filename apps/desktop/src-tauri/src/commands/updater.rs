@@ -83,9 +83,7 @@ fn resolve_prerelease_asset(releases: &serde_json::Value) -> Result<String, Stri
         {
             continue;
         }
-        let assets = release
-            .get("assets")
-            .and_then(serde_json::Value::as_array);
+        let assets = release.get("assets").and_then(serde_json::Value::as_array);
         let Some(assets) = assets else { continue };
         for asset in assets {
             if asset.get("name").and_then(serde_json::Value::as_str) == Some("latest.json") {
@@ -105,10 +103,7 @@ fn resolve_prerelease_asset(releases: &serde_json::Value) -> Result<String, Stri
 /// Check the given channel for an available update. Stores the resolved update
 /// in state (or clears it) and returns its metadata, or `None` if up to date.
 #[tauri::command]
-pub async fn updater_check(
-    app: AppHandle,
-    prerelease: bool,
-) -> Result<Option<UpdateInfo>, String> {
+pub async fn updater_check(app: AppHandle, prerelease: bool) -> Result<Option<UpdateInfo>, String> {
     let endpoint = resolve_endpoint(prerelease).await?;
     let url = endpoint
         .parse()

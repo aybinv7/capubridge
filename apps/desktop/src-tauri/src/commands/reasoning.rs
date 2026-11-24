@@ -58,8 +58,7 @@ fn supported_provider(provider: &str) -> Result<&str, String> {
 
 fn credential_entry(provider: &str) -> Result<Entry, String> {
     let provider = supported_provider(provider)?;
-    Entry::new(CREDENTIAL_SERVICE, provider)
-        .map_err(|_| "Credential store is unavailable".into())
+    Entry::new(CREDENTIAL_SERVICE, provider).map_err(|_| "Credential store is unavailable".into())
 }
 
 fn provider_api_key(provider: &str) -> Result<String, String> {
@@ -74,7 +73,8 @@ fn validate_completion(payload: &ReasoningProviderCompletionPayload) -> Result<(
         return Err("provider-malformed".into());
     }
     if payload.messages.iter().any(|message| {
-        !matches!(message.role.as_str(), "system" | "user" | "assistant") || message.content.trim().is_empty()
+        !matches!(message.role.as_str(), "system" | "user" | "assistant")
+            || message.content.trim().is_empty()
     }) {
         return Err("provider-malformed".into());
     }
@@ -201,7 +201,9 @@ pub async fn reasoning_provider_complete(
         .timeout(Duration::from_secs(60))
         .build()
         .map_err(|_| "provider-transport".to_string())?;
-    let request = client.post(completion_endpoint(&payload.provider)).json(&body);
+    let request = client
+        .post(completion_endpoint(&payload.provider))
+        .json(&body);
     let request = if payload.provider == "anthropic" {
         request
             .header("x-api-key", api_key)
@@ -245,7 +247,8 @@ mod tests {
 
     #[test]
     fn extracts_direct_provider_response_text_without_credentials() {
-        let response = serde_json::json!({ "choices": [{ "message": { "content": "next action" } }] });
+        let response =
+            serde_json::json!({ "choices": [{ "message": { "content": "next action" } }] });
         assert_eq!(completion_text("openai", response).unwrap(), "next action");
     }
 }

@@ -131,9 +131,11 @@ pub async fn call_with_timeout(
         Ok(Err(_)) => Err("The app closed the request before responding".to_string()),
         Err(_) => {
             bridge.cancel(&request_id);
-            Err("The CapuBridge app window did not respond in time — make sure the app is open \
+            Err(
+                "The CapuBridge app window did not respond in time — make sure the app is open \
                  and (for target/recording actions) connected to a target in the UI."
-                .to_string())
+                    .to_string(),
+            )
         }
     }
 }

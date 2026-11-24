@@ -71,7 +71,10 @@ mod tests {
         assert!(quoted.starts_with('\''));
         assert!(quoted.ends_with('\''));
         // Every quote character in the input became an escaped-quote sequence.
-        assert_eq!(quoted.matches("'\\''").count(), malicious.matches('\'').count());
+        assert_eq!(
+            quoted.matches("'\\''").count(),
+            malicious.matches('\'').count()
+        );
     }
 
     #[test]
@@ -81,12 +84,18 @@ mod tests {
 
     #[test]
     fn swipe_command_includes_duration() {
-        assert_eq!(swipe_command(0, 0, 100, 100, 300), "input swipe 0 0 100 100 300");
+        assert_eq!(
+            swipe_command(0, 0, 100, 100, 300),
+            "input swipe 0 0 100 100 300"
+        );
     }
 
     #[test]
     fn input_text_command_quotes_the_text() {
-        assert_eq!(input_text_command("hello world"), "input text 'hello world'");
+        assert_eq!(
+            input_text_command("hello world"),
+            "input text 'hello world'"
+        );
     }
 
     #[test]
@@ -97,13 +106,22 @@ mod tests {
     #[test]
     fn validate_point_accepts_in_bounds_coordinates() {
         assert!(validate_point(0, 0, 1080, 2400).is_ok());
-        assert!(validate_point(1079, 2399, 1080, 2400).is_ok(), "max valid coordinate");
+        assert!(
+            validate_point(1079, 2399, 1080, 2400).is_ok(),
+            "max valid coordinate"
+        );
     }
 
     #[test]
     fn validate_point_rejects_coordinates_at_or_past_the_edge() {
-        assert!(validate_point(1080, 0, 1080, 2400).is_err(), "x == width is out of bounds");
-        assert!(validate_point(0, 2400, 1080, 2400).is_err(), "y == height is out of bounds");
+        assert!(
+            validate_point(1080, 0, 1080, 2400).is_err(),
+            "x == width is out of bounds"
+        );
+        assert!(
+            validate_point(0, 2400, 1080, 2400).is_err(),
+            "y == height is out of bounds"
+        );
         assert!(validate_point(5000, 5000, 1080, 2400).is_err());
     }
 

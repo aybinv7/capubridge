@@ -42,7 +42,12 @@ pub async fn connect(ws_url: &str) -> Result<CdpSocket, String> {
     let mut request = ws_url
         .into_client_request()
         .map_err(|error| format!("Invalid CDP target URL: {error}"))?;
-    for header in ["Origin", "Sec-Fetch-Mode", "Sec-Fetch-Dest", "Sec-Fetch-Site"] {
+    for header in [
+        "Origin",
+        "Sec-Fetch-Mode",
+        "Sec-Fetch-Dest",
+        "Sec-Fetch-Site",
+    ] {
         request.headers_mut().remove(header);
     }
 
@@ -77,8 +82,7 @@ pub async fn call(ws_url: &str, method: &str, params: Value) -> Result<Value, St
 
 async fn receive_matching_response<S>(socket: &mut S) -> Result<Value, String>
 where
-    S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
-        + Unpin,
+    S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
 {
     while let Some(message) = socket.next().await {
         let message = message.map_err(|error| format!("CDP transport error: {error}"))?;
@@ -222,8 +226,12 @@ pub fn indexeddb_store_script(database: &str, store: &str, limit: u32, offset: u
 /// (fewest descendant elements) is preferred, to avoid clicking a large
 /// container instead of the actual interactive child.
 pub fn click_element_script(selector: Option<&str>, text: Option<&str>) -> String {
-    let selector_js = selector.map(js_string_literal).unwrap_or_else(|| "null".to_string());
-    let text_js = text.map(js_string_literal).unwrap_or_else(|| "null".to_string());
+    let selector_js = selector
+        .map(js_string_literal)
+        .unwrap_or_else(|| "null".to_string());
+    let text_js = text
+        .map(js_string_literal)
+        .unwrap_or_else(|| "null".to_string());
     format!(
         "(() => {{ \
             const selector = {selector_js}; \
@@ -288,8 +296,12 @@ pub fn click_element_script(selector: Option<&str>, text: Option<&str>) -> Strin
 /// Dispatching directly on the element sidesteps both problems the same way
 /// `click_element` sidesteps tap's coordinate-miss problem.
 pub fn long_press_script(selector: Option<&str>, text: Option<&str>, duration_ms: u32) -> String {
-    let selector_js = selector.map(js_string_literal).unwrap_or_else(|| "null".to_string());
-    let text_js = text.map(js_string_literal).unwrap_or_else(|| "null".to_string());
+    let selector_js = selector
+        .map(js_string_literal)
+        .unwrap_or_else(|| "null".to_string());
+    let text_js = text
+        .map(js_string_literal)
+        .unwrap_or_else(|| "null".to_string());
     format!(
         "new Promise((resolve) => {{ \
             const selector = {selector_js}; \
@@ -365,7 +377,9 @@ mod tests {
                 let request: Value = serde_json::from_str(&text).expect("valid json request");
                 let mut response = response_body.clone();
                 response["id"] = request["id"].clone();
-                let _ = socket.send(Message::Text(response.to_string().into())).await;
+                let _ = socket
+                    .send(Message::Text(response.to_string().into()))
+                    .await;
             }
         });
 
@@ -383,7 +397,8 @@ mod tests {
 
     #[tokio::test]
     async fn call_surfaces_a_cdp_level_error() {
-        let url = spawn_mock_cdp_server(serde_json::json!({ "error": { "message": "boom" } })).await;
+        let url =
+            spawn_mock_cdp_server(serde_json::json!({ "error": { "message": "boom" } })).await;
         let error = call(&url, "Runtime.evaluate", serde_json::json!({}))
             .await
             .expect_err("call should fail");
@@ -398,14 +413,22 @@ mod tests {
             "result": { "result": { "type": "number", "value": 7 } }
         }))
         .await;
-        let envelope = evaluate(&url, "1+6").await.expect("evaluate should succeed");
-        assert_eq!(evaluate_value(&envelope).expect("value"), serde_json::json!(7));
+        let envelope = evaluate(&url, "1+6")
+            .await
+            .expect("evaluate should succeed");
+        assert_eq!(
+            evaluate_value(&envelope).expect("value"),
+            serde_json::json!(7)
+        );
     }
 
     #[test]
     fn evaluate_value_extracts_return_by_value_result() {
         let response = serde_json::json!({ "result": { "type": "object", "value": { "a": 1 } } });
-        assert_eq!(evaluate_value(&response).unwrap(), serde_json::json!({ "a": 1 }));
+        assert_eq!(
+            evaluate_value(&response).unwrap(),
+            serde_json::json!({ "a": 1 })
+        );
     }
 
     #[test]
@@ -492,8 +515,14 @@ mod tests {
         let timeout_pos = script.find("setTimeout").expect("setTimeout present");
         let up_pos = script.find("'pointerup'").expect("pointerup present");
         assert!(down_pos < timeout_pos, "press must start before the delay");
-        assert!(timeout_pos < up_pos, "release must happen inside the delayed callback");
-        assert!(script.contains("'contextmenu'"), "must fire contextmenu on release");
+        assert!(
+            timeout_pos < up_pos,
+            "release must happen inside the delayed callback"
+        );
+        assert!(
+            script.contains("'contextmenu'"),
+            "must fire contextmenu on release"
+        );
     }
 
     #[test]
@@ -501,9 +530,14 @@ mod tests {
         // found:false must resolve immediately (no setTimeout in that branch),
         // so a missing element doesn't make the caller wait out duration_ms.
         let script = long_press_script(Some("button"), None, 5000);
-        let not_found = script.find("resolve({ found: false })").expect("not-found branch present");
+        let not_found = script
+            .find("resolve({ found: false })")
+            .expect("not-found branch present");
         let timeout_call = script.find("setTimeout").expect("setTimeout present");
-        assert!(not_found < timeout_call, "not-found resolve must precede the setTimeout branch");
+        assert!(
+            not_found < timeout_call,
+            "not-found resolve must precede the setTimeout branch"
+        );
     }
 
     #[test]

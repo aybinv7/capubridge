@@ -160,8 +160,8 @@ mod tests {
             false,
             principals,
         )
-            .await
-            .expect("server should start");
+        .await
+        .expect("server should start");
         let url = format!("http://127.0.0.1:{}/mcp", running.port);
         let client = reqwest::Client::new();
 
@@ -231,8 +231,8 @@ mod tests {
             false,
             principals,
         )
-            .await
-            .expect("server should start");
+        .await
+        .expect("server should start");
         let uri = format!("http://127.0.0.1:{}/mcp", running.port);
 
         // rmcp applies this via reqwest's `.bearer_auth(..)`, which adds the
@@ -307,14 +307,19 @@ mod tests {
             running.port
         ));
         config.auth_header = Some(reader.token);
-        let client = ()
-            .serve(StreamableHttpClientTransport::from_config(config))
-            .await
-            .expect("mcp initialize handshake");
+        let client =
+            ().serve(StreamableHttpClientTransport::from_config(config))
+                .await
+                .expect("mcp initialize handshake");
 
-        let result = client.call_tool(CallToolRequestParams::new("select_device")).await;
+        let result = client
+            .call_tool(CallToolRequestParams::new("select_device"))
+            .await;
         let detail = format!("{result:?}");
-        assert!(detail.contains("lacks the 'execute' capability"), "{detail}");
+        assert!(
+            detail.contains("lacks the 'execute' capability"),
+            "{detail}"
+        );
 
         client.cancel().await.expect("client shutdown");
         running.shutdown().await;

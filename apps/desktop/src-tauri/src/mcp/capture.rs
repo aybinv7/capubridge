@@ -129,7 +129,9 @@ impl CaptureSession {
         state.console.push_back(entry);
         while state.console.len() > MAX_CONSOLE_ENTRIES || state.console_bytes > MAX_CONSOLE_BYTES {
             if let Some(removed) = state.console.pop_front() {
-                state.console_bytes = state.console_bytes.saturating_sub(serialized_size(&removed));
+                state.console_bytes = state
+                    .console_bytes
+                    .saturating_sub(serialized_size(&removed));
                 state.console_truncated = true;
             }
         }
@@ -137,7 +139,11 @@ impl CaptureSession {
 
     fn upsert_network(&self, request_id: &str, mutate: impl FnOnce(&mut NetworkEntry)) {
         let mut state = self.state.write();
-        if let Some(existing) = state.network.iter_mut().find(|e| e.request_id == request_id) {
+        if let Some(existing) = state
+            .network
+            .iter_mut()
+            .find(|e| e.request_id == request_id)
+        {
             mutate(existing);
             let mut truncated = false;
             bound_network_entry(existing, &mut truncated);
@@ -158,7 +164,9 @@ impl CaptureSession {
         state.network_bytes = state.network.iter().map(serialized_size).sum();
         while state.network.len() > MAX_NETWORK_ENTRIES || state.network_bytes > MAX_NETWORK_BYTES {
             if let Some(removed) = state.network.pop_front() {
-                state.network_bytes = state.network_bytes.saturating_sub(serialized_size(&removed));
+                state.network_bytes = state
+                    .network_bytes
+                    .saturating_sub(serialized_size(&removed));
                 state.network_truncated = true;
             }
         }
@@ -296,11 +304,7 @@ impl CaptureRegistry {
     }
 }
 
-async fn run_capture_loop(
-    session: Arc<CaptureSession>,
-    ws_url: String,
-    cancel: CancellationToken,
-) {
+async fn run_capture_loop(session: Arc<CaptureSession>, ws_url: String, cancel: CancellationToken) {
     let mut socket = tokio::select! {
         _ = cancel.cancelled() => {
             session.mark_dead();
@@ -316,7 +320,11 @@ async fn run_capture_loop(
         }
     };
 
-    for (id, method) in [(1u32, "Log.enable"), (2, "Runtime.enable"), (3, "Network.enable")] {
+    for (id, method) in [
+        (1u32, "Log.enable"),
+        (2, "Runtime.enable"),
+        (3, "Network.enable"),
+    ] {
         let payload = serde_json::json!({ "id": id, "method": method, "params": {} });
         tokio::select! {
             _ = cancel.cancelled() => {
@@ -381,7 +389,10 @@ fn handle_cdp_event(session: &CaptureSession, method: &str, params: &Value) {
                         .and_then(Value::as_str)
                         .unwrap_or_default()
                         .to_string(),
-                    timestamp: entry.get("timestamp").and_then(Value::as_f64).unwrap_or(0.0),
+                    timestamp: entry
+                        .get("timestamp")
+                        .and_then(Value::as_f64)
+                        .unwrap_or(0.0),
                 });
             }
         }
@@ -391,7 +402,10 @@ fn handle_cdp_event(session: &CaptureSession, method: &str, params: &Value) {
                 .and_then(Value::as_str)
                 .unwrap_or("log")
                 .to_string();
-            let timestamp = params.get("timestamp").and_then(Value::as_f64).unwrap_or(0.0);
+            let timestamp = params
+                .get("timestamp")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
             let text = params
                 .get("args")
                 .and_then(Value::as_array)
@@ -402,7 +416,11 @@ fn handle_cdp_event(session: &CaptureSession, method: &str, params: &Value) {
                         .join(" ")
                 })
                 .unwrap_or_default();
-            session.push_console(ConsoleEntry { level, text, timestamp });
+            session.push_console(ConsoleEntry {
+                level,
+                text,
+                timestamp,
+            });
         }
         "Network.requestWillBeSent" => {
             if let Some(request_id) = params.get("requestId").and_then(Value::as_str) {
@@ -605,8 +623,12 @@ mod tests {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.expect("bind");
         let port = listener.local_addr().expect("local_addr").port();
         tokio::spawn(async move {
-            let Ok((stream, _)) = listener.accept().await else { return };
-            let Ok(mut socket) = accept_async(stream).await else { return };
+            let Ok((stream, _)) = listener.accept().await else {
+                return;
+            };
+            let Ok(mut socket) = accept_async(stream).await else {
+                return;
+            };
             for event in events {
                 if socket
                     .send(Message::Text(event.to_string().into()))
@@ -642,7 +664,11 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
 
-        assert_eq!(entries.len(), 1, "event pushed over the wire should reach the session");
+        assert_eq!(
+            entries.len(),
+            1,
+            "event pushed over the wire should reach the session"
+        );
         assert_eq!(entries[0].text, "from the wire");
     }
 
@@ -660,7 +686,10 @@ mod tests {
             .await;
         assert!(Arc::ptr_eq(&first, &second));
         assert!(first_is_new);
-        assert!(!second_is_new, "reusing an alive session must report is_new: false");
+        assert!(
+            !second_is_new,
+            "reusing an alive session must report is_new: false"
+        );
         registry.shutdown().await;
     }
 }

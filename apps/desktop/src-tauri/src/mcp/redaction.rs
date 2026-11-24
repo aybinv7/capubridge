@@ -123,7 +123,9 @@ fn next_key(bytes: &[u8], cursor: usize) -> Option<(usize, usize)> {
             {
                 end += 1;
             }
-            if is_sensitive_key(&normalize_key(std::str::from_utf8(&bytes[start..end]).ok()?)) {
+            if is_sensitive_key(&normalize_key(
+                std::str::from_utf8(&bytes[start..end]).ok()?,
+            )) {
                 return Some((start, end));
             }
             start = end;
@@ -150,7 +152,12 @@ fn value_end(bytes: &[u8], start: usize) -> usize {
         return end;
     }
     let mut end = start;
-    while end < bytes.len() && !matches!(bytes[end], b'&' | b',' | b';' | b'}' | b']' | b' ' | b'\n' | b'\r') {
+    while end < bytes.len()
+        && !matches!(
+            bytes[end],
+            b'&' | b',' | b';' | b'}' | b']' | b' ' | b'\n' | b'\r'
+        )
+    {
         end += 1;
     }
     end
@@ -203,12 +210,17 @@ mod tests {
         });
         redact_value(&mut value);
         assert!(!value.to_string().contains("fixture-secret"));
-        assert_eq!(value.pointer("/bridge/profile"), Some(&Value::String("safe".to_string())));
+        assert_eq!(
+            value.pointer("/bridge/profile"),
+            Some(&Value::String("safe".to_string()))
+        );
     }
 
     #[test]
     fn redacts_plain_console_and_url_credentials() {
-        let value = redact_text("bridge token=fixture-secret https://test/?access_token=fixture-secret&mode=debug");
+        let value = redact_text(
+            "bridge token=fixture-secret https://test/?access_token=fixture-secret&mode=debug",
+        );
         assert!(!value.contains("fixture-secret"));
         assert!(value.contains("mode=debug"));
     }

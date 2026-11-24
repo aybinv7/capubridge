@@ -125,7 +125,6 @@ impl AuthenticatedPrincipal {
             capabilities: BTreeSet::from([McpCapability::Read, McpCapability::Execute]),
         }
     }
-
 }
 
 /// Thread-safe persistent registry of individually revocable MCP principals.
@@ -205,12 +204,7 @@ impl PrincipalRegistry {
 
     /// Return public metadata for all principals, including revoked records.
     pub fn list(&self) -> Vec<McpPrincipalSummary> {
-        self.state
-            .lock()
-            .principals
-            .values()
-            .map(summary)
-            .collect()
+        self.state.lock().principals.values().map(summary).collect()
     }
 
     /// Create a principal with a fresh token.
@@ -458,7 +452,9 @@ mod tests {
                 BTreeSet::from([McpCapability::Read, McpCapability::Execute]),
             )
             .expect("create second");
-        assert!(!serde_json::to_string(&registry.list()).expect("serialize").contains(&first.token));
+        assert!(!serde_json::to_string(&registry.list())
+            .expect("serialize")
+            .contains(&first.token));
         registry.revoke(&first.principal.id).expect("revoke");
         assert!(registry.authenticate(&first.token).is_none());
         assert!(registry.authenticate(&second.token).is_some());
@@ -468,7 +464,8 @@ mod tests {
     fn capability_parser_rejects_unknown_and_empty_scopes() {
         assert!(parse_capabilities(&[]).is_err());
         assert!(parse_capabilities(&["unknown".to_string()]).is_err());
-        let parsed = parse_capabilities(&["read".to_string(), "execute".to_string()]).expect("scopes");
+        let parsed =
+            parse_capabilities(&["read".to_string(), "execute".to_string()]).expect("scopes");
         assert!(parsed.contains(&McpCapability::Execute));
     }
 }
