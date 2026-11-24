@@ -172,13 +172,27 @@ describe("sqliteTreeActions (M1)", () => {
   const ids = (sourceId: string, kind: "source" | "collection") =>
     sqliteTreeActions(row(sourceId, kind), context).map((action) => action.id);
 
-  test("with a file open, a phone or page database offers nothing that changes data", () => {
-    for (const sourceId of [native.path, opfs.path]) {
-      expect(ids(sourceId, "source")).not.toContain("import-dump");
-      expect(ids(sourceId, "source")).not.toContain("close-file");
-      expect(ids(sourceId, "collection")).not.toContain("clear-rows");
-      expect(ids(sourceId, "collection")).not.toContain("drop-table");
-    }
+  test("with a file open, a pulled phone database offers nothing that changes data", () => {
+    expect(ids(native.path, "source")).not.toContain("import-dump");
+    expect(ids(native.path, "source")).not.toContain("close-file");
+    expect(ids(native.path, "source")).not.toContain("delete-database");
+    expect(ids(native.path, "collection")).not.toContain("clear-rows");
+    expect(ids(native.path, "collection")).not.toContain("drop-table");
+  });
+
+  test("a page OPFS database is changed on the phone, never replaced or closed like a file", () => {
+    expect(ids(opfs.path, "source")).toEqual(
+      expect.arrayContaining(["empty-tables", "empty-database", "delete-database"]),
+    );
+    expect(ids(opfs.path, "source")).not.toContain("import-dump");
+    expect(ids(opfs.path, "source")).not.toContain("close-file");
+    expect(ids(opfs.path, "collection")).toEqual(
+      expect.arrayContaining(["clear-rows", "drop-table"]),
+    );
+    const picker = sqliteTreeActions(row(opfs.path, "source"), context).find(
+      (action) => action.id === "empty-tables",
+    );
+    expect(picker?.disabled).toBe(true);
   });
 
   test("an opened file is closed, not deleted, and only it can be replaced or cleared", () => {

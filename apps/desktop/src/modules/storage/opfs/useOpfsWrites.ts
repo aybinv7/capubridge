@@ -3,7 +3,7 @@ import { toast } from "@/lib/toast";
 import type { OPFSFilesDomain, OPFSInspection } from "@capubridge/cdp-protocol";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
 import type { OpfsRow } from "./opfsModel";
-import { HELD_OPEN, deleteQuestion, heldOpen, opfsWrites } from "./opfsWrites";
+import { deleteQuestion, heldOpen, opfsWrites, type OpfsPause } from "./opfsWrites";
 
 /**
  * Deletes for the folder on screen. The origin and the folder are fixed for the life of the
@@ -20,6 +20,8 @@ export function useOpfsWrites(options: {
   /** Why the phone cannot answer now, or `null`. */
   away: Ref<string | null>;
   confirm: (request: ConfirmRequest) => Promise<boolean>;
+  /** Pauses the app for files it holds open (see `useAppPause`); without it they are kept. */
+  pause?: OpfsPause;
   forget: (rows: readonly OpfsRow[]) => void;
   after: (removed: number) => void;
 }) {
@@ -52,8 +54,8 @@ export function useOpfsWrites(options: {
   }
 
   /**
-   * Looks inside what would go, refuses while the app holds any of it open, then asks, naming
-   * what goes and what it can break; deletes only on yes.
+   * Looks inside what would go, then asks, naming what goes, what it can break, and that the app
+   * is paused for what it holds open; deletes only on yes.
    */
   async function confirmAndRemove(rows: readonly OpfsRow[]): Promise<number> {
     if (rows.length === 0 || busy.value) return 0;
@@ -63,13 +65,7 @@ export function useOpfsWrites(options: {
     }
     const inspections = await look(rows);
     if (!inspections) return 0;
-    const held = heldOpen(inspections);
-    if (held.length > 0) {
-      toast.error("Nothing was deleted", {
-        description: `${held.length === 1 ? `“${held[0]}” is` : `${held.length} files are`} held open. ${HELD_OPEN}`,
-      });
-      return 0;
-    }
+    const held = heldOpen(inspections).length > 0;
     if (!(await options.confirm(deleteQuestion(rows, options.folder, inspections)))) return 0;
     if (blockedReason.value) {
       toast.info("Nothing was deleted", { description: blockedReason.value });
@@ -83,7 +79,8 @@ export function useOpfsWrites(options: {
         options.origin,
         options.confirm,
         options.forget,
-      ).removeRows(rows, inspections);
+        options.pause,
+      ).removeRows(rows, inspections, held && options.pause !== undefined);
       options.after(removed);
       return removed;
     } catch (error) {

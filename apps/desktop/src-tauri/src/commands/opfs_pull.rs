@@ -18,13 +18,14 @@ use tauri::Emitter;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::commands::cdp_proxy::validate_upstream_url;
+use crate::commands::opfs_local_copies::{new_copy_path, pulls_dir};
 use crate::mcp::cdp::{connect, CdpSocket};
 
 /// Matches `OPFS_READ_CHUNK_BYTES` in the protocol package: small enough that the
 /// app's page never stalls for long on one chunk, far under a WebSocket frame.
-const CHUNK_BYTES: u64 = 2 * 1024 * 1024;
-const SAH_POOL_HEADER_DATA_OFFSET: u64 = 4096;
-const SQLITE_MAGIC: &[u8] = b"SQLite format 3\0";
+pub(crate) const CHUNK_BYTES: u64 = 2 * 1024 * 1024;
+pub(crate) const SAH_POOL_HEADER_DATA_OFFSET: u64 = 4096;
+pub(crate) const SQLITE_MAGIC: &[u8] = b"SQLite format 3\0";
 const CHUNK_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Serialize)]
@@ -65,7 +66,7 @@ struct StatPayload {
     last_modified: f64,
 }
 
-fn escape_js_string(value: &str) -> String {
+pub(crate) fn escape_js_string(value: &str) -> String {
     value
         .replace('\\', "\\\\")
         .replace('\'', "\\'")
@@ -75,13 +76,13 @@ fn escape_js_string(value: &str) -> String {
 
 /// One CDP connection with its own request-id counter, so a whole chunk loop
 /// runs over a single socket instead of reconnecting per read.
-struct CdpSession {
-    socket: CdpSocket,
+pub(crate) struct CdpSession {
+    pub(crate) socket: CdpSocket,
     next_id: u32,
 }
 
 impl CdpSession {
-    async fn open(ws_url: &str) -> Result<Self, String> {
+    pub(crate) async fn open(ws_url: &str) -> Result<Self, String> {
         Ok(Self {
             socket: connect(ws_url).await?,
             next_id: 1,
@@ -139,7 +140,7 @@ impl CdpSession {
 
     /// Runs `expression` and returns the string it resolved to, surfacing the
     /// `__opfsError` sentinel the injected scripts use for in-page failures.
-    async fn evaluate_string(&mut self, expression: &str) -> Result<String, String> {
+    pub(crate) async fn evaluate_string(&mut self, expression: &str) -> Result<String, String> {
         let envelope = self.evaluate(expression).await?;
         if let Some(exception) = envelope.get("exceptionDetails") {
             return Err(format!("Evaluation failed in page: {exception}"));
@@ -234,7 +235,7 @@ impl CdpSession {
 }
 
 /// Where the bytes of an OPFS file come from: the page over CDP, or a fake in tests.
-trait OpfsSource {
+pub(crate) trait OpfsSource {
     async fn stat(&mut self, path: &str) -> Result<OpfsFileStat, String>;
     async fn read_chunk(&mut self, path: &str, offset: u64, length: u64)
         -> Result<Vec<u8>, String>;
@@ -305,28 +306,6 @@ pub async fn opfs_cancel_save(save_id: String) -> Result<(), String> {
     Ok(())
 }
 
-fn temp_target(label: &str) -> PathBuf {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    let safe: String = label
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    std::env::temp_dir().join(format!("opfs-{now}-{id}-{safe}.db"))
-}
-
 /// Read an OPFS file's size and modification time without transferring it.
 /// Cheap enough to poll, which is what makes skipping an unchanged pull viable.
 #[tauri::command]
@@ -350,11 +329,12 @@ pub async fn opfs_pull_sqlite(
     validate_upstream_url(&ws_url)?;
     let mut session = CdpSession::open(&ws_url).await?;
     let mut progress = emit_progress(&window, &path, None);
+    let target = new_copy_path(&pulls_dir(), &label)?;
     let result = pull_into_file(
         &mut session,
         &mut progress,
         &path,
-        &label,
+        &target,
         strip_sah_pool_header,
     )
     .await;
@@ -507,11 +487,11 @@ async fn copy_range_inner<S: OpfsSource>(
     Ok(written)
 }
 
-async fn pull_into_file<S: OpfsSource>(
+pub(crate) async fn pull_into_file<S: OpfsSource>(
     source: &mut S,
     progress: &mut impl FnMut(u64, u64) -> bool,
     path: &str,
-    label: &str,
+    target: &Path,
     strip_sah_pool_header: bool,
 ) -> Result<OpfsPullResult, String> {
     let stat = source.stat(path).await?;
@@ -526,10 +506,9 @@ async fn pull_into_file<S: OpfsSource>(
         ));
     }
     let total = stat.size - offset;
-    let target = temp_target(label);
-    let written = copy_range(source, progress, path, offset, total, &target, true).await?;
+    let written = copy_range(source, progress, path, offset, total, target, true).await?;
     if written != total {
-        let _ = std::fs::remove_file(&target);
+        let _ = std::fs::remove_file(target);
         return Err(format!(
             "The copy of \"{path}\" stopped at {written} of {total} bytes; the app may have changed it. Try again."
         ));
@@ -668,7 +647,9 @@ mod tests {
     async fn a_cancelled_save_leaves_the_destination_and_no_part_file() {
         let (_dir, destination) = destination_with(b"old");
         let mut source = FakeSource::new(&vec![7u8; (CHUNK_BYTES * 2) as usize]);
-        opfs_cancel_save("save-1".to_string()).await.expect("cancel");
+        opfs_cancel_save("save-1".to_string())
+            .await
+            .expect("cancel");
         let mut progress = |_: u64, _: u64| !take_cancelled("save-1");
         let error = save_into(&mut source, &mut progress, "app.sqlite3", &destination)
             .await
@@ -684,7 +665,9 @@ mod tests {
         bytes.extend_from_slice(&[0u8; 64]);
         let mut source = FakeSource::new(&bytes);
         source.short_after = Some(20);
-        let error = pull_into_file(&mut source, &mut |_, _| true, "app.sqlite3", "app", false)
+        let dir = tempfile::tempdir().expect("temp dir");
+        let target = dir.path().join("app.db");
+        let error = pull_into_file(&mut source, &mut |_, _| true, "app.sqlite3", &target, false)
             .await
             .expect_err("a short pull is an error");
         assert!(error.contains("20 of 80"), "{error}");
@@ -695,7 +678,9 @@ mod tests {
         let mut slot = b"/panels.sqlite3".to_vec();
         slot.resize(SAH_POOL_HEADER_DATA_OFFSET as usize, 0);
         let mut source = FakeSource::new(&slot);
-        let pulled = pull_into_file(&mut source, &mut |_, _| true, "slot", "panels", true)
+        let dir = tempfile::tempdir().expect("temp dir");
+        let target = dir.path().join("panels.db");
+        let pulled = pull_into_file(&mut source, &mut |_, _| true, "slot", &target, true)
             .await
             .expect("an unwritten pool database is an empty database");
         assert_eq!(pulled.size, 0);
@@ -710,13 +695,14 @@ mod tests {
             .expect("an empty database has an empty schema");
         assert_eq!(tables, 0);
         drop(connection);
-        let _ = std::fs::remove_file(&pulled.path);
     }
 
     #[tokio::test]
     async fn a_file_shorter_than_a_slot_header_is_not_a_pool_slot() {
         let mut source = FakeSource::new(&[0u8; 100]);
-        let error = pull_into_file(&mut source, &mut |_, _| true, "slot", "panels", true)
+        let dir = tempfile::tempdir().expect("temp dir");
+        let target = dir.path().join("panels.db");
+        let error = pull_into_file(&mut source, &mut |_, _| true, "slot", &target, true)
             .await
             .expect_err("a short slot is an error");
         assert!(error.contains("not a pool slot"), "{error}");

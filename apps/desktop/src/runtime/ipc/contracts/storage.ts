@@ -40,6 +40,28 @@ export interface OpfsPullResult {
   lastModified: number;
 }
 
+/** An OPFS SQLite database changed through SQL while the app was paused. */
+export interface OpfsRewriteResult {
+  /** Bytes of the database now on the page. */
+  size: number;
+  /** The database as it was before, on this computer. */
+  backup: string;
+  /** Rows of other tables that now point at rows the change removed. */
+  dangling: OpfsDanglingRows[];
+}
+
+/** Rows of `table` whose foreign key points into `parent` at a row that is no longer there. */
+export interface OpfsDanglingRows {
+  table: string;
+  parent: string;
+  rows: number;
+}
+
+/** An OPFS SQLite database erased while the app was paused, with its journals. */
+export interface OpfsEraseResult {
+  erased: string[];
+}
+
 export interface OpfsSaveResult {
   size: number;
   lastModified: number;
@@ -89,6 +111,31 @@ export interface StorageCommandMap {
       stripSahPoolHeader: boolean;
     },
     OpfsPullResult
+  >;
+  opfs_backup_sqlite: IpcCommand<
+    {
+      wsUrl: string;
+      path: string;
+      label: string;
+      stripSahPoolHeader: boolean;
+    },
+    OpfsPullResult
+  >;
+  opfs_rewrite_sqlite: IpcCommand<
+    {
+      wsUrl: string;
+      path: string;
+      label: string;
+      stripSahPoolHeader: boolean;
+      sql: string | null;
+      emptyEveryTable: boolean;
+      changes: { sql: string }[] | null;
+    },
+    OpfsRewriteResult
+  >;
+  opfs_erase_sqlite: IpcCommand<
+    { wsUrl: string; path: string; stripSahPoolHeader: boolean },
+    OpfsEraseResult
   >;
   opfs_save_file: IpcCommand<
     { wsUrl: string; path: string; destination: string; saveId?: string },

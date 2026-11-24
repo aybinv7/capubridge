@@ -16,6 +16,7 @@ import DataState from "@/modules/storage/frame/DataState.vue";
 import { useWhenRead } from "@/modules/storage/frame/useWhenRead";
 import { useOpfsSnapshotCache } from "@/modules/storage/opfsSnapshotCache";
 import { useOpenSqliteSource } from "@/modules/storage/useOpenSqliteSource";
+import { useAppPause } from "@/modules/storage/useAppPause";
 import OpfsBreadcrumbs from "./OpfsBreadcrumbs.vue";
 import OpfsPoolRows from "./OpfsPoolRows.vue";
 import OpfsRows from "./OpfsRows.vue";
@@ -102,6 +103,8 @@ function forget(removed: readonly OpfsRow[]) {
   }
 }
 
+const appPause = useAppPause();
+
 const writes = useOpfsWrites({
   origin: props.origin,
   folder: props.path ? label.value : "",
@@ -109,6 +112,7 @@ const writes = useOpfsWrites({
   pending: read.pending,
   away,
   confirm: props.confirm,
+  pause: appPause.paused,
   forget,
   after: (removed) => {
     if (removed > 0) emit("changed");
@@ -123,6 +127,7 @@ const folderWrites = useOpfsWrites({
   pending: read.pending,
   away,
   confirm: props.confirm,
+  pause: appPause.paused,
   forget,
   after: (removed) => {
     emit("changed");

@@ -16,6 +16,8 @@ import DataState from "@/modules/storage/frame/DataState.vue";
 import DataWorkbench from "@/modules/storage/frame/DataWorkbench.vue";
 import { toggleRecordPane } from "@/modules/storage/frame/recordPaneOpen";
 import { useDataConfirm } from "@/modules/storage/frame/useDataConfirm";
+import SqliteTablePickDialog from "./pick/SqliteTablePickDialog.vue";
+import { useSqliteTablePick } from "./pick/useSqliteTablePick";
 import type { DataProvenance, DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
 import { useActiveContextStore } from "@/stores/activeContext.store";
 import { openSqliteFile } from "./openSqliteFile";
@@ -48,7 +50,8 @@ const emptyText = computed(() => {
   if (context.kind === "local") return "This page has no SQLite database Capubridge can read.";
   return tab.device.value ? "This app has no SQLite database." : "No app is selected.";
 });
-const handlers = useSqliteTreeHandlers(tab, confirm.askAsync);
+const tablePick = useSqliteTablePick();
+const handlers = useSqliteTreeHandlers(tab, confirm.askAsync, tablePick.pickAsync);
 
 const root = ref<HTMLElement | null>(null);
 const pane = ref<{
@@ -438,6 +441,11 @@ useSqliteCommands({
       v-model:open="confirm.open.value"
       :request="confirm.request.value"
       @confirm="confirm.confirm()"
+    />
+    <SqliteTablePickDialog
+      v-model:open="tablePick.open.value"
+      :request="tablePick.request.value"
+      @choose="tablePick.choose"
     />
   </div>
 </template>

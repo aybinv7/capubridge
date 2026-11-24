@@ -7,6 +7,7 @@ import type {
 } from "@capubridge/cdp-protocol";
 import { formatBytes } from "@/shared/format/numbers";
 import type { ConfirmRequest } from "@/shared/components/presentation/confirm";
+import { PAUSE_COST } from "@/modules/storage/useAppPause";
 import { isLiveDatabaseRole, type OpfsRow } from "./opfsModel";
 
 function quoted(text: string): string {
@@ -21,9 +22,22 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Why a file the app holds open cannot be deleted, and what to do. */
-export const HELD_OPEN =
-  "The app has it open (a live database). Close the app, or the database in it, then try again.";
+/** Why a file the app holds open was kept. */
+export const HELD_OPEN = "The app has it open (a live database), so it was kept.";
+
+/** Why a file is still held after the app was paused: something other than this page has it. */
+export const STILL_HELD =
+  "It is still held open with the app paused: another tab or window of this site has it. Close that one, then try again.";
+
+/** Runs work while the app is paused (see `useAppPause`), resolving what the work resolved. */
+export type OpfsPause = <T>(work: (origin: string) => Promise<T>) => Promise<T>;
+
+const PAUSED_ATTEMPTS = 6;
+const PAUSED_RETRY_MS = 500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** What deleting these rows can do to the app beyond losing the files. */
 export function deleteWarnings(rows: readonly OpfsRow[]): string[] {
@@ -87,7 +101,21 @@ export function insideWords(inspections: readonly OPFSInspection[]): string[] {
   return words;
 }
 
-/** The paths inside the targets that the app holds open; such a delete cannot run now. */
+/** The question asked before pausing the app to delete what it holds open. */
+export function pauseQuestion(rows: readonly OpfsRow[]): ConfirmRequest {
+  const single = rows.length === 1 ? rows[0] : undefined;
+  return {
+    title: single
+      ? `Pause the app to delete ${quoted(single.name)}?`
+      : `Pause the app to delete ${rows.length} items?`,
+    text: `${PAUSE_COST} Then ${single ? "it is" : "they are"} deleted for good.`,
+    confirmLabel: "Pause the app and delete",
+    danger: true,
+    ...(single ? {} : { details: rows.map((row) => row.name) }),
+  };
+}
+
+/** The paths inside the targets that the app holds open; deleting them pauses the app. */
 export function heldOpen(inspections: readonly OPFSInspection[]): string[] {
   return inspections.flatMap((entry) => entry.locked);
 }
@@ -104,12 +132,14 @@ export function deleteQuestion(
     ? `${single.kind === "directory" ? "The folder" : "The file"} ${quoted(single.name)}`
     : `${rows.length} items`;
   const warnings = deleteWarnings(rows);
+  const held = heldOpen(inspections);
   return {
     title: single ? `Delete ${quoted(single.name)}?` : `Delete ${rows.length} items?`,
     text: [
       `${what} ${single ? "is" : "are"} deleted from ${where} in the app's OPFS on the phone. This cannot be undone.`,
       ...insideWords(inspections),
       ...warnings,
+      ...(held.length > 0 ? [PAUSE_COST] : []),
     ].join(" "),
     confirmLabel: single
       ? single.kind === "directory"
@@ -155,6 +185,44 @@ export function targetOf(row: OpfsRow, inspection?: OPFSInspection): OPFSDeleteT
   return { path: row.path, kind: row.kind, size: row.size, lastModified: row.lastModified };
 }
 
+function emptyResult(): OPFSDeleteResult {
+  return { deleted: [], gone: [], changed: [], busy: [], failed: [] };
+}
+
+/**
+ * Deletes what the app held while it is paused. Its worker lets go of the files a moment after
+ * the page it ran in is torn down, so a file still held is tried again a few times.
+ */
+async function removeWhilePaused(
+  domain: OPFSFilesDomain,
+  origin: string,
+  targets: readonly OPFSDeleteTarget[],
+): Promise<OPFSDeleteResult> {
+  const total = emptyResult();
+  let pending = [...targets];
+  for (let attempt = 0; attempt < PAUSED_ATTEMPTS && pending.length > 0; attempt++) {
+    if (attempt > 0) await sleep(PAUSED_RETRY_MS);
+    const result = await domain.remove(origin, pending, true);
+    total.deleted.push(...result.deleted);
+    total.gone.push(...result.gone);
+    total.changed.push(...result.changed);
+    total.failed.push(...result.failed);
+    pending = pending.filter((target) => result.busy.includes(target.path));
+  }
+  total.busy.push(...pending.map((target) => target.path));
+  return total;
+}
+
+function withPaused(result: OPFSDeleteResult, paused: OPFSDeleteResult): OPFSDeleteResult {
+  return {
+    deleted: [...result.deleted, ...paused.deleted],
+    gone: [...result.gone, ...paused.gone],
+    changed: [...result.changed, ...paused.changed],
+    busy: paused.busy,
+    failed: [...result.failed, ...paused.failed],
+  };
+}
+
 function merged(first: OPFSDeleteResult, forced: OPFSDeleteResult | null): OPFSDeleteResult {
   if (!forced) return first;
   return {
@@ -166,22 +234,23 @@ function merged(first: OPFSDeleteResult, forced: OPFSDeleteResult | null): OPFSD
   };
 }
 
-function reportSingle(row: OpfsRow, result: OPFSDeleteResult) {
+function reportSingle(row: OpfsRow, result: OPFSDeleteResult, held: string) {
   const name = quoted(row.name);
   if (result.deleted.length > 0) toast.success(`Deleted ${name} on the phone`);
   else if (result.gone.length > 0) toast.info(`${name} was already gone from the phone`);
-  else if (result.busy.length > 0)
-    toast.error(`${name} was not deleted`, { description: HELD_OPEN });
+  else if (result.busy.length > 0) toast.error(`${name} was not deleted`, { description: held });
   else if (result.failed[0]) {
     toast.error(`${name} was not deleted`, { description: result.failed[0].error });
   } else toast.info("Nothing was deleted", { description: "The app's newer file was kept." });
 }
 
-function reportMany(result: OPFSDeleteResult) {
+function reportMany(result: OPFSDeleteResult, pausedTried: boolean) {
   const parts = [
     result.gone.length > 0 ? `${plural(result.gone.length, "was", "were")} already gone` : "",
     result.changed.length > 0 ? `${result.changed.length} changed on the phone and kept` : "",
-    result.busy.length > 0 ? `${result.busy.length} held open by the app and kept` : "",
+    result.busy.length > 0
+      ? `${result.busy.length} held open ${pausedTried ? "by another tab or window" : "by the app"} and kept`
+      : "",
     result.failed.length > 0
       ? `${result.failed.length} failed: ${result.failed[0]?.error ?? "unknown error"}`
       : "",
@@ -201,22 +270,45 @@ function reportMany(result: OPFSDeleteResult) {
 /**
  * Deletes in the folder on screen. The phone refuses a file the app wrote to since the list was
  * read; that is asked about in plain words and only then forced. A file the app holds open is
- * never forced. Success is reported after the phone answered; `forget` drops the local copies of
- * what is no longer on the phone.
+ * deleted only through `pause`, once the person agreed to pause the app (asked here unless the
+ * question before already said so). Success is reported after the phone answered; `forget`
+ * drops the local copies of what is no longer on the phone.
  */
 export function opfsWrites(
   domain: OPFSFilesDomain,
   origin: string,
   confirm: (request: ConfirmRequest) => Promise<boolean>,
   forget: (paths: readonly OpfsRow[]) => void,
+  pause?: OpfsPause,
 ) {
+  /** Pauses the app to delete what it held, when the person agrees; `null` when not tried. */
+  async function removeHeld(
+    rows: readonly OpfsRow[],
+    targets: readonly OPFSDeleteTarget[],
+    result: OPFSDeleteResult,
+    agreed: boolean,
+  ): Promise<OPFSDeleteResult | null> {
+    if (!pause || result.busy.length === 0) return null;
+    const heldRows = rows.filter((row) => result.busy.includes(row.path));
+    if (!agreed && !(await confirm(pauseQuestion(heldRows)))) return null;
+    const heldTargets = targets.filter((target) => result.busy.includes(target.path));
+    try {
+      return await pause(() => removeWhilePaused(domain, origin, heldTargets));
+    } catch (error) {
+      toast.error("The app could not be paused", { description: messageOf(error) });
+      return null;
+    }
+  }
+
   /**
    * Deletes `rows`, checked against `inspections` (the look inside read before the question);
-   * resolves how many are no longer on the phone (deleted or already gone).
+   * `heldAgreed` when that question already said the app is paused for what it holds. Resolves
+   * how many are no longer on the phone (deleted or already gone).
    */
   async function removeRows(
     rows: readonly OpfsRow[],
     inspections: readonly OPFSInspection[] = [],
+    heldAgreed = false,
   ): Promise<number> {
     if (rows.length === 0) return 0;
     const byPath = new Map(inspections.map((entry) => [entry.path, entry]));
@@ -228,12 +320,14 @@ export function opfsWrites(
         const again = targets.filter((target) => first.changed.includes(target.path));
         forced = await domain.remove(origin, again, true);
       }
-      const result = merged(first, forced);
+      let result = merged(first, forced);
+      const paused = await removeHeld(rows, targets, result, heldAgreed);
+      if (paused) result = withPaused(result, paused);
       const removed = new Set([...result.deleted, ...result.gone]);
       forget(rows.filter((row) => removed.has(row.path)));
       const single = rows.length === 1 ? rows[0] : undefined;
-      if (single) reportSingle(single, result);
-      else reportMany(result);
+      if (single) reportSingle(single, result, paused ? STILL_HELD : HELD_OPEN);
+      else reportMany(result, paused !== null);
       return removed.size;
     } catch (error) {
       const single = rows.length === 1 ? rows[0] : undefined;
