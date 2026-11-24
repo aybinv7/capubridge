@@ -25,9 +25,7 @@ use crate::session::job_queue::{
     SessionJobCancellationOutcome, SessionJobPriority, SessionJobQueue, SessionJobResult,
     SessionWorkerJob, SessionWorkerRequest, SESSION_QUEUE_CAPACITY,
 };
-use crate::session::types::{
-    SessionCleanupState, SessionHealthSnapshot, SessionTargetSnapshot,
-};
+use crate::session::types::{SessionCleanupState, SessionHealthSnapshot, SessionTargetSnapshot};
 
 const SESSION_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const SESSION_WORKER_POLL_INTERVAL: Duration = Duration::from_millis(200);
@@ -126,8 +124,7 @@ impl DeviceSession {
         let queue = Arc::new(SessionJobQueue::default());
         let health = Arc::new(SessionHealthState::new());
         let shutdown = Arc::new(AtomicBool::new(false));
-        let (sender, receiver) =
-            mpsc::sync_channel::<SessionWorkerRequest>(SESSION_QUEUE_CAPACITY);
+        let (sender, receiver) = mpsc::sync_channel::<SessionWorkerRequest>(SESSION_QUEUE_CAPACITY);
 
         let session = Arc::new(Self {
             serial: serial.clone(),
@@ -195,7 +192,11 @@ impl DeviceSession {
 
         if scope == PackageListScope::ThirdParty {
             if let Some(packages) = self.packages.read().get(&PackageListScope::All) {
-                return Ok(packages.iter().filter(|entry| !entry.system).cloned().collect());
+                return Ok(packages
+                    .iter()
+                    .filter(|entry| !entry.system)
+                    .cloned()
+                    .collect());
             }
         }
 
@@ -383,8 +384,7 @@ impl Drop for DeviceSession {
         if worker.is_finished() {
             let _ = worker.join();
         } else {
-            self.health
-                .set_cleanup_state(SessionCleanupState::Detached);
+            self.health.set_cleanup_state(SessionCleanupState::Detached);
         }
     }
 }

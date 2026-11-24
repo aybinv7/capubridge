@@ -28,7 +28,10 @@ pub struct StreamRegistry {
 }
 
 fn part_path(dest: &Path) -> PathBuf {
-    let mut name = dest.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+    let mut name = dest
+        .file_name()
+        .map(|n| n.to_os_string())
+        .unwrap_or_default();
     name.push(".part");
     dest.with_file_name(name)
 }
@@ -158,10 +161,9 @@ pub async fn host_file_stream_discard(id: u64) -> Result<(), String> {
 /// Reads a file on this computer as raw bytes (no base64 on the way).
 #[tauri::command]
 pub async fn read_local_file_bytes(path: String) -> Result<Response, String> {
-    let bytes = run_blocking(move || {
-        fs::read(&path).map_err(|e| format!("Could not read the file: {e}"))
-    })
-    .await??;
+    let bytes =
+        run_blocking(move || fs::read(&path).map_err(|e| format!("Could not read the file: {e}")))
+            .await??;
     Ok(Response::new(bytes))
 }
 

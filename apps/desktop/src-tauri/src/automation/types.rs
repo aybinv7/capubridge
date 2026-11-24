@@ -126,17 +126,20 @@ pub struct AutomationTaskRuntimeFixture {
 mod tests {
     use super::*;
 
-    const FIXTURE: &str = include_str!("../../../src/modules/automation/__fixtures__/task-runtime-v1.json");
+    const FIXTURE: &str =
+        include_str!("../../../src/modules/automation/__fixtures__/task-runtime-v1.json");
 
     #[test]
     fn shared_task_runtime_fixture_round_trips_without_shape_changes() {
         let fixture: AutomationTaskRuntimeFixture =
             serde_json::from_str(FIXTURE).expect("fixture should deserialize");
         assert_eq!(fixture.schema_version, AUTOMATION_TASK_SCHEMA_VERSION);
-        let actual: serde_json::Value =
-            serde_json::from_str(&serde_json::to_string(&fixture).expect("fixture should serialize"))
-                .expect("serialized fixture should be JSON");
-        let expected: serde_json::Value = serde_json::from_str(FIXTURE).expect("fixture should be JSON");
+        let actual: serde_json::Value = serde_json::from_str(
+            &serde_json::to_string(&fixture).expect("fixture should serialize"),
+        )
+        .expect("serialized fixture should be JSON");
+        let expected: serde_json::Value =
+            serde_json::from_str(FIXTURE).expect("fixture should be JSON");
         assert_eq!(actual, expected);
     }
 }

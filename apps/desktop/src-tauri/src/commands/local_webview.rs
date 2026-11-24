@@ -205,7 +205,10 @@ pub async fn local_webview_set_bounds(
 }
 
 #[tauri::command]
-pub async fn local_webview_open_devtools(app: tauri::AppHandle, label: String) -> Result<(), String> {
+pub async fn local_webview_open_devtools(
+    app: tauri::AppHandle,
+    label: String,
+) -> Result<(), String> {
     let webview = local_preview_webview(&app, &label)?;
 
     #[cfg(debug_assertions)]
@@ -388,7 +391,11 @@ mod tests {
 
     #[test]
     fn explains_self_targeting_instead_of_blaming_duplicates() {
-        let own = ambiguity_message(2, "http://localhost:5173/storage", Some("http://localhost:5173/"));
+        let own = ambiguity_message(
+            2,
+            "http://localhost:5173/storage",
+            Some("http://localhost:5173/"),
+        );
         assert!(own.contains("own dev server"));
         let other = ambiguity_message(2, "http://localhost:3000/", Some("http://localhost:5173/"));
         assert!(other.contains("close duplicate local targets"));

@@ -59,12 +59,16 @@ impl<S> FromContextPart<ToolCallContext<'_, S>> for McpRequestIdentity {
             .request_context
             .extensions
             .get::<Parts>()
-            .ok_or_else(|| ErrorData::invalid_request("MCP request metadata is missing".to_string(), None))?;
+            .ok_or_else(|| {
+                ErrorData::invalid_request("MCP request metadata is missing".to_string(), None)
+            })?;
         let principal = parts
             .extensions
             .get::<AuthenticatedPrincipal>()
             .cloned()
-            .ok_or_else(|| ErrorData::invalid_request("MCP request principal is missing".to_string(), None))?;
+            .ok_or_else(|| {
+                ErrorData::invalid_request("MCP request principal is missing".to_string(), None)
+            })?;
         let connection_id = parts
             .headers
             .get("mcp-session-id")
@@ -176,8 +180,13 @@ impl CapuBridgeTools {
 
     /// Emit a bridge request to the frontend and await its JSON result, or a
     /// clear error if there's no app handle (unit tests) or no window responds.
-    async fn bridge_call(&self, action: &str, payload: serde_json::Value) -> Result<serde_json::Value, ErrorData> {
-        self.bridge_call_with_timeout(action, payload, super::bridge::BRIDGE_TIMEOUT).await
+    async fn bridge_call(
+        &self,
+        action: &str,
+        payload: serde_json::Value,
+    ) -> Result<serde_json::Value, ErrorData> {
+        self.bridge_call_with_timeout(action, payload, super::bridge::BRIDGE_TIMEOUT)
+            .await
     }
 
     async fn bridge_call_with_timeout(
@@ -187,7 +196,10 @@ impl CapuBridgeTools {
         timeout: std::time::Duration,
     ) -> Result<serde_json::Value, ErrorData> {
         let app = self.app.as_ref().ok_or_else(|| {
-            ErrorData::internal_error("This tool requires the running app and is unavailable here", None)
+            ErrorData::internal_error(
+                "This tool requires the running app and is unavailable here",
+                None,
+            )
         })?;
         super::bridge::call_with_timeout(app, action, payload, timeout)
             .await
@@ -196,7 +208,11 @@ impl CapuBridgeTools {
 
     /// Resolve `target_id` on `serial` against the live session, or an error
     /// naming the target so the caller knows to re-check `list_targets`.
-    fn find_target(&self, serial: &str, target_id: &str) -> Result<SessionTargetSnapshot, ErrorData> {
+    fn find_target(
+        &self,
+        serial: &str,
+        target_id: &str,
+    ) -> Result<SessionTargetSnapshot, ErrorData> {
         self.registry
             .session_for_serial(serial)
             .map(|session| session.list_targets())
@@ -267,7 +283,17 @@ impl CapuBridgeTools {
             "task_heartbeat",
             "list_flows",
         ];
-        const AUTHORIZATION_TOOLS: &[&str] = &["run_flow", "run_agent_goal", "task_create", "task_cancel", "task_handoff", "task_update_plan", "task_pause", "task_resume", "task_execute_batch"];
+        const AUTHORIZATION_TOOLS: &[&str] = &[
+            "run_flow",
+            "run_agent_goal",
+            "task_create",
+            "task_cancel",
+            "task_handoff",
+            "task_update_plan",
+            "task_pause",
+            "task_resume",
+            "task_execute_batch",
+        ];
         const ADMINISTER_TOOLS: &[&str] = &["shell_command"];
         if READ_ONLY_TOOLS.contains(&tool_name) {
             McpCapability::Read
@@ -285,7 +311,10 @@ impl CapuBridgeTools {
         tool_name: &str,
     ) -> Result<(), ErrorData> {
         let principal = Self::principal(context).ok_or_else(|| {
-            ErrorData::invalid_request("MCP request has no authenticated principal".to_string(), None)
+            ErrorData::invalid_request(
+                "MCP request has no authenticated principal".to_string(),
+                None,
+            )
         })?;
         let required = Self::required_capability(tool_name);
         if principal.allows(required) {
@@ -463,8 +492,8 @@ mod tests {
 
     #[test]
     fn tool_output_redacts_credentials_from_structured_and_text_content() {
-        let result = ok_json(&serde_json::json!({ "accessToken": "fixture-secret" }))
-            .expect("tool result");
+        let result =
+            ok_json(&serde_json::json!({ "accessToken": "fixture-secret" })).expect("tool result");
         let serialized = serde_json::to_string(&result).expect("serialize result");
         assert!(!serialized.contains("fixture-secret"));
     }
@@ -488,7 +517,10 @@ mod tests {
             calls >= 3
         })
         .await;
-        assert_eq!(calls, 3, "must stop polling on the first call that reports data");
+        assert_eq!(
+            calls, 3,
+            "must stop polling on the first call that reports data"
+        );
     }
 
     #[tokio::test]

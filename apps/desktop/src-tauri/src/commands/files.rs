@@ -380,7 +380,11 @@ fn build_delete_command(path: &str, is_dir: bool) -> String {
     };
 
     if let Some(package_name) = package_name_from_private_data_path(path) {
-        return format!("run-as '{}' {} 2>&1", shell_escape(&package_name), remove_cmd);
+        return format!(
+            "run-as '{}' {} 2>&1",
+            shell_escape(&package_name),
+            remove_cmd
+        );
     }
 
     format!("{remove_cmd} 2>&1")

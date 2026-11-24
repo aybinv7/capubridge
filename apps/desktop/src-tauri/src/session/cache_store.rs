@@ -67,9 +67,12 @@ impl SessionCacheStore {
             return Ok(None);
         }
 
-        let active_serial = persisted
-            .active_serial
-            .filter(|serial| persisted.devices.iter().any(|device| device.serial == *serial));
+        let active_serial = persisted.active_serial.filter(|serial| {
+            persisted
+                .devices
+                .iter()
+                .any(|device| device.serial == *serial)
+        });
 
         let devices = persisted
             .devices
@@ -93,10 +96,7 @@ impl SessionCacheStore {
         }))
     }
 
-    pub fn save_registry_snapshot(
-        &self,
-        snapshot: &SessionRegistrySnapshot,
-    ) -> Result<(), String> {
+    pub fn save_registry_snapshot(&self, snapshot: &SessionRegistrySnapshot) -> Result<(), String> {
         let payload = PersistedRegistryCache {
             schema_version: SESSION_CACHE_SCHEMA_VERSION,
             devices: snapshot.devices.clone(),

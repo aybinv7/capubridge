@@ -80,7 +80,10 @@ pub fn matches(event: &Event, filter: &Filter) -> bool {
 
     if let Some(substr) = &filter.url_substr {
         let url = event.data.get("url").and_then(Value::as_str).unwrap_or("");
-        if !url.to_ascii_lowercase().contains(&substr.to_ascii_lowercase()) {
+        if !url
+            .to_ascii_lowercase()
+            .contains(&substr.to_ascii_lowercase())
+        {
             return false;
         }
     }
@@ -173,7 +176,10 @@ mod tests {
 
     #[test]
     fn min_status_matches_only_present_status_at_or_above() {
-        let f = Filter { min_status: Some(400), ..Default::default() };
+        let f = Filter {
+            min_status: Some(400),
+            ..Default::default()
+        };
         assert!(matches(&ev(0, json!({ "status": 404 })), &f));
         assert!(matches(&ev(0, json!({ "status": 500 })), &f));
         assert!(!matches(&ev(0, json!({ "status": 200 })), &f));
@@ -184,8 +190,14 @@ mod tests {
 
     #[test]
     fn url_substr_is_case_insensitive() {
-        let f = Filter { url_substr: Some("/API/Sync".into()), ..Default::default() };
-        assert!(matches(&ev(0, json!({ "url": "https://x/api/sync/step1" })), &f));
+        let f = Filter {
+            url_substr: Some("/API/Sync".into()),
+            ..Default::default()
+        };
+        assert!(matches(
+            &ev(0, json!({ "url": "https://x/api/sync/step1" })),
+            &f
+        ));
         assert!(!matches(&ev(0, json!({ "url": "https://x/other" })), &f));
     }
 
@@ -193,21 +205,34 @@ mod tests {
     fn method_and_resource_type_and_level_match_case_insensitively() {
         assert!(matches(
             &ev(0, json!({ "method": "post" })),
-            &Filter { method: Some("POST".into()), ..Default::default() }
+            &Filter {
+                method: Some("POST".into()),
+                ..Default::default()
+            }
         ));
         assert!(matches(
             &ev(0, json!({ "resourceType": "XHR" })),
-            &Filter { resource_type: Some("xhr".into()), ..Default::default() }
+            &Filter {
+                resource_type: Some("xhr".into()),
+                ..Default::default()
+            }
         ));
         assert!(matches(
             &ev(0, json!({ "level": "Error" })),
-            &Filter { level: Some("error".into()), ..Default::default() }
+            &Filter {
+                level: Some("error".into()),
+                ..Default::default()
+            }
         ));
     }
 
     #[test]
     fn time_range_bounds_are_inclusive() {
-        let f = Filter { start_ms: Some(100), end_ms: Some(200), ..Default::default() };
+        let f = Filter {
+            start_ms: Some(100),
+            end_ms: Some(200),
+            ..Default::default()
+        };
         assert!(matches(&ev(100, json!({})), &f));
         assert!(matches(&ev(200, json!({})), &f));
         assert!(!matches(&ev(99, json!({})), &f));
@@ -224,7 +249,10 @@ mod tests {
         let compact = project("network", &event, false);
         assert_eq!(compact["status"], json!(200));
         assert_eq!(compact["durationMs"], json!(42));
-        assert!(compact.get("responseBody").is_none(), "bodies must be dropped");
+        assert!(
+            compact.get("responseBody").is_none(),
+            "bodies must be dropped"
+        );
 
         let verbose = project("network", &event, true);
         assert_eq!(verbose["data"]["responseBody"], json!("HUGE"));
@@ -232,7 +260,10 @@ mod tests {
 
     #[test]
     fn project_generic_keeps_only_scalar_fields() {
-        let event = ev(1, json!({ "type": 3, "id": "a", "nested": { "x": 1 }, "list": [1, 2] }));
+        let event = ev(
+            1,
+            json!({ "type": 3, "id": "a", "nested": { "x": 1 }, "list": [1, 2] }),
+        );
         let compact = project("rrweb", &event, false);
         assert_eq!(compact["data"]["type"], json!(3));
         assert_eq!(compact["data"]["id"], json!("a"));

@@ -169,12 +169,7 @@ fn build_scrcpy_scroll_message(
     buf
 }
 
-fn build_scrcpy_keycode_message(
-    action: u8,
-    keycode: u32,
-    repeat: u32,
-    meta_state: u32,
-) -> Vec<u8> {
+fn build_scrcpy_keycode_message(action: u8, keycode: u32, repeat: u32, meta_state: u32) -> Vec<u8> {
     let mut buf = Vec::with_capacity(14);
     buf.push(SCRCPY_MSG_TYPE_INJECT_KEYCODE);
     buf.push(action);
@@ -1051,14 +1046,7 @@ pub async fn adb_mirror_scroll_event(
 ) -> Result<(), String> {
     let session = get_scrcpy_control_session(&serial)
         .ok_or_else(|| "No active scrcpy control session for device".to_string())?;
-    let msg = build_scrcpy_scroll_message(
-        x,
-        y,
-        h_scroll,
-        v_scroll,
-        session.width,
-        session.height,
-    );
+    let msg = build_scrcpy_scroll_message(x, y, h_scroll, v_scroll, session.width, session.height);
     write_scrcpy_control_message(&serial, msg, "scroll event").await
 }
 

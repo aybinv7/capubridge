@@ -69,7 +69,9 @@ impl CapuBridgeTools {
         annotations(read_only_hint = false)
     )]
     async fn stop_recording(&self) -> Result<CallToolResult, ErrorData> {
-        let result = self.bridge_call("stop_recording", serde_json::Value::Null).await?;
+        let result = self
+            .bridge_call("stop_recording", serde_json::Value::Null)
+            .await?;
         ok_json(&result)
     }
 

@@ -319,7 +319,10 @@ mod tests {
             .lines()
             .filter(|line| !line.trim().is_empty() && !line.starts_with("--------- "))
             .collect();
-        let parsed = lines.iter().filter(|line| parse_header(line).is_some()).count();
+        let parsed = lines
+            .iter()
+            .filter(|line| parse_header(line).is_some())
+            .count();
         let unparsed: Vec<&&str> = lines
             .iter()
             .filter(|line| parse_header(line).is_none())

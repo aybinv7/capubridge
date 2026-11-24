@@ -6,11 +6,11 @@ use parking_lot::RwLock;
 use tauri::{AppHandle, State};
 
 use crate::blocking::run_blocking;
-use crate::error::{AppError, AppResult, AppResultExt};
 use crate::commands::adb::{
-    adb_cancel_list_packages_inner, adb_list_devices_inner, AdbDevice, DeviceInfo, PackageListScope,
-    ReverseRule, WebViewSocket,
+    adb_cancel_list_packages_inner, adb_list_devices_inner, AdbDevice, DeviceInfo,
+    PackageListScope, ReverseRule, WebViewSocket,
 };
+use crate::error::{AppError, AppResult, AppResultExt};
 use crate::session::cache_store::SessionCacheStore;
 use crate::session::device_session::DeviceSession;
 use crate::session::events::emit_registry_snapshot;
@@ -425,11 +425,7 @@ impl SessionRegistry {
         self.set_lease_state(serial, SessionLeaseKind::Logcat, active, None)
     }
 
-    pub fn set_perf_lease(
-        &self,
-        serial: &str,
-        active: bool,
-    ) -> Result<SessionLeaseState, String> {
+    pub fn set_perf_lease(&self, serial: &str, active: bool) -> Result<SessionLeaseState, String> {
         self.set_lease_state(serial, SessionLeaseKind::Perf, active, None)
     }
 
@@ -552,10 +548,7 @@ pub async fn session_tcpip(
 }
 
 #[tauri::command]
-pub async fn session_root(
-    state: State<'_, SessionRegistryState>,
-    serial: String,
-) -> AppResult<()> {
+pub async fn session_root(state: State<'_, SessionRegistryState>, serial: String) -> AppResult<()> {
     run_on_online_session(&state, "session_root", serial, |session| session.root()).await
 }
 

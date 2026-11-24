@@ -92,15 +92,19 @@ impl AutomationStore {
         if !entry.runs.contains_key(&run_id) {
             return Err(format!("unknown automation run {run_id}"));
         }
-        if entry.events.iter().any(|existing| {
-            existing.get("id") == event.get("id")
-        }) {
+        if entry
+            .events
+            .iter()
+            .any(|existing| existing.get("id") == event.get("id"))
+        {
             return Ok(());
         }
         let previous = entry
             .events
             .iter()
-            .filter(|existing| existing.get("runId").and_then(Value::as_str) == Some(run_id.as_str()))
+            .filter(|existing| {
+                existing.get("runId").and_then(Value::as_str) == Some(run_id.as_str())
+            })
             .last()
             .and_then(|existing| existing.get("sequence"))
             .and_then(Value::as_u64);
@@ -115,7 +119,9 @@ impl AutomationStore {
             return Err("automation task already has a terminal event".to_string());
         }
         if entry.events.len() >= MAX_EVENTS_PER_TASK {
-            return Err(format!("automation event retention limit is {MAX_EVENTS_PER_TASK}"));
+            return Err(format!(
+                "automation event retention limit is {MAX_EVENTS_PER_TASK}"
+            ));
         }
         entry.events.push(event);
         self.persist(&state)
@@ -204,7 +210,10 @@ fn load_store(path: &PathBuf) -> Result<PersistedAutomationStore, String> {
     let store = serde_json::from_str::<PersistedAutomationStore>(&raw)
         .map_err(|error| format!("Failed parsing automation store: {error}"))?;
     if store.schema_version != STORE_SCHEMA_VERSION {
-        return Err(format!("Unsupported automation store schema {}", store.schema_version));
+        return Err(format!(
+            "Unsupported automation store schema {}",
+            store.schema_version
+        ));
     }
     Ok(store)
 }
@@ -242,7 +251,10 @@ fn recover_interrupted(store: &mut PersistedAutomationStore) -> bool {
             Some("created" | "queued" | "running" | "awaiting-device" | "awaiting-authorization")
         ) {
             if let Some(task) = entry.task.as_object_mut() {
-                task.insert("status".to_string(), Value::String("awaiting-reasoner".to_string()));
+                task.insert(
+                    "status".to_string(),
+                    Value::String("awaiting-reasoner".to_string()),
+                );
                 task.insert("activeRunId".to_string(), Value::Null);
                 task.insert("updatedAt".to_string(), Value::from(timestamp));
             }
@@ -294,8 +306,8 @@ mod tests {
                             "id": "run-1",
                             "status": "running",
                             "deviceLease": { "id": "lease-1" }
-                        })),
-                    ]),
+                        }),
+                    )]),
                     events: Vec::new(),
                 },
             )]),

@@ -8,7 +8,8 @@ use rmcp::{tool, tool_router, ErrorData};
 use super::{ok_json, warm_up_new_capture_session, CapuBridgeTools};
 use crate::mcp::cdp;
 use crate::mcp::types::{
-    ClickElementParams, EvaluateJsParams, LongPressParams, ReadStorageParams, StorageKind, TargetParams,
+    ClickElementParams, EvaluateJsParams, LongPressParams, ReadStorageParams, StorageKind,
+    TargetParams,
 };
 
 #[tool_router(router = web_tool_router, vis = "pub(crate)")]
