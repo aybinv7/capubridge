@@ -19,3 +19,19 @@ export function sqliteReadOnlyReason(db: Pick<SqliteDbFile, "sourceKind"> | null
 export function canWriteDatabase(db: Pick<SqliteDbFile, "sourceKind">): boolean {
   return sqliteReadOnlyReason(db) === null;
 }
+
+/** Whether this database lives in the page's OPFS, so Capubridge can change it there. */
+export function changesOnPage(db: Pick<SqliteDbFile, "sourceKind" | "sourceOpfsPath">): boolean {
+  return db.sourceKind === "opfs" && Boolean(db.sourceOpfsPath);
+}
+
+/**
+ * Why the rows of this database cannot be edited, or `null` when they can: a file opened on this
+ * computer saves to its working copy, and a database in the page's OPFS saves to the phone with
+ * the app paused. Every other phone database is a pulled copy, so its rows stay read-only.
+ */
+export function sqliteEditReason(
+  db: Pick<SqliteDbFile, "sourceKind" | "sourceOpfsPath"> | null,
+): string | null {
+  return db && changesOnPage(db) ? null : sqliteReadOnlyReason(db);
+}

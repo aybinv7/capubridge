@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { ref } from "vue";
 import type { OPFSDeleteResult, OPFSFilesDomain, OPFSInspection } from "@capubridge/cdp-protocol";
+import type { OpfsPause } from "../opfsWrites";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 vi.mock("@/lib/toast", () => ({ toast }));
 
-const { deleteQuestion, opfsWrites } = await import("../opfsWrites");
+const { HELD_OPEN, deleteQuestion, opfsWrites } = await import("../opfsWrites");
 const { useOpfsWrites } = await import("../useOpfsWrites");
 const { file, folder, poolHint, row } = await import("./opfsFixtures");
 
@@ -230,12 +231,16 @@ describe("the folder's deletes", () => {
     ]);
   });
 
-  test("a folder with a file held open inside is refused before any question", async () => {
+  test("a folder with a file held open says the app is paused, asks once, and deletes it paused", async () => {
     const inspect = vi
       .fn()
       .mockResolvedValue([inspection({ locked: ["data/cache/app.sqlite3-wal"] })]);
-    const remove = vi.fn();
-    const confirm = vi.fn();
+    const remove = vi
+      .fn()
+      .mockResolvedValueOnce(result({ busy: ["data/cache"] }))
+      .mockResolvedValueOnce(result({ deleted: ["data/cache"] }));
+    const confirm = vi.fn().mockResolvedValue(true);
+    const pause = vi.fn((work: (origin: string) => Promise<unknown>) => work(ORIGIN));
     const handle = useOpfsWrites({
       origin: ORIGIN,
       folder: "data",
@@ -243,14 +248,38 @@ describe("the folder's deletes", () => {
       pending: ref(false),
       away: ref(null),
       confirm,
+      pause: pause as unknown as OpfsPause,
+      forget: vi.fn(),
+      after: vi.fn(),
+    });
+    await expect(handle.confirmAndRemove([dir])).resolves.toBe(1);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm.mock.calls[0]?.[0].text).toContain("the page reloads with the app paused");
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenLastCalledWith(
+      ORIGIN,
+      [expect.objectContaining({ path: "data/cache" })],
+      true,
+    );
+  });
+
+  test("without a way to pause, a held folder is kept and the toast says why", async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValue([inspection({ locked: ["data/cache/app.sqlite3-wal"] })]);
+    const remove = vi.fn().mockResolvedValue(result({ busy: ["data/cache"] }));
+    const handle = useOpfsWrites({
+      origin: ORIGIN,
+      folder: "data",
+      domain: () => ({ inspect, remove }) as unknown as OPFSFilesDomain,
+      pending: ref(false),
+      away: ref(null),
+      confirm: vi.fn().mockResolvedValue(true),
       forget: vi.fn(),
       after: vi.fn(),
     });
     await expect(handle.confirmAndRemove([dir])).resolves.toBe(0);
-    expect(confirm).not.toHaveBeenCalled();
-    expect(remove).not.toHaveBeenCalled();
-    expect(toast.error).toHaveBeenCalledWith("Nothing was deleted", {
-      description: expect.stringContaining("“data/cache/app.sqlite3-wal” is held open"),
-    });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("“cache” was not deleted", { description: HELD_OPEN });
   });
 });

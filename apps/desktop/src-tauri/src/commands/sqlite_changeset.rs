@@ -34,18 +34,17 @@ fn is_insert(sql: &str) -> bool {
         .is_some_and(|head| head.eq_ignore_ascii_case("insert"))
 }
 
-/// Runs every statement in one transaction. Each must change exactly one row (a key that no
-/// longer matches, or matches several rows, would make the save mean something else), and a
-/// statement may hold only one SQL statement. Any failure rolls the whole changeset back.
-pub(crate) fn apply_changeset(
-    conn: &mut Connection,
+/// Runs every statement inside the transaction the caller holds open. Each must change exactly
+/// one row (a key that no longer matches, or matches several rows, would make the save mean
+/// something else), and a statement may hold only one SQL statement. Returns the rowid each
+/// insert was given; on an error the caller rolls the transaction back.
+pub(crate) fn run_changeset(
+    tx: &Connection,
     statements: &[SqliteChangeStatement],
-) -> Result<SqliteChangesetResult, String> {
-    let start = std::time::Instant::now();
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
+) -> Result<Vec<Option<i64>>, String> {
     let mut inserted_row_ids = Vec::with_capacity(statements.len());
     for (index, statement) in statements.iter().enumerate() {
-        let count = statement_count(&tx, &statement.sql)
+        let count = statement_count(tx, &statement.sql)
             .map_err(|e| format!("Change {} of {}: {e}", index + 1, statements.len()))?;
         if count != 1 {
             return Err(format!(
@@ -66,6 +65,18 @@ pub(crate) fn apply_changeset(
         }
         inserted_row_ids.push(is_insert(&statement.sql).then(|| tx.last_insert_rowid()));
     }
+    Ok(inserted_row_ids)
+}
+
+/// Runs every statement in one transaction (see `run_changeset`). Any failure rolls the whole
+/// changeset back.
+pub(crate) fn apply_changeset(
+    conn: &mut Connection,
+    statements: &[SqliteChangeStatement],
+) -> Result<SqliteChangesetResult, String> {
+    let start = std::time::Instant::now();
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let inserted_row_ids = run_changeset(&tx, statements)?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(SqliteChangesetResult {
         inserted_row_ids,

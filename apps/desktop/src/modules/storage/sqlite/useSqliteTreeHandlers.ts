@@ -11,6 +11,10 @@ import { addressOf } from "./sqliteAddress";
 import { exportSqlDump, exportSqliteFile } from "./sqliteImportExport";
 import type { useSqliteTab } from "./useSqliteTab";
 import { useSqliteWrites } from "./useSqliteWrites";
+import { useOpfsSqliteWrites } from "./useOpfsSqliteWrites";
+import type { TableChange } from "./opfsSqliteQuestions";
+import { changesOnPage } from "./browse/sqliteWriteAccess";
+import type { TablePick, TablePickRequest } from "./pick/useSqliteTablePick";
 import type { SqliteStaged } from "./browse/sqliteChangeset";
 
 function describe(error: unknown): string {
@@ -24,6 +28,7 @@ function describe(error: unknown): string {
 export function useSqliteTreeHandlers(
   tab: ReturnType<typeof useSqliteTab>,
   confirm: (request: ConfirmRequest) => Promise<boolean>,
+  pickTables: (request: TablePickRequest) => Promise<TablePick | null>,
 ) {
   const router = useRouter();
   const files = useSqliteFilesStore();
@@ -44,6 +49,45 @@ export function useSqliteTreeHandlers(
       }
     },
   });
+
+  const pageWrites = useOpfsSqliteWrites({
+    confirm,
+    changeSerial: () => tab.changeSerial.value,
+    changePackage: () => tab.changePackage.value,
+    changed: (db) => {
+      if (tab.current.value?.db.path === db.path) void refresh();
+      else void tab.sources.refetch();
+    },
+    erased: (db) => {
+      if (tab.current.value?.db.path === db.path) location.open(null);
+      void tab.sources.refetch();
+    },
+  });
+
+  /** The open database's tables, when `db` is the one open. */
+  function openTables(db: SqliteDbFile) {
+    return tab.current.value?.db.path === db.path ? tab.tables.tables.value : null;
+  }
+
+  function changeTable(db: SqliteDbFile, table: string, change: TableChange) {
+    if (changesOnPage(db)) {
+      const info = openTables(db)?.find((entry) => entry.name === table);
+      void pageWrites.changeTables(db, [info ?? { name: table, tableType: "table" }], change);
+    } else if (change === "empty") void writes.clearTable(db, table);
+    else void writes.dropTable(db, table);
+  }
+
+  async function pickAndChange(db: SqliteDbFile) {
+    const tables = openTables(db);
+    if (!tables) {
+      toast.info(`Open “${db.name}” first`, {
+        description: "Its tables are picked from the copy that is open.",
+      });
+      return;
+    }
+    const pick = await pickTables({ database: db.name, tables });
+    if (pick) await pageWrites.changeTables(db, pick.tables, pick.change, true);
+  }
 
   function unreadableReason(db: SqliteDbFile): string | null {
     if (addressOf(db, tab.reach.value)) return null;
@@ -148,8 +192,8 @@ export function useSqliteTreeHandlers(
       if (actionId === "pin") settings.toggleItemPinned(scope.value, sourceId, table);
       else if (actionId === "hide") settings.toggleItemHidden(scope.value, sourceId, table);
       else if (actionId === "clear-marks") changes.clearTableChanges(serial, pkg, db.path, table);
-      else if (actionId === "clear-rows") void writes.clearTable(db, table);
-      else if (actionId === "drop-table") void writes.dropTable(db, table);
+      else if (actionId === "clear-rows") changeTable(db, table, "empty");
+      else if (actionId === "drop-table") changeTable(db, table, "drop");
       return;
     }
     if (actionId === "refresh") void refresh();
@@ -161,19 +205,29 @@ export function useSqliteTreeHandlers(
     else if (actionId === "import-dump") void writes.replaceWithDump(db);
     else if (actionId === "clear-marks") changes.clearDatabaseChanges(serial, pkg, db.path);
     else if (actionId === "close-file") void closeFile(sourceId);
+    else if (actionId === "empty-tables") void pickAndChange(db);
+    else if (actionId === "empty-database") void pageWrites.emptyDatabase(db);
+    else if (actionId === "delete-database") void pageWrites.deleteDatabase(db);
     else if (actionId === "show-in-opfs") {
       void router.push({ name: "storage-opfs", query: { path: db.sourceOpfsDirectory ?? "" } });
     }
   }
 
-  /** Saves staged edits and new rows of a table of the open file; resolves whether it saved. */
+  /**
+   * Saves staged edits, new rows and deletes of a table of the open database: to the working copy
+   * of a file opened here, or to the phone for a database in the page's OPFS. Resolves whether it
+   * saved.
+   */
   function saveChanges(
     table: string,
     keyColumns: readonly SqliteColumnInfo[],
     staged: SqliteStaged,
   ): Promise<boolean> {
     const db = tab.current.value?.db;
-    return db ? writes.saveChanges(db, table, keyColumns, staged) : Promise.resolve(false);
+    if (!db) return Promise.resolve(false);
+    return changesOnPage(db)
+      ? pageWrites.saveChanges(db, table, keyColumns, staged)
+      : writes.saveChanges(db, table, keyColumns, staged);
   }
 
   return {

@@ -20,39 +20,40 @@ use commands::automation::{
     jev_decide, recording_read_attachment, recording_session_attach,
 };
 use commands::cdp_proxy::{cdp_start_proxy, cdp_stop_proxy};
-use commands::debuggable::adb_list_debuggable_packages;
 use commands::chrome::{
     chrome_activate_target, chrome_fetch_targets, chrome_find, chrome_is_running, chrome_kill_all,
     chrome_launch, chrome_open_devtools_url, chrome_open_target, chrome_verify_port,
 };
+use commands::debuggable::adb_list_debuggable_packages;
 use commands::emulator::{emulator_launch_avd, emulator_list_avds, emulator_stop_avd};
 use commands::file_bytes::adb_read_file_bytes;
-use commands::host_file_stream::{
-    host_file_stream_append, host_file_stream_begin, host_file_stream_discard,
-    host_file_stream_finish, read_local_file_bytes,
-};
 use commands::files::{
     adb_delete_file, adb_list_dir, adb_open_file, adb_open_file_picker, adb_pull_file,
     adb_read_file, read_local_file_base64, save_base64_file, show_in_folder,
 };
+use commands::host_file_stream::{
+    host_file_stream_append, host_file_stream_begin, host_file_stream_discard,
+    host_file_stream_finish, read_local_file_bytes,
+};
 use commands::local_webview::{
-    local_devtools_create, local_devtools_port, local_device_name, local_webview_create,
-    local_webview_fetch_cdp_target,
-    local_webview_inject_scrollbar_hide, local_webview_navigate, local_webview_open_devtools,
-    local_webview_set_bounds,
+    local_device_name, local_devtools_create, local_devtools_port, local_webview_create,
+    local_webview_fetch_cdp_target, local_webview_inject_scrollbar_hide, local_webview_navigate,
+    local_webview_open_devtools, local_webview_set_bounds,
 };
 use commands::mirror::{
     adb_mirror_get_clipboard, adb_mirror_get_screen_size, adb_mirror_inject_keycode,
     adb_mirror_inject_text, adb_mirror_keyevent, adb_mirror_launch_scrcpy, adb_mirror_scrcpy_start,
     adb_mirror_scrcpy_stop, adb_mirror_screenshot, adb_mirror_scroll_event,
-    adb_mirror_set_clipboard, adb_mirror_set_stream_size, adb_mirror_start_recording, adb_mirror_stop_recording,
-    adb_mirror_stop_scrcpy, adb_mirror_swipe, adb_mirror_tap, adb_mirror_touch_event,
+    adb_mirror_set_clipboard, adb_mirror_set_stream_size, adb_mirror_start_recording,
+    adb_mirror_stop_recording, adb_mirror_stop_scrcpy, adb_mirror_swipe, adb_mirror_tap,
+    adb_mirror_touch_event,
 };
 use commands::mock_server::{
     mock_server_start, mock_server_status, mock_server_stop, mock_server_sync_rules,
     MockServerManager,
 };
 use commands::opfs_pull::{opfs_cancel_save, opfs_pull_sqlite, opfs_save_file, opfs_stat_file};
+use commands::opfs_sqlite_write::{opfs_backup_sqlite, opfs_erase_sqlite, opfs_rewrite_sqlite};
 use commands::perf::{adb_perf_start, adb_perf_stop};
 use commands::port_forward::{adb_fetch_json_targets, adb_forward_cdp, adb_remove_forward};
 use commands::reasoning::{
@@ -71,10 +72,6 @@ use commands::recording_db::{
     recording_database_snapshot_page, recording_database_sources, recording_database_table_rows,
 };
 use commands::recording_export::{recording_export_preview, recording_export_session};
-use commands::wireless::{
-    adb_disconnect_serial, adb_wifi_address, wireless_discover, wireless_discover_stop, wireless_pairing_cancel,
-    wireless_pairing_start, wireless_pairing_with_code,
-};
 use commands::sqlite::{
     sqlite_close_database, sqlite_execute_query, sqlite_execute_write, sqlite_export_bytes,
     sqlite_list_databases, sqlite_open_database, sqlite_overwrite_local_bytes,
@@ -91,6 +88,10 @@ use commands::sqlite_opened::{
 };
 use commands::target_probe::cdp_probe_target;
 use commands::updater::{updater_check, updater_install, PendingUpdate};
+use commands::wireless::{
+    adb_disconnect_serial, adb_wifi_address, wireless_discover, wireless_discover_stop,
+    wireless_pairing_cancel, wireless_pairing_start, wireless_pairing_with_code,
+};
 use mcp::commands::{
     mcp_create_principal, mcp_get_status, mcp_list_principals, mcp_regenerate_token,
     mcp_revoke_principal, mcp_set_allow_mutations, mcp_set_enabled, mcp_set_port,
@@ -174,6 +175,8 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            commands::opfs_local_copies::sweep_at_start(app.handle());
 
             if let Ok(cache_store) = SessionCacheStore::new(app.handle()) {
                 if let Err(error) = session_registry
@@ -381,6 +384,9 @@ pub fn run() {
             opfs_save_file,
             opfs_cancel_save,
             opfs_stat_file,
+            opfs_rewrite_sqlite,
+            opfs_backup_sqlite,
+            opfs_erase_sqlite,
             sqlite_table_columns,
             sqlite_table_indexes,
             sqlite_table_foreign_keys,

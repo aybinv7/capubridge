@@ -83,12 +83,14 @@ const props = defineProps<{
   query: SqliteTableQuery;
   /** The grouped view as sections, used while the query groups by a column. */
   groups: SqliteGroupRows;
-  /** Saves staged edits and new rows to the opened file; resolves whether it saved. */
+  /** Saves staged edits and new rows to the opened file or the phone; resolves whether it saved. */
   saveChanges: (staged: SqliteStaged) => Promise<boolean>;
   /** The file an opened file saves to, or `null` for a phone or page copy. */
   savesTo?: string | null;
   /** The opened file's working copy holds changes its file does not have yet. */
   unsaved?: boolean;
+  /** Saving writes to the app's database on the phone (a database in the page's OPFS). */
+  savesOnPhone?: boolean;
   /** Where the rows came from and when they were read, for the status bar. */
   provenance: DataProvenance;
   readAt: number | null;
@@ -503,6 +505,7 @@ defineExpose({
       :note="staging.note.value"
       :saves-to="savesTo ?? null"
       :unsaved="unsaved === true"
+      :on-phone="savesOnPhone === true"
       @add-row="staging.addRow()"
       @discard="staging.discardWithUndo()"
       @save="staging.save()"

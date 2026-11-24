@@ -6,18 +6,13 @@ import {
   type SqliteOpenedFile,
 } from "@/modules/storage/stores/useSqliteFilesStore";
 import { useSqliteUnsavedStore } from "@/modules/storage/stores/useSqliteUnsavedStore";
-import { buildRowKey } from "@/modules/storage/changes/sqliteRowKey";
 import type { SqliteColumnInfo, SqliteDbFile } from "@/types/sqlite.types";
 import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
 import type { SqliteAddress } from "./sqliteAddress";
 import { importSqlDump, pickSqlDump } from "./sqliteImportExport";
 import { applyChangeset, runQuery, runWrite } from "./sqliteReads";
-import {
-  changesetStatements,
-  savedKey,
-  stagedCount,
-  type SqliteStaged,
-} from "./browse/sqliteChangeset";
+import { changesetStatements, stagedCount, type SqliteStaged } from "./browse/sqliteChangeset";
+import { recordStagedChanges } from "./sqliteStagedRecords";
 import { readBackChangeset } from "./browse/sqliteReadBack";
 import { quoteIdent } from "./sqlText";
 import { firstSaveText, useSqliteFileSave } from "./useSqliteFileSave";
@@ -207,48 +202,21 @@ export function useSqliteWrites(deps: SqliteWriteDeps) {
         staged,
         inserted,
       );
-      for (const row of staged.deletes.values()) {
-        changes.recordChange({
-          operation: "delete",
+      recordStagedChanges(
+        changes.recordChange,
+        {
           serial: deps.changeSerial(),
           packageName: deps.changePackage(),
           dbPath: db.path,
-          tableName: table,
-          source: "capubridge",
-          rowKey: buildRowKey([...keyColumns], row),
-          beforeValue: { ...row },
-          afterValue: null,
-        });
-      }
-      for (const edit of staged.edits.values()) {
-        changes.recordChange({
-          operation: "update",
-          serial: deps.changeSerial(),
-          packageName: deps.changePackage(),
-          dbPath: db.path,
-          tableName: table,
-          source: "capubridge",
-          rowKey: buildRowKey([...keyColumns], savedKey(edit)),
-          beforeValue: { ...edit.original },
-          afterValue: savedKey(edit),
-        });
-      }
-      for (const insert of back.inserted) {
-        const after = insert.row ?? {
-          ...staged.inserts.find((entry) => entry.id === insert.id)?.values,
-        };
-        changes.recordChange({
-          operation: "add",
-          serial: deps.changeSerial(),
-          packageName: deps.changePackage(),
-          dbPath: db.path,
-          tableName: table,
-          source: "capubridge",
-          rowKey: buildRowKey([...keyColumns], after),
-          beforeValue: null,
-          afterValue: after,
-        });
-      }
+          table,
+          keyColumns,
+        },
+        staged,
+        back.inserted.map(
+          (insert) =>
+            insert.row ?? { ...staged.inserts.find((entry) => entry.id === insert.id)?.values },
+        ),
+      );
       if (back.differences.length > 0) {
         const shown = back.differences
           .slice(0, 3)

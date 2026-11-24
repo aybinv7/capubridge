@@ -134,6 +134,15 @@ export type {
   OPFSInspection,
   OPFSItem,
 } from "./cdp/domains/opfs-files.js";
+export { AppPause, AppPauseError, APP_PAUSE_TIMEOUT_MS } from "./cdp/domains/app-pause.js";
+export type { AppPauseOutcome } from "./cdp/domains/app-pause.js";
+export { LiveSqlite, normalizeSqliteFilename } from "./cdp/domains/live-sqlite.js";
+export type {
+  LiveDanglingRows,
+  LiveSqliteChange,
+  LiveSqliteOptions,
+  LiveSqliteOutcome,
+} from "./cdp/domains/live-sqlite.js";
 export { OpfsSqliteDiscovery } from "./cdp/domains/opfs-sqlite-discovery.js";
 export type {
   DiscoveredOpfsDatabase,

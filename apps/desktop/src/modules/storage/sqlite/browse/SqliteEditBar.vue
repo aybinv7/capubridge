@@ -7,9 +7,10 @@ import HintTooltip from "@/shared/components/presentation/HintTooltip.vue";
 import { bindingTokens } from "@/lib/commands/keymap";
 
 /**
- * Editing an opened file: add a row, save or drop the changes made so far, and where saving
- * writes. `savesTo` is the file that was picked; `unsaved` says its working copy holds changes
- * that did not reach it (a save that failed).
+ * Editing a table: add a row, save or drop the changes made so far, and where saving writes.
+ * For an opened file, `savesTo` is the file that was picked and `unsaved` says its working copy
+ * holds changes that did not reach it (a save that failed). For the app's database in the
+ * page's OPFS (`onPhone`), saving pauses the app and writes there, so there is no file to name.
  */
 const props = defineProps<{
   pending: number;
@@ -17,6 +18,7 @@ const props = defineProps<{
   note: string | null;
   savesTo: string | null;
   unsaved: boolean;
+  onPhone?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -54,6 +56,9 @@ const fileName = computed(() => props.savesTo?.split(/[\\/]/).pop() ?? "the file
         <span class="truncate" tabindex="0">Not written to “{{ fileName }}” yet</span>
       </HintTooltip>
     </span>
+    <span v-else-if="onPhone" class="min-w-0 truncate text-xs text-muted-foreground">
+      Double-click a cell to edit. Saving pauses the app and writes to its database on the phone.
+    </span>
     <HintTooltip v-else :text="savesTo">
       <span class="min-w-0 truncate text-xs text-muted-foreground" tabindex="0">
         Double-click a cell to edit. Saving writes to “{{ fileName }}” on this computer.
@@ -63,11 +68,17 @@ const fileName = computed(() => props.savesTo?.split(/[\\/]/).pop() ?? "the file
       <span v-if="pending > 0" class="text-xs text-foreground tabular-nums" role="status">
         {{ pending === 1 ? "1 change not saved" : `${pending} changes not saved` }}
       </span>
-      <Button size="sm" variant="transparent" :disabled="saving" @click="emit('saveAs')">
+      <Button
+        v-if="!onPhone"
+        size="sm"
+        variant="transparent"
+        :disabled="saving"
+        @click="emit('saveAs')"
+      >
         Save as…
       </Button>
       <Button
-        v-if="unsaved"
+        v-if="unsaved && !onPhone"
         size="sm"
         :variant="pending > 0 ? 'solid' : 'solid-fill'"
         :color="pending > 0 ? undefined : 'brand'"
@@ -88,7 +99,7 @@ const fileName = computed(() => props.savesTo?.split(/[\\/]/).pop() ?? "the file
           content-class-name="gap-1.5"
           @click="emit('save')"
         >
-          Save changes
+          {{ onPhone ? "Save to the phone" : "Save changes" }}
           <KeyCaps :keys="bindingTokens('mod+s')" quiet />
         </Button>
       </template>

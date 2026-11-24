@@ -6,6 +6,7 @@ import {
   FileCode,
   FileUp,
   FolderOpen,
+  ListChecks,
   Pin,
   PinOff,
   RefreshCw,
@@ -16,7 +17,7 @@ import {
 } from "lucide-vue-next";
 import type { SqliteDbFile } from "@/types/sqlite.types";
 import type { DataAction, DataTreeRow } from "@/modules/storage/frame/dataFrame.types";
-import { canWriteDatabase } from "./browse/sqliteWriteAccess";
+import { canWriteDatabase, changesOnPage } from "./browse/sqliteWriteAccess";
 
 export type SqliteSourceActionId =
   | "refresh"
@@ -28,6 +29,9 @@ export type SqliteSourceActionId =
   | "import-dump"
   | "clear-marks"
   | "show-in-opfs"
+  | "empty-tables"
+  | "empty-database"
+  | "delete-database"
   | "close-file";
 
 export type SqliteTableActionId = "pin" | "hide" | "clear-marks" | "clear-rows" | "drop-table";
@@ -71,10 +75,27 @@ function exportActions(db: SqliteDbFile, context: SqliteTreeActionContext): Data
   ];
 }
 
+/** What changes the app's own OPFS database on the phone, pausing the app for it. */
+function pageActions(open: boolean): DataAction[] {
+  return [
+    {
+      id: "empty-tables",
+      label: "Empty or drop tables…",
+      icon: ListChecks,
+      danger: true,
+      separatorBefore: true,
+      ...(open ? {} : { disabled: true, reason: "Open it first to pick its tables." }),
+    },
+    { id: "empty-database", label: "Delete every row of every table…", icon: Table2, danger: true },
+    { id: "delete-database", label: "Delete the database…", icon: Trash2, danger: true },
+  ];
+}
+
 /**
- * The menu of a sidebar row. Only a file opened on this computer offers anything that changes
- * data, and each row decides from its own database, never from the one that is open (M1):
- * a phone or page database is a pulled copy, so it is never cleared, replaced or deleted here.
+ * The menu of a sidebar row; each row decides from its own database, never from the one that
+ * is open (M1). A file opened on this computer is changed in its working copy. A database in the
+ * page's OPFS is changed on the phone, with the app paused. Any other phone database is a pulled
+ * copy, so it is never cleared, replaced or deleted here.
  */
 export function sqliteTreeActions(
   row: DataTreeRow,
@@ -84,6 +105,7 @@ export function sqliteTreeActions(
   const db = context.databaseOf(row.source.id);
   if (!db) return [];
   const writable = canWriteDatabase(db);
+  const onPage = changesOnPage(db);
 
   if (row.kind === "collection") {
     const collection = row.collection;
@@ -104,7 +126,7 @@ export function sqliteTreeActions(
         icon: Eraser,
         disabled: !hasChanges(collection.changes),
       },
-      ...(writable
+      ...(writable || onPage
         ? [
             {
               id: "clear-rows",
@@ -138,6 +160,7 @@ export function sqliteTreeActions(
     },
     ...exportActions(db, context),
   );
+  if (onPage) actions.push(...pageActions(context.openSourceId === source.id));
   if (writable) {
     actions.push({
       id: "import-dump",

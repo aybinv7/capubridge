@@ -8,7 +8,7 @@ import { orderKeyColumns } from "@/modules/storage/changes/sqliteRowKey";
 import type { SqliteColumnInfo, SqliteDbFile, SqliteTableInfo } from "@/types/sqlite.types";
 import SqliteBrowse from "./browse/SqliteBrowse.vue";
 import type { SqliteStaged } from "./browse/sqliteChangeset";
-import { sqliteReadOnlyReason } from "./browse/sqliteWriteAccess";
+import { changesOnPage, sqliteEditReason } from "./browse/sqliteWriteAccess";
 import { useSqliteGroupRows } from "./browse/useSqliteGroupRows";
 import { useSqliteRows } from "./browse/useSqliteRows";
 import { rowOrderOf } from "./browse/sqliteRowOrder";
@@ -223,13 +223,14 @@ defineExpose({
     :error="rows.error.value"
     :filter-error="rows.filterError.value"
     :changes-by-row-key="changesByRowKey"
-    :read-only-reason="sqliteReadOnlyReason(db)"
+    :read-only-reason="sqliteEditReason(db)"
     :changes-only="changesOnly"
     :query="query"
     :groups="groups"
     :save-changes="(staged) => saveChanges(keyColumns, staged)"
     :saves-to="db.sourceFilePath ?? null"
     :unsaved="db.unsavedToSource === true"
+    :saves-on-phone="changesOnPage(db)"
     :provenance="provenance"
     :read-at="rows.readAt.value"
     :stale="rows.placeholder.value"
